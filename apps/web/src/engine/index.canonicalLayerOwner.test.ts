@@ -1,3 +1,13 @@
+/// <reference types="node" />
+import * as paired7Assets from '../lib/api/brushLibrary'
+import * as paired7Shared from '@grafetto/shared'
+import paired7Def from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with {type:'json'}
+import paired7Soft from '../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json' with {type:'json'}
+import {installBrushLibrary,installBrushPixels,importedAssetPixels,isBrushAssetReady} from './src/presets/importedBrushes'
+import type {CanonicalSourceAuthorService} from './index'
+import type {PointerData} from './src/input/PointerInput'
+import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
+import {indexedSocketFixture,indexedFrame} from './testing/canonicalIndexedReadFixture'
 import {PencilEngine} from './index'
 import {createHash} from 'node:crypto'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
@@ -28,8 +38,8 @@ function state(ended=true){
 }
 
 function original(empty=false,ended=true,isCurrent=()=>true){const {state:s}=state(ended);s.canonicalHistoryBase={kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:empty?0:1,operationCount:empty?0:1};if(empty){s.tailOperations=[];s.canonicalCapabilities=undefined}return prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent})}
-function engineFor(prepared:ReturnType<typeof original>){
- const result=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:prepared.canonicalRead,tail:prepared.tailOperations}},{width:8,height:8}),gl=result.engine['gl'],get=gl.getParameter.bind(gl),mock=result.canvas.getContext('webgl')!
+function engineFor(prepared:ReturnType<typeof original>|CanonicalIndexedRead){
+ const result=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,...('canonicalRead'in prepared?{canonicalEmptyRoom:{read:prepared.canonicalRead,tail:prepared.tailOperations}}:{canonicalIndexedRoom:prepared})},{width:8,height:8}),gl=result.engine['gl'],get=gl.getParameter.bind(gl),mock=result.canvas.getContext('webgl')!
  const extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  // Local state observation supplements only; real engine/services/jobs execute.
  Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,
@@ -46,7 +56,7 @@ function recorded(p:ReturnType<typeof original>,seq:number,strokeId:string,ended
  if(originalSnapshot.materialVersion!==2)throw Error('Expected V2 fixture')
  const snapshot={...originalSnapshot,strokeId},op:CanonicalStrokeOperation={...f.op,id:'frame-'+seq,seq,frame:{...f.op.frame,strokeId,frameOrdinal:ordinal}}
  if(control)op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},snapshot.material).packed}
- if(ordinal)op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},snapshot.material).packed}
+ if(ordinal)op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{at:0,kind:'gestureEnd'}]:[]},snapshot.material).packed}
  const attachment:CanonicalRecordedAttachmentV1={...f.attachment,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:op.id,sequence:seq,originalUserId:'author',capability:0}]}
  const prepared=prepareCanonicalRecordedAttachment(attachment,[op],p.canonicalRead.scope)[0],input=attachCanonicalRecordedDelivery(prepared,p.canonicalRead.scope)
  if(!('delivery'in input))throw Error('Missing original recorded input')
@@ -517,6 +527,7 @@ it.each(['logical','global']as const)('checks independent actual %s overlap doma
   const makeHook={make:engine['_makeLayerBuffer'].bind(engine)};engine['_makeLayerBuffer']=id=>makeHook.make(id)
   const allocate=vi.spyOn(makeHook,'make'),stage=engine['_stageCanonicalPreview'].bind(engine),components:number[][]=[]
   engine['_stageCanonicalPreview']=(o,bytes)=>{
+   if('transaction'in o)throw Error('Expected existing live preview budget fixture owner')
    const seen=new Set<object>();let backing=0
    for(const layer of [o.stable,o.derived!])for(const item of layer.gpuAllocationSnapshot())if(!seen.has(item.buffer)){seen.add(item.buffer);backing+=item.bytes}
    const companions=transformedMaskPrepassBudget(o.mask).gpuBytes+canonicalRgba8CompositeBudget(o.plan.composite).gpuBytes+o.cache.bytes
@@ -657,4 +668,321 @@ it('capacity release failure on the same actual owner remains fatal and resolves
   for(let n=0;n<1024&&!resolved;n++)engine['_stepCanonicalLayer'](job)
   expect(resolved).toBe(true);expect(owner.failed).toBe(true);expect(engine['_canonicalLayerOwner']).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('paired live END adopts SAME finished P as stable and retires old pointers before latest readiness',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const stable=owner.stable,destroy=vi.spyOn(stable,'destroy')
+  engine.appendOriginalRecorded(recorded(p,1,'paired-open',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.publishedPresentationReady).toBe(true))
+  const oldP=owner.derived!,drop=vi.spyOn(oldP,'destroy'),cache=owner.cache,prepass=owner.prepass,composite=owner.composite
+  expect(engine['_canonicalReadReady']()).toBe(false)
+  engine.appendOriginalRecorded(recorded(p,2,'paired-open',true,1))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined())
+  expect(owner.stable).not.toBe(stable);expect(owner.stable).not.toBe(oldP)
+  expect(engine['_layers'].get('layer-1')).toBe(owner.stable);expect(owner.derived).toBeUndefined()
+  expect(destroy).toHaveBeenCalledOnce();expect(drop).toHaveBeenCalledOnce()
+  expect(owner.cache).toBe(cache);expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite)
+  expect(owner.failed).toBe(false);expect(owner.outstanding).toBe(0)
+  expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalExportReady']()).toBe(true)
+  expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_log'].entries.map(e=>e.serverSeq)).toEqual([1,2])
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('paired full hidden OPEN publishes display then uses SAME callback owner through real END handoff',async()=>{
+ const {state:wire}=state(false)
+ wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:1,operationCount:1}
+ const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),{engine}=engineFor(p)
+ try{
+  const restored=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const candidate=engine['_canonicalEmptyTransaction']!.jobs[0];candidate.previewPublication=true
+  await restored
+  const owner=engine['_canonicalLayerOwner']!
+  expect(owner.previewPublication).toBe(true);expect(owner.coordinator?.publishedPresentationReady).toBe(true)
+  expect(engine['_canonicalReadReady']()).toBe(false)
+  engine.appendOriginalRecorded(recorded(p,2,'S',true,1))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined())
+  expect(owner.failed).toBe(false);expect(owner.derived).toBeUndefined()
+  expect(engine['_layers'].get('layer-1')).toBe(owner.stable)
+  expect(engine['_canonicalReadReady']()).toBe(true);expect(owner.outstanding).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('paired indexed zero-DRAW original END consumes ready ticket before SAME minted accepted cut',async()=>{
+ const issuer=indexedSocketFixture([indexedFrame(1,'empty-indexed',true)],1),read=await issuer.open()
+ const {engine}=engineFor(read)
+ try{
+  const restored=engine.restoreCanonicalIndexedRoom(read)
+  const candidate=engine['_canonicalEmptyTransaction']!.jobs[0];candidate.previewPublication=true
+  await restored
+  const owner=engine['_canonicalLayerOwner']!
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(1)
+  expect(owner.coordinator).toBeUndefined();expect(owner.derived).toBeUndefined()
+  expect(engine['_layers'].get('layer-1')).toBe(owner.stable);expect(owner.failed).toBe(false)
+  expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalExportReady']()).toBe(true)
+  expect(issuer.requests.filter(r=>r.event==='canonical_history_stream_next').map(r=>r.body.afterSeq)).toEqual([0,1])
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('paired late original interrupted WASH close recaptures then transfers SAME current original cohort',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'first',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.publishedPresentationReady).toBe(true))
+  const oldP=owner.derived!,oldStable=owner.stable,compile=vi.spyOn(engine['gl'],'createProgram')
+  expect(owner.coordinator!['dirty'].size).toBe(0)
+  engine.appendOriginalRecorded(recordedSeal(p))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined())
+  expect(owner.stable).not.toBe(oldP);expect(owner.stable).not.toBe(oldStable)
+  expect(engine['_layers'].get('layer-1')).toBe(owner.stable);expect(owner.failed).toBe(false)
+  expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalExportReady']()).toBe(true)
+  expect(engine['_log'].entries.map(entry=>entry.op.type)).toEqual(['canonical_stroke','canonical_stroke_close'])
+  expect(compile).not.toHaveBeenCalled();expect(owner.outstanding).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it.each([1023,1024])('upfront four-backing full plan respects existing global bound %s before resource preparation',async budget=>{
+ const p=original(false,true),{engine}=engineFor(p)
+ try{
+  await engine.paperReady()
+  engine['_gpuBudget']=budget
+  const old=engine['_layers'],program=vi.spyOn(engine['gl'],'createProgram'),texture=vi.spyOn(engine['gl'],'createTexture')
+  const make=vi.fn(engine['_makeLayerBuffer'].bind(engine));engine['_makeLayerBuffer']=make
+  expect(engine['_canonicalEmptyAdmission']!.logicalBytes).toBe(4*8*8*4)
+  if(budget<1024){
+   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toThrow('logical GPU allowance')
+   expect(make).not.toHaveBeenCalled();expect(program).not.toHaveBeenCalled();expect(texture).not.toHaveBeenCalled()
+   expect(engine['_layers']).toBe(old);expect(engine['_canonicalEmptyTransaction']).toBeUndefined()
+   expect(engine['_log'].entries).toHaveLength(0);expect(engine['_rebuildJobs'].size).toBe(0)
+  }else{
+   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).resolves.toMatchObject({committed:true})
+   expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_log'].entries).toHaveLength(1)
+  }
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('hidden known-clean staging denial parks SAME owned prefix without cleanup or RAF retries',async()=>{
+ const {state:wire}=state(false)
+ wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:1,operationCount:1}
+ const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),{engine}=engineFor(p)
+ let restore:Promise<unknown>|undefined
+ try{
+  const failure=Error('explicit hidden resource denial'),stage=vi.fn(()=>{throw failure})
+  engine['_stageCanonicalPreview']=stage
+  const old=engine['_layers']
+  restore=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations).then(()=>({completed:true}),error=>({completed:false,error}))
+  const tx=engine['_canonicalEmptyTransaction']!,candidate=tx.jobs[0];candidate.previewPublication=true
+  await vi.waitFor(()=>expect(candidate.previewFailureRevision).toBeDefined())
+  expect(engine['_canonicalEmptyTransaction']).toBe(tx);expect(tx.finished).toBe(false);expect(tx.failures).toHaveLength(0)
+  expect(engine['_layers']).toBe(old);expect(engine['_canonicalReadReady']()).toBe(false)
+  expect(candidate.coordinator?.poisoned).toBe(false);expect(candidate.coordinator?.queuedFrameCount).toBe(0)
+  expect(candidate.wake).toBeUndefined();const calls=stage.mock.calls.length
+  await new Promise<void>(done=>requestAnimationFrame(()=>done()))
+  expect(stage).toHaveBeenCalledTimes(calls);expect(candidate.coordinator!['entries']).toHaveLength(1)
+ }finally{engine.destroy();await restore;expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('closed ticket rejects actual context loss after staged check and final original callbacks before pointer commit',async()=>{
+ let armed=false,staged=false,lost=false
+ const p=original(true,true,()=>{if(armed&&staged)lost=true;return true}),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine['_scheduleCanonicalRebuild']=vi.fn()
+  const real=engine['_stageCanonicalPreview'].bind(engine)
+  engine['_stageCanonicalPreview']=(candidate,bytes)=>{
+   const work=real(candidate,bytes)
+   return Object.freeze({...work,assertCurrent(){work.assertCurrent();if(armed)staged=true}})
+  }
+  vi.spyOn(engine['gl'],'isContextLost').mockImplementation(()=>lost)
+  engine.appendOriginalRecorded(recorded(p,1,'context-at-finish',true))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeDefined())
+  let ticket:import('./src/dabs/CanonicalWashLayerCoordinator').CanonicalPreviewPublication|undefined
+  for(let index=0;index<500&&!ticket;index++){
+   const result=owner.coordinator!.advance()
+   if(result?.kind==='preview-failed')throw result.error
+   if(result?.kind==='preview-ready')ticket=result.ticket
+  }
+  if(!ticket)throw Error('Actual ready ticket required')
+  expect(ticket.disposition).toBe('closed-handoff')
+  const stable=owner.stable,previous=owner.derived;armed=true
+  let rejected=false
+  try{ticket.assertCurrent()}catch{rejected=true}
+  expect(lost).toBe(true);expect(rejected).toBe(true)
+  expect(owner.stable).toBe(stable);expect(owner.derived).toBe(previous)
+  expect(engine['_layers'].get('layer-1')).toBe(stable)
+ }finally{armed=false;lost=false;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('closed handoff notifies SAME pending capacity once and preserves callback-admitted next cycle',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const schedule=vi.fn();engine['_scheduleCanonicalRebuild']=schedule
+  engine.appendOriginalRecorded(recorded(p,1,'capacity-closed',true))
+  const coordinator=owner.coordinator!,job=owner.job!,advance=coordinator.advance.bind(coordinator)
+  let ready=false,released=0,resolved=0,atReady=0
+  vi.spyOn(coordinator,'advance').mockImplementation(()=>{
+   const result=advance()
+   if(result?.kind==='preview-ready'){
+    ready=true;atReady=schedule.mock.calls.length;const release=engine['_brushMipCache'].reserve(256)
+    owner.recordedCapacity={promise:Promise.resolve(),release:()=>{
+     released++;release()
+     if(!owner.retiring&&engine['_canonicalLayerOwner']===owner)engine.appendOriginalRecorded(recorded(p,2,'capacity-successor',false))
+    },resolve:()=>{resolved++}}
+   }
+   return result
+  })
+  for(let turn=0;turn<500&&!ready;turn++)engine['_stepCanonicalLayer'](job)
+  expect(ready).toBe(true);expect(released).toBe(1);expect(resolved).toBe(1)
+  expect(owner.coordinator).toBeDefined();expect(owner.coordinator).not.toBe(coordinator)
+  expect(owner.job).toBeDefined();expect(owner.job).not.toBe(job);expect(engine['_rebuildJobs'].get('layer-1')).toBe(owner.job)
+  expect(owner.coordinator!.queuedFrameCount).toBe(1);expect(owner.recordedCapacity).toBeUndefined()
+  expect(schedule.mock.calls.slice(atReady).every(([scheduled])=>scheduled!==job)).toBe(true)
+  expect(schedule).toHaveBeenCalledWith(owner.job);expect(owner.failed).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('closed finish rejects reentrant append and coordinator creation before unrelated successor exists',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const old=owner.stable,destroy=old.destroy.bind(old),next=recorded(p,2,'forbidden-retiring',false)
+  let witnessed=false,appendRejected=false,coordinatorRejected=false
+  vi.spyOn(old,'destroy').mockImplementation(()=>{
+   if(owner.retiring){
+    witnessed=true
+    try{engine.appendOriginalRecorded(next)}catch{appendRejected=true}
+    try{engine['_ensureCanonicalLayerCoordinator'](owner)}catch{coordinatorRejected=true}
+   }
+   destroy()
+  })
+  engine.appendOriginalRecorded(recorded(p,1,'retiring-current',true))
+  await vi.waitFor(()=>expect(witnessed).toBe(true))
+  expect(appendRejected).toBe(true);expect(coordinatorRejected).toBe(true)
+  expect(owner.coordinator).toBeUndefined();expect(owner.failed).toBe(false)
+  expect(engine['_log'].entries).toHaveLength(1);expect(engine['_canonicalReadReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+// Independent self-authored CAS resource fixture; retained source curves are metadata only.
+const paired7Token='textured-auto-material-v7' as const
+function paired7Fixture(randomDefault=false,buildup=false){
+ const descriptor=structuredClone((randomDefault?paired7Def:paired7Soft).descriptor)as unknown as BrushDescriptor
+ // Self-authored resource/composition mechanism paired7Fixture; retained paired7Original curves,
+ // geometry and raw options, not a claim to the vendor preset identity/artwork.
+ Reflect.set(descriptor,'id','imported-'+createHash('sha256').update('engine7-self-authored-'+randomDefault).digest('hex'));Reflect.set(descriptor,'version',1)
+ if(randomDefault){Reflect.set(descriptor.texture!.offset!,'randomX',true);Reflect.set(descriptor.texture!.offset!,'randomY',true);Reflect.set(descriptor.texture!.offset!,'x',1);Reflect.set(descriptor.texture!.offset!,'y',65)}
+ if(buildup){Reflect.set(descriptor.sourceStamp!.flags,'indirectPainting',false);Reflect.set(descriptor.sourceStamp!.settings,'PaintOpAction','1')}
+ const side=randomDefault?256:16,gray=Uint8Array.from({length:side*side},(_,i)=>(i*37+11)%256),id='asset:'+createHash('sha256').update(gray).digest('hex')
+ Reflect.set(descriptor.texture!,'id',id)
+ const assets=[{id,size:side,file:id.slice(6)+'.bin'},...descriptor.tip.profile?.kind==='radialCurve'?[{id:descriptor.tip.profile.lookup,size:32,file:descriptor.tip.profile.lookup.slice(6)+'.bin'}]:[]]
+ const library:unknown={schemaVersion:1,brushes:[{descriptor,name:'Self-authored engine7 mechanism',source:'self-authored-test',warnings:[]}],assets,skipped:[]}
+ if(!paired7Shared.isBrushLibrary(library))throw Error('Invalid test library')
+ const d=library.brushes[0].descriptor,sha=createHash('sha256').update(paired7Shared.canonicalBrushDescriptorJSON(d)).digest('hex'),data=paired7Shared.extractCanonicalTexturedAutoProgramData(d,{pattern:{id,size:side}});if(!data.supported)throw Error(data.reasons.join(','));if(data.data.version!==2||data.data.source.kind==='image')throw Error('Auto test data required')
+ const binding=paired7Shared.canonicalTexturedAutoProgramBinding(d,sha,'neon64-f32-fma-v1',{id,size:side},paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+ installBrushPixels(id,gray);installBrushLibrary(library)
+ return{buildup,descriptor:d,library,sha,binding,data,preset:'brush:'+d.id+'@1',pattern:{id,size:side},nativeSize:data.data.source.diameter*data.data.brush.scale}
+}
+function paired7Original(author=true,tail:readonly paired7Shared.Operation[]=[],snapshots:ReadonlyMap<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>=new Map(),isCurrent=()=>true,author4=false){
+ const wire:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[...tail],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,...author4?{canonicalAuthorTexturedSource:'fixed-default-auto-texture-v4' as const}:{},...author?{canonicalAuthorTexturedAutoSource:paired7Token}:{},canonicalReadScope:{roomId:'room',boardEpoch:1,allowedRasterProfiles:[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[...snapshots.values()].map(snapshot=>({originalUserId:tail.find(op=>op.type==='canonical_stroke'&&op.frame.strokeId===snapshot.strokeId)!.userId,snapshot})),bindings:tail.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke').map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:[...snapshots.keys()].indexOf(op.frame.strokeId)}))}}
+ return prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent})
+}
+function paired7EngineFor(p:ReturnType<typeof paired7Original>|CanonicalIndexedRead,service?:CanonicalSourceAuthorService,ops:paired7Shared.Operation[]=[]){
+ const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,...('canonicalRead'in p?{canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}}:{canonicalIndexedRoom:p}),...service?{canonicalAuthor:service,onLocalOperation:op=>ops.push(op)}:{}},{width:512,height:512}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D)as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,512,512]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);return engine
+}
+const paired7Packet=(x:number,t:number,pressure=.5):PointerData=>({x,y:20,pressure,tiltX:0,tiltY:0,speed:0,pointerType:'pen',timeStamp:t,dispatchTime:t})
+function paired7Verdict(f:ReturnType<typeof paired7Fixture>,request:paired7Shared.CanonicalStrokeBegin,material:paired7Shared.CanonicalMaterialContextV7):Extract<paired7Shared.CanonicalStrokeBeginResult,{ok:true}>&{snapshot:ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>}{expect(request.texturePhase).toEqual(material.primaryTexture.phase);return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:paired7Shared.canonicalStrokeSnapshotV7({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:1,descriptorSha256:f.sha,rasterProfile:paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,composition:{mode:f.buildup?'buildup':'wash',outerBlend:'over',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:7,material},1,paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)}}
+
+it('rejects future eligible7 buildup preparation before resource reservation without the preselected mixed role',async()=>{
+ const f=paired7Fixture(true,true),p=paired7Original(),begin=vi.fn(async()=>{throw Error('Unexpected BEGIN')}),engine=paired7EngineFor(p,{texturedAutoSource:paired7Token,begin})
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(f.preset);engine.setSize(f.nativeSize);engine.setLocked(false)
+  const cpu=engine['_brushMipCache'].reservedBytes,reserve=vi.spyOn(engine['_brushMipCache'],'reserve'),prepare=vi.spyOn(engine['_canonicalLayerOwner']!.prepass,'prepare')
+  await expect(engine.prepareBrush(f.preset)).rejects.toThrow('preselected mixed owner')
+  expect(reserve).not.toHaveBeenCalled();expect(prepare).not.toHaveBeenCalled();expect(begin).not.toHaveBeenCalled();expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('rechecks the prepared original7 buildup role before START reservation, roots or BEGIN',async()=>{
+ const f=paired7Fixture(true,true),p=paired7Original(),begin=vi.fn(async()=>{throw Error('Unexpected BEGIN')}),engine=paired7EngineFor(p,{texturedAutoSource:paired7Token,begin})
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(f.preset);engine.setSize(f.nativeSize);engine.setLocked(false)
+  expect(await engine.prepareBrush(f.preset)).toEqual({status:'ready'});expect(engine['_canonicalPreparedAuthor']?.material.kind).toBe('texturedAuto')
+  owner.previewPublication=undefined;const cpu=engine['_brushMipCache'].reservedBytes,reserve=vi.spyOn(engine['_brushMipCache'],'reserve')
+  expect(()=>engine['_onStart'](paired7Packet(20,0))).toThrow('preselected mixed owner')
+  expect(reserve).not.toHaveBeenCalled();expect(begin).not.toHaveBeenCalled();expect(owner.bank).toBeUndefined();expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+async function paired7AcceptedBuildup(){
+ const f=paired7Fixture(true,true),p=paired7Original(),ops:paired7Shared.Operation[]=[],snapshots=new Map<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>()
+ const engine=paired7EngineFor(p,{texturedAutoSource:paired7Token,begin:async(request,lifetime)=>{const reply=paired7Verdict(f,request,lifetime.expectedMaterialContext7!);snapshots.set(request.strokeId,reply.snapshot);return reply}},ops)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine['_canonicalLayerOwner']!.previewPublication=true
+  engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(f.preset);engine.setSize(f.nativeSize);engine.setLocked(false)
+  expect(await engine.prepareBrush(f.preset)).toEqual({status:'ready'})
+  engine['_onStart'](paired7Packet(20,0,.2));engine['_onMove'](paired7Packet(36,10,1));engine['_onEnd'](paired7Packet(36,20,1))
+  await vi.waitFor(()=>expect(ops.length).toBeGreaterThan(0),{timeout:10000});await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false),{timeout:10000})
+  const frames=ops.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke').map((op,i)=>({...op,seq:i+1}))
+  expect(frames.length).toBe(ops.length);expect(frames.some(op=>paired7Shared.decodeCanonicalRecordedSnapshotFrame(op.frame,snapshots.get(op.frame.strokeId)!,op.frame.frameOrdinal).frame.fences.some(f=>f.kind==='gestureEnd'))).toBe(true)
+  expect(frames.every(op=>op.frame.composition.mode==='buildup'&&op.frame.composition.outerBlend==='over')).toBe(true)
+  return{f,frames,snapshots}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
+}
+it('prepares and closes actual native7 OVER originals through the private live mixed owner',async()=>{
+ const {frames,snapshots}=await paired7AcceptedBuildup(),p=paired7Original(false),engine=paired7EngineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const stable=owner.stable
+  for(const op of frames){const scope=p.canonicalRead.scope,attachment=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:op.userId,snapshot:snapshots.get(op.frame.strokeId)!}],bindings:[{operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}]},[op],scope),input=attachCanonicalRecordedDelivery(attachment[0],scope);if(!('delivery'in input))throw Error('Expected issued original7');expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:10000})
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.stable).not.toBe(stable);expect(engine['_layers'].get('layer-1')).toBe(owner.stable);expect(owner.derived).toBeUndefined();expect(owner.coordinator).toBeUndefined();expect(owner.failed).toBe(false);expect(engine['_log'].entries).toHaveLength(frames.length)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it.each([false,true])('inventories native7 OVER full history but execution requires the preselected private role=%s',async enabled=>{
+ const {frames,snapshots}=await paired7AcceptedBuildup(),p=paired7Original(false,frames,snapshots),engine=paired7EngineFor(p)
+ try{
+  await engine.paperReady();const restored=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations),tx=engine['_canonicalEmptyTransaction']!,candidate=tx.jobs[0]
+  const prepare=vi.spyOn(candidate.prepass,'prepare');if(enabled)candidate.previewPublication=true
+  if(!enabled){await expect(restored).rejects.toThrow();expect(prepare).not.toHaveBeenCalled();expect(engine['_log'].entries).toHaveLength(0)}
+  else{await restored;const owner=engine['_canonicalLayerOwner']!;expect(owner.previewPublication).toBe(true);expect(owner.coordinator).toBeUndefined();expect(owner.derived).toBeUndefined();expect(engine['_layers'].get('layer-1')).toBe(owner.stable);expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_log'].entries).toHaveLength(frames.length)}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('consumes actual native7 indexed originals and publishes the genuine accepted cut through the private role',async()=>{
+ const {f,frames,snapshots}=await paired7AcceptedBuildup(),issuer=indexedSocketFixture(frames,64)
+ Reflect.set(issuer.offer,'authorRasterProfile',paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE);Reflect.set(issuer.offer.scope,'allowedRasterProfiles',[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]);issuer.offer.roomGeometry.width=512;issuer.offer.roomGeometry.height=512
+ const attachment=(rows:readonly CanonicalStrokeOperation[])=>({version:1 as const,roomId:'room',boardEpoch:2,capabilities:rows.length?[{originalUserId:rows[0].userId,snapshot:paired7Shared.canonicalStrokeSnapshotV7({...snapshots.get(rows[0].frame.strokeId)!,boardEpoch:2},2,paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)}]:[],bindings:rows.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))})
+ const next=issuer.handlers.canonical_history_stream_next;issuer.handlers.canonical_history_stream_next=async body=>{const reply=await next(body);if(!reply||typeof reply!=='object'||!('value'in reply)||!reply.value||typeof reply.value!=='object')throw Error('Missing issued indexed page');const rows=frames.slice(Number(body.afterSeq),Number(body.afterSeq)+64);return{...reply,value:{...reply.value,canonicalCapabilities:attachment(rows)}}}
+ issuer.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:body.streamId,throughSeq:frames.length,root:body.root,rows:[frames[0],frames.at(-1)!],canonicalCapabilities:attachment([frames[0],frames.at(-1)!]),first:0,terminal:1,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}})
+ const resources=vi.spyOn(paired7Assets,'prepareCanonicalImageAssets').mockImplementation(async(room,assets,current)=>{current();expect(room).toBe('room');expect(assets).toHaveLength(1);expect(assets[0]).toMatchObject(f.pattern);expect(isBrushAssetReady(f.pattern.id,f.pattern.size)).toBe(true);expect(createHash('sha256').update(importedAssetPixels(f.pattern.id)).digest('hex')).toBe(f.pattern.id.slice(6));current()})
+ const read=await issuer.open(),engine=paired7EngineFor(read)
+ try{const restored=engine.restoreCanonicalIndexedRoom(read),candidate=engine['_canonicalEmptyTransaction']!.jobs[0];candidate.previewPublication=true;await restored;expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(frames.length);expect(resources).toHaveBeenCalled();expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalLayerOwner']!.coordinator).toBeUndefined()}
+ finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('keeps historical material2 buildup outside the source7 private inventory path',()=>{
+ const {state:wire}=state(),op=wire.tailOperations[0]
+ wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:1,operationCount:1}
+ if(op.type!=='canonical_stroke')throw Error('Expected actual canonical fixture')
+ Reflect.set(op.frame.composition,'mode','buildup')
+ const capability=wire.canonicalCapabilities!.capabilities[0];Reflect.set(capability.snapshot.composition,'mode','buildup')
+ // Either ingress rejects the historical composition, or the actual engine
+ // constructor must reject its inventory before any private role can exist.
+ expect(()=>{const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true});const {engine}=engineFor(p);try{throw Error('Unexpected historical buildup inventory accepted')}finally{engine.destroy()}}).toThrow(/Unsupported|Invalid|unsupported|invalid/)
+})
+it('rejects non-OVER native7 originals at the normal captured snapshot boundary',async()=>{
+ const {frames,snapshots}=await paired7AcceptedBuildup(),raw=structuredClone(snapshots.get(frames[0].frame.strokeId)!)
+ Reflect.set(raw.composition,'outerBlend','multiply')
+ expect(()=>paired7Shared.canonicalStrokeSnapshotV7(raw,1,paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
 })

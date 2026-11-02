@@ -189,3 +189,51 @@ it('admits genuine37 only through explicit independent pressure5 with native dia
  expect(canonicalSourceAuthorAdmission(pressureDescriptor,generic,[pressureActual.patternAsset],{texturedSource:'fixed-default-auto-texture-v4'}).supported).toBe(false)
  expect(Reflect.apply(canonicalSourceAuthorAdmission,undefined,[pressureDescriptor,generic,[],{pressureTexturedSource:'pressure-default-auto-texture-v5'}]).supported).toBe(false)
 })
+
+import softActual from '../../../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json'
+import gaussianActual from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/pencil3.texture-pressure.compiled3.metadata.json'
+describe('future generic7 buildup static DATA admission, not BEGIN authority',()=>{
+ const option={texturedAutoSource:'textured-auto-material-v7' as const}
+ function variant(f:typeof pressureActual|typeof softActual){
+  const d=structuredClone(f.descriptor) as unknown as Mutable<BrushDescriptor>
+  d.sourceStamp!.settings.PaintOpAction='1';d.sourceStamp!.flags.indirectPainting=false
+  return d
+ }
+ for(const [name,f]of [['Default',pressureActual],['Soft',softActual]]as const)for(const profile of [generic,browser]){
+  it(`admits consistent self-authored ${name} buildup OVER only through generic7 under ${profile}`,()=>{
+   const d=variant(f),before=JSON.stringify(d)
+   expect(canonicalSourceAuthorAdmission(d,profile,[f.patternAsset],option)).toMatchObject({supported:true,material:{kind:'texturedAuto'}})
+   expect(JSON.stringify(d)).toBe(before)
+   for(const flags of [undefined,{pressureTexturedSource:'pressure-default-auto-texture-v5' as const},{softPressureTexturedSource:'pressure-soft-auto-texture-v6' as const},{texturedSource:'fixed-default-auto-texture-v4' as const}])expect(Reflect.apply(canonicalSourceAuthorAdmission,undefined,[d,profile,[f.patternAsset],flags]).supported).toBe(false)
+  })
+  it(`preserves original ${name} WASH metadata and generic7 admission under ${profile}`,()=>{
+   const before=JSON.stringify(f)
+   expect(canonicalSourceAuthorAdmission(f.descriptor as unknown as BrushDescriptor,profile,[f.patternAsset],option)).toMatchObject({supported:true,material:{kind:'texturedAuto'}})
+   expect(JSON.stringify(f)).toBe(before)
+  })
+ }
+ it('keeps real Gaussian tiltDirection pointer guard and original metadata unchanged',()=>{
+  const before=JSON.stringify(gaussianActual)
+  expect(canonicalSourceAuthorAdmission(gaussianActual.descriptor as unknown as BrushDescriptor,generic,[gaussianActual.patternAsset],option)).toEqual({supported:false,reason:'Unsupported canonical pointer transform/sensor'})
+  expect(JSON.stringify(gaussianActual)).toBe(before)
+ })
+ it('does not downgrade malformed buildup to older routes or bypass effects, timing or sensors',()=>{
+  const edits:((d:Mutable<BrushDescriptor>)=>void)[]=[
+   d=>{Reflect.deleteProperty(d.sourceStamp!,'compiled')},d=>{d.sourceStamp!.flags.textureEnabled=false},
+   d=>{d.sourceStamp!.timing.enabled=true},d=>{d.behavior!.erase=true},
+   d=>{Reflect.set(d.behavior!,'dual',{brush:brush()})},
+   d=>{d.behavior!.rendering!.blendMode='multiply'},
+   d=>{d.sourceStamp!.options.find(o=>o.id==='Rotation')!.checked=true},
+   d=>{const s=d.sourceStamp!.options.find(o=>o.id==='Size')!;s.checked=true;s.sensors[0].id='speed'},
+   d=>{Reflect.set(d.texture!.application!,'mode','multiply')},
+   d=>{Reflect.set(source(d).source,'kind','image')},
+  ]
+  for(const edit of edits){const d=variant(pressureActual);edit(d);expect(canonicalSourceAuthorAdmission(d,generic,[pressureActual.patternAsset],option).supported).toBe(false)}
+  const d=variant(pressureActual)
+  for(const assets of [[],[{...pressureActual.patternAsset,size:1}]])expect(canonicalSourceAuthorAdmission(d,generic,assets,option).supported).toBe(false)
+  const image=structuredClone(basic6.descriptor)as unknown as Mutable<BrushDescriptor>;image.sourceStamp!.settings.PaintOpAction='1';image.sourceStamp!.flags.indirectPainting=false
+  expect(canonicalSourceAuthorAdmission(image,generic,[{id:basic6.asset.id,size:basic6.asset.size}],option).supported).toBe(false)
+  const plain=brush();plain.sourceStamp!.settings.PaintOpAction='1';plain.sourceStamp!.flags.indirectPainting=false
+  expect(canonicalSourceAuthorAdmission(plain,generic,[],option).supported).toBe(false)
+ })
+})

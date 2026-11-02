@@ -59,7 +59,7 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
  const unsupported=canonicalSourceEffectReject(descriptor,profile)
  if(unsupported)return{supported:false,reason:'Unsupported canonical source effect: '+unsupported}
  const policy=canonicalSourceComposition(descriptor,profile),data=descriptor.sourceStamp
- if(policy?.mode!=='wash'||!data||!isSourceStampData(data)||data.timing.enabled)return{supported:false,reason:'Unsupported canonical pointer material/timing'}
+ if(!(policy?.mode==='wash'||generic==='textured-auto-material-v7'&&policy?.mode==='buildup'&&policy.outerBlend==='over')||!data||!isSourceStampData(data)||data.timing.enabled)return{supported:false,reason:'Unsupported canonical pointer material/timing'}
  const seeded=data.version===2&&data.source.kind==='defaultAuto'&&data.source.density<1
  if(seeded&&(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!extractSeededDensityDefaultAutoSourceDataCapability(descriptor).supported))return{supported:false,reason:'Unsupported canonical seeded pointer material/profile'}
  const image=sourceStampSourceKind(data)==='image',size=data.options.find(option=>option.id==='Size')
@@ -70,6 +70,7 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   ||image&&rotation?.checked&&(rotation.sensors.length!==1||rotation.sensors[0].id!=='drawingAngle')
   ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
  if(image){
+  if(policy?.mode!=='wash')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
   const metadata=captureMetadata(available),nativeSizePx=Math.max(data.brush.width,data.brush.height)*data.brush.scale
   if(!metadata||!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return{supported:false,reason:'Canonical image metadata unavailable'}
   try{
@@ -98,6 +99,7 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return{supported:false,reason:'Invalid canonical textured Auto native size'}
   return{supported:true,data:result.data,nativeSizePx,material:{kind:'texturedAuto',capability:result}}
  }
+ if(policy?.mode!=='wash')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
  if(softPressure&&data.flags.textureEnabled&&data.compiled?.version===4){
   const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
   if(!pattern)return{supported:false,reason:'Canonical Soft pressure texture metadata unavailable'}

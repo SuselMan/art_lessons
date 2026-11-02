@@ -1,0 +1,7 @@
+# Future generic7 buildup leaf admission — RAM V2
+
+Static DATA eligibility only. Explicit generic7 token and original buildup/OVER are required. Image remains WASH-only; after generic extraction all older/plain fallbacks remain WASH-only. Existing source schema/timing/effect/Size/Rotation/sensor checks are unchanged. Generic extraction must succeed before texturedAuto result.
+
+Actual source is untouched. Default/Soft positives are explicit self-authored PaintOpAction=1 + indirectPainting=false variants of original metadata; no new imported/native provenance is claimed. Original WASH tests remain supported for GenericSC and BrowserFloat. Genuine Gaussian metadata remains unchanged and is rejected by the existing Rotation/tiltDirection pointer guard. Missing token, legacy route, malformed source/program/pattern, effects, dual, non-OVER, timing and sensor negatives remain closed. An admission result is not BEGIN authority.
+
+Baseline original production + new tests: 5 FAIL /56 PASS (four intended buildup positives and earlier Gaussian reason). GREEN V1/V2:61/1. V1 strict had one test-only optional source type diagnostic; preserved. V2 uses existing source(d) narrowing, no production delta, adds dual/non-OVER negative cases. Strict2 roots/67 inputs/0. Configured lint0. All process receipts/logs are retained under leaf-buildup7-v1/v2 names. No GPU/browser/resources or actual source writes. Future coherent protocol8/client/server activation remains separate.

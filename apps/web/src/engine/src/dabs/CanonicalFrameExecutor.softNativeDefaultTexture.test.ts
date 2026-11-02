@@ -248,7 +248,7 @@ it('replay ticket assertion guard clears even when layer callback throws undefin
 
 // Structural original/local7 fixture, not vendor or online source authority.
 function replayConsumer7(pageBounds?:Readonly<{minX:number;minY:number;maxX:number;maxY:number}>,executable=false,seed?:(s:ReturnType<typeof fixture>)=>void,legacy=false){
- const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let derived=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let stable=s.layer,derived:TiledLayerBuffer|undefined=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
  const scope=Object.freeze({roomId:'frontier-room',boardEpoch:0,rasterProfile:G})
  let current=true,late:(()=>void)|undefined
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('frontier original stale');return scope}})
@@ -257,11 +257,11 @@ function replayConsumer7(pageBounds?:Readonly<{minX:number;minY:number;maxX:numb
   if(!executable)throw Error('explicit staging failure')
   const previous=derived,buffer=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
   let pending=true
-  return{buffer,assertCurrent(){if(!pending||derived!==previous)throw Error('staged owner replaced')},cancel(){if(!pending)return;pending=false;buffer.destroy()},finish(old:TiledLayerBuffer){if(!pending||old!==previous||derived!==buffer)throw Error('wrong old presentation');pending=false;old.destroy()}}
+  return{buffer,assertCurrent(){if(!pending||derived!==previous)throw Error('staged owner replaced')},cancel(){if(!pending)return;pending=false;buffer.destroy()},finish(old:TiledLayerBuffer,disposition='display'){if(!pending||old!==previous||(disposition==='closed-handoff'?stable!==buffer||derived!==undefined:derived!==buffer))throw Error('wrong old presentation');pending=false;old.destroy()}}
  })
  seed?.(s)
  let coordinator:CanonicalWashLayerCoordinator
- try{coordinator=new CanonicalWashLayerCoordinator({...legacy?{}:{mixedReplay7:true as const},replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stageCandidate,...pageBounds?{pageBounds}:{},rasterProfile:G,layerId:'layer',layerEpoch:0,maxGestures:16,layer:()=>{late?.();return{buffer:s.layer,epoch:0}},presentation:()=>({buffer:derived,epoch:0}),prepass:s.prepass,composite:s.composite,scratch:s.scratch,source,reserveTransient:s.reserve,changed:vi.fn(),poison:vi.fn()})}catch(primary){derived.destroy();s.close();throw primary}
+ try{coordinator=new CanonicalWashLayerCoordinator({...legacy?{}:{mixedReplay7:true as const},replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stageCandidate,...pageBounds?{pageBounds}:{},rasterProfile:G,layerId:'layer',layerEpoch:0,maxGestures:16,layer:()=>{late?.();return{buffer:stable,epoch:0}},presentation:()=>({buffer:derived!,epoch:0}),prepass:s.prepass,composite:s.composite,scratch:s.scratch,source,reserveTransient:s.reserve,changed:vi.fn(),poison:vi.fn()})}catch(primary){derived?.destroy();s.close();throw primary}
  const snapshot=(strokeId:string,mode:'wash'|'buildup'='buildup')=>canonicalStrokeSnapshotV7({materialVersion:7,material:c,assets:c.assets,layerId:'layer',brush:'brush:generic7@1',strokeId,boardEpoch:0,descriptorSha256:c.primarySource.descriptorSha256,rasterProfile:G,pigmentRgb8:[200,20,50],composition:{mode,alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'}},0,G)
  const author=(strokeId:string,mode:'wash'|'buildup'='buildup'):CanonicalLocalWashAuthor=>{const value:CanonicalLocalWashAuthor=Object.freeze({lifetime,snapshot:snapshot(strokeId,mode),userId:'actor',assertCurrent(candidate:CanonicalLocalWashAuthor){if(this!==value||candidate!==value)throw Error('foreign frontier author');return lifetime.assertCurrent()}});return value}
  const operation=(strokeId:string,ordinal=0,empty=false,points?:readonly {x:number;y:number}[],mode:'wash'|'buildup'='buildup'):CanonicalStrokeOperation=>{
@@ -283,7 +283,14 @@ function replayConsumer7(pageBounds?:Readonly<{minX:number;minY:number;maxX:numb
   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==value)throw Error('foreign original close');lifetime.assertCurrent();assertion?.()}})
   value=Object.freeze({...atom,delivery});return value
  }
- return{...s,coordinator,derived,source,stageCandidate,author,operation,recorded,seal,publish(ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication){ticket.assertCurrent();ticket.publish();derived=ticket.buffer;ticket.finish()},currentPresentation:()=>derived,setLate:(fn?:()=>void)=>{late=fn},stale:()=>{current=false},close(){coordinator.cancel();derived.destroy();s.close()}}
+ return{...s,coordinator,derived,source,stageCandidate,author,operation,recorded,seal,publish(ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication){
+   ticket.assertCurrent();const old=stable;ticket.publish()
+   if(ticket.disposition==='closed-handoff'){stable=ticket.buffer;derived=undefined}else derived=ticket.buffer
+   let failed=false,primary:unknown
+   try{ticket.finish()}catch(error){failed=true;primary=error}
+   if(ticket.disposition==='closed-handoff')try{old.destroy()}catch(error){if(!failed){failed=true;primary=error}}
+   if(failed)throw primary
+  },currentPresentation:()=>derived??stable,setLate:(fn?:()=>void)=>{late=fn},stale:()=>{current=false},close(){coordinator.cancel();derived?.destroy();if(stable!==s.layer)stable.destroy();s.close()}}
 }
 it('consumer7 uses SAME global8 tagged slots across entries, metadata drains and latest stays closed at idle',()=>{
  const s=replayConsumer7(),draw=vi.spyOn(s.composite,'drawSource')
@@ -1200,5 +1207,143 @@ it.each(['prefix','range','layer','copy','ended','local-tail']as const)('mixed W
   const issued=s.seal(first,patch),close=kind==='copy'?{...issued}:issued,entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes,last=s.coordinator['lastSequence'],queue=s.coordinator.queuedFrameCount,native=entry.executor.rawWashSealed
   expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator['lastSequence']).toBe(last);expect(s.coordinator.queuedFrameCount).toBe(queue);expect(entry.executor.rawWashSealed).toBe(native)
  }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+
+it('closed handoff ticket captures original WASH close disposition before proof finish',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'closed-disposition')
+  s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  s.coordinator.enqueueRecordedSeal(s.seal(first))
+  const ticket=mixedReady(s)
+  expect(ticket.disposition).toBe('closed-handoff')
+  expect(Object.isFrozen(ticket)).toBe(true)
+  expect(s.coordinator.checkpointReady).toBe(false)
+  ticket.assertCurrent()
+  // Paired index owns stable adoption; do not publish a closed ticket through
+  // this fixture's display-only pointer adapter.
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('display disposition cannot upgrade after late exact original close',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'display-disposition')
+  s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const ticket=mixedReady(s)
+  expect(ticket.disposition).toBe('display')
+  s.coordinator.enqueueRecordedSeal(s.seal(first))
+  expect(ticket.disposition).toBe('display')
+  expect(s.coordinator.checkpointReady).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+
+it('late original WASH close requests new R after display proof finish without upgrading old ticket',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'late-handoff')
+  s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const display=mixedReady(s);expect(display.disposition).toBe('display');s.publish(display)
+  const previous=s.currentPresentation(),revision=s.coordinator['revision']
+  expect(s.coordinator['replayWork']).toBeUndefined();expect(s.coordinator['dirty'].size).toBe(0)
+  s.coordinator.enqueueRecordedSeal(s.seal(first))
+  expect(display.disposition).toBe('display');expect(s.currentPresentation()).toBe(previous)
+  expect(s.coordinator['revision']).toBe(revision+1);expect(s.coordinator['dirty'].size).toBeGreaterThan(0)
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator.presentationReady).toBe(false)
+  const current=mixedReady(s);expect(current.disposition).toBe('closed-handoff');current.assertCurrent()
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('original promotion stages new R without another native frame after OPEN display finish',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const name='promotion-recapture',author=s.author(name),operation=mixedOpenOperation(s,name)
+  expect(s.coordinator.tryEnqueueLocal(author,operation)).toBe(true)
+  const display=mixedReady(s);s.publish(display)
+  const previous=s.currentPresentation(),revision=s.coordinator['revision'],entry=s.coordinator['entries'][0]
+  const original=s.recorded(operation,1),prepare=vi.spyOn(entry.executor,'prepareReplayFrontier')
+  expect(s.coordinator['dirty'].size).toBe(0)
+  s.coordinator.enqueueRecorded(original)
+  expect(entry.recorded?.firstSeq).toBe(1);expect(entry.local?.receipts).toHaveLength(0)
+  expect(s.coordinator['revision']).toBe(revision+1);expect(s.coordinator['dirty'].size).toBeGreaterThan(0)
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(prepare).not.toHaveBeenCalled()
+  expect(s.currentPresentation()).toBe(previous);expect(display.disposition).toBe('display')
+  expect(mixedReady(s).disposition).toBe('display') // Still genuine OPEN, not END.
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('promotion recapture CPU denial preserves SAME local receipt/replay/dirty and issued original retry',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const name='promotion-recapture-denied',author=s.author(name),operation=mixedOpenOperation(s,name)
+  expect(s.coordinator.tryEnqueueLocal(author,operation)).toBe(true);s.publish(mixedReady(s))
+  const entry=s.coordinator['entries'][0],receipt=entry.local!.receipts[0],replay=s.coordinator['replay'].get(operation.id)!
+  const dirty=s.coordinator['dirty'],revision=s.coordinator['revision'],cpu=s.cpu.reservedBytes
+  const original=s.recorded(operation,1),reserve=s.cpu.reserve.bind(s.cpu),failure=Object.freeze({recapture:'denied'})
+  const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{
+    if(bytes===128+s.coordinator['positions'].size*256)throw failure
+    return reserve(bytes)
+  })
+  let rejected=false,primary:unknown
+  try{s.coordinator.enqueueRecorded(original)}catch(error){rejected=true;primary=error}
+  expect(rejected).toBe(true);expect(primary).toBe(failure)
+  expect(entry.local!.receipts[0]).toBe(receipt);expect(entry.recorded).toBeUndefined()
+  expect(s.coordinator['replay'].get(operation.id)).toBe(replay);expect(replay.value.kind).toBe('local')
+  expect(s.coordinator['dirty']).toBe(dirty);expect(s.coordinator['revision']).toBe(revision)
+  expect(s.cpu.reservedBytes).toBe(cpu);expect(s.coordinator.poisoned).toBe(false)
+  hook.mockRestore();expect(()=>s.coordinator.enqueueRecorded(original)).not.toThrow()
+  expect(entry.local?.receipts).toHaveLength(0);expect(entry.recorded?.firstSeq).toBe(1)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+
+it('blank mixed constructor stays idle without creating an empty synthetic cohort',()=>{
+ const s=replayConsumer7(undefined,true)
+ try{expect(s.coordinator.advance()).toMatchObject({kind:'preview-idle'});expect(s.stageCandidate).not.toHaveBeenCalled()}
+ finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it.each(['zero-END','zero-close','clipped-END','clipped-close']as const)('captures genuine empty-target original %s through SAME closed ticket',kind=>{
+ const s=replayConsumer7({minX:0,minY:0,maxX:4,maxY:4},true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const c=context7('defaultAuto'),ended=kind.endsWith('END'),clipped=kind.startsWith('clipped')
+  const raw=s.operation('empty-'+kind,0,!clipped,clipped?[{x:-20,y:-20}]:undefined,'wash')
+  const operation=clipped&&!ended?Object.freeze({...raw,frame:{...raw.frame,materialPacked:packCanonicalTexturedAutoMaterial({...geometryFrame7(c,[{x:-20,y:-20}]),fences:geometryFrame7(c,[{x:-20,y:-20}]).fences.filter(fence=>fence.kind!=='gestureEnd')},c)}})
+   :ended&&!clipped?Object.freeze({...raw,frame:{...raw.frame,materialPacked:buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},c).packed}}):raw
+  const first=s.recorded(operation,1);s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  expect(s.coordinator['positions'].size).toBe(0)
+  if(!ended){
+   const display=mixedReady(s);expect(display.disposition).toBe('display');s.publish(display)
+   expect(s.coordinator['dirty'].size).toBe(0)
+   s.coordinator.enqueueRecordedSeal(s.seal(first));expect(display.disposition).toBe('display')
+  }
+  const ticket=mixedReady(s);expect(ticket.disposition).toBe('closed-handoff');ticket.assertCurrent();s.publish(ticket)
+  expect(s.coordinator['closed']).toBe(true);expect(s.coordinator['replayWork']).toBeUndefined()
+  expect(s.coordinator.checkpointReady).toBe(false) // Old terminal coordinator grants no read authority.
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+
+it.each(['zero-END','zero-close','clipped-END','clipped-close']as const)('late original promotion of empty-target %s recaptures real cohort without a dirty tile',kind=>{
+ const s=replayConsumer7({minX:0,minY:0,maxX:4,maxY:4},true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const c=context7('defaultAuto'),clipped=kind.startsWith('clipped'),ended=kind.endsWith('END'),name='promote-empty-'+kind
+  const frame=clipped?geometryFrame7(c,[{x:-20,y:-20}]):buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{at:0,kind:'gestureEnd'}]:[]},c).frame
+  const packed=packCanonicalTexturedAutoMaterial({...frame,fences:ended?frame.fences:frame.fences.filter(fence=>fence.kind!=='gestureEnd')},c)
+  const raw=s.operation(name,0,true,undefined,'wash'),operation=Object.freeze({...raw,frame:{...raw.frame,materialPacked:packed}})
+  expect(s.coordinator.tryEnqueueLocal(s.author(name,'wash'),operation)).toBe(true)
+  drainMixedWashQueue(s);const display=mixedReady(s);expect(display.disposition).toBe('display');s.publish(display)
+  expect(s.coordinator['positions'].size).toBe(0);expect(s.coordinator['dirty'].size).toBe(0)
+  const original=s.recorded(operation,1);s.coordinator.enqueueRecorded(original)
+  if(!ended){const promoted=mixedReady(s);expect(promoted.disposition).toBe('display');s.publish(promoted);s.coordinator.enqueueRecordedSeal(s.seal(original))}
+  const closed=mixedReady(s);expect(closed.disposition).toBe('closed-handoff');s.publish(closed)
+  expect(s.coordinator['closed']).toBe(true);expect(s.coordinator['replayWork']).toBeUndefined()
+ }finally{clock.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })

@@ -42,9 +42,11 @@ export interface CanonicalPreviewCandidate {
   readonly buffer:TiledLayerBuffer
   assertCurrent():void
   cancel():void
-  finish(old:TiledLayerBuffer):void
+  finish(old:TiledLayerBuffer,disposition?:CanonicalPreviewPublicationDisposition):void
 }
+export type CanonicalPreviewPublicationDisposition='display'|'closed-handoff'
 export interface CanonicalPreviewPublication {
+  readonly disposition:CanonicalPreviewPublicationDisposition
   readonly buffer:TiledLayerBuffer
   readonly previous:TiledLayerBuffer
   readonly revision:number
@@ -204,6 +206,7 @@ interface ReplayGroupsWork {
     readonly snapshot:ReplaySnapshot
     readonly detach:()=>void
     readonly assertOwned:()=>void
+    readonly closedOwned:()=>boolean
     readonly valuesOwned:()=>readonly ReplayValue[]
     readonly groupsOwned:()=>readonly ReplayCapturedGroup[]
     readonly retainRootOwned:(group:ReplayCapturedGroup)=>CanonicalMaskSourceLease
@@ -256,7 +259,7 @@ export class CanonicalWashLayerCoordinator {
   private readonly entries: Entry[] = []
   private readonly queue: LaneSlot[] = []
   private readonly positions = new Map<string, Position>()
-  private readonly dirty = new Map<string, WorldRect>()
+  private dirty = new Map<string, WorldRect>()
   private readonly reservations: (() => void)[] = []
   private readonly errors: unknown[] = []
   private work?: PresentationWork
@@ -338,6 +341,11 @@ export class CanonicalWashLayerCoordinator {
   private addSeed(positions:Map<string,Position>,grid=this.seedGrid()):void {
     this.forSeed(grid,(x,y)=>{const k=`${x}:${y}`;if(!positions.has(k))positions.set(k,{x,y,width:this.stable.tileWidth,height:this.stable.tileHeight,presentation:{}})})
   }
+  get mixedReplayEnabled():boolean {return this.options.mixedReplay7===true}
+  private previewRecapturePending():boolean {
+    return !!this.options.mixedReplay7&&!this.closed&&!this.failed
+      &&this.entries.length>0&&this.replayCount>0&&this.revision>this.completedPresentation
+  }
   get queuedFrameCount():number { return this.queue.length }
   private washSlot(index:number):Entry {const slot=this.queue[index];if(!slot||'kind'in slot)throw new Error('Expected executable wash slot');return slot}
   /** A partially published stable commit cannot be shown through a raw-wash
@@ -351,7 +359,7 @@ export class CanonicalWashLayerCoordinator {
   get poisoned(): boolean { return this.failed }
   /** Pixel execution still owed when an unpublished restore defers NEW preview. */
   get executionPending():boolean { if(this.options.mixedReplay7)return !!this.queue.length||!!this.candidate;return !!this.queue.length || !!this.work || !!this.commitFrontier()?.ownership }
-  get pending(): boolean { if(this.options.mixedReplay7)return !!this.queue.length||!!this.candidate||!!this.dirty.size;return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
+  get pending(): boolean { if(this.options.mixedReplay7)return !!this.queue.length||!!this.candidate||!!this.dirty.size||this.previewRecapturePending();return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.options.mixedReplay7 && !this.options.previewCandidate && !this.failed && !this.closed && !this.dirty.size && !this.work }
   /** Visual publication exists only after every dirty position has finished. */
   get publishedPresentationReady():boolean { return (!this.options.previewCandidate?this.presentationReady:!this.failed&&!this.closed)&&this.completedPresentation>=0 }
@@ -435,10 +443,50 @@ export class CanonicalWashLayerCoordinator {
         ||a.userId!==op.userId||!samePaintData(a.snapshot,snapshot)
         ||!receipt||!this.sameLocalOperation({...receipt.operation,frame:receipt.frame},op,decoded.envelope))throw new Error('Local original confirmation mismatch')
       if(this.options.mixedReplay7){
-        this.assertLayers();input.delivery.assertCurrent(input);this.assertLocal(local)
-        if(lifetime.assertCurrent()!==scope||existing.local!==local||local.receipts[0]!==receipt||op.seq!<=this.lastSequence)throw new Error('Replay promotion changed')
-        stage?.assertPrepared();stage?.publishPrepared()
-        local.receipts.shift();existing.recorded=recorded;existing.firstSequence??=op.seq!;this.lastSequence=op.seq!;this.orderEntries();try{receipt.release()}catch(error){this.failed=true;this.errors.push(error);this.clean(()=>this.notifyPoison(error));throw error}return
+        const source=existing.replaySource,sourceLease=existing.sourceLease
+        const previousSequence=this.lastSequence,previousPrefix=existing.recorded
+        const recapture=this.stagePreviewRecaptureOwned()
+        let rejected=false
+        try{
+          this.assertLayers();input.delivery.assertCurrent(input);this.assertLocal(local)
+          if(lifetime.assertCurrent()!==scope)throw Error('Replay promotion scope changed')
+          if(source){source.assertCurrent();this.assertReplayOriginal(source,snapshot)}
+          if(sourceLease&&!sourceLease.isReady())throw Error('Replay promotion root retired')
+          // A newly recorded local sorts AFTER all already recorded FIRSTs,
+          // since its genuine sequence is greater than lastSequence. Capture
+          // its insertion indices before the pure publication; no array copy.
+          const previousIndex=this.entries.indexOf(existing)
+          let targetIndex=previousIndex
+          if(existing.firstSequence===undefined){
+            targetIndex=0
+            while(targetIndex<this.entries.length&&this.entries[targetIndex].firstSequence!==undefined)targetIndex++
+          }
+          recapture.assertPrepared();stage?.assertPrepared()
+          if(this.closed||this.failed||!this.busy||existing.local!==local
+            ||local.receipts[0]!==receipt||existing.recorded!==previousPrefix
+            ||existing.replaySource!==source||existing.sourceLease!==sourceLease
+            ||this.lastSequence!==previousSequence||op.seq!<=previousSequence
+            ||previousIndex<0||targetIndex>previousIndex||this.entries[previousIndex]!==existing)
+            throw Error('Replay promotion changed')
+          // SAME replay/source/receipt/order/dirty pair; no external callbacks.
+          stage?.publishPrepared()
+          local.receipts.shift();existing.recorded=recorded
+          existing.firstSequence??=op.seq!;this.lastSequence=op.seq!
+          if(targetIndex!==previousIndex){
+            for(let index=previousIndex;index>targetIndex;index--)this.entries[index]=this.entries[index-1]
+            this.entries[targetIndex]=existing;this.replayOrderRevision++
+          }
+          recapture.publishPrepared()
+          try{receipt.release()}catch(error){
+            this.failed=true;this.errors.push(error);this.clean(()=>this.notifyPoison(error));throw error
+          }
+          return
+        }catch(primary){rejected=true;throw primary}
+        finally{
+          const before=this.errors.length
+          this.cleanFrontier(recapture.release)
+          if(!rejected&&this.errors.length>before)throw this.errors[before]
+        }
       }
       // Release may call external CPU-owner code. Publish no confirmation until
       // the exact original and local owner have survived that callback.
@@ -542,11 +590,48 @@ export class CanonicalWashLayerCoordinator {
 
   /** Mixed original interrupted-close metadata; WASH does NOT seal native
    * execution or claim completion. No frame, queue slot, source or fake END. */
+  /** Temporary metadata staging in the SAME CPU owner. Existing admitted
+   * position metadata covers the retained dirty view; this extra reservation
+   * covers simultaneous old/new maps until the pure control publication. */
+  private stagePreviewRecaptureOwned(){
+    if(!this.busy||!this.options.mixedReplay7||this.closed||this.failed)
+      throw Error('Preview recapture staging unavailable')
+    const previous=this.dirty,revision=this.revision,generation=this.replayGeneration
+    const order=this.replayOrderRevision,count=this.positions.size
+    const assertPrepared=()=>{
+      if(!this.busy||this.closed||this.failed||this.dirty!==previous
+        ||this.revision!==revision||this.replayGeneration!==generation
+        ||this.replayOrderRevision!==order||this.positions.size!==count)
+        throw Error('Preview recapture staging changed')
+    }
+    const release=this.maskParticipant.brushGlBatchInfo().cpu.reserve(128+count*256)
+    let owned=true
+    try{
+      assertPrepared()
+      const dirty=new Map(previous)
+      for(const [key,position]of this.positions)dirty.set(key,rect(position))
+      assertPrepared()
+      return {
+        assertPrepared,
+        // Caller checked the stage immediately BEFORE its own pure native CAS.
+        // No callback/validation/allocation may split that publication block.
+        publishPrepared:()=>{
+          this.dirty=dirty;this.revision=revision+1;this.previewBoundaryReady=false
+        },
+        release:()=>{if(owned){owned=false;release()}},
+      }
+    }catch(primary){
+      if(owned){owned=false;this.cleanFrontier(release)}
+      throw primary
+    }
+  }
+
   private enqueueMixedRecordedSeal(input:CanonicalRecordedInput):void {
     this.assertOpen()
     this.busy=true
     const generation=this.replayGeneration,previousSequence=this.lastSequence
     let release:(()=>void)|undefined
+    let recapture:ReturnType<CanonicalWashLayerCoordinator['stagePreviewRecaptureOwned']>|undefined,rejected=false
     try {
       input.delivery.assertCurrent(input)
       const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation
@@ -564,6 +649,7 @@ export class CanonicalWashLayerCoordinator {
       // units. 1024 fixed logical bytes cover receipt/seal/sealed-prefix and
       // the retained own-scalar input tuple; no snapshot/read bag is accepted.
       release=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+7*256*2)
+      recapture=this.stagePreviewRecaptureOwned()
       const seal=verifyCanonicalRecordedClose({...prefix.state,recordedNext:prefix.state.nextOrdinal,
         firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,
         firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq},
@@ -582,6 +668,7 @@ export class CanonicalWashLayerCoordinator {
         source.assertCurrent();this.assertReplayOriginal(source,prefix.snapshot)
       }
       if(sourceLease&&!sourceLease.isReady())throw new Error('Accepted WASH close source retired')
+      recapture.assertPrepared()
       // Final pure CAS after every external assertion. No callback between
       // receipt, sealed-prefix, sequence and metadata-only control revision.
       if(this.closed||this.failed||!this.busy||generation!==this.replayGeneration
@@ -591,13 +678,20 @@ export class CanonicalWashLayerCoordinator {
       entry.closeReceipt=receipt
       entry.recorded=sealed
       this.lastSequence=seal.closeSeq
-      this.revision++
+      recapture.publishPrepared()
       release=undefined
     } catch(primary) {
+      rejected=true
       if(release){const pending=release;release=undefined;this.cleanFrontier(pending)}
       if(this.failed){this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(primary))}
       throw primary
-    } finally {this.busy=false}
+    } finally {
+      try{
+        const before=this.errors.length
+        this.cleanFrontier(()=>recapture?.release())
+        if(!rejected&&this.errors.length>before)throw this.errors[before]
+      }finally{this.busy=false}
+    }
   }
 
   private assertRecordedCurrent():void {
@@ -1018,7 +1112,7 @@ export class CanonicalWashLayerCoordinator {
     const rawBound=washCount*this.positions.size
     if(!Number.isSafeInteger(rawBound)||this.positions.size>64)throw Error('Mixed raw views exceed bounded union')
     const releaseMetadata=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+count*128+groupCount*768+closeCount*256+rawBound*1024)
-    const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source?:CanonicalReplaySource7;root?:CanonicalMaskSourceLease;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;group:ReplayCapturedGroup;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
+    const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source?:CanonicalReplaySource7;root?:CanonicalMaskSourceLease;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;group:ReplayCapturedGroup;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;capturedPrefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
     let released=false,checking=false,pinned=false,work:ReplayGroupsWork|undefined
     const pure=()=>{
       if(released||this.closed||this.failed||!this.busy||generation!==this.replayGeneration||order!==this.replayOrderRevision||(work?this.replayWork!==work:!!this.replayWork))throw Error('Replay snapshot retired')
@@ -1093,13 +1187,13 @@ export class CanonicalWashLayerCoordinator {
           if(tiles.length>this.positions.size)throw Error('Mixed raw view count changed')
           for(const tile of tiles)if(!this.positions.has(key(tile)))throw Error('Mixed raw tile outside accepted union')
           group=Object.freeze({kind:'wash',id:owner.id,depositedNextOrdinal:owner.depositedNextOrdinal,frames:Object.freeze(frames),presentation:Object.freeze({committed:owner.committed,opacity:owner.opacity,blend:owner.blend,tiles}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
-          proofs.push({owner,sourceLease:owner.sourceLease,ownership:owner.ownership,group,close,prefix,witness})
+          proofs.push({owner,sourceLease:owner.sourceLease,ownership:owner.ownership,group,close,prefix,capturedPrefix:owner.recorded,witness})
         }else{
           if(!source)throw Error('Accepted replay source unavailable')
           group=Object.freeze({kind:'buildup7',id:owner.id,frames:Object.freeze(frames),source:Object.freeze({rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
           source.assertCurrent();pure()
           const root=source.retainRoot()
-          proofs.push({owner,source,root,sourceLease:owner.sourceLease,group,close,prefix,witness})
+          proofs.push({owner,source,root,sourceLease:owner.sourceLease,group,close,prefix,capturedPrefix:owner.recorded,witness})
           source.assertCurrent();pure()
         }
       }
@@ -1139,7 +1233,20 @@ export class CanonicalWashLayerCoordinator {
         },
         release:function(this:ReplaySnapshot){if(this!==snapshot)throw Error('Foreign replay snapshot receiver');if(released)return;enter();try{detach()}finally{coordinator.busy=false}},
       })
-      work=Object.freeze({snapshot,detach,assertOwned,valuesOwned,groupsOwned,retainRootOwned})
+      work=Object.freeze({snapshot,detach,assertOwned,valuesOwned,groupsOwned,retainRootOwned,
+        // Pure identity check of SAME retained proof, not another witness slot.
+        // Do not apply this stronger condition to display snapshots: late close
+        // may leave their old pixels displayable while a new R is requested.
+        closedOwned:()=>{
+          if(released||!pinned||this.replayWork!==work||this.entries.length!==proofs.length)return false
+          for(let index=0;index<proofs.length;index++){
+            const proof=proofs[index]
+            if(this.entries[index]!==proof.owner||proof.owner.recorded!==proof.capturedPrefix
+              ||proof.owner.closeReceipt!==proof.close)return false
+          }
+          for(const entry of entries)if(entry.retired||this.replay.get(entry.id)!==entry)return false
+          return true
+        }})
       this.replayWork=work
       return snapshot
     }catch(primary){detach();throw primary}
@@ -1205,11 +1312,14 @@ export class CanonicalWashLayerCoordinator {
       if(this.replayWork||this.candidate||entry.mode!=='wash'||this.entries.some(e=>e!==entry&&e.washInFlight))throw new Error('Mixed raw lane is frozen')
       entry.washInFlight=true
     }
-    const before=entry.executor.pendingFrameCount
+    const before=entry.executor.pendingFrameCount,revision=this.revision
     entry.executor.advance()
     const completed=entry.executor.pendingFrameCount<before||!entry.executor.pending&&entry.executor.rawWashSealed
     if(completed){this.queue.splice(index,1);if(this.options.mixedReplay7){if(entry.executor.pendingFrameCount<before)entry.depositedNextOrdinal++;entry.washInFlight=undefined}}
     if(entry.executor.rawWashSealed){entry.ownership=entry.executor.takeRawWash();this.invalidate()}
+    // A real completed zero-DRAW/clipped frame still changes captured original
+    // prefix membership. Do not advance this stamp merely on queue admission.
+    if(completed&&this.options.mixedReplay7&&this.revision===revision)this.revision++
     return completed
   }
 
@@ -1429,6 +1539,11 @@ export class CanonicalWashLayerCoordinator {
         this.queue.shift();head.ticket.release();this.previewBoundaryReady=true
         this.assertRecordedCurrent();this.assertLayers()
         if(this.closed||this.failed||!this.busy)throw Error('Mixed frontier retired during release')
+        // A displayed R may already contain every accepted frame while its
+        // admission tickets still drained. Queue-empty is a NEW close-proof
+        // frontier, not new pixels. Request one recapture on the existing
+        // revision lane; failed staging then parks at that same revision.
+        if(!this.queue.length&&this.entries.length&&this.revision===this.completedPresentation)this.revision++
         return
       }
       if(this.previewLane){
@@ -1445,6 +1560,37 @@ export class CanonicalWashLayerCoordinator {
     }
     return this.advancePreview(turnStarted)
   }
+  /** Pure eligibility of this captured, completely rendered R. External source,
+   * layer and original-close assertions remain snapshot.assertOwned's job. This
+   * disposition is layer ownership only, never a room/cut/read permission. */
+  private closedCandidateOwned(candidate:PreviewCandidateWork):boolean {
+    const mixed=candidate.mixed
+    if(!mixed||this.closed||this.failed||this.candidate!==candidate
+      ||candidate.generation!==this.replayGeneration||candidate.order!==this.replayOrderRevision
+      ||candidate.revision!==this.revision||candidate.cleanupFailed||candidate.executionFailed
+      ||this.queue.length||this.work||candidate.remaining.size||!mixed.seeded
+      ||mixed.group!==mixed.groups.length||mixed.child||mixed.root
+      ||mixed.groups.length!==this.entries.length||!mixed.snapshot.closedOwned()||this.errors.length)return false
+    for(let index=0;index<this.entries.length;index++){
+      const entry=this.entries[index],group=mixed.groups[index],prefix=entry.recorded
+      if(group.id!==entry.id||entry.firstSequence===undefined||!prefix
+        ||entry.local?.receipts.length||entry.metadataRetired||entry.metadataReleased
+        ||entry.targetPlan||entry.commitTarget||entry.committingBuffer
+        ||entry.washInFlight||entry.executor.pendingFrameCount)return false
+      if(group.frames.length!==prefix.state.nextOrdinal)return false
+      for(const frame of group.frames)if(frame.value.kind!=='recorded')return false
+      if(group.kind==='wash'&&(entry.mode!=='wash'
+        ||group.depositedNextOrdinal!==prefix.state.nextOrdinal
+        ||entry.depositedNextOrdinal!==group.depositedNextOrdinal))return false
+      if(group.kind==='buildup7'&&entry.mode!=='buildup')return false
+      // A receipt is the captured original verifier result, not a sealed flag.
+      // Snapshot assertions revalidate its source/lifetime and exact prefix.
+      if(!prefix.state.ended&&(!group.close||entry.closeReceipt?.input!==group.close.input
+        ||entry.closeReceipt.seal!==group.close.seal))return false
+    }
+    return true
+  }
+
   private advanceMixedCandidate(candidate:PreviewCandidateWork,turnStarted:number):void {
     const mixed=candidate.mixed!
     mixed.snapshot.assertOwned()
@@ -1510,7 +1656,7 @@ export class CanonicalWashLayerCoordinator {
       return
     }
     if(!this.candidate){
-      if(!this.dirty.size)return {kind:'preview-idle'}
+      if(!this.dirty.size&&!this.previewRecapturePending())return {kind:'preview-idle'}
       // With no previously selected head, begin one ordinary frame first.
       // Once complete, dirty work gets the exclusive lane on the next turn.
       if(this.queue.length&&!this.previewBoundaryReady&&this.previewLane===undefined){
@@ -1542,9 +1688,19 @@ export class CanonicalWashLayerCoordinator {
       if(candidate!==this.candidate)throw new Error('Preview work replaced')
       if(candidate.remaining.size||candidate.mixed&&(!candidate.mixed.seeded||candidate.mixed.group<candidate.mixed.groups.length))return
       candidate.mixed?.snapshot.assertOwned()
+      // Existing owner metadata barriers only: no empty GL probe, state query
+      // or resource mutation. Repeated after callbacks for closed assertion.
+      if(this.closedCandidateOwned(candidate)){
+        this.maskParticipant.assertMutationIdle()
+        this.options.composite.assertMutationIdle(this.preparations[1].epoch)
+        if(this.gl.isContextLost())throw Error('Closed preview context lost')
+        this.maskParticipant.assertMutationIdle()
+        this.options.composite.assertMutationIdle(this.preparations[1].epoch)
+      }
       const coordinator=this
+      const disposition:CanonicalPreviewPublicationDisposition=this.closedCandidateOwned(candidate)?'closed-handoff':'display'
       let published=false,finished=false,asserting=false,validated=false,ticket:CanonicalPreviewPublication
-      ticket=Object.freeze({buffer:candidate.staged.buffer,previous:candidate.previous,revision:candidate.revision,
+      ticket=Object.freeze({disposition,buffer:candidate.staged.buffer,previous:candidate.previous,revision:candidate.revision,
         assertCurrent(){
           if(this!==ticket||published||asserting||coordinator.busy||coordinator.closed||coordinator.failed||coordinator.candidate!==candidate||candidate.ticket!==ticket)throw new Error('Foreign preview publication')
           asserting=true;validated=false;coordinator.busy=true
@@ -1554,6 +1710,14 @@ export class CanonicalWashLayerCoordinator {
             // callbacks. The final validation below is a pure owner/order CAS.
             candidate.mixed?.snapshot.assertOwned()
             if(coordinator.closed||coordinator.failed||coordinator.candidate!==candidate||candidate.ticket!==ticket||candidate.generation!==coordinator.replayGeneration||candidate.order!==coordinator.replayOrderRevision||coordinator.derived!==candidate.previous||candidate.mixed&&coordinator.replayWork!==candidate.mixed.snapshot)throw Error('Preview assertion owner changed')
+            if(disposition==='closed-handoff'){
+              coordinator.maskParticipant.assertMutationIdle()
+              coordinator.options.composite.assertMutationIdle(coordinator.preparations[1].epoch)
+              if(coordinator.gl.isContextLost())throw Error('Closed preview context lost')
+              coordinator.maskParticipant.assertMutationIdle()
+              coordinator.options.composite.assertMutationIdle(coordinator.preparations[1].epoch)
+            }
+            if(disposition==='closed-handoff'&&!coordinator.closedCandidateOwned(candidate))throw Error('Closed preview cohort changed')
             validated=true
           }finally{coordinator.busy=false;asserting=false}
         },
@@ -1561,10 +1725,12 @@ export class CanonicalWashLayerCoordinator {
           // This is the final pure coordinator CAS. Engine updates its pointer
           // immediately afterwards; no callback/GL/cleanup occurs in between.
           if(this!==ticket||published||asserting||!validated||coordinator.busy||coordinator.closed||coordinator.failed||candidate.generation!==coordinator.replayGeneration||candidate.order!==coordinator.replayOrderRevision||coordinator.candidate!==candidate||candidate.ticket!==ticket||coordinator.derived!==candidate.previous||candidate.remaining.size||coordinator.work||candidate.mixed&&coordinator.replayWork!==candidate.mixed.snapshot)throw new Error('Stale preview publication')
+          if(disposition==='closed-handoff'&&!coordinator.closedCandidateOwned(candidate))throw Error('Stale closed preview publication')
           published=true;validated=false;coordinator.derived=candidate.staged.buffer
           coordinator.completedPresentation=candidate.revision
           coordinator.candidate=undefined;coordinator.previewFailure=undefined;coordinator.previewBoundaryReady=false
           if(coordinator.revision===candidate.revision)coordinator.dirty.clear()
+          if(disposition==='closed-handoff')coordinator.closed=true
         },
         finish(){
           if(this!==ticket||!published||finished||coordinator.busy)throw new Error('Preview cleanup ownership changed')
@@ -1576,7 +1742,8 @@ export class CanonicalWashLayerCoordinator {
           const cleanup=(action:()=>void)=>{try{action()}catch(e){if(!failed){failed=true;error=e}}}
           try{
             cleanup(()=>mixed?.snapshot.detach())
-            cleanup(()=>candidate.staged.finish(candidate.previous))
+            cleanup(()=>candidate.staged.finish(candidate.previous,disposition))
+            if(disposition==='closed-handoff')cleanup(()=>coordinator.releaseAll(coordinator.cleanupContextLost()))
             cleanup(candidate.releaseMetadata)
           }finally{coordinator.busy=false}
           if(coordinator.errors.length>previousErrors&&!failed){failed=true;error=coordinator.errors[previousErrors]}

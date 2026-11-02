@@ -1332,6 +1332,8 @@ interface CanonicalPreparedAuthor {
   readonly preset:string;readonly owner:CanonicalLayerOwner;readonly generation:number
   readonly descriptor:NonNullable<ReturnType<typeof importedBrushFromPreset>>;readonly sha:string
   readonly material:{readonly kind:'auto';readonly pin:CanonicalAutoSource|CanonicalSoftAutoSource}|{readonly kind:'image';readonly pin:ReturnType<typeof canonicalImageMaterialPin>}|{readonly kind:'imageTexture';readonly pin:ReturnType<typeof canonicalImageMaterialPin>;readonly texture:CanonicalMaterialContextV3}|{readonly kind:'autoTexture';readonly pin:CanonicalMaterialContextV4['primarySource'];readonly texture:CanonicalMaterialContextV4}|{readonly kind:'autoPressureTexture';readonly pin:CanonicalMaterialContextV5['primarySource'];readonly texture:CanonicalMaterialContextV5}|{readonly kind:'autoSoftPressureTexture';readonly pin:CanonicalMaterialContextV6['primarySource'];readonly texture:CanonicalMaterialContextV6}|{readonly kind:'texturedAuto';readonly pin:CanonicalMaterialContextV7['primarySource'];readonly binding:CanonicalTexturedAutoProgramBinding}
+  /** Captured original descriptor composition DATA, not room permission. */
+  readonly composition7?:NonNullable<ReturnType<typeof canonicalSourceComposition>>
   readonly imageLease?:CanonicalMaskSourceLease
   readonly runtime7?:SourceStrokeAuthor;readonly retain7?:()=>()=>void
   readonly nativeSizePx:number;readonly program:SourceStrokeAuthorProgram;readonly bytes:number;readonly release:()=>void
@@ -1419,6 +1421,13 @@ function canonicalRenderImage(snapshot:CanonicalStrokeSnapshotV2|CanonicalStroke
  if(snapshot.materialVersion===3){const texture=canonicalPrimaryTextureMaterialContext(snapshot.material);return{image:canonicalImageMaterialPin(texture.primarySource,[texture.assets[0]]),texture}}
  return snapshot.material.primarySource.kind==='image'?{image:canonicalImageMaterialPin(snapshot.material.primarySource,snapshot.material.assets)}:undefined
 }
+/** Normalized source DATA inventory only. Execution additionally requires the
+ * SAME owner private mixed role; author/server/protocol policy is unchanged. */
+function canonicalCandidateComposition(snapshot:Parameters<typeof canonicalTexture>[0]):boolean {
+ return snapshot.composition.mode==='wash'||snapshot.materialVersion===7
+  &&snapshot.composition.mode==='buildup'&&snapshot.composition.outerBlend==='over'
+  &&(snapshot.rasterProfile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||snapshot.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
+}
 function canonicalCompositePlan(profile:CanonicalStrokeRasterProfile,width:number,height:number):CanonicalCompositeLimits {
  return{width,height,operations:canonicalExecutorOperations(profile),...(profile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE?{texturedOperations:['alphaDarken32FusedScalar','over32FusedScalar']as const}:profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?{texturedOperations:['alphaDarkenBrowserFloat','overBrowserFloat']as const}:{})}
 }
@@ -1502,7 +1511,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   if(full&&(op.type==='operation_undo'||op.type==='operation_redo'))continue
   if(op.type!=='canonical_stroke'||!r||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical baseline writer/layer')
   const s=r.capability.snapshot,source=s.material.primarySource
-  if(![2,3,4,5,6,7].includes(s.materialVersion)||('maskSource'in s.material&&s.material.maskSource)||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile)throw new TypeError('Unsupported canonical baseline source/profile')
+  if(![2,3,4,5,6,7].includes(s.materialVersion)||('maskSource'in s.material&&s.material.maskSource)||!canonicalCandidateComposition(s)||s.rasterProfile!==read.authorRasterProfile)throw new TypeError('Unsupported canonical baseline source/profile')
   let fixed:TransformedMaskLimits
   if(source.kind==='image'){
    const render=canonicalRenderImage(s)!,pin=render.image
@@ -1542,7 +1551,10 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const sourceBudget=imageAssets.size||patterns.size?withCanonicalImageRequiredLevels(cpu,accept=>visitCanonicalImageSources(inputs,accept),requirements=>canonicalMaskSourceBankBudget([...([...imageAssets.values()].map(asset=>({asset,readOriginalCoverage:()=>importedAssetPixels(asset.id)}))),...[...patterns.values()].map(value=>({kind:'raw-pattern-l8' as const,...value,readOriginalGray:()=>importedAssetPixels(value.asset.id)}))],requirements.length?requirements:undefined)):undefined
  if(maskCost.gpuBytes+compositeCost.gpuBytes+(sourceBudget?.gpuBytes??0)>16*1024*1024
   ||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432+(sourceBudget?sourceBudget.metadataCpuBytes+sourceBudget.maximumTransientCpuBytes+sourceBudget.maximumSourceCpuBytes:0)>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
- const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
+ // Inventory includes old baseline/P plus ONE replacement presentation.
+ // Conservative admission changes even with opt-in absent; physical default
+ // allocations and the existing global GPU quota do not change.
+ const logicalBytes=(2*tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
  if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
  return Object.freeze({read,originalRead:read,tail,scope,imageAssets:Object.freeze([...imageAssets.values()]),patterns:Object.freeze([...patterns.values()]),inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),goneFrameIds:Object.freeze(goneFrameIds),full:!!full,open,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
@@ -1643,7 +1655,7 @@ interface CanonicalLayerOwner {
  previewPublication?:true
  previewFailureRevision?:number
  readonly callbackScope?:BrushGlCanonicalCallbackScope
- readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
+ readonly plan:CanonicalEmptyPlan;stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank
  fullSource?:CanonicalMaskSourceLease
@@ -1666,7 +1678,9 @@ interface CanonicalEmptyTransaction {
 }
 interface CanonicalEmptyJob {
  readonly callbackScope?:BrushGlCanonicalCallbackScope
- readonly transaction:CanonicalEmptyTransaction;readonly stable:TiledLayerBuffer;derived:TiledLayerBuffer
+ readonly transaction:CanonicalEmptyTransaction;stable:TiledLayerBuffer;derived?:TiledLayerBuffer
+ previewPublication?:true
+ previewFailureRevision?:number
  indexedOwner?:CanonicalLayerOwner
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank;sourcePreparation?:CanonicalMaskSourceRootPreparation;fullSource?:CanonicalMaskSourceLease;imageNext:number
@@ -1676,6 +1690,8 @@ interface CanonicalEmptyJob {
  /** Undefined outside a synchronous indexed restore slice; true requests its next transition. */
  indexedSliceRequested?:boolean
 }
+
+type CanonicalPreviewOwner=CanonicalLayerOwner|CanonicalEmptyJob
 
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
  *  operations replayed into a FRESH buffer a slice at a time, the old buffer
@@ -6739,7 +6755,7 @@ export class PencilEngine implements PencilEngineAPI {
     const c=job.canonical!,tx=c.transaction,state=tx.indexed!,plan=tx.plan
     if(state.waiting)return
     this._assertCanonicalEmptyCurrent(tx)
-    const owner=c.indexedOwner??=( {plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,callbackScope:c.callbackScope,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
+    const owner=c.indexedOwner??=( {...c.previewPublication?{previewPublication:true as const}:{},plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,callbackScope:c.callbackScope,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
     this._prefetchIndexedEvidence(job)
     // Peek only at adjacent originals already owned by this SAME page. This
     // grants no input authority: admission below still validates delivery,
@@ -6751,7 +6767,19 @@ export class PencilEngine implements PencilEngineAPI {
     const continuing=adjacent?state.roots.get(JSON.stringify([nextOperation.userId,nextOperation.frame.strokeId])):undefined
     const deferPresentation=!!continuing?.visible&&nextOperation?.type==='canonical_stroke'&&nextOperation.frame.frameOrdinal===continuing.state.nextOrdinal
     if(owner.coordinator&&(deferPresentation?owner.coordinator.executionPending:owner.coordinator.pending)){
-      owner.coordinator.advance(deferPresentation?{deferPresentation:true}:undefined);this._assertCanonicalEmptyCurrent(tx);this._scheduleCanonicalRebuild(job);return
+      const outcome=owner.coordinator.advance(deferPresentation?{deferPresentation:true}:undefined)
+      if(outcome?.kind==='preview-ready')this._publishCanonicalPreview(owner,outcome.ticket)
+      else if(outcome?.kind==='preview-failed'){
+        this._noteCanonicalPreviewFailure(owner,outcome)
+        // Fall through only to the SAME normal page/evidence ingress. It can
+        // supply an actual next frame, never a synthetic staging retry.
+      }
+      this._assertCanonicalEmptyCurrent(tx)
+      if(outcome?.kind!=='preview-failed'){this._scheduleCanonicalRebuild(job);return}
+    }
+    if(state.finishedRead&&state.cut&&!state.inputs){
+      if(owner.coordinator&&(owner.coordinator.pending||!(owner.previewPublication?owner.coordinator.publishedPresentationReady:owner.coordinator.presentationReady)))return
+      c.complete=true;this._publishCanonicalIndexed(tx);return
     }
     if(owner.coordinator?.checkpointReady){
       const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]
@@ -6786,7 +6814,11 @@ export class PencilEngine implements PencilEngineAPI {
       state.proofs.clear();state.releasePage?.();state.releasePage=undefined;state.inputs=undefined;state.next=0
       if(state.finishedRead&&state.cut&&state.afterSeq===state.read.throughSeq){
         if(state.recoverySuffix&&!state.replayingSuffix){state.acceptedRoots=this._copyIndexedCarry(state.roots);state.replayingSuffix=true;state.inputs=state.recoverySuffix;this._scheduleCanonicalRebuild(job);return}
-        if(state.roots.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities||owner.coordinator&&(!owner.coordinator.presentationReady||owner.coordinator.pending))throw new Error('Indexed original prefix not ready')
+        if(state.roots.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new Error('Indexed original prefix not ready')
+        if(owner.coordinator&&(!(owner.previewPublication?owner.coordinator.publishedPresentationReady:owner.coordinator.presentationReady)||owner.coordinator.pending)){
+          if(owner.previewPublication)return // Failed current R stays owned/parked, no false accepted pixels.
+          throw new Error('Indexed original prefix not ready')
+        }
         c.complete=true;this._publishCanonicalIndexed(tx);return
       }
       this._scheduleCanonicalRebuild(job);return
@@ -6805,7 +6837,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='canonical_stroke'){
       if(!input.read)throw new Error('Indexed frame source missing')
       const snapshot=input.read.capability.snapshot
-      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||snapshot.rasterProfile!==plan.profile||snapshot.layerId!==INITIAL_LAYER_ID||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported indexed canonical material')
+      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||snapshot.rasterProfile!==plan.profile||snapshot.layerId!==INITIAL_LAYER_ID||('maskSource'in snapshot.material&&snapshot.material.maskSource)||!canonicalCandidateComposition(snapshot)||snapshot.composition.mode==='buildup'&&!owner.previewPublication)throw new TypeError('Unsupported indexed canonical material')
       if(!active){
         if(op.frame.frameOrdinal!==0)throw new Error('Indexed continuation has no active original prefix')
         let evidence=state.proofs.get(key)
@@ -6965,7 +6997,7 @@ export class PencilEngine implements PencilEngineAPI {
     const coordinator=c.coordinator;c.coordinator=undefined
     if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical baseline candidate retired'),{lost}));failures.push(...coordinator.cleanupFailures)}
     if(!keepResources){const root=c.fullSource;c.fullSource=undefined;if(root)attempt(()=>root.release(lost));attempt(()=>c.prepass.reset(lost));attempt(()=>c.composite.reset(lost));const bank=c.bank;c.bank=undefined;attempt(()=>bank?.reset(lost));attempt(()=>c.cache.clear(lost))}
-    attempt(()=>c.derived.destroy())
+    attempt(()=>c.derived?.destroy())
     const release=c.releaseMetadata;c.releaseMetadata=undefined;if(release)attempt(release)
     if(c.outstanding!==0)failures.push(new Error('Canonical logical reservation leaked'))
     return failures
@@ -7004,6 +7036,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._assertCanonicalEmptyCurrent(tx)
       if(tx.indexed){this._stepCanonicalIndexed(job);return}
       if(this._rebuildJobs.get(job.layerId)!==job)throw new Error('Canonical rebuild job changed')
+      if(c.stage===0&&!c.previewPublication&&plan.paintInputs.some(input=>input.read?.capability.snapshot.composition.mode==='buildup'))throw new TypeError('Original buildup7 requires preselected mixed owner')
       if(!plan.paintInputs.length){c.complete=true;this._publishCanonicalEmpty(tx);return}
       if(c.stage===0&&(plan.imageAssets.length||plan.patterns.length)){
         if(!c.bank){
@@ -7022,16 +7055,30 @@ export class PencilEngine implements PencilEngineAPI {
       if(c.stage===0){if(c.sourcePreparation){c.sourcePreparation.assertPreparedPublication();c.fullSource=c.sourcePreparation.publish();c.sourcePreparation.finalizeCleanup();c.sourcePreparation=undefined}c.prepass.prepare(plan.mask,c.fullSource?.preparedResources()??[]);c.stage=1}
       else if(c.stage===1){c.composite.prepare(plan.composite,[...(c.bank?.jobs.map(({key,bytes})=>({key,bytes}))??[]),...c.prepass.preparedResources()],transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
+        if(c.coordinator&&c.coordinator.mixedReplayEnabled!==!!c.previewPublication)throw new Error('Canonical hidden role must be selected before first input')
         if(!c.coordinator){
-          c.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,callbackScope:c.callbackScope,
-            layer:()=>({buffer:c.stable,epoch:plan.scope.boardEpoch}),presentation:()=>({buffer:c.derived,epoch:plan.scope.boardEpoch}),
+          if(!c.derived)c.derived=this._makeLayerBuffer() as TiledLayerBuffer
+          c.coordinator=new CanonicalWashLayerCoordinator({...c.previewPublication?{mixedReplay7:true as const,replayRetention:{maxEntries:1024,maxBytes:this._brushMipCache.budgetBytes},previewCandidate:(bytes:number)=>this._stageCanonicalPreview(c.publishedOwner??c,bytes)}:{},rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,callbackScope:c.callbackScope,
+            layer:()=>({buffer:c.publishedOwner?.stable??c.stable,epoch:plan.scope.boardEpoch}),presentation:()=>({buffer:c.publishedOwner?.derived??c.derived!,epoch:plan.scope.boardEpoch}),
             source:(_id,input,local)=>{this._assertCanonicalEmptyCoordinatorCurrent(c);if(local){if(!c.publishedOwner)throw new Error('Canonical candidate cannot accept local input');local.assertCurrent(local);if(local.lifetime!==plan.read)throw new Error('Foreign canonical author lease')}else{if(!input||input.delivery.lifetime!==plan.read||!input.read)throw new Error('Foreign canonical source owner');input.delivery.assertCurrent(input)}const source=local?local.snapshot.material.primarySource:input!.read!.capability.snapshot.material.primarySource;if(source.kind==='image'||((local?local.snapshot:input!.read!.capability.snapshot).materialVersion===4||(local?local.snapshot:input!.read!.capability.snapshot).materialVersion===5||(local?local.snapshot:input!.read!.capability.snapshot).materialVersion===6||(local?local.snapshot:input!.read!.capability.snapshot).materialVersion===7)){const snapshot=local?local.snapshot:input!.read!.capability.snapshot;const pending=local?c.publishedOwner?.indexedLocalSource:c.publishedOwner?.indexedSource;if(pending){if(local){if(!('author'in pending)||pending.author!==local)throw new Error('Foreign local root handoff');c.publishedOwner!.indexedLocalSource=undefined}else{if(!('input'in pending)||pending.input!==input)throw new Error('Foreign original root handoff');c.publishedOwner!.indexedSource=undefined}return canonicalRootBinding(pending.lease,snapshot)}const root=c.publishedOwner?.fullSource??c.fullSource;if(!root)throw new Error('Image canonical root unavailable');return canonicalRootBinding(root,snapshot,true)}return{autoSource:source}},
             reserveTransient:bytes=>{this._assertCanonicalEmptyCoordinatorCurrent(c);const account=c.publishedOwner??c,limit=c.publishedOwner?.logicalBytes??plan.logicalBytes;if(!Number.isSafeInteger(bytes)||bytes<0||account.outstanding+bytes>Math.min(limit,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');account.outstanding+=bytes;let released=false;return()=>{if(!released){released=true;(c.publishedOwner??c).outstanding-=bytes}}},
             changed:()=>{if(!c.retiring&&!c.publishedOwner?.retiring)this._assertCanonicalEmptyCoordinatorCurrent(c)},poison:(_id,reason)=>{if(c.publishedOwner){if(!c.publishedOwner.retiring)this._poisonCanonicalLayer(reason)}else if(!c.retiring)tx.failures.push(reason)}})
         }
         if(c.next<plan.paintInputs.length&&c.coordinator.queuedFrameCount===0){const input=plan.paintInputs[c.next];if(input.operation.type==='canonical_stroke_close')c.coordinator.enqueueRecordedSeal(input);else c.coordinator.enqueueRecorded(input);c.next++}
-        c.coordinator.advance()
+        const outcome=c.coordinator.advance()
+        if(outcome?.kind==='preview-ready')this._publishCanonicalPreview(c,outcome.ticket)
+        else if(outcome?.kind==='preview-failed'){
+          this._noteCanonicalPreviewFailure(c,outcome)
+          this._assertCanonicalEmptyCurrent(tx)
+          // Existing originals may advance one new real frontier. With no
+          // input left, park SAME job; never retry staging on a RAF timer.
+          if(c.next<plan.paintInputs.length)this._scheduleCanonicalRebuild(job)
+          return
+        }
         this._assertCanonicalEmptyCurrent(tx)
+        if(c.next===plan.paintInputs.length&&(!c.coordinator||c.previewPublication&&!c.coordinator.pending&&c.coordinator.publishedPresentationReady)){
+          c.complete=true;this._publishCanonicalEmpty(tx);return
+        }
         if(c.next===plan.paintInputs.length&&(c.coordinator.checkpointReady||plan.open&&!c.coordinator.pending&&c.coordinator.queuedFrameCount===0&&c.coordinator.presentationReady)){c.complete=true;this._publishCanonicalEmpty(tx);return}
       }
       this._assertCanonicalEmptyCurrent(tx)
@@ -7053,7 +7100,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers=tx.candidate
     this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:tx.recovery?.originalStates??Object.freeze(this._log.entries.map(entry=>entry.state)),generation:tx.generation}
     const resources=tx.jobs[0],maxTiles=Math.min(64,Math.ceil(tx.plan.page.maxX/tx.plan.tileWidth)*Math.ceil(tx.plan.page.maxY/tx.plan.tileHeight))
-    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,callbackScope:resources.callbackScope,bank:resources.bank,fullSource:resources.fullSource,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
+    this._canonicalLayerOwner={...resources.previewPublication?{previewPublication:true as const}:{},plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,callbackScope:resources.callbackScope,bank:resources.bank,fullSource:resources.fullSource,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
     resources.bank=undefined;resources.fullSource=undefined;resources.publishedOwner=this._canonicalLayerOwner
     if(tx.plan.open){
       // Transfer the charged account once. Existing release closures resolve
@@ -7111,10 +7158,11 @@ export class PencilEngine implements PencilEngineAPI {
     return this._prepareOriginalRecorded(this._canonicalLayerOwner,input,options)
   }
   private async _prepareOriginalRecorded(owner:CanonicalLayerOwner|undefined,input:CanonicalRecordedInput,options:Pick<BrushPreparationOptions,'signal'>={}):Promise<BrushPreparationResult> {
+    if(owner?.retiring||owner?.indexedCandidate?.retiring)throw new Error('Canonical resource owner is retiring')
     input.delivery.assertCurrent(input)
     const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
     if(!owner||input.delivery.lifetime!==owner.plan.read||scope!==owner.plan.scope)throw new Error('Canonical original layer owner unavailable')
-    const current=()=>{input.delivery.assertCurrent(input);this._assertCanonicalLayerCurrent(owner);if(input.delivery.lifetime.assertCurrent()!==scope)throw new Error('Canonical resource lifetime changed')}
+    const current=()=>{if(owner.retiring||owner.indexedCandidate?.retiring)throw new Error('Canonical resource owner is retiring');input.delivery.assertCurrent(input);this._assertCanonicalLayerCurrent(owner);if(input.delivery.lifetime.assertCurrent()!==scope||owner.retiring||owner.indexedCandidate?.retiring)throw new Error('Canonical resource lifetime changed')}
     current()
     if(options.signal?.aborted)return{status:'cancelled'}
     if(op.type==='canonical_stroke_close'){
@@ -7123,7 +7171,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(op.type!=='canonical_stroke'||!input.read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical resource operation')
     const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
-    if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported canonical resource material')
+    if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||!canonicalCandidateComposition(snapshot)||snapshot.composition.mode==='buildup'&&!owner.previewPublication)throw new TypeError('Unsupported canonical resource material')
     // Decode under the original captured source even for an empty/control frame,
     // before capacity, readers, reservations or a resource candidate exist.
     const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame
@@ -7300,10 +7348,14 @@ export class PencilEngine implements PencilEngineAPI {
   }
   /** Only an original recorded delivery can enter this source-only layer. */
   appendOriginalRecorded(input:CanonicalRecordedInput):void {
+    // Retiring captured cleanup cannot create a successor under its old scope.
+    // This rejection precedes callbacks/try so it cannot poison a new owner.
+    const owner=this._canonicalLayerOwner
+    if(owner?.retiring)throw new Error('Canonical original owner is retiring')
     // Forged/copy inputs cannot poison an otherwise valid layer owner.
     input.delivery.assertCurrent(input)
-    const owner=this._canonicalLayerOwner,scope=input.delivery.lifetime.assertCurrent(),op=input.operation,read=input.read
-    if(!owner||owner.failed||owner.accepting||!owner.prepared&&owner.resourceCandidate||input.delivery.lifetime!==owner.plan.read||scope!==owner.plan.scope)throw new Error('Canonical original layer owner unavailable')
+    const scope=input.delivery.lifetime.assertCurrent(),op=input.operation,read=input.read
+    if(!owner||this._canonicalLayerOwner!==owner||owner.retiring||owner.failed||owner.accepting||!owner.prepared&&owner.resourceCandidate||input.delivery.lifetime!==owner.plan.read||scope!==owner.plan.scope)throw new Error('Canonical original layer owner unavailable')
     try{
       this._assertCanonicalLayerCurrent(owner)
       this._canonicalRecoveryDirty=true
@@ -7317,7 +7369,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       if(op.type!=='canonical_stroke'||!read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported recorded canonical extension')
       const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
-      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
+      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||!canonicalCandidateComposition(snapshot)||snapshot.composition.mode==='buildup'&&!owner.previewPublication)throw new TypeError('Unsupported fixed canonical layer material')
       const image=canonicalRenderImage(snapshot)?.image,texture=canonicalTexture(snapshot)
       if((image||texture)&&!owner.bank||!image&&!texture&&(snapshot.material.assets.length||snapshot.assets.length)||texture&&!canonicalSoftAutoDataEqual(snapshot.assets,texture.assets))throw new TypeError('Unsupported fixed canonical layer assets')
       if(image&&!owner.indexedSource&&!owner.fullSource&&!this._canonicalImageSourceReady(owner,image,()=>this._assertCanonicalLayerCurrent(owner)))throw new Error('Canonical image source suffix unavailable')
@@ -7335,7 +7387,7 @@ export class PencilEngine implements PencilEngineAPI {
       // journal publication. No independent pending operation journal exists.
       coordinator.enqueueRecorded(input)
       this._publishCanonicalLayerInput(owner,input)
-    }catch(error){this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
+    }catch(error){if(this._canonicalLayerOwner===owner&&!owner.retiring)this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
   }
   /** Metadata only; neither pending source input nor retained wash owners may
    * be displaced by workspace replacement or optional cold preparation. */
@@ -7495,10 +7547,14 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
   private _ensureCanonicalLayerCoordinator(owner:CanonicalLayerOwner):CanonicalWashLayerCoordinator {
+    if(owner.retiring||owner.indexedCandidate?.retiring)throw new Error('Canonical coordinator owner is retiring')
+    if(owner.coordinator&&owner.coordinator.mixedReplayEnabled!==!!owner.previewPublication)
+      throw new Error('Canonical preview role must be chosen before first coordinator input')
     if(!owner.coordinator){
         owner.lastDisplayedPresentationRevision=undefined
         owner.derived=owner.indexedCandidate?.derived??this._makeLayerBuffer() as TiledLayerBuffer
-        owner.coordinator=new CanonicalWashLayerCoordinator({...owner.previewPublication?{previewCandidate:(bytes:number)=>this._stageCanonicalPreview(owner,bytes)}:{},rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,callbackScope:owner.callbackScope,
+        if(owner.indexedCandidate)owner.indexedCandidate.derived=owner.derived
+        owner.coordinator=new CanonicalWashLayerCoordinator({...owner.previewPublication?{mixedReplay7:true as const,replayRetention:{maxEntries:1024,maxBytes:this._brushMipCache.budgetBytes},previewCandidate:(bytes:number)=>this._stageCanonicalPreview(owner,bytes)}:{},rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,callbackScope:owner.callbackScope,
           layer:()=>({buffer:owner.stable,epoch:owner.plan.scope.boardEpoch}),presentation:()=>({buffer:owner.derived!,epoch:owner.plan.scope.boardEpoch}),
           source:(_id,original,local)=>{this._assertCanonicalLayerCurrent(owner);if(local){local.assertCurrent(local);if(local.lifetime!==owner.plan.read)throw new Error('Foreign canonical author lease');const source=local.snapshot.material.primarySource;if(source.kind==='image'||local.snapshot.materialVersion===4||local.snapshot.materialVersion===5||local.snapshot.materialVersion===6||local.snapshot.materialVersion===7){if(owner.indexedLocalSource){const pending=owner.indexedLocalSource;if(pending.author!==local)throw new Error('Foreign local indexed source handoff');owner.indexedLocalSource=undefined;return canonicalRootBinding(pending.lease,local.snapshot)}if(!owner.fullSource)throw new Error('Canonical image root unavailable');return canonicalRootBinding(owner.fullSource,local.snapshot,true)}return{autoSource:source}}if(!original||original.delivery.lifetime!==owner.plan.read||!original.read)throw new Error('Foreign canonical source');original.delivery.assertCurrent(original);const snapshot=original.read.capability.snapshot,source=snapshot.material.primarySource;if(source.kind==='image'||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7){if(owner.indexedSource){const pending=owner.indexedSource;if(pending.input!==original)throw new Error('Foreign indexed source handoff');owner.indexedSource=undefined;return canonicalRootBinding(pending.lease,snapshot)}if(!owner.fullSource)throw new Error('Canonical image root unavailable');return canonicalRootBinding(owner.fullSource,snapshot,true)}return{autoSource:source}},
           reserveTransient:bytes=>{this._assertCanonicalLayerCurrent(owner);if(!Number.isSafeInteger(bytes)||bytes<0||owner.outstanding+bytes>Math.min(owner.logicalBytes,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');owner.outstanding+=bytes;let closed=false;return()=>{if(!closed){closed=true;owner.outstanding-=bytes}}},
@@ -7506,21 +7562,29 @@ export class PencilEngine implements PencilEngineAPI {
       }
     return owner.coordinator
   }
-  private _stageCanonicalPreview(owner:CanonicalLayerOwner,bytes:number):CanonicalPreviewCandidate {
-    this._assertCanonicalLayerCurrent(owner)
+  private _noteCanonicalPreviewFailure(owner:CanonicalPreviewOwner,outcome:Extract<import('./src/dabs/CanonicalWashLayerCoordinator').CanonicalPreviewOutcome,{kind:'preview-failed'}>):void {
+    if(owner.previewFailureRevision===outcome.revision)return
+    owner.previewFailureRevision=outcome.revision
+    this._diagLog('[engine] unpublished canonical preview failed',outcome.error)
+  }
+  private _assertCanonicalPreviewCurrent(owner:CanonicalPreviewOwner):void {
+    if('transaction'in owner)this._assertCanonicalEmptyCoordinatorCurrent(owner)
+    else this._assertCanonicalLayerCurrent(owner)
+  }
+  private _stageCanonicalPreview(owner:CanonicalPreviewOwner,bytes:number):CanonicalPreviewCandidate {
+    this._assertCanonicalPreviewCurrent(owner)
     if(!owner.previewPublication||!owner.derived||!Number.isSafeInteger(bytes)||bytes<0)throw new Error('Invalid canonical preview staging')
-    const previous=owner.derived,coordinator=owner.coordinator,generation=this._physicalGeneration
-    // Deliberately conservative overlap: original reservation and every actual
-    // fine/coarse backing remain counted. No preexisting charge is subtracted.
+    const previous=owner.derived,stable=owner.stable,coordinator=owner.coordinator,generation=this._physicalGeneration
+    const plan='transaction'in owner?owner.transaction.plan:owner.plan
+    const logicalBytes='transaction'in owner?plan.logicalBytes:owner.logicalBytes
+    const mask='transaction'in owner?plan.mask:owner.mask
     const seen=new Set<AccumulationBuffer>()
     let backing=0
-    for(const layer of [owner.stable,previous])for(const allocation of layer.gpuAllocationSnapshot())if(!seen.has(allocation.buffer)){seen.add(allocation.buffer);backing+=allocation.bytes}
-    const companions=transformedMaskPrepassBudget(owner.mask).gpuBytes+canonicalRgba8CompositeBudget(owner.plan.composite).gpuBytes+owner.cache.bytes
+    for(const layer of [stable,previous])for(const allocation of layer.gpuAllocationSnapshot())if(!seen.has(allocation.buffer)){seen.add(allocation.buffer);backing+=allocation.bytes}
+    const companions=transformedMaskPrepassBudget(mask).gpuBytes+canonicalRgba8CompositeBudget(plan.composite).gpuBytes+owner.cache.bytes
     const total=owner.outstanding+bytes+backing+companions+this._washGpuBytes()
-    if(!Number.isSafeInteger(owner.outstanding+bytes)||owner.outstanding+bytes>owner.logicalBytes)throw new RangeError('Canonical preview logical overlap exceeds existing allowance')
+    if(!Number.isSafeInteger(owner.outstanding+bytes)||owner.outstanding+bytes>logicalBytes)throw new RangeError('Canonical preview logical overlap exceeds existing allowance')
     if(!Number.isSafeInteger(total)||total>this._gpuBudget)throw new RangeError('Canonical preview global overlap exceeds existing allowance')
-    // Logical overlap token precedes even the hidden layer constructor. Actual
-    // target storage subsequently uses unchanged ContextStorageOwner tickets.
     owner.outstanding+=bytes
     let released=false,finished=false,buffer:TiledLayerBuffer|undefined
     const release=()=>{if(!released){released=true;owner.outstanding-=bytes}}
@@ -7528,28 +7592,74 @@ export class PencilEngine implements PencilEngineAPI {
     catch(error){release();throw error}
     const candidate=buffer
     const current=()=>{
-      this._assertCanonicalLayerCurrent(owner)
-      if(finished||this._physicalGeneration!==generation||owner.coordinator!==coordinator||owner.derived!==previous)throw new Error('Canonical preview candidate owner changed')
+      this._assertCanonicalPreviewCurrent(owner)
+      if(finished||this._physicalGeneration!==generation||owner.coordinator!==coordinator||owner.stable!==stable||owner.derived!==previous)throw new Error('Canonical preview candidate owner changed')
     }
     return Object.freeze({buffer:candidate,assertCurrent:current,
       cancel:()=>{if(finished)return;finished=true;try{candidate.destroy()}finally{release()}},
-      finish:(old:TiledLayerBuffer)=>{
-        if(finished||old!==previous||owner.derived!==candidate||owner.coordinator!==coordinator)throw new Error('Canonical preview retirement owner changed')
+      finish:(old:TiledLayerBuffer,disposition='display')=>{
+        // A string is not adoption proof. Validate SAME existing native owner
+        // and map pointers already committed by the paired transition.
+        const closed=disposition==='closed-handoff'
+        const hidden='transaction'in owner?owner:owner.indexedCandidate
+        const mapped=hidden?hidden.transaction.candidate.get(INITIAL_LAYER_ID):this._layers.get(INITIAL_LAYER_ID)
+        if(finished||old!==previous||this._physicalGeneration!==generation
+          ||(closed?(owner.stable!==candidate||owner.derived!==undefined||owner.coordinator!==undefined||mapped!==candidate||!owner.retiring)
+            :(owner.stable!==stable||owner.derived!==candidate||owner.coordinator!==coordinator)))
+          throw new Error('Canonical preview retirement owner changed')
         finished=true;try{old.destroy()}finally{release()}
       }})
   }
-  private _publishCanonicalPreview(owner:CanonicalLayerOwner,ticket:CanonicalPreviewPublication):void {
-    const coordinator=owner.coordinator,previous=owner.derived,generation=this._physicalGeneration
-    this._assertCanonicalLayerCurrent(owner);ticket.assertCurrent()
-    // AFTER all callback-bearing checks, only native fields and frozen DATA.
-    if(this._canonicalLayerOwner!==owner||owner.failed||owner.coordinator!==coordinator||owner.derived!==previous||previous!==ticket.previous||owner.generation!==generation||this._physicalGeneration!==generation||this._destroyed||this._contextLost)throw new Error('Canonical preview publication changed')
-    ticket.publish();owner.derived=ticket.buffer
-    owner.lastDisplayedPresentationRevision=ticket.revision
-    // Cleanup is postcommit. A cleanup error cannot roll back the new pointer;
-    // physical orphan accounting remains the storage owner's responsibility.
-    // Any unknown/GL/authority cleanup failure stays fatal. The outer owner
-    // poison retires the NEW pointer; it never rolls back to a detached oldP.
-    ticket.finish()
+  private _publishCanonicalPreview(owner:CanonicalPreviewOwner,ticket:CanonicalPreviewPublication):void {
+    const coordinator=owner.coordinator,previous=owner.derived,stable=owner.stable,generation=this._physicalGeneration
+    const logRevision=this._log.revision,logEntries=this._log.entries
+    const originalProof='transaction'in owner?undefined:owner.proof
+    const originalInputs='transaction'in owner?undefined:owner.inputs
+    const originalCut='transaction'in owner?undefined:owner.indexedCut
+    this._assertCanonicalPreviewCurrent(owner);ticket.assertCurrent()
+    const hidden='transaction'in owner?owner:owner.indexedCandidate
+    const transaction=hidden?.transaction
+    const mapped=transaction?transaction.candidate.get(INITIAL_LAYER_ID):this._layers.get(INITIAL_LAYER_ID)
+    const ownerFailed='transaction'in owner?owner.transaction.finished:owner.failed
+    const scopeChanged=transaction
+      ?transaction.finished||transaction.generation!==generation||this._canonicalEmptyTransaction!==transaction
+      :'transaction'in owner||this._canonicalLayerOwner!==owner||owner.generation!==generation
+    if(this._log.revision!==logRevision||this._log.entries!==logEntries
+      ||!('transaction'in owner)&&(owner.proof!==originalProof||owner.inputs!==originalInputs||owner.indexedCut!==originalCut)
+      ||ownerFailed||scopeChanged||owner.retiring||owner.coordinator!==coordinator||owner.derived!==previous
+      ||previous!==ticket.previous||owner.stable!==stable||mapped!==stable
+      ||hidden&&hidden!==owner&&(hidden.stable!==stable||hidden.derived!==previous||hidden.indexedOwner!==owner)
+      ||this._physicalGeneration!==generation||this._destroyed||this._contextLost)
+      throw new Error('Canonical preview publication changed')
+    const closed=ticket.disposition==='closed-handoff'
+    // No callback/GL/allocation between these SAME ticket/native pointer writes.
+    ticket.publish()
+    if(closed){
+      owner.stable=ticket.buffer;owner.derived=undefined;owner.coordinator=undefined
+      if(hidden){
+        hidden.stable=ticket.buffer;hidden.derived=undefined
+        hidden.transaction.candidate.set(INITIAL_LAYER_ID,ticket.buffer)
+      }else{
+        this._layers.set(INITIAL_LAYER_ID,ticket.buffer)
+        if(!('transaction'in owner)){
+          if(owner.job&&this._rebuildJobs.get(INITIAL_LAYER_ID)===owner.job)this._rebuildJobs.delete(INITIAL_LAYER_ID)
+          owner.job=undefined;owner.orderParked=false
+        }
+      }
+    }else{
+      owner.derived=ticket.buffer
+      if(hidden)hidden.derived=ticket.buffer
+    }
+    if(!('transaction'in owner))owner.lastDisplayedPresentationRevision=ticket.revision
+    // All disposal resolves the captured OLD payload, never the new stable.
+    // Expected old-executor cancel cannot poison its successor. Unexpected
+    // cleanup still escapes to the caller's existing fail-closed boundary.
+    const retiring=owner.retiring;owner.retiring=closed||retiring
+    let failed=false,primary:unknown
+    const attempt=(action:()=>void)=>{try{action()}catch(error){if(!failed){failed=true;primary=error}}}
+    try{attempt(()=>ticket.finish());if(closed&&stable!==previous)attempt(()=>stable.destroy())}
+    finally{owner.retiring=retiring}
+    if(failed)throw primary
   }
   private _wakeCanonicalLayer(owner:CanonicalLayerOwner):void {
     if(!owner.job){
@@ -7599,6 +7709,23 @@ export class PencilEngine implements PencilEngineAPI {
       const preview=coordinator!.advance();if(!current())return
       if(preview?.kind==='preview-ready'){
         this._publishCanonicalPreview(owner,preview.ticket)
+        if(preview.ticket.disposition==='closed-handoff'){
+          // Old coordinator/job are detached. Validate SAME successor owner/P,
+          // allowing a capacity callback to admit a genuine next cycle.
+          const successorOwned=()=>this._canonicalLayerOwner===owner&&owner.stable===preview.ticket.buffer
+            &&this._layers.get(INITIAL_LAYER_ID)===owner.stable&&owner.generation===generation
+            &&generation===this._physicalGeneration&&!owner.failed&&!owner.retiring&&!this._destroyed&&!this._contextLost
+          const successorCurrent=()=>{if(!successorOwned())return false;this._assertCanonicalLayerCurrent(owner);return successorOwned()}
+          if(!successorCurrent())return
+          // Detach pending before its release/resolve callbacks; never consult
+          // the dead coordinator's capacity or schedule the dead job again.
+          try{this._notifyCanonicalRecordedCapacity(owner)}catch(error){notificationFailed=true;throw error}
+          if(!successorCurrent())return
+          this._invalidateSplitCache();this._displayIfNotSuspended()
+          if(!successorCurrent())return
+          if(!owner.coordinator&&!owner.job&&owner.wake===undefined)this._authorTasks.resetIfIdle()
+          return
+        }
         this._invalidateSplitCache();this._displayIfNotSuspended()
         if(!current()||!notify())return
         this._scheduleCanonicalRebuild(job);return
@@ -8025,13 +8152,20 @@ export class PencilEngine implements PencilEngineAPI {
   private async _prepareCanonicalAuthorBrush(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
     const owner=this._canonicalLayerOwner,descriptor=importedBrushFromPreset(preset)
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!descriptor)throw new Error('Canonical source author services unavailable')
+    if(owner.retiring)throw new Error('Canonical author owner is retiring')
     this._assertCanonicalLayerCurrent(owner)
+    const originalComposition=canonicalSourceComposition(descriptor,owner.plan.profile)
+    if(originalComposition?.mode==='buildup'&&!owner.previewPublication)throw new Error('Canonical buildup author requires preselected mixed owner')
     if(this._canonicalAuthorService.texturedSource&&(owner.plan.originalRead??owner.plan.indexedRead)?.authorTexturedSource!==this._canonicalAuthorService.texturedSource)throw new Error('Canonical author policy differs from original read')
     if(this._canonicalAuthorService.softPressureTexturedSource&&(owner.plan.originalRead??owner.plan.indexedRead)?.authorSoftPressureTexturedSource!==this._canonicalAuthorService.softPressureTexturedSource)throw new Error('Canonical Soft author policy differs from original read')
     if(this._canonicalAuthorService.pressureTexturedSource&&(owner.plan.originalRead??owner.plan.indexedRead)?.authorPressureTexturedSource!==this._canonicalAuthorService.pressureTexturedSource)throw new Error('Canonical pressure author policy differs from original read')
     if(this._canonicalAuthorService.texturedAutoSource&&(owner.plan.originalRead??owner.plan.indexedRead)?.authorTexturedAutoSource!==this._canonicalAuthorService.texturedAutoSource)throw new Error('Canonical textured Auto policy differs from original read')
     const admission=this._canonicalAuthorService.texturedAutoSource==='textured-auto-material-v7'?canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset),{primaryTextureSource:this._canonicalAuthorService.primaryTextureSource,texturedSource:this._canonicalAuthorService.texturedSource,pressureTexturedSource:this._canonicalAuthorService.pressureTexturedSource,softPressureTexturedSource:this._canonicalAuthorService.softPressureTexturedSource,texturedAutoSource:this._canonicalAuthorService.texturedAutoSource}):this._canonicalAuthorService.softPressureTexturedSource==='pressure-soft-auto-texture-v6'?canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset),{primaryTextureSource:this._canonicalAuthorService.primaryTextureSource,texturedSource:this._canonicalAuthorService.texturedSource,pressureTexturedSource:this._canonicalAuthorService.pressureTexturedSource,softPressureTexturedSource:this._canonicalAuthorService.softPressureTexturedSource}):this._canonicalAuthorService.pressureTexturedSource==='pressure-default-auto-texture-v5'?canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset),{primaryTextureSource:this._canonicalAuthorService.primaryTextureSource,texturedSource:this._canonicalAuthorService.texturedSource,pressureTexturedSource:this._canonicalAuthorService.pressureTexturedSource}):this._canonicalAuthorService.texturedSource==='fixed-default-auto-texture-v4'?canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset),{primaryTextureSource:this._canonicalAuthorService.primaryTextureSource,texturedSource:this._canonicalAuthorService.texturedSource}):canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset),{primaryTextureSource:this._canonicalAuthorService.primaryTextureSource})
     if(!admission.supported)throw new Error(admission.reason)
+    if(admission.material.kind==='texturedAuto'&&!originalComposition
+      ||originalComposition?.mode==='buildup'&&(admission.material.kind!=='texturedAuto'||!owner.previewPublication||originalComposition.outerBlend!=='over'
+        ||owner.plan.profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&owner.plan.profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE))
+      throw new Error('Canonical buildup author requires eligible original7 mixed owner')
     const data=admission.data,image=admission.material.kind==='image'||admission.material.kind==='imageTexture'?admission.material.pin:undefined,fixed=admission.material.kind==='autoTexture'?admission.material.capability:undefined,pressure=admission.material.kind==='autoPressureTexture'?admission.material.capability:undefined,softPressure=admission.material.kind==='autoSoftPressureTexture'?admission.material.capability:undefined,generic=admission.material.kind==='texturedAuto'?admission.material.capability:undefined
     let texture:CanonicalTextureContext|undefined=admission.material.kind==='imageTexture'?canonicalPrimaryTextureMaterialContext({version:3,assets:[admission.material.capability.asset,admission.material.capability.patternAsset],primarySource:admission.material.pin.primarySource,primaryTexture:admission.material.capability.primaryTexture,budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}):undefined
     const coverageProfile=admission.material.kind==='auto'&&admission.material.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
@@ -8110,7 +8244,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       if(this._brushPreparationPreset!==preset){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preset}
       const generation=this._brushPreparationGeneration
-      const available=()=>!this._destroyed&&!this._contextLost&&this._canonicalLayerOwner===owner&&owner.generation===this._physicalGeneration&&generation===this._brushPreparationGeneration&&this._opts.pencilType===preset
+      const available=()=>!this._destroyed&&!this._contextLost&&!owner.retiring&&this._canonicalLayerOwner===owner&&owner.generation===this._physicalGeneration&&generation===this._brushPreparationGeneration&&this._opts.pencilType===preset&&(originalComposition?.mode!=='buildup'||!!owner.previewPublication)
       const current=()=>{this._assertCanonicalLayerCurrent(owner);if(!available())throw new Error('Canonical selected source changed')}
       let workspaceUpdate:CanonicalPreparedResourceUpdate|undefined
       let result=resources?await this._prepareCanonicalImageResources(owner,image,current,options,initialMask,false,undefined,localLease,texture):await this._brushPreparation.run([()=>{
@@ -8141,7 +8275,7 @@ export class PencilEngine implements PencilEngineAPI {
       const drop7=()=>{if(refs7<1)throw new Error('Prepared runtime underflow');refs7--;if(!refs7&&!released7){released7=true;release()}}
       const retire7=()=>{if(retired7)return;retired7=true;drop7()}
       const retain7=()=>{if(retired7||released7||refs7>=Number.MAX_SAFE_INTEGER)throw new Error('Prepared runtime retired or bound');refs7++;let done=false;return()=>{if(!done){done=true;drop7()}}}
-      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material,nativeSizePx:admission.nativeSizePx,program:compiled.program,bytes:charge,release:runtime7?retire7:release,imageLease,...runtime7?{runtime7,retain7}:{}}
+      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material,...generic&&originalComposition?{composition7:originalComposition}:{},nativeSizePx:admission.nativeSizePx,program:compiled.program,bytes:charge,release:runtime7?retire7:release,imageLease,...runtime7?{runtime7,retain7}:{}}
       if(runtime7){
         const previous=this._canonicalPreparedAuthor,candidateSignal=options.signal
         current()
@@ -8160,10 +8294,22 @@ export class PencilEngine implements PencilEngineAPI {
       return result
     }finally{if(!accepted){try{const pending=localLease.lease;localLease.lease=undefined;try{imageLease?.release()}finally{pending?.release()}}finally{release()}}}
   }
+  /** Native prepared DATA/owner check only; no descriptor walk per dab. */
+  private _assertCanonicalPreparedRole(prepared:CanonicalPreparedAuthor):void {
+    if(prepared.owner.retiring)throw new Error('Canonical author owner is retiring')
+    if(prepared.material.kind==='texturedAuto'){
+      const composition=prepared.composition7
+      if(!composition||composition.mode==='buildup'&&(!prepared.owner.previewPublication||composition.outerBlend!=='over'
+        ||prepared.owner.plan.profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&prepared.owner.plan.profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE))
+        throw new Error('Canonical buildup START requires preselected mixed owner')
+    }
+  }
   private _assertCanonicalSource(session:TimedAuthorSession):void {
     const source=session.source!,prepared=source.prepared
     if(source.partialCancel)throw source.partialCancel
+    this._assertCanonicalPreparedRole(prepared)
     this._assertCanonicalLayerCurrent(prepared.owner)
+    this._assertCanonicalPreparedRole(prepared)
     if(source.closed||this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._activeId!==session.snapshot.layerId||this._opts.size!==prepared.nativeSizePx||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null||this._contextLost)throw new Error('Canonical pointer lifetime changed')
   }
   private _retireCanonicalSource(session:TimedAuthorSession):void {
@@ -8297,7 +8443,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _onCanonicalStart(input:PointerData):void {
     if(!this._canonicalAuthorService||this._locked)return
     const prepared=this._canonicalPreparedAuthor
+    if(prepared?.owner.retiring)throw new Error('Canonical author owner is retiring')
     if(!prepared||prepared.preset!==this._opts.pencilType||this._opts.tool!=='digitalBrush'||this._opts.size!==prepared.nativeSizePx||this._authorCameraAngle!==0||this._ruler!==null||!this._onLocalOperation)throw new Error('Canonical pointer source is not prepared/fixed')
+    this._assertCanonicalPreparedRole(prepared)
     this._assertCanonicalTiltInput(prepared,input)
     const snapshot=this._captureAuthorStart(input,input.dispatchTime??performance.now())
     if(!snapshot)return
@@ -8312,7 +8460,9 @@ export class PencilEngine implements PencilEngineAPI {
     const releaseCpu=this._brushMipCache.reserve((prepared.runtime7?0:prepared.bytes)+8192+pendingMetadata)
     let releasePrepared:(()=>void)|undefined,context7:CanonicalMaterialContextV7|undefined
     const assertStart7=()=>{
+      this._assertCanonicalPreparedRole(prepared)
       this._assertCanonicalLayerCurrent(prepared.owner)
+      this._assertCanonicalPreparedRole(prepared)
       if(this._canonicalPreparedAuthor!==prepared||prepared.generation!==this._brushPreparationGeneration||this._locked||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._activeId!==snapshot.layerId||this._opts.size!==prepared.nativeSizePx||this._authorCameraAngle!==snapshot.cameraAngle||this._ruler!==null||this._authorProducer&&!this._authorProducer.ended)throw new Error('Textured Auto START changed during entropy or nonce')
     }
     try{
@@ -8357,7 +8507,7 @@ export class PencilEngine implements PencilEngineAPI {
         const expectedAssets=prepared.material.kind==='texturedAuto'?[prepared.material.binding.patternAsset]:prepared.material.kind==='imageTexture'||prepared.material.kind==='autoTexture'||prepared.material.kind==='autoPressureTexture'||prepared.material.kind==='autoSoftPressureTexture'?prepared.material.texture.assets:prepared.material.kind==='image'?prepared.material.pin.assets:[]
         const expectedSource=prepared.material.kind==='texturedAuto'?prepared.material.pin:prepared.material.kind==='auto'||prepared.material.kind==='autoTexture'||prepared.material.kind==='autoPressureTexture'||prepared.material.kind==='autoSoftPressureTexture'?prepared.material.pin:prepared.material.pin.primarySource
         if(s.layerId!==request.layerId||s.brush!==request.brush||s.strokeId!==request.strokeId||s.boardEpoch!==prepared.owner.plan.scope.boardEpoch||s.descriptorSha256!==prepared.sha||s.rasterProfile!==prepared.owner.plan.profile||!canonicalSoftAutoDataEqual(s.pigmentRgb8,request.pigmentRgb8)||s.composition.mode!==policy?.mode||s.composition.outerBlend!==policy.outerBlend||s.composition.alphaDarken!==request.alphaDarken||s.composition.outerResourceOpacity!==request.outerResourceOpacity||('maskSource'in s.material&&s.material.maskSource)||!canonicalSoftAutoDataEqual(s.assets,expectedAssets)||!canonicalSoftAutoDataEqual(s.material.assets,expectedAssets)||!canonicalSoftAutoDataEqual(s.material.primarySource,expectedSource))throw new Error('Canonical BEGIN source mismatch')
-        if((s.materialVersion===7)!==(prepared.material.kind==='texturedAuto')||s.materialVersion===7&&(!source.context7||!canonicalSoftAutoDataEqual(canonicalTexturedAutoMaterialContext(s.material),source.context7)||s.composition.mode!=='wash'))throw new Error('Canonical BEGIN saved textured Auto context mismatch')
+        if((s.materialVersion===7)!==(prepared.material.kind==='texturedAuto')||s.materialVersion===7&&(!source.context7||!canonicalSoftAutoDataEqual(canonicalTexturedAutoMaterialContext(s.material),source.context7)||!canonicalCandidateComposition(s)||s.composition.mode==='buildup'&&!prepared.owner.previewPublication))throw new Error('Canonical BEGIN saved textured Auto context mismatch')
         if((s.materialVersion===3)!==(prepared.material.kind==='imageTexture')||s.materialVersion===3&&(prepared.material.kind!=='imageTexture'||!canonicalSoftAutoDataEqual(s.material.primaryTexture,prepared.material.texture.primaryTexture)))throw new Error('Canonical BEGIN texture source mismatch')
         if((s.materialVersion===6)!==(prepared.material.kind==='autoSoftPressureTexture')||s.materialVersion===6&&(prepared.material.kind!=='autoSoftPressureTexture'||!canonicalSoftAutoDataEqual(canonicalSoftNativeDefaultTexturedSourceMaterialContext(s.material),prepared.material.texture)))throw new Error('Canonical BEGIN Soft pressure texture context mismatch')
         if((s.materialVersion===5)!==(prepared.material.kind==='autoPressureTexture')||s.materialVersion===5&&(prepared.material.kind!=='autoPressureTexture'||!canonicalSoftAutoDataEqual(canonicalPressureTexturedSourceMaterialContext(s.material),prepared.material.texture)))throw new Error('Canonical BEGIN pressure texture context mismatch')
