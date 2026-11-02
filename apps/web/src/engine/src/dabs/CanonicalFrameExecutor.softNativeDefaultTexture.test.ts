@@ -246,18 +246,18 @@ it('replay ticket assertion guard clears even when layer callback throws undefin
 })
 
 // Structural original/local7 fixture, not vendor or online source authority.
-function replayConsumer7(){
+function replayConsumer7(pageBounds?:Readonly<{minX:number;minY:number;maxX:number;maxY:number}>){
  const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),derived=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
  const scope=Object.freeze({roomId:'frontier-room',boardEpoch:0,rasterProfile:G})
  let current=true,late:(()=>void)|undefined
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('frontier original stale');return scope}})
  const source=vi.fn<CanonicalWashLayerCoordinatorOptions['source']>(()=>{const child=s.root.retain();return{autoSource:c.primarySource,bank:child,sourceLease:child,primaryTexture:{context:c,root:child}}})
  const stageCandidate=vi.fn(()=>{throw Error('metadata frontier must not prepare preview')})
- const coordinator=new CanonicalWashLayerCoordinator({buildupReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stageCandidate,rasterProfile:G,layerId:'layer',layerEpoch:0,maxGestures:16,layer:()=>{late?.();return{buffer:s.layer,epoch:0}},presentation:()=>({buffer:derived,epoch:0}),prepass:s.prepass,composite:s.composite,scratch:s.scratch,source,reserveTransient:s.reserve,changed:vi.fn(),poison:vi.fn()})
+ const coordinator=new CanonicalWashLayerCoordinator({buildupReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stageCandidate,...pageBounds?{pageBounds}:{},rasterProfile:G,layerId:'layer',layerEpoch:0,maxGestures:16,layer:()=>{late?.();return{buffer:s.layer,epoch:0}},presentation:()=>({buffer:derived,epoch:0}),prepass:s.prepass,composite:s.composite,scratch:s.scratch,source,reserveTransient:s.reserve,changed:vi.fn(),poison:vi.fn()})
  const snapshot=(strokeId:string)=>canonicalStrokeSnapshotV7({materialVersion:7,material:c,assets:c.assets,layerId:'layer',brush:'brush:generic7@1',strokeId,boardEpoch:0,descriptorSha256:c.primarySource.descriptorSha256,rasterProfile:G,pigmentRgb8:[200,20,50],composition:{mode:'buildup',alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'}},0,G)
  const author=(strokeId:string):CanonicalLocalWashAuthor=>{const value:CanonicalLocalWashAuthor=Object.freeze({lifetime,snapshot:snapshot(strokeId),userId:'actor',assertCurrent(candidate:CanonicalLocalWashAuthor){if(this!==value||candidate!==value)throw Error('foreign frontier author');return lifetime.assertCurrent()}});return value}
- const operation=(strokeId:string,ordinal=0,empty=false):CanonicalStrokeOperation=>{
-  const frame=empty?buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame:decoded7(c)
+ const operation=(strokeId:string,ordinal=0,empty=false,points?:readonly {x:number;y:number}[]):CanonicalStrokeOperation=>{
+  const frame=points?geometryFrame7(c,points):empty?buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame:decoded7(c)
   const version=canonicalStrokeRasterContract(G).envelopeVersion;if(version!==2)throw Error('GSC envelope2 required')
   return Object.freeze<CanonicalStrokeOperation>({type:'canonical_stroke',id:`frontier-${strokeId}-${ordinal}`,userId:'actor',timestamp:ordinal,layerId:'layer',frame:{version,rasterProfile:G,brush:'brush:generic7@1',strokeId,frameOrdinal:ordinal,pigmentRgb8:[200,20,50],composition:{mode:'buildup',alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'},texturePhase:c.primaryTexture.phase,materialPacked:packCanonicalTexturedAutoMaterial(frame,c)}})
  }
@@ -347,4 +347,71 @@ it('consumer7 stage and local rollback faults attempt both and preserve thrown u
   let threw=false,value:unknown='not thrown';try{s.coordinator.tryEnqueueLocal(s.author('undefined'),s.operation('undefined'))}catch(error){threw=true;value=error}s.setLate()
   expect(threw).toBe(true);expect(value).toBeUndefined();expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures).toContain(localError);expect(s.coordinator.cleanupFailures).toContain(stageError);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator['replay'].size).toBe(0)
  }finally{s.setLate();s.close()}
+})
+
+
+function geometryFrame7(c:CanonicalMaterialContextV7,points:readonly {x:number;y:number}[]){
+ const recipe=decoded7(c).definitions[0]
+ return buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:points.map(p=>({recipe,role:'primary',x:p.x,y:p.y,opacity:.75,flow:.7,grainDepth:.5})),fences:points.length?[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:points.length,group:0},{kind:'segmentEnd',at:points.length,group:0},{kind:'gestureEnd',at:points.length}]:[]},c).frame
+}
+it('pending replay targets are SAME deeply frozen clipped negative geometry and refuse receiver/assertion/retirement misuse',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let callback:(()=>void)|undefined
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1',pageBounds:{minX:-3,minY:-2,maxX:5,maxY:4},layer:()=>{callback?.();return{buffer:s.layer,epoch:0}}})
+  const input={...submission7(c),frame:geometryFrame7(c,[{x:-5,y:-3}]),composition:{...submission7(c).composition,mode:'buildup' as const}}
+  const t=e.prepareReplayFrontier(input),cpu=s.cpu.reservedBytes,query=vi.spyOn(s.gl,'getParameter'),source=vi.spyOn(s.prepass,'brushGlBatchInfo'),reserve=vi.spyOn(s.cpu,'reserve')
+  const view=t.targets();expect(t.targets()).toBe(view)
+  expect(view).toEqual([{x:-4,y:-4,width:4,height:4,writeBounds:{minX:-3,minY:-2,maxX:-1,maxY:0}},{x:-4,y:0,width:4,height:4,writeBounds:{minX:-3,minY:0,maxX:-1,maxY:1}}])
+  expect(Object.isFrozen(view)).toBe(true);for(const target of view){expect(Object.isFrozen(target)).toBe(true);expect(Object.isFrozen(target.writeBounds)).toBe(true)}
+  expect(()=>Reflect.set(view[0],'x',0)).not.toThrow();expect(view[0].x).toBe(-4);expect(Reflect.set(view[0].writeBounds!,'minX',0)).toBe(false)
+  expect(()=>Reflect.apply(t.targets,{},[])).toThrow('receiver');expect(query).not.toHaveBeenCalled();expect(source).not.toHaveBeenCalled();expect(reserve).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(cpu)
+  callback=()=>{expect(()=>t.targets()).toThrow('in flight')};t.assertCurrent();callback=undefined;t.publish();expect(()=>t.targets()).toThrow();t.release();expect(()=>t.targets()).toThrow();expect(view[0].x).toBe(-4)
+  e.cancel();const next=s.create({replayFrontier:'textured7-buildup-v1'}),cancel=next.prepareReplayFrontier(input);cancel.cancel();expect(()=>cancel.targets()).toThrow()
+ }finally{callback=undefined;s.close()}
+})
+it('replay cohort65 rejects atomically after two valid32 cohorts; metadata drain does not retire64 and same-coordinate retry works',()=>{
+ const s=replayConsumer7()
+ try{
+  for(let group=0;group<2;group++){
+   const points=Array.from({length:32},(_,i)=>({x:(group*32+i)*8,y:0})),author=s.author('cohort'+group)
+   expect(s.coordinator.tryEnqueueLocal(author,s.operation('cohort'+group,0,false,points))).toBe(true);s.coordinator.advance()
+  }
+  const before=s.cpu.reservedBytes,journal=s.coordinator['replay'].size,entries=s.coordinator['entries'].length,sourceCalls=s.source.mock.calls.length,author=s.author('cohort65')
+  expect(()=>s.coordinator.tryEnqueueLocal(author,s.operation('cohort65',0,false,[{x:512,y:0}]))).toThrow('cohort')
+  expect(s.coordinator['positions'].size).toBe(64);expect(s.coordinator['replay'].size).toBe(journal);expect(s.coordinator['entries']).toHaveLength(entries);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)
+  expect(s.coordinator.tryEnqueueLocal(author,s.operation('cohort65',0,false,[{x:0,y:0}]))).toBe(true)
+  expect(s.coordinator['positions'].size).toBe(64);expect(s.source.mock.calls.length).toBe(sourceCalls+2);s.coordinator.advance();expect(s.coordinator['positions'].size).toBe(64)
+ }finally{s.close()}
+})
+it('replay geometry CPU denial preserves primary undefined and old journal; genuine retry publishes once and promotion adds no geometry',()=>{
+ const s=replayConsumer7(),reserve=s.cpu.reserve.bind(s.cpu),actual=CanonicalFrameExecutor.prototype.prepareReplayFrontier
+ let prepared=false
+ const hook=vi.spyOn(CanonicalFrameExecutor.prototype,'prepareReplayFrontier').mockImplementation(function(this:CanonicalFrameExecutor,input){const t=actual.call(this,input);prepared=true;return t})
+ const cpu=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(prepared&&n===256)throw undefined;return reserve(n)})
+ try{
+  const author=s.author('cpu-geometry'),op=s.operation('cpu-geometry',0,false,[{x:0,y:0}]),before=s.cpu.reservedBytes
+  let rejected=false;try{s.coordinator.tryEnqueueLocal(author,op)}catch(error){rejected=true;expect(error).toBeUndefined()}
+  expect(rejected).toBe(true);expect(s.coordinator['positions'].size).toBe(0);expect(s.coordinator['replay'].size).toBe(0);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)
+  cpu.mockRestore();expect(s.coordinator.tryEnqueueLocal(author,op)).toBe(true)
+  const positions=s.coordinator['positions'],p=positions.get('0:0'),reservations=s.coordinator['reservations'].length,prepare=vi.spyOn(s.coordinator['entries'][0].executor,'prepareReplayFrontier');prepare.mockClear()
+  s.coordinator.enqueueRecorded(s.recorded(op,1));expect(prepare).not.toHaveBeenCalled();expect(positions.size).toBe(1);expect(positions.get('0:0')).toBe(p);expect(s.coordinator['reservations']).toHaveLength(reservations)
+ }finally{cpu.mockRestore();hook.mockRestore();s.close()}
+})
+it('replay geometry reservation callback cancellation releases staging and never publishes positions',()=>{
+ const s=replayConsumer7(),reserve=s.cpu.reserve.bind(s.cpu),actual=CanonicalFrameExecutor.prototype.prepareReplayFrontier;let prepared=false
+ const hook=vi.spyOn(CanonicalFrameExecutor.prototype,'prepareReplayFrontier').mockImplementation(function(this:CanonicalFrameExecutor,input){const t=actual.call(this,input);prepared=true;return t})
+ const cpu=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(prepared&&n===256){try{s.coordinator.cancel()}catch(error){release();throw error}}return release})
+ try{expect(()=>s.coordinator.tryEnqueueLocal(s.author('reentry-geometry'),s.operation('reentry-geometry',0,false,[{x:0,y:0}]))).toThrow();expect(s.coordinator['positions'].size).toBe(0);expect(s.coordinator['replay'].size).toBe(0);expect(s.coordinator.queuedFrameCount).toBe(0)}finally{cpu.mockRestore();hook.mockRestore();s.close()}
+})
+it('fully clipped or repeated replay targets allocate no extra persistent position reservation',()=>{
+ const s=replayConsumer7({minX:0,minY:0,maxX:8,maxY:8})
+ try{
+  const old=s.coordinator['reservations'].length
+  expect(s.coordinator.tryEnqueueLocal(s.author('clipped'),s.operation('clipped',0,false,[{x:-8,y:-8}]))).toBe(true)
+  expect(s.coordinator['positions'].size).toBe(0);expect(s.coordinator['reservations']).toHaveLength(old);s.coordinator.advance()
+  expect(s.coordinator.tryEnqueueLocal(s.author('resident'),s.operation('resident',0,false,[{x:0,y:0}]))).toBe(true);s.coordinator.advance()
+  const count=s.coordinator['reservations'].length,p=s.coordinator['positions'].get('0:0')
+  expect(s.coordinator.tryEnqueueLocal(s.author('duplicate'),s.operation('duplicate',0,false,[{x:0,y:0}]))).toBe(true)
+  expect(s.coordinator['reservations']).toHaveLength(count);expect(s.coordinator['positions'].get('0:0')).toBe(p)
+ }finally{s.close()}
 })

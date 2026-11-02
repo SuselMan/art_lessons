@@ -153,6 +153,7 @@ interface ReplaySnapshot {
 }
 interface Position {
   readonly x: number; readonly y: number; readonly width: number; readonly height: number
+  readonly writeBounds?:Readonly<WorldRect>
   /** Identity only, in the already charged tile metadata; never a pixel mirror.
    * A recovered/replaced target must be initialized with a full rebase. */
   readonly presentation?: { stable?: AccumulationBuffer; derived?: AccumulationBuffer; stableTexture?: WebGLTexture; derivedTexture?: WebGLTexture }
@@ -456,8 +457,10 @@ export class CanonicalWashLayerCoordinator {
     let entry = this.entries.find(e => e.id === input.gestureId)
     if (!entry && this.entries.length >= this.options.maxGestures) throw new RangeError('Canonical wash lane gesture capacity exceeded')
     if (entry?.committed || entry?.ownership) throw new Error('Recorded wash gesture is already sealed')
-    const fresh = new Map<string, Position>()
-    for (const d of this.options.buildupReplay7?[]:input.frame.draws) {
+    let fresh:Map<string,Position>|undefined
+    if(!this.options.buildupReplay7){
+    fresh=new Map<string,Position>()
+    for (const d of input.frame.draws) {
       const r = input.frame.definitions[d.definition]
       if (!r) throw new TypeError('Invalid canonical wash definition')
       for (const tile of planCanonicalTargets({ minX: d.x, minY: d.y, maxX: d.x + r.width, maxY: d.y + r.height }, this.options.pageBounds ?? null, this.stable.tileWidth, this.stable.tileHeight).tiles) {
@@ -465,13 +468,15 @@ export class CanonicalWashLayerCoordinator {
         if (!this.positions.has(key(p))) fresh.set(key(p), p)
       }
     }
+    }
+    const previousPositionCount=this.positions.size
     let ticket:CanonicalReplayAdmissionTicket|undefined
     let acceptedWork=false
     let candidate: CanonicalFrameExecutor | undefined,publishCandidate:(()=>void)|undefined
     let imageBinding:Entry['image'],sourceLease:CanonicalMaskSourceLease|undefined
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
-      if (fresh.size) {
+      if (fresh?.size) {
         releaseCpu = this.options.prepass.brushGlBatchInfo().cpu.reserve(fresh.size * 256)
         releaseGpu = this.options.reserveTransient([...fresh.values()].reduce((n, t) => n + t.width * t.height * 4, 0))
       }
@@ -520,6 +525,22 @@ export class CanonicalWashLayerCoordinator {
       if(this.options.buildupReplay7){
         if(input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)throw new Error('Replay frontier requires material7')
         ticket=entry.executor.prepareReplayFrontier({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+        // Exact existing executor geometry, never replanned from DTO bounds.
+        // Count first: no persistent Position/Map allocation before SAME CPU.
+        const targets=ticket.targets(),previousCount=previousPositionCount
+        let freshCount=0
+        for(const target of targets){
+          if(target.width!==this.stable.tileWidth||target.height!==this.stable.tileHeight)throw new Error('Replay target tile geometry changed')
+          if(!this.positions.has(key(target)))freshCount++
+        }
+        if(previousCount+freshCount>64)throw new RangeError('Replay cohort exceeds bounded target union')
+        if(freshCount){
+          releaseCpu=this.options.prepass.brushGlBatchInfo().cpu.reserve(freshCount*256)
+          if(this.closed||this.failed||!this.busy||this.positions.size!==previousCount)throw new Error('Replay geometry retired during reservation')
+          fresh=new Map<string,Position>()
+          for(const target of targets)if(!this.positions.has(key(target)))fresh.set(key(target),Object.freeze({x:target.x,y:target.y,width:target.width,height:target.height,...target.writeBounds?{writeBounds:target.writeBounds}:{},presentation:{}}))
+        }
+
       }else if(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
@@ -535,6 +556,7 @@ export class CanonicalWashLayerCoordinator {
       if(ticket){
         ticket.assertCurrent();if(local)this.assertLocal(local);if(origin){origin.input.delivery.assertCurrent(origin.input);if(origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')}this.assertLayers()
         const stage=pair?.stage??origin?.stage;stage?.assertPrepared()
+        if(this.positions.size!==previousPositionCount||this.positions.size+(fresh?.size??0)>64)throw new Error('Replay cohort changed before publication')
         if(this.closed||this.failed||!this.busy||this.queue.length>=8||!entry||(!candidate&&this.entries.find(e=>e.id===entry!.id)!==entry))throw new Error('Replay pair owner changed')
         // Pure commit only: no user/release/current callback until both owners publish.
         ticket.publish();stage?.publishPrepared();pair?.publish()
@@ -552,7 +574,8 @@ export class CanonicalWashLayerCoordinator {
     }
     if (releaseEntry) {this.entries.push(entry!);publishCandidate!()}
     if (releaseGpu) { const gpu = releaseGpu, cpu = releaseCpu!; this.reservations.push(() => { try { gpu() } finally { cpu() } }) }
-    for (const [k, p] of fresh) this.positions.set(k, Object.freeze(p))
+    else if(releaseCpu)this.reservations.push(releaseCpu)
+    if(fresh)for (const [k, p] of fresh) this.positions.set(k, Object.freeze(p))
     if(origin)entry!.recorded=origin.recorded
     if(local)entry!.local=local
     this.queue.push(ticket?{kind:'metadata-frontier',entry:entry!,ticket}:entry!);if(ticket)this.revision++; if(recordedSequence!==undefined)this.lastSequence = recordedSequence

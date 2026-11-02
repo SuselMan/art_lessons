@@ -154,8 +154,14 @@ interface WashTile extends TilePosition {
   lifetime: CanonicalOwnedRgba8Target['lifetime']
 }
 type PreparedTurnAction = 'paint' | 'presentation' | 'physical'
+/** Immutable pending receipt DATA, not target handles or a storage lease. */
+export interface CanonicalReplayTargetData {
+  readonly x:number;readonly y:number;readonly width:number;readonly height:number
+  readonly writeBounds?:Readonly<WorldRect>
+}
 /** Internal charged admission receipt, never a source/read/profile grant. */
 export interface CanonicalReplayAdmissionTicket {
+  targets():readonly CanonicalReplayTargetData[]
   assertCurrent():void
   publish():void
   release():void
@@ -501,7 +507,12 @@ export class CanonicalFrameExecutor {
         const legacy:CanonicalFrameSubmission=seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input
         saved=structuredClone(legacy)
       }
-      const work:Work={ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
+      const retainedTargets=[...frameTargets.values()]
+      if(frontier){
+        for(const target of retainedTargets){if(target.writeBounds)Object.freeze(target.writeBounds);Object.freeze(target)}
+        Object.freeze(retainedTargets)
+      }
+      const work:Work={ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:retainedTargets,newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } }
       if(frontier){
         if(newTiles.size||releaseBudget||releaseWashMetadata||releaseDensityIdentity)throw new Error('Replay frontier cannot retain wash/density admission')
@@ -512,6 +523,7 @@ export class CanonicalFrameExecutor {
         const assertPure=()=>{if(!retainedWork||state!=='pending'||this.frontierPending!==ticket||this.frontierGeneration!==generation||this.failed||this.sourceRetired||this.planned!==previousPlanned||this.gesture!==previousGesture)throw new Error('Replay admission owner changed')}
         const retire=()=>{if(released)return;released=true;state='retired';if(this.frontierPending===ticket)this.frontierPending=undefined;this.frontierReleases.delete(retire);retainedWork=undefined;releaseWork()}
         ticket=Object.freeze({
+          targets(){if(this!==ticket)throw new Error('Foreign replay targets receiver');if(asserting)throw new Error('Replay targets assertion is in flight');assertPure();return retainedWork!.frameTargets},
           assertCurrent(){if(this!==ticket)throw new Error('Foreign replay admission receiver');if(asserting)throw new Error('Replay admission assertion reentered');assertPure();checked=false;asserting=true;try{const current=executor.options.layer(input.layerId);if(current.buffer!==buffer||current.epoch!==input.layerEpoch)throw new Error('Replay layer changed');executor.assertPrepared();assertPure();checked=true}finally{asserting=false}},
           publish(){if(this!==ticket)throw new Error('Foreign replay admission receiver');if(asserting)throw new Error('Replay admission assertion is in flight');assertPure();if(!checked)throw new Error('Replay admission was not checked');state='published';executor.frontierPending=undefined;
             executor.gesture??={densityStrokeIdentity,id:input.gestureId,layerId:input.layerId,epoch:input.layerEpoch,buffer,rgb:[input.rgb[0],input.rgb[1],input.rgb[2]],profile:input.frame.profile};executor.washLayerId=input.layerId;executor.planned=result.state},
