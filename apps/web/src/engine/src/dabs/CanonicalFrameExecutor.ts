@@ -167,6 +167,16 @@ export interface CanonicalReplayAdmissionTicket {
   release():void
   cancel():void
 }
+/** Internal immutable accepted source borrow, NOT a room/source grant.
+ * DATA charge belongs to its live frontier executor; retained root alone does
+ * not extend metadata lifetime. No private root handle escapes this view. */
+export interface CanonicalReplaySource7 {
+  readonly rasterProfile:CanonicalStrokeRasterProfile
+  readonly context:CanonicalMaterialContextV7
+  readonly autoSource:CanonicalAutoSource|CanonicalSoftAutoSource
+  assertCurrent():void
+  retainRoot():CanonicalMaskSourceLease
+}
 interface Work {
   input: ExecutorFrameSubmission
   textureStrengths?:Uint8Array
@@ -222,6 +232,7 @@ export class CanonicalFrameExecutor {
   private rawOwner = { alive: true, leases: 0 }
   private washLayerId?: string
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
+  private replaySourceRead?: (receiver:CanonicalFrameExecutor)=>CanonicalReplaySource7
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
   private primaryTexture?:Readonly<{context:CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
@@ -253,7 +264,8 @@ export class CanonicalFrameExecutor {
       if(options.softProgramOwner||options.bank!==options.primaryTexture.root)throw new TypeError('Texture source requires the same root owner')
       const textureOperation=options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar'
       if(!options.composite.supportsTexturedOperations([textureOperation]))throw new Error('Canonical texture variant was not prepared')
-      const releaseMetadata=a.cpu.reserve(4096)
+      // Extra bounded view/three closures are charged BEFORE their allocation.
+      const releaseMetadata=a.cpu.reserve(4096+(options.replayFrontier?512:0))
       let child:CanonicalMaskSourceLease|undefined
       try{
         const context=captureTextureContext(options.primaryTexture.context)
@@ -293,7 +305,41 @@ export class CanonicalFrameExecutor {
           spikes:2,softness:1,randomness:0,density:1,antialias:false},
         {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+2)
     }
-    }catch(error){this.retirePrimaryTexture();this.retireMaskCapacity();throw error}
+    if(options.replayFrontier)this.initializeReplaySource7()
+    }catch(error){if(options.replayFrontier)this.retireSoftProgram();this.retirePrimaryTexture();this.retireMaskCapacity();throw error}
+  }
+
+  /** Accepted constructor capture only; never re-read an options.source bag. */
+  replaySource7():CanonicalReplaySource7 {
+    const read=this.replaySourceRead
+    if(!read)throw new Error('Accepted replay source unavailable')
+    return read(this)
+  }
+  private initializeReplaySource7():void {
+    const texture=this.primaryTexture,autoSource=this.options.autoSource
+    if(this.options.replayFrontier!=='textured7-buildup-v1'||!texture||texture.context.version!==7||!autoSource)throw new Error('Accepted replay source requires frontier7')
+    // Radial constructor/reservation callbacks may have invalidated preparation.
+    this.assertPrepared()
+    const executor=this,context=texture.context,rasterProfile=this.options.rasterProfile,generation=this.frontierGeneration
+    if(rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new Error('Accepted replay raster profile unavailable')
+    let checking=false
+    const pure=()=>{if(executor.failed||executor.sourceRetired||executor.advancing||executor.frontierPreparing||executor.frontierGeneration!==generation||executor.primaryTexture!==texture||executor.replaySourceRead!==read)throw new Error('Accepted replay source retired or busy')}
+    const enter=()=>{if(checking)throw new Error('Accepted replay source reentered');pure();checking=true}
+    const check=()=>{executor.assertPrepared();pure()}
+    const view:CanonicalReplaySource7=Object.freeze({rasterProfile,context,autoSource,
+      assertCurrent(){if(this!==view)throw new Error('Foreign replay source receiver');enter();try{check()}finally{checking=false}},
+      retainRoot(){
+        if(this!==view)throw new Error('Foreign replay source receiver')
+        enter();let child:CanonicalMaskSourceLease|undefined
+        try{check();child=texture.root.retain();check();const accepted=child;child=undefined;return accepted}
+        catch(primary){
+          if(child)try{child.release(executor.cleanupContextLost())}catch(cleanup){executor.cleanupErrors.push(cleanup);executor.failed=true;executor.cleanup(()=>executor.fail(cleanup,executor.cleanupContextLost()))}
+          throw primary
+        }finally{checking=false}
+      },
+    })
+    const read=(receiver:CanonicalFrameExecutor)=>{if(receiver!==executor)throw new Error('Foreign replay source executor');enter();try{check();return view}finally{checking=false}}
+    this.replaySourceRead=read
   }
 
   private get maskParticipant():CanonicalMaskCapacityLease {
@@ -991,7 +1037,7 @@ export class CanonicalFrameExecutor {
   }
 
   private retirePrimaryTexture(lost=false):void {
-    const source=this.primaryTexture;this.primaryTexture=undefined;this.retireTextureAfterTurn=false
+    const source=this.primaryTexture;this.primaryTexture=undefined;this.replaySourceRead=undefined;this.retireTextureAfterTurn=false
     if(!source)return
     this.sourceRetired=true
     this.cleanup(()=>source.root.release(lost));this.cleanup(source.releaseMetadata)

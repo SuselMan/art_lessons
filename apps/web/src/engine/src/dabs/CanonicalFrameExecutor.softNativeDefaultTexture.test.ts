@@ -415,3 +415,68 @@ it('fully clipped or repeated replay targets allocate no extra persistent positi
   expect(s.coordinator['reservations']).toHaveLength(count);expect(s.coordinator['positions'].get('0:0')).toBe(p)
  }finally{s.close()}
 })
+
+// Immutable accepted source capture: structural7, not native/vendor permission.
+it('source capture rejects constructor-callback phase mutation after precompare before original pair publication',()=>{
+ const s=replayConsumer7(),raw=structuredClone(context7('defaultAuto')),original=s.source.getMockImplementation()!,reserve=s.cpu.reserve.bind(s.cpu)
+ let armed=false,mutated=false
+ try{
+  s.source.mockImplementationOnce((...args)=>{const value=original(...args);armed=true;return{...value,primaryTexture:{context:raw,root:value.sourceLease!}}})
+  vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(armed&&!mutated&&(n===4096||n===4608)){mutated=true;Reflect.set(raw.primaryTexture.phase,'x',49)}return release})
+  const before=s.cpu.reservedBytes,author=s.author('capture-gap'),op=s.operation('capture-gap')
+  expect(()=>s.coordinator.tryEnqueueLocal(author,op)).toThrow('Accepted replay source differs from original snapshot')
+  expect(mutated).toBe(true);expect(s.coordinator.poisoned).toBe(false);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator['entries']).toHaveLength(0);expect(s.coordinator['replay'].size).toBe(0);expect(s.cpu.reservedBytes).toBe(before)
+  expect(s.coordinator.tryEnqueueLocal(author,op)).toBe(true)
+ }finally{s.close()}
+})
+it.each(['defaultAuto','gaussianAuto','softAuto']as const)('source capture7 borrows actual immutable constructor refs and genuine child lineage %s',kind=>{
+ const c=context7(kind),raw=structuredClone(c),s=fixture(true,true,G,true,c)
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1',autoSource:raw.primarySource,primaryTexture:{context:raw,root:s.root}}),view=e.replaySource7(),captured=e['primaryTexture']!
+  expect(view).toBe(e.replaySource7());expect(view.context).toBe(captured.context);expect(view.autoSource).toBe(e['options'].autoSource);expect(Object.isFrozen(view)).toBe(true);expect(Object.isFrozen(view.context.primaryTexture.phase)).toBe(true);expect(Object.isFrozen(view.autoSource.source)).toBe(true)
+  Reflect.set(raw.primaryTexture.phase,'x',1);Reflect.set(raw.primarySource,'brushScale',2);Object.defineProperty(raw.primaryTexture,'phase',{get(){throw Error('raw phase must never be read again')}})
+  view.assertCurrent();expect(view.context.primaryTexture.phase).toEqual(c.primaryTexture.phase);expect(view.autoSource.brushScale).toBe(1)
+  expect(()=>Reflect.apply(e.replaySource7,{...e},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.assertCurrent,{...view},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.retainRoot,{...view},[])).toThrow('Foreign')
+  const baseline=s.cpu.reservedBytes,child=view.retainRoot();expect(s.cpu.reservedBytes).toBe(baseline+2048);expect(child).not.toBe(captured.root);expect(child.patternResource(view.context.primaryTexture,view.context.assets[0],s.prepass.brushGlBatchInfo()).asset.id).toBe(c.assets[0].id);child.release();expect(s.cpu.reservedBytes).toBe(baseline)
+  const survivor=view.retainRoot();e.cancel();expect(()=>view.assertCurrent()).toThrow();expect(()=>view.retainRoot()).toThrow();expect(()=>e.replaySource7()).toThrow();expect(survivor.isReady()).toBe(true);survivor.release()
+ }finally{s.close()}
+})
+it('source capture7 getter/assert/retain share one nonreentrant scope without recursive child reservations',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1'}),view=e.replaySource7(),reserve=s.cpu.reserve.bind(s.cpu),baseline=s.cpu.reservedBytes
+  for(const nested of[()=>e.replaySource7(),()=>view.assertCurrent(),()=>view.retainRoot()]){
+   let calls=0;const spy=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(n===2048){calls++;expect(nested).toThrow('reentered')}return release})
+   const child=view.retainRoot();expect(calls).toBe(1);child.release();expect(s.cpu.reservedBytes).toBe(baseline);spy.mockRestore()
+  }
+  const prepared=s.composite.preparedCapacity.bind(s.composite),scope=vi.spyOn(s.composite,'preparedCapacity').mockImplementationOnce(()=>{expect(()=>view.retainRoot()).toThrow('reentered');return prepared()})
+  view.assertCurrent();scope.mockRestore();expect(s.cpu.reservedBytes).toBe(baseline)
+ }finally{s.close()}
+})
+it('source capture7 cancel during actual child reserve releases only new attempt and invalidates all borrows',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),baseline=s.cpu.reservedBytes
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1'}),view=e.replaySource7(),reserve=s.cpu.reserve.bind(s.cpu)
+  vi.spyOn(s.cpu,'reserve').mockImplementationOnce(n=>{const release=reserve(n);expect(n).toBe(2048);e.cancel();return release})
+  expect(()=>view.retainRoot()).toThrow();expect(()=>view.assertCurrent()).toThrow();expect(s.cpu.reservedBytes).toBe(baseline)
+ }finally{s.close()}
+})
+it('source capture7 post-retain undefined failure preserves primary while child cleanup fault latches fatal',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),cleanup=Error('source view child cleanup')
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1'}),view=e.replaySource7(),reserve=s.cpu.reserve.bind(s.cpu),prepared=s.composite.preparedCapacity.bind(s.composite)
+  let afterRetain=false
+  vi.spyOn(s.cpu,'reserve').mockImplementationOnce(n=>{const release=reserve(n);expect(n).toBe(2048);afterRetain=true;return()=>{release();throw cleanup}})
+  vi.spyOn(s.composite,'preparedCapacity').mockImplementation(()=>{if(afterRetain)throw undefined;return prepared()})
+  let threw=false,value:unknown='not thrown';try{view.retainRoot()}catch(error){threw=true;value=error}
+  expect(threw).toBe(true);expect(value).toBeUndefined();expect(e.poisoned).toBe(true);expect(e.cleanupFailures).toContain(cleanup);expect(()=>view.assertCurrent()).toThrow()
+ }finally{s.close()}
+})
+it('source capture7 reserves bounded view metadata before capture and leaves ordinary sources closed',()=>{
+ const c=context7('softAuto'),s=fixture(true,true,G,true,c)
+ try{
+  const before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===4608)throw Error('view metadata reservation');return reserve(n)})
+  expect(()=>s.create({replayFrontier:'textured7-buildup-v1'})).toThrow('view metadata reservation');expect(s.cpu.reservedBytes).toBe(before);spy.mockRestore()
+  const ordinary=s.create();expect(()=>ordinary.replaySource7()).toThrow('unavailable');ordinary.cancel()
+ }finally{s.close()}
+})
