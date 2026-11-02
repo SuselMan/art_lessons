@@ -469,3 +469,37 @@ describe('resource-owned GL turn mutation barriers',()=>{
  it('releases participant barriers only AFTER GL restore and releases every barrier',()=>{const s=setup(),before=s.snapshot(),order:string[]=[],other={...s.service};s.service.enterBrushGlTurn=()=>{order.push('a+');return()=>{expect(s.snapshot()).toEqual(before);order.push('a-')}};other.enterBrushGlTurn=()=>{order.push('b+');return()=>{expect(s.snapshot()).toEqual(before);order.push('b-')}};runBrushGlTurn({participants:[s.service,other]},()=>{s.gl.activeTexture(s.gl.TEXTURE1);order.push('body')});expect(order).toEqual(['a+','b+','body','b-','a-']);expect(s.cpu.reservedBytes).toBe(0)})
  it('unwinds acquired barriers if a later acquisition throws and preserves undefined primary error',()=>{const s=setup(),released=vi.fn(()=>{throw Error('cleanup')}),other={...s.service};s.service.enterBrushGlTurn=()=>released;other.enterBrushGlTurn=()=>{throw undefined};let threw=false,caught:unknown;try{runBrushGlTurn({participants:[s.service,other]},()=>{throw Error('must not run')})}catch(error){threw=true;caught=error}expect(threw).toBe(true);expect(caught).toBeUndefined();expect(released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)})
 })
+
+
+it.each(['turn','batch','borrowed'] as const)('reports cleanup failure separately without replacing the SAME primary in %s',kind=>{
+ const s=setup(),primary=Error('actual body'),cleanup=Error('actual release'),observed=vi.fn()
+ const owner={owner:{},lease:()=>()=>{throw cleanup}}
+ let caught:unknown
+ try{
+  if(kind==='turn'){
+   s.service.enterBrushGlTurn=()=>()=>{throw cleanup}
+   runBrushGlTurn({participants:[s.service],onCleanupFailure:observed},()=>{throw primary})
+  }else if(kind==='batch')runBrushGlBatch({participants:[s.service],owners:[owner],onCleanupFailure:observed},()=>{throw primary})
+  else runBrushGlTurn({participants:[s.service],onCleanupFailure:observed},turn=>runBrushGlBatch({turn,participants:[s.service],owners:[owner]},()=>{throw primary}))
+ }catch(error){caught=error}
+ expect(caught).toBe(primary);expect(observed).toHaveBeenCalledOnce();expect(observed).toHaveBeenCalledWith(cleanup)
+ expect(s.cpu.reservedBytes).toBe(0)
+ runBrushGlBatch({participants:[s.service]},()=>{})
+})
+it('does not report a body failure when actual cleanup succeeded, and observes a swallowed borrowed cleanup',()=>{
+ const s=setup(),primary=Error('body'),cleanup=Error('release'),observed=vi.fn()
+ expect(()=>runBrushGlTurn({participants:[s.service],onCleanupFailure:observed},()=>{throw primary})).toThrow(primary)
+ expect(observed).not.toHaveBeenCalled()
+ runBrushGlTurn({participants:[s.service],onCleanupFailure:observed},turn=>{
+  try{runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>()=>{throw cleanup}}]},()=>{})}catch(error){expect(error).toBe(cleanup)}
+ })
+ expect(observed).toHaveBeenCalledOnce();expect(observed).toHaveBeenCalledWith(cleanup)
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('preserves undefined legacy primary despite cleanup diagnostics',()=>{
+ const s=setup(),cleanup=Error('release'),observed=vi.fn();s.service.enterBrushGlTurn=()=>()=>{throw cleanup}
+ let threw=false,caught:unknown='not thrown'
+ try{runBrushGlTurn({participants:[s.service],onCleanupFailure:observed},()=>{throw undefined})}catch(error){threw=true;caught=error}
+ expect(threw).toBe(true);expect(caught).toBeUndefined();expect(observed).toHaveBeenCalledWith(cleanup)
+ expect(s.cpu.reservedBytes).toBe(0)
+})

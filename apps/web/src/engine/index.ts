@@ -1,3 +1,4 @@
+import type {CanonicalPreviewCandidate,CanonicalPreviewPublication} from './src/dabs/CanonicalWashLayerCoordinator'
 import {canonicalTexturedAutoMaterialContext,canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalStrokeSnapshotV7,type CanonicalTexturedAutoProgramBinding,type CanonicalMaterialContextV7,type CanonicalStrokeSnapshotV7} from '@grafetto/shared'
 import {canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalSoftAutoNativeDefaultTextureSourceBinding,canonicalStrokeSnapshotV6,type CanonicalStrokeSnapshotV6,type CanonicalMaterialContextV6,canonicalPressureTexturedSourceMaterialContext,canonicalPressureCurvePrimaryTexturePin,canonicalStrokeSnapshotV5,canonicalDefaultAutoPressureTextureSourceBinding,type CanonicalMaterialContextV5,type CanonicalStrokeSnapshotV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,canonicalDefaultAutoFixedTextureSourceBinding,type CanonicalMaterialContextV4,type CanonicalStrokeSnapshotV4,CANONICAL_MATERIAL_LIMITS,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,type CanonicalMaterialContextV3,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import { canonicalImageMaterialPin, type CanonicalMaterialAsset } from '@grafetto/shared'
@@ -1638,6 +1639,9 @@ function canonicalLayerMaskCapacity(pin:Pick<CanonicalAutoSource|CanonicalSoftAu
  transformedMaskPrepassBudget(limits);return limits
 }
 interface CanonicalLayerOwner {
+ /** Internal resource experiment only. No room/source author permission. */
+ previewPublication?:true
+ previewFailureRevision?:number
  readonly callbackScope?:BrushGlCanonicalCallbackScope
  readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
@@ -7494,13 +7498,58 @@ export class PencilEngine implements PencilEngineAPI {
     if(!owner.coordinator){
         owner.lastDisplayedPresentationRevision=undefined
         owner.derived=owner.indexedCandidate?.derived??this._makeLayerBuffer() as TiledLayerBuffer
-        owner.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,callbackScope:owner.callbackScope,
+        owner.coordinator=new CanonicalWashLayerCoordinator({...owner.previewPublication?{previewCandidate:(bytes:number)=>this._stageCanonicalPreview(owner,bytes)}:{},rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,callbackScope:owner.callbackScope,
           layer:()=>({buffer:owner.stable,epoch:owner.plan.scope.boardEpoch}),presentation:()=>({buffer:owner.derived!,epoch:owner.plan.scope.boardEpoch}),
           source:(_id,original,local)=>{this._assertCanonicalLayerCurrent(owner);if(local){local.assertCurrent(local);if(local.lifetime!==owner.plan.read)throw new Error('Foreign canonical author lease');const source=local.snapshot.material.primarySource;if(source.kind==='image'||local.snapshot.materialVersion===4||local.snapshot.materialVersion===5||local.snapshot.materialVersion===6||local.snapshot.materialVersion===7){if(owner.indexedLocalSource){const pending=owner.indexedLocalSource;if(pending.author!==local)throw new Error('Foreign local indexed source handoff');owner.indexedLocalSource=undefined;return canonicalRootBinding(pending.lease,local.snapshot)}if(!owner.fullSource)throw new Error('Canonical image root unavailable');return canonicalRootBinding(owner.fullSource,local.snapshot,true)}return{autoSource:source}}if(!original||original.delivery.lifetime!==owner.plan.read||!original.read)throw new Error('Foreign canonical source');original.delivery.assertCurrent(original);const snapshot=original.read.capability.snapshot,source=snapshot.material.primarySource;if(source.kind==='image'||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7){if(owner.indexedSource){const pending=owner.indexedSource;if(pending.input!==original)throw new Error('Foreign indexed source handoff');owner.indexedSource=undefined;return canonicalRootBinding(pending.lease,snapshot)}if(!owner.fullSource)throw new Error('Canonical image root unavailable');return canonicalRootBinding(owner.fullSource,snapshot,true)}return{autoSource:source}},
           reserveTransient:bytes=>{this._assertCanonicalLayerCurrent(owner);if(!Number.isSafeInteger(bytes)||bytes<0||owner.outstanding+bytes>Math.min(owner.logicalBytes,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');owner.outstanding+=bytes;let closed=false;return()=>{if(!closed){closed=true;owner.outstanding-=bytes}}},
           changed:()=>{if(!owner.retiring)this._assertCanonicalLayerCurrent(owner)},poison:(_id,error)=>{if(!owner.retiring){if(owner.indexedCandidate){owner.failed=true;owner.indexedCandidate.transaction.failures.push(error)}else this._poisonCanonicalLayer(error)}}})
       }
     return owner.coordinator
+  }
+  private _stageCanonicalPreview(owner:CanonicalLayerOwner,bytes:number):CanonicalPreviewCandidate {
+    this._assertCanonicalLayerCurrent(owner)
+    if(!owner.previewPublication||!owner.derived||!Number.isSafeInteger(bytes)||bytes<0)throw new Error('Invalid canonical preview staging')
+    const previous=owner.derived,coordinator=owner.coordinator,generation=this._physicalGeneration
+    // Deliberately conservative overlap: original reservation and every actual
+    // fine/coarse backing remain counted. No preexisting charge is subtracted.
+    const seen=new Set<AccumulationBuffer>()
+    let backing=0
+    for(const layer of [owner.stable,previous])for(const allocation of layer.gpuAllocationSnapshot())if(!seen.has(allocation.buffer)){seen.add(allocation.buffer);backing+=allocation.bytes}
+    const companions=transformedMaskPrepassBudget(owner.mask).gpuBytes+canonicalRgba8CompositeBudget(owner.plan.composite).gpuBytes+owner.cache.bytes
+    const total=owner.outstanding+bytes+backing+companions+this._washGpuBytes()
+    if(!Number.isSafeInteger(owner.outstanding+bytes)||owner.outstanding+bytes>owner.logicalBytes)throw new RangeError('Canonical preview logical overlap exceeds existing allowance')
+    if(!Number.isSafeInteger(total)||total>this._gpuBudget)throw new RangeError('Canonical preview global overlap exceeds existing allowance')
+    // Logical overlap token precedes even the hidden layer constructor. Actual
+    // target storage subsequently uses unchanged ContextStorageOwner tickets.
+    owner.outstanding+=bytes
+    let released=false,finished=false,buffer:TiledLayerBuffer|undefined
+    const release=()=>{if(!released){released=true;owner.outstanding-=bytes}}
+    try{buffer=this._makeLayerBuffer() as TiledLayerBuffer}
+    catch(error){release();throw error}
+    const candidate=buffer
+    const current=()=>{
+      this._assertCanonicalLayerCurrent(owner)
+      if(finished||this._physicalGeneration!==generation||owner.coordinator!==coordinator||owner.derived!==previous)throw new Error('Canonical preview candidate owner changed')
+    }
+    return Object.freeze({buffer:candidate,assertCurrent:current,
+      cancel:()=>{if(finished)return;finished=true;try{candidate.destroy()}finally{release()}},
+      finish:(old:TiledLayerBuffer)=>{
+        if(finished||old!==previous||owner.derived!==candidate||owner.coordinator!==coordinator)throw new Error('Canonical preview retirement owner changed')
+        finished=true;try{old.destroy()}finally{release()}
+      }})
+  }
+  private _publishCanonicalPreview(owner:CanonicalLayerOwner,ticket:CanonicalPreviewPublication):void {
+    const coordinator=owner.coordinator,previous=owner.derived,generation=this._physicalGeneration
+    this._assertCanonicalLayerCurrent(owner);ticket.assertCurrent()
+    // AFTER all callback-bearing checks, only native fields and frozen DATA.
+    if(this._canonicalLayerOwner!==owner||owner.failed||owner.coordinator!==coordinator||owner.derived!==previous||previous!==ticket.previous||owner.generation!==generation||this._physicalGeneration!==generation||this._destroyed||this._contextLost)throw new Error('Canonical preview publication changed')
+    ticket.publish();owner.derived=ticket.buffer
+    owner.lastDisplayedPresentationRevision=ticket.revision
+    // Cleanup is postcommit. A cleanup error cannot roll back the new pointer;
+    // physical orphan accounting remains the storage owner's responsibility.
+    // Any unknown/GL/authority cleanup failure stays fatal. The outer owner
+    // poison retires the NEW pointer; it never rolls back to a detached oldP.
+    ticket.finish()
   }
   private _wakeCanonicalLayer(owner:CanonicalLayerOwner):void {
     if(!owner.job){
@@ -7538,7 +7587,21 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=job.canonicalLayer!
     try{
       this._assertCanonicalLayerCurrent(owner)
-      owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
+      const preview=owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
+      if(preview?.kind==='preview-ready'){
+        this._publishCanonicalPreview(owner,preview.ticket)
+        this._invalidateSplitCache();this._displayIfNotSuspended()
+        this._assertCanonicalLayerCurrent(owner)
+        this._scheduleCanonicalRebuild(job);return
+      }
+      if(preview?.kind==='preview-failed'||preview?.kind==='preview-idle'){
+        owner.orderParked=true
+        if(preview.kind==='preview-failed'&&owner.previewFailureRevision!==preview.revision){
+          owner.previewFailureRevision=preview.revision
+          this._diagLog('[engine] unpublished canonical preview failed',preview.error)
+        }
+        return
+      }
       if(owner.recordedCapacity&&owner.coordinator!.queuedFrameCount<8)this._notifyCanonicalRecordedCapacity(owner)
       if(owner.coordinator!.awaitingRecordedOrder){owner.orderParked=true;return}
       if(!owner.coordinator!.pending&&owner.coordinator!.presentationReady){

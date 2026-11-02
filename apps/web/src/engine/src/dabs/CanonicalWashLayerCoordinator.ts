@@ -37,6 +37,42 @@ interface LocalPrefix {
  state:CanonicalMaterialPrefixState
  readonly receipts:{readonly operation:CanonicalStrokeOperation;readonly frame:CanonicalStrokeOperation['frame'];readonly release:()=>void}[]
 }
+/** Engine-owned resource staging only; not an input/paint capability. */
+export interface CanonicalPreviewCandidate {
+  readonly buffer:TiledLayerBuffer
+  assertCurrent():void
+  cancel():void
+  finish(old:TiledLayerBuffer):void
+}
+export interface CanonicalPreviewPublication {
+  readonly buffer:TiledLayerBuffer
+  readonly previous:TiledLayerBuffer
+  readonly revision:number
+  assertCurrent():void
+  publish():void
+  finish():void
+}
+export type CanonicalPreviewOutcome =
+  | {readonly kind:'preview-failed';readonly revision:number;readonly error:unknown}
+  | {readonly kind:'preview-ready';readonly ticket:CanonicalPreviewPublication}
+  | {readonly kind:'preview-idle'}
+interface PreviewSnapshotEntry {
+  readonly committed:boolean
+  readonly opacity:number
+  readonly blend:CanonicalStrokeComposition['outerBlend']
+  readonly tiles:readonly CanonicalWashLocalTile[]
+}
+interface PreviewCandidateWork {
+  readonly revision:number
+  readonly previous:TiledLayerBuffer
+  readonly staged:CanonicalPreviewCandidate
+  readonly positions:ReadonlyMap<string,Position>
+  readonly remaining:Map<string,WorldRect>
+  readonly entries:readonly PreviewSnapshotEntry[]
+  readonly releaseMetadata:()=>void
+  cleanupFailed?:true
+  ticket?:CanonicalPreviewPublication
+}
 export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison'> {
   readonly layerId: string
   readonly layerEpoch: number
@@ -48,6 +84,8 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
   /** Internal resource retention only; never a room/source permission. */
+  /** Owner opt-in; absent leaves the historical wash path unchanged. */
+  readonly previewCandidate?: (bytes:number)=>CanonicalPreviewCandidate
   readonly replayRetention?: Readonly<{maxEntries:number;maxBytes:number}>
   readonly changed: (layerId: string) => void
   readonly poison: (layerId: string, reason: unknown) => void
@@ -140,7 +178,7 @@ export class CanonicalWashLayerCoordinator {
   private readonly gl: WebGLRenderingContext
   private readonly options: CanonicalWashLayerCoordinatorOptions
   private readonly stable: TiledLayerBuffer
-  private readonly derived: TiledLayerBuffer
+  private derived: TiledLayerBuffer
   private readonly derivedEpoch: number
   private readonly maskParticipant:CanonicalMaskCapacityLease
   private readonly preparations: readonly Readonly<{ width: number; height: number; epoch: object }>[]
@@ -151,6 +189,10 @@ export class CanonicalWashLayerCoordinator {
   private readonly reservations: (() => void)[] = []
   private readonly errors: unknown[] = []
   private work?: PresentationWork
+  private candidate?:PreviewCandidateWork
+  private previewLane?:Entry
+  private previewBoundaryReady=false
+  private previewFailure?:{readonly revision:number;readonly error:unknown}
   private revision = 0
   private completedPresentation = -1
   private lastSequence = 0
@@ -201,9 +243,9 @@ export class CanonicalWashLayerCoordinator {
   /** Pixel execution still owed when an unpublished restore defers NEW preview. */
   get executionPending():boolean { return !!this.queue.length || !!this.work || !!this.commitFrontier()?.ownership }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
-  get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
+  get presentationReady(): boolean { return !this.options.previewCandidate && !this.failed && !this.closed && !this.dirty.size && !this.work }
   /** Visual publication exists only after every dirty position has finished. */
-  get publishedPresentationReady():boolean { return this.presentationReady&&this.completedPresentation>=0 }
+  get publishedPresentationReady():boolean { return (!this.options.previewCandidate?this.presentationReady:!this.failed&&!this.closed)&&this.completedPresentation>=0 }
   get completedPresentationRevision():number { return this.completedPresentation }
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
@@ -713,11 +755,12 @@ export class CanonicalWashLayerCoordinator {
   /** Exactly one existing deposition turn OR one <=8 draw rebase/commit turn.
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
-  advance(options:{readonly deferPresentation?:true}={}): void {
+  advance(options:{readonly deferPresentation?:true}={}): CanonicalPreviewOutcome|undefined {
     this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
       const turnStarted = performance.now()
       this.assertLayers()
+      if(this.options.previewCandidate)return this.advancePreview(turnStarted)
       const frontier = this.commitFrontier()
       const preparing=this.queue.findIndex(entry=>entry.executor.hasPendingLayerTargetPreparation)
       // A confirmation can dirty presentation while this SAME executor still
@@ -756,11 +799,13 @@ export class CanonicalWashLayerCoordinator {
     } finally { this.busy = false }
   }
 
-  private advanceEntry(entry:Entry,index:number):void {
+  private advanceEntry(entry:Entry,index:number):boolean {
     const before=entry.executor.pendingFrameCount
     entry.executor.advance()
-    if(entry.executor.pendingFrameCount<before||!entry.executor.pending&&entry.executor.rawWashSealed)this.queue.splice(index,1)
+    const completed=entry.executor.pendingFrameCount<before||!entry.executor.pending&&entry.executor.rawWashSealed
+    if(completed)this.queue.splice(index,1)
     if(entry.executor.rawWashSealed){entry.ownership=entry.executor.takeRawWash();this.invalidate()}
+    return completed
   }
 
   private invalidate(bounds?: Readonly<WorldRect>): void {
@@ -777,8 +822,10 @@ export class CanonicalWashLayerCoordinator {
     }
     this.revision++
     for(const [k,b]of updates){const old=this.dirty.get(k);this.dirty.set(k,old?{minX:Math.min(old.minX,b.minX),minY:Math.min(old.minY,b.minY),maxX:Math.max(old.maxX,b.maxX),maxY:Math.max(old.maxY,b.maxY)}:b)}
-    const previous=this.work;this.work=undefined
-    this.closePresentationPlans(previous)
+    if(!this.options.previewCandidate){
+      const previous=this.work;this.work=undefined
+      this.closePresentationPlans(previous)
+    }
   }
   private locals(entry: Entry): readonly CanonicalWashLocalTile[] { return entry.ownership?.tiles ?? (entry.committed ? [] : entry.executor.rawWashTiles()) }
   private target(plan:PreparedLayerTargets,p:Position,residentOnly:true):PaintTarget|undefined
@@ -856,42 +903,52 @@ export class CanonicalWashLayerCoordinator {
   }
 
   private present(turnStarted: number): void {
-    const k = this.dirty.keys().next().value as string | undefined
+    const candidate=this.candidate,dirty=candidate?.remaining??this.dirty
+    const derived=candidate?.staged.buffer??this.derived
+    const entries=candidate?.entries??this.entries
+    const k = dirty.keys().next().value as string | undefined
     if (k === undefined) return
-    this.work ??= { position: this.positions.get(k)!, revision: this.revision, stage: -1, part: 0, bounds: { ...this.dirty.get(k)! } }
+    this.work ??= { position: (candidate?.positions??this.positions).get(k)!, revision: candidate?.revision??this.revision, stage: -1, part: 0, bounds: { ...dirty.get(k)! } }
     const work = this.work, p = work.position
     if(!work.stablePlan){
       const stable=this.stable.preparePaintTargetRects([rect(p)])
-      try{work.derivedPlan=this.derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
-      catch(primary){try{stable.close()}catch{/* Preserve admission failure. */}throw primary}
+      try{work.derivedPlan=derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
+      catch(primary){try{stable.close()}catch{if(candidate)candidate.cleanupFailed=true}throw primary}
     }
     if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p,true)
+    // Deposition-only stable can be genuinely unallocated/transparent. Prove
+    // blank from retained content metadata (including evicted content), without
+    // materializing/recovering stable storage during candidate work.
+    if(candidate&&!work.stableTarget){
+      const content=this.stable.getContentBoundsWorld()
+      if(content&&content.minX<p.x+p.width&&content.maxX>p.x&&content.minY<p.y+p.height&&content.maxY>p.y)throw new Error('Preview nonempty stable target is not resident')
+    }
     if(performance.now()-turnStarted>=4)return
     if(!work.derivedTarget)work.derivedTarget=this.target(work.derivedPlan!,p,true)
     if(performance.now()-turnStarted>=4)return
-    if(!work.stableTarget||!work.derivedTarget){
-      runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
+    if((!candidate&&!work.stableTarget)||!work.derivedTarget){
+      runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
         const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
-        if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
+        if(!candidate&&!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
         else work.derivedTarget=this.target(work.derivedPlan!,p)
       })
       return
     }
-    runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},turn=>{
+    runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},turn=>{
       const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       // Resolve while preserving the caller's complete GL state. Each actual
       // layer binding is retained only inside this one synchronous capsule.
-      const target = this.target(work.derivedPlan!,p), stable = this.target(work.stablePlan!,p)
-      const bound = bindCanonicalLayerTargets(this.derived, [target])[0], base = bindCanonicalLayerTargets(this.stable, [stable])[0]
+      const target = this.target(work.derivedPlan!,p), stable = candidate?work.stableTarget:this.target(work.stablePlan!,p)
+      const bound = bindCanonicalLayerTargets(derived, [target])[0], base = stable?bindCanonicalLayerTargets(this.stable, [stable])[0]:undefined
       const initialized=p.presentation!
-      if(work.buffer ? work.buffer!==target.buffer || work.texture!==target.buffer.texture || work.stableBuffer!==stable.buffer || work.stableTexture!==stable.buffer.texture
-        : initialized.derived!==target.buffer || initialized.derivedTexture!==target.buffer.texture || initialized.stable!==stable.buffer || initialized.stableTexture!==stable.buffer.texture){
+      if(work.buffer ? work.buffer!==target.buffer || work.texture!==target.buffer.texture || work.stableBuffer!==stable?.buffer || work.stableTexture!==stable?.buffer.texture
+        : initialized.derived!==target.buffer || initialized.derivedTexture!==target.buffer.texture || initialized.stable!==stable?.buffer || initialized.stableTexture!==stable?.buffer.texture){
         work.stage=-1;work.part=0;work.bounds=rect(p)
       }
-      work.buffer=target.buffer;work.texture=target.buffer.texture;work.stableBuffer=stable.buffer;work.stableTexture=stable.buffer.texture
-      const tiles=this.entries.map(entry=>this.locals(entry).find(t=>key(t)===key(p)))
-      const owners=[base.lifetime,bound.lifetime]
+      work.buffer=target.buffer;work.texture=target.buffer.texture;work.stableBuffer=stable?.buffer;work.stableTexture=stable?.buffer.texture
+      const tiles=entries.map(entry=>('tiles'in entry?entry.tiles:this.locals(entry)).find(t=>key(t)===key(p)))
+      const owners=[bound.lifetime,...base?[base.lifetime]:[]]
       for(const tile of tiles)if(tile){
         if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
         owners.push(tile.view.residency)
@@ -899,13 +956,16 @@ export class CanonicalWashLayerCoordinator {
       runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners},frame=>{
         if (work.stage === -1) {
           const b=work.bounds
-          if(b.minX===p.x&&b.minY===p.y&&b.maxX===p.x+p.width&&b.maxY===p.y+p.height)stable.buffer.copyTo(target.buffer)
+          if(!stable){
+            if(!candidate||b.minX!==p.x||b.minY!==p.y||b.maxX!==p.x+p.width||b.maxY!==p.y+p.height)throw new Error('Unproven blank preview target')
+            target.buffer.clear()
+          }else if(b.minX===p.x&&b.minY===p.y&&b.maxX===p.x+p.width&&b.maxY===p.y+p.height)stable.buffer.copyTo(target.buffer)
           else { const x=b.minX-p.x,y=p.height-(b.maxY-p.y);stable.buffer.copyRegionInto(target.buffer,x,y,x,y,b.maxX-b.minX,b.maxY-b.minY) }
           work.stage = 0
         }
         let draws=0
-        while(work.stage<this.entries.length&&draws<8){
-          const entry=this.entries[work.stage],tile=tiles[work.stage]
+        while(work.stage<entries.length&&draws<8){
+          const entry=entries[work.stage],tile=tiles[work.stage]
           if(entry.committed||!tile){work.stage++;work.part=0;continue}
           this.assertLayers()
           const part=this.part(tile.view,work.part,work.bounds)
@@ -915,16 +975,132 @@ export class CanonicalWashLayerCoordinator {
           if(work.part===part.count){work.part=0;work.stage++}
           if(frame.shouldYield||performance.now()-turnStarted>=4)break
         }
-        this.derived.markContentPainted(work.bounds)
+        derived.markContentPainted(work.bounds)
       })
     })
-    if (work.stage === this.entries.length) {
+    if (work.stage === entries.length) {
       Object.assign(p.presentation!,{stable:work.stableBuffer,derived:work.buffer,stableTexture:work.stableTexture,derivedTexture:work.texture})
       this.closePresentationPlans(work)
-      this.dirty.delete(k); this.work = undefined;
-      if(!this.dirty.size)this.completedPresentation=this.revision
-      this.options.changed(this.options.layerId)
+      dirty.delete(k); this.work = undefined;
+      if(!candidate){
+        if(!this.dirty.size)this.completedPresentation=this.revision
+        this.options.changed(this.options.layerId)
+      }
     }
+  }
+
+  private advancePreview(turnStarted:number):CanonicalPreviewOutcome|undefined {
+    // Finish only the already selected head frame. before/after is measured in
+    // ONE synchronous call, so admission between RAFs cannot mask completion.
+    if(!this.candidate&&this.queue.length&&(!this.dirty.size||this.previewLane)){
+      const entry=this.previewLane??this.queue[0]
+      const index=this.queue.indexOf(entry)
+      if(index<0)throw new Error('Preview ordinary lane changed')
+      this.previewLane=entry
+      if(this.advanceEntry(entry,index)){this.previewLane=undefined;this.previewBoundaryReady=true}
+      return
+    }
+    if(!this.candidate){
+      if(!this.dirty.size)return {kind:'preview-idle'}
+      // With no previously selected head, begin one ordinary frame first.
+      // Once complete, dirty work gets the exclusive lane on the next turn.
+      if(this.queue.length&&!this.previewBoundaryReady&&this.previewLane===undefined){
+        const entry=this.queue[0];this.previewLane=entry
+        if(this.advanceEntry(entry,0)){this.previewLane=undefined;this.previewBoundaryReady=true}
+        // Mark the completed boundary independently from any later queue refill.
+        return
+      }
+      // A parked candidate cannot retry without actual ordinary progress.
+      // One accepted frame gets the existing synchronous completion frontier
+      // first; only its real raw changes can advance the revision.
+      if(this.previewFailure?.revision===this.revision)return {kind:'preview-failed',...this.previewFailure}
+      try{this.beginPreview()}catch(error){
+        this.assertRecordedCurrent();this.assertLayers()
+        if(this.failed)throw error
+        this.previewBoundaryReady=false
+        this.previewFailure={revision:this.revision,error}
+        return {kind:'preview-failed',revision:this.revision,error}
+      }
+    }
+    const candidate=this.candidate!
+    try{
+      candidate.staged.assertCurrent()
+      this.assertRecordedCurrent();this.assertLayers()
+      this.present(turnStarted)
+      if(candidate.cleanupFailed)throw new Error('Candidate GL cleanup failed')
+      if(candidate!==this.candidate)throw new Error('Preview work replaced')
+      if(candidate.remaining.size)return
+      const coordinator=this
+      let published=false,finished=false,ticket:CanonicalPreviewPublication
+      ticket=Object.freeze({buffer:candidate.staged.buffer,previous:candidate.previous,revision:candidate.revision,
+        assertCurrent(){
+          if(this!==ticket||published||coordinator.candidate!==candidate||candidate.ticket!==ticket)throw new Error('Foreign preview publication')
+          coordinator.assertRecordedCurrent();coordinator.assertLayers();candidate.staged.assertCurrent()
+        },
+        publish(){
+          // This is the final pure coordinator CAS. Engine updates its pointer
+          // immediately afterwards; no callback/GL/cleanup occurs in between.
+          if(this!==ticket||published||coordinator.closed||coordinator.failed||coordinator.candidate!==candidate||candidate.ticket!==ticket||coordinator.derived!==candidate.previous||candidate.remaining.size||coordinator.work)throw new Error('Stale preview publication')
+          published=true;coordinator.derived=candidate.staged.buffer
+          coordinator.completedPresentation=candidate.revision
+          coordinator.candidate=undefined;coordinator.previewFailure=undefined;coordinator.previewBoundaryReady=false
+          if(coordinator.revision===candidate.revision)coordinator.dirty.clear()
+        },
+        finish(){
+          if(this!==ticket||!published||finished)throw new Error('Preview cleanup ownership changed')
+          finished=true
+          let failed=false,error:unknown
+          try{candidate.staged.finish(candidate.previous)}catch(e){failed=true;error=e}
+          try{candidate.releaseMetadata()}catch(e){if(!failed){failed=true;error=e}}
+          if(failed)throw error
+        }})
+      candidate.ticket=ticket
+      return {kind:'preview-ready',ticket}
+    }catch(error){
+      // Only candidate work is recoverable; ordinary execution and original
+      // authority failures stay in advance's existing fatal boundary.
+      this.assertRecordedCurrent();this.assertLayers();candidate.staged.assertCurrent()
+      if(candidate.cleanupFailed||this.entries.some(entry=>entry.executor.poisoned))throw error
+      if(this.candidate!==candidate)throw error
+      try{this.cancelPreview()}catch(cleanup){throw new AggregateError([error,cleanup],'Preview cleanup failed',{cause:error})}
+      this.previewBoundaryReady=false
+      this.previewFailure={revision:candidate.revision,error}
+      return {kind:'preview-failed',revision:candidate.revision,error}
+    }
+  }
+  private beginPreview():void {
+    if(this.candidate||this.previewLane)throw new Error('Preview lane busy')
+    const count=this.positions.size,entries=this.entries.length,revision=this.revision
+    const bytes=512+count*1024+entries*512+count*entries*1024
+    if(!Number.isSafeInteger(bytes))throw new RangeError('Preview metadata bound')
+    // Reserve BEFORE allocating any captured raw-view arrays or candidate.
+    const releaseMetadata=this.maskParticipant.brushGlBatchInfo().cpu.reserve(bytes)
+    let staged:CanonicalPreviewCandidate|undefined
+    try{
+      const positions=new Map<string,Position>(),remaining=new Map<string,WorldRect>()
+      let gpu=0
+      for(const [k,p]of this.positions){positions.set(k,{...p,presentation:{}});remaining.set(k,rect(p));gpu+=p.width*p.height*4}
+      if(!Number.isSafeInteger(gpu))throw new RangeError('Preview target bound')
+      const captured=this.entries.map(entry=>Object.freeze({committed:entry.committed,opacity:entry.opacity,blend:entry.blend,tiles:this.locals(entry)}))
+      staged=this.options.previewCandidate!(gpu)
+      this.assertRecordedCurrent();this.assertLayers();staged.assertCurrent()
+      if(this.candidate||this.previewLane)throw new Error('Preview creation reentered')
+      this.candidate={revision,previous:this.derived,staged,positions,remaining,entries:Object.freeze(captured),releaseMetadata}
+      staged=undefined
+    }catch(error){
+      let cleanupFailed=false,cleanupError:unknown
+      try{staged?.cancel()}catch(e){cleanupFailed=true;cleanupError=e}
+      try{releaseMetadata()}catch(e){if(!cleanupFailed){cleanupFailed=true;cleanupError=e}}
+      if(cleanupFailed){this.failed=true;throw new AggregateError([error,cleanupError],'Preview staging cleanup failed',{cause:error})}
+      throw error
+    }
+  }
+  private cancelPreview():void {
+    const candidate=this.candidate;this.candidate=undefined
+    const work=this.work;this.work=undefined
+    let failed=false,error:unknown
+    for(const action of [()=>this.closePresentationPlans(work),()=>candidate?.staged.cancel(),()=>candidate?.releaseMetadata()])try{action()}catch(e){if(!failed){failed=true;error=e}}
+    if(failed)throw error
   }
 
   private assertOpen(): void { if (this.closed || this.failed || this.busy) throw new Error('Canonical wash coordinator is closed, poisoned or busy') }
@@ -950,13 +1126,14 @@ export class CanonicalWashLayerCoordinator {
     if(!work)return
     const plans=[work.stablePlan,work.derivedPlan];work.stablePlan=undefined;work.derivedPlan=undefined;work.stableTarget=undefined;work.derivedTarget=undefined
     let failed=false,failure:unknown
-    for(const plan of plans)try{plan?.close()}catch(error){if(!failed){failed=true;failure=error}}
+    for(const plan of plans)try{plan?.close()}catch(error){if(this.candidate)this.candidate.cleanupFailed=true;if(!failed){failed=true;failure=error}}
     if(failed)throw failure
   }
   private closeCommitPlan(entry:Entry):void {
     const plan=entry.targetPlan;entry.targetPlan=undefined;entry.commitTarget=undefined;plan?.close()
   }
   private releaseAll(lost: boolean): void {
+    this.clean(()=>this.cancelPreview());this.previewLane=undefined
     this.replayGeneration++
     for(const entry of this.entries)this.retireReplayGesture(entry.id)
     this.clean(()=>this.replayWork?.release())

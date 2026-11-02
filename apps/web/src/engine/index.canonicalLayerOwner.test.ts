@@ -339,3 +339,229 @@ it('keeps legacy rotated/anisotropic/mirrored originals closed before canvas adm
   expect(get).not.toHaveBeenCalled()
  }
 })
+
+
+it('publishes hidden wash preview with the same owner while latest read/export/checkpoint stay closed',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!
+  owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-open',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  expect(engine['_canonicalLayerOwner']).toBe(owner)
+  expect(owner.coordinator!.publishedPresentationReady).toBe(true)
+  expect(owner.coordinator!.presentationReady).toBe(false)
+  expect(owner.coordinator!.checkpointReady).toBe(false)
+  expect(engine['_canonicalDisplayReady']()).toBe(true)
+  expect(engine['_canonicalReadReady']()).toBe(false)
+  expect(engine['_canonicalExportReady']()).toBe(false)
+  expect(owner.orderParked).toBe(true)
+  const previous=owner.derived,revision=owner.coordinator!.completedPresentationRevision
+  engine.appendOriginalRecorded(recorded(p,2,'preview-open',false,1))
+  await vi.waitFor(()=>expect(owner.coordinator!.completedPresentationRevision).toBeGreaterThan(revision))
+  expect(owner.derived).not.toBe(previous)
+  expect(engine['_log'].entries).toHaveLength(2)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it.each(['allocation','render']as const)('parks candidate %s failure without retiring oldP and recovers on one newer genuine frame',async mode=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!
+  owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-fault',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const oldP=owner.derived!,oldRevision=owner.coordinator!.completedPresentationRevision,primary=Error('candidate-only '+mode)
+  const poisonHook={poison:engine['_poisonCanonicalLayer'].bind(engine)};engine['_poisonCanonicalLayer']=(error)=>poisonHook.poison(error);const poison=vi.spyOn(poisonHook,'poison')
+  const stage=engine['_stageCanonicalPreview'].bind(engine)
+  const stageHook={stage};engine['_stageCanonicalPreview']=(o,bytes)=>stageHook.stage(o,bytes)
+  const failing=vi.spyOn(stageHook,'stage').mockImplementation((o,bytes)=>{
+   if(mode==='allocation')throw primary
+   const candidate=stage(o,bytes),prepare=candidate.buffer.preparePaintTargetRects.bind(candidate.buffer)
+   vi.spyOn(candidate.buffer,'preparePaintTargetRects').mockImplementationOnce(()=>{throw primary})
+   void prepare
+   return candidate
+  })
+  engine.appendOriginalRecorded(recorded(p,2,'preview-fault',false,1))
+  await vi.waitFor(()=>expect(owner.previewFailureRevision).toBeDefined())
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.derived).toBe(oldP)
+  expect(owner.coordinator!.completedPresentationRevision).toBe(oldRevision)
+  expect(poison).not.toHaveBeenCalled();expect(owner.orderParked).toBe(true)
+  expect(engine['_canonicalDisplayReady']()).toBe(true);expect(engine['_canonicalReadReady']()).toBe(false)
+  const attempts=failing.mock.calls.length
+  for(let i=0;i<4;i++)expect(owner.coordinator!.advance()).toMatchObject({kind:'preview-failed'})
+  expect(failing).toHaveBeenCalledTimes(attempts)
+  failing.mockRestore()
+  engine.appendOriginalRecorded(recorded(p,3,'preview-fault-retry',false,0))
+  await vi.waitFor(()=>expect(owner.coordinator!.completedPresentationRevision).toBeGreaterThan(oldRevision))
+  expect(owner.derived).not.toBe(oldP);expect(poison).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('treats actual candidate render plus borrowed-batch cleanup failure as fatal, preserving the primary',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-cleanup',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const primary=Error('candidate render'),cleanup=Error('batch owner cleanup'),poisonHook={poison:engine['_poisonCanonicalLayer'].bind(engine)};engine['_poisonCanonicalLayer']=(error)=>poisonHook.poison(error);const poison=vi.spyOn(poisonHook,'poison')
+  const draw=owner.composite.drawSource.bind(owner.composite)
+  vi.spyOn(owner.composite,'drawSource').mockImplementation((request,frame)=>{
+   if(request.source.kind==='straightRgba8'){
+    if(!frame)throw Error('Expected genuine borrowed frame')
+    frame.holdGroup(()=>{throw cleanup});throw primary
+   }
+   return draw(request,frame)
+  })
+  engine.appendOriginalRecorded(recorded(p,2,'preview-cleanup',false,1))
+  await vi.waitFor(()=>expect(poison).toHaveBeenCalled())
+  expect(poison.mock.calls[0][0]).toBe(primary)
+  expect(engine['_canonicalLayerOwner']).toBeUndefined()
+  expect(engine['_canonicalReadReady']()).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('finishes only the captured ordinary head despite between-turn refill, then gives candidate the exclusive lane',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine['_scheduleCanonicalRebuild']=()=>{}
+  engine.appendOriginalRecorded(recorded(p,1,'preview-head',false,0,64))
+  const job=owner.job!;engine['_stepCanonicalLayer'](job)
+  const coordinator=owner.coordinator!,head=coordinator['queue'][0]
+  expect(head.executor.pendingFrameCount).toBe(1)
+  // A genuine later original enters between synchronous turns, never inside
+  // coordinator.busy. It must not extend the captured head-frame boundary.
+  engine.appendOriginalRecorded(recorded(p,2,'preview-refill',false,0,64))
+  const later=coordinator['queue'].at(-1)!,advance=vi.spyOn(later.executor,'advance')
+  const originalStage=engine['_stageCanonicalPreview'].bind(engine)
+  let staged=false,callsAtStage=-1
+  const stageHook={stage:originalStage};engine['_stageCanonicalPreview']=(o,bytes)=>stageHook.stage(o,bytes)
+  vi.spyOn(stageHook,'stage').mockImplementation((o,bytes)=>{
+   expect(later.executor.pendingFrameCount).toBe(1)
+   staged=true;callsAtStage=advance.mock.calls.length
+   return originalStage(o,bytes)
+  })
+  for(let i=0;i<1024&&!staged;i++)engine['_stepCanonicalLayer'](job)
+  expect(staged).toBe(true);expect(callsAtStage).toBe(0)
+  for(let i=0;i<1024&&coordinator.completedPresentationRevision<0;i++)engine['_stepCanonicalLayer'](job)
+  expect(coordinator.completedPresentationRevision).toBeGreaterThanOrEqual(0)
+  expect(advance).toHaveBeenCalledTimes(callsAtStage)
+  expect(later.executor.pendingFrameCount).toBe(1)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('recovers an actual candidate drawSource throw ONLY when borrowed batch/turn cleanup succeeds',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-real-render',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const oldP=owner.derived!,revision=owner.coordinator!.completedPresentationRevision,primary=Error('actual candidate draw')
+  const poisonHook={poison:engine['_poisonCanonicalLayer'].bind(engine)};engine['_poisonCanonicalLayer']=error=>poisonHook.poison(error)
+  const poison=vi.spyOn(poisonHook,'poison'),draw=owner.composite.drawSource.bind(owner.composite)
+  const fault=vi.spyOn(owner.composite,'drawSource').mockImplementation((request,frame)=>{if(request.source.kind==='straightRgba8')throw primary;return draw(request,frame)})
+  engine.appendOriginalRecorded(recorded(p,2,'preview-real-render',false,1))
+  await vi.waitFor(()=>expect(owner.previewFailureRevision).toBeDefined())
+  expect(owner.derived).toBe(oldP);expect(owner.coordinator!.completedPresentationRevision).toBe(revision)
+  expect(poison).not.toHaveBeenCalled();expect(engine['_canonicalReadReady']()).toBe(false);expect(engine['_canonicalExportReady']()).toBe(false)
+  fault.mockRestore();engine.appendOriginalRecorded(recorded(p,3,'preview-real-render-retry',false))
+  await vi.waitFor(()=>expect(owner.coordinator!.completedPresentationRevision).toBeGreaterThan(revision))
+  expect(owner.derived).not.toBe(oldP);expect(poison).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('commits the new pointer before old cleanup, then treats any retirement failure as fatal without rollback',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-retire-fault',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const oldP=owner.derived!,destroy=oldP.destroy.bind(oldP),primary=Error('old backing retirement'),observed:unknown[]=[]
+  vi.spyOn(oldP,'destroy').mockImplementation(()=>{destroy();throw primary})
+  const poison=engine['_poisonCanonicalLayer'].bind(engine)
+  engine['_poisonCanonicalLayer']=error=>{observed.push(owner.derived);expect(error).toBe(primary);return poison(error)}
+  engine.appendOriginalRecorded(recorded(p,2,'preview-retire-fault',false,1))
+  await vi.waitFor(()=>expect(observed).toHaveLength(1))
+  expect(observed[0]).not.toBe(oldP);expect(engine['_canonicalLayerOwner']).toBeUndefined()
+  expect(engine['_canonicalReadReady']()).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it.each(['logical','global']as const)('checks independent actual %s overlap domain before hidden allocation without raising the other limit',async domain=>{
+ const {transformedMaskPrepassBudget}=await import('./src/dabs/TransformedMaskPrepass')
+ const {canonicalRgba8CompositeBudget}=await import('./src/dabs/CanonicalRgba8CompositePass')
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-budget',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const oldP=owner.derived!,oldLogical=owner.logicalBytes,oldGlobal=engine['_gpuBudget']
+  const makeHook={make:engine['_makeLayerBuffer'].bind(engine)};engine['_makeLayerBuffer']=id=>makeHook.make(id)
+  const allocate=vi.spyOn(makeHook,'make'),stage=engine['_stageCanonicalPreview'].bind(engine),components:number[][]=[]
+  engine['_stageCanonicalPreview']=(o,bytes)=>{
+   const seen=new Set<object>();let backing=0
+   for(const layer of [o.stable,o.derived!])for(const item of layer.gpuAllocationSnapshot())if(!seen.has(item.buffer)){seen.add(item.buffer);backing+=item.bytes}
+   const companions=transformedMaskPrepassBudget(o.mask).gpuBytes+canonicalRgba8CompositeBudget(o.plan.composite).gpuBytes+o.cache.bytes
+   const pool=engine['_washGpuBytes'](),logical=o.outstanding+bytes,total=logical+backing+companions+pool
+   components.push([o.outstanding,bytes,backing,companions,pool,total])
+   expect(logical).toBeLessThanOrEqual(oldLogical);expect(total).toBeLessThanOrEqual(oldGlobal)
+   try{
+    if(domain==='logical')Reflect.set(o,'logicalBytes',logical-1)
+    else engine['_gpuBudget']=total-1
+    return stage(o,bytes)
+   }finally{Reflect.set(o,'logicalBytes',oldLogical);engine['_gpuBudget']=oldGlobal}
+  }
+  engine.appendOriginalRecorded(recorded(p,2,'preview-budget',false,1))
+  await vi.waitFor(()=>expect(owner.previewFailureRevision).toBeDefined())
+  expect(components).toHaveLength(1);expect(allocate).not.toHaveBeenCalled()
+  expect(owner.derived).toBe(oldP);expect(engine['_canonicalLayerOwner']).toBe(owner)
+  expect(String(owner.coordinator!['previewFailure']!.error)).toContain(domain)
+  expect(owner.logicalBytes).toBe(oldLogical);expect(engine['_gpuBudget']).toBe(oldGlobal)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it.each(['completed-plan','allocation-rollback']as const)('treats actual %s close failure outside GL as fatal after plan refs detach',async mode=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  engine.appendOriginalRecorded(recorded(p,1,'preview-plan-close',false))
+  await vi.waitFor(()=>expect(owner.coordinator?.completedPresentationRevision).toBeGreaterThanOrEqual(0))
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  const oldP=owner.derived!,primary=Error('candidate allocation primary'),cleanup=Error('actual plan close'),observed:unknown[]=[]
+  const poison=engine['_poisonCanonicalLayer'].bind(engine)
+  engine['_poisonCanonicalLayer']=error=>{observed.push(error);return poison(error)}
+  const stage=engine['_stageCanonicalPreview'].bind(engine);let closes=0
+  engine['_stageCanonicalPreview']=(o,bytes)=>{
+   const candidate=stage(o,bytes),target=mode==='allocation-rollback'?owner.stable:candidate.buffer
+   const prepare=target.preparePaintTargetRects.bind(target)
+   vi.spyOn(target,'preparePaintTargetRects').mockImplementationOnce(rects=>{
+    const plan=prepare(rects),close=plan.close.bind(plan)
+    return Object.freeze({...plan,close:()=>{closes++;expect(owner.derived).toBe(oldP);close();throw cleanup}})
+   })
+   if(mode==='allocation-rollback')vi.spyOn(candidate.buffer,'preparePaintTargetRects').mockImplementationOnce(()=>{throw primary})
+   return candidate
+  }
+  engine.appendOriginalRecorded(recorded(p,2,'preview-plan-close',false,1))
+  await vi.waitFor(()=>expect(observed.length).toBeGreaterThanOrEqual(1))
+  expect(observed.every(error=>error===(mode==='allocation-rollback'?primary:cleanup))).toBe(true)
+  expect(observed[0]).toBe(mode==='allocation-rollback'?primary:cleanup)
+  expect(closes).toBe(1);expect(engine['_canonicalLayerOwner']).toBeUndefined()
+  expect(engine['_canonicalReadReady']()).toBe(false);expect(engine['_canonicalExportReady']()).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

@@ -206,6 +206,8 @@ interface TurnRecord {
   readonly restore: () => void
   readonly restoreAutoUpload?:()=>void
   readonly restoreGate?:BrushGlRestoreGate
+  /** Scoped cleanup evidence only; never GL state/resource authority. */
+  cleanupFailure?:{readonly error:unknown}
   autoUploadBorrowed:boolean
   active: boolean
   claimed: boolean
@@ -236,7 +238,7 @@ function sameParticipantBinding(current:BrushGlBatchInfo,pinned:BrushGlBatchInfo
 /** One full capture BEFORE direct target allocation/copy and owner callbacks.
  * One inner batch may borrow it. The SAME snapshot is restored inside that
  * batch before owner releases and again here after preparation cleanup. */
-export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[];readonly captureAutoUploadUnpack?:true;readonly callbackScope?:BrushGlCanonicalCallbackScope},execute:(turn:BrushGlTurn)=>void):void {
+export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[];readonly captureAutoUploadUnpack?:true;readonly callbackScope?:BrushGlCanonicalCallbackScope;readonly onCleanupFailure?:(error:unknown)=>void},execute:(turn:BrushGlTurn)=>void):void {
   const autoUpload=options.captureAutoUploadUnpack===true
   if(options.captureAutoUploadUnpack!==undefined&&!autoUpload)throw new Error('Invalid auto upload capture declaration')
   const infos=participantInfos(options.participants),first=infos.values().next().value!
@@ -245,7 +247,8 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
   const releaseCpu=first.cpu.reserve(4096+(autoUpload?128:0))
   let restore:BrushGlStateRestore|undefined,restoreGate:BrushGlRestoreGate|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
   const participantReleases:(()=>void)[]=[]
-  const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;failure=error}}}
+  let cleanupFailure:{readonly error:unknown}|undefined
+  const cleanup=(fn:()=>void)=>{try{fn()}catch(error){cleanupFailure??={error};if(!failed){failed=true;failure=error}}}
   turnContexts.add(first.gl)
   try{
     for(const participant of infos.keys())if(participant.enterBrushGlTurn)participantReleases.push(participant.enterBrushGlTurn())
@@ -268,6 +271,10 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
     closeBrushGlRestoreGate(restoreGate)
     turnContexts.delete(first.gl)
   }
+  // All native cleanup has been attempted and the scope detached before an
+  // optional diagnostic callback. Legacy callers keep the exact same primary.
+  const cleanupEvidence=cleanupFailure??record?.cleanupFailure
+  if(cleanupEvidence&&options.onCleanupFailure)try{options.onCleanupFailure(cleanupEvidence.error)}catch(error){if(!failed){failed=true;failure=error}}
   if(failed)throw failure
 }
 
@@ -288,6 +295,8 @@ export function runBrushGlBatch(options: {
   readonly owners?: readonly BrushGlBatchLifetime[]
   readonly resources?: readonly BrushGlBatchResource[]
   readonly turn?: BrushGlTurn
+  /** Internal diagnostic only; first failure, AFTER attempt-all cleanup. */
+  readonly onCleanupFailure?:(error:unknown)=>void
 }, execute: (frame: BrushGlBatchFrame) => void): void {
   const borrowed=options.turn===undefined?undefined:turns.get(options.turn)
   if(options.turn!==undefined&&(!borrowed||!borrowed.active||borrowed.claimed))throw new Error('Unknown, closed or reused brush GL turn')
@@ -356,7 +365,12 @@ export function runBrushGlBatch(options: {
   const releaseCpu = first.cpu.reserve(cpuBytes)
   const frame = new BrushGlBatchFrame(authority, infos, owners, resources, ownedSamplers,targets), releases: (() => void)[] = []
   let restore: (() => void) | undefined = borrowed?.restore, failed = false, failure: unknown
-  const cleanup = (fn: () => void) => { try { fn() } catch (error) { if (!failed) { failed = true; failure = error } } }
+  let cleanupFailure:{readonly error:unknown}|undefined
+  const cleanup = (fn: () => void) => { try { fn() } catch (error) {
+    cleanupFailure??={error}
+    if(borrowed)borrowed.cleanupFailure??=cleanupFailure
+    if (!failed) { failed = true; failure = error }
+  } }
   try {
     for (const participant of infos.keys()) releases.push(participant.enterBrushGlBatch(frame))
     first.cache.protect([...resources.keys()])
@@ -385,5 +399,6 @@ export function runBrushGlBatch(options: {
     for (const release of releases.reverse()) cleanup(release)
     cleanup(releaseCpu)
   }
+  if(cleanupFailure&&options.onCleanupFailure)try{options.onCleanupFailure(cleanupFailure.error)}catch(error){if(!failed){failed=true;failure=error}}
   if (failed) throw failure
 }
