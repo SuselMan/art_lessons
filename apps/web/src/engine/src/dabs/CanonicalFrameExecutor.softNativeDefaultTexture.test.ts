@@ -1,3 +1,4 @@
+import {runBrushGlBatch,runBrushGlTurn} from './BrushGlBatch'
 import {CanonicalWashLayerCoordinator,type CanonicalWashLayerCoordinatorOptions,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 import {canonicalStrokeRasterContract,canonicalStrokeSnapshotV7,packCanonicalTexturedAutoMaterial,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation,type CanonicalStrokeCloseOperation} from '@grafetto/shared'
@@ -576,4 +577,111 @@ it('buildup close refuses actual source-bank revocation with SAME prepared mask/
   expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow()
   expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.coordinator['lastSequence']).toBe(last);expect(s.coordinator['revision']).toBe(revision);expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator.poisoned).toBe(false)
  }finally{s.close()}
+})
+
+
+function renderedOpen7(c:CanonicalMaterialContextV7){
+ const frame=decoded7(c)
+ return buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:frame.draws.map(d=>({recipe:frame.definitions[d.definition],role:'primary',x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,grainDepth:d.grainDepth})),fences:frame.fences.filter(f=>f.kind!=='gestureEnd')},c).frame
+}
+const renderedIdentity={gestureId:'g7',layerId:'layer',layerEpoch:0,nextFrameOrdinal:1}
+it('ordinary rendered OPEN cancellation remains rebuild-poisoning witness (no method-absence claim)',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{const e=s.create(),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain();expect(e.pending).toBe(false);expect(e['gesture']).toBeDefined();e.cancel();expect(s.poison).toHaveBeenCalledTimes(1);expect(e.poisoned).toBe(true)}finally{clock.mockRestore();s.close()}
+})
+it.each(['defaultAuto','gaussianAuto','softAuto']as const)('candidate7 retires exact rendered OPEN own resources without END or poison %s',kind=>{
+ const c=context7(kind),s=fixture(true,true,G,true,c),baseline=s.cpu.reservedBytes,clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c),frame=renderedOpen7(c),draw=vi.spyOn(s.composite,'drawSource')
+  expect(e.checkpointReady).toBe(false);e.enqueue({...input,frame,composition:{...input.composition,mode:'buildup'}});s.drain()
+  expect(e.pending).toBe(false);expect(e['planned']?.ended).toBe(false);expect(e.checkpointReady).toBe(false);const count=draw.mock.calls.length
+  e.retireRenderedPrefix(renderedIdentity)
+  expect(draw).toHaveBeenCalledTimes(count);expect(frame.fences.some(f=>f.kind==='gestureEnd')).toBe(false);expect(e['gesture']).toBeUndefined();expect(e['planned']).toBeUndefined();expect(e['maskLease']).toBeUndefined();expect(e['primaryTexture']).toBeUndefined();expect(e['softProgram']).toBeUndefined();expect(s.cpu.reservedBytes).toBe(baseline);expect(s.root.isReady()).toBe(true);expect(s.poison).not.toHaveBeenCalled();expect(e.cleanupFailures).toEqual([]);expect(e.poisoned).toBe(false);expect(e.checkpointReady).toBe(false)
+  expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow();expect(()=>e.enqueue({...input,frame,ordinal:1,composition:{...input.composition,mode:'buildup'}})).toThrow();expect(()=>e.advance()).toThrow()
+ }finally{clock.mockRestore();s.close()}
+})
+it.each(['defaultAuto','softAuto']as const)('candidate7 genuine END uses existing successful advance then cancel, not OPEN retirement %s',kind=>{
+ const c=context7(kind),s=fixture(true,true,G,true,c),baseline=s.cpu.reservedBytes,clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c);e.enqueue({...input,composition:{...input.composition,mode:'buildup'}});s.drain();expect(e.pending).toBe(false);expect(e['gesture']).toBeUndefined();expect(e.checkpointReady).toBe(false);expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow();e.cancel();expect(s.cpu.reservedBytes).toBe(baseline);expect(s.poison).not.toHaveBeenCalled();expect(e.cleanupFailures).toEqual([]);expect(e.checkpointReady).toBe(false)}finally{clock.mockRestore();s.close()}
+})
+it('candidate7 is a captured exclusive role, rejects old6/wash/frontier/seal and never opens checkpoints',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{
+  const baseline=s.cpu.reservedBytes
+  for(const modes of[{washMode:'exclusive' as const},{washMode:'deposition-only' as const},{replayFrontier:'textured7-buildup-v1' as const}])expect(()=>s.create({candidateReplay7:'textured7-buildup-v1',...modes})).toThrow('exclusive')
+  expect(s.cpu.reservedBytes).toBe(baseline)
+  const options={candidateReplay7:'textured7-buildup-v1' as const},e=s.create(options),input=submission7(c);Reflect.set(options,'candidateReplay7',undefined)
+  expect(()=>e.enqueue(input)).toThrow('buildup');expect(()=>e.sealRecordedPrefix({gestureId:'g7',layerId:'layer',layerEpoch:0,recordedNext:1})).toThrow('fabricate');expect(()=>Reflect.apply(e.retireRenderedPrefix,{...e},[renderedIdentity])).toThrow();expect(e.checkpointReady).toBe(false)
+ }finally{s.close()}
+ const old=fixture(true,true,G,true);try{const baseline=old.cpu.reservedBytes;expect(()=>old.create({candidateReplay7:'textured7-buildup-v1'})).toThrow('material7');expect(old.cpu.reservedBytes).toBe(baseline)}finally{old.close()}
+})
+it('candidate7 refuses queued, wrong identity, accessor identity, stale root, and layer replacement before terminal mutation',()=>{
+ for(const fault of['queued','identity','accessor','root','layer','root-during-layer']as const){
+  const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0);let replacement:TiledLayerBuffer|undefined
+  try{
+   let current=s.layer,armed=false;const e=s.create({candidateReplay7:'textured7-buildup-v1',layer:()=>{if(armed){armed=false;s.bank.reset()}return{buffer:current,epoch:0}}}),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}})
+   if(fault!=='queued')s.drain()
+   const gesture=e['gesture'],planned=e['planned'];if(fault==='root')s.bank.reset();if(fault==='layer')current=replacement=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+   if(fault==='root-during-layer')armed=true
+   const bytes=s.cpu.reservedBytes,getter=vi.fn(()=>1),identity=fault==='identity'?{...renderedIdentity,nextFrameOrdinal:2}:fault==='accessor'?Object.defineProperty({...renderedIdentity},'nextFrameOrdinal',{get:getter}):renderedIdentity
+   expect(()=>e.retireRenderedPrefix(identity)).toThrow();expect(getter).not.toHaveBeenCalled();expect(e['candidateTerminal']).toBe(false);expect(e['gesture']).toBe(gesture);expect(e['planned']).toBe(planned);if(fault!=='root-during-layer')expect(s.cpu.reservedBytes).toBe(bytes)
+  }finally{clock.mockRestore();replacement?.destroy();s.close()}
+ }
+})
+it('candidate7 busy guard precedes layer assertions and refuses nested retire/advance/enqueue/cancel',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0);let callback:(()=>void)|undefined
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1',layer:()=>{callback?.();return{buffer:s.layer,epoch:0}}}),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain()
+  callback=()=>{expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow();expect(()=>e.advance()).toThrow();expect(()=>e.enqueue({...input,ordinal:1})).toThrow();expect(()=>e.cancel()).toThrow('batch')}
+  e.retireRenderedPrefix(renderedIdentity);expect(s.poison).not.toHaveBeenCalled()
+ }finally{callback=undefined;clock.mockRestore();s.close()}
+})
+it('candidate7 mutation idle barriers reject real participant batch and unrelated active context turn before detachment',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain();const gesture=e['gesture'],bytes=s.cpu.reservedBytes
+  const query=vi.spyOn(s.gl,'getParameter'),reserve=vi.spyOn(s.cpu,'reserve');e['maskLease']!.assertMutationIdle();s.composite.assertMutationIdle();expect(query).not.toHaveBeenCalled();expect(reserve).not.toHaveBeenCalled();query.mockRestore();reserve.mockRestore()
+  const release=e['maskLease']!.enterBrushGlTurn!();try{expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow('scope');expect(e['gesture']).toBe(gesture)}finally{release()}
+  runBrushGlBatch({participants:[s.composite]},()=>{expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow('scope');expect(e['gesture']).toBe(gesture)})
+  runBrushGlTurn({participants:[s.prepass]},()=>{expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow('scope');expect(e['gesture']).toBe(gesture)})
+  expect(s.cpu.reservedBytes).toBe(bytes)
+  for(const update of[()=>s.composite.prepareCompanionUpdate(s.composite['companions']),()=>s.prepass.prepareSourceUpdate(s.root.preparedResources(),{additive:true})]){
+   const staged=update();try{expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow('scope');expect(e['gesture']).toBe(gesture)}finally{staged.cancel()}
+  }
+  expect(s.cpu.reservedBytes).toBe(bytes);e.retireRenderedPrefix(renderedIdentity);expect(e.cleanupFailures).toEqual([])
+ }finally{clock.mockRestore();s.close()}
+})
+it('candidate7 terminal cleanup attempts all real CPU-owned releases, preserves primary undefined and poisons on any cleanup failure',()=>{
+ const c=context7('softAuto'),s=fixture(true,true,G,true,c),baseline=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let armed=false;const released:number[]=[]
+ const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);return()=>{release();if(armed){released.push(n);if(released.length===1)throw undefined;throw Error('secondary owned release')}}})
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain();armed=true
+  let caught=false;try{e.retireRenderedPrefix(renderedIdentity)}catch(error){caught=true;expect(error).toBeUndefined()}
+  armed=false;hook.mockRestore();expect(caught).toBe(true);expect(released.length).toBeGreaterThanOrEqual(4);expect(s.cpu.reservedBytes).toBe(baseline);expect(e['gesture']).toBeUndefined();expect(e['planned']).toBeUndefined();expect(e['softProgram']).toBeUndefined();expect(e['maskLease']).toBeUndefined();expect(e['primaryTexture']).toBeUndefined();expect(e.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1);expect(s.poison.mock.calls[0][1]).toBeUndefined();expect(e.cleanupFailures[0]).toBeUndefined();expect(()=>e.advance()).toThrow();expect(s.root.isReady()).toBe(true)
+ }finally{armed=false;hook.mockRestore();clock.mockRestore();s.close()}
+})
+
+it('candidate7 rejects actual partial physical plan and failed genuine END instead of claiming retirement success',()=>{
+ for(const failedEnd of[false,true]){
+  const c=context7('softAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  try{
+   const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c);e.enqueue({...input,frame:failedEnd?input.frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}})
+   if(failedEnd){vi.spyOn(s.composite,'drawSource').mockImplementationOnce(()=>{throw Error('actual candidate END draw fault')});expect(()=>s.drain()).toThrow('actual candidate END draw fault');expect(e.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1)}
+   else{let time=0;clock.mockImplementation(()=>time++);e.advance();expect(e.pending).toBe(true);expect(e['queue'][0].physical).toBeDefined();expect(e.hasPendingLayerTargetPreparation).toBe(true)}
+   expect(()=>e.retireRenderedPrefix(renderedIdentity)).toThrow();expect(e['candidateTerminal']).toBe(false);expect(e.checkpointReady).toBe(false)
+  }finally{clock.mockRestore();s.close()}
+ }
+})
+
+it('candidate7 requires exact four own DATA identity keys and plain/null prototype without invoking extra accessors',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c);e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain()
+  const getter=vi.fn(()=>true),bytes=s.cpu.reservedBytes,gesture=e['gesture'],planned=e['planned']
+  for(const bad of[Object.defineProperty({...renderedIdentity},'extra',{get:getter}),Object.defineProperty({...renderedIdentity},Symbol('extra'),{get:getter}),Object.assign(Object.create({inherited:true}),renderedIdentity),Object.defineProperty({...renderedIdentity},'layerEpoch',{get:getter})]){
+   expect(()=>Reflect.apply(e.retireRenderedPrefix,e,[bad])).toThrow();expect(e['gesture']).toBe(gesture);expect(e['planned']).toBe(planned);expect(e['candidateTerminal']).toBe(false);expect(s.cpu.reservedBytes).toBe(bytes)
+  }
+  expect(getter).not.toHaveBeenCalled();e.retireRenderedPrefix(Object.assign(Object.create(null),renderedIdentity));expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close()}
 })

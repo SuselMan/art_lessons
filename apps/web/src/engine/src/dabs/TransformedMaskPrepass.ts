@@ -1,5 +1,5 @@
 import { MAX_SOURCE_DENSITY_GESTURE_ID } from '../presets/sourceDefaultAutoDensitySeed'
-import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
+import {assertBrushGlMutationIdle,borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState,restoreBrushAutoUploadState,type BrushGlContextOwner } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
@@ -149,6 +149,8 @@ interface CapacityRecord {
  releaseStorageCpu?:()=>void;alive:boolean;isDefault:boolean;work:number;pinned:boolean
 }
 export interface CanonicalMaskCapacityLease extends BrushGlBatchParticipant {
+ /** Internal pure metadata barrier, not a mutation or execution grant. */
+ assertMutationIdle():void
  isReady():boolean
  preparedCapacity():Readonly<{width:number;height:number;epoch:object}>
  preparedResources():readonly {key:string;bytes:number}[]
@@ -256,6 +258,12 @@ export class TransformedMaskPrepass {
     attempt(()=>this.cache.discard(record.key,lost));const storageCpu=record.releaseStorageCpu,residency=record.releaseResidency,metadata=record.releaseMetadata;record.releaseStorageCpu=undefined;record.releaseResidency=noMetadataRelease;record.releaseMetadata=noMetadataRelease;record.slots.length=0;record.sources.clear();record.bindings.clear();record.staging=new Float32Array(0);attempt(()=>storageCpu?.());attempt(residency);attempt(metadata)
     if(failed)throw first
   }
+  /** Existing resource-owner flags only; never acquire a dummy GL turn. */
+  assertMutationIdle():void {
+    if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup||this.capacityUpdate||this.sourceUpdate)
+      throw new Error('Prepass mutation scope is active')
+    assertBrushGlMutationIdle(this.gl)
+  }
   enterBrushGlTurn():()=>void{return this.enterRecordTurn(this.defaultCapacityRecord())}
   private enterRecordTurn(record:CapacityRecord):()=>void{
     if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup||!this.recordReady(record))throw new Error('Prepass turn already active or stale')
@@ -272,6 +280,7 @@ export class TransformedMaskPrepass {
     const assert=(receiver:unknown)=>{if(receiver!==lease||closed||!this.recordReady(captured))throw new Error('Closed, foreign or stale capacity lease')}
     const releaseMetadata=()=>{if(closed)return;closed=true;captured.leases.delete(releaseMetadata);releaseCpu()}
     const lease:CanonicalMaskCapacityLease=Object.freeze({
+      assertMutationIdle(){assert(this);owner.pass.assertMutationIdle()},
       isReady(){assert(this);return true},
       preparedCapacity(){assert(this);return Object.freeze({width:captured.limits.width,height:captured.limits.height,epoch:captured.workspace})},
       preparedResources(){assert(this);return owner.pass.recordResources(captured)},

@@ -73,7 +73,7 @@ interface PreviewCandidateWork {
   cleanupFailed?:true
   ticket?:CanonicalPreviewPublication
 }
-export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison' | 'replayFrontier'> {
+export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison' | 'replayFrontier' | 'candidateReplay7'> {
   readonly layerId: string
   readonly layerEpoch: number
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */

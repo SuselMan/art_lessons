@@ -121,6 +121,8 @@ export interface CanonicalFrameExecutorOptions {
   readonly washMode?: 'exclusive' | 'deposition-only'
   /** Internal persistent Entry admission role; no executable queue or paint. */
   readonly replayFrontier?:'textured7-buildup-v1'
+  /** Hidden candidate cursor only, never a read/source/room permission. */
+  readonly candidateReplay7?:'textured7-buildup-v1'
   /** Pinned by the room/capability adapter, never selected from mutable tools.
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
@@ -207,6 +209,9 @@ const rect = (t: TilePosition) => ({ minX: t.x, minY: t.y, maxX: t.x + t.width, 
  * One ordered cursor; synchronous leases only. Checkpoint readiness is explicit.
  * Caller serializes ALL writes to the gesture's layer, including peer writes. */
 export class CanonicalFrameExecutor {
+  private readonly candidateReceiver=this
+  private readonly candidateReplay7:boolean
+  private candidateTerminal=false
   private readonly options: CanonicalFrameExecutorOptions
   private maskCapacity: Readonly<{width:number;height:number;epoch:object}>
   private maskLease?:CanonicalMaskCapacityLease
@@ -231,7 +236,7 @@ export class CanonicalFrameExecutor {
   private rawTransferred = false
   private rawOwner = { alive: true, leases: 0 }
   private washLayerId?: string
-  private readonly softProgram?: CanonicalSoftCircleProgramOwner
+  private softProgram?: CanonicalSoftCircleProgramOwner
   private replaySourceRead?: (receiver:CanonicalFrameExecutor)=>CanonicalReplaySource7
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
@@ -244,6 +249,10 @@ export class CanonicalFrameExecutor {
     const version7=options.primaryTexture&&Object.getOwnPropertyDescriptor(options.primaryTexture.context,'version')
     if(version7&&Object.hasOwn(version7,'value')&&version7.value===7)assertStandalone7Density(options.primaryTexture!.context)
     if(options.replayFrontier!==undefined&&(options.replayFrontier!=='textured7-buildup-v1'||!version7||!Object.hasOwn(version7,'value')||version7.value!==7||options.washMode==='deposition-only'))throw new TypeError('Replay frontier requires explicit textured7 source')
+    if(options.candidateReplay7!==undefined&&(options.candidateReplay7!=='textured7-buildup-v1'
+      ||!version7||!Object.hasOwn(version7,'value')||version7.value!==7
+      ||options.replayFrontier!==undefined||options.washMode!==undefined))throw new TypeError('Candidate replay requires exclusive material7 role')
+    this.candidateReplay7=options.candidateReplay7==='textured7-buildup-v1'
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
     const operations = canonicalExecutorOperations(options.rasterProfile)
@@ -361,7 +370,7 @@ export class CanonicalFrameExecutor {
   }
 
   get pending(): boolean { return this.queue.length !== 0 }
-  get checkpointReady(): boolean { return !this.options.replayFrontier && !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
+  get checkpointReady(): boolean { return !this.candidateReplay7 && !this.options.replayFrontier && !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
   get pendingFrameCount(): number { return this.queue.length }
   get replayReservationCount():number {return this.frontierReleases.size}
   /** The existing physical ticket can own unmaterialized layer targets across
@@ -398,6 +407,8 @@ export class CanonicalFrameExecutor {
     finally{this.frontierPreparing=false}
   }
   private submit(input:ExecutorFrameSubmission,frontier=false):CanonicalReplayAdmissionTicket|undefined {
+    if(this.candidateReplay7&&(this.candidateTerminal||input?.frame?.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE
+      ||input.composition?.mode!=='buildup'))throw new TypeError('Candidate replay requires live material7 buildup cursor')
     if(!textureProfile(input?.frame?.profile)){
       if(this.primaryTexture)throw new TypeError('Texture executor requires its selected material profile')
       return this.enqueueCaptured(input)
@@ -609,6 +620,7 @@ export class CanonicalFrameExecutor {
    * prove the exact recorded prefix and reconcile live-only work first. Attach
    * closure to the last real queued frame; no material tail or ordinal is made. */
   sealRecordedPrefix(input: {readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly recordedNext:number}): void {
+    if(this.candidateReplay7)throw new Error('Candidate replay cannot fabricate prefix completion')
     if(this.options.replayFrontier)throw new Error('Replay close metadata belongs to its Entry prefix')
     if(this.failed||this.sourceRetired||this.advancing||this.rawOwner.leases)throw new Error('Canonical executor is poisoned or busy')
     const {gestureId,layerId,layerEpoch,recordedNext}=input
@@ -640,6 +652,7 @@ export class CanonicalFrameExecutor {
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
   advance(): { pending: boolean; checkpointReady: boolean } {
+    if(this.candidateReplay7&&(this.candidateTerminal||this.sourceRetired))throw new Error('Candidate replay cursor retired')
     if(this.options.replayFrontier)throw new Error('Replay frontier cannot execute pixels')
     const result=this.advanceWork()
     this.retireFinishedMask()
@@ -994,6 +1007,65 @@ export class CanonicalFrameExecutor {
       else this.retirePrimaryTexture()
       if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
     }
+  }
+
+  /** Terminal resource retirement of an exactly completed OPEN hidden prefix.
+   * No END/close/seal or checkpoint/read authority is manufactured. */
+  retireRenderedPrefix(expected:{readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly nextFrameOrdinal:number}):void {
+    if(this.candidateReceiver!==this||!this.candidateReplay7||this.candidateTerminal||this.failed
+      ||this.sourceRetired||this.advancing||this.rawOwner.leases||this.cleanupErrors.length
+      ||this.queue.length||this.frontierPending||this.frontierReleases.size
+      ||this.retireMaskAfterTurn||this.retireTextureAfterTurn)throw new Error('Rendered OPEN prefix retirement unavailable')
+    this.advancing=true // Before descriptor traps or any resource/layer callback.
+    try {
+      const gesture=this.gesture,planned=this.planned,mask=this.maskLease,texture=this.primaryTexture,soft=this.softProgram
+      if(!gesture||!planned||planned.ended||!mask||!texture||texture.context.version!==7)
+        throw new Error('Native rendered OPEN prefix required')
+      if(!expected||typeof expected!=='object'||Array.isArray(expected))throw new TypeError('Closed rendered prefix identity required')
+      const prototype=Object.getPrototypeOf(expected),keys=Reflect.ownKeys(expected)
+      if((prototype!==Object.prototype&&prototype!==null)||keys.length!==4
+        ||keys.some(key=>key!=='gestureId'&&key!=='layerId'&&key!=='layerEpoch'&&key!=='nextFrameOrdinal'))
+        throw new TypeError('Closed rendered prefix identity required')
+      const field=(name:string):unknown=>{
+        const descriptor=expected&&Object.getOwnPropertyDescriptor(expected,name)
+        if(!descriptor||!Object.hasOwn(descriptor,'value'))throw new TypeError('Own rendered prefix identity required')
+        return descriptor.value
+      }
+      if(field('gestureId')!==gesture.id||field('layerId')!==gesture.layerId
+        ||field('layerEpoch')!==gesture.epoch||field('nextFrameOrdinal')!==planned.nextFrameOrdinal)
+        throw new Error('Rendered OPEN prefix identity mismatch')
+      mask.assertMutationIdle();this.options.composite.assertMutationIdle(this.compositeCapacity.epoch)
+      this.assertPrepared()
+      const resourceInfo=this.options.composite.brushGlBatchInfo()
+      const layer=this.options.layer(gesture.layerId)
+      if(layer.buffer!==gesture.buffer||layer.epoch!==gesture.epoch||layer.buffer.pixelEncoding!=='straight-rgba8')
+        throw new Error('Rendered OPEN prefix layer changed')
+      if(this.gl.isContextLost())throw new Error('Rendered OPEN prefix context lost')
+      // Revalidate the same root after the final layer/context callbacks.
+      assertCanonicalPatternResourceCurrent(texture.view,resourceInfo,texture.root)
+      // Callbacks above may invalidate owners. The two idle checks are pure.
+      mask.assertMutationIdle();this.options.composite.assertMutationIdle(this.compositeCapacity.epoch)
+      if(this.candidateTerminal||this.failed||this.sourceRetired||!this.advancing||this.cleanupErrors.length
+        ||this.queue.length||this.rawOwner.leases||this.frontierPending||this.frontierReleases.size
+        ||this.retireMaskAfterTurn||this.retireTextureAfterTurn||this.gesture!==gesture||this.planned!==planned
+        ||this.maskLease!==mask||this.primaryTexture!==texture||this.softProgram!==soft)
+        throw new Error('Rendered OPEN prefix owner changed')
+      // Terminal and detached before cleanup callbacks. No caller-owned layer
+      // or root is released; only this executor's retained child/owned tables.
+      this.candidateTerminal=true;this.sourceRetired=true
+      this.gesture=undefined;this.planned=undefined;this.softProgram=undefined
+      const before=this.cleanupErrors.length
+      this.releaseWashes()
+      this.retireMaskCapacity()
+      if(soft&&this.ownsSoftProgram)this.cleanup(()=>soft.retire())
+      this.retirePrimaryTexture()
+      if(this.cleanupErrors.length>before){
+        const primary=this.cleanupErrors[before]
+        this.failed=true
+        this.cleanup(()=>this.options.poison(gesture.layerId,primary))
+        throw primary
+      }
+    } finally {this.advancing=false}
   }
 
   /** Cancel after ANY accepted work requires trusted rebuild, even if this

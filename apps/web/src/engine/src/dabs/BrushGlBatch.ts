@@ -216,6 +216,10 @@ interface TurnRecord {
 // state cache. A batch must receive its genuine caller-owned token explicitly.
 const turns = new WeakMap<BrushGlTurn, TurnRecord>()
 const turnContexts = new WeakSet<WebGLRenderingContext>()
+/** Internal mutation barrier only; no GL read, lease or execution authority. */
+export function assertBrushGlMutationIdle(gl:WebGLRenderingContext):void {
+  if(turnContexts.has(gl))throw new Error('Brush GL turn mutation scope is active')
+}
 function participantInfos(participants: readonly BrushGlBatchParticipant[]): Map<BrushGlBatchParticipant, BrushGlBatchInfo> {
   if (!participants.length || participants.length > 8) throw new RangeError('Invalid brush GL batch participants')
   const infos=new Map(participants.map(p=>[p,p.brushGlBatchInfo()])), first=infos.values().next().value!

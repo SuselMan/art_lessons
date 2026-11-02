@@ -1,3 +1,4 @@
+import {assertBrushGlMutationIdle} from './BrushGlBatch';
 import {assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
 import {canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
@@ -421,6 +422,12 @@ export class CanonicalRgba8CompositePass {
     ], control: SourceAlphaDarken32Control): 'painted' | 'empty' {
         const owned: CanonicalOwnedRgba8Target = { ...target, lifetime: { kind: 'external', owner: target, lease: () => borrowedRelease } };
         return this.drawSource({ source: { kind: 'maskRgb', view, rgb }, target: owned, operation: { kind: 'alphaDarken32', control } });
+    }
+    /** Internal pure metadata barrier; no GL state query or dummy batch. */
+    assertMutationIdle(expectedEpoch?:object):void {
+        if(this.batch||this.busy||this.companionUpdate)throw new Error('Composite mutation scope is active');
+        if(expectedEpoch!==undefined&&(!this.workspace||this.workspace!==expectedEpoch||!this.limits||this.cache.get(this.key)!==this.workspace.texture))throw new Error('Composite preparation changed');
+        assertBrushGlMutationIdle(this.gl);
     }
     brushGlBatchInfo(): BrushGlBatchInfo {
         if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
