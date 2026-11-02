@@ -2,7 +2,7 @@ import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type Canonica
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import { captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
+import { captureSourcePlainAutoGeometryData, captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
 
 /** Only the native outer law representable by canonical over32 today.
  * This checks composition of an already verified descriptor, not source-data
@@ -529,4 +529,22 @@ export function extractCanonicalTexturedAutoProgramData(descriptor:BrushDescript
  if(k==='softAuto')return extractSoftNativeDefaultTextureProgramDataCore(descriptor,assets,true)
  if(k==='gaussianAuto')return extractCanonicalGaussianAutoTexturePressureProgramData(descriptor,assets)
  return {supported:false as const,reasons:['unsupported-textured-auto-family']}
+}
+
+/** Immutable known-mechanism DATA only, never a read/BEGIN/root grant. */
+export function extractCanonicalPlainAutoTiltGeometryData(original:unknown):
+ {readonly supported:false;readonly reasons:readonly string[]} |
+ Readonly<{supported:true;status:'source-data-only';rasterReady:false;kind:'plain-auto-tilt-v1';descriptor:Readonly<BrushDescriptor>;data:Extract<ReturnType<typeof extractDefaultAutoSourceDataCapability>,{supported:true}>['data'];maxScale:1;maxRatio:1;allRotations:true}> {
+ const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
+ try{
+  const captured=captureSourcePlainAutoGeometryData(original),descriptor=captured.descriptor as unknown as BrushDescriptor,data=captured.data
+  const base=extractDefaultAutoData(descriptor,false,'plain',data)
+  if(!base.supported)return reject(base.reasons.join(','))
+  if(base.data.source.shape!=='circle'||sourceStampPaintingMode(data)!=='wash'||data.timing.enabled||data.brush.scale!==1||data.flags.mirrorX||data.flags.mirrorY||data.options.some(o=>o.checked&&['Scatter','Mirror'].includes(o.id)))return reject('plain-tilt unsupported mechanism')
+  const single=(id:string,sensor:string)=>{const o=data.options.find(o=>o.id===id);return !!o&&o.checked&&o.useCurve&&o.useSameCurve&&o.curveMode===0&&o.strength===1&&o.min===0&&o.max===1&&o.sensors.length===1&&o.sensors[0].id===sensor}
+  if(!single('Size','tiltElevation')||!single('Ratio','tiltElevation')||!single('Rotation','tiltDirection'))return reject('plain-tilt option subset')
+  if(data.options.some(o=>o.checked&&o.useCurve&&o.sensors.some(x=>!['pressure','tiltElevation','tiltDirection'].includes(x.id))))return reject('plain-tilt sensor subset')
+  for(const o of data.options)if(o.checked&&!['Size','Ratio','Rotation'].includes(o.id)&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure'))return reject('plain-tilt auxiliary option')
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'plain-auto-tilt-v1' as const,descriptor:Object.freeze(descriptor),data:base.data,maxScale:1 as const,maxRatio:1 as const,allRotations:true as const})
+ }catch{return reject('invalid plain-tilt original DATA')}
 }

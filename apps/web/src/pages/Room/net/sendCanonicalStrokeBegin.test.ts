@@ -280,3 +280,11 @@ it.each(['emit','onBeginAccepted']as const)('preserves %s primary and attempts e
 it('announces validated BEGIN synchronously before FIFO continuation can consume the Promise',async()=>{
  const s=socket(),accepted=vi.fn(),p=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,onBeginAccepted:accepted});s.ack();expect(accepted).toHaveBeenCalledTimes(1);await p
 })
+
+it('rejects caller-owned plainTilt AUTHOR accessor before getter or BEGIN emit',async()=>{
+ const s=socket(),getter=vi.fn(()=>'plain-auto-tilt-v1'),lifetime={boardEpoch:2,authorRasterProfile:generic,isCurrent:()=>true}
+ Object.defineProperty(lifetime,'authorPlainTiltSource',{get:getter})
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime)
+ if(s.sent.length)s.ack({ok:false,reason:'invalid_operation'})
+ await expect(pending).rejects.toThrow('policy');expect(getter).not.toHaveBeenCalled();expect(s.sent).toHaveLength(0)
+})

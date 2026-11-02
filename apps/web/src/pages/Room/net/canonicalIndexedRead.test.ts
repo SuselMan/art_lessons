@@ -297,3 +297,62 @@ it('rejects accessor read7 offer without getter or OPEN and leaves absent author
  await expect(f.open()).rejects.toThrow();expect(getter).not.toHaveBeenCalled();expect(f.requests).toHaveLength(0)
  const legacy=auto7PolicyFixture(),read=await legacy.open();expect(read.authorTexturedAutoSource).toBe('textured-auto-material-v7');expect(read.texturedAutoSource).toBeUndefined();await read.cancel()
 })
+
+function plain9RoutingFixture(){
+ const f=indexedSocketFixture([])
+ Object.assign(f.offer,{authorRasterProfile:G,plainTiltSource:'plain-auto-tilt-v1'})
+ Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){
+  const previous=f.handlers[event];f.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};return{...reply,value:{...reply.value,plainTiltSource:'plain-auto-tilt-v1'}}}
+ }
+ return f
+}
+it('retains exact original plainTilt reader9 authorOFF across origin/read/cut/recovery/FOLLOW without author grant',async()=>{
+ const f=plain9RoutingFixture(),read=await f.open(),page=await read.nextPage(),cut=read.finish(page);page.release()
+ for(const original of [read,read.lifetime,cut]){expect(original.plainTiltSource).toBe('plain-auto-tilt-v1');expect(original.authorPlainTiltSource).toBeUndefined()}
+ Reflect.deleteProperty(f.offer,'plainTiltSource');expect(read.plainTiltSource).toBe('plain-auto-tilt-v1')
+ const recovery=await read.lifetime.reopen(cut);expect(recovery.plainTiltSource).toBe(read.plainTiltSource);await recovery.cancel()
+ const follow=await read.lifetime.follow(cut);expect(follow.plainTiltSource).toBe(read.plainTiltSource);await follow.cancel()
+ f.setCurrent(false);expect(()=>read.lifetime.assertCurrent()).toThrow()
+})
+it.each(['open','recovery','follow']as const)('rejects plainTilt read9 routing mismatch in %s while retaining original cut',async mode=>{
+ const f=plain9RoutingFixture(),event=mode==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen'
+ const alter=()=>{const previous=f.handlers[event];f.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};const value={...reply.value};Reflect.deleteProperty(value,'plainTiltSource');return{...reply,value}}}
+ if(mode==='open'){alter();await expect(f.open()).rejects.toThrow();return}
+ const read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release();alter()
+ await expect(mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
+ expect(cut.plainTiltSource).toBe('plain-auto-tilt-v1');expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})
+
+function plain9AuthorFixture(){
+ const f=indexedSocketFixture([])
+ Object.assign(f.offer,{authorRasterProfile:G,plainTiltSource:'plain-auto-tilt-v1',authorPlainTiltSource:'plain-auto-tilt-v1'})
+ Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){
+  const previous=f.handlers[event]
+  f.handlers[event]=async body=>{const response=await previous(body) as {ok:true;value:object};return {...response,value:{...response.value,plainTiltSource:'plain-auto-tilt-v1',authorPlainTiltSource:'plain-auto-tilt-v1'}}}
+ }
+ return f
+}
+it('retains original plainTilt9 permission through OPEN/cut/recovery/FOLLOW without inventing old5/6 permission',async()=>{
+ const f=plain9AuthorFixture(),read=await f.open(),terminal=await read.nextPage(),cut=read.finish(terminal);terminal.release()
+ expect(read.authorPlainTiltSource).toBe('plain-auto-tilt-v1')
+ expect(read.lifetime.authorPlainTiltSource).toBe(read.authorPlainTiltSource)
+ expect(cut.authorPlainTiltSource).toBe(read.authorPlainTiltSource)
+ expect(cut.authorPressureTexturedSource).toBeUndefined();expect(cut.authorSoftPressureTexturedSource).toBeUndefined()
+ const recovery=await read.lifetime.reopen(cut)
+ expect(recovery.authorPlainTiltSource).toBe(read.authorPlainTiltSource);await recovery.cancel()
+ const follow=await read.lifetime.follow(cut)
+ expect(follow.authorPlainTiltSource).toBe(read.authorPlainTiltSource);await follow.cancel()
+})
+it.each(['open','follow','recovery'] as const)('rejects changed original plainTilt9 policy in actual %s ACK',async kind=>{
+ const f=plain9AuthorFixture(),event=kind==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen'
+ if(kind==='open'){
+  const old=f.handlers[event];f.handlers[event]=async body=>{const response=await old(body) as {ok:true;value:object};Reflect.deleteProperty(response.value,'authorPlainTiltSource');return response}
+  await expect(f.open()).rejects.toThrow();return
+ }
+ const read=await f.open(),terminal=await read.nextPage(),cut=read.finish(terminal);terminal.release()
+ const old=f.handlers[event];f.handlers[event]=async body=>{const response=await old(body) as {ok:true;value:object};Reflect.deleteProperty(response.value,'authorPlainTiltSource');return response}
+ await expect(kind==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
+ expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})

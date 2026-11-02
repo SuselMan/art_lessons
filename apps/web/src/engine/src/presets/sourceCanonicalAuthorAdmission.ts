@@ -1,3 +1,4 @@
+import {extractCanonicalPlainAutoTiltGeometryData} from '@grafetto/shared'
 import {extractCanonicalTexturedAutoProgramData} from '@grafetto/shared'
 import {extractCanonicalSoftAutoNativeDefaultTextureProgramData,extractCanonicalDefaultAutoPressureTextureProgramData,canonicalStrokeRasterContract,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,extractCanonicalDefaultAutoFixedTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type CanonicalDefaultAutoFixedTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
@@ -140,4 +141,18 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   if(!capability.supported)return{supported:false,reason:'Unsupported canonical auto source: '+capability.reasons.join(',')}
  }
  return{supported:true,data,nativeSizePx:data.source.diameter,material:seeded?{kind:'auto',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{kind:'auto'}}
+}
+
+/** Static original-DATA query, never a BEGIN/read grant. Historical entries stay closed. */
+export type CanonicalPlainAutoGeometryCapability=Extract<ReturnType<typeof extractCanonicalPlainAutoTiltGeometryData>,{supported:true}>
+export interface CanonicalPlainAutoGeometryAuthorOptions {readonly authorPlainTiltSource:'plain-auto-tilt-v1'}
+export type CanonicalPlainAutoGeometryAuthorAdmission={readonly supported:true;readonly data:CanonicalPlainAutoGeometryCapability['data'];readonly nativeSizePx:number;readonly material:{readonly kind:'auto';readonly coverageProfile?:never};readonly geometryCapability:CanonicalPlainAutoGeometryCapability}|{readonly supported:false;readonly reason:string}
+export function canonicalPlainAutoGeometryAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,options:CanonicalPlainAutoGeometryAuthorOptions):CanonicalPlainAutoGeometryAuthorAdmission {
+ try{
+  const field=Object.getOwnPropertyDescriptor(options,'authorPlainTiltSource')
+  if(!field||!Object.hasOwn(field,'value')||field.value!=='plain-auto-tilt-v1'||!canonicalStrokeRasterContract(profile).genericSC)return{supported:false,reason:'Unsupported plain Auto geometry policy/profile'}
+  const capability=extractCanonicalPlainAutoTiltGeometryData(descriptor)
+  if(!capability.supported)return{supported:false,reason:capability.reasons.join(',')}
+  return Object.freeze({supported:true,data:capability.data,nativeSizePx:capability.data.source.diameter,material:Object.freeze({kind:'auto'}),geometryCapability:capability})
+ }catch{return{supported:false,reason:'Invalid plain Auto geometry input'}}
 }

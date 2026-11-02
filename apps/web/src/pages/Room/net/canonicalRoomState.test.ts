@@ -283,3 +283,15 @@ it('rejects malformed/accessor/inherited full read7 routing without invoking get
  s.room.rasterVersion=LEGACY_ROOM_RASTER_VERSION
  expect(()=>preflightRoomStateDelivery(s)).toThrow()
 })
+
+it.each([false,true])('captures original plainTilt READ independent AUTHOR=%s without changing historical atoms',author=>{
+ const {state:s}=state();Object.assign(s,{canonicalPlainTiltSource:'plain-auto-tilt-v1',...(author?{canonicalAuthorPlainTiltSource:'plain-auto-tilt-v1'}:{}),canonicalAuthorRasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE});s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ const read=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead
+ expect(read.plainTiltSource).toBe('plain-auto-tilt-v1');expect(read.authorPlainTiltSource).toBe(author?'plain-auto-tilt-v1':undefined)
+ Reflect.deleteProperty(s,'canonicalPlainTiltSource');expect(read.plainTiltSource).toBe('plain-auto-tilt-v1');expect(Object.isFrozen(read)).toBe(true)
+})
+it('rejects original plainTilt accessor before getter and rejects AUTHOR without READ',()=>{
+ const {state:s}=state(),getter=vi.fn(()=>'plain-auto-tilt-v1');s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE;s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ Object.defineProperty(s,'canonicalPlainTiltSource',{get:getter,configurable:true});expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(getter).not.toHaveBeenCalled()
+ Reflect.deleteProperty(s,'canonicalPlainTiltSource');Object.assign(s,{canonicalAuthorPlainTiltSource:'plain-auto-tilt-v1'});expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+})

@@ -318,7 +318,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
 
 /** Bounded OWN DATA capture before any new material-option validation. Existing
  * V1/V2 descriptor validation semantics are not globally changed. */
-function textureCapture(value:unknown):unknown {
+function textureCapture(value:unknown,copy=true,countKeys=false):unknown {
  let nodes=0,bytes=0
  const ancestors=new Set<object>()
  const visit=(v:unknown,depth:number):unknown=>{
@@ -334,9 +334,9 @@ function textureCapture(value:unknown):unknown {
   let length=0
   if(array){const d=Object.getOwnPropertyDescriptor(v,'length');if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>256)throw TypeError('Texture data array');length=d.value;if(names.length!==length+1)throw TypeError('Texture array holes/extra')}
   ancestors.add(v)
-  const result:unknown[]|Record<string,unknown>=array?[]:Object.create(null)
-  try{for(const key of names){if(array&&key==='length')continue;if(typeof key!=='string'||key.length>128)throw TypeError('Texture data key');const d=Object.getOwnPropertyDescriptor(v,key);if(!d||!Object.hasOwn(d,'value'))throw TypeError('Texture accessor');if(array&&(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>=length))throw TypeError('Texture array key');Object.defineProperty(result,key,{value:visit(d.value,depth+1),enumerable:true,writable:false,configurable:false})}}finally{ancestors.delete(v)}
-  return Object.freeze(result)
+  const result:unknown[]|Record<string,unknown>|undefined=copy?(array?[]:Object.create(null)):undefined
+  try{for(const key of names){if(array&&key==='length')continue;if(typeof key!=='string'||key.length>128)throw TypeError('Texture data key');const d=Object.getOwnPropertyDescriptor(v,key);if(!d||!Object.hasOwn(d,'value'))throw TypeError('Texture accessor');if(array&&(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>=length))throw TypeError('Texture array key');if(countKeys){bytes+=key.length*2;if(bytes>MAX_SOURCE_STAMP_BUDGET)throw TypeError('Plain geometry key/text budget')}const child=visit(d.value,depth+1);if(copy)Object.defineProperty(result!,key,{value:child,enumerable:true,writable:false,configurable:false})}}finally{ancestors.delete(v)}
+  return copy?Object.freeze(result!):v
  }
  return visit(value,0)
 }
@@ -430,4 +430,13 @@ export function captureSourceTextureNativeDefaultProgram(value:unknown):Readonly
  const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
  const program=textureNativeDefaultProgram(source.compiled,source.settings)
  return Object.freeze({data:captured,program})
+}
+
+/** Pure bounded full-original DATA capture. This freezes a COPY, never caller
+ * identity or execution authority; the returned data belongs to that copy. */
+export function captureSourcePlainAutoGeometryData(value:unknown):Readonly<{descriptor:Readonly<Record<string,unknown>>;data:Extract<SourceStampData,{version:2}>}> {
+ textureCapture(value,false,true) // Validate all own DATA and aggregate cost before cloning.
+ const descriptor=textureCapture(value,true,true)
+ if(!record(descriptor)||!isSourceStampData(descriptor.sourceStamp)||descriptor.sourceStamp.version!==2||descriptor.sourceStamp.source.kind!=='defaultAuto'||descriptor.sourceStamp.compiled?.version!==2)throw TypeError('Plain DefaultAuto compiled2 required')
+ return Object.freeze({descriptor,data:descriptor.sourceStamp})
 }

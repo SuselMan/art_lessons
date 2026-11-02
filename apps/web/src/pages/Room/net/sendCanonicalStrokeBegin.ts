@@ -1,3 +1,4 @@
+import {canonicalAuthorPlainTiltSource,type CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import {canonicalTexturedAutoMaterialContext,canonicalResolvedTexturePhase,canonicalStrokeSnapshotV7,type CanonicalStrokeSnapshotV7,type CanonicalMaterialContextV7,type CanonicalResolvedTexturePhase} from '@grafetto/shared'
 import {canonicalAuthorTexturedAutoSource,canonicalAuthorSoftPressureTexturedSource,canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorTexturedAutoSource,type CanonicalAuthorSoftPressureTexturedSource,canonicalStrokeSnapshotV6,type CanonicalStrokeSnapshotV6,canonicalStrokeSnapshotV5,type CanonicalStrokeSnapshotV5,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalStrokeSnapshotV4,type CanonicalStrokeSnapshotV4,canonicalStrokeSnapshotV3,canonicalStrokeSnapshotV2,canonicalRecordedRasterProfiles,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 
@@ -13,6 +14,7 @@ export interface CanonicalBeginLifetime {
  /** Prepared caller-owned context; captured before any asynchronous BEGIN work. */
  readonly expectedMaterialContext7?:CanonicalMaterialContextV7
  /** Captured ORIGINAL server author permission; replay4 support is independent. */
+ readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
@@ -90,6 +92,9 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
    const author=lifetime.authorRasterProfile!==undefined?lifetime.authorRasterProfile:lifetime.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:lifetime.rasterProfile
    profiles=canonicalRecordedRasterProfiles({allowedRasterProfiles:lifetime.responseRasterProfiles===undefined?[author]:lifetime.responseRasterProfiles})
    if(!profiles.includes(author))throw Error('Canonical BEGIN author profile unavailable')
+   // Validate original captured author metadata before async emission; material2
+   // remains unchanged and ACKs cannot establish plain geometry eligibility.
+   canonicalAuthorPlainTiltSource(lifetime,'authorPlainTiltSource',author)
    authorTexturedAutoSource=canonicalAuthorTexturedAutoSource(lifetime,'authorTexturedAutoSource',author)
    const contextField=Object.getOwnPropertyDescriptor(lifetime,'expectedMaterialContext7')
    if(!contextField&&'expectedMaterialContext7'in lifetime||contextField&&!Object.hasOwn(contextField,'value'))throw Error('Invalid canonical BEGIN7 prepared context')

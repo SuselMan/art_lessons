@@ -21,6 +21,8 @@ export interface TrustedCanonicalGesture {
   readonly strokeId: string
   readonly pigmentRgb8: readonly [number, number, number]
   readonly composition: CanonicalStrokeComposition
+  /** Server-owned mechanism marker, never a wire/source authority field. */
+  readonly plainAutoGeometry?:'plain-auto-tilt-v1'
   readonly material: CanonicalTrustedMaterialContext
 }
 /** One typed decoder seam used by live, record, durable retry and hydration. */
@@ -47,7 +49,12 @@ export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonical
     return decodeCanonicalStrokeFrame(value,{...common,rasterProfile:contract.profile,materialVersion:4,material})
   }
   if('version'in material&&material.version===3){if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('material3 raster mismatch');return decodeCanonicalStrokeFrame(value,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material})}
-  return 'version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
+  const decoded='version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
+  if(grant.plainAutoGeometry){
+    if(grant.plainAutoGeometry!=='plain-auto-tilt-v1'||!('version'in material)||material.version!==2||material.primarySource.kind!=='defaultAuto'||!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||grant.composition.mode!=='wash')fail('plain-tilt grant mismatch')
+    assertCanonicalPlainAutoGeometryFrame(decoded.frame)
+  }
+  return decoded
 }
 export type CanonicalCapabilityResolver = (identity: CanonicalAdmissionIdentity, selector: { readonly layerId: string; readonly brush: string; readonly strokeId: string }) => TrustedCanonicalGesture | undefined
 export type CanonicalFrameCandidate = {
@@ -267,4 +274,11 @@ export class CanonicalStrokeAdmission {
     for (const key of this.gestures.keys()) if ((JSON.parse(key) as string[])[0] === roomId) this.gestures.delete(key)
     this.revision++
   }
+}
+
+/** Called only on the SAME normal decoder output, not raw wire authority. */
+export function assertCanonicalPlainAutoGeometryFrame(frame:Readonly<{definitions:readonly unknown[]}>):void {
+ for(const recipe of frame.definitions){
+  if(!recipe||typeof recipe!=='object'||!('kind'in recipe)||recipe.kind!=='defaultAuto'||!('scale'in recipe)||typeof recipe.scale!=='number'||recipe.scale<=0||recipe.scale>1||!('ratio'in recipe)||typeof recipe.ratio!=='number'||recipe.ratio<=0||recipe.ratio>1||!('rotation'in recipe)||typeof recipe.rotation!=='number'||!Number.isFinite(recipe.rotation)||!('mirrorH'in recipe)||recipe.mirrorH!==false||!('mirrorV'in recipe)||recipe.mirrorV!==false)fail('plain-tilt recipe transform')
+ }
 }

@@ -15,17 +15,17 @@ import type { ToggleableTool } from './toolset.js'
 /** Whole-client renderer revision. This is compatibility DATA, never authorization.
  * Enabling material 3 requires a single backend restart with the frozen policy:
  * old sockets/read grants must not survive that cutover. */
-export const DRAWING_PROTOCOL_VERSION = '8'
+export const DRAWING_PROTOCOL_VERSION = '9'
 export const DRAWING_PROTOCOL_HEADER = 'x-grafetto-drawing-protocol'
 export const CLIENT_UPDATE_REQUIRED = 'client_update_required'
 export function supportsPrimaryTextureProtocol(value: unknown): boolean {
   return supportsDrawingProtocol(value,'3')
 }
 
-export type DrawingProtocolMinimum='3'|'4'|'5'|'6'|'7'|'8'
+export type DrawingProtocolMinimum='3'|'4'|'5'|'6'|'7'|'8'|'9'
 /** Closed known compatibility, never a numeric >= comparison or authorization. */
 export function supportsDrawingProtocol(value:unknown,minimum:DrawingProtocolMinimum):boolean {
- const compatible:Readonly<Record<DrawingProtocolMinimum,readonly unknown[]>>={'3':['3','4','5','6','7','8'],'4':['4','5','6','7','8'],'5':['5','6','7','8'],'6':['6','7','8'],'7':['7','8'],'8':['8']}; return typeof minimum==='string'&&Object.hasOwn(compatible,minimum)&&compatible[minimum].includes(value)
+ const compatible:Readonly<Record<DrawingProtocolMinimum,readonly unknown[]>>={'3':['3','4','5','6','7','8','9'],'4':['4','5','6','7','8','9'],'5':['5','6','7','8','9'],'6':['6','7','8','9'],'7':['7','8','9'],'8':['8','9'],'9':['9']}; return typeof minimum==='string'&&Object.hasOwn(compatible,minimum)&&compatible[minimum].includes(value)
 }
 
 /** (#613) The socket contract: join results, cursors and live strokes,
@@ -295,6 +295,8 @@ export type RoomStateLegacyPayload = {
   canonicalAuthorPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPressureTexturedSource
   canonicalAuthorSoftPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorSoftPressureTexturedSource
   canonicalTexturedAutoSource?:import('./canonicalIndexedHistory.js').CanonicalTexturedAutoReadSource
+  canonicalPlainTiltSource?:import('./canonicalIndexedHistory.js').CanonicalPlainTiltReadSource
+  canonicalAuthorPlainTiltSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPlainTiltSource
   canonicalAuthorTexturedAutoSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorTexturedAutoSource
   canonicalCapabilities?:CanonicalRecordedAttachmentV1
   palette: string[]
@@ -311,7 +313,7 @@ export type RoomStateLegacyPayload = {
 } & {canonicalIndexedHistory?:never}
 export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
- 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalPlainTiltSource'|'canonicalAuthorPlainTiltSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
  readonly latestSnapshotSeq:null
  readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
  readonly tailOperations?:never
@@ -324,6 +326,8 @@ export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  readonly canonicalAuthorSoftPressureTexturedSource?:never
  readonly canonicalTexturedAutoSource?:never
  readonly canonicalAuthorTexturedAutoSource?:never
+ readonly canonicalPlainTiltSource?:never
+ readonly canonicalAuthorPlainTiltSource?:never
  readonly canonicalCapabilities?:never
 }
 export type RoomStatePayload = RoomStateLegacyPayload | RoomStateIndexedPayload

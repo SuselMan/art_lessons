@@ -715,3 +715,16 @@ it('binds author7 to the captured original and forwards the SAME prepared contex
  ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});await rejected
  expect(()=>createCanonicalRoomAuthor(original,socket,()=>socket,()=>true)).toThrow()
 })
+
+it.each([false,true])('plainTilt service author flag is captured only from original read AUTHOR=%s',async author=>{
+ const {createCanonicalRoomAuthor}=await import('./canonicalRoomController'),{stash}=state(true),{canonicalRead:previous,...wire}=stash;void previous
+ let current=true
+ const read=prepareCanonicalRoomState({...wire,canonicalPlainTiltSource:'plain-auto-tilt-v1',...(author?{canonicalAuthorPlainTiltSource:'plain-auto-tilt-v1' as const}:{})},{expectedBoardId:'B',isCurrent:()=>current}).canonicalRead
+ const socket:import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter={emit:vi.fn(),on:()=>{},off:()=>{}}
+ const service=createCanonicalRoomAuthor(read,socket,()=>socket,()=>true)
+ expect(read.plainTiltSource).toBe('plain-auto-tilt-v1');expect(service.authorPlainTiltSource).toBe(author?'plain-auto-tilt-v1':undefined)
+ expect(service.texturedAutoSource).toBeUndefined();expect(Object.isFrozen(service)).toBe(true)
+ current=false
+ await expect(service.begin({layerId:'L',brush:'brush:imported-67f65bbe3ded26b41e1b77ef@27',strokeId:'S',pigmentRgb8:[1,2,3],outerResourceOpacity:1,alphaDarken:'hard'},{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:'150b8c503e3b48136332a583172f3ec59a895c1ca86efa790debd80b8d0e97af'})).rejects.toThrow('Stale')
+ expect(socket.emit).not.toHaveBeenCalled()
+})

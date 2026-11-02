@@ -237,3 +237,18 @@ a different fixture initial angle0 vs.3; equal inputs corrected, production
 math unchanged. Shared capture/cost APIs are tested in the same joined run.
 No online activation, runtime/device/shared-dist/dependency/commit change; no
 own background process or temporary service remains.
+
+
+## Named plain Auto geometry preparation
+
+`canonicalPlainAutoGeometryAuthorAdmission` captures the supported original compiled2
+DATA under explicit AUTHOR policy; historical admission entries remain closed.
+The existing descriptor compiler consumes that captured descriptor unchanged.
+One retained runtime belongs to each prepared owner; strokes create fresh state.
+Original READ policy selects all-rotation, ratio<=1 storage for DefaultAuto material2,
+including historical seeded coverage. This storage decision grants no author access.
+The same CPU owner reserves four bounded graph allowances, runtime/compiler table
+allowances and metadata before the new captures/runtime. Initial own-DATA inspection
+is separate; these are logical estimates, not exact heap measurements. Caps stay fixed.
+Native pointer validation remains +/-90 degrees; source clamp is not a UI restriction.
+RAM/compatibility evidence: `plain-tilt9-engine-v11-gate-freeze.json` in fixes-v52.

@@ -1,3 +1,5 @@
+import {canonicalPlainTiltReadSource,canonicalAuthorPlainTiltSource} from '@grafetto/shared'
+import type {CanonicalPlainTiltReadSource,CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
 import type {CanonicalRecordedLifetime} from '../../../engine'
 import {canonicalTexturedAutoReadSource,type CanonicalTexturedAutoReadSource,canonicalAuthorTexturedAutoSource,canonicalAuthorSoftPressureTexturedSource,canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorTexturedAutoSource,type CanonicalAuthorSoftPressureTexturedSource,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalAuthorPrimaryTextureSource,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
@@ -10,6 +12,8 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
  readonly roomGeometry:Readonly<{width:number|undefined;height:number|undefined;infinite:boolean}>
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'
+ readonly plainTiltSource?:CanonicalPlainTiltReadSource
+ readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
  readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
@@ -25,7 +29,7 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly [authority]:(candidate:unknown,operations:readonly Operation[],boardId:string)=>void
 }
 /** Original connection metadata shared by both finite-history readers. */
-export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'texturedAutoSource'|'authorRasterProfile'|'authorPrimaryTextureSource'|'authorTexturedSource'|'authorPressureTexturedSource'|'authorTexturedAutoSource'|'authorSoftPressureTexturedSource'|'assertCurrent'>
+export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'plainTiltSource'|'authorPlainTiltSource'|'texturedAutoSource'|'authorRasterProfile'|'authorPrimaryTextureSource'|'authorTexturedSource'|'authorPressureTexturedSource'|'authorTexturedAutoSource'|'authorSoftPressureTexturedSource'|'assertCurrent'>
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
 export type IndexedRoomStateDelivery=import('@grafetto/shared').RoomStateIndexedPayload&{readonly canonicalRead?:never;readonly canonicalIndexedRead:import('./canonicalIndexedRead').CanonicalIndexedSocketRead}
 export type RoomStateDelivery=(WireState&{readonly canonicalRead?:CanonicalRoomStateRead;readonly canonicalIndexedRead?:never})|IndexedRoomStateDelivery
@@ -49,6 +53,9 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const authorRasterProfile=state.canonicalAuthorRasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:state.canonicalAuthorRasterProfile
  if(!profiles.includes(authorRasterProfile))throw Error('Invalid canonical room state author profile')
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(state,'canonicalAuthorPrimaryTextureSource',authorRasterProfile)
+ const plainTiltSource=canonicalPlainTiltReadSource(state,'canonicalPlainTiltSource',authorRasterProfile)
+ const authorPlainTiltSource=canonicalAuthorPlainTiltSource(state,'canonicalAuthorPlainTiltSource',authorRasterProfile)
+ if(authorPlainTiltSource&&!plainTiltSource)throw Error('Plain tilt author requires original read policy')
  const texturedAutoSource=canonicalTexturedAutoReadSource(state,'canonicalTexturedAutoSource',authorRasterProfile)
  const authorTexturedAutoSource=canonicalAuthorTexturedAutoSource(state,'canonicalAuthorTexturedAutoSource',authorRasterProfile)
  const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(state,'canonicalAuthorSoftPressureTexturedSource',authorRasterProfile)
@@ -79,7 +86,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const emptyHistoryBase=rawBase===undefined||fullKind?undefined:verifyCanonicalEmptyHistoryBase(rawBase,baseAtoms,scope)
  const preparedAtoms:CanonicalPreparedRecordedOperation[]=[]
  const operations=baseAtoms.map(atom=>atom.operation);Object.freeze(operations)
- read=Object.freeze({scope,roomGeometry,authorRasterProfile,...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
+ read=Object.freeze({scope,roomGeometry,authorRasterProfile,...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
   if(this!==read)throw Error('Foreign canonical full history receiver')
   assertCanonicalRoomStateRead(read,candidateTail,expectedBoardId);return fullHistory
  }}:{}),

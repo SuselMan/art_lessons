@@ -1,6 +1,7 @@
+import type {CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import type {CanonicalStrokeRasterProfile,CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource,ImportedBrush} from '@grafetto/shared'
 import type {CanonicalRecordedLifetime} from '../../engine'
-import {canonicalSourceAuthorAdmission} from '../../engine/brushLibrary'
+import {canonicalSourceAuthorAdmission,canonicalPlainAutoGeometryAuthorAdmission} from '../../engine/brushLibrary'
 import {TOOL_SCHEMAS,type ToolSchema} from './toolSchemas'
 
 /** Current eligibility metadata only; preparation and BEGIN retain their own authority. */
@@ -10,6 +11,7 @@ export interface CanonicalToolRead extends Pick<CanonicalRecordedLifetime,'asser
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
+ readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
 }
 export interface CanonicalToolOption {readonly id:string;readonly sizePx:number}
@@ -21,15 +23,15 @@ export interface CanonicalToolAvailability {
 /** Eligibility only. Original owner, preparation and BEGIN still enforce live authority. */
 export function canonicalToolAvailability(canonical:boolean,contentReady:boolean,read:CanonicalToolRead|undefined,library:readonly ImportedBrush[],assetMetadata?:(preset:string)=>Parameters<typeof canonicalSourceAuthorAdmission>[2]):CanonicalToolAvailability|undefined {
  if(!canonical)return undefined
- let profile:CanonicalStrokeRasterProfile|undefined,primaryTextureSource:'pressure-identity-subtract-v3'|undefined,texturedSource:'fixed-default-auto-texture-v4'|undefined,pressureTexturedSource:'pressure-default-auto-texture-v5'|undefined,softPressureTexturedSource:'pressure-soft-auto-texture-v6'|undefined,texturedAutoSource:'textured-auto-material-v7'|undefined
- if(contentReady&&read)try{read.assertCurrent();profile=read.authorRasterProfile;primaryTextureSource=read.authorPrimaryTextureSource;texturedSource=read.authorTexturedSource;pressureTexturedSource=read.authorPressureTexturedSource;softPressureTexturedSource=read.authorSoftPressureTexturedSource;texturedAutoSource=read.authorTexturedAutoSource}catch{/* Restoring, not a cached eligibility grant. */}
+ let authorPlainTiltSource:CanonicalAuthorPlainTiltSource|undefined,profile:CanonicalStrokeRasterProfile|undefined,primaryTextureSource:'pressure-identity-subtract-v3'|undefined,texturedSource:'fixed-default-auto-texture-v4'|undefined,pressureTexturedSource:'pressure-default-auto-texture-v5'|undefined,softPressureTexturedSource:'pressure-soft-auto-texture-v6'|undefined,texturedAutoSource:'textured-auto-material-v7'|undefined
+ if(contentReady&&read)try{read.assertCurrent();authorPlainTiltSource=read.authorPlainTiltSource;profile=read.authorRasterProfile;primaryTextureSource=read.authorPrimaryTextureSource;texturedSource=read.authorTexturedSource;pressureTexturedSource=read.authorPressureTexturedSource;softPressureTexturedSource=read.authorSoftPressureTexturedSource;texturedAutoSource=read.authorTexturedAutoSource}catch{/* Restoring, not a cached eligibility grant. */}
  const latest=new Map<string,ImportedBrush>()
  for(const brush of library){const old=latest.get(brush.descriptor.id);if(!old||old.descriptor.version<brush.descriptor.version)latest.set(brush.descriptor.id,brush)}
  const options:CanonicalToolOption[]=[],labels:Record<string,string>={},descriptions:Record<string,string>={}
  if(contentReady&&profile)for(const brush of latest.values()){
   let metadata:Parameters<typeof canonicalSourceAuthorAdmission>[2]
   try{metadata=assetMetadata?.(`brush:${brush.descriptor.id}@${brush.descriptor.version}`)}catch{continue}
-  const admission=texturedAutoSource==='textured-auto-material-v7'
+  const historicalAdmission=texturedAutoSource==='textured-auto-material-v7'
    ?canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource,...texturedSource?{texturedSource}:{},...pressureTexturedSource?{pressureTexturedSource}:{},...softPressureTexturedSource?{softPressureTexturedSource}:{},texturedAutoSource})
    :softPressureTexturedSource==='pressure-soft-auto-texture-v6'
    ?canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource,...texturedSource?{texturedSource}:{},...pressureTexturedSource?{pressureTexturedSource}:{},softPressureTexturedSource})
@@ -38,6 +40,11 @@ export function canonicalToolAvailability(canonical:boolean,contentReady:boolean
    :texturedSource==='fixed-default-auto-texture-v4'
    ?canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource,texturedSource})
    :canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource})
+  // Preserve historically admitted tools; only an unsupported old branch
+  // may enter the separately authorized plain geometry mechanism.
+  const admission=historicalAdmission.supported||authorPlainTiltSource!=='plain-auto-tilt-v1'
+   ?historicalAdmission
+   :canonicalPlainAutoGeometryAuthorAdmission(brush.descriptor,profile,{authorPlainTiltSource})
   if(!admission.supported)continue
   options.push({id:brush.descriptor.id,sizePx:admission.nativeSizePx})
   labels[brush.descriptor.id]=brush.name;descriptions[brush.descriptor.id]=brush.warnings.join(' · ')

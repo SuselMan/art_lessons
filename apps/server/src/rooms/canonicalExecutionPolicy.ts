@@ -32,6 +32,8 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly plainTiltSource?:'plain-auto-tilt-v1'|false
+ readonly authorPlainTiltSource?:'plain-auto-tilt-v1'|false
  readonly texturedAutoSource?:'textured-auto-material-v7'|false
  readonly authorTexturedAutoSource?:'textured-auto-material-v7'|false
  readonly softPressureTexturedSource?:'pressure-soft-auto-texture-v6'|false
@@ -234,4 +236,24 @@ export function freezeCanonicalTexturedAutoPolicies(value:CanonicalRoomExecution
   }
  }
  return Object.freeze({texturedAutoSource,authorTexturedAutoSource})
+}
+
+/** New plain geometry permission; fixed historical policy remains independent. */
+export function freezeCanonicalPlainTiltPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'plainTiltSource'|'authorPlainTiltSource'>> {
+ const flag=(key:'plainTiltSource'|'authorPlainTiltSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('inherited plain-tilt policy');return false as const}
+  if(!Object.hasOwn(d,'value'))throw TypeError('plain-tilt policy accessor')
+  if(d.value===undefined||d.value===false)return false as const
+  if(d.value!=='plain-auto-tilt-v1')throw TypeError('invalid plain-tilt policy')
+  return d.value as 'plain-auto-tilt-v1'
+ }
+ const plainTiltSource=flag('plainTiltSource'),authorPlainTiltSource=flag('authorPlainTiltSource')
+ if(authorPlainTiltSource&&!plainTiltSource)throw TypeError('plain-tilt author requires read')
+ if(plainTiltSource){
+  const raster=freezeCanonicalRasterPolicy(value),source=freezeCanonicalAutoPolicies(value.autoSources).defaultAuto
+  if(!source||!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC&&canonicalStrokeCoverageMatches(p,source.coverageProfile)))throw TypeError('plain-tilt read source/raster unavailable')
+  if(authorPlainTiltSource&&(!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile)))throw TypeError('plain-tilt author raster unavailable')
+ }
+ return Object.freeze({plainTiltSource,authorPlainTiltSource})
 }

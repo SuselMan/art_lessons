@@ -1,19 +1,20 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
-  canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,decodeCanonicalTexturedAutoStrokeFrame,canonicalStrokeSnapshotV7,type CanonicalMaterialContextV7,type CanonicalResolvedTexturePhase,
+  canonicalDefaultAutoStatic,canonicalDefaultAutoSourcePin,canonicalStrokeCoverageMatches,extractCanonicalPlainAutoTiltGeometryData,canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,decodeCanonicalTexturedAutoStrokeFrame,canonicalStrokeSnapshotV7,type CanonicalMaterialContextV7,type CanonicalResolvedTexturePhase,
   CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalStrokeSnapshotV6,canonicalSoftAutoNativeDefaultTextureSourceBinding,extractCanonicalSoftAutoNativeDefaultTextureProgramData,type CanonicalMaterialContextV6,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,canonicalDefaultAutoPressureTextureSourceBinding,canonicalPressureCurvePrimaryTexturePin,extractCanonicalDefaultAutoPressureTextureProgramData,type CanonicalMaterialContextV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,canonicalDefaultAutoFixedTextureSourceBinding,extractCanonicalDefaultAutoFixedTextureCapability,canonicalStrokeRasterContract,type CanonicalMaterialContextV4,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,extractCanonicalPrimaryTextureCapability,type CanonicalMaterialContextV3,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalTexturedAutoPolicies,freezeCanonicalSoftPressureTexturedPolicies,freezeCanonicalPressureTexturedPolicies,freezeCanonicalTexturedPolicies,freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalPlainTiltPolicies,freezeCanonicalTexturedAutoPolicies,freezeCanonicalSoftPressureTexturedPolicies,freezeCanonicalPressureTexturedPolicies,freezeCanonicalTexturedPolicies,freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
 import { captureCanonicalSavedTexturePhase,verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type {CanonicalIndexedCloseEvidence} from './snapshotStore.js'
+import {assertCanonicalPlainAutoGeometryFrame} from './CanonicalStrokeAdmission.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture,CanonicalTrustedMaterialContext } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
@@ -60,6 +61,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly plainTiltPolicies:ReturnType<typeof freezeCanonicalPlainTiltPolicies>
   private readonly texturedAutoPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedAutoSource'|'authorTexturedAutoSource'>>
   private readonly softPressureTexturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'softPressureTexturedSource'|'authorSoftPressureTexturedSource'>>
   private readonly pressureTexturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'pressureTexturedSource'|'authorPressureTexturedSource'>>
@@ -93,6 +95,8 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly plainTiltSource?:CanonicalRoomExecutionPolicy['plainTiltSource']
+    readonly authorPlainTiltSource?:CanonicalRoomExecutionPolicy['authorPlainTiltSource']
     readonly texturedAutoSource?:CanonicalRoomExecutionPolicy['texturedAutoSource']
     readonly authorTexturedAutoSource?:CanonicalRoomExecutionPolicy['authorTexturedAutoSource']
     readonly softPressureTexturedSource?:CanonicalRoomExecutionPolicy['softPressureTexturedSource']
@@ -119,6 +123,7 @@ export class CanonicalBrushCapabilityResolver {
     const raster=freezeCanonicalRasterPolicy(options)
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
+    this.plainTiltPolicies=freezeCanonicalPlainTiltPolicies(options)
     this.texturedAutoPolicies=freezeCanonicalTexturedAutoPolicies(options)
     this.softPressureTexturedPolicies=freezeCanonicalSoftPressureTexturedPolicies(options)
     this.pressureTexturedPolicies=freezeCanonicalPressureTexturedPolicies(options)
@@ -218,6 +223,7 @@ export class CanonicalBrushCapabilityResolver {
     if (previous) {
       if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
+      if(g.plainAutoGeometry&&!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
       if('version'in g.material&&g.material.version===7&&(!this.texturedAutoPolicies.authorTexturedAutoSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material7 author/phase changed')
       if(input.texturePhase&&(!('version'in g.material)||g.material.version!==7))fail('phase on legacy gesture')
       if('version'in g.material&&g.material.version===6&&!this.softPressureTexturedPolicies.authorSoftPressureTexturedSource)fail('material6 author policy disabled')
@@ -239,11 +245,11 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     const pipeSource=this.assertImagePipeRole(descriptor,'author')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase)
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase)
     const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: profile,
-      descriptorSha256, brush: input.brush, strokeId: input.strokeId,
+      ...plainAutoGeometry?{plainAutoGeometry}:{},descriptorSha256, brush: input.brush, strokeId: input.strokeId,
       pigmentRgb8: Object.freeze([input.pigmentRgb8[0], input.pigmentRgb8[1], input.pigmentRgb8[2]] as const),
       composition: Object.freeze({ mode, alphaDarken: input.alphaDarken,
         outerResourceOpacity: input.outerResourceOpacity, outerBlend }), material })
@@ -387,12 +393,13 @@ export class CanonicalBrushCapabilityResolver {
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
     this.assertImagePipeRole(descriptor,'recorded')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame))
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame))
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
     const decoded=material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
     if(decoded.frame.masked)fail('recorded masked material unavailable')
+    if(plainAutoGeometry)assertCanonicalPlainAutoGeometryFrame(decoded.frame)
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
       descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:profile,
       pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,material})
@@ -476,13 +483,13 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
-    let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup'
+    let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup',plainAutoGeometry:'plain-auto-tilt-v1'|undefined
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
     if(phase!==undefined){
       if(!this.texturedAutoPolicies.texturedAutoSource)fail('material7 consumer disabled')
@@ -556,7 +563,30 @@ export class CanonicalBrushCapabilityResolver {
     }
     if(descriptor.sourceStamp.version===2 && (descriptor.sourceStamp.source.kind==='defaultAuto'||descriptor.sourceStamp.source.kind==='gaussianAuto'||descriptor.sourceStamp.source.kind==='softAuto')){
       const kind=descriptor.sourceStamp.source.kind
-      const pin=kind==='softAuto'
+      // Historical fixed/plain author behavior is unchanged. This previously
+      // client-unsupported geometry frontier now has an explicit server floor.
+      const data=descriptor.sourceStamp
+      const frontier=kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&data.options.some(o=>o.checked&&(['Ratio','Rotation'].includes(o.id)||o.id==='Size'&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure')))
+      const recordedPlain=role==='recorded'&&kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&!!this.plainTiltPolicies.plainTiltSource&&canonicalStrokeRasterContract(profile).genericSC
+      if(frontier&&role==='author'){
+        const capability=extractCanonicalPlainAutoTiltGeometryData(descriptor)
+        if(!capability.supported)fail('unsupported plain-tilt geometry: '+capability.reasons.join(','))
+        if(!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
+        if(!canonicalStrokeRasterContract(profile).genericSC)fail('plain-tilt raster unavailable')
+        plainAutoGeometry='plain-auto-tilt-v1'
+      }else if(frontier&&!recordedPlain)fail('plain-tilt recorded policy disabled')
+      // Recorded geometry never executes descriptor options. Bind the SAME
+      // room-pinned static source/SHA with the existing kernel/cost validators.
+      // No known-author-program classifier or compiler is called on this path.
+      const recordedDefault=()=>{
+        if(data.source.kind!=='defaultAuto'||data.brush.scale!==1)fail('unsupported recorded plain-tilt source')
+        const configured=this.autoSources.defaultAuto
+        if(!configured||!canonicalStrokeCoverageMatches(profile,configured.coverageProfile))fail('plain-tilt recorded source/profile disabled')
+        const stat=canonicalDefaultAutoStatic(data.source,data.brush.scale,data.brush.angle,configured.coverageProfile)
+        plainAutoGeometry='plain-auto-tilt-v1'
+        return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,...stat,coverageProfile:configured.coverageProfile})
+      }
+      const pin=recordedPlain?recordedDefault():kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
         ? descriptor.sourceStamp.source.density<1
@@ -609,7 +639,7 @@ export class CanonicalBrushCapabilityResolver {
       mode=capability.mode
       material=this.primaryImageSource?Object.freeze({version:2 as const,...canonicalImageSourceBinding(descriptor,asset),budget}):Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
     }
-    return {material,mode,outerBlend:composition.outerBlend,descriptorSha256}
+    return {material,mode,outerBlend:composition.outerBlend,descriptorSha256,...plainAutoGeometry?{plainAutoGeometry}:{}}
   }
 
   /** Transport-only durable indexed END retirement. Exact grant identity prevents

@@ -51,3 +51,16 @@ export function assertCanonicalTexturedAuto7RecipeCapacity(recipe:AnyCanonicalMa
  else throw new TypeError('Textured Auto7 source kind mismatch')
  if(recipe.width>capacity.width||recipe.height>capacity.height)throw new RangeError('Textured Auto7 recipe exceeds admitted workspace')
 }
+
+/** Original READ-selected DefaultAuto storage only; no descriptor/author grant. */
+export function canonicalPlainAutoGeometryMaskCapacity(pin:AutoCapacitySource):TransformedMaskLimits {
+ if(pin.kind!=='defaultAuto')throw new TypeError('Plain geometry requires DefaultAuto')
+ return maskCapacity(pin,true)
+}
+export function assertCanonicalPlainAutoGeometryRecipeCapacity(recipe:AnyCanonicalMaterialRecipe,pin:AutoPin,capacity:TransformedMaskLimits):void {
+ canonicalPlainAutoGeometryMaskCapacity(pin)
+ transformedMaskPrepassBudget(capacity)
+ if(pin.kind!=='defaultAuto'||!('kind'in recipe)||recipe.kind!=='defaultAuto'||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||!Number.isFinite(recipe.ratio)||recipe.ratio<=0||recipe.ratio>1||!Number.isFinite(recipe.rotation)||recipe.mirrorH!==false||recipe.mirrorV!==false)throw new RangeError('Unsupported plain geometry transform')
+ canonicalAutoCost(recipe,pin)
+ if(recipe.width>capacity.width||recipe.height>capacity.height)throw new RangeError('Plain geometry recipe exceeds admitted workspace')
+}

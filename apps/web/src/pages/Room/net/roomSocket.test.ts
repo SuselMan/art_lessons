@@ -1069,3 +1069,13 @@ it.each(['value','undefined','accessor','inherited']as const)('rejects full read
  try{Reflect.apply(h.listeners.get('room_state')!,null,[raw]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0);expect(getter).not.toHaveBeenCalled()}
  finally{close()}
 })
+
+it.each(['canonicalPlainTiltSource','canonicalAuthorPlainTiltSource']as const)('rejects plainTilt indexed outer %s including inherited/accessor before OPEN',async field=>{
+ for(const kind of ['value','undefined','accessor','inherited']){
+  const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps),raw={...h.state},getter=vi.fn(()=>'plain-auto-tilt-v1')
+  if(kind==='accessor')Object.defineProperty(raw,field,{get:getter})
+  else if(kind==='inherited')Object.setPrototypeOf(raw,{[field]:'plain-auto-tilt-v1'})
+  else Reflect.set(raw,field,kind==='value'?'plain-auto-tilt-v1':undefined)
+  try{Reflect.apply(h.listeners.get('room_state')!,null,[raw]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0);expect(getter).not.toHaveBeenCalled()}finally{close()}
+ }
+})
