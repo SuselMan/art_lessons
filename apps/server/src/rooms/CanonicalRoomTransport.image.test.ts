@@ -12,7 +12,7 @@ import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
+const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomParticipant:{upsert:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 vi.mock('./snapshotStore.js',async original=>({...await original<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:[],canonicalRows:[]}))}))
 const dirs:string[]=[]
@@ -411,3 +411,35 @@ it('folds durable5 OPEN and original recorded-close with read5authorOFF through 
  expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{kind:'commitPartial',closeOperationId:close.id}});expect(binder.size).toBe(0)
 })
 it.each(['missing','corrupt']as const)('rejects actual %s pattern CAS before BEGIN5 and writes nothing',async kind=>{const f=pressureAuto5Setup(),file=join(f.dir,'assets',f.pattern.id.slice(6)+'.bin');if(kind==='missing')rmSync(file);else writeFileSync(file,Buffer.alloc(256));expect((await new CanonicalRoomTransport(pressure5Policy).begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()})
+
+
+it.each([{version:4,mode:'direct'},{version:5,mode:'direct'},{version:4,mode:'disconnect'},{version:5,mode:'disconnect'}]as const)('closes actual interrupted textured$version through $mode closeBound',async({version,mode})=>{
+ const {joinRoom,captureCurrentRoomSeat,leaveRoom}=await import('./rooms.js')
+ const {getCanonicalGesturePrefixWithRows}=await import('./snapshotStore.js')
+ db.roomParticipant.upsert.mockResolvedValue({})
+ vi.mocked(getCanonicalGesturePrefixWithRows).mockResolvedValue({operations:[],canonicalRows:[]})
+ db.operation.findMany.mockResolvedValue([])
+ db.operation.findUnique.mockResolvedValue(null)
+ const f=version===4?fixedAuto4Setup():pressureAuto5Setup(),t=new CanonicalRoomTransport(version===4?fixed4Policy:pressure5Policy)
+ expect(joinRoom('board','author','A','close45-seat').ok).toBe(true);await flushRoomWrites('board')
+ try{
+ const seat=captureCurrentRoomSeat('board','author','close45-seat');if(!seat)throw Error('No genuine disconnect seat')
+ const begun=await t.begin(identity,f.input,()=>true)
+ const op=version===4?fixed4Operation(fixed4Snapshot(begun),false):pressure5Operation(pressure5Snapshot(begun),false)
+ const saved=await t.recorded(identity,op,()=>true);expect(saved.result.ok).toBe(true);if(!saved.accepted)throw Error('Missing durable original')
+ const row=db.operation.create.mock.calls.at(-1)![0].data
+ db.operation.findMany.mockImplementation(async({where})=>row.seq>where.seq.gt&&row.seq<=where.seq.lte?[row]:[])
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===row.id?row:null)
+ vi.mocked(getCanonicalGesturePrefixWithRows).mockResolvedValue({operations:[saved.accepted],canonicalRows:[row]})
+ const request={operationId:'close45-direct',layerId:'layer',targetUserId:'author',strokeId:f.input.strokeId,disposition:'commitPartial'as const,expectedRecordedNext:1,expectedLastFrameOpId:op.id}
+ expect((await t.close(identity,{...request,expectedLastFrameOpId:'foreign-frame'},()=>true)).result.ok).toBe(false)
+ if(mode==='direct'){
+ const closed=await t.close(identity,request,()=>true);expect(closed.result).toMatchObject({ok:true,seq:2});expect(closed.accepted).toMatchObject({type:'canonical_stroke_close',recordedNext:1,firstFrameOpId:op.id,lastFrameOpId:op.id})
+ }else{
+ const ticket=t.prepareDisconnectedClose(seat,()=>true);expect(ticket).toBeDefined()
+ const closed=await ticket!.finish();expect(closed).toHaveLength(1);expect(closed[0]).toMatchObject({type:'canonical_stroke_close',seq:2,recordedNext:1,firstFrameOpId:op.id,lastFrameOpId:op.id})
+ await expect(ticket!.finish()).rejects.toThrow()
+ }
+ expect((await t.recorded(identity,{...op,id:'after-close'},()=>true)).result.ok).toBe(false)
+ }finally{leaveRoom('board','author','close45-seat')}
+})

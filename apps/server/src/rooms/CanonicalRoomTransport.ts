@@ -865,7 +865,7 @@ export class CanonicalRoomTransport {
       const lifetime=orphan?undefined:this.authorized(identity,input.layerId),session=lifetime?(this.fullHistoryFormat==='mixed-indexed-v1'?lifetime.sessions.get(gestureKey(identity,input.strokeId)):this.session(lifetime,identity,input.strokeId)):undefined
       const record=orphan?.record??lifetime!.record,binder=this.currentBinder(),context=this.context!
       if('capturedSession'in input&&input.capturedSession!==session)fail('canonical_repair_required')
-      if(session&&(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||(session.grant.material.version!==2&&session.grant.material.version!==3)))fail('invalid_operation')
+      if(session&&(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||(session.grant.material.version!==2&&session.grant.material.version!==3&&session.grant.material.version!==4&&session.grant.material.version!==5)))fail('invalid_operation')
       const current=()=>{
         if(!isCurrent())fail('not_joined')
         if(orphan)orphan.assertCurrent()
