@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeRasterContract,canonicalStrokeCoverageMatches,canonicalPrimaryTextureMaterialContext,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3,canonicalImageMaterialPin,advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
+import { canonicalTexturedAutoMaterialContext,decodeCanonicalTexturedAutoStrokeFrame,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeRasterContract,canonicalStrokeCoverageMatches,canonicalPrimaryTextureMaterialContext,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3,canonicalImageMaterialPin,advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalRecordedCloseSeal,type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -8,7 +8,7 @@ export interface CanonicalAdmissionIdentity { readonly roomId: string; readonly 
  * The resolver must use the authoritative pixel-owning board, permissions,
  * immutable descriptor revision and verified CAS metadata. sourceStamp presence
  * and a client's profile name are NOT an authorization. */
-export type CanonicalTrustedMaterialContext=AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
+export type CanonicalTrustedMaterialContext=CanonicalMaterialContextV7|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
 export interface TrustedCanonicalGesture {
   readonly roomId: string
   readonly userId: string
@@ -26,6 +26,11 @@ export interface TrustedCanonicalGesture {
 /** One typed decoder seam used by live, record, durable retry and hydration. */
 export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonicalGesture,ordinal:number){
   const material=grant.material,common={rasterProfile:grant.rasterProfile,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
+  if('version'in material&&material.version===7){
+    const contract=canonicalStrokeRasterContract(grant.rasterProfile)
+    if(!contract.genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,material.primarySource.coverageProfile)||grant.composition.mode!=='wash')fail('material7 raster/composition mismatch')
+    return decodeCanonicalTexturedAutoStrokeFrame(value,{...common,rasterProfile:contract.profile,materialVersion:7,material})
+  }
   if('version'in material&&material.version===6){
     const contract=canonicalStrokeRasterContract(grant.rasterProfile)
     if(!contract.genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,material.primarySource.coverageProfile))fail('material6 raster mismatch')
@@ -53,7 +58,7 @@ export type CanonicalFrameCandidate = {
 export interface AcceptedCanonicalFrame {
   readonly identity: CanonicalAdmissionIdentity
   readonly candidate: CanonicalFrameCandidate
-  readonly decoded: AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6
+  readonly decoded: CanonicalMaterialFrameV7|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6
   readonly descriptorSha256: string
   readonly boardEpoch: number
 }
@@ -162,7 +167,12 @@ export class CanonicalStrokeAdmission {
     if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
     const m=grant.material
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
-    if('version'in m&&m.version===6){
+    if('version'in m&&m.version===7){
+      const c=canonicalTexturedAutoMaterialContext(m),pin=c.primarySource
+      if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile)
+        ||pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||grant.composition.mode!=='wash')fail('trusted material7 descriptor/raster/composition mismatch')
+      materialSignature=c;preflight=undefined
+    }else if('version'in m&&m.version===6){
       const c=canonicalSoftNativeDefaultTexturedSourceMaterialContext(m),pin=c.primarySource
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile)
         ||pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted material6 descriptor/raster mismatch')

@@ -25,6 +25,6 @@ export function canonicalStandaloneStrokeSnapshotV7(value:unknown,epoch:number,r
  const composition=own(s.composition,['mode','alphaDarken','outerResourceOpacity','outerBlend'])
  const probe=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material)
  // The named decoder is the one owner of closed composition/envelope equality.
- const parsed=decodeCanonicalTexturedAutoStrokeFrame({version:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition,materialPacked:probe.packed},{materialVersion:7,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition:composition as unknown as CanonicalStandaloneStrokeSnapshotV7['composition'],material})
+ const parsed=decodeCanonicalTexturedAutoStrokeFrame({version:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition,materialPacked:probe.packed,texturePhase:material.primaryTexture.phase},{materialVersion:7,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition:composition as unknown as CanonicalStandaloneStrokeSnapshotV7['composition'],material})
  return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:pin.descriptorSha256,rasterProfile,pigmentRgb8:parsed.envelope.pigmentRgb8,composition:parsed.envelope.composition,assets:material.assets,materialVersion:7,material})
 }

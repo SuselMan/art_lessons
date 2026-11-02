@@ -695,3 +695,23 @@ it('engine idle and recovery callbacks do not follow a constructed getter that r
  h.engineRef.current=h.engine;callbacks.onCanonicalRecoveryRequired()
  expect(h.lifecycle.control.isReplacing()).toBe(true)
 })
+
+
+it('binds author7 to the captured original and forwards the SAME prepared context through actual BEGIN',async()=>{
+ const {createCanonicalRoomAuthor}=await import('./canonicalRoomController')
+ const {texturedAuto7Fixture}=await import('./net/canonicalTexturedAuto7.testFixture')
+ const f=texturedAuto7Fixture(),{stash}=state(true),{canonicalRead:old,...wire}=stash;void old
+ let current=true,ack!:(value:import('@grafetto/shared').CanonicalStrokeBeginResult)=>void
+ const original=prepareCanonicalRoomState({...wire,canonicalAuthorTexturedAutoSource:'textured-auto-material-v7'},{expectedBoardId:'B',isCurrent:()=>current}).canonicalRead
+ const socket:import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter={emit:vi.fn((_event,_input,callback)=>{ack=callback}),on:()=>{},off:()=>{}}
+ const service=createCanonicalRoomAuthor(original,socket,()=>socket,()=>true)
+ expect(service.texturedAutoSource).toBe('textured-auto-material-v7')
+ expect(service.pressureTexturedSource).toBeUndefined();expect(service.softPressureTexturedSource).toBeUndefined()
+ const pending=service.begin(f.input,{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:f.sha,expectedMaterialContext7:f.material})
+ ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false})
+ await expect(pending).resolves.toMatchObject({ok:true,snapshot:{materialVersion:7}})
+ const stale=service.begin(f.input,{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:f.sha,expectedMaterialContext7:f.material})
+ const rejected=expect(stale).rejects.toThrow('Stale');current=false
+ ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});await rejected
+ expect(()=>createCanonicalRoomAuthor(original,socket,()=>socket,()=>true)).toThrow()
+})

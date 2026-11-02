@@ -433,13 +433,14 @@ export function canonicalSourceEffectReject(descriptor: BrushDescriptor,profile:
 
 /** First pressure-curve material DATA boundary. No context5, executable source
  * binding, author policy or raster grant is created here. */
-export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {
+export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {return extractDefaultPressureTextureProgramDataCore(descriptor,assets,false)}
+function extractDefaultPressureTextureProgramDataCore(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>,savedPhase7:boolean) {
  const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
  try{
   const source=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
   if(!source||!Object.hasOwn(source,'value'))return reject('texture-original-source-unavailable')
   const captured=captureSourceTexturePressureProgram(source.value)
-    const geometry=pressureTextureGeometry(descriptor,assets);if(!geometry.supported)return geometry
+    const geometry=pressureTextureGeometry(descriptor,assets,savedPhase7);if(!geometry.supported)return geometry
     const {patternAsset}=geometry
   const auto=extractDefaultAutoData(descriptor,false,'pressure-curve-data',captured.data)
   if(!auto.supported)return auto
@@ -448,22 +449,23 @@ export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor
  }catch{return reject('invalid-pressure-texture-program-data')}
 }
 
-function pressureTextureGeometry(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>){
+function pressureTextureGeometry(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>,savedPhase7:boolean){
  const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
   const available=textureData(assets,['pattern']),pattern=textureData(available.pattern,['id','size'])
   if(typeof pattern.id!=='string'||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||typeof pattern.size!=='number'||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
   const field=Object.getOwnPropertyDescriptor(descriptor,'texture')
   if(!field||!Object.hasOwn(field,'value'))return reject('texture-descriptor-unavailable')
   const t=textureData(field.value,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
-  if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false||offset.randomX!==false||offset.randomY!==false||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-pressure-texture')
+  if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false||(savedPhase7?(typeof offset.randomX!=='boolean'||typeof offset.randomY!=='boolean'):(offset.randomX!==false||offset.randomY!==false))||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-pressure-texture')
   const dimension=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&!Object.is(v,-0)&&v>=1&&v<=2048
-  if(!dimension(size.width)||size.width>pattern.size||!dimension(size.height)||size.height>pattern.size||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||offset.x<0||offset.y<0||offset.x>=t.periodPx||offset.y>=t.periodPx)return reject('unsupported-static-texture-geometry')
+  if(!dimension(size.width)||size.width>pattern.size||!dimension(size.height)||size.height>pattern.size||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||!savedPhase7&&(offset.x<0||offset.y<0||offset.x>=t.periodPx||offset.y>=t.periodPx))return reject('unsupported-static-texture-geometry')
   const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
  return {supported:true as const,patternAsset}
 }
 
 /** Closed native-default Soft DATA; no source, raster or room authority. */
-export function extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>){
+export function extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {return extractSoftNativeDefaultTextureProgramDataCore(descriptor,assets,false)}
+function extractSoftNativeDefaultTextureProgramDataCore(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>,savedPhase7:boolean){
  const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
  try{
   const field=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
@@ -477,7 +479,7 @@ export function extractCanonicalSoftAutoNativeDefaultTextureProgramData(descript
   if(descriptor.model!=='stamp'||descriptor.behavior?.dual||source.ratio>1||source.spikes!==2||source.antialias||source.randomness!==0||source.density!==1||!data.flags.materialFixed1||!data.flags.textureEnabled)return reject('unsupported-soft-texture-source')
   if(!sourceStampPaintingMode(data))return reject('inconsistent-source-painting-mode')
   if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.colorAdjustment||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
-  const geometry=pressureTextureGeometry(descriptor,assets);if(!geometry.supported)return geometry
+  const geometry=pressureTextureGeometry(descriptor,assets,savedPhase7);if(!geometry.supported)return geometry
   return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:data as SourceStampData & {readonly version:2;readonly source:import('./sourceStampData.js').SourceSoftAutoData},program:captured.program,patternAsset:geometry.patternAsset})
  }catch{return reject('invalid-native-default-soft-texture-data')}
 }
@@ -523,8 +525,8 @@ export function extractCanonicalTexturedAutoProgramData(descriptor:BrushDescript
  const kind=source&&Object.hasOwn(source,'value')&&source.value&&typeof source.value==='object'?Object.getOwnPropertyDescriptor(source.value,'kind'):undefined
  if(!kind||!Object.hasOwn(kind,'value'))return {supported:false as const,reasons:['texture-original-source-unavailable']}
  const k=kind.value
- if(k==='defaultAuto')return extractCanonicalDefaultAutoPressureTextureProgramData(descriptor,assets)
- if(k==='softAuto')return extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor,assets)
+ if(k==='defaultAuto')return extractDefaultPressureTextureProgramDataCore(descriptor,assets,true)
+ if(k==='softAuto')return extractSoftNativeDefaultTextureProgramDataCore(descriptor,assets,true)
  if(k==='gaussianAuto')return extractCanonicalGaussianAutoTexturePressureProgramData(descriptor,assets)
  return {supported:false as const,reasons:['unsupported-textured-auto-family']}
 }

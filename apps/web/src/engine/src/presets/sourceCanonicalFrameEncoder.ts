@@ -94,7 +94,7 @@ class FrameEncoderCore<C extends CoreContext> {
 
   private decode(packed:string,ordinal:number) {
     const context=this.context
-    if('materialVersion'in context&&context.materialVersion===7)return decodeCanonicalTexturedAutoStrokeFrame(this.envelope(packed),{...context,frameOrdinal:ordinal})
+    if('materialVersion'in context&&context.materialVersion===7)return decodeCanonicalTexturedAutoStrokeFrame({...this.envelope(packed),texturePhase:context.material.primaryTexture.phase},{...context,frameOrdinal:ordinal})
     if('materialVersion'in context&&context.materialVersion===6)return decodeCanonicalStrokeFrame(this.envelope(packed),{...context,frameOrdinal:ordinal})
     if('materialVersion'in context&&context.materialVersion===5)return decodeCanonicalStrokeFrame(this.envelope(packed),{...context,frameOrdinal:ordinal})
     if('materialVersion'in context&&context.materialVersion===4)return decodeCanonicalStrokeFrame(this.envelope(packed),{...context,frameOrdinal:ordinal})

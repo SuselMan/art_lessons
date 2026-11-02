@@ -1,3 +1,4 @@
+import {extractCanonicalTexturedAutoProgramData} from '@grafetto/shared'
 import {extractCanonicalSoftAutoNativeDefaultTextureProgramData,extractCanonicalDefaultAutoPressureTextureProgramData,canonicalStrokeRasterContract,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,extractCanonicalDefaultAutoFixedTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type CanonicalDefaultAutoFixedTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
@@ -12,6 +13,7 @@ export type CanonicalSourceAuthorAdmissionV4=CanonicalSourceAuthorAdmission|{rea
 export type CanonicalSourceAuthorAdmissionV5=CanonicalSourceAuthorAdmissionV4|{readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'autoPressureTexture';readonly capability:Extract<ReturnType<typeof extractCanonicalDefaultAutoPressureTextureProgramData>,{supported:true}>}}
 
 export type CanonicalSourceAuthorAdmissionV6=CanonicalSourceAuthorAdmissionV5|{readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'autoSoftPressureTexture';readonly capability:Extract<ReturnType<typeof extractCanonicalSoftAutoNativeDefaultTextureProgramData>,{supported:true}>}}
+export type CanonicalSourceAuthorAdmissionV7=CanonicalSourceAuthorAdmissionV6|{readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'texturedAuto';readonly capability:Extract<ReturnType<typeof extractCanonicalTexturedAutoProgramData>,{supported:true}>}}
 /** Declared metadata only; never pixels, a resource owner or BEGIN authority. */
 function captureMetadata(values:readonly {readonly id:string;readonly size:number}[]|undefined){
  if(!values||!Array.isArray(values)||values.length<1||values.length>256)return undefined
@@ -25,20 +27,25 @@ function captureMetadata(values:readonly {readonly id:string;readonly size:numbe
  }
  return result
 }
-export interface CanonicalSourceAuthorAdmissionOptions {readonly primaryTextureSource?:'pressure-identity-subtract-v3';readonly texturedSource?:never;readonly pressureTexturedSource?:never;readonly softPressureTexturedSource?:never}
+export interface CanonicalSourceAuthorAdmissionOptions {readonly primaryTextureSource?:'pressure-identity-subtract-v3';readonly texturedSource?:never;readonly pressureTexturedSource?:never;readonly softPressureTexturedSource?:never;readonly texturedAutoSource?:never}
 
 export interface CanonicalSourceAuthorAdmissionV4Options extends Omit<CanonicalSourceAuthorAdmissionOptions,'texturedSource'> {readonly texturedSource:'fixed-default-auto-texture-v4'}
 
 export interface CanonicalSourceAuthorAdmissionV5Options extends Omit<CanonicalSourceAuthorAdmissionOptions,'texturedSource'|'pressureTexturedSource'> {readonly texturedSource?:'fixed-default-auto-texture-v4';readonly pressureTexturedSource:'pressure-default-auto-texture-v5'}
 
 export interface CanonicalSourceAuthorAdmissionV6Options extends Omit<CanonicalSourceAuthorAdmissionOptions,'texturedSource'|'pressureTexturedSource'|'softPressureTexturedSource'>{readonly texturedSource?:'fixed-default-auto-texture-v4';readonly pressureTexturedSource?:'pressure-default-auto-texture-v5';readonly softPressureTexturedSource:'pressure-soft-auto-texture-v6'}
+export interface CanonicalSourceAuthorAdmissionV7Options extends Omit<CanonicalSourceAuthorAdmissionOptions,'texturedSource'|'pressureTexturedSource'|'softPressureTexturedSource'|'texturedAutoSource'>{readonly texturedSource?:'fixed-default-auto-texture-v4';readonly pressureTexturedSource?:'pressure-default-auto-texture-v5';readonly softPressureTexturedSource?:'pressure-soft-auto-texture-v6';readonly texturedAutoSource:'textured-auto-material-v7'}
 /** Static pointer-domain query over original validated source data. DATA1 image
  * remains DATA1; wire material V2 and real server BEGIN are separate boundaries. */
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly {readonly id:string;readonly size:number}[]|undefined,options:CanonicalSourceAuthorAdmissionV7Options):CanonicalSourceAuthorAdmissionV7
 export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly {readonly id:string;readonly size:number}[]|undefined,options:CanonicalSourceAuthorAdmissionV6Options):CanonicalSourceAuthorAdmissionV6
 export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly {readonly id:string;readonly size:number}[]|undefined,options:CanonicalSourceAuthorAdmissionV5Options):CanonicalSourceAuthorAdmissionV5
 export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly {readonly id:string;readonly size:number}[]|undefined,options:CanonicalSourceAuthorAdmissionV4Options):CanonicalSourceAuthorAdmissionV4
 export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions):CanonicalSourceAuthorAdmission
-export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions|CanonicalSourceAuthorAdmissionV4Options|CanonicalSourceAuthorAdmissionV5Options|CanonicalSourceAuthorAdmissionV6Options):CanonicalSourceAuthorAdmissionV6 {
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions|CanonicalSourceAuthorAdmissionV4Options|CanonicalSourceAuthorAdmissionV5Options|CanonicalSourceAuthorAdmissionV6Options|CanonicalSourceAuthorAdmissionV7Options):CanonicalSourceAuthorAdmissionV7 {
+ const generic=options&&'texturedAutoSource'in options?options.texturedAutoSource:undefined
+ if(generic!==undefined&&generic!=='textured-auto-material-v7')return{supported:false,reason:'Unsupported canonical textured Auto policy'}
+ if(generic){try{if(!canonicalStrokeRasterContract(profile).genericSC)return{supported:false,reason:'Unsupported canonical textured Auto profile'}}catch{return{supported:false,reason:'Unsupported canonical textured Auto profile'}}}
  const softPressure=options&&'softPressureTexturedSource'in options?options.softPressureTexturedSource:undefined
  if(softPressure!==undefined&&softPressure!=='pressure-soft-auto-texture-v6')return{supported:false,reason:'Unsupported canonical Soft texture policy/profile'}
  if(softPressure){try{if(!canonicalStrokeRasterContract(profile).genericSC)return{supported:false,reason:'Unsupported canonical Soft texture policy/profile'}}catch{return{supported:false,reason:'Unsupported canonical Soft texture policy/profile'}}}
@@ -80,6 +87,16 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
    const pin=descriptor.tip.animation?canonicalImagePipeSourceBinding(descriptor,metadata):canonicalImageSourceBinding(descriptor,asset)
    return{supported:true,data,nativeSizePx,material:{kind:'image',pin}}
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
+ }
+ if(generic&&data.version===2&&data.source.kind!=='image'&&data.flags.textureEnabled&&(data.compiled?.version===3||data.compiled?.version===4)){
+  const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
+  if(!pattern)return{supported:false,reason:'Canonical textured Auto metadata unavailable'}
+  const result=extractCanonicalTexturedAutoProgramData(descriptor,{pattern})
+  if(!result.supported)return{supported:false,reason:'Unsupported canonical textured Auto: '+result.reasons.join(',')}
+  if(result.data.version!==2||result.data.source.kind==='image')return{supported:false,reason:'Unsupported canonical textured Auto family'}
+  const nativeSizePx=result.data.source.diameter*result.data.brush.scale
+  if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return{supported:false,reason:'Invalid canonical textured Auto native size'}
+  return{supported:true,data:result.data,nativeSizePx,material:{kind:'texturedAuto',capability:result}}
  }
  if(softPressure&&data.flags.textureEnabled&&data.compiled?.version===4){
   const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)

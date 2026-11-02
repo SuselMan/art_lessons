@@ -210,3 +210,51 @@ it.each(['missingSHA','wrongSHA','wrongContext','selectorGetter','policyGetter',
  if(mode==='missingSHA')Reflect.deleteProperty(lifetime,'expectedDescriptorSha256');if(mode==='wrongSHA')lifetime.expectedDescriptorSha256='b'.repeat(64);if(mode==='wrongContext')Reflect.set(snapshot.material,'version',4);if(mode==='selectorGetter')Object.defineProperty(snapshot,'materialVersion',{get(){calls++;return 6}});if(mode==='policyGetter')Object.defineProperty(lifetime,'authorSoftPressureTexturedSource',{get(){calls++;return'pressure-soft-auto-texture-v6'}})
  const pending=sendCanonicalStrokeBegin(s.emitter,f.input,lifetime),assertion=expect(pending).rejects.toThrow();if(mode==='stale')current=false;if(s.sent.length)s.ack({ok:true,snapshot,recordedNext:0,liveNext:0,ended:false});await assertion;if(mode==='policyGetter')expect(s.emitter.emit).not.toHaveBeenCalled();expect(calls).toBe(0);expect(s.listeners.size).toBe(0)
 })
+
+
+it('captures prepared7 context and phase before emit, independently of later caller mutation',async()=>{
+ const {texturedAuto7Fixture}=await import('./canonicalTexturedAuto7.testFixture')
+ const f=texturedAuto7Fixture(),s=socket(),mutable=structuredClone(f.material),phase={...f.input.texturePhase}
+ const lifetime={boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,authorTexturedAutoSource:'textured-auto-material-v7' as const,expectedDescriptorSha256:f.sha,expectedMaterialContext7:mutable}
+ const pending=sendCanonicalStrokeBegin(s.emitter,{...f.input,texturePhase:phase},lifetime)
+ Reflect.set(mutable.budget,'workUnits',1);Reflect.set(phase,'x',(phase.x+1)%f.material.primaryTexture.width)
+ Reflect.set(lifetime,'authorTexturedAutoSource',undefined)
+ expect(s.sent[0].texturePhase).toEqual(f.material.primaryTexture.phase)
+ s.ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false})
+ const accepted=await pending
+ expect(accepted.ok&&accepted.snapshot.materialVersion).toBe(7)
+ expect(s.listeners.size).toBe(0)
+})
+it.each(['policy','context','phase','phaseGetter','contextGetter'] as const)('rejects missing/foreign prepared7 %s before emitting',async kind=>{
+ const {texturedAuto7Fixture}=await import('./canonicalTexturedAuto7.testFixture')
+ const f=texturedAuto7Fixture(),s=socket(),request={...f.input},getter=vi.fn(()=>f.input.texturePhase)
+ const lifetime={boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,authorTexturedAutoSource:'textured-auto-material-v7' as const,expectedDescriptorSha256:f.sha,expectedMaterialContext7:f.material}
+ if(kind==='policy')Reflect.deleteProperty(lifetime,'authorTexturedAutoSource')
+ if(kind==='context')Reflect.deleteProperty(lifetime,'expectedMaterialContext7')
+ if(kind==='phase')request.texturePhase={...request.texturePhase,x:(request.texturePhase.x+1)%f.material.primaryTexture.width}
+ if(kind==='phaseGetter')Object.defineProperty(request,'texturePhase',{get:getter})
+ if(kind==='contextGetter')Object.defineProperty(lifetime,'expectedMaterialContext7',{get:getter})
+ await expect(sendCanonicalStrokeBegin(s.emitter,request,lifetime)).rejects.toThrow()
+ expect(getter).not.toHaveBeenCalled();expect(s.sent).toHaveLength(0);expect(s.listeners.size).toBe(0)
+})
+it.each(['phase','budget','source','downgrade','SHA'] as const)('rejects ACK7 %s mismatch against the captured original preparation',async kind=>{
+ const {texturedAuto7Fixture}=await import('./canonicalTexturedAuto7.testFixture')
+ const f=texturedAuto7Fixture(),s=socket(),snapshot=structuredClone(f.snapshot)
+ if(kind==='phase')Reflect.set(snapshot.material.primaryTexture.phase,'x',(snapshot.material.primaryTexture.phase.x+1)%snapshot.material.primaryTexture.width)
+ if(kind==='budget')Reflect.set(snapshot.material.budget,'workUnits',snapshot.material.budget.workUnits-1)
+ if(kind==='source')Reflect.set(snapshot.material.primarySource,'brushScale',snapshot.material.primarySource.brushScale*2)
+ if(kind==='SHA')Reflect.set(snapshot,'descriptorSha256','a'.repeat(64))
+ const pending=sendCanonicalStrokeBegin(s.emitter,f.input,{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,authorTexturedAutoSource:'textured-auto-material-v7',authorSoftPressureTexturedSource:'pressure-soft-auto-texture-v6',expectedDescriptorSha256:f.sha,expectedMaterialContext7:f.material})
+ const rejected=expect(pending).rejects.toThrow()
+ if(kind==='downgrade')s.ack({ok:true,snapshot:softPressureTextureFixture().snapshot,recordedNext:0,liveNext:0,ended:false})
+ else s.ack({ok:true,snapshot,recordedNext:0,liveNext:0,ended:false})
+ await rejected;expect(s.listeners.size).toBe(0)
+})
+it('cancels a prepared7 BEGIN and ignores its late valid ACK',async()=>{
+ const {texturedAuto7Fixture}=await import('./canonicalTexturedAuto7.testFixture')
+ const f=texturedAuto7Fixture(),s=socket(),abort=new AbortController()
+ const pending=sendCanonicalStrokeBegin(s.emitter,f.input,{boardEpoch:2,isCurrent:()=>true,signal:abort.signal,authorRasterProfile:generic,authorTexturedAutoSource:'textured-auto-material-v7',expectedDescriptorSha256:f.sha,expectedMaterialContext7:f.material})
+ const rejected=expect(pending).rejects.toThrow('aborted');abort.abort();await rejected
+ s.ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false})
+ expect(s.listeners.size).toBe(0)
+})

@@ -1,17 +1,18 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
+  canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,decodeCanonicalTexturedAutoStrokeFrame,canonicalStrokeSnapshotV7,type CanonicalMaterialContextV7,type CanonicalResolvedTexturePhase,
   CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalStrokeSnapshotV6,canonicalSoftAutoNativeDefaultTextureSourceBinding,extractCanonicalSoftAutoNativeDefaultTextureProgramData,type CanonicalMaterialContextV6,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,canonicalDefaultAutoPressureTextureSourceBinding,canonicalPressureCurvePrimaryTexturePin,extractCanonicalDefaultAutoPressureTextureProgramData,type CanonicalMaterialContextV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,canonicalDefaultAutoFixedTextureSourceBinding,extractCanonicalDefaultAutoFixedTextureCapability,canonicalStrokeRasterContract,type CanonicalMaterialContextV4,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,extractCanonicalPrimaryTextureCapability,type CanonicalMaterialContextV3,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalSoftPressureTexturedPolicies,freezeCanonicalPressureTexturedPolicies,freezeCanonicalTexturedPolicies,freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalTexturedAutoPolicies,freezeCanonicalSoftPressureTexturedPolicies,freezeCanonicalPressureTexturedPolicies,freezeCanonicalTexturedPolicies,freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
-import { verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { captureCanonicalSavedTexturePhase,verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type {CanonicalIndexedCloseEvidence} from './snapshotStore.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture,CanonicalTrustedMaterialContext } from './CanonicalStrokeAdmission.js'
 
@@ -24,7 +25,7 @@ export interface CanonicalRecordedCapability {
  readonly rasterProfile:CanonicalStrokeRasterProfile
  readonly pigmentRgb8:readonly[number,number,number]
  readonly composition:TrustedCanonicalGesture['composition']
- readonly material:CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
+ readonly material:CanonicalMaterialContextV7|CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
 }
 interface RecordedFoldCheckpoint extends CanonicalMaterialPrefixState {
  readonly recordedNext:number;readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
@@ -59,6 +60,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly texturedAutoPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedAutoSource'|'authorTexturedAutoSource'>>
   private readonly softPressureTexturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'softPressureTexturedSource'|'authorSoftPressureTexturedSource'>>
   private readonly pressureTexturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'pressureTexturedSource'|'authorPressureTexturedSource'>>
   private readonly texturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedSource'|'authorTexturedSource'>>
@@ -91,6 +93,8 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly texturedAutoSource?:CanonicalRoomExecutionPolicy['texturedAutoSource']
+    readonly authorTexturedAutoSource?:CanonicalRoomExecutionPolicy['authorTexturedAutoSource']
     readonly softPressureTexturedSource?:CanonicalRoomExecutionPolicy['softPressureTexturedSource']
     readonly authorSoftPressureTexturedSource?:CanonicalRoomExecutionPolicy['authorSoftPressureTexturedSource']
     readonly pressureTexturedSource?:CanonicalRoomExecutionPolicy['pressureTexturedSource']
@@ -115,6 +119,7 @@ export class CanonicalBrushCapabilityResolver {
     const raster=freezeCanonicalRasterPolicy(options)
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
+    this.texturedAutoPolicies=freezeCanonicalTexturedAutoPolicies(options)
     this.softPressureTexturedPolicies=freezeCanonicalSoftPressureTexturedPolicies(options)
     this.pressureTexturedPolicies=freezeCanonicalPressureTexturedPolicies(options)
     this.texturedPolicies=freezeCanonicalTexturedPolicies(options)
@@ -141,6 +146,19 @@ export class CanonicalBrushCapabilityResolver {
   /** Transport pins the verified brush between prepare and commit, synchronously.
    * A failed pin publishes no grant. No await/reentrant binder call is allowed. */
   captureBeginInput(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin):CanonicalGestureBegin {
+    if(input&&typeof input==='object'&&'texturePhase'in input){
+      const names=['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken','texturePhase']
+      if(![Object.prototype,null].includes(Object.getPrototypeOf(input))||Reflect.ownKeys(input).length!==names.length)fail('invalid phase gesture fields')
+      const own:Record<string,unknown>=Object.create(null)
+      for(const name of names){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))fail('invalid phase gesture accessor');own[name]=d.value}
+      const texturePhase=captureCanonicalSavedTexturePhase(own.texturePhase),rgb=own.pigmentRgb8
+      if(!Array.isArray(rgb)||Object.getPrototypeOf(rgb)!==Array.prototype||Reflect.ownKeys(rgb).length!==4||Object.getOwnPropertyDescriptor(rgb,'length')?.value!==3)fail('invalid phase pigment')
+      const channel=(index:number):number=>{const d=Object.getOwnPropertyDescriptor(rgb,String(index));if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>255)fail('invalid phase pigment');return d.value}
+      if(!validIdentity(identity)||!text(own.layerId)||!text(own.brush)||!text(own.strokeId)||typeof own.outerResourceOpacity!=='number'||!Number.isFinite(own.outerResourceOpacity)||own.outerResourceOpacity<0||own.outerResourceOpacity>1||own.alphaDarken!=='creamy'&&own.alphaDarken!=='hard'||!this.variants.has(own.alphaDarken))fail('invalid phase gesture resources')
+      const pigmentRgb8=Object.freeze([channel(0),channel(1),channel(2)] as const)
+      if(!this.authorizedBoard(identity,own.layerId))fail('board or paint permission unavailable')
+      return Object.freeze({layerId:own.layerId,brush:own.brush,strokeId:own.strokeId,pigmentRgb8,outerResourceOpacity:own.outerResourceOpacity,alphaDarken:own.alphaDarken,texturePhase})
+    }
     if (!validIdentity(identity) || !input || Object.keys(input).length !== 6
       || !['layerId', 'brush', 'strokeId', 'pigmentRgb8', 'outerResourceOpacity', 'alphaDarken'].every(k => Object.hasOwn(input, k))
       || !text(input.layerId) || !text(input.brush) || !text(input.strokeId)
@@ -200,6 +218,8 @@ export class CanonicalBrushCapabilityResolver {
     if (previous) {
       if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
+      if('version'in g.material&&g.material.version===7&&(!this.texturedAutoPolicies.authorTexturedAutoSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material7 author/phase changed')
+      if(input.texturePhase&&(!('version'in g.material)||g.material.version!==7))fail('phase on legacy gesture')
       if('version'in g.material&&g.material.version===6&&!this.softPressureTexturedPolicies.authorSoftPressureTexturedSource)fail('material6 author policy disabled')
       if('version'in g.material&&g.material.version===5&&!this.pressureTexturedPolicies.authorPressureTexturedSource)fail('material5 author policy disabled')
       if('version'in g.material&&g.material.version===4&&!this.texturedPolicies.authorTexturedSource)fail('material4 author policy disabled')
@@ -219,7 +239,7 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     const pipeSource=this.assertImagePipeRole(descriptor,'author')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'author')
+    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase)
     const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: profile,
@@ -275,7 +295,7 @@ export class CanonicalBrushCapabilityResolver {
         assert(this)
         try{
         if(operation.type==='canonical_stroke_close'){
-          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||(bound.material.version!==2&&bound.material.version!==3&&bound.material.version!==4&&bound.material.version!==5&&bound.material.version!==6))fail('recorded close V1 source read unsupported')
+          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||(bound.material.version!==2&&bound.material.version!==3&&bound.material.version!==4&&bound.material.version!==5&&bound.material.version!==6&&bound.material.version!==7))fail('recorded close V1 source read unsupported')
           const close=projectCanonicalIndexedCloseOperation(roomId,row),op=parseCanonicalStrokeCloseOperation(operation)
           if(!isDeepStrictEqual(close.operation,op)||op.id===firstOperationId||op.id===lastOperationId)fail('recorded close immutable identity changed')
           bytes+=close.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
@@ -289,7 +309,7 @@ export class CanonicalBrushCapabilityResolver {
         if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
         bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
         const common={rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition}
-        const decoded=bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
+        const decoded=bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
         if(decoded.frame.masked)fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
@@ -367,11 +387,11 @@ export class CanonicalBrushCapabilityResolver {
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
     this.assertImagePipeRole(descriptor,'recorded')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'recorded')
+    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame))
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
-    const decoded=material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
+    const decoded=material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
     if(decoded.frame.masked)fail('recorded masked material unavailable')
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
       descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:profile,
@@ -435,7 +455,7 @@ export class CanonicalBrushCapabilityResolver {
         const c=read()
         const common={layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
           rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets}
-        const snapshot=c.material.version===6?canonicalStrokeSnapshotV6({...common,materialVersion:6,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===5?canonicalStrokeSnapshotV5({...common,materialVersion:5,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===4?canonicalStrokeSnapshotV4({...common,materialVersion:4,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===3?canonicalStrokeSnapshotV3({...common,materialVersion:3,material:c.material},c.boardEpoch,c.rasterProfile):Object.freeze({...common,materialVersion:2 as const,material:c.material})
+        const snapshot=c.material.version===7?canonicalStrokeSnapshotV7({...common,materialVersion:7,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===6?canonicalStrokeSnapshotV6({...common,materialVersion:6,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===5?canonicalStrokeSnapshotV5({...common,materialVersion:5,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===4?canonicalStrokeSnapshotV4({...common,materialVersion:4,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===3?canonicalStrokeSnapshotV3({...common,materialVersion:3,material:c.material},c.boardEpoch,c.rasterProfile):Object.freeze({...common,materialVersion:2 as const,material:c.material})
         index=capabilities.length;capabilities.push(Object.freeze({originalUserId:c.originalUserId,snapshot}));dictionary.set(identity,index)
       }
       bindings.push(Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:index}))
@@ -456,7 +476,7 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded'):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
@@ -464,6 +484,23 @@ export class CanonicalBrushCapabilityResolver {
     const composition=canonicalSourceComposition(descriptor,profile)!
     let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup'
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+    if(phase!==undefined){
+      if(!this.texturedAutoPolicies.texturedAutoSource)fail('material7 consumer disabled')
+      if(role==='author'&&!this.texturedAutoPolicies.authorTexturedAutoSource)fail('material7 author policy disabled')
+      material4Raster(profile)
+      if(composition.mode!=='wash')fail('material7 buildup publication unavailable')
+      const kind=descriptor.sourceStamp.source?.kind
+      const configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:kind==='softAuto'?this.autoSources.softAuto:undefined
+      if(!configured)fail('textured-auto family policy disabled')
+      const pattern=library.assets.find(a=>a.id===descriptor.texture?.id)
+      if(!pattern)fail('textured-auto pattern metadata unavailable')
+      const binding=canonicalTexturedAutoProgramBinding(descriptor,descriptorSha256,configured.coverageProfile,{id:pattern.id,size:pattern.size},profile)
+      if(binding.source.brushScale!==1||binding.source.kind==='defaultAuto'&&binding.source.source.density!==1)fail('unsupported textured-auto stored scale/density')
+      // Actual storage verifies original CAS bytes; no payload/library echo is authority.
+      this.storage.asset(pattern.id.slice(6),pattern.size)
+      const material=assertTexturedAutoProgramContext(binding,{version:7,assets:[binding.patternAsset],primarySource:binding.source,primaryTexture:{...binding.textureGeometry,strength:'recorded-grain-v1',phase},budget})
+      return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}
+    }
     if(descriptor.sourceStamp.compiled?.version===4){
       if(!this.softPressureTexturedPolicies.softPressureTexturedSource)fail('material6 consumer disabled')
       if(role==='author'&&!this.softPressureTexturedPolicies.authorSoftPressureTexturedSource)fail('material6 author policy disabled')
@@ -607,4 +644,17 @@ function material4Raster(profile:CanonicalStrokeRasterProfile){
  const contract=canonicalStrokeRasterContract(profile)
  if(!contract.genericSC)fail('material4 composition profile unavailable')
  return contract.profile
+}
+
+/** Only the verified original row/envelope may supply saved random phase. */
+function recordedTexturePhase(frame:CanonicalStrokeOperation['frame']):CanonicalResolvedTexturePhase|undefined {
+ const phase=Object.getOwnPropertyDescriptor(frame,'texturePhase')
+ const packed=Object.getOwnPropertyDescriptor(frame,'materialPacked')
+ if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')fail('recorded material selector unavailable')
+ if(packed.value.startsWith('7|')){
+  if(!phase||!Object.hasOwn(phase,'value'))fail('recorded material7 phase unavailable')
+  return captureCanonicalSavedTexturePhase(phase.value)
+ }
+ if(phase||'texturePhase'in frame)fail('unexpected legacy recorded phase')
+ return undefined
 }

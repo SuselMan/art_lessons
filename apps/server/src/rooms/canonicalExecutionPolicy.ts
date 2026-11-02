@@ -32,6 +32,8 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly texturedAutoSource?:'textured-auto-material-v7'|false
+ readonly authorTexturedAutoSource?:'textured-auto-material-v7'|false
  readonly softPressureTexturedSource?:'pressure-soft-auto-texture-v6'|false
  readonly authorSoftPressureTexturedSource?:'pressure-soft-auto-texture-v6'|false
  readonly pressureTexturedSource?:'pressure-default-auto-texture-v5'|false
@@ -209,4 +211,27 @@ export function freezeCanonicalSeededDefaultAutoPolicies(value:Pick<CanonicalRoo
   if(author&&(recorded!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||(value.authorRasterProfile??value.rasterProfile)!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
  }
  return Object.freeze({...(author?{seededDefaultAuto:Object.freeze({coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,storedScale:1 as const})}:{}),...(recorded?{recordedSeededDefaultAutoProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{})})
+}
+
+/** Explicit independent generic Auto7 consumer/author configuration. */
+export function freezeCanonicalTexturedAutoPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedAutoSource'|'authorTexturedAutoSource'>> {
+ const flag=(key:'texturedAutoSource'|'authorTexturedAutoSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('invalid explicit material7 policy');return false as const}
+  if(!Object.hasOwn(d,'value'))throw TypeError('invalid explicit material7 policy')
+  if(d.value===undefined||d.value===false)return false as const
+  if(d.value!=='textured-auto-material-v7')throw TypeError('invalid explicit material7 policy')
+  return d.value as 'textured-auto-material-v7'
+ }
+ const texturedAutoSource=flag('texturedAutoSource'),authorTexturedAutoSource=flag('authorTexturedAutoSource')
+ if(authorTexturedAutoSource&&!texturedAutoSource)throw TypeError('material7 author requires read consumer')
+ if(texturedAutoSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('material7 recorded raster unavailable')
+  if(authorTexturedAutoSource){
+   const sources=freezeCanonicalAutoPolicies(value.autoSources)
+   if(!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!Object.values(sources).some(source=>source&&canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile)))throw TypeError('material7 author source/raster unavailable')
+  }
+ }
+ return Object.freeze({texturedAutoSource,authorTexturedAutoSource})
 }

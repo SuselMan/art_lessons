@@ -38,7 +38,7 @@ function input(context:c.CanonicalMaterialContextV7):c.CanonicalMaterialBuildInp
 const empty={masked:false as const,entry:{phase:'between' as const},draws:[],fences:[]}
 const composition={mode:'wash' as const,alphaDarken:'hard' as const,outerResourceOpacity:1,outerBlend:'over' as const}
 function trusted(context:c.CanonicalMaterialContextV7,browser=false){return{materialVersion:7 as const,rasterProfile:browser?B:G,brush:'brush:'+context.primarySource.descriptorId+'@'+context.primarySource.descriptorVersion,strokeId:'stroke7',frameOrdinal:0,pigmentRgb8:[123,45,201]as const,composition,material:context}}
-function envelope(packed:string,t:ReturnType<typeof trusted>){return{version:2 as const,rasterProfile:t.rasterProfile,brush:t.brush,strokeId:t.strokeId,frameOrdinal:t.frameOrdinal,pigmentRgb8:t.pigmentRgb8,composition:t.composition,materialPacked:packed}}
+function envelope(packed:string,t:ReturnType<typeof trusted>){return{version:2 as const,rasterProfile:t.rasterProfile,brush:t.brush,strokeId:t.strokeId,frameOrdinal:t.frameOrdinal,pigmentRgb8:t.pigmentRgb8,composition:t.composition,materialPacked:packed,texturePhase:t.material.primaryTexture.phase}}
 function snapshot(context:c.CanonicalMaterialContextV7,browser=false){const t=trusted(context,browser);return{layerId:'layer-1',brush:t.brush,strokeId:t.strokeId,boardEpoch:3,descriptorSha256:context.primarySource.descriptorSha256,rasterProfile:t.rasterProfile,pigmentRgb8:t.pigmentRgb8,composition,assets:context.assets,materialVersion:7 as const,material:context}}
 function changed(packed:string,offset:number,value:number){const b=Buffer.from(packed.slice(2),'base64');b[offset]=value;return '7|'+b.toString('base64')}
 describe('standalone generic textured-Auto7 DATA codec',()=>{
@@ -101,7 +101,7 @@ describe('standalone generic textured-Auto7 DATA codec',()=>{
   function typeOnly(){
    // @ts-expect-error standalone7 is not global historical Any
    const any:c.AnyCanonicalMaterialContext=ctx
-   // @ts-expect-error standalone7 is not the actual operation/read snapshot union
+   // Coherent7 extends actual snapshot DATA; old decoder/Any remain closed.
    const actual:CanonicalStrokeSnapshot=s
    // @ts-expect-error old decoder overloads remain1–6
    decodeCanonicalStrokeFrame(envelope(f.packed,t),t)

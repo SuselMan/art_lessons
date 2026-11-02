@@ -1,3 +1,4 @@
+import {canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
 import {canonicalTexturedAutoMaterialContext,unpackCanonicalTexturedAutoMaterial,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7} from './canonicalMaterialCodec.js'
 import { canonicalPrimaryTextureMaterialContext, canonicalTexturedSourceMaterialContext, canonicalPressureTexturedSourceMaterialContext,canonicalSoftNativeDefaultTexturedSourceMaterialContext, unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type CanonicalMaterialContextV3, type CanonicalMaterialFrameV3, type CanonicalMaterialContextV4, type CanonicalMaterialFrameV4, type CanonicalMaterialContextV5, type CanonicalMaterialFrameV5,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6 } from './canonicalMaterialCodec.js'
 
@@ -33,6 +34,8 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
   return canonicalStrokeRasterContract(profile).coverageProfiles.some(value=>value===coverage)
 }
 interface CanonicalStrokeFrameData {
+  /** Mandatory only for named material7; old decoders reject this field. */
+  readonly texturePhase?:CanonicalResolvedTexturePhase
   readonly brush: string
   readonly strokeId: string
   readonly frameOrdinal: number
@@ -139,6 +142,16 @@ export function decodeCanonicalTexturedAutoStrokeFrame(value:unknown,trusted:Can
  if(result.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)throw new TypeError('Invalid standalone material')
  return Object.freeze({envelope:result.envelope,frame:result.frame})
 }
+function captureEnvelope7(value:unknown,material:CanonicalMaterialContextV7):Record<string,unknown> {
+ const own=(v:unknown,keys:readonly string[]):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v)||![Object.prototype,null].includes(Object.getPrototypeOf(v))||Reflect.ownKeys(v).length!==keys.length)throw new TypeError('Invalid material7 envelope DATA');const out:Record<string,unknown>=Object.create(null);for(const k of keys){const d=Object.getOwnPropertyDescriptor(v,k);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Invalid material7 envelope accessor');out[k]=d.value}return out}
+ const v=own(value,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked','texturePhase']),rgb=v.pigmentRgb8
+ if(!Array.isArray(rgb)||Object.getPrototypeOf(rgb)!==Array.prototype||Reflect.ownKeys(rgb).length!==4||rgb.length!==3)throw new TypeError('Invalid material7 pigment DATA')
+ v.pigmentRgb8=Object.freeze([0,1,2].map(i=>{const d=Object.getOwnPropertyDescriptor(rgb,String(i));if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Invalid material7 pigment accessor');return d.value}))
+ v.composition=Object.freeze(own(v.composition,['mode','alphaDarken','outerResourceOpacity','outerBlend']))
+ const expected=material.primaryTexture.phase,phase=canonicalResolvedTexturePhase(v.texturePhase,material.primaryTexture.width,material.primaryTexture.height)
+ if(phase.x!==expected.x||phase.y!==expected.y)throw new TypeError('Material7 phase differs from pinned gesture')
+ v.texturePhase=phase;return Object.freeze(v)
+}
 function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3|CanonicalStrokeFrameContextV4|CanonicalStrokeFrameContextV5|CanonicalStrokeFrameContextV6|CanonicalStrokeFrameContextV7,standalone7:boolean):{readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7}{
   const selector=standalone7?7:selectedMaterial(trusted),aware3=selector===3,aware4=selector===4,aware5=selector===5,aware6=selector===6,aware7=selector===7
   // Material4 context is independently immutable BEFORE ANY envelope/trusted
@@ -162,7 +175,8 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(aware3||aware4||aware5||aware6||aware7?(!version||!Object.hasOwn(version,'value')||version.value!==selector):('version'in material&&(!version||!Object.hasOwn(version,'value')||version.value!==2)))
     throw new TypeError('Unsupported canonical stroke material version')
   if(aware3&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||(aware4||aware5||aware6||aware7)&&!contract.genericSC)throw new TypeError('Unsupported explicit texture raster profile')
-  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked'])
+  if(early7)value=captureEnvelope7(value,early7)
+  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
@@ -188,7 +202,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked }
+    materialPacked,...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })

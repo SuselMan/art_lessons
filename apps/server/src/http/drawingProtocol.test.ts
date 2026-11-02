@@ -16,7 +16,7 @@ describe('whole-renderer HTTP compatibility barrier', () => {
     app.get('/api/rooms/:id/thumbnail', async () => 'bitmap')
     try {
       for (const url of ['/api/rooms/r/snapshots/index', '/api/rooms/r/snapshots/layer/1?x=2', '/api/rooms/r/operations', '/api/rooms/r/%73napshots/index', '/api/rooms/r/%6fperations']) {
-        for (const revision of [undefined, '2', '7', '3, 2']) {
+        for (const revision of [undefined, '2', '8', '3, 2']) {
           const result = await app.inject({ method: 'GET', url, headers: revision ? { [DRAWING_PROTOCOL_HEADER]: revision } : {} })
           expect(result.statusCode).toBe(426)
           expect(result.json()).toEqual({ error: CLIENT_UPDATE_REQUIRED })
@@ -44,23 +44,40 @@ describe('whole-renderer HTTP compatibility barrier', () => {
   })
 })
 
-it('requires known4/5 on read4 binary GET/encoded upload BEFORE handlers and preserves Vary',async()=>{
+it('requires known4/5/6/7 on read4 binary GET/encoded upload BEFORE handlers and preserves Vary',async()=>{
  const app=Fastify();let reached=0;app.addHook('onRequest',async(_q,r)=>{r.header('Vary','Origin')});registerDrawingProtocolGate(app,'4')
  app.get('/api/rooms/:id/snapshots/:layer/:seq',async()=>{reached++;return Buffer.from([1,2,3])});app.post('/api/rooms/:id/snapshots',async()=>{reached++;return{ok:true}});app.get('/api/rooms/:id/operations',async()=>{reached++;return[]})
  try{
-  for(const revision of [undefined,'2','3','7','04','4, 3'])for(const url of ['/api/rooms/r/snapshots/l/1','/api/rooms/r/%73napshots/l/1','/api/rooms/r/operations'])expect((await app.inject({url,headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}})).statusCode).toBe(426)
+  for(const revision of [undefined,'2','3','8','04','4, 3'])for(const url of ['/api/rooms/r/snapshots/l/1','/api/rooms/r/%73napshots/l/1','/api/rooms/r/operations'])expect((await app.inject({url,headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}})).statusCode).toBe(426)
   expect(reached).toBe(0)
   expect((await app.inject({method:'POST',url:'/api/rooms/r/%73napshots',headers:{[DRAWING_PROTOCOL_HEADER]:'3'},payload:{}})).statusCode).toBe(426);expect(reached).toBe(0)
-  for(const revision of ['4','5','6']){const accepted=await app.inject({url:'/api/rooms/r/snapshots/l/1',headers:{[DRAWING_PROTOCOL_HEADER]:revision}});expect(accepted.statusCode).toBe(200);expect(accepted.headers.vary).toContain('Origin');expect(accepted.headers.vary).toContain(DRAWING_PROTOCOL_HEADER)}
+  for(const revision of ['4','5','6','7']){const accepted=await app.inject({url:'/api/rooms/r/snapshots/l/1',headers:{[DRAWING_PROTOCOL_HEADER]:revision}});expect(accepted.statusCode).toBe(200);expect(accepted.headers.vary).toContain('Origin');expect(accepted.headers.vary).toContain(DRAWING_PROTOCOL_HEADER)}
  }finally{await app.close()}
 })
-it('accepts known3/4/5 on an image3-only captured minimum3',async()=>{
+it('accepts known3/4/5/6/7 on an image3-only captured minimum3',async()=>{
  const app=Fastify();registerDrawingProtocolGate(app,'3');app.get('/api/rooms/:id/operations',async()=>[])
- try{for(const revision of ['3','4','5','6'])expect((await app.inject({url:'/api/rooms/r/operations',headers:{[DRAWING_PROTOCOL_HEADER]:revision}})).statusCode).toBe(200)}finally{await app.close()}
+ try{for(const revision of ['3','4','5','6','7'])expect((await app.inject({url:'/api/rooms/r/operations',headers:{[DRAWING_PROTOCOL_HEADER]:revision}})).statusCode).toBe(200)}finally{await app.close()}
 })
 
 
-it('requires literal6 at captured minimum6 before HTTP handler access',async()=>{
+it('requires known literal6/7 at captured minimum6 before HTTP handler access',async()=>{
  const app=Fastify();let reached=0;registerDrawingProtocolGate(app,'6');app.get('/api/rooms/:id/operations',async()=>{reached++;return[]})
- try{for(const revision of[undefined,'3','4','5','7','06','6, 5']){const r=await app.inject({url:'/api/rooms/r/%6fperations',headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}});expect(r.statusCode).toBe(426);expect(reached).toBe(0)}expect((await app.inject({url:'/api/rooms/r/operations',headers:{[DRAWING_PROTOCOL_HEADER]:'6'}})).statusCode).toBe(200);expect(reached).toBe(1)}finally{await app.close()}
+ try{for(const revision of[undefined,'3','4','5','8','06','6, 5']){const r=await app.inject({url:'/api/rooms/r/%6fperations',headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}});expect(r.statusCode).toBe(426);expect(reached).toBe(0)}for(const revision of ['6','7'])expect((await app.inject({url:'/api/rooms/r/operations',headers:{[DRAWING_PROTOCOL_HEADER]:revision}})).statusCode).toBe(200);expect(reached).toBe(2)}finally{await app.close()}
+})
+
+
+it('requires literal7 minimum before HTTP identity/cold handlers and preserves encoded aliases/Vary',async()=>{
+ const app=Fastify();let identities=0,loads=0
+ app.addHook('onRequest',async(_q,r)=>{r.header('Vary','Origin')});registerDrawingProtocolGate(app,'7');app.addHook('preHandler',async()=>{identities++})
+ app.get('/api/rooms/:id/snapshots/index',async()=>{loads++;return{snapshots:[]}});app.get('/api/rooms/:id/snapshots/:layer/:seq',async()=>{loads++;return Buffer.from([1,2,3])});app.get('/api/rooms/:id/operations',async()=>{loads++;return[]});app.post('/api/rooms/:id/snapshots',async()=>{loads++;return{ok:true}})
+ try{
+  const cold=['/api/rooms/r/snapshots/index','/api/rooms/r/%73napshots/index','/api/rooms/r/snapshots/l/1','/api/rooms/r/%73napshots/l/1','/api/rooms/r/operations','/api/rooms/r/%6fperations']
+  for(const revision of[undefined,'3','4','5','6','8','07','7, 6'])for(const url of cold){
+   const response=await app.inject({url,headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}});expect(response.statusCode).toBe(426);expect(response.json()).toEqual({error:CLIENT_UPDATE_REQUIRED});expect(response.headers.vary).toContain('Origin');expect(response.headers.vary).toContain(DRAWING_PROTOCOL_HEADER)
+  }
+  for(const url of['/api/rooms/r/snapshots','/api/rooms/r/%73napshots'])expect((await app.inject({method:'POST',url,headers:{[DRAWING_PROTOCOL_HEADER]:'6'},payload:{}})).statusCode).toBe(426)
+  expect(identities).toBe(0);expect(loads).toBe(0)
+  for(const url of cold){const response=await app.inject({url,headers:{[DRAWING_PROTOCOL_HEADER]:'7'}});expect(response.statusCode).toBe(200);expect(response.headers.vary).toContain('Origin');expect(response.headers.vary).toContain(DRAWING_PROTOCOL_HEADER)}
+  expect(identities).toBe(cold.length);expect(loads).toBe(cold.length)
+ }finally{await app.close()}
 })

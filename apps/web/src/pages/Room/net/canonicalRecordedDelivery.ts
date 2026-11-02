@@ -72,7 +72,7 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  * Native-only items retain their synchronous path. No source owner is minted. */
 export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope,assertFiniteCurrent?:()=>void):Promise<void>|null {
  if(atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new RangeError('Canonical resource atom limit')
- if(!atoms.some(atom=>{const s=atom.read?.capability.snapshot;return s&&(s.materialVersion===2||s.materialVersion===3||s.materialVersion===4||s.materialVersion===5||s.materialVersion===6)&&(s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.material.primarySource.kind==='image')}))return null
+ if(!atoms.some(atom=>{const s=atom.read?.capability.snapshot;return s&&(s.materialVersion===2||s.materialVersion===3||s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7)&&(s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7||s.material.primarySource.kind==='image')}))return null
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return fail()
  let hasTexture=false
@@ -88,8 +88,8 @@ export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalP
   contexts.add(input.read.capability)
   if(contexts.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical resource capability limit')
   const snapshot=input.read.capability.snapshot
-  if((snapshot.materialVersion!==2&&snapshot.materialVersion!==3&&snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6)||(snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.material.primarySource.kind!=='image'))continue
-  if(snapshot.materialVersion===3||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6)hasTexture=true
+  if((snapshot.materialVersion!==2&&snapshot.materialVersion!==3&&snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7)||(snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7&&snapshot.material.primarySource.kind!=='image'))continue
+  if(snapshot.materialVersion===3||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7)hasTexture=true
   for(const asset of snapshot.material.assets){
    if(snapshot.materialVersion===2)legacyAssets.add(asset.id)
    const previous=assets.get(asset.id)

@@ -22,7 +22,9 @@ function captureRows(value:unknown,limit:number):readonly CanonicalIndexedOperat
   if(!type||!Object.hasOwn(type,'value'))return fail()
   if(type.value!=='canonical_stroke')return captureCanonicalFullHistoryMetadata(d.value)
   const op=fields(d.value,['id','userId','timestamp','seq','type','layerId','frame'])
-  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked'])
+  const packed=op.frame&&typeof op.frame==='object'?Object.getOwnPropertyDescriptor(op.frame,'materialPacked'):undefined
+  if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')return fail()
+  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...(packed.value.startsWith('7|')?['texturePhase']:[])])
   if(typeof frame.materialPacked!=='string')return fail()
   // Bound packed input BEFORE material decode or any full payload allocation.
   packedBytes+=frame.materialPacked.length

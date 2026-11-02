@@ -1762,3 +1762,22 @@ it('advertises independent author4 only from captured policy in original full an
   expect((await read.next(0)).terminal).toBe(true)
  }finally{leaveRoom('board','author','fixed4-advertisement-seat')}
 })
+
+
+it('keeps original7 author policy stable full/indexed/recovery/FOLLOW and absent for reader-only',async()=>{
+ const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
+ const board=resident(),texturedAutoSource='textured-auto-material-v7'as const
+ const configured={authorRasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,fullHistoryFormat:'mixed-indexed-v1'as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},texturedAutoSource,authorTexturedAutoSource:texturedAutoSource}
+ const transport=new CanonicalRoomTransport(configured),reader=new CanonicalRoomTransport({...configured,authorTexturedAutoSource:false})
+ expect((await transport.prepareReadDelivery(identity,()=>true)).finish([])).toMatchObject({canonicalAuthorTexturedAutoSource:texturedAutoSource})
+ expect((await reader.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorTexturedAutoSource');expect(reader.requiredDrawingProtocol).toBe('7')
+ board.canonicalHistoryResidency='indexed-v1';const offer=transport.createIndexedHistoryOffer('board');expect(offer.authorTexturedAutoSource).toBe(texturedAutoSource);expect(reader.createIndexedHistoryOffer('board')).not.toHaveProperty('authorTexturedAutoSource')
+ expect(joinRoom('board','author','Owner','auto7-offer-seat',true).ok).toBe(true);const seat=captureCurrentRoomSeat('board','author','auto7-offer-seat');if(!seat)throw Error('Missing actual seat')
+ try{
+  const {authorTexturedAutoSource:_,...forgedOff}=offer
+  await expect(transport.openIndexedHistory(identity,forgedOff,seat,()=>true)).rejects.toThrow();await expect(reader.openIndexedHistory(identity,offer,seat,()=>true)).rejects.toThrow()
+  const read=await transport.openIndexedHistory(identity,JSON.parse(JSON.stringify(offer)),seat,()=>true);expect(read.begin.authorTexturedAutoSource).toBe(texturedAutoSource);expect((await read.next(0)).terminal).toBe(true)
+  expect(await read.recover(0)).toBe(read);expect(read.begin.authorTexturedAutoSource).toBe(texturedAutoSource);expect((await read.next(0)).terminal).toBe(true)
+  expect(await read.follow(0)).toMatchObject({authorTexturedAutoSource:texturedAutoSource});expect((await read.next(0)).terminal).toBe(true)
+ }finally{leaveRoom('board','author','auto7-offer-seat')}
+})

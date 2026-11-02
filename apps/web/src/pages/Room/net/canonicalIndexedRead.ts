@@ -1,6 +1,6 @@
 import {nanoid} from 'nanoid'
 import type {Socket} from 'socket.io-client'
-import {type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorSoftPressureTexturedSource,type CanonicalAuthorTexturedSource,parseCanonicalIndexedHistoryOffer,parseCanonicalIndexedHistoryBegin,parseCanonicalIndexedHistoryFollow,parseCanonicalIndexedRoot,prepareCanonicalIndexedHistoryPage,prepareCanonicalIndexedRootEvidence,type CanonicalHistoryAck,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedRootV1,type CanonicalPreparedRecordedOperation,type ClientToServerEvents,type ServerToClientEvents} from '@grafetto/shared'
+import {type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorTexturedAutoSource,type CanonicalAuthorSoftPressureTexturedSource,type CanonicalAuthorTexturedSource,parseCanonicalIndexedHistoryOffer,parseCanonicalIndexedHistoryBegin,parseCanonicalIndexedHistoryFollow,parseCanonicalIndexedRoot,prepareCanonicalIndexedHistoryPage,prepareCanonicalIndexedRootEvidence,type CanonicalHistoryAck,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedRootV1,type CanonicalPreparedRecordedOperation,type ClientToServerEvents,type ServerToClientEvents} from '@grafetto/shared'
 import type {CanonicalAcceptedCut,CanonicalIndexedOrigin,CanonicalIndexedPage,CanonicalIndexedRead,CanonicalIndexedRootProof,CanonicalRootWitnesses,CanonicalRecordedDelivery,CanonicalRecordedInput} from '../../../engine'
 import {captureCanonicalLocalReadScope,prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
 import type {CanonicalHistoryScope} from './canonicalHistoryPage'
@@ -12,6 +12,7 @@ export interface CanonicalIndexedSocketOrigin extends CanonicalIndexedOrigin {
  readonly scope:CanonicalHistoryScope
  readonly roomGeometry:CanonicalIndexedRead['roomGeometry']
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
@@ -59,7 +60,7 @@ async function admitValidation<T>(run:(timeout:number)=>Promise<CanonicalHistory
  }
 }
 const equalPolicy=(a:CanonicalIndexedHistoryStartV1,b:ReturnType<typeof parseCanonicalIndexedHistoryOffer>)=>
- (!('offerId'in a)||a.offerId===b.offerId)&&a.scope.roomId===b.scope.roomId&&a.scope.boardEpoch===b.scope.boardEpoch&&JSON.stringify(a.scope.allowedRasterProfiles)===JSON.stringify(b.scope.allowedRasterProfiles)&&a.authorRasterProfile===b.authorRasterProfile&&a.authorPrimaryTextureSource===b.authorPrimaryTextureSource&&a.authorTexturedSource===b.authorTexturedSource&&a.authorPressureTexturedSource===b.authorPressureTexturedSource&&a.authorSoftPressureTexturedSource===b.authorSoftPressureTexturedSource&&a.roomGeometry.width===b.roomGeometry.width&&a.roomGeometry.height===b.roomGeometry.height
+ (!('offerId'in a)||a.offerId===b.offerId)&&a.scope.roomId===b.scope.roomId&&a.scope.boardEpoch===b.scope.boardEpoch&&JSON.stringify(a.scope.allowedRasterProfiles)===JSON.stringify(b.scope.allowedRasterProfiles)&&a.authorRasterProfile===b.authorRasterProfile&&a.authorPrimaryTextureSource===b.authorPrimaryTextureSource&&a.authorTexturedSource===b.authorTexturedSource&&a.authorPressureTexturedSource===b.authorPressureTexturedSource&&a.authorTexturedAutoSource===b.authorTexturedAutoSource&&a.authorSoftPressureTexturedSource===b.authorSoftPressureTexturedSource&&a.roomGeometry.width===b.roomGeometry.width&&a.roomGeometry.height===b.roomGeometry.height
 /** Called from the actual room_state socket continuation AFTER seating. It
  * performs an authenticated open itself; no DATA-only parser can create this
  * origin, input proof or accepted cut. No original array is owned by origin. */
@@ -133,7 +134,7 @@ export async function openCanonicalIndexedRoomForSocket(
   // Weak membership carries no page payload or historical page collection.
   const terminalPages=new WeakSet<CanonicalIndexedPage>()
   let read:CanonicalIndexedSocketRead
-  read=Object.freeze({kind:begin.kind==='canonical-indexed-history-follow-v1'?'follow':'full',floor:begin.floor,latestObservedSeq:begin.kind==='canonical-indexed-history-follow-v1'?begin.latestObservedSeq:begin.throughSeq,lifetime:origin,throughSeq:begin.throughSeq,operationCount:begin.operationCount,scope,roomGeometry:begin.roomGeometry,authorRasterProfile:begin.authorRasterProfile,...(begin.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:begin.authorSoftPressureTexturedSource}:{}),...(begin.authorPressureTexturedSource?{authorPressureTexturedSource:begin.authorPressureTexturedSource}:{}),...(begin.authorTexturedSource?{authorTexturedSource:begin.authorTexturedSource}:{}),...(begin.authorPrimaryTextureSource?{authorPrimaryTextureSource:begin.authorPrimaryTextureSource}:{}),
+  read=Object.freeze({kind:begin.kind==='canonical-indexed-history-follow-v1'?'follow':'full',floor:begin.floor,latestObservedSeq:begin.kind==='canonical-indexed-history-follow-v1'?begin.latestObservedSeq:begin.throughSeq,lifetime:origin,throughSeq:begin.throughSeq,operationCount:begin.operationCount,scope,roomGeometry:begin.roomGeometry,authorRasterProfile:begin.authorRasterProfile,...(begin.authorTexturedAutoSource?{authorTexturedAutoSource:begin.authorTexturedAutoSource}:{}),...(begin.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:begin.authorSoftPressureTexturedSource}:{}),...(begin.authorPressureTexturedSource?{authorPressureTexturedSource:begin.authorPressureTexturedSource}:{}),...(begin.authorTexturedSource?{authorTexturedSource:begin.authorTexturedSource}:{}),...(begin.authorPrimaryTextureSource?{authorPrimaryTextureSource:begin.authorPrimaryTextureSource}:{}),
    assertCurrent(this:CanonicalIndexedRead,candidate:CanonicalIndexedRead){if(this!==read||candidate!==read)return fail();assertCursor(c)},
    async nextPage(this:CanonicalIndexedRead){
     if(this!==read||c.finished||c.preparing)return fail();assertCursor(c);if(c.preparing)return fail();c.preparing=true
@@ -170,7 +171,7 @@ export async function openCanonicalIndexedRoomForSocket(
     page.assertCurrent(page);assertCursor(c)
     if(c.after!==begin.throughSeq||!page.terminal||page.nextAfterSeq!==begin.throughSeq)return fail()
     let cut:CanonicalAcceptedCut
-    cut=Object.freeze({lifetime:origin,throughSeq:begin.throughSeq,operationCount:begin.throughSeq,scope,roomGeometry:begin.roomGeometry,authorRasterProfile:begin.authorRasterProfile,...(begin.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:begin.authorSoftPressureTexturedSource}:{}),...(begin.authorPressureTexturedSource?{authorPressureTexturedSource:begin.authorPressureTexturedSource}:{}),...(begin.authorTexturedSource?{authorTexturedSource:begin.authorTexturedSource}:{}),...(begin.authorPrimaryTextureSource?{authorPrimaryTextureSource:begin.authorPrimaryTextureSource}:{}),
+    cut=Object.freeze({lifetime:origin,throughSeq:begin.throughSeq,operationCount:begin.throughSeq,scope,roomGeometry:begin.roomGeometry,authorRasterProfile:begin.authorRasterProfile,...(begin.authorTexturedAutoSource?{authorTexturedAutoSource:begin.authorTexturedAutoSource}:{}),...(begin.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:begin.authorSoftPressureTexturedSource}:{}),...(begin.authorPressureTexturedSource?{authorPressureTexturedSource:begin.authorPressureTexturedSource}:{}),...(begin.authorTexturedSource?{authorTexturedSource:begin.authorTexturedSource}:{}),...(begin.authorPrimaryTextureSource?{authorPrimaryTextureSource:begin.authorPrimaryTextureSource}:{}),
      assertCurrent(this:CanonicalAcceptedCut,candidate:CanonicalAcceptedCut){if(this!==cut||candidate!==cut||!cuts.has(cut))return fail();assertOrigin()},
     })
     if(parentCut)assertCut(parentCut)
@@ -190,7 +191,7 @@ export async function openCanonicalIndexedRoomForSocket(
   })
   cursor=c;return read
  }
- origin=Object.freeze({kind:'indexed-room-origin-v1',scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...(offer.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:offer.authorSoftPressureTexturedSource}:{}),...(offer.authorPressureTexturedSource?{authorPressureTexturedSource:offer.authorPressureTexturedSource}:{}),...(offer.authorTexturedSource?{authorTexturedSource:offer.authorTexturedSource}:{}),...(offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{}),assertCurrent(this:CanonicalIndexedOrigin){if(this!==origin)return fail();return assertOrigin()},
+ origin=Object.freeze({kind:'indexed-room-origin-v1',scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...(offer.authorTexturedAutoSource?{authorTexturedAutoSource:offer.authorTexturedAutoSource}:{}),...(offer.authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource:offer.authorSoftPressureTexturedSource}:{}),...(offer.authorPressureTexturedSource?{authorPressureTexturedSource:offer.authorPressureTexturedSource}:{}),...(offer.authorTexturedSource?{authorTexturedSource:offer.authorTexturedSource}:{}),...(offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{}),assertCurrent(this:CanonicalIndexedOrigin){if(this!==origin)return fail();return assertOrigin()},
   async reopen(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut){
    if(this!==origin||cursor?.preparing)return fail();assertCut(cut)
    if(cursor?.preparing||cursor&&!cursor.finished&&!cursor.cancelled)return fail()

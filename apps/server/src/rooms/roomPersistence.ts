@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
-import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,type RecordedCanonicalStrokeCloseOperation,readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
+import { canonicalResolvedTexturePhase,CANONICAL_RECORDED_ATTACHMENT_LIMITS, parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,type RecordedCanonicalStrokeCloseOperation,readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { enqueueWrite, type RoomWriteOutcome } from './roomRegistry.js'
@@ -51,6 +51,13 @@ export function persistPalette(roomId: string, colors: string[]): void {
   }))
 }
 
+/** Explicit JSON data projection preserves the shared DTO's closed interface
+ * without giving it a Prisma index signature or weakening JSON type checking. */
+function canonicalFrameRow(frame:CanonicalStrokeOperation['frame']){
+ const {texturePhase,...base}=frame
+ return {...base,composition:{...frame.composition},...texturePhase?{texturePhase:{kind:texturePhase.kind,x:texturePhase.x,y:texturePhase.y}}:{}}
+}
+
 /** One immutable row projection shared by original insert and explicit repair. */
 function operationRow(roomId: string, op: Operation) {
   const layerId = 'layerId' in op ? op.layerId : null
@@ -59,7 +66,7 @@ function operationRow(roomId: string, op: Operation) {
     layerId, tool: op.type === 'stroke' ? op.tool : null,
     // Keep canonical interfaces acceptable to Prisma JSON without retaining a
     // second packed payload or introducing a looser serialized identity.
-    data: op.type === 'canonical_stroke' ? { ...op, frame: { ...op.frame, composition: { ...op.frame.composition } } } : op,
+    data: op.type === 'canonical_stroke' ? { ...op, frame: canonicalFrameRow(op.frame) } : op,
   }
 }
 
@@ -149,6 +156,14 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
  const fail=():never=>{throw new TypeError('Invalid canonical indexed operation projection')}
  const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
  const op=row.data as Operation
+ // Saved phase is immutable row DATA; authoritative crop/source checks follow
+ // in the original descriptor binder. Legacy material must not carry it.
+ const frame=op&&op.type==='canonical_stroke'?op.frame:undefined
+ const packed=frame&&Object.getOwnPropertyDescriptor(frame,'materialPacked')
+ const phase=frame&&Object.getOwnPropertyDescriptor(frame,'texturePhase')
+ const is7=!!packed&&Object.hasOwn(packed,'value')&&typeof packed.value==='string'&&packed.value.startsWith('7|')
+ const texturePhase=is7?(()=>{if(!phase||!Object.hasOwn(phase,'value'))return fail();return captureCanonicalSavedTexturePhase(phase.value)})():undefined
+ if(!is7&&frame&&(phase||'texturePhase'in frame))return fail()
  verifyCanonicalOperationRow(roomId,op,row)
  if(op.type!=='canonical_stroke' ||!text(op.id)||!text(op.userId)||!text(op.layerId)||!Number.isFinite(op.timestamp)||!op.frame||!text(op.frame.strokeId)
     ||!text(op.frame.brush)||!text(op.frame.rasterProfile)||(op.frame.version!==1&&op.frame.version!==2)||!Number.isSafeInteger(op.frame.frameOrdinal)||op.frame.frameOrdinal<0
@@ -156,11 +171,21 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
     ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
     ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
    if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
-    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked'].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...is7?['texturePhase']:[]].includes(k))
     ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
-   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,
+   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...texturePhase?{texturePhase}:{},
     pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
  const bytes=Buffer.byteLength(JSON.stringify(projected),'utf8')
  if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
  return {operation:projected,bytes}
+}
+
+/** Closed saved phase DATA only. The smallest containing rectangle obeys the
+ * SAME shared dimension/area ceilings; original descriptor checks actual crop. */
+export function captureCanonicalSavedTexturePhase(value:unknown):ReturnType<typeof canonicalResolvedTexturePhase>{
+ const fail=():never=>{throw TypeError('Invalid canonical saved texture phase')}
+ if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value))||Reflect.ownKeys(value).length!==3)return fail()
+ const axis=(key:'x'|'y'):number=>{const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='number'||!Number.isSafeInteger(d.value)||Object.is(d.value,-0)||d.value<0||d.value>=4096)return fail();return d.value}
+ const x=axis('x'),y=axis('y')
+ return canonicalResolvedTexturePhase(value,x+1,y+1)
 }

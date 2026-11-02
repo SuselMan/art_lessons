@@ -1,3 +1,4 @@
+import texturedAutoMetadata from '../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with {type:'json'}
 import softNativeMetadata from '../../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json' with {type:'json'}
 import{pressureTextureFixture}from'../../pages/Room/net/canonicalPressureTexture.testFixture'
 import {beforeEach,expect,it,vi} from 'vitest'
@@ -132,4 +133,18 @@ it('offers genuine Soft native-default only from current original author6; old4 
  const wire:RoomStateLegacyPayload={room:{id:'test',name:'Test',ownerId:'U',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'test',boardEpoch:2,allowedRasterProfiles:[G]},canonicalAuthorRasterProfile:G,canonicalAuthorTexturedSource:'fixed-default-auto-texture-v4'}
  const off=prepareCanonicalRoomState(wire,{expectedBoardId:'test',isCurrent:()=>true}).canonicalRead;expect(canonicalToolAvailability(true,true,off,candidate.brushes,()=>candidate.assets)?.options).toEqual([])
  const on=prepareCanonicalRoomState({...wire,canonicalAuthorSoftPressureTexturedSource:'pressure-soft-auto-texture-v6'},{expectedBoardId:'test',isCurrent:()=>current}).canonicalRead;const available=canonicalToolAvailability(true,true,on,candidate.brushes,()=>candidate.assets);expect(available?.options.map(o=>o.id)).toEqual([descriptor.id]);expect(available!.options[0].sizePx).toBeGreaterThan(0);expect(canonicalToolAvailability(true,true,on,candidate.brushes,()=>[])?.options).toEqual([]);current=false;expect(canonicalToolAvailability(true,true,on,candidate.brushes,()=>candidate.assets)?.status).toBe('restoring')
+})
+
+
+it('offers genuine generic textured Auto7 only from current original7 permission independently of5/6',()=>{
+ const descriptor=texturedAutoMetadata.descriptor,pattern=texturedAutoMetadata.patternAsset
+ const candidate:unknown={schemaVersion:1,brushes:[{descriptor,name:'Genuine Reptile37 metadata',source:'fixture',warnings:[]}],assets:[{id:pattern.id,size:pattern.size,file:pattern.id.slice(6)+'.bin'}],skipped:[]}
+ if(!isBrushLibrary(candidate))throw Error('Actual genuine metadata schema')
+ let current=true
+ const original={authorRasterProfile:G,authorTexturedAutoSource:'textured-auto-material-v7' as const,assertCurrent(){if(!current)throw Error('Stale');return{roomId:'room',boardEpoch:2,allowedRasterProfiles:[G]}}}
+ const metadata=()=>candidate.assets
+ expect(canonicalToolAvailability(true,true,{...original,authorTexturedAutoSource:undefined},candidate.brushes,metadata)?.options).toHaveLength(0)
+ expect(canonicalToolAvailability(true,true,original,candidate.brushes,metadata)?.options.map(v=>v.id)).toEqual([descriptor.id])
+ current=false
+ expect(canonicalToolAvailability(true,true,original,candidate.brushes,metadata)?.status).toBe('restoring')
 })

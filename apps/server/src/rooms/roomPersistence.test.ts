@@ -190,3 +190,15 @@ it('copies close metadata before its repair queue attempt without trusting mutat
  const forged={...op,extra:'unknown'}
  expect(()=>retryCanonicalOperationWrite('r',forged)).toThrow()
 })
+
+
+it('persists/indexes closed saved phase ONLY on material7; missing/accessor/legacy phase fails',async()=>{
+ const make=()=>({id:'saved7',seq:1,userId:'u',timestamp:1,type:'canonical_stroke'as const,layerId:'layer',frame:{version:2 as const,rasterProfile:'installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2'as const,brush:'brush:fixture@1',strokeId:'stroke7',frameOrdinal:0,pigmentRgb8:[1,2,3]as const,composition:{mode:'wash'as const,alphaDarken:'creamy'as const,outerResourceOpacity:1,outerBlend:'over'as const},materialPacked:'7|projection-structural-not-decoder-proof',texturePhase:{kind:'resolved-stroke-phase-v1'as const,x:50,y:37}}})
+ const op=make();mockPrisma.operation.create.mockResolvedValue({});await persistOperation('r',op);await flushRoomWrites('r');const row=mockPrisma.operation.create.mock.calls.at(-1)![0].data
+ const projected=projectCanonicalIndexedOperation('r',row);expect(projected.operation.frame.texturePhase).toEqual(op.frame.texturePhase);expect(projected.operation.frame.texturePhase).not.toBe(row.data.frame.texturePhase)
+ let getters=0
+ for(const bad of [(()=>{const a=make();Reflect.deleteProperty(a.frame,'texturePhase');return a})(),{...make(),frame:{...make().frame,materialPacked:'6|legacy'}},(()=>{const a=make();Object.defineProperty(a.frame,'texturePhase',{get(){getters++;return op.frame.texturePhase}});return a})(),{...make(),frame:{...make().frame,texturePhase:{kind:'resolved-stroke-phase-v1',x:4096,y:0}}}]){
+  const r={...row,data:bad};expect(()=>projectCanonicalIndexedOperation('r',r)).toThrow()
+ }
+ expect(getters).toBe(0)
+})

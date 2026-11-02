@@ -130,3 +130,47 @@ it('prepares ONLY original6 pattern before actual page/evidence/select and never
 })
 
 it.each(['failure','cancel']as const)('does not expose/advance original6 page on resource %s, preserving original lifetime',async mode=>{const{f}=softPressureResourceFixture(),read=await f.open();if(mode==='failure'){vi.mocked(prepareCanonicalImageAssets).mockImplementationOnce(async()=>{throw Error('controlled CAS failure')});await expect(read.nextPage()).rejects.toThrow('CAS');const page=await read.nextPage();expect(page.inputs()[0].operation.seq).toBe(1);page.release();const requests=f.requests.filter(r=>r.event==='canonical_history_stream_next');expect(requests).toHaveLength(2);expect(requests.every(r=>r.body.afterSeq===0)).toBe(true)}else{let resume!:()=>void;vi.mocked(prepareCanonicalImageAssets).mockImplementationOnce((_room,_assets,assertCurrent)=>new Promise<void>((resolve,reject)=>{resume=()=>{try{assertCurrent();resolve()}catch(e){reject(e)}}}));const outcome=read.nextPage().then(value=>({value,error:undefined}),error=>({value:undefined,error}));await vi.waitFor(()=>expect(resume).toBeTypeOf('function'));await read.cancel();resume();expect((await outcome).error).toBeInstanceOf(Error);expect(prepareCanonicalImageAssets).toHaveBeenCalledOnce();expect(f.requests.filter(r=>r.event==='canonical_history_stream_next')).toHaveLength(1)}expect(()=>read.lifetime.assertCurrent()).not.toThrow();await read.cancel()})
+
+
+async function textured7ReadFixture(){
+ const {texturedAuto7Fixture}=await import('./canonicalTexturedAuto7.testFixture')
+ const actual=texturedAuto7Fixture(),f=indexedSocketFixture([],1),operations=[actual.operation]
+ Object.assign(f.offer,{authorRasterProfile:G});Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ f.handlers.canonical_history_stream_open=()=>({ok:true,value:{kind:'canonical-indexed-history-begin-v1',streamId:'read0',offerId:f.offer.offerId,scope:f.offer.scope,roomGeometry:f.offer.roomGeometry,authorRasterProfile:G,floor:0,throughSeq:1,operationCount:1}})
+ f.handlers.canonical_history_stream_next=body=>{const terminal=body.afterSeq===1;return{ok:true,value:{kind:'canonical-indexed-history-page-v1',streamId:'read0',throughSeq:1,afterSeq:body.afterSeq,nextAfterSeq:1,operations:terminal?[]:operations,canonicalCapabilities:terminal?{...actual.attachment,capabilities:[],bindings:[]}:actual.attachment,terminal,...terminal?{finish:{kind:'canonical-indexed-history-finish-v1',streamId:'read0',throughSeq:1,operationCount:1,lastSeq:1}}:{}}}}
+ f.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:'read0',throughSeq:1,root:body.root,rows:operations,canonicalCapabilities:actual.attachment,first:0,terminal:0,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}})
+ return {...f,actual}
+}
+it('awaits genuine7 pattern availability before exposing page/evidence even with author7 OFF',async()=>{
+ const f=await textured7ReadFixture(),read=await f.open();let resume!:()=>void
+ vi.mocked(prepareCanonicalImageAssets).mockImplementationOnce((_room,assets,assertCurrent)=>new Promise<void>((resolve,reject)=>{expect(assets).toEqual(f.actual.material.assets);resume=()=>{try{assertCurrent();resolve()}catch(e){reject(e)}}}))
+ let published=false
+ const pending=read.nextPage().then(page=>{published=true;return page})
+ await vi.waitFor(()=>expect(resume).toBeTypeOf('function'));expect(published).toBe(false)
+ await expect(read.nextPage()).rejects.toThrow();resume()
+ const page=await pending,input=page.inputs()[0]
+ expect(input.read?.capability.snapshot.materialVersion).toBe(7);expect(read.authorTexturedAutoSource).toBeUndefined()
+ const evidence=await read.rootEvidence(input)
+ expect(prepareCanonicalImageAssets).toHaveBeenCalledTimes(2)
+ // Separate RPCs normalize independent wire payloads; authority is the exact
+ // issued input, not JS identity between page and evidence operation copies.
+ const witness=evidence.assertCurrent(evidence,input).first
+ expect(page.inputs()[0]).toBe(input)
+ expect(page.inputs()[0].operation).toBe(input.operation)
+ expect(evidence.assertCurrent(evidence,input).first).toBe(witness)
+ expect(witness.operation).not.toBe(f.actual.operation)
+ expect(witness.operation).toEqual(input.operation)
+ expect(witness.operation).toEqual(f.actual.operation)
+ expect(()=>input.delivery.assertCurrent({...input})).toThrow()
+ expect(()=>evidence.assertCurrent(evidence,{...input})).toThrow()
+ expect(()=>witness.delivery.assertCurrent({...witness})).toThrow()
+ evidence.release();page.release();await read.cancel()
+ expect(()=>input.delivery.assertCurrent(input)).not.toThrow()
+})
+it('cancellation while genuine7 pattern preparation waits cannot expose inputs or consume the original owner',async()=>{
+ const f=await textured7ReadFixture(),read=await f.open();let resume!:()=>void
+ vi.mocked(prepareCanonicalImageAssets).mockImplementationOnce((_room,_assets,assertCurrent)=>new Promise<void>((resolve,reject)=>{resume=()=>{try{assertCurrent();resolve()}catch(e){reject(e)}}}))
+ const pending=read.nextPage(),rejected=expect(pending).rejects.toThrow()
+ await vi.waitFor(()=>expect(resume).toBeTypeOf('function'));await read.cancel();resume();await rejected
+ expect(()=>read.lifetime.assertCurrent()).not.toThrow()
+})

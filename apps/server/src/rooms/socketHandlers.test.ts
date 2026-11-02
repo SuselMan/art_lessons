@@ -1386,7 +1386,7 @@ it('requires compatible minimum3 on actual texture sockets BEFORE identity/load/
  expect(isRoomResident(id)).toBe(true)
 })
 
-it('requires known drawing protocol4/5/6 before identity/load/seat, then permits normal authenticated join',async()=>{
+it('requires known drawing protocol4/5/6/7 before identity/load/seat, then permits normal authenticated join',async()=>{
  io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
  const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
  const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
@@ -1395,7 +1395,7 @@ it('requires known drawing protocol4/5/6 before identity/load/seat, then permits
  registerRoomHandlers(io as never,log,transport)
  await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
  const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
- for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:'7'}]){
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:7},{drawingProtocol:'8'}]){
   const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
   clients.push(socket)
   const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
@@ -1413,9 +1413,10 @@ it('requires known drawing protocol4/5/6 before identity/load/seat, then permits
  const nextConnected=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol5 connect timeout')),2000);nextVersion.once('connect',()=>{clearTimeout(timer);resolve()});nextVersion.once('connect_error',error=>{clearTimeout(timer);reject(error)})})
  nextVersion.connect();await nextConnected;expect(resolveIdentity).toHaveBeenCalledTimes(2)
  const sixth:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'6'}});clients.push(sixth);const ready6=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol6 compatibility timeout')),2000);sixth.once('connect',()=>{clearTimeout(timer);resolve()});sixth.once('connect_error',e=>{clearTimeout(timer);reject(e)})});sixth.connect();await ready6;expect(resolveIdentity).toHaveBeenCalledTimes(3)
+ const seventh:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'7'}});clients.push(seventh);const ready7=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol7 compatibility timeout')),2000);seventh.once('connect',()=>{clearTimeout(timer);resolve()});seventh.once('connect_error',e=>{clearTimeout(timer);reject(e)})});seventh.connect();await ready7;expect(resolveIdentity).toHaveBeenCalledTimes(4)
 })
 
-it('requires only literal6 at minimum6 before identity/load/seat',async()=>{
+it('requires known literal6/7 at minimum6 before identity/load/seat',async()=>{
  io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
  const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
  const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
@@ -1424,7 +1425,7 @@ it('requires only literal6 at minimum6 before identity/load/seat',async()=>{
  registerRoomHandlers(io as never,log,transport)
  await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
  const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
- for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:'4'},{drawingProtocol:'5'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:'7'}]){
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:'4'},{drawingProtocol:'5'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:7},{drawingProtocol:'8'}]){
   const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
   clients.push(socket)
   const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
@@ -1437,4 +1438,27 @@ it('requires only literal6 at minimum6 before identity/load/seat',async()=>{
  current.connect();await connected;expect(resolveIdentity).toHaveBeenCalledTimes(1)
  const delivered=next(current,'room_state');await join(current,id,'Current');await delivered
  expect(isRoomResident(id)).toBe(true)
+ const seventh:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'7'}});clients.push(seventh)
+ const ready7=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('minimum6 known7 timeout')),2000);seventh.once('connect',()=>{clearTimeout(timer);resolve()});seventh.once('connect_error',e=>{clearTimeout(timer);reject(e)})});seventh.connect();await ready7;expect(resolveIdentity).toHaveBeenCalledTimes(2)
+})
+
+
+it('requires literal7 on actual reader7/authorOFF protocol before identity/load/seat/room',async()=>{
+ io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
+ const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js'),{CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
+ http=createServer();io=new Server(http)
+ const transport=new CanonicalRoomTransport({rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'],texturedAutoSource:'textured-auto-material-v7',authorTexturedAutoSource:false})
+ expect(transport.requiredDrawingProtocol).toBe('7');registerRoomHandlers(io as never,log,transport)
+ await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
+ const id=fresh('protocol7-reader-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
+ for(const auth of[undefined,{drawingProtocol:'3'},{drawingProtocol:'4'},{drawingProtocol:'5'},{drawingProtocol:'6'},{drawingProtocol:7},{drawingProtocol:'8'},{drawingProtocol:'07'}]){
+  const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol7-refused'},...auth===undefined?{}:{auth}});clients.push(socket)
+  const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol7 refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
+  socket.connect();expect(await refused).toBe('client_update_required');expect(socket.connected).toBe(false);socket.close()
+ }
+ expect(resolveIdentity).not.toHaveBeenCalled();expect(mockPrisma.room.findUnique).not.toHaveBeenCalled();expect(isRoomResident(id)).toBe(false);expect(rooms.has(id)).toBe(false)
+ const current:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'7'}});clients.push(current)
+ const ready=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol7 connect timeout')),2000);current.once('connect',()=>{clearTimeout(timer);resolve()});current.once('connect_error',error=>{clearTimeout(timer);reject(error)})});current.connect();await ready;expect(resolveIdentity).toHaveBeenCalledTimes(1)
+ const delivered=next(current,'room_state');await join(current,id,'Current7');const state=await delivered
+ expect(isRoomResident(id)).toBe(true);expect(mockPrisma.room.findUnique).toHaveBeenCalled();expect(state).not.toHaveProperty('canonicalAuthorTexturedAutoSource')
 })

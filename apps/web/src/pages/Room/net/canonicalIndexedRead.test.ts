@@ -231,3 +231,37 @@ it.each(['open','recovery','follow']as const)('rejects changed author5 during %s
 function softPressurePolicyFixture(){const f=indexedSocketFixture([]);Object.assign(f.offer,{authorRasterProfile:G,authorSoftPressureTexturedSource:'pressure-soft-auto-texture-v6'});Reflect.set(f.offer.scope,'allowedRasterProfiles',[G]);for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){const old=f.handlers[event];f.handlers[event]=async body=>{const reply=await old(body)as{ok:true;value:object};return{...reply,value:{...reply.value,authorSoftPressureTexturedSource:'pressure-soft-auto-texture-v6'}}}}return f}
 it('holds exact original author6 through actual OPEN/cut/recovery/FOLLOW without granting4',async()=>{const f=softPressurePolicyFixture(),r=await f.open(),p=await r.nextPage(),cut=r.finish(p);p.release();expect(r.authorSoftPressureTexturedSource).toBe('pressure-soft-auto-texture-v6');expect(r.lifetime.authorSoftPressureTexturedSource).toBe(r.authorSoftPressureTexturedSource);expect(cut.authorSoftPressureTexturedSource).toBe(r.authorSoftPressureTexturedSource);expect(r.authorTexturedSource).toBeUndefined();const a=await r.lifetime.reopen(cut),end=await a.nextPage(),next=a.finish(end);end.release();const follow=await r.lifetime.follow(next);expect(follow.authorSoftPressureTexturedSource).toBe(r.authorSoftPressureTexturedSource);await follow.cancel();f.setCurrent(false);expect(()=>r.lifetime.assertCurrent()).toThrow()})
 it.each(['open','recovery','follow']as const)('rejects changed author6 during %s while old cut remains original',async mode=>{const f=softPressurePolicyFixture(),event=mode==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen';const mismatch=()=>{const old=f.handlers[event];f.handlers[event]=async body=>{const reply=await old(body)as{ok:true;value:Record<string,unknown>},value={...reply.value};delete value.authorSoftPressureTexturedSource;return{...reply,value}}};if(mode==='open'){mismatch();await expect(f.open()).rejects.toThrow();return}const r=await f.open(),end=await r.nextPage(),cut=r.finish(end);end.release();mismatch();await expect(mode==='follow'?r.lifetime.follow(cut):r.lifetime.reopen(cut)).rejects.toThrow();expect(()=>cut.assertCurrent(cut)).not.toThrow()})
+
+
+function auto7PolicyFixture(){
+ const f=indexedSocketFixture([])
+ Object.assign(f.offer,{authorRasterProfile:G,authorTexturedAutoSource:'textured-auto-material-v7'})
+ Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){
+  const previous=f.handlers[event]
+  f.handlers[event]=async body=>{const response=await previous(body) as {ok:true;value:object};return {...response,value:{...response.value,authorTexturedAutoSource:'textured-auto-material-v7'}}}
+ }
+ return f
+}
+it('retains original7 permission through OPEN/cut/recovery/FOLLOW without inventing old5/6 permission',async()=>{
+ const f=auto7PolicyFixture(),read=await f.open(),terminal=await read.nextPage(),cut=read.finish(terminal);terminal.release()
+ expect(read.authorTexturedAutoSource).toBe('textured-auto-material-v7')
+ expect(read.lifetime.authorTexturedAutoSource).toBe(read.authorTexturedAutoSource)
+ expect(cut.authorTexturedAutoSource).toBe(read.authorTexturedAutoSource)
+ expect(cut.authorPressureTexturedSource).toBeUndefined();expect(cut.authorSoftPressureTexturedSource).toBeUndefined()
+ const recovery=await read.lifetime.reopen(cut)
+ expect(recovery.authorTexturedAutoSource).toBe(read.authorTexturedAutoSource);await recovery.cancel()
+ const follow=await read.lifetime.follow(cut)
+ expect(follow.authorTexturedAutoSource).toBe(read.authorTexturedAutoSource);await follow.cancel()
+})
+it.each(['open','follow','recovery'] as const)('rejects changed original7 policy in actual %s ACK',async kind=>{
+ const f=auto7PolicyFixture(),event=kind==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen'
+ if(kind==='open'){
+  const old=f.handlers[event];f.handlers[event]=async body=>{const response=await old(body) as {ok:true;value:object};Reflect.deleteProperty(response.value,'authorTexturedAutoSource');return response}
+  await expect(f.open()).rejects.toThrow();return
+ }
+ const read=await f.open(),terminal=await read.nextPage(),cut=read.finish(terminal);terminal.release()
+ const old=f.handlers[event];f.handlers[event]=async body=>{const response=await old(body) as {ok:true;value:object};Reflect.deleteProperty(response.value,'authorTexturedAutoSource');return response}
+ await expect(kind==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
+ expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})

@@ -1,3 +1,5 @@
+import type {CanonicalStandaloneStrokeSnapshotV7} from './canonicalTexturedAutoStandalone.js'
+import type {CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
 import type { OperationBase } from './operationBase.js'
 import type { CanonicalMaterialContextV2, CanonicalMaterialContextV3, CanonicalMaterialContextV4, CanonicalMaterialContextV5,CanonicalMaterialContextV6 } from './canonicalMaterialCodec.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
@@ -16,6 +18,7 @@ export interface CanonicalStrokeBegin {
   readonly strokeId: string
   readonly pigmentRgb8: readonly [number, number, number]
   readonly outerResourceOpacity: number
+  readonly texturePhase?:CanonicalResolvedTexturePhase
   readonly alphaDarken: 'creamy' | 'hard'
 }
 export interface CanonicalStrokeLive { readonly layerId: string; readonly frame: CanonicalStrokeFrameEnvelope }
@@ -58,7 +61,8 @@ export interface CanonicalStrokeSnapshotV5 extends Omit<CanonicalStrokeSnapshotV
 }
 /** Coherent Soft6 snapshot DATA; actual server/read authority remains external. */
 export interface CanonicalStrokeSnapshotV6 extends Omit<CanonicalStrokeSnapshotV5,'materialVersion'|'material'>{readonly materialVersion:6;readonly material:CanonicalMaterialContextV6}
-export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4 | CanonicalStrokeSnapshotV5 | CanonicalStrokeSnapshotV6
+export type CanonicalStrokeSnapshotV7=CanonicalStandaloneStrokeSnapshotV7
+export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4 | CanonicalStrokeSnapshotV5 | CanonicalStrokeSnapshotV6 | CanonicalStrokeSnapshotV7
 /** Resume state: ended describes the recorded prefix. A speculative live-only
  * terminal frame does not establish a recorded end. */
 export type CanonicalStrokeBeginResult = { readonly ok: true; readonly snapshot: CanonicalStrokeSnapshot; readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean }

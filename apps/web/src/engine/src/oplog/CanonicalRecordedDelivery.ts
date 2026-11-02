@@ -1,4 +1,4 @@
-import type { CanonicalPreparedRecordedOperation, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource } from '@grafetto/shared'
+import type { CanonicalPreparedRecordedOperation, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource } from '@grafetto/shared'
 
 /** Local captured read lifetime. Wire data and immutable log copies cannot mint it. */
 export interface CanonicalRecordedLifetime {
@@ -22,6 +22,7 @@ export interface CanonicalRecordedEmptyRoomRead extends CanonicalRecordedLifetim
  readonly scope:Readonly<CanonicalRecordedReadScope>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
@@ -61,6 +62,7 @@ export interface CanonicalAcceptedCut {
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
@@ -76,6 +78,7 @@ export interface CanonicalIndexedHistoryCandidate {
 export interface CanonicalIndexedOrigin extends CanonicalRecordedLifetime {
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  reopen(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut):Promise<CanonicalIndexedRead>
@@ -92,6 +95,7 @@ export interface CanonicalIndexedRead {
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile

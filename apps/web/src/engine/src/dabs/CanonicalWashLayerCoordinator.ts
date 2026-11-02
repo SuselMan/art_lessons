@@ -1,3 +1,4 @@
+import {canonicalTexturedAutoMaterialContext,canonicalStrokeSnapshotV7,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV7,type CanonicalMaterialFrameV7} from '@grafetto/shared'
 import {canonicalSoftAutoDataEqual,canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalStrokeSnapshotV6,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV4,type CanonicalMaterialFrameV4,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialFrameV3,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {CanonicalMaskCapacityLease} from './TransformedMaskPrepass'
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
@@ -19,7 +20,7 @@ import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
  * receiver/candidate; received frame fields never confer this authority. */
 export interface CanonicalLocalWashAuthor {
  readonly lifetime:CanonicalRecordedLifetime
- readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7
  readonly userId:string
  assertCurrent(candidate:CanonicalLocalWashAuthor):Readonly<CanonicalRecordedReadScope>
 }
@@ -54,7 +55,7 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
 interface RecordedPrefix {
  readonly lifetime:CanonicalRecordedLifetime
  readonly scope:Readonly<CanonicalRecordedReadScope>
- readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7
  readonly userId:string
  readonly strokeId:string
  readonly firstOperationId:string
@@ -383,7 +384,7 @@ export class CanonicalWashLayerCoordinator {
     this.enqueueInternal(input,recordedSequence)
   }
 
-  private enqueueInternal(input:Omit<CanonicalFrameSubmission,'frame'>&{readonly frame:CanonicalFrameSubmission['frame']|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6},recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix},local?:LocalPrefix):void {
+  private enqueueInternal(input:Omit<CanonicalFrameSubmission,'frame'>&{readonly frame:CanonicalFrameSubmission['frame']|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7},recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix},local?:LocalPrefix):void {
     if(!local&&!origin)this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
     if ((!local&&(!Number.isSafeInteger(recordedSequence)||recordedSequence!<=this.lastSequence)) || input.layerId !== this.options.layerId
@@ -419,8 +420,10 @@ export class CanonicalWashLayerCoordinator {
         sourceLease=source.sourceLease
         if(sourceLease&&source.bank!==sourceLease)throw new Error('Canonical source lease reader changed')
         if(origin||local){
-          const snapshot=origin?.recorded.snapshot??(local!.author.snapshot.materialVersion===6?canonicalStrokeSnapshotV6(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===5?canonicalStrokeSnapshotV5(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===4?canonicalStrokeSnapshotV4(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===3?canonicalStrokeSnapshotV3(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile)),expected=snapshot.material.primarySource,actual=source.autoSource
-          if(snapshot.materialVersion===6){
+          const snapshot=origin?.recorded.snapshot??(local!.author.snapshot.materialVersion===7?canonicalStrokeSnapshotV7(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===6?canonicalStrokeSnapshotV6(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===5?canonicalStrokeSnapshotV5(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===4?canonicalStrokeSnapshotV4(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===3?canonicalStrokeSnapshotV3(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile)),expected=snapshot.material.primarySource,actual=source.autoSource
+          if(snapshot.materialVersion===7){
+            if(snapshot.composition.mode!=='wash'||!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!actual||!canonicalSoftAutoDataEqual(actual,expected)||!canonicalSoftAutoDataEqual(canonicalTexturedAutoMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded textured Auto source binding missing or changed')
+          }else if(snapshot.materialVersion===6){
             if(!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!actual||!canonicalSoftAutoDataEqual(actual,expected)||!canonicalSoftAutoDataEqual(canonicalSoftNativeDefaultTexturedSourceMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded native-default Soft texture source binding missing or changed')
           }else if(snapshot.materialVersion===5){
             if(!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!samePaintData(canonicalPressureTexturedSourceMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded pressure texture source binding missing or changed')
@@ -452,7 +455,8 @@ export class CanonicalWashLayerCoordinator {
         entry = { image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
-      if(input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+      if(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+      else if(input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})

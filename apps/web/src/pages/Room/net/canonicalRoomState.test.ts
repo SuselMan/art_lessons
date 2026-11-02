@@ -237,3 +237,21 @@ it('captures author6 independently of4 from full original ownDATA only; reconnec
  const {state:s}=state();s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]};s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE;Reflect.set(s,'canonicalAuthorSoftPressureTexturedSource','pressure-soft-auto-texture-v6');let current=true;const r=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead;expect(r.authorSoftPressureTexturedSource).toBe('pressure-soft-auto-texture-v6');expect(r.authorTexturedSource).toBeUndefined();Reflect.deleteProperty(s,'canonicalAuthorSoftPressureTexturedSource');expect(r.authorSoftPressureTexturedSource).toBe('pressure-soft-auto-texture-v6');expect(prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead.authorSoftPressureTexturedSource).toBeUndefined();current=false;expect(()=>r.assertCurrent()).toThrow()
  let calls=0;Object.defineProperty(s,'canonicalAuthorSoftPressureTexturedSource',{get(){calls++;return'pressure-soft-auto-texture-v6'}});expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(calls).toBe(0)
 })
+
+
+it('captures original7 on full read without granting independent5/6 and refuses inherited/accessor policy',()=>{
+ const {state:s}=state()
+ s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ s.canonicalAuthorTexturedAutoSource='textured-auto-material-v7'
+ const prepared=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})
+ expect(prepared.canonicalRead.authorTexturedAutoSource).toBe('textured-auto-material-v7')
+ expect(prepared.canonicalRead.authorPressureTexturedSource).toBeUndefined();expect(prepared.canonicalRead.authorSoftPressureTexturedSource).toBeUndefined()
+ delete s.canonicalAuthorTexturedAutoSource
+ const getter=vi.fn(()=> 'textured-auto-material-v7')
+ Object.defineProperty(s,'canonicalAuthorTexturedAutoSource',{get:getter,configurable:true})
+ expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(getter).not.toHaveBeenCalled()
+ Reflect.deleteProperty(s,'canonicalAuthorTexturedAutoSource')
+ Object.setPrototypeOf(s,{canonicalAuthorTexturedAutoSource:'textured-auto-material-v7'})
+ expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+})
