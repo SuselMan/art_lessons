@@ -503,3 +503,43 @@ it('preserves undefined legacy primary despite cleanup diagnostics',()=>{
  expect(threw).toBe(true);expect(caught).toBeUndefined();expect(observed).toHaveBeenCalledWith(cleanup)
  expect(s.cpu.reservedBytes).toBe(0)
 })
+
+import {AccumulationBuffer} from '../buffers/AccumulationBuffer'
+import * as accumOwner from '../buffers/AccumulationBuffer'
+import {createBrushGlContextOwner} from './BrushGlState'
+it('native saved accumulation texture skips inner and outer validity queries with identical restored state',()=>{
+ const s=setup(),buffer=new AccumulationBuffer(s.gl,4,4),texture=buffer.texture
+ const context=createBrushGlContextOwner(s.gl,{bufferIsCurrent:()=>false,textureIsCurrent:t=>accumOwner.ownsCurrentAccumulationTexture?.(s.gl,t)??false})
+ const service={...s.service,brushGlBatchInfo:()=>({...s.service.brushGlBatchInfo(),contextOwner:context.owner})}
+ s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,texture);const before=s.snapshot(),query=vi.spyOn(s.gl,'isTexture')
+ try{runBrushGlTurn({callbackScope:context.callbackScope,participants:[service]},turn=>runBrushGlBatch({turn,participants:[service]},()=>{s.gl.bindTexture(s.gl.TEXTURE_2D,null)}));expect(query.mock.calls.filter(([t])=>t===texture)).toHaveLength(0);expect(s.snapshot()).toEqual(before)}finally{buffer.destroy()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('native saved accumulation texture remains foreign under an unknown owner and after destruction between restores',()=>{
+ const s=setup(),buffer=new AccumulationBuffer(s.gl,4,4),texture=buffer.texture
+ const context=createBrushGlContextOwner(s.gl,{bufferIsCurrent:()=>false,textureIsCurrent:t=>accumOwner.ownsCurrentAccumulationTexture?.(s.gl,t)??false})
+ const service={...s.service,brushGlBatchInfo:()=>({...s.service.brushGlBatchInfo(),contextOwner:context.owner})}
+ s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,texture);const query=vi.spyOn(s.gl,'isTexture')
+ try{
+  runBrushGlTurn({callbackScope:context.callbackScope,participants:[service]},turn=>runBrushGlBatch({turn,participants:[service],owners:[{owner:{},lease:()=>()=>{buffer.destroy()}}]},()=>{}))
+  expect(query.mock.calls.filter(([t])=>t===texture).length).toBeGreaterThan(0);expect(accumOwner.ownsCurrentAccumulationTexture?.(s.gl,texture)??false).toBe(false)
+ }finally{buffer.destroy()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('native accumulation texture destruction between restores re-enables outer validation and binds null',()=>{
+ const s=setup(),buffer=new AccumulationBuffer(s.gl,4,4),texture=buffer.texture
+ const context=createBrushGlContextOwner(s.gl,{bufferIsCurrent:()=>false,textureIsCurrent:t=>accumOwner.ownsCurrentAccumulationTexture?.(s.gl,t)??false})
+ const query=vi.spyOn(s.gl,'isTexture');let released=false
+ const service={brushGlBatchInfo:()=>({...s.service.brushGlBatchInfo(),contextOwner:context.owner}),enterBrushGlBatch:(frame:BrushGlBatchFrame)=>{const release=s.service.enterBrushGlBatch(frame);return()=>{
+  expect(query.mock.calls.filter(([t])=>t===texture)).toHaveLength(0)
+  buffer.destroy();released=true;release()
+ }}}
+ s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,texture)
+ try{
+  runBrushGlTurn({callbackScope:context.callbackScope,participants:[service]},turn=>runBrushGlBatch({turn,participants:[service]},()=>{s.gl.bindTexture(s.gl.TEXTURE_2D,null)}))
+  expect(released).toBe(true);expect(query.mock.calls.filter(([t])=>t===texture).length).toBeGreaterThan(0)
+  s.gl.activeTexture(s.gl.TEXTURE0);expect(s.gl.getParameter(s.gl.TEXTURE_BINDING_2D)).toBeNull()
+ }finally{buffer.destroy()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})

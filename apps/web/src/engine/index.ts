@@ -57,7 +57,7 @@ import { DISPLAY_VERT, PAPER_COMPOSE_FRAG, WASH_REVEAL_FRAG, SCREEN_BLIT_FRAG } 
 import { washRevealHold, washRevealStep, washRevealRemaining } from './src/raster/washReveal'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/raster/utils'
 import { PaperState } from './src/paper/PaperState'
-import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
+import { AccumulationBuffer, ownsCurrentAccumulationTexture } from './src/buffers/AccumulationBuffer'
 import { CheckpointStore, type Checkpoint } from './src/oplog/checkpointStore'
 import { ScratchSlot } from './src/buffers/scratchPools'
 import { RibbonReplayCache, type ReplayRibbonChunk } from './src/buffers/RibbonReplayCache'
@@ -6939,7 +6939,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _createCanonicalGlOwner(){
     const gl=this.gl,physical=this._physicalGeneration,scene=this._glSceneGeneration
     const current=()=>this.gl===gl&&!this._destroyed&&!this._contextLost&&this._physicalGeneration===physical&&this._glSceneGeneration===scene&&this._glInitializedGeneration===physical
-    return createBrushGlContextOwner(gl,{bufferIsCurrent:buffer=>current()&&this._screenBuf===buffer,textureIsCurrent:texture=>current()&&this._paper.ownsCurrentTexture(gl,texture)})
+    return createBrushGlContextOwner(gl,{bufferIsCurrent:buffer=>current()&&this._screenBuf===buffer,textureIsCurrent:texture=>current()&&(this._paper.ownsCurrentTexture(gl,texture)||ownsCurrentAccumulationTexture(gl,texture))})
   }
   private _beginCanonicalEmpty(plan:CanonicalEmptyPlan,old:Map<string,ILayerBuffer>,revision:number,staged:OperationLog,recovery?:CanonicalAcceptedBaseline,indexed?:CanonicalIndexedState):Promise<CanonicalEmptyRoomRestoreResult> {
     return new Promise((resolve,reject)=>{

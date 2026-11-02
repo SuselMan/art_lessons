@@ -33,3 +33,39 @@ it('revokes metadata after handle drift, destruction or a forgotten storage gene
  AccumulationBuffer.forgetContextStorage(gl);expect(b.verifiedFramebufferLayout).toBeUndefined();expect(b.storageOwnerCurrent).toBe(false)
  expect(status).not.toHaveBeenCalled();expect(attachment).not.toHaveBeenCalled();b.destroy()
 })
+
+// Namespace import keeps the old-source regression a behavioral fallback,
+// rather than a missing-export module-load failure.
+import * as accumulationOwnership from './AccumulationBuffer'
+const currentTexture=(gl:WebGLRenderingContext,texture:WebGLTexture)=>accumulationOwnership.ownsCurrentAccumulationTexture?.(gl,texture)??false
+it('native constructor texture ownership is pure and ignores getter and Proxy metadata',()=>{
+ const {gl}=setup(),a=new AccumulationBuffer(gl,4,4),texture=a.texture,getter=vi.fn(()=>{throw Error('getter invoked')})
+ try{
+  Object.defineProperty(a,'storageOwnerCurrent',{configurable:true,get:getter});Object.defineProperty(a,'texture',{configurable:true,get:getter})
+  expect(currentTexture(gl,texture)).toBe(true);expect(currentTexture(setup().gl,texture)).toBe(false);expect(currentTexture(gl,{} as WebGLTexture)).toBe(false)
+  const proxy=new Proxy(texture,{get:getter,getPrototypeOf:getter,getOwnPropertyDescriptor:getter});expect(currentTexture(gl,proxy)).toBe(false);expect(getter).not.toHaveBeenCalled()
+ }finally{a.destroy()}
+ expect(currentTexture(gl,texture)).toBe(false);expect(snapshotContextStorage(gl).residentBytes).toBe(0)
+})
+it('native constructor only excludes subclass and failed allocation',()=>{
+ const {mock,gl}=setup();class Child extends AccumulationBuffer {}const child=new Child(gl,4,4)
+ try{expect(currentTexture(gl,child.texture)).toBe(false)}finally{child.destroy()}
+ let failedTexture:WebGLTexture|undefined;const create=mock.createTexture.bind(mock);vi.spyOn(mock,'createTexture').mockImplementation(()=>{failedTexture=create();return failedTexture})
+ vi.spyOn(mock,'checkFramebufferStatus').mockReturnValueOnce(-1)
+ expect(()=>new AccumulationBuffer(gl,4,4,'nearest','straight-rgba8')).toThrow();expect(currentTexture(gl,failedTexture!)).toBe(false);expect(snapshotContextStorage(gl).residentBytes).toBe(0)
+})
+it('native texture proof revokes before delete and stays revoked after undefined deletion failure',()=>{
+ const {mock,gl}=setup(),a=new AccumulationBuffer(gl,4,4),texture=a.texture,remove=mock.deleteTexture.bind(mock)
+ vi.spyOn(mock,'deleteTexture').mockImplementation(t=>{expect(currentTexture(gl,texture)).toBe(false);remove(t);throw undefined})
+ let caught=false;try{a.destroy()}catch(error){caught=true;expect(error).toBeUndefined()}
+ expect(caught).toBe(true);expect(currentTexture(gl,texture)).toBe(false);a.destroy()
+})
+it('native texture proof follows original base lease through mip failure and context generation retirement',()=>{
+ const {mock,gl}=setup(),a=new AccumulationBuffer(gl,4,4),texture=a.texture
+ try{
+  vi.spyOn(mock,'generateMipmap').mockImplementationOnce(()=>{throw Error('mip failure')});expect(()=>a.ensureMipmaps()).toThrow('mip failure')
+  expect(currentTexture(gl,texture)).toBe(true);expect(a.storageOwnerCurrent).toBe(true)
+  AccumulationBuffer.forgetContextStorage(gl);expect(currentTexture(gl,texture)).toBe(false)
+ }finally{a.destroy()}
+ expect(snapshotContextStorage(gl).residentBytes).toBe(0)
+})

@@ -20,6 +20,22 @@ export interface AccumulationFramebufferLayout {
   readonly height: number
 }
 
+// Constructor-issued ownership only: no queried GL state or arbitrary registrar.
+// Two weak indexes share one fixed-size record per native live allocation.
+interface NativeAccumTextureRecord {
+  readonly gl: WebGLRenderingContext
+  readonly texture: WebGLTexture
+  readonly baseLease: StorageLease
+  alive: boolean
+}
+const nativeAccumTextures = new WeakMap<WebGLTexture, NativeAccumTextureRecord>()
+const nativeAccumBuffers = new WeakMap<object, NativeAccumTextureRecord>()
+/** Pure name ownership, not framebuffer/mipmap readiness or hardware-loss polling. */
+export function ownsCurrentAccumulationTexture(gl: WebGLRenderingContext, texture: WebGLTexture): boolean {
+  const record = nativeAccumTextures.get(texture)
+  return !!record && record.alive && record.gl === gl && isAccumLeaseCurrent(gl, record.baseLease)
+}
+
 export class AccumulationBuffer {
   static contextStorageByteLength(gl: WebGLRenderingContext): number { return snapshotAccumStorage(gl).residentBytes }
   static forgetContextStorage(gl: WebGLRenderingContext): void { forgetAccumStorage(gl); checkedContexts.delete(gl) }
@@ -56,6 +72,7 @@ export class AccumulationBuffer {
     this.height = height
     this._baseFilter = filter
     const amount = width * height * 4
+    let issuedTexture: WebGLTexture | undefined, issuedLease: StorageLease | undefined
     const ticket = reservation ?? reserveAccumStorage(gl, amount)
     try {
       validateAccumReservation(gl, ticket, amount)
@@ -86,7 +103,9 @@ export class AccumulationBuffer {
         }
         if (straight && gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== texture) throw new Error('Framebuffer attachment mismatch')
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        this.storageLeases.push(materializeAccumStorage(gl, ticket, amount))
+        issuedLease = materializeAccumStorage(gl, ticket, amount)
+        this.storageLeases.push(issuedLease)
+        issuedTexture = texture
         this._texture = texture; this._fbo = fbo
         if (straight) this.framebufferLayout = Object.freeze({gl,texture,framebuffer:fbo,width,height})
         checkedContexts.add(gl)
@@ -100,6 +119,11 @@ export class AccumulationBuffer {
       }
     } finally { if (!reservation) releaseAccumReservation(ticket) }
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+    if (new.target === AccumulationBuffer && issuedTexture && issuedLease) {
+      const record: NativeAccumTextureRecord = { gl, texture: issuedTexture, baseLease: issuedLease, alive: true }
+      nativeAccumTextures.set(issuedTexture, record)
+      nativeAccumBuffers.set(this, record)
+    }
   }
 
   /** getError consumes one flag: preexisting errors are explicitly reported,
@@ -569,6 +593,14 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
+    // Revoke before any existing field access, callbacks or GL deletion, even
+    // when deletion later fails and leaves conservatively charged orphan bytes.
+    const record = nativeAccumBuffers.get(this)
+    if (record) {
+      record.alive = false
+      nativeAccumTextures.delete(record.texture)
+      nativeAccumBuffers.delete(this)
+    }
     if (this._destroyed) return
     this._destroyed = true
     const current = isAccumLeaseCurrent(this.gl, this.storageLeases[0])

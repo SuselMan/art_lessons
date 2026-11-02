@@ -133,3 +133,8 @@ scoped lint and diff/check passed. Valid 1x1/full POT chains, POT mirrored wrap,
 discrete NPOT clamp with intentionally unused derivative data, and rectangular
 NPOT clamp are covered; invalid wrap, missing/skipped/duplicate/increasing mip
 levels and NPOT repeat/mip layouts are rejected before GL/query/allocation.
+
+
+Native AccumulationBuffer texture provenance RAM unit: exact constructor only, two weak indexes share one fixed-size JS record with captured gl/texture/base lease/alive. No queried GL state, cache scan, new storage owner or physical cap change; fixed JS metadata is not a hardheap/free accounting claim. Base texture lease remains until destroy; mip failure adds conservative leases without deleting/replacing base texture (AccumulationBuffer.ensureMipmaps). Native destroy revokes before all existing reads/GL/callbacks; context-generation invalidation makes helper false. Rendering still uses its stronger all-storage-leases/current-layout checks. Engine retains physical+scene current guard and foreign restoreGate downgrade. No GPU/performance claim. RAM gates pending.
+
+RAM final gates: V1 sameAPI savedtexture oldcomposition RED1FAIL; GREEN58/2PASS; strict failed ONLY unused testbinding (1diagnostic), preserved. V2 production byteidenticalV1, test-only binding correction plus native destruction between restores: RED1FAIL/58skip, GREEN59/2PASS, strict4roots271inputs0, consumed-input rehash0mismatch. Native matched handle skips inner+outer; before owner release test sees0queries, after actualnative destroy outer fallback queries and restoresnull. Configured lint NOTRUN in RAM; ROOT actual gate pending. No hardware/performance measurement/activation.
