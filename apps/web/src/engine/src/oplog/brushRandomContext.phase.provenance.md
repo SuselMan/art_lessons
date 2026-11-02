@@ -1,0 +1,5 @@
+# Candidate phase entropy — RAM-only unit
+
+`phase-entropy-v1` captures a separate crypto Uint32Array(2) lazily once per invocation iff a random axis is requested. X uses word0, Y word1; effective offset = word % exclusive crop upper; existing shared resolver converts minus offset into canonical plus phase. Modulo32 bias is explicit, no uniform/native Qt seed/pixel claim. Fully fixed/invalid captured input consumes no entropy. No dab/perStroke state access, global cache or once-per-stroke lifetime assertion. Crypto failure propagates, invocation-local state dies. Future actual START integration must retain one candidate through BEGIN/Copy/reprepare; this unit does not integrate it or widen wire/authority.
+
+RAM scope: existing brushRandomContext.ts + focused test + this provenance only. Actual source unchanged; Executed RAM gates:8/1 focused PASS (worker63208); actual app strict options+explicit Node test ambient2roots53sourceinputs diagnostics0 (64226). No semantic baseline RED claim: missing old export would only be API absence. Existing createBrushRandomContext body is byte-preserved. No actual START/server/adapter or runtime integration.
