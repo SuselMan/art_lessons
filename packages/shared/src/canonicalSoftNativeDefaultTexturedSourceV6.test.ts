@@ -100,9 +100,10 @@ describe('standalone native-default Soft6 unified material',()=>{
   expect(()=>canonicalStrokeSnapshotV6({...raw,assets:[{...asset,id:'asset:'+'0'.repeat(64)}]},1,G)).toThrow()
   expect(()=>canonicalStrokeSnapshotV6({...raw,material:{...c,expectedDrawCount:0}},1,G)).toThrow()
   const packed=buildCanonicalMaterial(input(),c).packed
-  // Existing authenticated read dispatch remains1–5; explicit standalone6
-  // caller uses aware6 decoder, never a fabricated read capability.
+  // The recorded decoder supports6 after the online contract was connected;
+  // decoding alone does not grant a read capability.
   expect(decodeCanonicalStrokeFrame(envelope(packed),{...trusted(),material:s.material}).frame.draws).toHaveLength(2)
-  expect(()=>decodeCanonicalRecordedSnapshotFrame(envelope(packed),s as never,0)).toThrow()
+  expect(decodeCanonicalRecordedSnapshotFrame(envelope(packed),s,0).frame.draws).toHaveLength(2)
+  expect(()=>decodeCanonicalRecordedSnapshotFrame(envelope(packed),{...s,materialVersion:7} as never,0)).toThrow()
  })
 })
