@@ -85,3 +85,5 @@ export * from './canonicalIndexedHistoryPage.js'
 export * from './canonicalPrimaryTexture.js'
 
 export * from './canonicalTexturedAutoStandalone.js'
+
+export * from './canonicalTexturedAutoSourceBinding.js'

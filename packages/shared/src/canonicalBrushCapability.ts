@@ -514,3 +514,17 @@ export function extractCanonicalGaussianAutoTexturePressureProgramData(descripto
   return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data,program:captured.program,patternAsset,phase})
  }catch{return reject('invalid-gaussian-pressure-texture-data')}
 }
+
+/** Closed phase-independent union of already proven original pressure DATA. */
+export function extractCanonicalTexturedAutoProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {
+ const field=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+ if(!field||!Object.hasOwn(field,'value'))return {supported:false as const,reasons:['texture-original-source-unavailable']}
+ const source=field.value&&typeof field.value==='object'?Object.getOwnPropertyDescriptor(field.value,'source'):undefined
+ const kind=source&&Object.hasOwn(source,'value')&&source.value&&typeof source.value==='object'?Object.getOwnPropertyDescriptor(source.value,'kind'):undefined
+ if(!kind||!Object.hasOwn(kind,'value'))return {supported:false as const,reasons:['texture-original-source-unavailable']}
+ const k=kind.value
+ if(k==='defaultAuto')return extractCanonicalDefaultAutoPressureTextureProgramData(descriptor,assets)
+ if(k==='softAuto')return extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor,assets)
+ if(k==='gaussianAuto')return extractCanonicalGaussianAutoTexturePressureProgramData(descriptor,assets)
+ return {supported:false as const,reasons:['unsupported-textured-auto-family']}
+}

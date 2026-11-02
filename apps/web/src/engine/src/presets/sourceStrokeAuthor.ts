@@ -1,3 +1,5 @@
+import {canonicalBrushDescriptorJSON} from '@grafetto/shared'
+import {type CanonicalTexturedAutoProgramBinding} from '@grafetto/shared'
 import {canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type SourceTextureNativeDefaultProgramData, canonicalPressureTexturedSourceMaterialContext, type CanonicalMaterialContextV5, type SourceTexturePressureProgramData, canonicalTexturedSourceMaterialContext, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import { sourceStandardOption } from './sourceOption'
 import { sourceRotationMixDegrees } from './sourceRotationMix'
@@ -28,8 +30,8 @@ export interface SourceAuthorRoleProgram {
   /** Current supported material law; active extra consumers must be rejected. */
   readonly materialCpuBytes?:number;readonly materialCpuBudgetBytes?:number
   readonly materialProgram?:SourceTexturePressureProgramData|SourceTextureNativeDefaultProgramData
-  readonly textureProgram?:{readonly strength:'source-pressure-curve-v1';readonly context:CanonicalMaterialContextV5|CanonicalMaterialContextV6}|{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
-  readonly materialPolicy: 'soft-auto-native-default-texture-v1' | 'default-auto-pressure-texture-v1' | 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
+  readonly textureProgram?:{readonly strength:'recorded-grain-v1';readonly binding:CanonicalTexturedAutoProgramBinding}|{readonly strength:'source-pressure-curve-v1';readonly context:CanonicalMaterialContextV5|CanonicalMaterialContextV6}|{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
+  readonly materialPolicy: 'textured-auto-program-v1' | 'soft-auto-native-default-texture-v1' | 'default-auto-pressure-texture-v1' | 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -139,6 +141,9 @@ function spacing(program: SourceAuthorRoleProgram,r: SourceStampResult): SourceS
  * Caller reserves through SAME existing CPU owner BEFORE author preparation. */
 export function sourcePressureMaterialProgramCpuBytes(program:SourceTexturePressureProgramData):number {return materialProgramCpuBytes(program,'texture-pressure-curve-v1')}
 export function sourceNativeDefaultMaterialProgramCpuBytes(program:SourceTextureNativeDefaultProgramData):number {return materialProgramCpuBytes(program,'texture-pressure-native-default-v1')}
+export function sourceTexturedAutoProgramCpuBytes(program:SourceTexturePressureProgramData|SourceTextureNativeDefaultProgramData):number {
+ const d=Object.getOwnPropertyDescriptor(program,'kind');if(!d||!Object.hasOwn(d,'value')||d.value!=='texture-pressure-curve-v1'&&d.value!=='texture-pressure-native-default-v1')throw new RangeError('Unknown textured Auto program');return materialProgramCpuBytes(program,d.value)
+}
 /** Closed typed wrappers choose the kind; callers cannot supply permission. */
 function materialProgramCpuBytes(program:unknown,kind:'texture-pressure-curve-v1'|'texture-pressure-native-default-v1'):number {
   const own=(value:unknown,names:readonly string[]):Record<string,unknown>=>{
@@ -178,16 +183,21 @@ export class SourceStrokeAuthor {
     if(program.inputProfile!==undefined && (program.inputProfile!=='krita-freehand-no-smoothing-v1' || program.roles.length!==1)) {
       throw new RangeError('Unsupported native freehand input profile/roles')
     }
-    for(const role of program.roles){if(role.materialPolicy==='default-auto-pressure-texture-v1'||role.materialPolicy==='soft-auto-native-default-texture-v1'){const field=Object.getOwnPropertyDescriptor(role,'materialProgram'),declared=Object.getOwnPropertyDescriptor(role,'materialCpuBytes'),allowance=Object.getOwnPropertyDescriptor(role,'materialCpuBudgetBytes');if(!field||!Object.hasOwn(field,'value')||!declared||!Object.hasOwn(declared,'value')||!allowance||!Object.hasOwn(allowance,'value'))throw new RangeError('pressure-material-cpu-budget');const bytes=role.materialPolicy==='soft-auto-native-default-texture-v1'?sourceNativeDefaultMaterialProgramCpuBytes(field.value):sourcePressureMaterialProgramCpuBytes(field.value);if(declared.value!==bytes||!Number.isSafeInteger(allowance.value)||allowance.value<bytes)throw new RangeError('pressure-material-cpu-budget')}else if(role.materialProgram!==undefined||role.materialCpuBytes!==undefined||role.materialCpuBudgetBytes!==undefined)throw new RangeError('Unexpected material program')}
+    for(const role of program.roles){if(role.materialPolicy==='textured-auto-program-v1'||role.materialPolicy==='default-auto-pressure-texture-v1'||role.materialPolicy==='soft-auto-native-default-texture-v1'){const field=Object.getOwnPropertyDescriptor(role,'materialProgram'),declared=Object.getOwnPropertyDescriptor(role,'materialCpuBytes'),allowance=Object.getOwnPropertyDescriptor(role,'materialCpuBudgetBytes');if(!field||!Object.hasOwn(field,'value')||!declared||!Object.hasOwn(declared,'value')||!allowance||!Object.hasOwn(allowance,'value'))throw new RangeError('pressure-material-cpu-budget');const bytes=role.materialPolicy==='textured-auto-program-v1'?sourceTexturedAutoProgramCpuBytes(field.value):role.materialPolicy==='soft-auto-native-default-texture-v1'?sourceNativeDefaultMaterialProgramCpuBytes(field.value):sourcePressureMaterialProgramCpuBytes(field.value);if(declared.value!==bytes||!Number.isSafeInteger(allowance.value)||allowance.value<bytes)throw new RangeError('pressure-material-cpu-budget')}else if(role.materialProgram!==undefined||role.materialCpuBytes!==undefined||role.materialCpuBudgetBytes!==undefined)throw new RangeError('Unexpected material program')}
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
       if(role.material.imagePipe!==undefined)throw new RangeError('Pipe selection must belong to the author role')
       if(role.imagePipe&&(!['incremental','random'].includes(role.imagePipe.mode)||role.imagePipe.frames.length<2||role.imagePipe.frames.length>256
         ||role.imagePipe.frames[0]!==role.material.brushIdentity||role.imagePipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))
         ||role.materialPolicy!=='png-fixed1-rng-free'||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
+      const genericTexture=role.materialPolicy==='textured-auto-program-v1'
       const nativeTexture=role.materialPolicy==='soft-auto-native-default-texture-v1',pressureTexture=role.materialPolicy==='default-auto-pressure-texture-v1'
       const fixedTexture=role.materialPolicy==='default-auto-fixed-texture-v1',texture=role.materialPolicy==='png-pressure-texture-v1'
-      if(nativeTexture){
+      if(genericTexture){
+        if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||!role.geometry||role.geometry.kind==='image'||!role.material.textureEnabled||!role.textureProgram||role.textureProgram.strength!=='recorded-grain-v1'||Object.keys(role.textureProgram).length!==2||!role.materialProgram)throw new RangeError('Invalid textured Auto program')
+        const b=role.textureProgram.binding
+        if(b.kind!=='textured-auto-program-v1'||b.source.kind!==role.geometry.kind||canonicalBrushDescriptorJSON(b.source.source)!==canonicalBrushDescriptorJSON(role.geometry.source)||b.source.coverageProfile!==role.geometry.coverageProfile||canonicalBrushDescriptorJSON(b.strengthProgram)!==canonicalBrushDescriptorJSON(role.materialProgram)||(role.geometry.kind==='softAuto')!==(role.materialProgram.kind==='texture-pressure-native-default-v1'))throw new RangeError('Textured Auto source/program differs')
+      }else if(nativeTexture){
         if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||role.geometry?.kind!=='softAuto'||!role.material.textureEnabled||!role.textureProgram||role.textureProgram.strength!=='source-pressure-curve-v1'||Object.keys(role.textureProgram).length!==2||!role.materialProgram||role.materialProgram.kind!=='texture-pressure-native-default-v1'||role.textureProgram.context.version!==6)throw new RangeError('Unsupported native-default soft texture program')
         canonicalSoftNativeDefaultTexturedSourceMaterialContext(role.textureProgram.context)
       }else if(pressureTexture){
@@ -199,13 +209,13 @@ export class SourceStrokeAuthor {
           ||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==2||role.textureProgram.strength!=='fixed-one-v1')throw new RangeError('Unsupported fixed source texture program')
         canonicalTexturedSourceMaterialContext(role.textureProgram.context)
       }else if(texture?(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe!==undefined||role.geometry&&role.geometry.kind!=='image'||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==1||role.textureProgram.strength!=='pressure-identity-v1'):role.textureProgram!==undefined)throw new RangeError('Unsupported source texture program')
-      if(!pressureTexture&&!nativeTexture&&role.materialProgram!==undefined)throw new RangeError('Unexpected material program')
+      if(!genericTexture&&!pressureTexture&&!nativeTexture&&role.materialProgram!==undefined)throw new RangeError('Unexpected material program')
       const seededDensity=role.materialPolicy==='default-auto-fixed1-seeded-density-v1'
       if(seededDensity&&(role.id!=='primary'||this.program.roles.length!==1||role.geometry?.kind!=='defaultAuto'||role.geometry.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1&&role.material.supportsCaching))throw new RangeError('Unsupported density material program')
       if(role.geometry?.kind==='defaultAuto'&&(role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)!==seededDensity)throw new RangeError('Density profile/policy mismatch')
-      if(!['soft-auto-native-default-texture-v1','default-auto-pressure-texture-v1','default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
-        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture||pressureTexture)
-        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free'||nativeTexture) || role.material.softness!==1 || role.material.lightness!==1
+      if(!['textured-auto-program-v1','soft-auto-native-default-texture-v1','default-auto-pressure-texture-v1','default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
+        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture||pressureTexture||genericTexture&&role.geometry?.kind==='defaultAuto')
+        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free'||genericTexture&&role.geometry?.kind==='gaussianAuto') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free'||nativeTexture||genericTexture&&role.geometry?.kind==='softAuto') || role.material.softness!==1 || role.material.lightness!==1
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
         || !Number.isFinite(role.timing.rate) || role.timing.rate<=0
@@ -226,7 +236,7 @@ export class SourceStrokeAuthor {
       const material=role.materialProgram
       if(!material)return undefined
       const curve=material.curve
-      if(material.kind!==(role.materialPolicy==='soft-auto-native-default-texture-v1'?'texture-pressure-native-default-v1':'texture-pressure-curve-v1')||material.profile!=='eigen-5.0.1-mapped-arm64-f64-v3'||material.reader!=='krita-bd6e8d0-v1'||!/^[a-f0-9]{64}$/.test(material.buildId))throw new RangeError('Invalid pressure material program')
+      if(material.kind!==(role.materialPolicy==='textured-auto-program-v1'?material.kind:role.materialPolicy==='soft-auto-native-default-texture-v1'?'texture-pressure-native-default-v1':'texture-pressure-curve-v1')||material.profile!=='eigen-5.0.1-mapped-arm64-f64-v3'||material.reader!=='krita-bd6e8d0-v1'||!/^[a-f0-9]{64}$/.test(material.buildId))throw new RangeError('Invalid pressure material program')
       return compileSourceOptionProgram({id:'TextureStrength',checked:true,useCurve:true,curveMode:0,strength:1,min:0,max:1,
         sensors:[{id:'pressure',curve:{points:curve.source.points,coefficients:curve.coefficients,arithmetic:'installed-arm64-fused-v1'}}]})
     })

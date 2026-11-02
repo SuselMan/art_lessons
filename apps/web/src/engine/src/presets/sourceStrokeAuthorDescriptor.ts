@@ -1,8 +1,10 @@
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared'
+import {captureTexturedAutoProgramBinding,canonicalTexturedAutoProgramBinding,extractCanonicalTexturedAutoProgramData,type CanonicalTexturedAutoProgramBinding} from '@grafetto/shared'
 import { SOURCE_LONG_TIME } from '../dabs/sourceDistanceTiming'
 import {canonicalBrushDescriptorJSON,type CanonicalMaterialContextV6,canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalSoftAutoNativeDefaultTextureSourceBinding,extractCanonicalSoftAutoNativeDefaultTextureProgramData, type CanonicalMaterialContextV5, canonicalPressureTexturedSourceMaterialContext, canonicalDefaultAutoPressureTextureSourceBinding, canonicalPressureCurvePrimaryTexturePin, extractCanonicalDefaultAutoPressureTextureProgramData, type CanonicalStrokeRasterProfile, canonicalTexturedSourceMaterialContext, canonicalDefaultAutoFixedTextureSourceBinding, extractCanonicalDefaultAutoFixedTextureCapability, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, extractCanonicalPrimaryTextureCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractCanonicalSinglePngCapability, extractCanonicalIncrementalImagePipeCapability, extractCanonicalRandomImagePipeCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
-import {sourceNativeDefaultMaterialProgramCpuBytes, sourcePressureMaterialProgramCpuBytes, SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
+import {sourceTexturedAutoProgramCpuBytes,sourceNativeDefaultMaterialProgramCpuBytes, sourcePressureMaterialProgramCpuBytes, SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
 
 /** No XML parsing, asset loading, stock table, or approximate curve solver here. */
 export interface SourceAuthorDescriptorContext {
@@ -28,6 +30,33 @@ export interface SourceAuthorDescriptorContext {
 export type SourceAuthorDescriptorResult = { readonly supported: true; readonly program: SourceStrokeAuthorProgram }
   | { readonly supported: false; readonly reasons: readonly string[] }
 export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, context: SourceAuthorDescriptorContext): SourceAuthorDescriptorResult {
+  return compileDescriptor(descriptor,context)
+}
+export function sourceTexturedAutoAuthorProgram(descriptor:BrushDescriptor,context:Omit<SourceAuthorDescriptorContext,'primaryTexture'|'fixedPrimaryTexture'|'pressurePrimaryTexture'|'softPressurePrimaryTexture'|'asset'|'assets'|'compileCurve'>&{readonly binding:CanonicalTexturedAutoProgramBinding;readonly rasterProfile:CanonicalStrokeRasterProfile;readonly materialCpuBudgetBytes:number}):SourceAuthorDescriptorResult {
+ try {
+  assertTexturedAutoOwnData(descriptor)
+  assertTexturedAutoOwnData(context)
+ } catch {return {supported:false,reasons:['textured-auto-own-data-required']}}
+ return compileDescriptor(descriptor,context,context.binding,context.rasterProfile,context.materialCpuBudgetBytes)
+}
+/** New named boundary only. Validate original object in place: no normalized
+ * clone, getter evaluation or semantic bypass. Proxies are not sandboxed. */
+function assertTexturedAutoOwnData(input:unknown):void {
+ let nodes=0,bytes=0
+ const visit=(value:unknown,depth:number):void=>{
+  if(++nodes>16384||depth>24)throw new TypeError('Textured Auto descriptor bound')
+  if(typeof value==='string'){bytes+=value.length*2;if(value.length>65536||bytes>1048576)throw new TypeError('Textured Auto descriptor text bound');return}
+  if(value===null||typeof value==='number'||typeof value==='boolean'||value===undefined)return
+  if(typeof value!=='object')throw new TypeError('Textured Auto descriptor DATA')
+  const array=Array.isArray(value),prototype=Object.getPrototypeOf(value),keys=Reflect.ownKeys(value)
+  if(array?prototype!==Array.prototype:prototype!==Object.prototype&&prototype!==null)throw new TypeError('Textured Auto descriptor prototype')
+  const length=array?Object.getOwnPropertyDescriptor(value,'length'):undefined
+  if(array&&(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value>4096||keys.length!==length.value+1)||!array&&keys.length>256)throw new TypeError('Textured Auto descriptor fields')
+  for(const key of keys){if(typeof key!=='string'||key.length>128)throw new TypeError('Textured Auto descriptor key');bytes+=key.length*2;if(bytes>1048576)throw new TypeError('Textured Auto descriptor text bound');if(array&&key==='length')continue;if(array&&!/^(0|[1-9][0-9]*)$/.test(key))throw new TypeError('Textured Auto descriptor key');const field=Object.getOwnPropertyDescriptor(value,key);if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Textured Auto descriptor accessor');visit(field.value,depth+1)}
+ }
+ visit(input,0)
+}
+function compileDescriptor(descriptor:BrushDescriptor,context:SourceAuthorDescriptorContext,generic?:CanonicalTexturedAutoProgramBinding,rasterProfile?:CanonicalStrokeRasterProfile,materialCpuBudgetBytes?:number):SourceAuthorDescriptorResult {
   let data=descriptor.sourceStamp!
   const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
   const soft=data?.version===2 && data.source?.kind==='softAuto'
@@ -46,9 +75,11 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   try{if(context.fixedPrimaryTexture)fixed=canonicalTexturedSourceMaterialContext(context.fixedPrimaryTexture.context)}catch{return reject('invalid-fixed-texture-context')}
   if(fixed&&(texture||!auto||soft||gaussian||pipe||context.asset||context.assets||seededDensity))return reject('fixed-texture-default-auto-only')
   if(texture&&(auto||pipe||!context.asset))return reject('primary-texture-image-only')
+  let genericData:ReturnType<typeof extractCanonicalTexturedAutoProgramData>|undefined
+  if(generic){try{const programField=Object.getOwnPropertyDescriptor(generic,'strengthProgram');if(!programField||!Object.hasOwn(programField,'value'))return reject('generic-textured-auto-binding-accessor');const cost=sourceTexturedAutoProgramCpuBytes(programField.value);if(!Number.isSafeInteger(materialCpuBudgetBytes)||materialCpuBudgetBytes!<cost)return reject('pressure-material-cpu-budget');generic=captureTexturedAutoProgramBinding(generic);if(context.compileCurve||context.primaryTexture||context.fixedPrimaryTexture||context.pressurePrimaryTexture||context.softPressurePrimaryTexture||context.asset||context.assets||context.scale!==undefined||context.lodScale!==1||!auto||pipe||seededDensity||!rasterProfile||context.coverageProfile!==generic.source.coverageProfile)return reject('invalid-generic-textured-auto-context');const expected=canonicalTexturedAutoProgramBinding(descriptor,generic.descriptorSha256,generic.source.coverageProfile,{id:generic.patternAsset.id,size:generic.patternAsset.size},rasterProfile);if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(generic))return reject('generic-textured-auto-binding-mismatch');genericData=extractCanonicalTexturedAutoProgramData(descriptor,{pattern:{id:generic.patternAsset.id,size:generic.patternAsset.size}});if(!genericData.supported)return genericData;data=genericData.data;const bytes=sourceTexturedAutoProgramCpuBytes(generic.strengthProgram);if(!Number.isSafeInteger(materialCpuBudgetBytes)||materialCpuBudgetBytes!<bytes)return reject('pressure-material-cpu-budget')}catch{return reject('generic-textured-auto-binding-mismatch')}}
   const pressureData=pressure?(pressure.version===6?extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor,{pattern:{id:pressure.assets[0].id,size:pressure.assets[0].size}}):extractCanonicalDefaultAutoPressureTextureProgramData(descriptor,{pattern:{id:pressure.assets[0].id,size:pressure.assets[0].size}})):undefined
   if(pressureData&&!pressureData.supported)return pressureData
-  const material = pressureData?.supported ? pressureData : fixed ? extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern:{id:fixed.assets[0].id,size:fixed.assets[0].size}}) : texture&&context.asset ? extractCanonicalPrimaryTextureCapability(descriptor,{primary:context.asset,pattern:texture.pattern}) : soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? (seededDensity?extractSeededDensityDefaultAutoSourceDataCapability(descriptor):extractDefaultAutoSourceDataCapability(descriptor))
+  const material = genericData?.supported ? genericData : pressureData?.supported ? pressureData : fixed ? extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern:{id:fixed.assets[0].id,size:fixed.assets[0].size}}) : texture&&context.asset ? extractCanonicalPrimaryTextureCapability(descriptor,{primary:context.asset,pattern:texture.pattern}) : soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? (seededDensity?extractSeededDensityDefaultAutoSourceDataCapability(descriptor):extractDefaultAutoSourceDataCapability(descriptor))
     : pipe && context.assets ? (descriptor.tip.animation!.mode==='random'?extractCanonicalRandomImagePipeCapability(descriptor,context.assets):extractCanonicalIncrementalImagePipeCapability(descriptor,context.assets)) : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
   if (!material.supported) return material
   if(pressure){
@@ -101,7 +132,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
         const needed=option.checked && option.useCurve && !sourceCurveIsIdentity(sensor.curve.points)
         // Native apply guards skip unchecked/disabled curve consumers entirely.
         const saved=data.compiled?.curves.find(c=>c.source.text===sensor.curve.text)
-        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:(data.compiled?.version===2||pressure&&(data.compiled?.version===3||data.compiled?.version===4))?'mapped-arm64-v3' as const:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
+        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:(data.compiled?.version===2||(pressure||generic)&&(data.compiled?.version===3||data.compiled?.version===4))?'mapped-arm64-v3' as const:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
         if (needed && (!compiled || !['native-sparselu-v1','mapped-arm64-v3'].includes(compiled.version))) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
         return {id:sensor.id,length:sensor.length,periodic:sensor.periodic,angleOffset:sensor.angleOffset,lockedAngle:sensor.lockedAngle,
           curve:{points:sensor.curve.points,coefficients:compiled?.coefficients,...(compiled?.version==='mapped-arm64-v3'?{arithmetic:'installed-arm64-fused-v1' as const}:{})}}
@@ -116,15 +147,20 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
     const role:SourceAuthorRoleProgram={id:'primary',...(pipe?{imagePipe:{mode:descriptor.tip.animation!.mode,frames:descriptor.tip.animation!.frames}}:{}),options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
       ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'|typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
-      ...(pressure&&pressureData?.supported?{materialProgram:pressureData.program,materialCpuBytes:pressureData.program.kind==='texture-pressure-native-default-v1'?sourceNativeDefaultMaterialProgramCpuBytes(pressureData.program):sourcePressureMaterialProgramCpuBytes(pressureData.program),materialCpuBudgetBytes:(context.softPressurePrimaryTexture??context.pressurePrimaryTexture)!.materialCpuBudgetBytes,textureProgram:{strength:'source-pressure-curve-v1' as const,context:pressure}}:fixed?{textureProgram:{strength:'fixed-one-v1' as const,context:fixed}}:texture?{textureProgram:{strength:'pressure-identity-v1' as const}}:{}),
-      materialPolicy:pressure?(pressure.version===6?'soft-auto-native-default-texture-v1':'default-auto-pressure-texture-v1'):fixed?'default-auto-fixed-texture-v1':texture?'png-pressure-texture-v1':soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?seededDensity?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
+      ...(generic?{materialProgram:generic.strengthProgram,materialCpuBytes:sourceTexturedAutoProgramCpuBytes(generic.strengthProgram),materialCpuBudgetBytes:materialCpuBudgetBytes!,textureProgram:{strength:'recorded-grain-v1' as const,binding:generic}}:pressure&&pressureData?.supported?{materialProgram:pressureData.program,materialCpuBytes:pressureData.program.kind==='texture-pressure-native-default-v1'?sourceNativeDefaultMaterialProgramCpuBytes(pressureData.program):sourcePressureMaterialProgramCpuBytes(pressureData.program),materialCpuBudgetBytes:(context.softPressurePrimaryTexture??context.pressurePrimaryTexture)!.materialCpuBudgetBytes,textureProgram:{strength:'source-pressure-curve-v1' as const,context:pressure}}:fixed?{textureProgram:{strength:'fixed-one-v1' as const,context:fixed}}:texture?{textureProgram:{strength:'pressure-identity-v1' as const}}:{}),
+      materialPolicy:generic?'textured-auto-program-v1':pressure?(pressure.version===6?'soft-auto-native-default-texture-v1':'default-auto-pressure-texture-v1'):fixed?'default-auto-fixed-texture-v1':texture?'png-pressure-texture-v1':soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?seededDensity?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
       spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs,timingRefreshMs,
       material:{brushIdentity:auto?descriptor.id+'@'+descriptor.version:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
         precisionLevel:data.precision.level,autoPrecision:data.precision.automatic,
         imprecisePosition:programs.Mirror.checked || programs.Scatter.checked || programs.Rotation.checked || data.timing.enabled,
         disableSubpixel:false,supportsCaching:!(seededDensity&&data.version===2&&data.source.kind==='defaultAuto'&&data.source.density!==1),solidColor:true,textureEnabled:data.flags.textureEnabled,sharpnessChecked:false}}
-    const program={id:descriptor.id+':'+descriptor.version+(pressure?(pressure.version===6?':soft-auto-native-default-texture-v1:':':default-auto-pressure-texture-v1:')+pressure.primarySource.descriptorSha256:fixed?':default-auto-fixed-texture-v1':texture?':primary-texture-pressure-identity-v1':'')+(seededDensity?':'+CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:''),...(context.inputProfile!==undefined?{inputProfile:context.inputProfile}:{}),roles:[role]}
+    const legacyId=descriptor.id+':'+descriptor.version+(generic?':textured-auto-program-v1':pressure?(pressure.version===6?':soft-auto-native-default-texture-v1:':':default-auto-pressure-texture-v1:')+pressure.primarySource.descriptorSha256:fixed?':default-auto-fixed-texture-v1':texture?':primary-texture-pressure-identity-v1':'')+(seededDensity?':'+CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:'')
+    const profileTag=rasterProfile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE?'n':rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'b':undefined
+    if(generic&&!profileTag)return reject('generic-textured-auto-raster-profile')
+    const id=generic?['ta7',generic.descriptorSha256,generic.patternAsset.id.slice(6),generic.patternAsset.size,generic.patternAsset.width,generic.patternAsset.height,profileTag,generic.source.coverageProfile,generic.source.kind,generic.strengthProgram.kind].join(':'):legacyId
+    if(generic&&id.length>256)return reject('generic-textured-auto-program-id-bound')
+    const program={id,...(context.inputProfile!==undefined?{inputProfile:context.inputProfile}:{}),roles:[role]}
     // Same owner preflight as the eventual caller; no RNG/state mutation.
     new SourceStrokeAuthor(program)
     return {supported:true,program}
