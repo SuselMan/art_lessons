@@ -1,7 +1,7 @@
 import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, isBrushLibrary, type CanonicalMaterialAsset, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
-import { cachedBrushAsset, cacheBrushAsset } from './brushAssetCache'
+import { cachedBrushAsset, cacheBrushAsset, readExactBrushAssetBody } from './brushAssetCache'
 
 let library: BrushLibrary | null = null
 let roomScope: string | undefined
@@ -93,14 +93,16 @@ async function fetchAsset(id: string): Promise<void> {
     const asset = library?.assets.find(a => a.id === id)
     if (!asset) throw new Error(`Unknown brush asset: ${id}`)
     const hash = id.slice(6)
-    let data = await cachedBrushAsset(hash)
+    const expectedBytes = asset.size * asset.size
+    let data = await cachedBrushAsset(hash, expectedBytes)
     if (!data || !await verified(id, data, asset.size)) {
       const response = await fetch(apiPath('GET /api/brush-library/assets/:hash', { params: { hash }, query: { roomId: scope } }), { credentials: 'include', signal: AbortSignal.timeout(30_000) })
-      if (!response.ok) throw new Error('Brush asset download failed')
-      const length = Number(response.headers.get('Content-Length'))
-      if (length && length !== asset.size * asset.size) throw new Error('Brush asset size mismatch')
-      data = new Uint8Array(await response.arrayBuffer())
-      if (data.length !== asset.size * asset.size) throw new Error('Brush asset size mismatch')
+      if (!response.ok) {
+        try { await response.body?.cancel() } catch { /* Preserve the HTTP download failure. */ }
+        throw new Error('Brush asset download failed')
+      }
+      // Content-Length is transport metadata, not decoded body-size authority.
+      data = await readExactBrushAssetBody(response, expectedBytes)
       if (!await verified(id, data, asset.size)) throw new Error('Brush asset checksum mismatch')
     }
     if (scopedLibraries.get(scope)?.assets.some(a => a.id === id)) installBrushPixels(id, data)

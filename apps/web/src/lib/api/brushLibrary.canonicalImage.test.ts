@@ -7,7 +7,7 @@ import {prepareCanonicalRoomState} from '../../pages/Room/net/canonicalRoomState
 vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
 const {request,cached}=vi.hoisted(()=>({request:vi.fn(),cached:vi.fn()}))
 vi.mock('./api',()=>({apiResponse:async(...args:unknown[])=>Response.json(await request(...args)),apiPath:(_key:string,o:{params:{hash:string};query:{roomId:string}})=>`/assets/${o.params.hash}?roomId=${o.query.roomId}`}))
-vi.mock('./brushAssetCache',()=>({cachedBrushAsset:cached,cacheBrushAsset:vi.fn(async()=>{})}))
+vi.mock('./brushAssetCache',async importOriginal=>({...await importOriginal<typeof import('./brushAssetCache')>(),cachedBrushAsset:cached,cacheBrushAsset:vi.fn(async()=>{})}))
 const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
 const binding=canonicalImageSourceBinding(descriptor,fixture.asset),asset=binding.assets[0]
@@ -131,4 +131,44 @@ it('rechecks readiness after the final callback-capable lifetime assertion',asyn
  const assert=()=>{owner.assert();if(resources.isBrushAssetReady(asset.id)&&++readyAssertions===2)resources.clearImportedBrushPixels()}
  await expect(api.prepareCanonicalImageAssets('room',owner.assets,assert)).rejects.toThrow()
  expect(readyAssertions).toBe(2);expect(resources.isBrushAssetReady(asset.id)).toBe(false)
+})
+
+
+it('rejects oversize network body before any unbounded arrayBuffer and releases pending for valid retry',async()=>{
+ const {api,resources,owner}=await setup(),bad=new Response(new Uint8Array(bytes.length+1)),unbounded=vi.spyOn(bad,'arrayBuffer')
+ vi.mocked(fetch).mockResolvedValueOnce(bad)
+ await expect(api.prepareCanonicalImageAssets('room',owner.assets,owner.assert)).rejects.toThrow(/size mismatch/)
+ expect(unbounded).not.toHaveBeenCalled();expect(bad.body!.locked).toBe(false);expect(resources.isBrushAssetReady(asset.id)).toBe(false)
+ await api.prepareCanonicalImageAssets('room',owner.assets,owner.assert);expect(fetch).toHaveBeenCalledTimes(2);expect(resources.isBrushAssetReady(asset.id,asset.size)).toBe(true)
+ expect(cached).toHaveBeenCalledWith(asset.id.slice(6),asset.size*asset.size)
+})
+it('accepts exact network chunks with wrong Content-Length and existing genuine SHA verification',async()=>{
+ const {api,resources,owner}=await setup(),response=new Response(new ReadableStream({start(c){c.enqueue(bytes.subarray(0,17));c.enqueue(bytes.subarray(17));c.close()}}),{headers:{'Content-Length':'1'}}),unbounded=vi.spyOn(response,'arrayBuffer')
+ vi.mocked(fetch).mockResolvedValueOnce(response)
+ await api.prepareCanonicalImageAssets('room',owner.assets,owner.assert)
+ expect(resources.isBrushAssetReady(asset.id,asset.size)).toBe(true);expect(unbounded).not.toHaveBeenCalled();expect(response.body!.locked).toBe(false)
+})
+it('cancels unread bad HTTP body and preserves download failure if cancellation rejects',async()=>{
+ const {api,resources,owner}=await setup(),response=new Response(new ReadableStream({cancel(){throw Error('cancel HTTP body')}}),{status:403}),cancel=vi.spyOn(response.body!,'cancel')
+ vi.mocked(fetch).mockResolvedValueOnce(response)
+ await expect(api.prepareCanonicalImageAssets('room',owner.assets,owner.assert)).rejects.toThrow('Brush asset download failed')
+ expect(cancel).toHaveBeenCalledOnce();expect(resources.isBrushAssetReady(asset.id)).toBe(false)
+ await api.prepareCanonicalImageAssets('room',owner.assets,owner.assert);expect(resources.isBrushAssetReady(asset.id,asset.size)).toBe(true)
+})
+
+it.each(['partial','trailing']as const)('falls back from actual %s CacheStorage body to verified genuine network CAS',async kind=>{
+ const realDisk=await vi.importActual<typeof import('./brushAssetCache')>('./brushAssetCache'),bad=new Response(kind==='partial'?bytes.subarray(1):new Uint8Array(bytes.length+1)),unbounded=vi.spyOn(bad,'arrayBuffer'),remove=vi.fn()
+ vi.stubGlobal('location',{origin:'https://fixture.invalid'});vi.stubGlobal('caches',{open:vi.fn(async()=>({match:vi.fn(async()=>bad),delete:remove}))})
+ cached.mockImplementation((hash:string,expected:number)=>realDisk.cachedBrushAsset(hash,expected))
+ const {api,resources,owner}=await setup();await api.prepareCanonicalImageAssets('room',owner.assets,owner.assert)
+ expect(fetch).toHaveBeenCalledOnce();expect(unbounded).not.toHaveBeenCalled();expect(bad.body!.locked).toBe(false);expect(remove).not.toHaveBeenCalled();expect(resources.isBrushAssetReady(asset.id,asset.size)).toBe(true)
+})
+it('routes the existing fetch timeout signal through actual body-read rejection and releases for retry',async()=>{
+ const {api,resources,owner}=await setup();await api.loadBrushLibrary()
+ const abort=new AbortController(),fault=new DOMException('network deadline','TimeoutError');let controller!:ReadableStreamDefaultController<Uint8Array>
+ const response=new Response(new ReadableStream<Uint8Array>({start(c){controller=c}})),timeout=vi.spyOn(AbortSignal,'timeout').mockReturnValue(abort.signal)
+ vi.mocked(fetch).mockImplementationOnce(async(_url,options)=>{expect(options?.signal).toBe(abort.signal);abort.signal.addEventListener('abort',()=>controller.error(abort.signal.reason),{once:true});return response})
+ const work=api.prepareCanonicalImageAssets('room',owner.assets,owner.assert),rejection=expect(work).rejects.toBe(fault)
+ try{await vi.waitFor(()=>expect(response.body!.locked).toBe(true));abort.abort(fault);await rejection;expect(response.body!.locked).toBe(false);expect(resources.isBrushAssetReady(asset.id)).toBe(false)}finally{timeout.mockRestore()}
+ await api.prepareCanonicalImageAssets('room',owner.assets,owner.assert);expect(fetch).toHaveBeenCalledTimes(2);expect(resources.isBrushAssetReady(asset.id,asset.size)).toBe(true)
 })
