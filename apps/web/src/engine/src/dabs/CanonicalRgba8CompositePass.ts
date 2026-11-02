@@ -143,14 +143,16 @@ function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalComp
         throw new RangeError('Invalid composite operations');
     return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'] as const).filter(kind => operations.includes(kind));
 }
-type CanonicalTexturedCompositeOperation='alphaDarken32FusedScalar'|'alphaDarkenBrowserFloat';
+const TEXTURED_OPERATIONS=['alphaDarken32FusedScalar','alphaDarkenBrowserFloat','over32FusedScalar','overBrowserFloat'] as const;
+type CanonicalTexturedCompositeOperation=typeof TEXTURED_OPERATIONS[number];
+const isTexturedOperation=(kind:CanonicalCompositeOperationKind):kind is CanonicalTexturedCompositeOperation=>TEXTURED_OPERATIONS.some(value=>value===kind);
 const texturedProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:subtract-u8-v1` as const;
 type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
-        ||selected.some(kind=>!['alphaDarken32FusedScalar','alphaDarkenBrowserFloat'].includes(kind)||!operationsFor(limits).includes(kind)))throw new RangeError('Invalid textured composite operations');
-    return (['alphaDarken32FusedScalar','alphaDarkenBrowserFloat'] as const).filter(kind=>selected.includes(kind));
+        ||selected.some(kind=>!isTexturedOperation(kind)||!operationsFor(limits).includes(kind)))throw new RangeError('Invalid textured composite operations');
+    return TEXTURED_OPERATIONS.filter(kind=>selected.includes(kind));
 }
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
@@ -403,7 +405,7 @@ export class CanonicalRgba8CompositePass {
         return this.isReady() && kinds.every(kind => this.workspace!.programs.has(kind));
     }
     supportsTexturedOperations(kinds:readonly CanonicalCompositeOperationKind[]):boolean {
-        return this.isReady()&&kinds.every(kind=>(kind==='alphaDarken32FusedScalar'||kind==='alphaDarkenBrowserFloat')&&this.workspace!.programs.has(texturedProgram(kind)));
+        return this.isReady()&&kinds.every(kind=>isTexturedOperation(kind)&&this.workspace!.programs.has(texturedProgram(kind)));
     }
     preparedResources(): readonly Resource[] {
         if (!this.isReady())
@@ -453,7 +455,7 @@ export class CanonicalRgba8CompositePass {
         if (!this.isReady() || !this.workspace || !this.limits)
             throw new Error('Composite pass is not prepared');
         const info = this.workspace.programs.get(pattern?texturedProgram(operation.kind):operation.kind);
-        if(pattern&&operation.kind!=='alphaDarken32FusedScalar'&&operation.kind!=='alphaDarkenBrowserFloat')throw new RangeError('Unsupported textured composite operation');
+        if(pattern&&!isTexturedOperation(operation.kind))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
         if (target.texture === sampled.texture || target.texture === this.workspace.texture || sampled.texture === this.workspace.texture || base.texture === this.workspace.texture)

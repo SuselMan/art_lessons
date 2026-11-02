@@ -1,3 +1,5 @@
+import {compositeSourceFused32} from '../presets/sourceFused32'
+import {compositeSourceOver32Scalar} from '../presets/sourceOver32Scalar'
 import {canonicalFixedPrimaryTexturePin,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
 import {expect,it,vi} from 'vitest'
 import {canonicalPrimaryTexturePin} from '@grafetto/shared'
@@ -130,4 +132,35 @@ it.each(['alphaDarken32FusedScalar','alphaDarkenBrowserFloat'] as const)('uses f
   expect(()=>s.pass.drawSource({...s.request,source,operation:chosenOperation})).not.toThrow()
   expect(()=>s.pass.drawSource({...s.request,source:{...source,strengthU8:128},operation:chosenOperation})).toThrow(/S255/)
  }finally{s.close()}
+})
+
+
+it.each(['over32FusedScalar','overBrowserFloat']as const)('prepares a separately charged texture+OVER variant without changing the plain kernel %s',kind=>{
+ const s=fixture();try{
+  const plain=new CanonicalRgba8CompositePass(s.gl,s.cache,s.cpu,'plain-over'),manifest={width:16,height:16,operations:[kind]}
+  plain.prepare(manifest,s.companions);const old=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);plain.reset();s.gl.shaderSource.mockClear()
+  const textured={...manifest,texturedOperations:[kind]},before=canonicalRgba8CompositeBudget(manifest),after=canonicalRgba8CompositeBudget(textured)
+  expect(after.gpuBytes).toBe(before.gpuBytes);expect(after.cpuBytes-before.cpuBytes).toBe(8192)
+  s.pass.prepare(textured,s.companions)
+  const shaders=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);expect(shaders.slice(0,2)).toEqual(old)
+  const fragment=String(shaders[3]);expect(fragment).toContain('sampled.r-grain-(255.0-patternStrength)')
+  expect(fragment).toContain(kind==='over32FusedScalar'?'sourceCompositeFusedOver32Scalar(source,destination':'sourceCompositeOver32Scalar(source,destination')
+  const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Expected original pattern source')
+  const operation=kind==='overBrowserFloat'?{kind,control:{profile:B,opacity:.75}}:{kind,control:{profile:'installed-arm64-scalar-fused-fpcr0-v1' as const,opacity:.75}}
+  const saved=s.snapshot();expect(s.pass.drawSource({...s.request,source,operation})).toBe('painted');expect(s.snapshot()).toEqual(saved)
+ }finally{s.close()}
+})
+
+
+it('pins an independent opaque-destination U8 RGBA oracle for the existing native/browser OVER kernels',()=>{
+ const pigment=[198,36,90]as const,destination=[10,20,30,255]as const
+ // M255,T0 and S0/128/255 exercise exact same subtract law; analytic opaque OVER bytes.
+ const expected=[[10,20,30,255],[104,28,60,255],[198,36,90,255]]
+ for(const [i,strength]of [0,128,255].entries()){
+  const coverage=Math.max(0,255-0-(255-strength)),source=[...pigment,coverage]as const
+  const native=compositeSourceFused32({profile:'installed-arm64-vector32-fused-fpcr0-v1',operator:'over',source:new Uint8Array(source),destination:new Uint8Array(destination),cols:1,rows:1,sourceStride:4,destinationStride:4,maskStride:1,sourceAlignment:0,destinationAlignment:0,opacity:1,averageOpacity:1,flow:1}).pixels
+  const browser=compositeSourceOver32Scalar(source,destination,{profile:'portable-f32-division-rne-v1',opacity:1})
+  expect([...native]).toEqual(expected[i]);expect(browser).toEqual(expected[i])
+ }
+ // This is a CPU reference/selected-kernel oracle, NOT a mock-GL pixel readback proof.
 })

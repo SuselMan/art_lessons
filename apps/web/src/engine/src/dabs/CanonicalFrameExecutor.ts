@@ -309,7 +309,12 @@ export class CanonicalFrameExecutor {
     if(!source)throw new TypeError('Canonical material3 requires a texture root')
     const textureRasterProfile=this.options.rasterProfile
     if(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&textureRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Unsupported canonical texture raster profile')
-    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile)||input.composition.mode!=='wash'||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
+    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile)||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
+    if(input.composition.mode==='buildup'){
+      if(this.options.washMode==='deposition-only')throw new TypeError('Deposition-only requires wash')
+      const operation=textureRasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar'
+      if(!this.options.composite.supportsTexturedOperations([operation]))throw new TypeError('Canonical texture OVER variant was not prepared')
+    }
     const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
     const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
     const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(textureFrameCaptureBytes(input.frame))

@@ -14,7 +14,7 @@ const pattern={id:'asset:'+'b'.repeat(64),size:8,x:0,y:0,width:4,height:4}
 // Structural small Soft root fixture, not genuine descriptor/native admission proof.
 function context(profile:typeof G|typeof B=G):CanonicalMaterialContextV6{const softnessCurve={text:'0,0;1,1;',points:[{x:0,y:0,corner:false},{x:1,y:1,corner:false}]};return canonicalSoftNativeDefaultTexturedSourceMaterialContext({version:6,assets:[pattern],primarySource:canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft-fixture',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:4,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve},brushScale:1,brushAngle:0,coverageProfile:profile===B?'browser-number-coverage-v1':'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:softnessCurve,coefficients:[[0,0,1,0]]}}),primaryTexture:{kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:1,offsetY:2,strength:'source-pressure-curve-v1'},budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}})}
 function decoded(profile:typeof G|typeof B=G){const c=context(profile),g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:4,ratio:1,spikes:2,scale:1,angle:0},{scale:1,ratio:1,rotation:0}),recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:c.primarySource.source,coverageProfile:c.primarySource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false};return buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[0,4,8].map(x=>({recipe,role:'primary' as const,x,y:0,opacity:.75,flow:.7,grainDepth:x===0?0:x===4?.5:1})),fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:3,group:0},{kind:'segmentEnd',at:3,group:0},{kind:'gestureEnd',at:3}]},c).frame}
-function fixture(variant=true,rawCompanion=true,profile:typeof G|typeof B=G){
+function fixture(variant=true,rawCompanion=true,profile:typeof G|typeof B=G,overVariant=false){
  const{gl,snapshot}=recordingGL(),cache=new BrushTextureCache(gl),cpu=new BrushMipCache()
  gl.LUMINANCE=0x1909;gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
  gl.getShaderPrecisionFormat=()=>({precision:23,rangeMin:127,rangeMax:127});gl.texSubImage2D=vi.fn();gl.copyTexSubImage2D=vi.fn();gl.copyTexImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn()
@@ -26,7 +26,7 @@ function fixture(variant=true,rawCompanion=true,profile:typeof G|typeof B=G){
  // Existing default capacity-record metadata is lazy and retained until prepass reset.
  const warm=prepass.retainPreparedCapacity();warm.release()
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'exec-texture-composite'),raw=p.jobs.filter(j=>j.kind==='raw-pattern-l8').map(({key,bytes})=>({key,bytes}))
- composite.prepare({width:4,height:4,operations:canonicalExecutorOperations(profile),...(variant?{texturedOperations:[profile===B?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar']}:{})},[...root.preparedResources(),...prepass.preparedResources(),...rawCompanion?raw:[]])
+ composite.prepare({width:4,height:4,operations:canonicalExecutorOperations(profile),...((variant||overVariant)?{texturedOperations:[...(variant?[profile===B?'alphaDarkenBrowserFloat' as const:'alphaDarken32FusedScalar' as const]:[]),...(overVariant?[profile===B?'overBrowserFloat' as const:'over32FusedScalar' as const]:[])]}:{})},[...root.preparedResources(),...prepass.preparedResources(),...rawCompanion?raw:[]])
  const scratch=new RibbonScratchPool(gl),layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),reserve=vi.fn(()=>()=>{}),poison=vi.fn(),changed=vi.fn()
  const options:CanonicalFrameExecutorOptions={rasterProfile:profile,autoSource:c.primarySource,bank:root,primaryTexture:{context:c,root},prepass,composite,scratch,layer:()=>({buffer:layer,epoch:0}),pageBounds:{minX:0,minY:0,maxX:32,maxY:16},reserveTransient:reserve,changed,poison}
  let executor:CanonicalFrameExecutor|undefined
@@ -63,3 +63,40 @@ it('rejects cross4/6 profile and insufficient texture work before target reserva
 function radialOwner(s:ReturnType<typeof fixture>){const source=s.c.primarySource.source;return new CanonicalSoftCircleProgramOwner(s.cpu,{kind:'auto',generator:'soft',shape:'circle',diameter:source.diameter,ratio:source.ratio,horizontalFade:source.horizontalFade,verticalFade:source.verticalFade,spikes:2,softness:1,randomness:0,density:1,antialias:false},{points:s.c.primarySource.radialCurve.source.points,coefficients:s.c.primarySource.radialCurve.coefficients},Math.floor(source.diameter*4+.5)+2)}
 it('rejects supplied external Soft owner even on SAME CPU when texture root is present',()=>{const s=fixture(),owner=radialOwner(s);try{const before=s.cpu.reservedBytes;expect(()=>s.create({softProgramOwner:owner})).toThrow('same root owner');expect(s.cpu.reservedBytes).toBe(before)}finally{owner.retire();s.close()}})
 it('rolls back texture and mask leases if genuine radial reservation fails, leaving root reusable',()=>{const s=fixture(),basis=radialOwner(s),bytes=basis.estimatedCpuBytes;basis.retire();const baseline=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===bytes)throw Error('radial reserve injected');return reserve(n)});try{expect(()=>s.create()).toThrow('radial reserve injected');expect(s.cpu.reservedBytes).toBe(baseline);spy.mockRestore();expect(()=>s.create()).not.toThrow()}finally{spy.mockRestore();s.close()}})
+
+
+it.each([G,B])('routes standalone textured buildup EACH draw to its installed OVER variant %s',profile=>{
+ const s=fixture(true,true,profile,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const e=s.create(),draw=vi.spyOn(s.composite,'drawSource'),input=s.submission()
+  e.enqueue({...input,composition:{...input.composition,mode:'buildup'}});s.drain()
+  const calls=draw.mock.calls.map(([r])=>r)
+  expect(calls.length).toBeGreaterThan(0)
+  expect(calls.every(r=>r.source.kind==='texturedMaskRgb')).toBe(true)
+  expect(calls.every(r=>r.operation.kind===(profile===B?'overBrowserFloat':'over32FusedScalar'))).toBe(true)
+  expect(new Set(calls.map(r=>r.source.kind==='texturedMaskRgb'?r.source.strengthU8:-1))).toEqual(new Set([0,128,255]))
+  // Direct composition has no deferred wash surface/present pass.
+  expect(()=>e.rawWashTiles()).toThrow('Raw wash ownership unavailable');expect(e.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close()}
+})
+it('requires explicit OVER preparation before capture/reserve and keeps deposition-only closed',()=>{
+ const s=fixture();try{
+  const e=s.create(),input=s.submission(),bytes=s.cpu.reservedBytes
+  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('OVER variant')
+  expect(s.cpu.reservedBytes).toBe(bytes);expect(s.reserve).not.toHaveBeenCalled();expect(e.pending).toBe(false)
+ }finally{s.close()}
+ const t=fixture(true,true,G,true);try{
+  const e=t.create({washMode:'deposition-only'}),input=t.submission(),bytes=t.cpu.reservedBytes
+  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('Deposition-only')
+  expect(t.cpu.reservedBytes).toBe(bytes);expect(t.reserve).not.toHaveBeenCalled();expect(e.pending).toBe(false)
+ }finally{t.close()}
+})
+it('keeps the direct textured source on SAME root and cleans cancellation before and during paint',()=>{
+ for(const painted of[false,true]){
+  const s=fixture(true,true,G,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  try{const e=s.create(),input=s.submission();e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})
+   if(painted){vi.spyOn(s.composite,'drawSource').mockImplementationOnce(()=>{throw Error('actual direct draw failure')});expect(()=>s.drain()).toThrow('actual direct draw failure')}
+   e.cancel();expect(e.pending).toBe(false)
+  }finally{clock.mockRestore();s.close()}
+ }
+})
