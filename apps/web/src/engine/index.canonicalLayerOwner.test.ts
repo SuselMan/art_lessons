@@ -568,3 +568,93 @@ it.each(['completed-plan','allocation-rollback']as const)('treats actual %s clos
   expect(engine['_canonicalReadReady']()).toBe(false);expect(engine['_canonicalExportReady']()).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+
+it('capacity notification follows actual preview publication and idle notification preserves a genuine wake',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const schedule=vi.fn();engine['_scheduleCanonicalRebuild']=schedule
+  engine.appendOriginalRecorded(recorded(p,1,'capacity-preview',false))
+  const coordinator=owner.coordinator!,job=owner.job!,advance=coordinator.advance.bind(coordinator)
+  let ready=false,released=0,resolved=0,accepted=false
+  vi.spyOn(coordinator,'advance').mockImplementation(()=>{
+   const result=advance()
+   if(result?.kind==='preview-ready'){
+    ready=true;const previous=owner.derived
+    owner.recordedCapacity={promise:Promise.resolve(),resolve:()=>{resolved++},release:()=>{released++;accepted=owner.derived!==previous&&coordinator.publishedPresentationReady}}
+   }
+   return result
+  })
+  for(let n=0;n<1024&&!ready;n++)engine['_stepCanonicalLayer'](job)
+  expect(ready).toBe(true);expect(released).toBe(1);expect(resolved).toBe(1);expect(accepted).toBe(true)
+  owner.recordedCapacity={promise:Promise.resolve(),resolve:()=>{resolved++},release:()=>{released++;engine.appendOriginalRecorded(recorded(p,2,'capacity-wake',false))}}
+  engine['_stepCanonicalLayer'](job)
+  expect(released).toBe(2);expect(resolved).toBe(2);expect(owner.orderParked).toBe(false)
+  expect(owner.job).toBe(job);expect(coordinator.queuedFrameCount).toBeGreaterThan(0)
+  expect(schedule).toHaveBeenCalledWith(job)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+// Ownership/CAS fault probe only: replacement resources are produced by another
+// real restore, never admitted/drawn through a fabricated source grant here.
+it.each([false,true])('capacity replacement CAS never poisons another restored owner, primary=%s',async throws=>{
+ const p=original(true),otherP=original(true),{engine}=engineFor(p),other=engineFor(otherP).engine
+ let replacement:NonNullable<typeof engine['_canonicalLayerOwner']>|undefined
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  await other.restoreCanonicalEmptyRoom(otherP.canonicalRead,otherP.tailOperations)
+  engine['_scheduleCanonicalRebuild']=()=>{};other['_scheduleCanonicalRebuild']=()=>{}
+  other.appendOriginalRecorded(recorded(otherP,1,'replacement',false));replacement=other['_canonicalLayerOwner']!
+  engine.appendOriginalRecorded(recorded(p,1,'capacity-old',false))
+  const owner=engine['_canonicalLayerOwner']!,job=owner.job!
+  let resolved=false,caught=false,primary:unknown=Error('not observed')
+  owner.recordedCapacity={promise:Promise.resolve(),resolve:()=>{resolved=true},release:()=>{
+   expect(engine['_retireCanonicalLayer'](false)).toEqual([])
+   engine['_canonicalLayerOwner']=replacement;engine['_rebuildJobs'].set('layer-1',replacement!.job!)
+   if(throws)throw undefined
+  }}
+  for(let n=0;n<1024&&!resolved;n++)try{engine['_stepCanonicalLayer'](job)}catch(error){caught=true;primary=error}
+  expect(resolved).toBe(true);expect(caught).toBe(throws);if(throws)expect(primary).toBeUndefined()
+  expect(engine['_canonicalLayerOwner']).toBe(replacement);expect(replacement.failed).toBe(false)
+  expect(replacement.coordinator).toBeDefined();expect(engine['_rebuildJobs'].get('layer-1')).toBe(replacement.job)
+  expect(owner.coordinator).toBeUndefined();expect(owner.outstanding).toBe(0)
+ }finally{
+  // Probe never transfers the other engine's actual resource ownership.
+  if(engine['_canonicalLayerOwner']===replacement)engine['_canonicalLayerOwner']=undefined
+  engine['_rebuildJobs'].clear();engine.destroy();other.destroy()
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(other['_brushMipCache'].reservedBytes).toBe(0)
+ }
+})
+
+it('capacity callback context loss retires the real job without rescheduling stale work',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const schedule=vi.fn();engine['_scheduleCanonicalRebuild']=schedule
+  engine.appendOriginalRecorded(recorded(p,1,'capacity-loss',false))
+  const owner=engine['_canonicalLayerOwner']!,job=owner.job!;let resolved=false,lost=false,calls=0
+  owner.recordedCapacity={promise:Promise.resolve(),resolve:()=>{resolved=true},release:()=>{
+   lost=true;vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true)
+   engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));calls=schedule.mock.calls.length
+  }}
+  for(let n=0;n<1024&&!lost;n++)engine['_stepCanonicalLayer'](job)
+  expect(lost).toBe(true);expect(resolved).toBe(true);expect(schedule).toHaveBeenCalledTimes(calls)
+  expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('capacity release failure on the same actual owner remains fatal and resolves its waiter',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  engine['_scheduleCanonicalRebuild']=()=>{}
+  engine.appendOriginalRecorded(recorded(p,1,'capacity-fatal',false))
+  const owner=engine['_canonicalLayerOwner']!,job=owner.job!;let resolved=false
+  owner.recordedCapacity={promise:Promise.resolve(),resolve:()=>{resolved=true},release:()=>{throw undefined}}
+  for(let n=0;n<1024&&!resolved;n++)engine['_stepCanonicalLayer'](job)
+  expect(resolved).toBe(true);expect(owner.failed).toBe(true);expect(engine['_canonicalLayerOwner']).toBeUndefined()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

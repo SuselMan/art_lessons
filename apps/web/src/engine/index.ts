@@ -7584,14 +7584,23 @@ export class PencilEngine implements PencilEngineAPI {
     if(scope!==owner.plan.scope||this._canonicalLayerOwner!==owner||owner.failed||this._destroyed||this._contextLost||lost||owner.generation!==this._physicalGeneration||this._layers.get(INITIAL_LAYER_ID)!==owner.stable||page.w!==owner.plan.page.maxX||page.h!==owner.plan.page.maxY||!canonicalJournalValid(owner.proof,this._log,owner.inputs))throw new Error('Canonical layer owner changed')
   }
   private _stepCanonicalLayer(job:RebuildJob):void {
-    const owner=job.canonicalLayer!
+    const owner=job.canonicalLayer!,coordinator=owner.coordinator!,generation=owner.generation
+    // Scope callbacks may retire this job and install another owner. Finish
+    // every callback boundary with pure identities before touching its state.
+    const owned=()=>this._canonicalLayerOwner===owner&&owner.job===job&&this._rebuildJobs.get(job.layerId)===job&&owner.coordinator===coordinator&&owner.generation===generation&&generation===this._physicalGeneration&&!owner.failed&&!owner.retiring&&!this._destroyed&&!this._contextLost
+    const current=()=>{if(!owned())return false;this._assertCanonicalLayerCurrent(owner);return owned()}
+    let notificationFailed=false
+    const notify=()=>{
+      if(owner.recordedCapacity&&coordinator.queuedFrameCount<8)try{this._notifyCanonicalRecordedCapacity(owner)}catch(error){notificationFailed=true;throw error}
+      return current()
+    }
     try{
-      this._assertCanonicalLayerCurrent(owner)
-      const preview=owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
+      if(!current())return
+      const preview=coordinator!.advance();if(!current())return
       if(preview?.kind==='preview-ready'){
         this._publishCanonicalPreview(owner,preview.ticket)
         this._invalidateSplitCache();this._displayIfNotSuspended()
-        this._assertCanonicalLayerCurrent(owner)
+        if(!current()||!notify())return
         this._scheduleCanonicalRebuild(job);return
       }
       if(preview?.kind==='preview-failed'||preview?.kind==='preview-idle'){
@@ -7600,9 +7609,11 @@ export class PencilEngine implements PencilEngineAPI {
           owner.previewFailureRevision=preview.revision
           this._diagLog('[engine] unpublished canonical preview failed',preview.error)
         }
+        // Park before notification: an admitted input may wake this SAME job.
+        if(!current()||!notify())return
         return
       }
-      if(owner.recordedCapacity&&owner.coordinator!.queuedFrameCount<8)this._notifyCanonicalRecordedCapacity(owner)
+      if(!notify())return
       if(owner.coordinator!.awaitingRecordedOrder){owner.orderParked=true;return}
       if(!owner.coordinator!.pending&&owner.coordinator!.presentationReady){
         const coordinator=owner.coordinator!,retired=coordinator.checkpointReady
@@ -7614,13 +7625,20 @@ export class PencilEngine implements PencilEngineAPI {
         if(changed||retired){owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision;this._invalidateSplitCache();this._displayIfNotSuspended()}
         this._authorTasks.resetIfIdle();return
       }
-      const coordinator=owner.coordinator!
-      if(coordinator.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision){
+      if(coordinator!.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision){
         owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision
-        this._invalidateSplitCache();this._displayIfNotSuspended();this._assertCanonicalLayerCurrent(owner)
+        this._invalidateSplitCache();this._displayIfNotSuspended();if(!current())return
       }
       this._scheduleCanonicalRebuild(job)
-    }catch(error){this._poisonCanonicalLayer(error)}
+    }catch(error){
+      if(this._canonicalLayerOwner===owner||!notificationFailed&&!this._canonicalLayerOwner)this._poisonCanonicalLayer(error)
+      else{
+        // A replacement never inherits this detached job's failure or cleanup.
+        const failures=this._retireCanonicalLayer(this._contextLost||generation!==this._physicalGeneration,owner)
+        if(failures.length)try{this._diagLog('[engine] detached canonical layer cleanup failed',failures)}catch{/* Preserve the original failure, including undefined. */}
+        throw error
+      }
+    }
   }
   private _retireCanonicalLayerCycle(owner:CanonicalLayerOwner,lost:boolean):unknown[] {
     owner.retiring=true
@@ -7632,14 +7650,15 @@ export class PencilEngine implements PencilEngineAPI {
     if(owner.outstanding!==0)errors.push(new Error('Canonical layer logical reservations leaked'))
     return errors
   }
-  private _retireCanonicalLayer(lost:boolean):unknown[] {
-    const owner=this._canonicalLayerOwner;if(!owner)return []
-    this._canonicalLayerOwner=undefined;owner.failed=true
+  private _retireCanonicalLayer(lost:boolean,expectedOwner?:CanonicalLayerOwner):unknown[] {
+    const owner=expectedOwner??this._canonicalLayerOwner;if(!owner)return []
+    if(this._canonicalLayerOwner===owner)this._canonicalLayerOwner=undefined
+    owner.failed=true
     const errors:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){errors.push(error)}}
     if(owner.wake!==undefined){const wake=owner.wake;owner.wake=undefined;attempt(()=>this._authorTasks.unschedule(wake))}
     if(owner.job&&this._rebuildJobs.get(INITIAL_LAYER_ID)===owner.job)this._rebuildJobs.delete(INITIAL_LAYER_ID)
     owner.job=undefined
-    attempt(()=>owner.resourceCandidate?.cancel(lost))
+    const resourceCandidate=owner.resourceCandidate;owner.resourceCandidate=undefined;attempt(()=>resourceCandidate?.cancel(lost))
     const releaseResources=owner.releaseResources;owner.releaseResources=undefined;attempt(()=>releaseResources?.())
     errors.push(...this._retireCanonicalLayerCycle(owner,lost))
     const fullSource=owner.fullSource;owner.fullSource=undefined;if(fullSource)attempt(()=>fullSource.release(lost))
