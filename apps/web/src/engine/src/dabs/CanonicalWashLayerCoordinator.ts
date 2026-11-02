@@ -108,11 +108,20 @@ interface RecordedPrefix {
 type ReplayStage={readonly published:boolean;assertPrepared():void;publishPrepared():void;commit():void;rollback():void}
 type FrontierSlot={readonly kind:'metadata-frontier';readonly entry:Entry;readonly ticket:CanonicalReplayAdmissionTicket}
 type LaneSlot=Entry|FrontierSlot
+/** Existing original delivery + verifier metadata; never a source/read grant. */
+interface RecordedCloseReceipt {
+  readonly input:CanonicalRecordedInput
+  readonly seal:Readonly<import('@grafetto/shared').CanonicalRecordedCloseSeal>
+  readonly prefix:RecordedPrefix
+  readonly releaseMetadata:()=>void
+}
 interface Entry {
   replaySource?:CanonicalReplaySource7
   image?:Readonly<{bank:CanonicalMaskSourceReader;generation:number}>
   sourceLease?:CanonicalMaskSourceLease
   recorded?:RecordedPrefix
+  closeReceipt?:RecordedCloseReceipt
+  metadataReleased?:true
   local?:LocalPrefix
   readonly id: string
   firstSequence: number|undefined
@@ -423,6 +432,7 @@ export class CanonicalWashLayerCoordinator {
   }
 
   enqueueRecordedSeal(input:CanonicalRecordedInput):void {
+    if(this.options.buildupReplay7){this.enqueueBuildupRecordedSeal(input);return}
     this.assertOpen();input.delivery.assertCurrent(input)
     const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
     if(op.type!=='canonical_stroke_close')throw new TypeError('Recorded close input required')
@@ -435,6 +445,62 @@ export class CanonicalWashLayerCoordinator {
     input.delivery.assertCurrent(input);if(r.lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
     this.closeInternal(id,r.state.nextOrdinal,op.seq!)
     entry!.recorded={...r,sealed:true}
+  }
+
+  /** Original interrupted-close transaction; no frame, queue slot or fake END. */
+  private enqueueBuildupRecordedSeal(input:CanonicalRecordedInput):void {
+    this.assertOpen()
+    this.busy=true
+    const generation=this.replayGeneration,previousSequence=this.lastSequence
+    let release:(()=>void)|undefined
+    try {
+      input.delivery.assertCurrent(input)
+      const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation
+      if(op.type!=='canonical_stroke_close'||input.read)throw new TypeError('Original close input required')
+      const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.targetUserId,op.strokeId])
+      const entry=this.entries.find(e=>e.id===id),prefix=entry?.recorded
+      if(!entry||!prefix||prefix.snapshot.materialVersion!==7||prefix.snapshot.composition.mode!=='buildup'
+        ||prefix.lifetime!==lifetime||prefix.scope!==scope||prefix.sealed||entry.closeReceipt
+        ||entry.local?.receipts.length)throw new Error('Recorded close owner missing or stale')
+      this.assertRecordedCurrent()
+      this.assertLayers()
+      // The closed normalized operation has seven texts, each <=256 UTF-16
+      // units. 1024 fixed logical bytes cover receipt/seal/sealed-prefix and
+      // the retained own-scalar input tuple; no snapshot/read bag is accepted.
+      release=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+7*256*2)
+      const seal=verifyCanonicalRecordedClose({...prefix.state,recordedNext:prefix.state.nextOrdinal,
+        firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,
+        firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq},
+        {userId:prefix.userId,layerId:this.options.layerId,strokeId:prefix.strokeId},op)
+      const sealed=Object.freeze({...prefix,sealed:true})
+      let ownedRelease:(()=>void)|undefined=release
+      const receipt:RecordedCloseReceipt=Object.freeze({input,seal,prefix,releaseMetadata:()=>{
+        const owned=ownedRelease;ownedRelease=undefined;owned?.()
+      }})
+      input.delivery.assertCurrent(input)
+      if(lifetime.assertCurrent()!==scope)throw new Error('Recorded close scope replaced')
+      this.assertRecordedCurrent()
+      this.assertLayers()
+      const source=entry.replaySource
+      if(!source)throw new Error('Accepted close source missing')
+      source.assertCurrent()
+      this.assertReplayOriginal(source,prefix.snapshot)
+      // Final pure CAS after every external assertion. No callback between
+      // receipt, sealed-prefix, sequence and metadata-only control revision.
+      if(this.closed||this.failed||!this.busy||generation!==this.replayGeneration
+        ||previousSequence!==this.lastSequence||!this.entries.includes(entry)||entry.recorded!==prefix
+        ||entry.closeReceipt||entry.local?.receipts.length||entry.replaySource!==source||seal.closeSeq<=previousSequence)
+        throw new Error('Recorded close owner changed before publication')
+      entry.closeReceipt=receipt
+      entry.recorded=sealed
+      this.lastSequence=seal.closeSeq
+      this.revision++
+      release=undefined
+    } catch(primary) {
+      if(release){const pending=release;release=undefined;this.cleanFrontier(pending)}
+      if(this.failed){this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(primary))}
+      throw primary
+    } finally {this.busy=false}
   }
 
   private assertRecordedCurrent():void {
@@ -702,7 +768,17 @@ export class CanonicalWashLayerCoordinator {
           return;
       entry.metadataRetired = true;
       if (!entry.replayPins)
-          this.clean(entry.releaseMetadata);
+          this.releaseReplayOwnerMetadata(entry);
+  }
+  private releaseReplayOwnerMetadata(entry:Entry):void {
+      if(entry.metadataReleased)return
+      entry.metadataReleased=true
+      const receipt=entry.closeReceipt
+      entry.closeReceipt=undefined
+      // Detach first and attempt both even when either release throws.
+      const cleanup=(action:()=>void)=>this.options.buildupReplay7?this.cleanFrontier(action):this.clean(action)
+      cleanup(entry.releaseMetadata)
+      if(receipt)cleanup(receipt.releaseMetadata)
   }
   /** One bounded work snapshot. No new lifetime/grant; exact owners are rechecked. */
   /** @internal Owner-only work pin, not an execution or network grant. */
@@ -793,7 +869,7 @@ export class CanonicalWashLayerCoordinator {
               for (const owner of owners) {
                   owner.replayPins!--;
                   if (!owner.replayPins && owner.metadataRetired)
-                      this.clean(owner.releaseMetadata);
+                      this.releaseReplayOwnerMetadata(owner);
               }
               owners.length = 0;
               for (const root of roots)

@@ -1,6 +1,6 @@
 import {CanonicalWashLayerCoordinator,type CanonicalWashLayerCoordinatorOptions,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
-import {canonicalStrokeRasterContract,canonicalStrokeSnapshotV7,packCanonicalTexturedAutoMaterial,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation} from '@grafetto/shared'
+import {canonicalStrokeRasterContract,canonicalStrokeSnapshotV7,packCanonicalTexturedAutoMaterial,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation,type CanonicalStrokeCloseOperation} from '@grafetto/shared'
 import {canonicalTexturedAutoMaterialContext,buildCanonicalTexturedAutoMaterial,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,type CanonicalMaterialContextV7,type CanonicalTexturedAutoRecipe} from '@grafetto/shared'
 import type {CanonicalFrameSubmissionV7} from './CanonicalFrameExecutor'
 import {CanonicalSoftCircleProgramOwner} from './CanonicalSoftCircleProgramOwner'
@@ -267,7 +267,15 @@ function replayConsumer7(pageBounds?:Readonly<{minX:number;minY:number;maxX:numb
   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==value)throw Error('foreign original frontier');lifetime.assertCurrent()}})
   value=Object.freeze({...atom,delivery});return value
  }
- return{...s,coordinator,derived,source,stageCandidate,author,operation,recorded,setLate:(fn?:()=>void)=>{late=fn},stale:()=>{current=false},close(){coordinator.cancel();derived.destroy();s.close()}}
+ const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={},assertion?:()=>void):CanonicalRecordedInput=>{
+  const first=frame.operation;if(first.type!=='canonical_stroke')throw Error('original frame required')
+  const operation={type:'canonical_stroke_close' as const,id:'close-'+first.frame.strokeId,userId:'operator',timestamp:1,seq:10,layerId:'layer',targetUserId:first.userId,strokeId:first.frame.strokeId,disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id,...patch}
+  const atom=prepareCanonicalRecordedAttachment({version:1,roomId:scope.roomId,boardEpoch:0,capabilities:[],bindings:[]},[operation],scope)[0]
+  let value:CanonicalRecordedInput
+  const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==value)throw Error('foreign original close');lifetime.assertCurrent();assertion?.()}})
+  value=Object.freeze({...atom,delivery});return value
+ }
+ return{...s,coordinator,derived,source,stageCandidate,author,operation,recorded,seal,setLate:(fn?:()=>void)=>{late=fn},stale:()=>{current=false},close(){coordinator.cancel();derived.destroy();s.close()}}
 }
 it('consumer7 uses SAME global8 tagged slots across entries, metadata drains and latest stays closed at idle',()=>{
  const s=replayConsumer7(),draw=vi.spyOn(s.composite,'drawSource')
@@ -478,5 +486,94 @@ it('source capture7 reserves bounded view metadata before capture and leaves ord
   const before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===4608)throw Error('view metadata reservation');return reserve(n)})
   expect(()=>s.create({replayFrontier:'textured7-buildup-v1'})).toThrow('view metadata reservation');expect(s.cpu.reservedBytes).toBe(before);spy.mockRestore()
   const ordinary=s.create();expect(()=>ordinary.replaySource7()).toThrow('unavailable');ordinary.cancel()
+ }finally{s.close()}
+})
+
+
+it('buildup exact original close retains SAME input and verifier seal without DRAW/queue/source work',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('close-original',0,true),1)
+  s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded!,revision=s.coordinator['revision'],count=s.coordinator['replay'].size,bytes=s.cpu.reservedBytes,sourceCalls=s.source.mock.calls.length
+  const close=s.seal(first),draw=vi.spyOn(s.composite,'drawSource'),sealPrefix=vi.spyOn(entry.executor,'sealRecordedPrefix')
+  s.coordinator.enqueueRecordedSeal(close)
+  expect(entry.closeReceipt?.input).toBe(close);expect(entry.closeReceipt?.prefix).toBe(prefix)
+  expect(entry.recorded).not.toBe(prefix);expect(entry.recorded?.sealed).toBe(true);expect(prefix.sealed).toBe(false)
+  expect(entry.closeReceipt?.seal).toEqual({kind:'commitPartial',closeOperationId:close.operation.id,closeSeq:10,recordedNext:1,firstOperationId:first.operation.id,lastOperationId:first.operation.id,firstSeq:1,lastSeq:1})
+  expect(Object.isFrozen(entry.closeReceipt)).toBe(true);expect(Object.isFrozen(entry.closeReceipt?.seal)).toBe(true)
+  expect(s.cpu.reservedBytes-bytes).toBe(4608);expect(s.coordinator['revision']).toBe(revision+1);expect(s.coordinator['lastSequence']).toBe(10)
+  expect(s.coordinator['replay'].size).toBe(count);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.source).toHaveBeenCalledTimes(sourceCalls);expect(draw).not.toHaveBeenCalled();expect(sealPrefix).not.toHaveBeenCalled();expect(s.stageCandidate).not.toHaveBeenCalled();expect(s.coordinator.checkpointReady).toBe(false)
+  expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(entry.closeReceipt?.input).toBe(close)
+ }finally{s.close()}
+})
+it('buildup original close rejects bad prefix/range/layer, copied delivery, typed END and unpromoted local tail',()=>{
+ for(const variant of ['prefix','range','layer','copy','ended','local'] as const){
+  const s=replayConsumer7()
+  try{
+   const op=s.operation('close-negative',0,variant!=='ended'),first=s.recorded(op,1)
+   if(variant==='local')s.coordinator.tryEnqueueLocal(s.author('close-negative'),op)
+   else s.coordinator.enqueueRecorded(first)
+   const entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes,last=s.coordinator['lastSequence'],revision=s.coordinator['revision']
+   const close=s.seal(first,variant==='prefix'?{firstFrameOpId:'wrong'}:variant==='range'?{recordedNext:2}:variant==='layer'?{layerId:'other'}:{})
+   expect(()=>s.coordinator.enqueueRecordedSeal(variant==='copy'?{...close}:close)).toThrow()
+   expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator['lastSequence']).toBe(last);expect(s.coordinator['revision']).toBe(revision);expect(s.coordinator.poisoned).toBe(false)
+  }finally{s.close()}
+ }
+})
+it('buildup close claims busy before original callback and late undefined rolls back then permits same genuine retry',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('close-reentry',0,true),1);s.coordinator.enqueueRecorded(first)
+  let calls=0,fail=true;let close:CanonicalRecordedInput
+  close=s.seal(first,{},()=>{calls++;expect(()=>s.coordinator.cancel()).toThrow('turn');expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow('busy');if(calls===2&&fail)throw undefined})
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes
+  let caught=false;try{s.coordinator.enqueueRecordedSeal(close)}catch(error){caught=true;expect(error).toBeUndefined()}
+  expect(caught).toBe(true);expect(s.cpu.reservedBytes).toBe(bytes);expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.coordinator.poisoned).toBe(false)
+  fail=false;s.coordinator.enqueueRecordedSeal(close);expect(entry.closeReceipt?.input).toBe(close)
+ }finally{s.close()}
+})
+it('buildup close SAMEcpu reserve denial keeps prefix usable; rollback release failure is fatal and preserves undefined',()=>{
+ for(const cleanupFailure of [false,true]){
+  const s=replayConsumer7()
+  try{
+   const first=s.recorded(s.operation('close-cpu',0,true),1);s.coordinator.enqueueRecorded(first)
+   const entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu)
+   let calls=0;const close=s.seal(first,{},()=>{if(cleanupFailure&&++calls===2)throw undefined})
+   const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n!==4608)return reserve(n);if(!cleanupFailure)throw undefined;const release=reserve(n);return()=>{release();throw Error('close release cleanup')}})
+   let caught=false;try{s.coordinator.enqueueRecordedSeal(close)}catch(error){caught=true;expect(error).toBeUndefined()}
+   hook.mockRestore();expect(caught).toBe(true);expect(entry.closeReceipt).toBeUndefined();expect(entry.recorded).toBe(prefix)
+   if(cleanupFailure){expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures.some(e=>e instanceof Error&&e.message==='close release cleanup')).toBe(true)}
+   else{expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator.poisoned).toBe(false);s.coordinator.enqueueRecordedSeal(close);expect(entry.recorded?.sealed).toBe(true)}
+  }finally{s.close()}
+ }
+})
+it('buildup close metadata waits for existing Entry replayPins and final release detaches exactly once',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('close-pin',0,true),1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded!,snapshot=s.coordinator.retainReplaySnapshot(),values=snapshot.values()
+  const reserve=s.cpu.reserve.bind(s.cpu),released=vi.fn()
+  const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);return n===4608?()=>{released();release()}:release})
+  const close=s.seal(first);s.coordinator.enqueueRecordedSeal(close);hook.mockRestore()
+  const receipt=entry.closeReceipt;expect(receipt?.prefix).toBe(prefix);expect(values).toHaveLength(1);expect(snapshot.values()).toBe(values)
+  s.coordinator['retireReplayMetadata'](entry);expect(released).not.toHaveBeenCalled();expect(entry.closeReceipt).toBe(receipt)
+  snapshot.release();expect(released).toHaveBeenCalledTimes(1);expect(entry.closeReceipt).toBeUndefined();snapshot.release();s.coordinator['retireReplayMetadata'](entry);expect(released).toHaveBeenCalledTimes(1)
+ }finally{s.close()}
+})
+
+
+it('buildup close refuses actual source-bank revocation with SAME prepared mask/composite epochs and original scope',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('close-revoked-source',0,true),1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded,close=s.seal(first),mask=s.prepass.preparedCapacity(),composite=s.composite.preparedCapacity(),last=s.coordinator['lastSequence'],revision=s.coordinator['revision']
+  s.bank.reset()
+  expect(s.prepass.preparedCapacity()).toEqual(mask);expect(s.composite.preparedCapacity()).toEqual(composite)
+  expect(()=>s.coordinator['assertLayers']()).not.toThrow();close.delivery.assertCurrent(close)
+  expect(()=>entry.replaySource!.assertCurrent()).toThrow()
+  const bytes=s.cpu.reservedBytes
+  expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow()
+  expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.coordinator['lastSequence']).toBe(last);expect(s.coordinator['revision']).toBe(revision);expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator.poisoned).toBe(false)
  }finally{s.close()}
 })
