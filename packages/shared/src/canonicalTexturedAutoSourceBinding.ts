@@ -1,3 +1,4 @@
+import {isSourceStampCurveData} from './sourceStampData.js'
 import type {BrushDescriptor} from './brushes.js'
 import {extractCanonicalTexturedAutoProgramData,canonicalSourceComposition} from './canonicalBrushCapability.js'
 import {canonicalDefaultAutoSourcePin,canonicalDefaultAutoStatic,canonicalGaussianAutoSourcePin,canonicalGaussianAutoStatic} from './canonicalDefaultAutoMaterial.js'
@@ -15,7 +16,7 @@ export interface CanonicalTexturedAutoProgramBinding {
  readonly strengthProgram:CanonicalTexturedAutoProgramData['program']
 }
 /** Bounded ownDATA snapshot; not original descriptor/program authority. */
-export function captureTexturedAutoProgramBinding(value:unknown):CanonicalTexturedAutoProgramBinding {
+function inspectBinding(value:unknown,copyOutput:boolean):CanonicalTexturedAutoProgramBinding {
  let nodes=0,chars=0
  const copy=(v:unknown,depth:number):unknown=>{
   if(++nodes>4096||depth>16)throw new TypeError('Textured Auto binding bound')
@@ -24,16 +25,21 @@ export function captureTexturedAutoProgramBinding(value:unknown):CanonicalTextur
   if(!v||typeof v!=='object')throw new TypeError('Textured Auto binding data')
   const array=Array.isArray(v),proto=Object.getPrototypeOf(v)
   if(array?proto!==Array.prototype:proto!==Object.prototype&&proto!==null)throw new TypeError('Textured Auto binding prototype')
-  const keys=Reflect.ownKeys(v),out:Record<string,unknown>|unknown[]=array?[]:Object.create(null)
+  const keys=Reflect.ownKeys(v),out:Record<string,unknown>|unknown[]=copyOutput?(array?[]:Object.create(null)):v as Record<string,unknown>
   if(keys.length>(array?257:64))throw new TypeError('Textured Auto binding keys')
-  for(const k of keys){if(typeof k!=='string'||k.length>128)throw new TypeError('Textured Auto binding key');chars+=k.length;if(chars>131072)throw new TypeError('Textured Auto binding text bound');if(k==='length'&&array)continue;const d=Object.getOwnPropertyDescriptor(v,k);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Textured Auto binding accessor');Object.defineProperty(out,k,{value:copy(d.value,depth+1),enumerable:true})}
+  let arrayLength=0;if(array){const length=Object.getOwnPropertyDescriptor(v,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>256||keys.length!==length.value+1)throw new TypeError('Textured Auto binding dense array');arrayLength=length.value}
+  for(const k of keys){if(typeof k!=='string'||k.length>128)throw new TypeError('Textured Auto binding key');chars+=k.length;if(chars>131072)throw new TypeError('Textured Auto binding text bound');if(k==='length'&&array)continue;if(array&&(!/^(0|[1-9][0-9]*)$/.test(k)||Number(k)>=arrayLength))throw new TypeError('Textured Auto binding array key');const d=Object.getOwnPropertyDescriptor(v,k);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Textured Auto binding accessor');const child=copy(d.value,depth+1);if(copyOutput)Object.defineProperty(out,k,{value:child,enumerable:true})}
   if(array&&(out as unknown[]).length!==(v as unknown[]).length)throw new TypeError('Textured Auto binding sparse array')
-  return Object.freeze(out)
+  return copyOutput?Object.freeze(out):out
  }
  const captured=copy(value,0) as CanonicalTexturedAutoProgramBinding
  if(Object.keys(captured).sort().join('|')!==['kind','descriptorSha256','source','patternAsset','textureGeometry','phasePolicy','strengthProgram'].sort().join('|')||captured.kind!=='textured-auto-program-v1')throw new TypeError('Textured Auto binding fields')
+ const exact=(v:object,keys:readonly string[])=>Object.keys(v).sort().join('|')===[...keys].sort().join('|')
+ const program=captured.strengthProgram,curve=program.curve
+ if(!exact(program,['kind','reader','profile','buildId','curve'])||!['texture-pressure-curve-v1','texture-pressure-native-default-v1'].includes(program.kind)||program.reader!=='krita-bd6e8d0-v1'||program.profile!=='eigen-5.0.1-mapped-arm64-f64-v3'||!/^[a-f0-9]{64}$/.test(program.buildId)||!exact(curve,['source','coefficients'])||!isSourceStampCurveData(curve.source)||curve.source.points.length<2||curve.source.points.length>9||curve.source.points[0].corner||curve.source.points.at(-1)!.corner||!Array.isArray(curve.coefficients)||curve.coefficients.length!==curve.source.points.length-1||curve.coefficients.some(row=>!Array.isArray(row)||row.length!==4||row.some(n=>typeof n!=='number'||!Number.isFinite(n))))throw new TypeError('Textured Auto pressure program schema')
  return captured
 }
+export function captureTexturedAutoProgramBinding(value:unknown):CanonicalTexturedAutoProgramBinding {return inspectBinding(value,true)}
 /** Descriptor/coverage attestation only. Verified caller owns exact SHA/CAS provenance. */
 export function canonicalTexturedAutoProgramBinding(descriptor:BrushDescriptor,descriptorSha256:string,coverageProfile:CanonicalTexturedAutoSource['coverageProfile'],pattern:Readonly<{id:string;size:number}>,rasterProfile:CanonicalStrokeRasterProfile):CanonicalTexturedAutoProgramBinding {
  const result=extractCanonicalTexturedAutoProgramData(descriptor,{pattern})
@@ -52,9 +58,9 @@ export function canonicalTexturedAutoProgramBinding(descriptor:BrushDescriptor,d
 }
 /** No room/source grant. Same captured source/pattern and saved fixed/random phase. */
 export function assertTexturedAutoProgramContext(binding:CanonicalTexturedAutoProgramBinding,value:unknown):CanonicalMaterialContextV7 {
- binding=captureTexturedAutoProgramBinding(binding)
+ binding=inspectBinding(binding,false)
  const c=canonicalTexturedAutoMaterialContext(value),t=c.primaryTexture,g=binding.textureGeometry,p=binding.phasePolicy
- if(binding.kind!=='textured-auto-program-v1'||binding.descriptorSha256!==c.primarySource.descriptorSha256||p.width!==g.width||p.height!==g.height||canonicalBrushDescriptorJSON(c.primarySource)!==canonicalBrushDescriptorJSON(binding.source)||canonicalBrushDescriptorJSON(c.assets[0])!==canonicalBrushDescriptorJSON(binding.patternAsset)||Object.keys(g).sort().join('|')!==['kind','asset','law','width','height','periodX','periodY'].sort().join('|')||!Object.keys(g).every(k=>Object.is(Reflect.get(g,k),Reflect.get(t,k))))throw new TypeError('Textured Auto context source differs')
+ if((binding.source.kind==='softAuto')!==(binding.strengthProgram.kind==='texture-pressure-native-default-v1')||binding.kind!=='textured-auto-program-v1'||binding.descriptorSha256!==c.primarySource.descriptorSha256||p.width!==g.width||p.height!==g.height||canonicalBrushDescriptorJSON(c.primarySource)!==canonicalBrushDescriptorJSON(binding.source)||canonicalBrushDescriptorJSON(c.assets[0])!==canonicalBrushDescriptorJSON(binding.patternAsset)||Object.keys(g).sort().join('|')!==['kind','asset','law','width','height','periodX','periodY'].sort().join('|')||!Object.keys(g).every(k=>Object.is(Reflect.get(g,k),Reflect.get(t,k))))throw new TypeError('Textured Auto context source differs')
  const fixed=resolveCanonicalTexturePhase(p,()=>0)
  if(!p.randomX&&t.phase.x!==fixed.x||!p.randomY&&t.phase.y!==fixed.y)throw new TypeError('Textured Auto fixed phase differs')
  return c

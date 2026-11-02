@@ -1,3 +1,4 @@
+import {canonicalTexturedAutoMaterialContext,assertTexturedAutoProgramContext,buildCanonicalTexturedAutoMaterial,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,type CanonicalMaterialBuildInputV7} from '@grafetto/shared'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import {
   type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,type CanonicalMaterialBuildInputV6,canonicalSoftNativeDefaultTexturedSourceMaterialContext, buildCanonicalMaterial, canonicalPressureTexturedSourceMaterialContext, canonicalTexturedSourceMaterialContext, canonicalPrimaryTextureMaterialContext, canonicalPrimaryTextureDrawWork, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, CANONICAL_MATERIAL_LIMITS,
@@ -10,12 +11,13 @@ import { planCanonicalTargets } from '../dabs/CanonicalTargetPlan'
 import type { WorldRect } from '../buffers/tileMath'
 import type { SourceDabGeometry } from './sourceDabCache'
 
-type Draw=CanonicalMaterialBuildInputV6['draws'][number] | CanonicalMaterialBuildInputV5['draws'][number] | CanonicalMaterialBuildInput['draws'][number] | CanonicalMaterialBuildInputV2['draws'][number] | CanonicalMaterialBuildInputV3['draws'][number] | CanonicalMaterialBuildInputV4['draws'][number]
-type MaterialContext=CanonicalMaterialContextV6|CanonicalMaterialContextV5|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4
-type MaterialFrame=CanonicalMaterialFrameV6|CanonicalMaterialFrameV5|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4
+type Draw=CanonicalMaterialBuildInputV7['draws'][number] | CanonicalMaterialBuildInputV6['draws'][number] | CanonicalMaterialBuildInputV5['draws'][number] | CanonicalMaterialBuildInput['draws'][number] | CanonicalMaterialBuildInputV2['draws'][number] | CanonicalMaterialBuildInputV3['draws'][number] | CanonicalMaterialBuildInputV4['draws'][number]
+type MaterialContext=CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV5|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4
+type MaterialFrame=CanonicalMaterialFrameV7|CanonicalMaterialFrameV6|CanonicalMaterialFrameV5|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4
 /** Arrays are version-homogeneous; the shared builder rejects a wrong recipe
  * kind before decoding. This bridge keeps that runtime validation in ONE owner. */
 function buildAdapterMaterial(input:Omit<CanonicalMaterialBuildInput,'draws'>&{readonly draws:readonly Draw[]},context:MaterialContext){
+  if('version'in context&&context.version===7){if(input.masked)invalid();return buildCanonicalTexturedAutoMaterial({...input,masked:false,draws:input.draws as CanonicalMaterialBuildInputV7['draws']},context)}
   if('version' in context&&context.version===6){if(input.masked)invalid();return buildCanonicalMaterial({...input,masked:false,draws:input.draws as CanonicalMaterialBuildInputV6['draws']},context)}
   if('version' in context&&context.version===5){if(input.masked)invalid();return buildCanonicalMaterial({...input,masked:false,draws:input.draws as CanonicalMaterialBuildInputV5['draws']},context)}
   if('version' in context&&context.version===4){if(input.masked)invalid();return buildCanonicalMaterial({...input,masked:false,draws:input.draws as CanonicalMaterialBuildInputV4['draws']},context)}
@@ -36,15 +38,18 @@ export type SourceStrokeMaterialContextV4=CanonicalMaterialContextV4 & {readonly
 export type SourceStrokeMaterialContextV5=CanonicalMaterialContextV5 & {readonly targetGeometry?:SourceMaterialTargetGeometry}
 export type SourceStrokeMaterialContextV6=CanonicalMaterialContextV6 & {readonly targetGeometry?:SourceMaterialTargetGeometry}
 export type AnySourceStrokeMaterialContext=SourceStrokeMaterialContextV6|SourceStrokeMaterialContextV5|SourceStrokeMaterialContext|SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3|SourceStrokeMaterialContextV4
-type FrameFor<C> = C extends SourceStrokeMaterialContextV6 ? CanonicalMaterialFrameV6 : C extends SourceStrokeMaterialContextV5 ? CanonicalMaterialFrameV5 : C extends SourceStrokeMaterialContextV4 ? CanonicalMaterialFrameV4 : C extends SourceStrokeMaterialContextV3 ? CanonicalMaterialFrameV3 : C extends SourceStrokeMaterialContextV2 ? CanonicalMaterialFrameV2 : CanonicalMaterialFrame
+export type SourceStrokeMaterialContextV7=Omit<CanonicalMaterialContextV7,'expectedDrawCount'|'expectedStrokeEnd'> & {readonly targetGeometry?:SourceMaterialTargetGeometry}
+type CoreSourceContext=AnySourceStrokeMaterialContext|SourceStrokeMaterialContextV7
+type FrameFor<C> = C extends SourceStrokeMaterialContextV7 ? CanonicalMaterialFrameV7 : C extends SourceStrokeMaterialContextV6 ? CanonicalMaterialFrameV6 : C extends SourceStrokeMaterialContextV5 ? CanonicalMaterialFrameV5 : C extends SourceStrokeMaterialContextV4 ? CanonicalMaterialFrameV4 : C extends SourceStrokeMaterialContextV3 ? CanonicalMaterialFrameV3 : C extends SourceStrokeMaterialContextV2 ? CanonicalMaterialFrameV2 : CanonicalMaterialFrame
 type ChunkFor<C> = SourceStrokeMaterialChunk<FrameFor<C>>
-const version6=<T extends AnySourceStrokeMaterialContext|MaterialContext>(c:T):c is Extract<T,{readonly version:6}>=>'version' in c&&c.version===6
-const pressure=(c:AnySourceStrokeMaterialContext|MaterialContext)=>version5(c)||version6(c)
-const version5=<T extends AnySourceStrokeMaterialContext|MaterialContext>(c:T):c is Extract<T,{readonly version:5}>=>'version' in c&&c.version===5
-const version2=<T extends AnySourceStrokeMaterialContext|MaterialContext>(c:T):c is Extract<T,{readonly version:2}>=>'version' in c&&c.version===2
-const version3=<T extends AnySourceStrokeMaterialContext|MaterialContext>(c:T):c is Extract<T,{readonly version:3}>=>'version' in c&&c.version===3
-const version4=<T extends AnySourceStrokeMaterialContext|MaterialContext>(c:T):c is Extract<T,{readonly version:4}>=>'version'in c&&c.version===4
-const textured=(c:AnySourceStrokeMaterialContext|MaterialContext)=>version3(c)||version4(c)||version5(c)||version6(c)
+const version6=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:6}>=>'version' in c&&c.version===6
+const version7=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:7}>=>'version'in c&&c.version===7
+const pressure=(c:CoreSourceContext|MaterialContext)=>version7(c)||version5(c)||version6(c)
+const version5=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:5}>=>'version' in c&&c.version===5
+const version2=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:2}>=>'version' in c&&c.version===2
+const version3=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:3}>=>'version' in c&&c.version===3
+const version4=<T extends CoreSourceContext|MaterialContext>(c:T):c is Extract<T,{readonly version:4}>=>'version'in c&&c.version===4
+const textured=(c:CoreSourceContext|MaterialContext)=>version7(c)||version3(c)||version4(c)||version5(c)||version6(c)
 /** Pin room geometry once. This is NOT a viewport or an execution grant. */
 export function pinSourceMaterialTargets(g:SourceMaterialTargetGeometry|undefined):Readonly<SourceMaterialTargetGeometry>|undefined {
   if(g===undefined)return
@@ -59,8 +64,9 @@ export function copySourceMaterialContext(c:SourceStrokeMaterialContextV3):Canon
 export function copySourceMaterialContext(c:SourceStrokeMaterialContextV2):CanonicalMaterialContextV2
 export function copySourceMaterialContext(c:SourceStrokeMaterialContext):CanonicalMaterialContext
 export function copySourceMaterialContext(c:SourceStrokeMaterialContext|SourceStrokeMaterialContextV2):AnyCanonicalMaterialContext
-export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):MaterialContext
-export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):MaterialContext {
+export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):Exclude<MaterialContext,CanonicalMaterialContextV7>
+export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):Exclude<MaterialContext,CanonicalMaterialContextV7> {
+  if(Object.getOwnPropertyDescriptor(c,'version')?.value===7)invalid()
   if(version6(c)){const {targetGeometry:_target,...material}=c;return canonicalSoftNativeDefaultTexturedSourceMaterialContext(material)}
   if(version5(c)){const {targetGeometry:_target,...material}=c;return canonicalPressureTexturedSourceMaterialContext(material)}
   if(version4(c)){const {targetGeometry:_target,...material}=c as SourceStrokeMaterialContextV4;return canonicalTexturedSourceMaterialContext(material)}
@@ -101,6 +107,8 @@ export interface SourceStrokeMaterialCheckpoint {
   readonly entry:CanonicalMaterialEntry;readonly current:CanonicalMaterialEntry
   readonly draws:readonly Draw[];readonly inputs:readonly SourceStrokeMaterialInput[];readonly fences:readonly CanonicalMaterialFence[]
 }
+export interface SourceStrokeMaterialCheckpointV7 extends Omit<SourceStrokeMaterialCheckpoint,'version'|'materialVersion'> {readonly version:7;readonly materialVersion:7;readonly materialIdentity:string}
+type CoreCheckpoint=SourceStrokeMaterialCheckpoint|SourceStrokeMaterialCheckpointV7
 type Event={readonly kind:'draw';readonly draw:Draw;readonly input:SourceStrokeMaterialInput}|{readonly kind:'fence';readonly fence:Omit<Extract<CanonicalMaterialFence,{group:number}>,'at'>|{readonly kind:'gestureEnd'}}
 function invalid():never {throw new RangeError('Invalid source material adapter state or result')}
 function freeze<T>(value:T):T {if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.freeze(value);for(const child of Object.values(value))freeze(child)}return value}
@@ -144,11 +152,11 @@ const equalRecipe=sameData
  * Each returned chunk is already decoded from its canonical packed bytes; a
  * future local renderer must consume chunk.frame, never these raw author DTOs.
  */
-export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContext=SourceStrokeMaterialContext> {
+class MaterialAdapterCore<C extends CoreSourceContext> {
   private readonly context:MaterialContext
   private readonly targets:Readonly<SourceMaterialTargetGeometry>|undefined
   private targetUnion=new Set<string>()
-  private readonly program:Pick<SourceStrokeAuthorProgram,'id'> & {readonly roles:readonly {readonly id:'primary'|'mask';readonly asset:string;readonly frames?:readonly string[]}[]}
+  private readonly program:Pick<SourceStrokeAuthorProgram,'id'> & {readonly roles:readonly {readonly id:'primary'|'mask';readonly asset:string;readonly frames?:readonly string[]}[];readonly reusable?:SourceStrokeAuthorProgram;readonly binding?:import('@grafetto/shared').CanonicalTexturedAutoProgramBinding}
   private inputOrdinal:number
   private eventOrdinal:number
   private active=false
@@ -163,14 +171,19 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private output=0
   private pixels=0
 
-  constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
-    if(!version2(context)&&!version4(context)&&!version5(context)&&!version6(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'||r.geometry?.kind==='softAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
-    this.targets=pinSourceMaterialTargets(context.targetGeometry)
-    this.context=copySourceMaterialContext(context)
+  constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:CoreCheckpoint,prepared?:{material:CanonicalMaterialContextV7;targets:Readonly<SourceMaterialTargetGeometry>|undefined;binding:import('@grafetto/shared').CanonicalTexturedAutoProgramBinding}){
+    if(!version7(context)&&!version2(context)&&!version4(context)&&!version5(context)&&!version6(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'||r.geometry?.kind==='softAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
+    if(version7(context)){if(!prepared)invalid();this.targets=prepared.targets;this.context=prepared.material}
+    else{if('version' in context&&context.version===7)invalid();this.targets=pinSourceMaterialTargets(context.targetGeometry);this.context=copySourceMaterialContext(context)}
     buildAdapterMaterial({masked:program.roles.length===2,entry:{phase:'between'},draws:[],fences:[]},this.context)
     if(!program.id||program.id.length>256||program.roles.length<1||program.roles.length>2||program.roles[0].id!=='primary'||program.roles.length===2&&program.roles[1].id!=='mask')invalid()
-    this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
+    this.program={id:program.id,...prepared?{reusable:program,binding:prepared.binding}:{},roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
     for(const r of program.roles){
+      if(version7(this.context)){
+        const c=this.context,pin=c.primarySource,g=r.geometry
+        if(program.roles.length!==1||r.id!=='primary'||r.imagePipe||r.materialPolicy!=='textured-auto-program-v1'||r.textureProgram?.strength!=='recorded-grain-v1'||!r.materialProgram||!r.material.textureEnabled||!g||g.kind!==pin.kind||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion||!Object.is(r.brush.scale,pin.brushScale)||!Object.is(r.brush.angle,pin.brushAngle)||g.coverageProfile!==pin.coverageProfile||!sameData(g.source,pin.source))invalid()
+        continue
+      }
       if(version6(this.context)){
         const c=this.context,pin=c.primarySource,g=r.geometry
         if(program.roles.length!==1||r.id!=='primary'||r.imagePipe||r.materialPolicy!=='soft-auto-native-default-texture-v1'||r.textureProgram?.strength!=='source-pressure-curve-v1'||!sameData(r.textureProgram.context,c)||r.materialProgram?.kind!=='texture-pressure-native-default-v1'||!r.material.textureEnabled||!g||g.kind!=='softAuto'||pin.sourceSlot!==0||pin.brushScale!==1||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion||g.coverageProfile!==pin.coverageProfile||!sameData(canonicalSoftAutoStatic(g.source,r.brush.scale,r.brush.angle),canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle))||!sameData(g.source.softnessCurve,pin.radialCurve.source))invalid()
@@ -239,7 +252,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   }
   private get masked():boolean{return this.program.roles.length===2}
   private match(source:SourceStrokeAuthorState):void {
-    if(source.programId!==this.program.id||source.inputOrdinal!==this.inputOrdinal||source.eventOrdinal!==this.eventOrdinal)invalid()
+    if(this.program.reusable&&this.program.reusable.id!==this.program.id||source.programId!==this.program.id||source.inputOrdinal!==this.inputOrdinal||source.eventOrdinal!==this.eventOrdinal)invalid()
   }
   /** Call exactly once BEFORE author.plan; returns only an older full chunk if
    * the new structural begin fence requires a bounded transport cut. */
@@ -300,15 +313,15 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       width:s.width,height:s.height,mirrorH:s.mirror.horizontal,mirrorV:s.mirror.vertical}
     let recipe:AnyCanonicalMaterialRecipe
     if(s.geometry?.kind==='defaultAuto'){
-      if(!version2(this.context)&&!version4(this.context)&&!version5(this.context))invalid()
+      if(!version7(this.context)&&!version2(this.context)&&!version4(this.context)&&!version5(this.context))invalid()
       recipe={...common,kind:'defaultAuto',coverageProfile:s.geometry.coverageProfile,
         ...canonicalDefaultAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle,s.geometry.coverageProfile)}
     }else if(s.geometry?.kind==='gaussianAuto'){
-      if(!version2(this.context))invalid()
+      if(!version7(this.context)&&!version2(this.context))invalid()
       recipe={...common,kind:'gaussianAuto',coverageProfile:s.geometry.coverageProfile,
         ...canonicalGaussianAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
     }else if(s.geometry?.kind==='softAuto'){
-      if(!version2(this.context)&&!version6(this.context))invalid()
+      if(!version7(this.context)&&!version2(this.context)&&!version6(this.context))invalid()
       recipe={...common,kind:'softAuto',sourceSlot:role==='primary'?0:1,coverageProfile:s.geometry.coverageProfile,
         ...canonicalSoftAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
     }else recipe=version2(this.context)||version3(this.context)?{...common,kind:'image',asset:s.brushIdentity}:{...common,asset:s.brushIdentity}
@@ -318,13 +331,13 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   }
   private cost(draw:Draw){
     if('kind' in draw.recipe&&draw.recipe.kind==='softAuto'){
-      if(!version2(this.context)&&!version6(this.context))invalid()
+      if(!version7(this.context)&&!version2(this.context)&&!version6(this.context))invalid()
       const pin=draw.role==='primary'?this.context.primarySource:version2(this.context)?this.context.maskSource:undefined
       if(!pin||pin.kind!=='softAuto')invalid()
       return canonicalSoftAutoCost(draw.recipe,pin)
     }
     if('kind' in draw.recipe&&(draw.recipe.kind==='defaultAuto'||draw.recipe.kind==='gaussianAuto')){
-      if(!version2(this.context)&&!version4(this.context)&&!version5(this.context))invalid()
+      if(!version7(this.context)&&!version2(this.context)&&!version4(this.context)&&!version5(this.context))invalid()
       const pin=draw.role==='primary'?this.context.primarySource:version2(this.context)?this.context.maskSource:undefined
       if(!pin||pin.kind!==draw.recipe.kind)invalid()
       return canonicalAutoCost(draw.recipe,pin)
@@ -394,19 +407,19 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     const last=this.flush();if(last)chunks.push(last)
     return chunks
   }
-  checkpoint():SourceStrokeMaterialCheckpoint {
-    const extra=version6(this.context)?{version:6 as const,materialVersion:6 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version5(this.context)?{version:5 as const,materialVersion:5 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version4(this.context)?{version:4 as const,materialVersion:4 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version3(this.context)?{version:3 as const,materialVersion:3 as const,targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version2(this.context)||this.targets?{version:2 as const,materialVersion:version2(this.context)?2 as const:1 as const,
+  checkpoint():CoreCheckpoint {
+    const extra=version7(this.context)?{version:7 as const,materialVersion:7 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version6(this.context)?{version:6 as const,materialVersion:6 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version5(this.context)?{version:5 as const,materialVersion:5 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version4(this.context)?{version:4 as const,materialVersion:4 as const,materialIdentity:JSON.stringify(this.context),targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version3(this.context)?{version:3 as const,materialVersion:3 as const,targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version2(this.context)||this.targets?{version:2 as const,materialVersion:version2(this.context)?2 as const:1 as const,
       targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:{version:1 as const}
     return freeze(structuredClone({...extra,programId:this.program.id,masked:this.masked,inputOrdinal:this.inputOrdinal,eventOrdinal:this.eventOrdinal,
       active:this.active,ended:this.ended,entry:this.entry,current:this.current,draws:this.draws,inputs:this.inputs,fences:this.fences}))
   }
-  private restore(source:SourceStrokeAuthorState,c:SourceStrokeMaterialCheckpoint):void {
-    if(!c||Object.keys(c).some(k=>!['version','programId','masked','inputOrdinal','eventOrdinal','active','ended','entry','current','draws','inputs','fences','materialVersion','targetGeometry','pendingTargets','materialIdentity'].includes(k))||![1,2,3,4,5,6].includes(c.version)||c.programId!==this.program.id||c.masked!==this.masked||c.inputOrdinal!==source.inputOrdinal||c.eventOrdinal!==source.eventOrdinal
+  private restore(source:SourceStrokeAuthorState,c:CoreCheckpoint):void {
+    if(!c||Object.keys(c).some(k=>!['version','programId','masked','inputOrdinal','eventOrdinal','active','ended','entry','current','draws','inputs','fences','materialVersion','targetGeometry','pendingTargets','materialIdentity'].includes(k))||![1,2,3,4,5,6,7].includes(c.version)||c.programId!==this.program.id||c.masked!==this.masked||c.inputOrdinal!==source.inputOrdinal||c.eventOrdinal!==source.eventOrdinal
       ||typeof c.active!=='boolean'||typeof c.ended!=='boolean'||c.active!==!!source.cursor||c.active&&c.ended
       ||!Array.isArray(c.draws)||!Array.isArray(c.fences)||!Array.isArray(c.inputs)||c.inputs.length!==c.draws.length)invalid()
-    if(version6(this.context)?c.version!==6||c.materialIdentity!==JSON.stringify(this.context):version5(this.context)?c.version!==5||c.materialIdentity!==JSON.stringify(this.context):version4(this.context)?c.version!==4||c.materialIdentity!==JSON.stringify(this.context):c.materialIdentity!==undefined)invalid()
-    if(c.version===1){if(version6(this.context)||version5(this.context)||version4(this.context)||version3(this.context)||version2(this.context)||this.targets||c.materialVersion!==undefined||c.targetGeometry!==undefined||c.pendingTargets!==undefined)invalid()}
-    else if(c.version!==(version6(this.context)?6:version5(this.context)?5:version4(this.context)?4:version3(this.context)?3:2)||c.materialVersion!==(version6(this.context)?6:version5(this.context)?5:version4(this.context)?4:version3(this.context)?3:version2(this.context)?2:1)||!sameData(c.targetGeometry,this.targets??null)||!Array.isArray(c.pendingTargets)||c.pendingTargets.length>64)invalid()
+    if(version7(this.context)?c.version!==7||c.materialIdentity!==JSON.stringify(this.context):version6(this.context)?c.version!==6||c.materialIdentity!==JSON.stringify(this.context):version5(this.context)?c.version!==5||c.materialIdentity!==JSON.stringify(this.context):version4(this.context)?c.version!==4||c.materialIdentity!==JSON.stringify(this.context):c.materialIdentity!==undefined)invalid()
+    if(c.version===1){if(version7(this.context)||version6(this.context)||version5(this.context)||version4(this.context)||version3(this.context)||version2(this.context)||this.targets||c.materialVersion!==undefined||c.targetGeometry!==undefined||c.pendingTargets!==undefined)invalid()}
+    else if(c.version!==(version7(this.context)?7:version6(this.context)?6:version5(this.context)?5:version4(this.context)?4:version3(this.context)?3:2)||c.materialVersion!==(version7(this.context)?7:version6(this.context)?6:version5(this.context)?5:version4(this.context)?4:version3(this.context)?3:version2(this.context)?2:1)||!sameData(c.targetGeometry,this.targets??null)||!Array.isArray(c.pendingTargets)||c.pendingTargets.length>64)invalid()
     // Shared builder validates bounded pending closure BEFORE cloning arrays.
     buildAdapterMaterial({masked:c.masked,entry:c.entry,draws:c.draws,fences:c.fences},this.context)
     const union=new Set<string>()
@@ -420,4 +433,35 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     this.active=c.active;this.ended=c.ended;this.entry={...c.entry};this.current={...c.current};this.draws=structuredClone(c.draws) as Draw[];this.inputs=structuredClone(c.inputs) as SourceStrokeMaterialInput[];this.fences=structuredClone(c.fences) as CanonicalMaterialFence[];this.targetUnion=union
     for(const d of this.draws){const cost=this.measure(d);if(cost.fresh)this.recipes.push({...d.recipe});this.work+=cost.work;this.output+=cost.output;this.pixels+=cost.pixels}
   }
+}
+
+/** Historical public constructor/helpers stay closed to standalone7. */
+export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContext=SourceStrokeMaterialContext> extends MaterialAdapterCore<C> {
+ constructor(program:SourceStrokeAuthorProgram,context:C,state:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
+  if(Object.getOwnPropertyDescriptor(context,'version')?.value===7||(checkpoint&&Object.getOwnPropertyDescriptor(checkpoint,'version')?.value===7))invalid()
+  super(program,context,state,checkpoint)
+ }
+ override checkpoint():SourceStrokeMaterialCheckpoint {const c=super.checkpoint();if(c.version===7)invalid();return c}
+}
+function ownFields7(value:unknown,required:readonly string[],optional:readonly string[]=[]):Record<string,unknown>{
+ if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))invalid()
+ const keys=Reflect.ownKeys(value),out:Record<string,unknown>=Object.create(null)
+ if(keys.length>required.length+optional.length||keys.some(k=>typeof k!=='string'||!required.includes(k)&&!optional.includes(k)))invalid()
+ for(const k of [...required,...optional]){const d=Object.getOwnPropertyDescriptor(value,k);if(!d){if(required.includes(k))invalid();continue}if(!Object.hasOwn(d,'value'))invalid();out[k]=d.value}return out
+}
+function splitMaterial7(value:unknown){const all=ownFields7(value,['version','assets','primarySource','primaryTexture','budget'],['targetGeometry']),{targetGeometry,...material}=all;return{material,targetGeometry}}
+function targets7(value:unknown):Readonly<SourceMaterialTargetGeometry>|undefined {
+ if(value===undefined)return undefined
+ const p=ownFields7(value,['pageBounds','tileWidth','tileHeight'],['maxTargets']),bounds=p.pageBounds===null?null:ownFields7(p.pageBounds,['minX','minY','maxX','maxY'])
+ return pinSourceMaterialTargets({...p,pageBounds:bounds}as unknown as SourceMaterialTargetGeometry)
+}
+/** New pure metadata helper, not a room/source permission. */
+export function captureTexturedAutoMaterialInput(value:unknown):{material:CanonicalMaterialContextV7;targets:Readonly<SourceMaterialTargetGeometry>|undefined}{const split=splitMaterial7(value);const material=canonicalTexturedAutoMaterialContext(split.material);return{material,targets:targets7(split.targetGeometry)}}
+export type SourceTexturedAutoMaterialAdapter=Pick<MaterialAdapterCore<SourceStrokeMaterialContextV7>,'beginInput'|'accept'|'flush'|'finish'>&{checkpoint():SourceStrokeMaterialCheckpointV7}
+export function createTexturedAutoMaterialAdapter(program:SourceStrokeAuthorProgram,context:SourceStrokeMaterialContextV7,state:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpointV7):SourceTexturedAutoMaterialAdapter {
+ const roles=Object.getOwnPropertyDescriptor(program,'roles'),list=roles&&Object.hasOwn(roles,'value')?roles.value:undefined,role=list&&Object.getOwnPropertyDescriptor(list,'0'),r=role&&Object.hasOwn(role,'value')?role.value:undefined,texture=r&&Object.getOwnPropertyDescriptor(r,'textureProgram'),t=texture&&Object.hasOwn(texture,'value')?texture.value:undefined,b=t&&Object.getOwnPropertyDescriptor(t,'binding')
+ if(!b||!Object.hasOwn(b,'value'))invalid()
+ const split=splitMaterial7(context),material=assertTexturedAutoProgramContext(b.value,split.material),targets=targets7(split.targetGeometry)
+ const core=new MaterialAdapterCore(program,context,state,checkpoint,{material,targets,binding:b.value})
+ return {beginInput:core.beginInput.bind(core),accept:core.accept.bind(core),flush:core.flush.bind(core),finish:core.finish.bind(core),checkpoint(){const c=core.checkpoint();if(c.version!==7)invalid();return c}}
 }
