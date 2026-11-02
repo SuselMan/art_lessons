@@ -105,7 +105,7 @@ interface RecordedPrefix {
  readonly state:CanonicalMaterialPrefixState
  readonly sealed:boolean
 }
-type ReplayStage={readonly published:boolean;assertPrepared():void;publishPrepared():void;commit():void;rollback():void}
+type ReplayStage={readonly published:boolean;bindAcceptedFrame(frame:CanonicalStrokeOperation['frame']):void;assertPrepared():void;publishPrepared():void;commit():void;rollback():void}
 type FrontierSlot={readonly kind:'metadata-frontier';readonly entry:Entry;readonly ticket:CanonicalReplayAdmissionTicket}
 type LaneSlot=Entry|FrontierSlot
 /** Existing original delivery + verifier metadata; never a source/read grant. */
@@ -148,6 +148,8 @@ type ReplayValue = Readonly<{
     operation: CanonicalStrokeOperation;
 }>;
 interface ReplayEntry {
+    /** Buildup7 only: SAME normalized envelope, covered by existing512 index charge. */
+    acceptedFrame?:CanonicalStrokeOperation['frame'];
     readonly id: string;
     readonly gestureId: string;
     value: ReplayValue;
@@ -156,8 +158,30 @@ interface ReplayEntry {
     pins: number;
     retired: boolean;
 }
+interface ReplayGroupFrame7 {
+    /** Original identity/provenance only; never replay its raw operation.frame. */
+    readonly value:ReplayValue
+    readonly frame:CanonicalStrokeOperation['frame']
+}
+interface ReplayGroup7 {
+    readonly id:string
+    readonly frames:readonly ReplayGroupFrame7[]
+    readonly source:Readonly<Pick<CanonicalReplaySource7,'rasterProfile'|'context'|'autoSource'>>
+    readonly close?:Readonly<Pick<RecordedCloseReceipt,'input'|'seal'>>
+}
+interface ReplayGroupsWork {
+    readonly snapshot:ReplaySnapshot
+    readonly detach:()=>void
+    readonly assertOwned:()=>void
+    readonly valuesOwned:()=>readonly ReplayValue[]
+    readonly groupsOwned:()=>readonly ReplayGroup7[]
+    readonly retainRootOwned:(group:ReplayGroup7)=>CanonicalMaskSourceLease
+}
 interface ReplaySnapshot {
     values(): readonly ReplayValue[];
+    groups?():readonly ReplayGroup7[];
+    assertCurrent?():void;
+    retainRoot?(group:ReplayGroup7):CanonicalMaskSourceLease;
     release(): void;
 }
 interface Position {
@@ -220,7 +244,7 @@ export class CanonicalWashLayerCoordinator {
   private replayCount = 0
   private replayGeneration = 0
   private replayOrderRevision = 0
-  private replayWork?:ReplaySnapshot
+  private replayWork?:ReplaySnapshot|ReplayGroupsWork
 
   constructor(options: CanonicalWashLayerCoordinatorOptions) {
     if (!options.layerId || !Number.isSafeInteger(options.layerEpoch) || options.layerEpoch < 0
@@ -332,6 +356,7 @@ export class CanonicalWashLayerCoordinator {
     if(old&&(old.lifetime!==lifetime||old.scope!==scope||old.sealed||old.lastSeq>=op.seq!
       ||JSON.stringify(old.snapshot)!==JSON.stringify(snapshot)))throw new Error('Recorded source lifetime/context changed')
     const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal)
+    if(this.options.buildupReplay7)stage?.bindAcceptedFrame(decoded.envelope)
     const state=advanceCanonicalMaterialPrefix(old?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
     const recorded:RecordedPrefix={lifetime,scope,snapshot:old?.snapshot??snapshot,userId:op.userId,strokeId:snapshot.strokeId,
       firstOperationId:old?.firstOperationId??op.id,firstSeq:old?.firstSeq??op.seq!,lastOperationId:op.id,lastSeq:op.seq!,state,sealed:false}
@@ -417,6 +442,7 @@ export class CanonicalWashLayerCoordinator {
     let staged:ReturnType<CanonicalWashLayerCoordinator['stageReplay']>|undefined
     try{
       if(this.options.replayRetention)staged=this.stageReplay(id,op,{kind:'local',author,operation:op},retire)
+      if(this.options.buildupReplay7)staged?.bindAcceptedFrame(decoded.envelope)
       this.assertLocal(local)
       this.enqueueInternal({gestureId:id,layerId:op.layerId,layerEpoch:this.options.layerEpoch,ordinal:op.frame.frameOrdinal,
         frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition,...(snapshot.material.primarySource.kind==='defaultAuto'&&snapshot.material.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?{densityStrokeIdentity:{strokeId:snapshot.strokeId}}:{})},undefined,undefined,local,this.options.buildupReplay7?{stage:staged,originalSnapshot:snapshot,publish:()=>{local.state=state;local.receipts.push({operation:op,frame:decoded.envelope,release:()=>{if(!this.replay.has(op.id))retire()}})}}:undefined)
@@ -711,8 +737,14 @@ export class CanonicalWashLayerCoordinator {
       } };
       const generation = this.replayGeneration;
       let done = false,published=false;
+      let acceptedFrame:CanonicalStrokeOperation['frame']|undefined
+      const bindAcceptedFrame=(frame:CanonicalStrokeOperation['frame'])=>{
+          if(!this.options.buildupReplay7||done||acceptedFrame||!Object.isFrozen(frame))throw Error('Replay accepted frame already bound or unavailable')
+          acceptedFrame=frame
+      }
       const assertPrepared=()=>{
               if(done)throw new Error('Replay stage retired');
+              if(this.options.buildupReplay7&&!acceptedFrame)throw Error('Replay accepted frame missing');
               if (this.closed || this.failed || generation !== this.replayGeneration)
                   throw new Error('Replay stage retired');
               if(old?this.replay.get(op.id)!==old:this.replay.has(op.id)||this.replayCount>=limit.maxEntries)throw new Error('Replay promotion replaced');
@@ -722,6 +754,7 @@ export class CanonicalWashLayerCoordinator {
               if (old) {
                   const prior = old.release;
                   old.value = value;
+                  if(this.options.buildupReplay7)old.acceptedFrame=acceptedFrame;
                   old.bytes += extra;
                   old.release = () => { try {
                       prior();
@@ -732,13 +765,13 @@ export class CanonicalWashLayerCoordinator {
                   this.replayBytes += extra;
               }
               else {
-                  this.replay.set(op.id, { id: op.id, gestureId, value, bytes, release, pins: 0, retired: false });
+                  this.replay.set(op.id, { id: op.id, gestureId, value, ...this.options.buildupReplay7?{acceptedFrame}:{}, bytes, release, pins: 0, retired: false });
                   this.replayBytes += bytes;
                   this.replayCount++;
               }
               published=true;done = true;
       };
-      return {get published(){return published},assertPrepared,publishPrepared,commit:()=>{if(done)return;assertPrepared();publishPrepared()},
+      return {get published(){return published},bindAcceptedFrame,assertPrepared,publishPrepared,commit:()=>{if(done)return;assertPrepared();publishPrepared()},
           rollback: () => { if (!done) {
               done = true;
               releaseMetadata();
@@ -783,6 +816,13 @@ export class CanonicalWashLayerCoordinator {
   /** One bounded work snapshot. No new lifetime/grant; exact owners are rechecked. */
   /** @internal Owner-only work pin, not an execution or network grant. */
   retainReplaySnapshot(): ReplaySnapshot {
+      if(this.options.buildupReplay7){
+          this.assertOpen();this.busy=true
+          try{return this.captureReplayGroupsOwned()}finally{this.busy=false}
+      }
+      return this.retainLegacyReplaySnapshot()
+  }
+  private retainLegacyReplaySnapshot():ReplaySnapshot {
       this.assertOpen();
       this.assertRecordedCurrent();
       this.assertLayers();
@@ -882,6 +922,134 @@ export class CanonicalWashLayerCoordinator {
       });
       this.replayWork = snapshot;
       return snapshot;
+  }
+
+  /** Buildup-only private capture under the caller's exclusive busy turn.
+   * No public trusted flag, source remint, rendering, or readiness publication. */
+  private captureReplayGroupsOwned():ReplaySnapshot {
+    if(!this.busy||this.closed||this.failed||!this.options.replayRetention||this.replayWork)throw Error('Replay work unavailable')
+    const generation=this.replayGeneration,order=this.replayOrderRevision,count=this.replay.size
+    // Allocation-free bounded counting; no geometry or coefficient copies.
+    let groupCount=0,closeCount=0,frameCount=0
+    for(const owner of this.entries){let found=false;for(const entry of this.replay.values())if(entry.gestureId===owner.id){found=true;frameCount++}if(found){groupCount++;if(owner.closeReceipt)closeCount++}}
+    if(frameCount!==count||count>this.options.replayRetention.maxEntries||groupCount>this.options.maxGestures)throw Error('Replay group membership unavailable')
+    const releaseMetadata=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+count*128+groupCount*768+closeCount*256)
+    const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source:CanonicalReplaySource7;root:CanonicalMaskSourceLease;group:ReplayGroup7;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
+    let released=false,checking=false,pinned=false,work:ReplayGroupsWork|undefined
+    const pure=()=>{
+      if(released||this.closed||this.failed||!this.busy||generation!==this.replayGeneration||order!==this.replayOrderRevision||(work?this.replayWork!==work:!!this.replayWork))throw Error('Replay snapshot retired')
+      for(const entry of entries)if(entry.retired||this.replay.get(entry.id)!==entry)throw Error('Replay snapshot entry retired')
+      for(const proof of proofs)if(!this.entries.includes(proof.owner)||proof.owner.replaySource!==proof.source||proof.owner.metadataReleased)throw Error('Replay snapshot source replaced')
+    }
+    const assertValue=(value:ReplayValue)=>{
+      if(value.kind==='recorded')value.input.delivery.assertCurrent(value.input)
+      else if(value.author.assertCurrent(value.author)!==value.author.lifetime.assertCurrent())throw Error('Captured local replay scope replaced')
+      pure()
+    }
+    const assertBodyOwned=()=>{
+        pure();this.assertRecordedCurrent();pure();this.assertLayers();pure()
+        for(const entry of entries)assertValue(entry.value)
+        for(const value of values)assertValue(value)
+        for(const proof of proofs){
+          proof.source.assertCurrent();pure()
+          this.assertReplayOriginal(proof.source,proof.group.frames[0].value.kind==='recorded'?proof.group.frames[0].value.input.read?.capability.snapshot:proof.group.frames[0].value.author.snapshot);pure()
+          if(proof.close){
+            const prefix=proof.prefix!,close=proof.close
+            if(!samePaintData(proof.witness,{firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq,state:prefix.state,userId:prefix.userId,strokeId:prefix.strokeId}))throw Error('Replay close prefix changed')
+            close.input.delivery.assertCurrent(close.input);pure()
+            if(prefix.lifetime.assertCurrent()!==prefix.scope)throw Error('Replay close original replaced')
+            pure()
+            const seal=verifyCanonicalRecordedClose({...prefix.state,recordedNext:prefix.state.nextOrdinal,firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq},{userId:prefix.userId,layerId:this.options.layerId,strokeId:prefix.strokeId},close.input.operation)
+            if(!samePaintData(seal,close.seal))throw Error('Replay close seal changed')
+          }
+        }
+        pure()
+    }
+    const assertOwned=()=>{
+      if(checking)throw Error('Replay snapshot assertion reentered')
+      checking=true
+      try{assertBodyOwned()}finally{checking=false}
+    }
+    // Private teardown: valid after closed=true or inside a busy failure catch.
+    // Detach before all cleanup callbacks; never call a public/current wrapper.
+    const detach=()=>{
+      if(released)return
+      released=true
+      if(work&&this.replayWork===work)this.replayWork=undefined
+      const cleanup=(action:()=>void)=>this.cleanFrontier(action)
+      if(pinned){pinned=false
+        for(const entry of entries){entry.pins--;if(entry.retired&&!entry.pins)cleanup(()=>this.releaseReplayEntry(entry))}
+        for(const proof of proofs){proof.owner.replayPins!--;if(!proof.owner.replayPins&&proof.owner.metadataRetired)cleanup(()=>this.releaseReplayOwnerMetadata(proof.owner))}
+      }
+      for(const proof of proofs)cleanup(()=>proof.root.release(this.cleanupContextLost()))
+      cleanup(releaseMetadata)
+    }
+    const enter=()=>{this.assertOpen();this.busy=true}
+    const coordinator=this
+    let snapshot:ReplaySnapshot
+    try{
+      this.assertRecordedCurrent();pure();this.assertLayers();pure()
+      for(const owner of this.entries){
+        let has=false;for(const entry of this.replay.values())if(entry.gestureId===owner.id){has=true;break}
+        if(!has)continue
+        const source=owner.replaySource
+        if(!source)throw Error('Accepted replay source unavailable')
+        const frames:ReplayGroupFrame7[]=[]
+        for(const entry of this.replay.values())if(entry.gestureId===owner.id){
+          const frame=entry.acceptedFrame
+          if(!frame||!Object.isFrozen(frame))throw Error('Replay accepted immutable frame missing')
+          entries.push(entry);values.push(entry.value);frames.push(Object.freeze({value:entry.value,frame}))
+        }
+        const close=owner.closeReceipt,prefix=close?.prefix
+        const witness=prefix?Object.freeze({firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq,state:Object.freeze({...prefix.state}),userId:prefix.userId,strokeId:prefix.strokeId}):undefined
+        const group:ReplayGroup7=Object.freeze({id:owner.id,frames:Object.freeze(frames),source:Object.freeze({rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
+        source.assertCurrent();pure()
+        const root=source.retainRoot()
+        // Adopt immediately so even a post-retain assertion throwing undefined
+        // releases exactly this child through the private rollback path.
+        proofs.push({owner,source,root,group,close,prefix,witness})
+        source.assertCurrent();pure()
+      }
+      Object.freeze(values)
+      const groups=Object.freeze(proofs.map(proof=>proof.group))
+      assertOwned()
+      if(entries.length!==count||this.replay.size!==count||proofs.length!==groupCount||proofs.filter(p=>p.close).length!==closeCount)throw Error('Replay snapshot membership changed')
+      let acceptedIndex=0
+      for(const proof of proofs)for(const captured of proof.group.frames){
+        const entry=entries[acceptedIndex++]
+        if(entry.value!==captured.value||entry.acceptedFrame!==captured.frame)throw Error('Replay accepted frame changed before capture')
+      }
+      for(const entry of entries)entry.pins++
+      for(const proof of proofs)proof.owner.replayPins=(proof.owner.replayPins??0)+1
+      pinned=true
+      const valuesOwned=()=>{assertOwned();return values}
+      const groupsOwned=()=>{assertOwned();return groups}
+      const retainRootOwned=(group:ReplayGroup7)=>{
+        if(checking)throw Error('Replay snapshot retain reentered')
+        checking=true
+        let child:CanonicalMaskSourceLease|undefined
+        try{
+          assertBodyOwned();const proof=proofs.find(p=>p.group===group)
+          if(!proof)throw Error('Foreign replay group')
+          child=proof.root.retain();assertBodyOwned()
+          const accepted=child;child=undefined;return accepted
+        }catch(primary){if(child)this.cleanFrontier(()=>child!.release(this.cleanupContextLost()));throw primary}
+        finally{checking=false}
+      }
+      snapshot=Object.freeze({
+        values:function(this:ReplaySnapshot){if(this!==snapshot)throw Error('Foreign replay snapshot receiver');enter();try{return valuesOwned()}finally{coordinator.busy=false}},
+        groups:function(this:ReplaySnapshot){if(this!==snapshot)throw Error('Foreign replay snapshot receiver');enter();try{return groupsOwned()}finally{coordinator.busy=false}},
+        assertCurrent:function(this:ReplaySnapshot){if(this!==snapshot)throw Error('Foreign replay snapshot receiver');enter();try{assertOwned()}finally{coordinator.busy=false}},
+        retainRoot:function(this:ReplaySnapshot,group:ReplayGroup7){
+          if(this!==snapshot)throw Error('Foreign replay snapshot receiver')
+          enter();try{return retainRootOwned(group)}finally{coordinator.busy=false}
+        },
+        release:function(this:ReplaySnapshot){if(this!==snapshot)throw Error('Foreign replay snapshot receiver');if(released)return;enter();try{detach()}finally{coordinator.busy=false}},
+      })
+      work=Object.freeze({snapshot,detach,assertOwned,valuesOwned,groupsOwned,retainRootOwned})
+      this.replayWork=work
+      return snapshot
+    }catch(primary){detach();throw primary}
   }
 
   private commitFrontier():Entry|undefined {
@@ -1286,7 +1454,7 @@ export class CanonicalWashLayerCoordinator {
     this.clean(()=>this.cancelPreview());this.previewLane=undefined
     this.replayGeneration++
     for(const entry of this.entries)this.retireReplayGesture(entry.id)
-    this.clean(()=>this.replayWork?.release())
+    this.clean(()=>{const work=this.replayWork;if(work){if('snapshot'in work)work.detach();else work.release()}})
     this.clean(()=>this.closePresentationPlans(this.work))
     for(const entry of this.entries)this.clean(()=>this.closeCommitPlan(entry))
     this.queue.length = 0; this.dirty.clear(); this.work = undefined; this.positions.clear()

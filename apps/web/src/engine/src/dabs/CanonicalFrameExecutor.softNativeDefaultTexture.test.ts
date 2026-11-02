@@ -685,3 +685,161 @@ it('candidate7 requires exact four own DATA identity keys and plain/null prototy
   expect(getter).not.toHaveBeenCalled();e.retireRenderedPrefix(Object.assign(Object.create(null),renderedIdentity));expect(s.poison).not.toHaveBeenCalled()
  }finally{clock.mockRestore();s.close()}
 })
+
+// Snapshot groups are private resource observations, never renderer/read grants.
+it('groups capture claims busy before callbacks and rejects genuine nested snapshot without changing slot',()=>{
+ const s=replayConsumer7()
+ try{
+  s.coordinator.enqueueRecorded(s.recorded(s.operation('group-busy',0,true),1));s.coordinator.advance()
+  let inside=false,hits=0
+  s.setLate(()=>{if(!inside){inside=true;hits++;try{expect(()=>s.coordinator.retainReplaySnapshot()).toThrow('busy')}finally{inside=false}}})
+  const snapshot=s.coordinator.retainReplaySnapshot();expect(hits).toBeGreaterThan(0)
+  s.setLate();expect(snapshot.values()).toHaveLength(1);snapshot.release();expect(s.coordinator['replayWork']).toBeUndefined()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups freeze exact accepted source and frame refs, reject forged groups and charge caller children independently',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('group-refs',0,true),1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const owner=s.coordinator['entries'][0],source=owner.replaySource!,sourceCalls=s.source.mock.calls.length,before=s.cpu.reservedBytes
+  const snapshot=s.coordinator.retainReplaySnapshot(),values=snapshot.values(),groups=snapshot.groups!(),group=groups[0]
+  expect(Object.isFrozen(groups)&&Object.isFrozen(group)&&Object.isFrozen(group.frames)&&Object.isFrozen(group.source)).toBe(true)
+  expect(group.frames[0].value).toBe(values[0]);expect(group.frames[0].frame).toBe(s.coordinator['replay'].values().next().value?.acceptedFrame);expect(group.source.context).toBe(source.context);expect(group.source.autoSource).toBe(source.autoSource)
+  expect(Object.keys(group).sort()).toEqual(['frames','id','source']);expect(Object.keys(group.source).sort()).toEqual(['autoSource','context','rasterProfile'])
+  const held=s.cpu.reservedBytes;expect(held).toBeGreaterThan(before)
+  expect(()=>snapshot.retainRoot!({...group})).toThrow('Foreign replay group');expect(s.cpu.reservedBytes).toBe(held)
+  expect(()=>snapshot.values.call({})).toThrow('receiver');expect(()=>snapshot.groups!.call({})).toThrow('receiver');expect(()=>snapshot.assertCurrent!.call({})).toThrow('receiver');expect(()=>snapshot.retainRoot!.call({},group)).toThrow('receiver');expect(()=>snapshot.release.call({})).toThrow('receiver')
+  const child=snapshot.retainRoot!(group);expect(s.cpu.reservedBytes).toBeGreaterThan(held);expect(snapshot.groups!()).toBe(groups)
+  child.release();expect(s.cpu.reservedBytes).toBe(held);expect(s.source).toHaveBeenCalledTimes(sourceCalls)
+  snapshot.release();expect(s.cpu.reservedBytes).toBe(before);snapshot.release()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups capture close only as of R and keep genuine original input/seal without exposing mutable prefix',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('group-close',0,true),1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const old=s.coordinator.retainReplaySnapshot(),oldGroups=old.groups!(),close=s.seal(first)
+  s.coordinator.enqueueRecordedSeal(close);expect(old.groups!()).toBe(oldGroups);expect(oldGroups[0].close).toBeUndefined();old.release()
+  const owner=s.coordinator['entries'][0],receipt=owner.closeReceipt!,next=s.coordinator.retainReplaySnapshot(),group=next.groups!()[0]
+  expect(group.close?.input).toBe(close);expect(group.close?.seal).toBe(receipt.seal);expect(Object.isFrozen(group.close)).toBe(true)
+  expect(Object.keys(group.close!).sort()).toEqual(['input','seal']);expect(next.values()).toHaveLength(1)
+  const prefix=receipt.prefix,previous=prefix.lastSeq;Reflect.set(prefix,'lastSeq',99)
+  expect(()=>next.assertCurrent!()).toThrow('prefix changed');Reflect.set(prefix,'lastSeq',previous);next.assertCurrent!()
+  s.coordinator['retireReplayMetadata'](owner);expect(owner.closeReceipt).toBe(receipt);next.release();expect(owner.closeReceipt).toBeUndefined()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups fixed R survives ordinary append and genuine local promotion but FIRST order change invalidates',()=>{
+ const s=replayConsumer7()
+ try{
+  const author=s.author('group-promote'),op=s.operation('group-promote',0,true);s.coordinator.tryEnqueueLocal(author,op)
+  const snapshot=s.coordinator.retainReplaySnapshot(),values=snapshot.values(),groups=snapshot.groups!(),accepted=groups[0].frames[0].frame
+  s.coordinator.enqueueRecorded(s.recorded(op,1));expect(groups[0].frames[0].frame).toBe(accepted);expect(s.coordinator['replay'].get(op.id)?.acceptedFrame).not.toBe(accepted);expect(snapshot.values()).toBe(values);expect(values[0].kind).toBe('local');expect(snapshot.groups!()).toBe(groups)
+  const next=s.operation('group-promote',1,true);s.coordinator.tryEnqueueLocal(author,next);s.coordinator.enqueueRecorded(s.recorded(next,2));expect(snapshot.values()).toHaveLength(1);snapshot.release()
+  const late=s.author('late-local');s.coordinator.tryEnqueueLocal(late,s.operation('late-local',0,true))
+  const ordered=s.coordinator.retainReplaySnapshot();s.coordinator.enqueueRecorded(s.recorded(s.operation('earlier-recorded',0,true),3))
+  expect(()=>ordered.values()).toThrow('retired');ordered.release()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups public observations share busy scope and root revocation cannot prevent private cancel teardown',()=>{
+ const s=replayConsumer7()
+ try{
+  s.coordinator.enqueueRecorded(s.recorded(s.operation('group-observe',0,true),1));s.coordinator.advance()
+  const snapshot=s.coordinator.retainReplaySnapshot(),group=snapshot.groups!()[0]
+  let inside=false
+  s.setLate(()=>{if(!inside){inside=true;try{
+   expect(()=>snapshot.values()).toThrow('busy');expect(()=>snapshot.groups!()).toThrow('busy');expect(()=>snapshot.assertCurrent!()).toThrow('busy');expect(()=>snapshot.retainRoot!(group)).toThrow('busy');expect(()=>snapshot.release()).toThrow('busy')
+  }finally{inside=false}}})
+  snapshot.assertCurrent!();s.setLate();s.bank.reset();expect(()=>snapshot.assertCurrent!()).toThrow()
+  s.coordinator.cancel();expect(s.coordinator['replayWork']).toBeUndefined();snapshot.release()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups rollback preserves thrown undefined and releases reserved metadata and retained roots',()=>{
+ const s=replayConsumer7()
+ try{
+  s.coordinator.enqueueRecorded(s.recorded(s.operation('group-undefined',0,true),1));s.coordinator.advance()
+  const before=s.cpu.reservedBytes,owner=s.coordinator['entries'][0]
+  let armed=false
+  // Ordinary layer callback fails after snapshot CPU reservation, before pins.
+  s.setLate(()=>{if(armed)throw undefined});armed=true
+  let caught=false;try{s.coordinator.retainReplaySnapshot()}catch(error){caught=true;expect(error).toBeUndefined()}
+  expect(caught).toBe(true);expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator['replayWork']).toBeUndefined();expect(owner.replayPins??0).toBe(0)
+  s.setLate()
+  const snapshot=s.coordinator.retainReplaySnapshot();snapshot.release();expect(s.cpu.reservedBytes).toBe(before)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('groups reserve before root capture and cleanup faults poison while private teardown attempts every owner',()=>{
+ for(const failRelease of [false,true]){
+  const s=replayConsumer7()
+  try{
+   s.coordinator.enqueueRecorded(s.recorded(s.operation('group-budget',0,true),1));s.coordinator.advance()
+   const before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{
+    if(n!==1920)return reserve(n)
+    if(!failRelease)throw Error('group metadata denied')
+    const release=reserve(n);return()=>{release();throw Error('group metadata release fault')}
+   })
+   if(!failRelease){expect(()=>s.coordinator.retainReplaySnapshot()).toThrow('metadata denied');expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator['replayWork']).toBeUndefined()}
+   else{const snapshot=s.coordinator.retainReplaySnapshot();snapshot.release();expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures.some(e=>String(e).includes('metadata release fault'))).toBe(true);expect(s.coordinator['replayWork']).toBeUndefined();snapshot.release()}
+   hook.mockRestore()
+  }finally{s.close()}
+  expect(s.cpu.reservedBytes).toBe(0)
+ }
+})
+
+it('groups use SAME accepted envelope despite valid raw local frame mutation before and after capture',()=>{
+ for(const beforeCapture of [true,false]){
+  const s=replayConsumer7()
+  try{
+   const op=s.operation('group-raw-mutation',0,true),packed=op.frame.materialPacked;s.coordinator.tryEnqueueLocal(s.author('group-raw-mutation'),op)
+   const receipt=s.coordinator['entries'][0].local!.receipts[0],replacement=s.operation('group-raw-mutation',0,false).frame.materialPacked
+   expect(Object.isFrozen(op.frame)).toBe(false);expect(Object.isFrozen(receipt.frame)).toBe(true);expect(replacement).not.toBe(packed)
+   if(beforeCapture)Reflect.set(op.frame,'materialPacked',replacement)
+   const snapshot=s.coordinator.retainReplaySnapshot(),row=snapshot.groups!()[0].frames[0]
+   if(!beforeCapture)Reflect.set(op.frame,'materialPacked',replacement)
+   expect(row.value).toBe(snapshot.values()[0]);expect(row.frame).toBe(receipt.frame);expect(row.frame.materialPacked).toBe(packed)
+   expect(Object.isFrozen(row)).toBe(true);expect(row.value.kind==='local'&&row.value.operation).toBe(op)
+   expect(snapshot.groups!()[0].frames[0]).toBe(row);snapshot.release()
+  }finally{s.close()}
+  expect(s.cpu.reservedBytes).toBe(0)
+ }
+})
+it('groups retain one original child per FIRST group and caller budget denial leaves all fixed groups usable',()=>{
+ const s=replayConsumer7()
+ try{
+  const first=s.recorded(s.operation('group-first',0,true),1),second=s.recorded(s.operation('group-second',0,true),2)
+  s.coordinator.enqueueRecorded(first);s.coordinator.enqueueRecorded(second);s.coordinator.advance();s.coordinator.advance()
+  const row=s.bank['inputs'].values().next().value;if(!row?.rootOwners)throw Error('Actual pattern root owners missing')
+  const owners=row.rootOwners.size,reserve=s.cpu.reserve.bind(s.cpu);let rootReservations=0,deny=false
+  const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===2048){rootReservations++;if(deny)throw Error('caller child budget denied')}return reserve(n)})
+  const snapshot=s.coordinator.retainReplaySnapshot(),groups=snapshot.groups!(),bytes=s.cpu.reservedBytes
+  // Snapshot metadata is independently charged2816 before these two genuine child reservations.
+  expect(rootReservations).toBe(2);expect(row.rootOwners.size).toBe(owners+2);expect(groups.map(g=>g.frames[0].value.kind==='recorded'?g.frames[0].value.input:null)).toEqual([first,second])
+  expect(groups.map(g=>g.id)).toEqual(s.coordinator['entries'].map(e=>e.id));snapshot.values();snapshot.groups!();snapshot.assertCurrent!();expect(rootReservations).toBe(2)
+  deny=true;expect(()=>snapshot.retainRoot!(groups[0])).toThrow('child budget denied');expect(s.cpu.reservedBytes).toBe(bytes);snapshot.assertCurrent!()
+  deny=false;const child=snapshot.retainRoot!(groups[1]);expect(rootReservations).toBe(4);expect(row.rootOwners.size).toBe(owners+3);child.release();expect(row.rootOwners.size).toBe(owners+2);expect(s.cpu.reservedBytes).toBe(bytes)
+  hook.mockRestore();snapshot.release();expect(row.rootOwners.size).toBe(owners)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('groups private owned operations reject unowned and recursive callbacks without opening a public busy bypass',()=>{
+ const s=replayConsumer7()
+ try{
+  s.coordinator.enqueueRecorded(s.recorded(s.operation('group-owned',0,true),1));s.coordinator.advance()
+  const snapshot=s.coordinator.retainReplaySnapshot(),groups=snapshot.groups!(),work=s.coordinator['replayWork']
+  if(!work||!('snapshot'in work))throw Error('Actual owned work slot required')
+  expect(()=>work.valuesOwned()).toThrow('retired');expect(()=>work.groupsOwned()).toThrow('retired');expect(()=>work.retainRootOwned(groups[0])).toThrow('retired')
+  let inside=false
+  s.setLate(()=>{if(!inside){inside=true;try{expect(()=>work.valuesOwned()).toThrow('reentered');expect(()=>work.groupsOwned()).toThrow('reentered');expect(()=>work.retainRootOwned(groups[0])).toThrow('reentered')}finally{inside=false}}})
+  const reserve=s.cpu.reserve.bind(s.cpu),hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===2048){expect(()=>work.groupsOwned()).toThrow('reentered');expect(()=>work.retainRootOwned(groups[0])).toThrow('reentered')}return reserve(n)})
+  s.coordinator['busy']=true
+  try{expect(work.valuesOwned()[0]).toBe(groups[0].frames[0].value);const child=work.retainRootOwned(groups[0]);child.release();}finally{s.coordinator['busy']=false;s.setLate();hook.mockRestore()}
+  snapshot.release()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
