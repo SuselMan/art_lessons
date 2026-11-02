@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 
 import { REPO_ROOT } from './model';
+import { eventTable } from './eventTable';
 
 export type Contract = 'bound' | 'named' | 'one-side' | 'opaque';
 const CONTRACTS: readonly Contract[] = ['bound', 'named', 'one-side', 'opaque'];
@@ -133,19 +134,6 @@ function sourceFiles(dir: string): string[] {
   return out;
 }
 
-/** Keys of `export type <name> = { … }` — the socket protocol's event tables. */
-function eventTable(src: string, name: string): Set<string> {
-  const start = src.indexOf(`export type ${name} = {`);
-  if (start < 0) throw new Error(`runtime: ${name} not found in packages/shared/src/protocol.ts`);
-  const events = new Set<string>();
-  for (const line of src.slice(start).split('\n').slice(1)) {
-    if (/^\}/.test(line)) break;
-    const m = line.match(/^ {2}([a-z_]+):/);
-    if (m) events.add(m[1]);
-  }
-  return events;
-}
-
 /** `METHOD /path` for every route the server registers; template tails normalised to `*`. */
 function serverRoutes(): Set<string> {
   const routes = new Set<string>();
@@ -199,7 +187,7 @@ function diff(label: string, onMap: Set<string>, inCode: Set<string>, problems: 
 export function checkRuntime(rt: RuntimeMap): string[] {
   const problems: string[] = [];
 
-  const protocol = read('packages/shared/src/protocol.ts');
+  const protocol = join(REPO_ROOT, 'packages/shared/src/protocol.ts');
   const socket = rt.links.filter((l) => l.checks === 'socket');
   const names = (dir: '→' | '←', links: RuntimeLink[]): Set<string> =>
     new Set(links.flatMap((l) => l.messages.filter((m) => m.dir === dir).map((m) => m.name)));
