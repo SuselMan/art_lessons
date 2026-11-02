@@ -14,7 +14,7 @@ import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
-function fixture(compositeSide=4){
+function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number}){
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
  gl.LINEAR=9010;gl.REPEAT=9011
@@ -53,7 +53,7 @@ function fixture(compositeSide=4){
   accepted=Object.freeze({...atom,delivery});return accepted
  }
  const source=vi.fn(()=>({autoSource:pin}))
- const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,layer:()=>({buffer:layer,epoch:layerEpoch}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>({buffer:layer,epoch:layerEpoch}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
   const op=frame.operation;if(op.type!=='canonical_stroke')throw Error('frame')
   let accepted:CanonicalRecordedInput
@@ -571,3 +571,197 @@ it('retains the late current-layer guard after packed-body callbacks on the free
   expect(local.state).toBe(prefix);expect(local.receipts).toHaveLength(receipts);expect(s.coordinator.queuedFrameCount).toBe(1);expect(s.cpu.reservedBytes).toBe(bytes)
  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })
+
+describe('owner-scoped active replay retention', () => {
+    const limits = { maxEntries: 8, maxBytes: 1024 * 1024 };
+    const snapshot = (s: ReturnType<typeof fixture>) => s.coordinator['retainReplaySnapshot']();
+    const drain = (s: ReturnType<typeof fixture>) => { let n = 0; while (s.coordinator.pending) {
+        if (++n > 1000)
+            throw Error('bounded drain');
+        s.coordinator.advance();
+    } };
+    it('keeps the default wash path free of replay holds', () => {
+        const s = fixture();
+        try {
+            s.coordinator.enqueueRecorded(s.input());
+            expect(s.coordinator['replay'].size).toBe(0);
+            expect(() => snapshot(s)).toThrow('Replay work unavailable');
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('retains exact original inputs and snapshots FIRST-gesture order, not wire interleave', () => {
+        const s = fixture(4, limits);
+        try {
+            const a = s.input('A', 0, 1), b = s.input('B', 0, 2), a1 = s.input('A', 1, 3);
+            s.coordinator.enqueueRecorded(a);
+            s.coordinator.enqueueRecorded(b);
+            s.coordinator.enqueueRecorded(a1);
+            const work = snapshot(s);
+            expect(work.values().map(v => v.kind === 'recorded' ? v.input : null)).toEqual([a, a1, b]);
+            expect(work.values()[0]).toMatchObject({ kind: 'recorded', input: a });
+            expect(Object.isFrozen(work.values()[0])).toBe(true);
+            expect(Reflect.set(work.values()[0], 'input', b)).toBe(false);
+            expect(() => snapshot(s)).toThrow('Replay work unavailable');
+            s.stale();
+            expect(() => work.values()).toThrow('stale');
+            work.release();
+            work.release();
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('promotes a pinned local payload to the SAME original without double enqueue or losing its hold', () => {
+        const s = fixture(4, limits);
+        try {
+            const original = s.input(), op = s.local(original), author = s.localAuthor();
+            expect(s.coordinator.tryEnqueueLocal(author, op)).toBe(true);
+            const work = snapshot(s), before = s.cpu.reservedBytes, entry = s.coordinator['replay'].get(op.id)!;
+            s.coordinator.enqueueRecorded(original);
+            expect(s.coordinator.queuedFrameCount).toBe(1);
+            expect(s.coordinator['replay'].get(op.id)).toBe(entry);
+            expect(entry.value).toMatchObject({ kind: 'recorded', input: original });
+            expect(s.cpu.reservedBytes - before).toBe(JSON.stringify(original.read).length * 2);
+            expect(work.values()[0]).toMatchObject({ kind: 'local', operation: op });
+            work.release();
+            const next = snapshot(s);
+            expect(next.values()[0]).toMatchObject({ kind: 'recorded', input: original });
+            next.release();
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('charges each independently normalized continuation read even after its frame is consumed', () => {
+        const s = fixture(4, limits);
+        try {
+            const a = s.input('A', 0, 1), a1 = s.input('A', 1, 2);
+            expect(a.read!.capability.snapshot).not.toBe(a1.read!.capability.snapshot);
+            s.coordinator.enqueueRecorded(a);
+            drain(s);
+            const before = s.cpu.reservedBytes;
+            s.coordinator.enqueueRecorded(a1);
+            drain(s);
+            expect(s.cpu.reservedBytes - before).toBeGreaterThanOrEqual(JSON.stringify(a1.read).length * 2);
+            expect(s.coordinator['replayCount']).toBe(2);
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('does not allocate snapshot arrays or root children after a denied snapshot reservation', () => {
+        const s = fixture(4, limits);
+        try {
+            s.coordinator.enqueueRecorded(s.input());
+            const before = s.cpu.reservedBytes;
+            const reserve = vi.spyOn(s.cpu, 'reserve').mockImplementationOnce(() => { throw Error('snapshot budget'); });
+            expect(() => snapshot(s)).toThrow('snapshot budget');
+            expect(s.coordinator['replayWork']).toBeUndefined();
+            expect([...s.coordinator['replay'].values()][0].pins).toBe(0);
+            expect(s.cpu.reservedBytes).toBe(before);
+            reserve.mockRestore();
+            const work = snapshot(s);
+            work.release();
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('fails capacity before accepting a frame and preserves a genuine retry after prefix retirement', () => {
+        const s = fixture(4, { maxEntries: 1, maxBytes: 1024 * 1024 });
+        try {
+            const a = s.input('A', 0, 1, true), b = s.input('B', 0, 2, true);
+            s.coordinator.enqueueRecorded(a);
+            const work = snapshot(s);
+            expect(() => s.coordinator.enqueueRecorded(b)).toThrow('Active replay capacity exceeded');
+            expect(s.coordinator.queuedFrameCount).toBe(1);
+            drain(s);
+            expect(s.coordinator['replay'].size).toBe(0);
+            expect(s.coordinator['replayCount']).toBe(1);
+            expect(work.values()[0]).toMatchObject({ kind: 'recorded', input: a });
+            expect(Object.isFrozen(work.values()[0])).toBe(true);
+            expect(Reflect.set(work.values()[0], 'input', b)).toBe(false);
+            expect(() => s.coordinator.enqueueRecorded(b)).toThrow('Active replay capacity exceeded');
+            work.release();
+            expect(s.coordinator['replayCount']).toBe(0);
+            s.coordinator.enqueueRecorded(b);
+            drain(s);
+            expect(s.coordinator['replayCount']).toBe(0);
+            expect(s.coordinator['replayBytes']).toBe(0);
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('does not retain a denied reservation or a copied input and leaves the original retry usable', () => {
+        const s = fixture(4, limits);
+        try {
+            const input = s.input(), before = s.cpu.reservedBytes;
+            expect(() => s.coordinator.enqueueRecorded({ ...input })).toThrow('foreign');
+            expect(s.coordinator['replayCount']).toBe(0);
+            const reserve = vi.spyOn(s.cpu, 'reserve').mockImplementationOnce(() => { throw Error('held budget'); });
+            expect(() => s.coordinator.enqueueRecorded(input)).toThrow('held budget');
+            expect(s.coordinator.queuedFrameCount).toBe(0);
+            expect(s.coordinator['replayCount']).toBe(0);
+            expect(s.cpu.reservedBytes).toBe(before);
+            reserve.mockRestore();
+            s.coordinator.enqueueRecorded(input);
+            expect(s.coordinator['replayCount']).toBe(1);
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('rejects a byte limit before local receipt retention and keeps its exact operation retry valid', () => {
+        const s = fixture(4, { maxEntries: 8, maxBytes: 1 });
+        try {
+            const input = s.input(), op = s.local(input), before = s.cpu.reservedBytes;
+            expect(() => s.coordinator.tryEnqueueLocal(s.localAuthor(), op)).toThrow('Active replay capacity exceeded');
+            expect(s.coordinator.queuedFrameCount).toBe(0);
+            expect(s.coordinator.hasPendingLocal).toBe(false);
+            expect(s.cpu.reservedBytes).toBe(before);
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('invalidates a captured order when a real recorded peer moves ahead of an unconfirmed local', () => {
+        const s = fixture(4, limits);
+        try {
+            const local = s.input('A', 0, 2), author = s.localAuthor('A');
+            s.coordinator.tryEnqueueLocal(author, s.local(local));
+            const work = snapshot(s);
+            s.coordinator.enqueueRecorded(s.input('B', 0, 1));
+            expect(() => work.values()).toThrow('Replay snapshot retired');
+            work.release();
+        }
+        finally {
+            s.close();
+        }
+    });
+    it('attempts every pinned cleanup even when one release callback reports an error', () => {
+        const s = fixture(4, limits);
+        s.coordinator.enqueueRecorded(s.input());
+        const entry = [...s.coordinator['replay'].values()][0];
+        const release = entry.release;
+        entry.release = () => { release(); throw Error('retire diagnostic'); };
+        const work = snapshot(s);
+        s.close();
+        work.release();
+        expect(s.coordinator.cleanupFailures.some(e => String(e).includes('retire diagnostic'))).toBe(true);
+        expect(s.cpu.reservedBytes).toBe(0);
+    });
+    it('cancels a pinned snapshot and retires every metadata hold exactly once', () => {
+        const s = fixture(4, limits);
+        s.coordinator.enqueueRecorded(s.input());
+        const work = snapshot(s);
+        s.close();
+        expect(() => work.values()).toThrow('Replay snapshot retired');
+        work.release();
+        expect(s.cpu.reservedBytes).toBe(0);
+        expect(s.coordinator['replayCount']).toBe(0);
+        expect(s.coordinator['replayBytes']).toBe(0);
+    });
+});

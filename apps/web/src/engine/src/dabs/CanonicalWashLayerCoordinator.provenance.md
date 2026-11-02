@@ -181,3 +181,110 @@ uninstrumented run also exact, turns2,399→1,234 against prior receipt. Rare ma
 advance84.7→83.1ms remains: this removes measured work amplification, NOT the
 remaining unpreemptible synchronous-query hitch. Compact receipts and exact module
 hashes are in R52/generic-sc4-advance-proof.json; all own device resources removed.
+
+
+## Opt-in active original retention (resource lifecycle only)
+
+Owner-only `replayRetention:{maxEntries,maxBytes}` enables a bounded journal in
+this SAME coordinator. It is captured by value and grants no author/room/source
+permission. It is absent from every engine/UI/wire caller in this unit; ordinary
+wash admission/execution and CPU/GPU logical charges stay unchanged. Small empty
+JS bookkeeping fields are not claimed to have zero literal heap cost. No
+buildup, presentation publication, material7, numeric or source policy activates.
+
+Only the already validated exact original `CanonicalRecordedInput` is retained;
+its existing delivery, lifetime, whole snapshot and prefix checks still run.
+There is no cloned delivery, new provenance registry, decoded historical frame
+archive or page-array hold. Existing indexed ingress keeps exact input authority
+with its joined origin after page release/finish/cursor cancellation. That
+existing lifetime contract is reused, not changed. Origin/epoch replacement and
+coordinator retirement invalidate work. Existing indexed lifetime tests already
+cover release/reopen/cancel; this unit does not duplicate them.
+
+Every recorded entry conservatively charges its own ENTIRE validated `input.read`
+JSON metadata extent, even when snapshots happen to be equal. It never assumes
+object-identity deduplication across pages/operations. Additional charge is
+`2*JSON.stringify(input.read).length + 512 + 2*sum(length of gestureKey, operation
+id, user id, layer id, stroke id, brush id, materialPacked)`. Closed ingress
+metadata is already bounded; the temporary serialization is not retained. This
+is existing logical CPU resource accounting, not a literal JS heap bound or an
+extra budget. Fixed512 covers holder/index/scalar metadata; all variable retained
+read/context metadata and operation strings are explicit. Both maximum entries
+(1..1024) and safe positive byte limit apply including retired entries still
+pinned by a work snapshot. Reservations precede retained journal publication and
+promotion callbacks. Capacity failure throws BEFORE acceptance; it is not a false
+result that could wait forever for an unadmittable END. This unit does not solve
+long-cohort overflow progress or manufacture a replay read fallback.
+
+Local payload shares its existing charged receipt allocation: one journal hold
+adds512 holder bytes and defers that receipt's idempotent payload release. It
+never clones/recharges the packed payload. Local snapshot/context ownership is
+already charged by the existing entry metadata and is deferred if work pins it.
+On exact original promotion, reserve only the positive delta (including the new
+original read metadata) BEFORE receipt release, then existing same-operation,
+whole-context, current lifetime/layer checks run. After confirmation, the SAME
+journal entry switches to the genuine original; no second executor enqueue or
+invented sequence is created. Failed reservation/mismatch leaves the previous
+journal/receipt/prefix intact and the same genuine retry usable.
+
+One owner-only work snapshot can be held. It reserves256+32*entryCount before
+allocating the additional bounded entry/value/owner/root index arrays, then
+rechecks current ownership/count/generation/order after the reservation callback.
+It visits FIRST-recorded-gesture order with per-gesture ordinal order, retains
+actual bank child leases for relevant roots, and pins existing entry metadata.
+Captured values are frozen borrowed references, not wire/execution grants. The
+exclusive internal consumer must drop borrowed arrays/references before releasing
+its work pin. Handles detach arrays/root references on release. Matching promotion
+keeps work payload alive; real order changes invalidate old work rather than
+silently reordering its stream. Entry metadata/root pins survive stable commit
+until the work releases them. Actual source root leases are resource ownership,
+not independent visibility or source-semantic authority.
+
+The snapshot contains accepted FRAME references only. Interrupted-close envelopes,
+metadata Undo/Redo, recorded sealing and visibility remain with the existing
+Entry/prefix/history owners; these values ALONE do not reconstruct a complete
+historical replay or prove an accepted cut. A future coherent replay unit must
+also retain/prove the correct seal, history decisions and lifetime, and supply
+borrowed genuine source bindings to the executor. Atomic old-visible/candidate
+publication and its overlap budget remain separate approved design work.
+
+Commit retires the matching gesture journal; pinned work delays payload/metadata
+release. Cancellation invalidates generation, retires all journal entries, and
+attempts snapshot/root/metadata/executor/receipt cleanup even after a cleanup
+error. Reservations are forgotten once before callback release; secondary errors
+are collected through existing cleanupFailures. Snapshot/receipt release is
+idempotent. No GL queries, shaders, new renderer/cache/queue or network changes.
+
+Gates (RAM overlay only): existing public tryEnqueueLocal accepted a maxBytes1
+case on baseline (meaningful RED, not missing API). Final77 tests/2 files PASS,
+including existing64 controls plus13 lifecycle/ledger cases. Genuine Basic6
+image inputs come through normal source author/encoder and original room-state
+preparer, then actual root-residency bank retain/publish/release; no fake lease.
+They prove root child and entry metadata survive stable commit and cancel,
+then final CPU/root membership returns zero. Other cases cover distinct normalized
+read metadata per consumed continuation, frozen references, first-gesture order,
+pinned local promotion without duplicate enqueue, denied reservation/capacity
+and exact retry, pinned retirement, order invalidation, cleanup failure all-attempt,
+and snapshot denial before extra pins. Final strict app-options3 roots281 inputs
+0 diagnostics; explicit3-file RAM oxlint exit0, no ignored files; format-only
+new methods/tests have AST-equivalence receipt. Earlier fixture-only full-bank
+prepareJob-on-root error, initial missing targeted Node test types, private
+unused-method diagnostic and prior metadata undercharge receipts are preserved.
+No device/GPU/performance, complete replay, online behavior or full app gate claim.
+
+
+### V2 final work-claim callback fence
+
+Independent review found that the V1 final source/layer assertions could reenter
+another snapshot after the first busy-slot test. V1 then overwrote replayWork,
+leaving the inner snapshot unowned by cancel. V2 repeats work-slot, captured
+count, generation/order and exact live-entry identity tests AFTER all callbacks,
+immediately before pins and publication. No external callback separates
+that fence from the synchronous slot claim. A genuine image-root regression
+reenters exactly from the final layer assertion: outer refuses, inner remains the
+current snapshot, rejected outer child is released, and cancel revokes/releases
+inner with CPU/root membership returning baseline. Frozen V1 and its passing
+77-case receipts remain preserved; this is a new meaningful reentry regression,
+not a missing API or fabricated root. Final V2 gates recorded separately.
+
+V2 final gates: exactV1 production with the new genuine nested-root assertion FAILED (outer did not refuse), then V2 full78/2PASS and strict3roots281inputs0 (PIDs3896093/3896258 ended); explicit3-file RAM oxlint0/noignore and apply-check0. Input map before/after worker matched0926a7084cc825ef338be6b1a51b8824800cb7b731a6fa94dbcbe8849e9d3630. All original V1 artifacts remain immutable.

@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {expect,it,vi,afterEach} from 'vitest'
 import {inflateSync} from 'node:zlib'
@@ -49,7 +50,7 @@ function original(second=false){
  const prepared=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current})
  return{read:prepared.canonicalRead,inputs:prepared.canonicalRead.preparedAtoms as readonly CanonicalRecordedInput[],stale:()=>{current=false}}
 }
-function physical(dataInput=false){
+function physical(dataInput=false,replayRetention?:{maxEntries:number;maxBytes:number},onLayer?:()=>void){
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
  gl.LINEAR=9010;gl.REPEAT=9011
@@ -66,14 +67,16 @@ function physical(dataInput=false){
  const derived=new TiledLayerBuffer(gl,32,32,undefined,undefined,undefined,'straight-rgba8')
  const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
  expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(asset.id)
- const bank=new CanonicalMaskSourceBank(gl,cache,cpu,dataInput?[{asset,readOriginalCoverage:()=>bytes}]:[{id:asset.id as `asset:${string}`,tip:descriptor.tip,assetSide:asset.size,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0})
- for(let i=0;i<bank.jobs.length;i++)expect(bank.prepareJob(i)).toBe('ready')
+ const bank=new CanonicalMaskSourceBank(gl,cache,cpu,replayRetention?[]:dataInput?[{asset,readOriginalCoverage:()=>bytes}]:[{id:asset.id as `asset:${string}`,tip:descriptor.tip,assetSide:asset.size,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0},undefined,replayRetention?'root-residency':'full')
+ let root:ReturnType<ReturnType<typeof bank.prepareRoot>['publish']>|undefined
+ if(replayRetention){const prep=bank.prepareRoot([{asset,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0});for(let i=0;i<prep.jobs.length;i++)prep.prepareJob(i);prep.assertPreparedPublication();root=prep.publish();prep.finalizeCleanup()}
+ if(!root)for(let i=0;i<bank.jobs.length;i++)expect(bank.prepareJob(i)).toBe('ready')
  const prepass=new TransformedMaskPrepass(gl,cache,cpu,'image-prepass');prepass.prepare({width:16,height:16,slots:1},bank.preparedResources())
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'image-composite');composite.prepare({width:32,height:32,operations:['alphaDarken32FusedScalar','over32FusedScalar']},[...prepass.preparedResources(),...bank.preparedResources()])
- const scratch=new RibbonScratchPool(gl),source=vi.fn<CanonicalWashLayerCoordinatorOptions['source']>(()=>({bank}))
- const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,pageBounds:{minX:0,minY:0,maxX:512,maxY:512},layer:()=>({buffer:layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
+ const scratch=new RibbonScratchPool(gl),source=vi.fn<CanonicalWashLayerCoordinatorOptions['source']>(()=>{if(root){const child=root.retain();return{bank:child,sourceLease:child}}return{bank}})
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,pageBounds:{minX:0,minY:0,maxX:512,maxY:512},layer:()=>{onLayer?.();return{buffer:layer,epoch:0}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
  const owners={gl,cache,cpu}
- return{gl,cache,cpu,bank,prepass,composite,source,coordinator,owners,close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset();bank.reset();cache.clear()}}
+ return{gl,cache,cpu,bank,root,prepass,composite,source,coordinator,owners,close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset();root?.release();bank.reset();cache.clear()}}
 }
 it.each([false,true])('consumes actual Basic6 V2 source frames through original room read and the same prepared image bank (asset input:%s)',dataInput=>{
  const p=original(),s=physical(dataInput),cold=vi.spyOn(s.bank,'assertRequiredSourceBinding')
@@ -172,4 +175,92 @@ it('uses the same bank for a local internal BEGIN lease and original confirmatio
   let turns=0;while(s.coordinator.pending&&turns++<10000)s.coordinator.advance()
   expect(turns).toBeLessThan(10000);expect(s.coordinator.checkpointReady).toBe(true);expect(s.source).toHaveBeenCalledOnce()
  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('pins a genuine image root and charged entry metadata through stable commit, then releases the work hold', () => {
+    const p = original(), s = physical(true, { maxEntries: 1024, maxBytes: 4 * 1048576 });
+    try {
+        for (const input of p.inputs) {
+            s.coordinator.enqueueRecorded(input);
+            // The final accepted original closes the same native source stream.
+            if (input === p.inputs.at(-1))
+                break;
+            let turns = 0;
+            while (s.coordinator.pending && turns++ < 10000)
+                s.coordinator.advance();
+            expect(turns).toBeLessThan(10000);
+        }
+        const work = s.coordinator['retainReplaySnapshot']();
+        expect(work.values()).toHaveLength(p.inputs.length);
+        expect(work.values().every((v, i) => v.kind === 'recorded' && v.input === p.inputs[i])).toBe(true);
+        s.root!.release();
+        let turns = 0;
+        while (s.coordinator.pending && turns++ < 10000)
+            s.coordinator.advance();
+        expect(turns).toBeLessThan(10000);
+        expect(s.coordinator.checkpointReady).toBe(true);
+        expect(s.coordinator['replay'].size).toBe(0);
+        expect(s.bank['inputs'].size).toBeGreaterThan(0);
+        const held = s.cpu.reservedBytes;
+        expect(work.values()).toHaveLength(p.inputs.length);
+        work.release();
+        work.release();
+        expect(s.bank['inputs'].size).toBe(0);
+        expect(s.cpu.reservedBytes).toBeLessThan(held);
+        expect(s.coordinator['replayBytes']).toBe(0);
+    }
+    finally {
+        s.close();
+    }
+    expect(s.cpu.reservedBytes).toBe(0);
+});
+
+it('revokes a pinned genuine image work on owner cancellation and releases its final root child', () => {
+    const p = original(), s = physical(true, { maxEntries: 1024, maxBytes: 4 * 1048576 });
+    try {
+        s.coordinator.enqueueRecorded(p.inputs[0]);
+        const work = s.coordinator.retainReplaySnapshot();
+        s.root!.release();
+        p.stale();
+        expect(() => work.values()).toThrow();
+        s.coordinator.cancel();
+        work.release();
+        expect(s.bank['inputs'].size).toBe(0);
+        expect(s.coordinator['replayCount']).toBe(0);
+    }
+    finally {
+        s.close();
+    }
+    expect(s.cpu.reservedBytes).toBe(0);
+});
+
+
+it('rejects an outer snapshot after the final layer assertion reenters a genuine image work claim',()=>{
+ const originalRead=original()
+ let armed=false,reads=0
+ let inner:ReturnType<CanonicalWashLayerCoordinator['retainReplaySnapshot']>|undefined
+ const s=physical(true,{maxEntries:1024,maxBytes:4*1048576},()=>{
+  if(armed&&++reads===3){
+   armed=false
+   inner=s.coordinator.retainReplaySnapshot()
+  }
+ })
+ try{
+  s.coordinator.enqueueRecorded(originalRead.inputs[0])
+  armed=true
+  expect(()=>s.coordinator.retainReplaySnapshot()).toThrow('Replay snapshot owner retired')
+  expect(inner).toBeDefined()
+  expect(s.coordinator['replayWork']).toBe(inner)
+  expect(inner!.values()).toHaveLength(1)
+  const row=s.bank['inputs'].values().next().value
+  if(!row)throw Error('Actual retained image reader missing')
+  // Original fixture root + entry child + INNER snapshot child. The rejected
+  // outer snapshot released its own child and never overwrote the inner slot.
+  expect(row.rootOwners?.size).toBe(3)
+  s.coordinator.cancel()
+  expect(()=>inner!.values()).toThrow('Replay snapshot retired')
+  inner!.release()
+  expect(row.rootOwners?.size).toBe(1)
+ }finally{try{s.close()}finally{inner?.release()}}
+ expect(s.cpu.reservedBytes).toBe(0)
 })

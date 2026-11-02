@@ -46,6 +46,8 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
+  /** Internal resource retention only; never a room/source permission. */
+  readonly replayRetention?: Readonly<{maxEntries:number;maxBytes:number}>
   readonly changed: (layerId: string) => void
   readonly poison: (layerId: string, reason: unknown) => void
 }
@@ -73,6 +75,8 @@ interface Entry {
   readonly opacity: number
   readonly blend: CanonicalStrokeComposition['outerBlend']
   readonly releaseMetadata: () => void
+  replayPins?:number
+  metadataRetired?:boolean
   ownership?: CanonicalWashOwnership
   committed: boolean
   tile: number
@@ -80,6 +84,27 @@ interface Entry {
   committingBuffer?: AccumulationBuffer
   targetPlan?:PreparedLayerTargets
   commitTarget?:PaintTarget
+}
+type ReplayValue = Readonly<{
+    kind: 'recorded';
+    input: CanonicalRecordedInput;
+}> | Readonly<{
+    kind: 'local';
+    author: CanonicalLocalWashAuthor;
+    operation: CanonicalStrokeOperation;
+}>;
+interface ReplayEntry {
+    readonly id: string;
+    readonly gestureId: string;
+    value: ReplayValue;
+    bytes: number;
+    release: () => void;
+    pins: number;
+    retired: boolean;
+}
+interface ReplaySnapshot {
+    values(): readonly ReplayValue[];
+    release(): void;
 }
 interface Position {
   readonly x: number; readonly y: number; readonly width: number; readonly height: number
@@ -131,10 +156,19 @@ export class CanonicalWashLayerCoordinator {
   private busy = false
   private failed = false
   private closed = false
+  private readonly replay = new Map<string,ReplayEntry>()
+  private replayBytes = 0
+  private replayCount = 0
+  private replayGeneration = 0
+  private replayOrderRevision = 0
+  private replayWork?:ReplaySnapshot
 
   constructor(options: CanonicalWashLayerCoordinatorOptions) {
     if (!options.layerId || !Number.isSafeInteger(options.layerEpoch) || options.layerEpoch < 0
       || !Number.isSafeInteger(options.maxGestures) || options.maxGestures < 1) throw new TypeError('Invalid canonical wash layer capacity/identity')
+    const retention=options.replayRetention
+    if(retention&&(!Number.isSafeInteger(retention.maxEntries)||retention.maxEntries<1||retention.maxEntries>1024
+      ||!Number.isSafeInteger(retention.maxBytes)||retention.maxBytes<1))throw new TypeError('Invalid active replay retention bounds')
     const stable = options.layer(options.layerId), derived = options.presentation()
     if (!Number.isSafeInteger(derived.epoch) || derived.epoch < 0 || stable.epoch !== options.layerEpoch || stable.buffer === derived.buffer
       || stable.buffer.pixelEncoding !== 'straight-rgba8' || derived.buffer.pixelEncoding !== 'straight-rgba8'
@@ -148,7 +182,7 @@ export class CanonicalWashLayerCoordinator {
     this.gl = batch.gl
     const release = batch.cpu.reserve(options.maxGestures * 1024)
     this.reservations.push(release)
-    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({ ...options.pageBounds }) : null })
+    this.options = Object.freeze({ ...options, ...(retention?{replayRetention:Object.freeze({...retention})}:{}), pageBounds: options.pageBounds ? Object.freeze({ ...options.pageBounds }) : null })
     this.stable = stable.buffer; this.derived = derived.buffer; this.derivedEpoch = derived.epoch
     }catch(error){for(const release of this.reservations.splice(0))try{release()}catch{/* Preserve construction error. */}try{this.maskParticipant.release()}catch{/* Preserve construction error. */}throw error}
   }
@@ -207,7 +241,17 @@ export class CanonicalWashLayerCoordinator {
   /** Original local delivery, not a log copy or a source selected by a frame. */
   enqueueRecorded(input:CanonicalRecordedInput):void {
     this.assertOpen();this.busy=true
-    try{this.enqueueOriginal(input)}finally{this.busy=false}
+    let staged:ReturnType<CanonicalWashLayerCoordinator['stageReplay']>|undefined
+    try{
+      if(this.options.replayRetention){
+        input.delivery.assertCurrent(input)
+        const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
+        if(op.type!=='canonical_stroke'||!input.read)throw new TypeError('Original replay frame required')
+        staged=this.stageReplay(JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,op.frame.strokeId]),op,{kind:'recorded',input})
+      }
+      this.enqueueOriginal(input)
+      staged?.commit()
+    }finally{try{staged?.rollback()}finally{this.busy=false}}
   }
   private enqueueOriginal(input:CanonicalRecordedInput):void {
     input.delivery.assertCurrent(input)
@@ -258,7 +302,7 @@ export class CanonicalWashLayerCoordinator {
     // Sequence promotion can change authority without changing visual order.
     // Preserve the current dirty/presentation state for that common case.
     for(let i=1;i<this.entries.length;i++)if(compare(this.entries[i-1],this.entries[i])>0){
-      this.entries.sort(compare);this.invalidate();return
+      this.entries.sort(compare);if(this.options.replayRetention)this.replayOrderRevision++;this.invalidate();return
     }
   }
   /** No sequence is invented. Temporary GPU queue pressure alone returns false. */
@@ -296,16 +340,18 @@ export class CanonicalWashLayerCoordinator {
     const cpu=this.options.prepass.brushGlBatchInfo().cpu,release=cpu.reserve(JSON.stringify(op).length*2+512)
     let released=false;const retire=()=>{if(!released){released=true;release()}}
     const local:LocalPrefix=previous??{author,scope,state,receipts:[]}
+    let staged:ReturnType<CanonicalWashLayerCoordinator['stageReplay']>|undefined
     try{
+      if(this.options.replayRetention)staged=this.stageReplay(id,op,{kind:'local',author,operation:op},retire)
       this.assertLocal(local)
       this.enqueueInternal({gestureId:id,layerId:op.layerId,layerEpoch:this.options.layerEpoch,ordinal:op.frame.frameOrdinal,
         frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition,...(snapshot.material.primarySource.kind==='defaultAuto'&&snapshot.material.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?{densityStrokeIdentity:{strokeId:snapshot.strokeId}}:{})},undefined,undefined,local)
-      local.state=state;local.receipts.push({operation:op,frame:decoded.envelope,release:retire})
+      local.state=state;local.receipts.push({operation:op,frame:decoded.envelope,release:()=>{if(!this.replay.has(op.id))retire()}});staged?.commit()
     }catch(error){
       this.clean(retire)
       if(this.failed){this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(error))}
       throw error
-    }
+    }finally{staged?.rollback()}
     return true
     }finally{this.busy=false}
   }
@@ -462,6 +508,196 @@ export class CanonicalWashLayerCoordinator {
       throw error
     }finally{this.busy=false}
   }
+  /** Charged exact originals, not copied delivery authority or decoded frames. */
+  private stageReplay(gestureId: string, op: CanonicalStrokeOperation, value: ReplayValue, releaseLocalPayload?: () => void): {
+      commit(): void;
+      rollback(): void;
+  } {
+      value = Object.freeze(value);
+      const limit = this.options.replayRetention!;
+      const old = this.replay.get(op.id);
+      if (old && (old.gestureId !== gestureId || old.value.kind !== 'local' || value.kind !== 'recorded'))
+          throw new Error('Replay operation already retained');
+      // Logical payload/index accounting; normalized input is already bounded by ingress.
+      // Every original may carry a separately normalized read/snapshot object.
+      // Conservatively charge the whole validated read metadata per entry.
+      const readBytes = value.kind === 'recorded' ? JSON.stringify(value.input.read).length * 2 : 0;
+      const bytes = readBytes + 512 + 2 * (gestureId.length + op.id.length + op.userId.length + op.layerId.length + op.frame.strokeId.length + op.frame.brush.length + op.frame.materialPacked.length);
+      const extra = old ? Math.max(0, bytes - old.bytes) : bytes;
+      if (!Number.isSafeInteger(bytes) || (!old && this.replayCount >= limit.maxEntries) || this.replayBytes + extra > limit.maxBytes)
+          throw new RangeError('Active replay capacity exceeded');
+      // Promotion keeps the old reservation (same logical payload) and only
+      // reserves a positive delta before the receipt's external release callback.
+      const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(value.kind === 'local' ? 512 : extra);
+      const release = () => { try {
+          releaseMetadata();
+      }
+      finally {
+          releaseLocalPayload?.();
+      } };
+      const generation = this.replayGeneration;
+      let done = false;
+      return {
+          commit: () => {
+              if (done)
+                  return;
+              if (this.closed || this.failed || generation !== this.replayGeneration)
+                  throw new Error('Replay stage retired');
+              if (old) {
+                  if (this.replay.get(op.id) !== old)
+                      throw new Error('Replay promotion replaced');
+                  const prior = old.release;
+                  old.value = value;
+                  old.bytes += extra;
+                  old.release = () => { try {
+                      prior();
+                  }
+                  finally {
+                      release();
+                  } };
+                  this.replayBytes += extra;
+              }
+              else {
+                  this.replay.set(op.id, { id: op.id, gestureId, value, bytes, release, pins: 0, retired: false });
+                  this.replayBytes += bytes;
+                  this.replayCount++;
+              }
+              done = true;
+          },
+          rollback: () => { if (!done) {
+              done = true;
+              releaseMetadata();
+          } },
+      };
+  }
+  private retireReplayGesture(gestureId: string): void {
+      for (const [id, entry] of this.replay)
+          if (entry.gestureId === gestureId) {
+              this.replay.delete(id);
+              entry.retired = true;
+              if (!entry.pins)
+                  this.releaseReplayEntry(entry);
+          }
+  }
+  private releaseReplayEntry(entry: ReplayEntry): void {
+      this.replayBytes -= entry.bytes;
+      this.replayCount--;
+      this.clean(entry.release);
+  }
+  private retireReplayMetadata(entry: Entry): void {
+      if (!this.options.replayRetention) {
+          this.clean(entry.releaseMetadata);
+          return;
+      }
+      if (entry.metadataRetired)
+          return;
+      entry.metadataRetired = true;
+      if (!entry.replayPins)
+          this.clean(entry.releaseMetadata);
+  }
+  /** One bounded work snapshot. No new lifetime/grant; exact owners are rechecked. */
+  /** @internal Owner-only work pin, not an execution or network grant. */
+  retainReplaySnapshot(): ReplaySnapshot {
+      this.assertOpen();
+      this.assertRecordedCurrent();
+      this.assertLayers();
+      if (!this.options.replayRetention || this.replayWork)
+          throw new Error('Replay work unavailable');
+      const count = this.replay.size;
+      const generation = this.replayGeneration;
+      const orderRevision = this.replayOrderRevision;
+      // Reserve before allocating additional snapshot/index arrays or root pins.
+      const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(256 + count * 32);
+      let entries: ReplayEntry[] = [];
+      let values: readonly ReplayValue[] | undefined;
+      let owners: Entry[] = [];
+      const roots: CanonicalMaskSourceLease[] = [];
+      try {
+          this.assertOpen();
+          this.assertRecordedCurrent();
+          this.assertLayers();
+          if (generation !== this.replayGeneration || orderRevision !== this.replayOrderRevision || count !== this.replay.size || this.replayWork)
+              throw new Error('Replay snapshot owner changed');
+          for (const owner of this.entries)
+              for (const entry of this.replay.values())
+                  if (entry.gestureId === owner.id)
+                      entries.push(entry);
+          values = Object.freeze(entries.map(e => e.value));
+          owners = this.entries.filter(owner => entries.some(e => e.gestureId === owner.id));
+          for (const entry of owners)
+              if (entry.sourceLease)
+                  roots.push(entry.sourceLease.retain());
+          this.assertOpen();
+          this.assertRecordedCurrent();
+          this.assertLayers();
+          // The assertions above are owner callbacks and may create another
+          // snapshot or retire/replace journal entries with the same count.
+          // Claim the work slot only after this final callback-free check.
+          if (generation !== this.replayGeneration || orderRevision !== this.replayOrderRevision
+              || this.replayWork || count !== this.replay.size || entries.length !== count
+              || entries.some(entry => entry.retired || this.replay.get(entry.id) !== entry))
+              throw new Error('Replay snapshot owner retired');
+      }
+      catch (primary) {
+          for (const root of roots)
+              this.clean(() => root.release());
+          this.clean(releaseMetadata);
+          throw primary;
+      }
+      for (const entry of entries)
+          entry.pins++;
+      for (const owner of owners)
+          owner.replayPins = (owner.replayPins ?? 0) + 1;
+      let released = false, snapshot: ReplaySnapshot;
+      snapshot = Object.freeze({
+          values: () => {
+              if (!values || released || this.closed || this.failed || generation !== this.replayGeneration || orderRevision !== this.replayOrderRevision)
+                  throw new Error('Replay snapshot retired');
+              const capturedValues = values;
+              this.assertRecordedCurrent();
+              this.assertLayers();
+              for (const entry of entries) {
+                  const value = entry.value;
+                  if (value.kind === 'recorded')
+                      value.input.delivery.assertCurrent(value.input);
+                  else if (value.author.assertCurrent(value.author) !== value.author.lifetime.assertCurrent())
+                      throw new Error('Local replay scope replaced');
+              }
+              for (const value of capturedValues)
+                  if (value.kind === 'local' && value.author.assertCurrent(value.author) !== value.author.lifetime.assertCurrent())
+                      throw new Error('Captured local replay scope replaced');
+              if (released || this.closed || this.failed || generation !== this.replayGeneration || orderRevision !== this.replayOrderRevision)
+                  throw new Error('Replay snapshot retired during assertion');
+              return capturedValues;
+          },
+          release: () => {
+              if (released)
+                  return;
+              released = true;
+              if (this.replayWork === snapshot)
+                  this.replayWork = undefined;
+              for (const entry of entries) {
+                  entry.pins--;
+                  if (entry.retired && !entry.pins)
+                      this.releaseReplayEntry(entry);
+              }
+              for (const owner of owners) {
+                  owner.replayPins!--;
+                  if (!owner.replayPins && owner.metadataRetired)
+                      this.clean(owner.releaseMetadata);
+              }
+              owners.length = 0;
+              for (const root of roots)
+                  this.clean(() => root.release(this.cleanupContextLost()));
+              this.clean(releaseMetadata);
+              entries = [];
+              values = undefined;
+              roots.length = 0;
+          },
+      });
+      this.replayWork = snapshot;
+      return snapshot;
+  }
 
   private commitFrontier():Entry|undefined {
     if(this.entries.some(e=>e.firstSequence===undefined))return undefined
@@ -603,11 +839,12 @@ export class CanonicalWashLayerCoordinator {
     this.invalidate()
     if (entry.tile === tiles.length) {
       entry.committed = true
+      this.retireReplayGesture(entry.id)
       const ownership = entry.ownership!; entry.ownership = undefined
       entry.local=undefined
       const sourceLease=entry.sourceLease;entry.sourceLease=undefined;entry.image=undefined
       const cleanupStart=this.errors.length
-      this.clean(()=>ownership.release());this.clean(entry.releaseMetadata)
+      this.clean(()=>ownership.release());this.retireReplayMetadata(entry)
       if(sourceLease)this.clean(()=>sourceLease.release())
       if(this.errors.length>cleanupStart)throw this.errors[cleanupStart]
       this.options.changed(this.options.layerId)
@@ -716,6 +953,9 @@ export class CanonicalWashLayerCoordinator {
     const plan=entry.targetPlan;entry.targetPlan=undefined;entry.commitTarget=undefined;plan?.close()
   }
   private releaseAll(lost: boolean): void {
+    this.replayGeneration++
+    for(const entry of this.entries)this.retireReplayGesture(entry.id)
+    this.clean(()=>this.replayWork?.release())
     this.clean(()=>this.closePresentationPlans(this.work))
     for(const entry of this.entries)this.clean(()=>this.closeCommitPlan(entry))
     this.queue.length = 0; this.dirty.clear(); this.work = undefined; this.positions.clear()
@@ -726,7 +966,7 @@ export class CanonicalWashLayerCoordinator {
       for(const receipt of receipts)this.clean(receipt.release)
       const sourceLease=e.sourceLease;e.sourceLease=undefined;e.image=undefined
       if(sourceLease)this.clean(()=>sourceLease.release(lost))
-      this.clean(e.releaseMetadata)
+      this.retireReplayMetadata(e)
     }
     const releases = this.reservations.splice(0)
     for (const release of releases) this.clean(release)
