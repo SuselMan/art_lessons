@@ -1,8 +1,17 @@
-import type {CanonicalStrokeRasterProfile,ImportedBrush} from '@grafetto/shared'
-import type {CanonicalRoomConnectionRead} from '../../pages/Room/net/canonicalRoomState'
+import type {CanonicalStrokeRasterProfile,CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource,ImportedBrush} from '@grafetto/shared'
+import type {CanonicalRecordedLifetime} from '../../engine'
 import {canonicalSourceAuthorAdmission} from '../../engine/brushLibrary'
 import {TOOL_SCHEMAS,type ToolSchema} from './toolSchemas'
 
+/** Current eligibility metadata only; preparation and BEGIN retain their own authority. */
+export interface CanonicalToolRead extends Pick<CanonicalRecordedLifetime,'assertCurrent'> {
+ readonly authorRasterProfile:CanonicalStrokeRasterProfile
+ readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
+ readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
+ readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
+ readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
+}
 export interface CanonicalToolOption {readonly id:string;readonly sizePx:number}
 export interface CanonicalToolAvailability {
  readonly status:'restoring'|'empty'|'ready'
@@ -10,7 +19,7 @@ export interface CanonicalToolAvailability {
  readonly schema:ToolSchema
 }
 /** Eligibility only. Original owner, preparation and BEGIN still enforce live authority. */
-export function canonicalToolAvailability(canonical:boolean,contentReady:boolean,read:Pick<CanonicalRoomConnectionRead,'authorRasterProfile'|'authorPrimaryTextureSource'|'authorTexturedSource'|'authorPressureTexturedSource'|'authorTexturedAutoSource'|'authorSoftPressureTexturedSource'|'assertCurrent'>|undefined,library:readonly ImportedBrush[],assetMetadata?:(preset:string)=>Parameters<typeof canonicalSourceAuthorAdmission>[2]):CanonicalToolAvailability|undefined {
+export function canonicalToolAvailability(canonical:boolean,contentReady:boolean,read:CanonicalToolRead|undefined,library:readonly ImportedBrush[],assetMetadata?:(preset:string)=>Parameters<typeof canonicalSourceAuthorAdmission>[2]):CanonicalToolAvailability|undefined {
  if(!canonical)return undefined
  let profile:CanonicalStrokeRasterProfile|undefined,primaryTextureSource:'pressure-identity-subtract-v3'|undefined,texturedSource:'fixed-default-auto-texture-v4'|undefined,pressureTexturedSource:'pressure-default-auto-texture-v5'|undefined,softPressureTexturedSource:'pressure-soft-auto-texture-v6'|undefined,texturedAutoSource:'textured-auto-material-v7'|undefined
  if(contentReady&&read)try{read.assertCurrent();profile=read.authorRasterProfile;primaryTextureSource=read.authorPrimaryTextureSource;texturedSource=read.authorTexturedSource;pressureTexturedSource=read.authorPressureTexturedSource;softPressureTexturedSource=read.authorSoftPressureTexturedSource;texturedAutoSource=read.authorTexturedAutoSource}catch{/* Restoring, not a cached eligibility grant. */}
