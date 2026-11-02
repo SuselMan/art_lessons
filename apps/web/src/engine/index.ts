@@ -1420,7 +1420,7 @@ function canonicalRenderImage(snapshot:CanonicalStrokeSnapshotV2|CanonicalStroke
  return snapshot.material.primarySource.kind==='image'?{image:canonicalImageMaterialPin(snapshot.material.primarySource,snapshot.material.assets)}:undefined
 }
 function canonicalCompositePlan(profile:CanonicalStrokeRasterProfile,width:number,height:number):CanonicalCompositeLimits {
- return{width,height,operations:canonicalExecutorOperations(profile),...(profile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE?{texturedOperations:['alphaDarken32FusedScalar']as const}:profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?{texturedOperations:['alphaDarkenBrowserFloat']as const}:{})}
+ return{width,height,operations:canonicalExecutorOperations(profile),...(profile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE?{texturedOperations:['alphaDarken32FusedScalar','over32FusedScalar']as const}:profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?{texturedOperations:['alphaDarkenBrowserFloat','overBrowserFloat']as const}:{})}
 }
 function canonicalRootBinding(root:CanonicalMaskSourceLease,snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7,retain=false) {
  const lease=retain?root.retain():root

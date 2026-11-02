@@ -11,6 +11,7 @@ import * as brushLibraryApi from '../lib/api/brushLibrary'
 import {indexedSocketFixture} from './testing/canonicalIndexedReadFixture'
 import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
 import {canonicalImageMaterialPin} from '@grafetto/shared'
+import {transformedMaskPrepassBudget} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget} from './src/dabs/CanonicalRgba8CompositePass'
 import {canonicalPrimaryTextureMaterialContext,buildCanonicalMaterial,canonicalStrokeSnapshotV3} from '@grafetto/shared'
 import markerFixture from './src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
@@ -808,6 +809,7 @@ it('loads cold original CAS through the actual indexed page before replaying an 
  issuer.handlers.canonical_history_stream_next=body=>{if(body.afterSeq===64){expect(admittedFirstPage).toBe(true);expect(engine.getCanonicalIndexedCut()).toBeNull();readSecondPageAfterOpen=true}return networkNext(body)}
  try{
   await expect(engine.restoreCanonicalIndexedRoom(read)).resolves.toBeUndefined()
+  expect(engine['_canonicalLayerOwner']!.composite.supportsTexturedOperations(['alphaDarken32FusedScalar','over32FusedScalar'])).toBe(true);expect(engine['_canonicalLayerOwner']!.composite['reservedCpuBytes']).toBe(41008);
   expect(availability).toHaveBeenCalled();expect(loaded).toEqual(new Set([tip.id,pattern.id]));expect(readSecondPageAfterOpen).toBe(true)
   expect(engine.getCanonicalIndexedCut()).toMatchObject({throughSeq:112,operationCount:112});expect(engine['_canonicalPixelsReady']).toBe(true)
   expect(issuer.requests.filter(r=>r.event==='canonical_history_stream_next').map(r=>r.body.afterSeq)).toEqual([0,64,112])
@@ -884,7 +886,7 @@ it('loads actual material4 indexed OPEN root through 64/48 original pages and ty
  issuer.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:body.streamId,throughSeq:112,root:body.root,rows:[p.operations[0],p.operations[111]],canonicalCapabilities:attachment([p.operations[0],p.operations[111]]),first:0,terminal:1,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}})
  const resources=vi.spyOn(brushLibraryApi,'prepareCanonicalImageAssets').mockImplementation(async(board,assets,current)=>{current();expect(board).toBe('room');expect(assets).toHaveLength(1);expect(assets[0].id).toBe(p.pattern.id);expect(assets[0].size).toBe(16);expect(importedAssetPixels(p.pattern.id)).toEqual(p.gray);current()})
  const read=await issuer.open(),{engine}=engineFor(read)
- try{await engine.restoreCanonicalIndexedRoom(read);expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(112);expect(resources).toHaveBeenCalled();expect(issuer.requests.filter(r=>r.event==='canonical_history_stream_next').map(r=>r.body.afterSeq)).toEqual([0,64,112]);expect(engine['_canonicalLayerOwner']!.bank!.jobs.every(j=>j.kind==='raw-pattern-l8')).toBe(true)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ try{await engine.restoreCanonicalIndexedRoom(read);expect(engine['_canonicalLayerOwner']!.composite.supportsTexturedOperations(['alphaDarken32FusedScalar','over32FusedScalar'])).toBe(true);expect(engine['_canonicalLayerOwner']!.composite['reservedCpuBytes']).toBe(41008);expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(112);expect(resources).toHaveBeenCalled();expect(issuer.requests.filter(r=>r.event==='canonical_history_stream_next').map(r=>r.body.afterSeq)).toEqual([0,64,112]);expect(engine['_canonicalLayerOwner']!.bank!.jobs.every(j=>j.kind==='raw-pattern-l8')).toBe(true)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
 
 it.each(['phase','budget']as const)('refuses a validly parsed foreign BEGIN4 %s before any local admission/pixel',async fault=>{
@@ -899,15 +901,15 @@ it.each(['phase','budget']as const)('refuses a validly parsed foreign BEGIN4 %s 
 },20000)
 
 /** Old material2 Browser reader/author, with BOTH material4 policies absent. */
-function legacyBrowserOriginal(){
- const profile=CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,pin=canonicalDefaultAutoSourceBinding(autoDescriptor,autoSha,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,profile),geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0}),policy=canonicalSourceComposition(autoDescriptor,profile)
+function legacyBrowserOriginal(profile:typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE|typeof G=CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE){
+ const pin=canonicalDefaultAutoSourceBinding(autoDescriptor,autoSha,profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1',profile),geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0}),policy=canonicalSourceComposition(autoDescriptor,profile)
  if(!policy)throw Error('Legacy Browser composition unavailable')
  const material={version:2 as const,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}},snapshot=canonicalStrokeSnapshotV2({materialVersion:2,material,assets:[],layerId:'layer-1',brush:autoPreset,strokeId:'legacy-browser-engine',boardEpoch:1,descriptorSha256:autoSha,rasterProfile:profile,pigmentRgb8:[0,0,0],composition:{mode:policy.mode,alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:policy.outerBlend}},1,profile)
  const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false},encoder=new SourceCanonicalFrameEncoder({...snapshot,material}),op:CanonicalStrokeOperation={id:'legacy-browser-frame',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'layer-1',frame:encoder.encode(buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:20,y:20,opacity:1,flow:1}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},material).packed).envelope}
  const wire={...original().wire,canonicalAuthorRasterProfile:profile,canonicalReadScope:{roomId:'room',boardEpoch:1,allowedRasterProfiles:[profile]},tailOperations:[op],canonicalHistoryBase:{kind:'full-room-prefix-v2' as const,roomId:'room',boardEpoch:1,throughSeq:1,operationCount:1},canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:op.id,sequence:1,originalUserId:'author',capability:0}]}}
  return{...prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),wire,snapshot}
 }
-it('accounts upfront Browser texture variant for old material2 with read4/author4 OFF, and resets its extra program/8192CPU',async()=>{
+it('accounts upfront BOTH Browser texture variants for old material2 with read4/author4 OFF, and resets two programs/16384CPU',async()=>{
  const p=legacyBrowserOriginal(),{engine}=engineFor(p,true,{begin:async()=>{throw Error('Preparation cannot BEGIN')}}),cpu=engine['_brushMipCache'];let reference:CanonicalRgba8CompositePass|undefined,ownedComposite:CanonicalRgba8CompositePass|undefined
  try{
   expect(p.canonicalRead.authorTexturedSource).toBeUndefined();expect(engine['_canonicalAuthorService']!.texturedSource).toBeUndefined()
@@ -915,15 +917,15 @@ it('accounts upfront Browser texture variant for old material2 with read4/author
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
   const owner=engine['_canonicalLayerOwner']!,limits=owner.plan.composite,plain={width:limits.width,height:limits.height,operations:limits.operations},plainBudget=canonicalRgba8CompositeBudget(plain),texturedBudget=canonicalRgba8CompositeBudget(limits)
   ownedComposite=owner.composite
-  expect(limits.texturedOperations).toEqual(['alphaDarkenBrowserFloat']);expect(limits.operations).toHaveLength(3);expect(texturedBudget.gpuBytes).toBe(plainBudget.gpuBytes);expect(texturedBudget.cpuBytes-plainBudget.cpuBytes).toBe(8192)
-  expect(owner.composite['reservedCpuBytes']).toBe(texturedBudget.cpuBytes);expect(owner.composite['workspace']!.programs.size).toBe(4);expect(owner.composite['workspace']!.programs.has('alphaDarkenBrowserFloat:subtract-u8-v1')).toBe(true)
+  expect(limits.texturedOperations).toEqual(['alphaDarkenBrowserFloat','overBrowserFloat']);expect(limits.operations).toHaveLength(3);expect(texturedBudget.gpuBytes).toBe(plainBudget.gpuBytes);expect(texturedBudget.cpuBytes-plainBudget.cpuBytes).toBe(16384)
+  expect(owner.composite['reservedCpuBytes']).toBe(texturedBudget.cpuBytes);expect(owner.composite['workspace']!.programs.size).toBe(5);expect(owner.composite['workspace']!.programs.has('alphaDarkenBrowserFloat:subtract-u8-v1')).toBe(true);expect(owner.composite.supportsTexturedOperations(['alphaDarkenBrowserFloat','overBrowserFloat'])).toBe(true)
   const before=cpu.reservedBytes,programs=vi.spyOn(engine['gl'],'createProgram')
   reference=new CanonicalRgba8CompositePass(engine['gl'],owner.cache,cpu,'legacy-browser-reference')
   reference.prepare(plain,[]);expect(programs).toHaveBeenCalledTimes(3);expect(reference['workspace']!.programs.size).toBe(3);expect(reference.supportsTexturedOperations(['alphaDarkenBrowserFloat'])).toBe(false);expect(reference['reservedCpuBytes']).toBe(plainBudget.cpuBytes);expect(cpu.reservedBytes-before).toBe(plainBudget.cpuBytes)
   reference.reset();expect(reference['reservedCpuBytes']).toBe(0);expect(reference.isReady()).toBe(false);expect(cpu.reservedBytes).toBe(before);reference=undefined
   // Author2 remains available with4 OFF, and reuses the pre-admitted Browser variant.
   installBrushLibrary({schemaVersion:1,brushes:[{descriptor:autoDescriptor,name:'Old Browser2',source:'native',warnings:[]}],assets:[],skipped:[]});engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(autoPreset);engine.setSize(40);engine.setLocked(false)
-  programs.mockClear();expect(await engine.prepareBrush(autoPreset)).toEqual({status:'ready'});expect(engine['_canonicalPreparedAuthor']!.material.kind).toBe('auto');expect(owner.composite['workspace']!.programs.size).toBe(4);expect(programs).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(true)
+  programs.mockClear();expect(await engine.prepareBrush(autoPreset)).toEqual({status:'ready'});expect(engine['_canonicalPreparedAuthor']!.material.kind).toBe('auto');expect(owner.composite['workspace']!.programs.size).toBe(5);expect(programs).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(true)
  }finally{reference?.reset();engine.destroy();expect(cpu.reservedBytes).toBe(0);expect(ownedComposite?.['reservedCpuBytes']).toBe(0);expect(ownedComposite?.['workspace']).toBeUndefined()}
 },20000)
 it.each([{rangeMax:23,rangeMin:14},{rangeMax:24,rangeMin:13},{rangeMax:24.5,rangeMin:14},{rangeMax:24,rangeMin:14.5}])('rejects insufficient/noninteger upfront Browser precision %j and retires prior ordinary prepass program plus CPU',async ranges=>{
@@ -1116,4 +1118,49 @@ it('retires failed late Soft6 executor reservation without publishing fake opera
   engine['_onStart']({...packet(20,0),pressure:.2})
   await vi.waitFor(()=>expect(begin).toHaveBeenCalledOnce(),{timeout:10000});await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false),{timeout:10000});expect(operations).toHaveLength(0);expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(old.imageLease!.isReady()).toBe(true);reserveSpy?.mockRestore()
  }finally{reserveSpy?.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+
+it('accounts upfront BOTH native GenericSC texture variants through actual full material2 restore and warm companion preparation',async()=>{
+ const p=legacyBrowserOriginal(G),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,limits=owner.plan.composite,plain=canonicalRgba8CompositeBudget({width:limits.width,height:limits.height,operations:limits.operations}),cost=canonicalRgba8CompositeBudget(limits)
+  expect(limits.texturedOperations).toEqual(['alphaDarken32FusedScalar','over32FusedScalar'])
+  expect(cost.cpuBytes).toBe(41008);expect(cost.cpuBytes-plain.cpuBytes).toBe(16384);expect(cost.gpuBytes).toBe(plain.gpuBytes)
+  expect(owner.composite.supportsTexturedOperations(['alphaDarken32FusedScalar','over32FusedScalar'])).toBe(true)
+  expect(owner.composite['reservedCpuBytes']).toBe(cost.cpuBytes);expect(owner.composite['workspace']!.programs.size).toBe(5)
+  const cpu=engine['_brushMipCache'].reservedBytes,workspace=owner.composite['workspace'],compile=vi.spyOn(engine['gl'],'createProgram')
+  owner.composite.prepare(limits,owner.prepass.preparedResources(),transformedMaskPrepassBudget(owner.mask).cpuBytes)
+  const incoming=owner.prepass.preparedResources(),oldCompanions=owner.composite['companions'].length
+  const update=owner.composite.prepareCompanionUpdate(incoming,transformedMaskPrepassBudget(owner.mask).cpuBytes)
+  update.assertCurrent();update.publish();update.finalizeCleanup()
+  const updatedCpu=engine['_brushMipCache'].reservedBytes
+  expect(updatedCpu-cpu).toBe(192*(incoming.length+oldCompanions)+1024)
+  const again=owner.composite.prepareCompanionUpdate(incoming,transformedMaskPrepassBudget(owner.mask).cpuBytes)
+  again.assertCurrent();again.publish();again.finalizeCleanup()
+  expect(compile).not.toHaveBeenCalled();expect(owner.composite['workspace']).toBe(workspace);expect(engine['_brushMipCache'].reservedBytes).toBe(updatedCpu)
+  expect(owner.composite['reservedCpuBytes']).toBe(cost.cpuBytes)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it.each([G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE])('preflights the extra textured OVER CPU before cold workspace GL allocation for %s',async profile=>{
+ const {engine}=await autoHarness(async()=>{throw Error('Resource preparation cannot BEGIN')},autoDescriptor,()=>true,{width:8,height:8},profile)
+ let release:(()=>void)|undefined
+ try{
+  const owner=engine['_canonicalLayerOwner']!,cpu=engine['_brushMipCache'],requested={width:41,height:41,slots:1},maskCost=transformedMaskPrepassBudget(requested)
+  expect(owner.prepared).toBe(false);expect(owner.composite.isReady()).toBe(false);expect(owner.prepass.isReady()).toBe(false)
+  const plain=canonicalRgba8CompositeBudget({width:owner.plan.composite.width,height:owner.plan.composite.height,operations:owner.plan.composite.operations})
+  // This SAME CPU owner can fit the historical one-texture manifest exactly,
+  // but not the new OVER program. The held reservation is real and bounded.
+  const historicalAllowance=maskCost.cpuBytes+plain.cpuBytes+8192,before=cpu.reservedBytes
+  release=cpu.reserve(cpu.budgetBytes-before-historicalAllowance)
+  const held=cpu.reservedBytes,program=vi.spyOn(engine['gl'],'createProgram'),texture=vi.spyOn(engine['gl'],'createTexture'),mask=owner.mask,stable=owner.stable,journal=engine['_log'].entries
+  expect(()=>engine['_prepareCanonicalLayerWorkspace'](owner,requested)).toThrow('Canonical source workspace companions exceed budget')
+  expect(program).not.toHaveBeenCalled();expect(texture).not.toHaveBeenCalled();expect(cpu.reservedBytes).toBe(held)
+  expect(owner.mask).toBe(mask);expect(owner.stable).toBe(stable);expect(engine['_log'].entries).toBe(journal);expect(owner.prepared).toBe(false)
+  release();release=undefined;expect(cpu.reservedBytes).toBe(before)
+  engine['_prepareCanonicalLayerWorkspace'](owner,requested)
+  expect(owner.prepared).toBe(true);expect(owner.composite.supportsTexturedOperations(profile===G?['alphaDarken32FusedScalar','over32FusedScalar']:['alphaDarkenBrowserFloat','overBrowserFloat'])).toBe(true)
+ }finally{release?.();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
