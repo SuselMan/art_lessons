@@ -1,3 +1,6 @@
+import {CanonicalWashLayerCoordinator,type CanonicalWashLayerCoordinatorOptions,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
+import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
+import {canonicalStrokeRasterContract,canonicalStrokeSnapshotV7,packCanonicalTexturedAutoMaterial,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation} from '@grafetto/shared'
 import {canonicalTexturedAutoMaterialContext,buildCanonicalTexturedAutoMaterial,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,type CanonicalMaterialContextV7,type CanonicalTexturedAutoRecipe} from '@grafetto/shared'
 import type {CanonicalFrameSubmissionV7} from './CanonicalFrameExecutor'
 import {CanonicalSoftCircleProgramOwner} from './CanonicalSoftCircleProgramOwner'
@@ -240,4 +243,108 @@ it('replay ticket assertion guard clears even when layer callback throws undefin
  try{const e=s.create({replayFrontier:'textured7-buildup-v1',layer:()=>{callback?.();return{buffer:s.layer,epoch:0}}}),input=submission7(c),ticket=e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})
   callback=()=>{throw undefined};let caught=false;try{ticket.assertCurrent()}catch{caught=true}expect(caught).toBe(true);expect(()=>ticket.publish()).toThrow('not checked');expect(e['planned']).toBeUndefined();callback=undefined;ticket.assertCurrent();ticket.publish();ticket.release()
  }finally{callback=undefined;s.close()}
+})
+
+// Structural original/local7 fixture, not vendor or online source authority.
+function replayConsumer7(){
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),derived=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+ const scope=Object.freeze({roomId:'frontier-room',boardEpoch:0,rasterProfile:G})
+ let current=true,late:(()=>void)|undefined
+ const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('frontier original stale');return scope}})
+ const source=vi.fn<CanonicalWashLayerCoordinatorOptions['source']>(()=>{const child=s.root.retain();return{autoSource:c.primarySource,bank:child,sourceLease:child,primaryTexture:{context:c,root:child}}})
+ const stageCandidate=vi.fn(()=>{throw Error('metadata frontier must not prepare preview')})
+ const coordinator=new CanonicalWashLayerCoordinator({buildupReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stageCandidate,rasterProfile:G,layerId:'layer',layerEpoch:0,maxGestures:16,layer:()=>{late?.();return{buffer:s.layer,epoch:0}},presentation:()=>({buffer:derived,epoch:0}),prepass:s.prepass,composite:s.composite,scratch:s.scratch,source,reserveTransient:s.reserve,changed:vi.fn(),poison:vi.fn()})
+ const snapshot=(strokeId:string)=>canonicalStrokeSnapshotV7({materialVersion:7,material:c,assets:c.assets,layerId:'layer',brush:'brush:generic7@1',strokeId,boardEpoch:0,descriptorSha256:c.primarySource.descriptorSha256,rasterProfile:G,pigmentRgb8:[200,20,50],composition:{mode:'buildup',alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'}},0,G)
+ const author=(strokeId:string):CanonicalLocalWashAuthor=>{const value:CanonicalLocalWashAuthor=Object.freeze({lifetime,snapshot:snapshot(strokeId),userId:'actor',assertCurrent(candidate:CanonicalLocalWashAuthor){if(this!==value||candidate!==value)throw Error('foreign frontier author');return lifetime.assertCurrent()}});return value}
+ const operation=(strokeId:string,ordinal=0,empty=false):CanonicalStrokeOperation=>{
+  const frame=empty?buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame:decoded7(c)
+  const version=canonicalStrokeRasterContract(G).envelopeVersion;if(version!==2)throw Error('GSC envelope2 required')
+  return Object.freeze<CanonicalStrokeOperation>({type:'canonical_stroke',id:`frontier-${strokeId}-${ordinal}`,userId:'actor',timestamp:ordinal,layerId:'layer',frame:{version,rasterProfile:G,brush:'brush:generic7@1',strokeId,frameOrdinal:ordinal,pigmentRgb8:[200,20,50],composition:{mode:'buildup',alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'},texturePhase:c.primaryTexture.phase,materialPacked:packCanonicalTexturedAutoMaterial(frame,c)}})
+ }
+ const recorded=(op:CanonicalStrokeOperation,seq:number):CanonicalRecordedInput=>{
+  const operation={...op,seq},atom=prepareCanonicalRecordedAttachment({version:1,roomId:scope.roomId,boardEpoch:0,capabilities:[{originalUserId:'actor',snapshot:snapshot(op.frame.strokeId)}],bindings:[{operationId:op.id,sequence:seq,originalUserId:'actor',capability:0}]},[operation],scope)[0]
+  let value:CanonicalRecordedInput
+  const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==value)throw Error('foreign original frontier');lifetime.assertCurrent()}})
+  value=Object.freeze({...atom,delivery});return value
+ }
+ return{...s,coordinator,derived,source,stageCandidate,author,operation,recorded,setLate:(fn?:()=>void)=>{late=fn},stale:()=>{current=false},close(){coordinator.cancel();derived.destroy();s.close()}}
+}
+it('consumer7 uses SAME global8 tagged slots across entries, metadata drains and latest stays closed at idle',()=>{
+ const s=replayConsumer7(),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  for(let i=0;i<8;i++)expect(s.coordinator.tryEnqueueLocal(s.author('g'+i),s.operation('g'+i))).toBe(true)
+  expect(s.source).toHaveBeenCalledTimes(8);expect(s.coordinator.queuedFrameCount).toBe(8)
+  const rejected=s.author('g8'),before=s.cpu.reservedBytes,count=s.coordinator['replay'].size
+  expect(s.coordinator.tryEnqueueLocal(rejected,s.operation('g8'))).toBe(false);expect(s.coordinator['replay'].size).toBe(count);expect(s.cpu.reservedBytes).toBe(before)
+  const first=s.coordinator['queue'][0];if(!('kind'in first))throw Error('expected tagged metadata');expect(first.entry.executor.replayReservationCount).toBe(1)
+  s.coordinator.advance();expect(s.coordinator.queuedFrameCount).toBe(7);expect(first.entry.executor.replayReservationCount).toBe(0);expect(s.cpu.reservedBytes).toBeLessThan(before)
+  expect(s.coordinator.tryEnqueueLocal(rejected,s.operation('g8'))).toBe(true)
+  for(let i=0;i<8;i++)s.coordinator.advance()
+  expect(s.coordinator.advance()).toEqual({kind:'preview-idle'});expect(s.coordinator.executionPending).toBe(false);expect(s.coordinator.pending).toBe(false)
+  expect(s.coordinator.presentationReady).toBe(false);expect(s.coordinator.publishedPresentationReady).toBe(false);expect(s.coordinator.checkpointReady).toBe(false)
+  expect(draw).not.toHaveBeenCalled();expect(s.stageCandidate).not.toHaveBeenCalled();expect(s.layer.gpuAllocationSnapshot()).toHaveLength(0)
+  expect(s.coordinator.tryEnqueueLocal(s.author('wake'),s.operation('wake'))).toBe(true);expect(s.coordinator.pending).toBe(true);s.coordinator.advance();expect(s.coordinator.advance()).toEqual({kind:'preview-idle'})
+ }finally{s.close()}
+})
+it('consumer7 captures source once and couples original/local prefix with journal only after last callback',()=>{
+ const s=replayConsumer7()
+ try{
+  const author=s.author('many');expect(s.coordinator.tryEnqueueLocal(author,s.operation('many',0,true))).toBe(true);s.coordinator.advance()
+  const entry=s.coordinator['entries'][0],state=entry.local!.state,bytes=s.cpu.reservedBytes,journal=s.coordinator['replay'].size,real=entry.executor.prepareReplayFrontier.bind(entry.executor)
+  const prepare=vi.spyOn(entry.executor,'prepareReplayFrontier').mockImplementation(input=>{const ticket=real(input);s.setLate(()=>{throw Error('last actual layer callback')});return ticket})
+  expect(()=>s.coordinator.tryEnqueueLocal(author,s.operation('many',1,true))).toThrow('last actual layer callback');s.setLate();prepare.mockRestore()
+  expect(entry.local!.state).toBe(state);expect(s.coordinator['replay'].size).toBe(journal);expect(entry.executor.replayReservationCount).toBe(0);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(bytes)
+  expect(s.coordinator.tryEnqueueLocal(author,s.operation('many',1,true))).toBe(true);expect(s.source).toHaveBeenCalledTimes(1)
+  s.coordinator.advance();const work=s.coordinator.retainReplaySnapshot();expect(work.values()).toHaveLength(2)
+  expect(s.coordinator.tryEnqueueLocal(author,s.operation('many',2,true))).toBe(true);expect(work.values()).toHaveLength(2);work.release()
+ }finally{s.close()}
+})
+it('consumer7 keeps original promotion single-admitted and rejects stale originals without journal mutation',()=>{
+ const s=replayConsumer7()
+ try{
+  const author=s.author('promoted'),op=s.operation('promoted',0,true);s.coordinator.tryEnqueueLocal(author,op)
+  const entry=s.coordinator['entries'][0],executor=entry.executor,prepare=vi.spyOn(executor,'prepareReplayFrontier');s.coordinator.enqueueRecorded(s.recorded(op,1))
+  expect(prepare).not.toHaveBeenCalled();expect(s.source).toHaveBeenCalledTimes(1);expect(s.coordinator.queuedFrameCount).toBe(1);expect(entry.local!.receipts).toHaveLength(0);expect(s.coordinator['replay'].get(op.id)?.value.kind).toBe('recorded')
+  const fresh=s.recorded(s.operation('recorded'),2);s.coordinator.enqueueRecorded(fresh);expect(s.source).toHaveBeenCalledTimes(2);expect(s.coordinator.queuedFrameCount).toBe(2)
+  const rejected=s.recorded(s.operation('stale'),3),count=s.coordinator['replay'].size;s.stale();expect(()=>s.coordinator.enqueueRecorded(rejected)).toThrow('stale');expect(s.coordinator['replay'].size).toBe(count)
+ }finally{s.close()}
+})
+it('consumer7 postcommit promotion cleanup failure remains fatal without reverting accepted original',()=>{
+ const s=replayConsumer7()
+ try{
+  const author=s.author('cleanup'),op=s.operation('cleanup',0,true);s.coordinator.tryEnqueueLocal(author,op)
+  const entry=s.coordinator['entries'][0],error=Error('postcommit original cleanup')
+  Reflect.set(entry.local!.receipts[0],'release',()=>{throw error})
+  expect(()=>s.coordinator.enqueueRecorded(s.recorded(op,1))).toThrow(error)
+  expect(s.coordinator.poisoned).toBe(true);expect(entry.recorded?.lastSeq).toBe(1);expect(entry.local!.receipts).toHaveLength(0);expect(s.coordinator['replay'].get(op.id)?.value.kind).toBe('recorded');expect(s.coordinator.queuedFrameCount).toBe(1);expect(s.coordinator.cleanupFailures).toContain(error)
+ }finally{s.close()}
+})
+it('consumer7 failed pending-ticket cleanup latches fatal while preserving primary admission error',()=>{
+ const s=replayConsumer7(),primary=Error('frontier late validation'),cleanup=Error('frontier target rollback')
+ try{
+  s.reserve.mockImplementationOnce(()=>()=>{throw cleanup})
+  const actual=CanonicalFrameExecutor.prototype.prepareReplayFrontier;const prepare=vi.spyOn(CanonicalFrameExecutor.prototype,'prepareReplayFrontier').mockImplementation(function(this:CanonicalFrameExecutor,input){const ticket=actual.call(this,input);s.setLate(()=>{throw primary});return ticket})
+  expect(()=>s.coordinator.tryEnqueueLocal(s.author('rollback'),s.operation('rollback'))).toThrow(primary);s.setLate()
+  expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures).toContain(cleanup);expect(s.coordinator['replay'].size).toBe(0);expect(s.coordinator.queuedFrameCount).toBe(0);prepare.mockRestore()
+ }finally{s.setLate();s.close()}
+})
+it('consumer7 fresh genuine source-child release fault latches fatal and attempts complete rollback',()=>{
+ const s=replayConsumer7(),cleanup=Error('fresh source child release'),primary='Recorded textured Auto source binding missing or changed'
+ try{
+  const reserve=s.cpu.reserve.bind(s.cpu);let wrapped=false
+  vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(n===2048&&!wrapped){wrapped=true;return()=>{release();throw cleanup}}return release})
+  const original=s.source.getMockImplementation()!;s.source.mockImplementationOnce((...args)=>({...original(...args),autoSource:context7('softAuto').primarySource}))
+  expect(()=>s.coordinator.tryEnqueueLocal(s.author('bad-source'),s.operation('bad-source'))).toThrow(primary)
+  expect(wrapped).toBe(true);expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures).toContain(cleanup);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator['replay'].size).toBe(0)
+ }finally{s.close()}
+})
+it('consumer7 stage and local rollback faults attempt both and preserve thrown undefined validation',()=>{
+ const s=replayConsumer7(),localError=Error('local payload rollback'),stageError=Error('stage metadata rollback')
+ try{
+  const reserve=s.cpu.reserve.bind(s.cpu);let first=true
+  vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(first){first=false;return()=>{release();throw localError}}if(n===512)return()=>{release();throw stageError};return release})
+  const original=s.source.getMockImplementation()!;s.source.mockImplementationOnce((...args)=>{const result=original(...args);s.setLate(()=>{throw undefined});return result})
+  let threw=false,value:unknown='not thrown';try{s.coordinator.tryEnqueueLocal(s.author('undefined'),s.operation('undefined'))}catch(error){threw=true;value=error}s.setLate()
+  expect(threw).toBe(true);expect(value).toBeUndefined();expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.cleanupFailures).toContain(localError);expect(s.coordinator.cleanupFailures).toContain(stageError);expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator['replay'].size).toBe(0)
+ }finally{s.setLate();s.close()}
 })

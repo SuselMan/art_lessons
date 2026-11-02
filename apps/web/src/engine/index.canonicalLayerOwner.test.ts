@@ -436,11 +436,14 @@ it('finishes only the captured ordinary head despite between-turn refill, then g
   engine.appendOriginalRecorded(recorded(p,1,'preview-head',false,0,64))
   const job=owner.job!;engine['_stepCanonicalLayer'](job)
   const coordinator=owner.coordinator!,head=coordinator['queue'][0]
+  if('kind' in head)throw Error('Expected ordinary wash head')
   expect(head.executor.pendingFrameCount).toBe(1)
   // A genuine later original enters between synchronous turns, never inside
   // coordinator.busy. It must not extend the captured head-frame boundary.
   engine.appendOriginalRecorded(recorded(p,2,'preview-refill',false,0,64))
-  const later=coordinator['queue'].at(-1)!,advance=vi.spyOn(later.executor,'advance')
+  const later=coordinator['queue'].at(-1)!
+  if('kind' in later)throw Error('Expected ordinary wash refill')
+  const advance=vi.spyOn(later.executor,'advance')
   const originalStage=engine['_stageCanonicalPreview'].bind(engine)
   let staged=false,callsAtStage=-1
   const stageHook={stage:originalStage};engine['_stageCanonicalPreview']=(o,bytes)=>stageHook.stage(o,bytes)
