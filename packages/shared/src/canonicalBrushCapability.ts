@@ -2,7 +2,7 @@ import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type Canonica
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import { captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
+import { captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
 
 /** Only the native outer law representable by canonical over32 today.
  * This checks composition of an already verified descriptor, not source-data
@@ -480,4 +480,37 @@ export function extractCanonicalSoftAutoNativeDefaultTextureProgramData(descript
   const geometry=pressureTextureGeometry(descriptor,assets);if(!geometry.supported)return geometry
   return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:data as SourceStampData & {readonly version:2;readonly source:import('./sourceStampData.js').SourceSoftAutoData},program:captured.program,patternAsset:geometry.patternAsset})
  }catch{return reject('invalid-native-default-soft-texture-data')}
+}
+
+/** Closed Gaussian original pressure DATA. Random phase remains unresolved;
+ * this creates no source binding, material, raster or author permission. */
+export type CanonicalGaussianTexturePressureProgramDataResult =
+ | {readonly supported:false;readonly reasons:readonly string[]}
+ | {readonly supported:true;readonly status:'source-data-only';readonly rasterReady:false;
+    readonly data:SourceStampData;
+    readonly program:SourceTexturePressureProgramData;readonly patternAsset:CanonicalMaterialAsset;
+    readonly phase:Readonly<{readonly kind:'unresolved-original-random-phase-v1';readonly x:number;readonly y:number;readonly randomX:true;readonly randomY:true}>}
+
+export function extractCanonicalGaussianAutoTexturePressureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>):CanonicalGaussianTexturePressureProgramDataResult{
+ const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
+ try{
+  const field=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+  if(!field||!Object.hasOwn(field,'value'))return reject('texture-original-source-unavailable')
+  const captured=captureSourceGaussianTexturePressureProgram(field.value),data=captured.data
+  if(data.version!==2||data.source.kind!=='gaussianAuto')return reject('gaussian-pressure-family-required')
+  const source=data.source
+  if(data.role!=='primary'||data.unsupported.length||data.options.length!==9||!data.flags.materialFixed1||!data.flags.textureEnabled||source.shape!=='circle'||source.antialias||source.ratio>1||source.spikes!==2||source.randomness!==0||source.density!==1||!sourceStampPaintingMode(data))return reject('unsupported-gaussian-texture-source')
+  if(descriptor.model!=='stamp'||descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.dual||descriptor.behavior?.colorAdjustment||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
+  const available=textureData(assets,['pattern']),pattern=textureData(available.pattern,['id','size'])
+  if(typeof pattern.id!=='string'||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||typeof pattern.size!=='number'||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
+  const tfield=Object.getOwnPropertyDescriptor(descriptor,'texture')
+  if(!tfield||!Object.hasOwn(tfield,'value'))return reject('texture-descriptor-unavailable')
+  const t=textureData(tfield.value,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+  if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false||offset.randomX!==true||offset.randomY!==true)return reject('unsupported-gaussian-texture-data')
+  const dimension=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=1&&v<=4096&&!Object.is(v,-0)
+  if(!dimension(size.width)||!dimension(size.height)||size.width!==size.height||size.width>pattern.size||t.periodPx!==size.width||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||offset.x<0||offset.y<0||offset.x>2147483647||offset.y>2147483647)return reject('unsupported-original-texture-geometry')
+  const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
+  const phase=Object.freeze({kind:'unresolved-original-random-phase-v1' as const,x:offset.x,y:offset.y,randomX:true as const,randomY:true as const})
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data,program:captured.program,patternAsset,phase})
+ }catch{return reject('invalid-gaussian-pressure-texture-data')}
 }

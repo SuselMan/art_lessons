@@ -121,7 +121,7 @@ def mapped_soft_frontier_retired(data):
 
 
 
-def texture_pressure_source_curve(data):
+def _texture_pressure_source_curve(data, source_kind):
     """Closed optional material DATA. None preserves unsupported legacy imports.
 
     This selects original raw pressure only, never a raster/author capability.
@@ -130,10 +130,15 @@ def texture_pressure_source_curve(data):
     if type(data) is not dict: return None
     source=data.get('source',{}); flags=data.get('flags',{}); settings=data.get('settings',{})
     if not all(type(v) is dict for v in (source,flags,settings)): return None
-    if (data.get('version')!=2 or data.get('role')!='primary' or source.get('kind')!='defaultAuto'
+    if (data.get('version')!=2 or data.get('role')!='primary' or source.get('kind')!=source_kind
             or data.get('unsupported') or flags.get('textureEnabled') is not True
             or flags.get('materialFixed1') is not True or source.get('spikes')!=2
             or source.get('randomness')!=0 or source.get('density')!=1): return None
+    if source_kind=='gaussianAuto' and (data.get('reader')!='krita-bd6e8d0-v1'
+            or type(data.get('options')) is not list or len(data['options'])!=9
+            or source.get('shape')!='circle' or source.get('antialias') is not False
+            or not isinstance(source.get('ratio'),(int,float)) or isinstance(source.get('ratio'),bool)
+            or not 0<source['ratio']<=1): return None
     expected={'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true',
               'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true',
               'Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1',
@@ -151,6 +156,14 @@ def texture_pressure_source_curve(data):
     except ValueError: return None
     if not 2<=len(curve['points'])<=9 or curve['points'][0]['corner'] or curve['points'][-1]['corner']: return None
     return curve
+
+def texture_pressure_source_curve(data):
+    """Existing DefaultAuto pressure DATA; Gaussian never enters this public family."""
+    return _texture_pressure_source_curve(data,'defaultAuto')
+
+def gaussian_texture_pressure_source_curve(data):
+    """Separate Gaussian pressure DATA only; original random phase is not resolved."""
+    return _texture_pressure_source_curve(data,'gaussianAuto')
 
 def texture_native_default_source_curve(data):
     """Pinned native default DATA only; no raw XML rewrite or raster admission."""

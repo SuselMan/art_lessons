@@ -288,7 +288,8 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   const mapped=compiled.version===2||material||nativeDefault
   let pressureProgram:{readonly curve:SourceStampCompiledCurve}|undefined
   if(material){
-    if(v.version!==2||!record(v.source)||v.source.kind!=='defaultAuto'||!record(v.flags)||v.flags.textureEnabled!==true)return false
+    if(v.version!==2||!record(v.source)||!['defaultAuto','gaussianAuto'].includes(String(v.source.kind))||!record(v.flags)||v.flags.textureEnabled!==true)return false
+    if(v.source.kind==='gaussianAuto'&&(v.role!=='primary'||v.options.length!==9||!Array.isArray(v.unsupported)||v.unsupported.length!==0||v.flags.materialFixed1!==true||v.source.shape!=='circle'||v.source.antialias!==false||!finite(v.source.ratio)||v.source.ratio<=0||v.source.ratio>1||v.source.spikes!==2||v.source.randomness!==0||v.source.density!==1))return false
     try{pressureProgram=texturePressureProgram(compiled,v.settings)}catch{return false}
   }
   if(nativeDefault){
@@ -374,6 +375,17 @@ function texturePressureProgram(compiledValue:unknown,settingsValue:unknown):Sou
 export function captureSourceTexturePressureProgram(value:unknown):Readonly<{data:SourceStampData;program:SourceTexturePressureProgramData}> {
  const captured=textureCapture(value)
  if(!isSourceStampData(captured))throw TypeError('Invalid original source data')
+ if(captured.version!==2||captured.source.kind!=='defaultAuto')throw TypeError('DefaultAuto pressure family required')
+ const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
+ const program=texturePressureProgram(source.compiled,source.settings)
+ return Object.freeze({data:captured,program})
+}
+
+/** Pure Gaussian DATA slot; not a resolved phase, source pin or execution grant. */
+export function captureSourceGaussianTexturePressureProgram(value:unknown):Readonly<{data:SourceStampData;program:SourceTexturePressureProgramData}> {
+ const captured=textureCapture(value)
+ if(!isSourceStampData(captured))throw TypeError('Invalid original source data')
+ if(captured.version!==2||captured.source.kind!=='gaussianAuto')throw TypeError('Gaussian pressure family required')
  const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
  const program=texturePressureProgram(source.compiled,source.settings)
  return Object.freeze({data:captured,program})
