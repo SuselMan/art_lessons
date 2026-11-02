@@ -1108,3 +1108,97 @@ it('legacy preview genuine FIRST reorder cancels SAME hidden candidate and rebui
  }finally{clock.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })
+
+function mixedOriginalWashOpen(s:ReturnType<typeof replayConsumer7>,name:string,seq=1):CanonicalRecordedInput {
+ const op=s.operation(name,0,false,undefined,'wash'),c=context7('defaultAuto')
+ return s.recorded(Object.freeze({...op,frame:{...op.frame,materialPacked:packCanonicalTexturedAutoMaterial(renderedOpen7(c),c)}}),seq)
+}
+function drainMixedWashQueue(s:ReturnType<typeof replayConsumer7>):void {
+ for(let i=0;i<500&&s.coordinator.queuedFrameCount;i++)s.coordinator.advance()
+ expect(s.coordinator.queuedFrameCount).toBe(0)
+}
+it('mixed WASH original close retains exact receipt/preclose seal without native seal, raw mutation or queue work',()=>{
+ const s=replayConsumer7(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'wash-exact');s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded!,before=s.cpu.reservedBytes,revision=s.coordinator['revision'],deposited=entry.depositedNextOrdinal,pending=entry.executor.pendingFrameCount,raw=entry.executor.rawWashTiles().map(t=>t.view.texture),sourceCalls=s.source.mock.calls.length
+  const close=s.seal(first),sealNative=vi.spyOn(entry.executor,'sealRecordedPrefix'),draw=vi.spyOn(s.composite,'drawSource')
+  expect(s.coordinator.canAcceptRecorded(close)).toBe(true);s.coordinator.enqueueRecordedSeal(close)
+  expect(entry.closeReceipt?.input).toBe(close);expect(entry.closeReceipt?.prefix).toBe(prefix);expect(entry.closeReceipt?.seal.kind).toBe('commitPartial');expect(Object.isFrozen(entry.closeReceipt?.seal)).toBe(true)
+  expect(entry.recorded).not.toBe(prefix);expect(prefix.sealed).toBe(false);expect(entry.recorded?.sealed).toBe(true);expect(entry.executor.rawWashSealed).toBe(false)
+  expect(entry.executor.rawWashTiles().map(t=>t.view.texture)).toEqual(raw);expect(entry.depositedNextOrdinal).toBe(deposited);expect(entry.executor.pendingFrameCount).toBe(pending);expect(s.coordinator.queuedFrameCount).toBe(0)
+  expect(s.cpu.reservedBytes-before).toBe(4608);expect(s.coordinator['revision']).toBe(revision+1);expect(s.coordinator['lastSequence']).toBe(10)
+  expect(sealNative).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(s.source).toHaveBeenCalledTimes(sourceCalls);expect(s.coordinator.checkpointReady).toBe(false)
+  expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(entry.closeReceipt?.input).toBe(close)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('mixed WASH full8 render queue still accepts original metadata close of already deposited OPEN target without9thslot',()=>{
+ const s=replayConsumer7(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'wash-full');s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const entry=s.coordinator['entries'][0],close=s.seal(first),sealNative=vi.spyOn(entry.executor,'sealRecordedPrefix')
+  for(let i=0;i<8;i++)s.coordinator.enqueueRecorded(mixedOriginalWashOpen(s,'queued-wash-'+i,i+2))
+  expect(s.coordinator.queuedFrameCount).toBe(8);expect(s.coordinator['queue']).not.toContain(entry)
+  const draw=vi.spyOn(s.composite,'drawSource'),sourceCalls=s.source.mock.calls.length
+  expect(s.coordinator.canAcceptRecorded(close)).toBe(true);expect(()=>s.coordinator.enqueueRecordedSeal(close)).not.toThrow()
+  expect(s.coordinator.queuedFrameCount).toBe(8);expect(entry.closeReceipt?.input).toBe(close);expect(s.coordinator['queue']).not.toContain(entry)
+  expect(sealNative).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(s.source).toHaveBeenCalledTimes(sourceCalls);expect(s.coordinator.checkpointReady).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('mixed WASH late close does not upgrade captured OPEN R and close receipt stays charged until actual Entry pins retire',()=>{
+ const s=replayConsumer7(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'wash-pin');s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const old=s.coordinator.retainReplaySnapshot(),groups=old.groups!(),close=s.seal(first),reserve=s.cpu.reserve.bind(s.cpu);let closeReleases=0
+  const hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);return n===4608?()=>{closeReleases++;release()}:release})
+  expect(groups[0].kind).toBe('wash');expect(groups[0].close).toBeUndefined();s.coordinator.enqueueRecordedSeal(close);expect(old.groups!()).toBe(groups);expect(groups[0].close).toBeUndefined();old.release()
+  const entry=s.coordinator['entries'][0],receipt=entry.closeReceipt!,next=s.coordinator.retainReplaySnapshot(),group=next.groups!()[0]
+  expect(group.close?.input).toBe(close);expect(group.close?.seal).toBe(receipt.seal);expect(receipt.prefix).not.toBe(entry.recorded)
+  s.coordinator['retireReplayMetadata'](entry);expect(entry.closeReceipt).toBe(receipt);expect(closeReleases).toBe(0);next.release();expect(entry.closeReceipt).toBeUndefined();expect(closeReleases).toBe(1);hook.mockRestore()
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('mixed WASH close CPU denial/late undefined preserves receipt prefix raw and allows SAME issued retry with busy callbacks',()=>{
+ for(const kind of['cpu','late']as const){
+  const s=replayConsumer7(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  try{
+   const first=mixedOriginalWashOpen(s,'wash-rollback');s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+   const entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes,last=s.coordinator['lastSequence'];let calls=0,fail=true,close:CanonicalRecordedInput
+   close=s.seal(first,{},()=>{calls++;expect(()=>s.coordinator.cancel()).toThrow('turn');expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow('busy');if(kind==='late'&&calls===2&&fail)throw undefined})
+   const reserve=s.cpu.reserve.bind(s.cpu),hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(kind==='cpu'&&n===4608&&fail)throw undefined;return reserve(n)})
+   let caught=false;try{s.coordinator.enqueueRecordedSeal(close)}catch(error){caught=true;expect(error).toBeUndefined()}
+   expect(caught).toBe(true);expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.coordinator['lastSequence']).toBe(last);expect(s.cpu.reservedBytes).toBe(bytes);expect(entry.executor.rawWashSealed).toBe(false);expect(s.coordinator.poisoned).toBe(false)
+   fail=false;s.coordinator.enqueueRecordedSeal(close);hook.mockRestore();expect(entry.closeReceipt?.input).toBe(close)
+  }finally{clock.mockRestore();s.close()}
+  expect(s.cpu.reservedBytes).toBe(0)
+ }
+})
+it('mixed WASH original close refuses actual pattern-root revocation with SAME mask epochs before receipt publication',()=>{
+ const s=replayConsumer7(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=mixedOriginalWashOpen(s,'wash-root-close');s.coordinator.enqueueRecorded(first);drainMixedWashQueue(s)
+  const entry=s.coordinator['entries'][0],prefix=entry.recorded,beforeReset=s.cpu.reservedBytes,mask=s.prepass.preparedCapacity().epoch,composite=s.composite.preparedCapacity().epoch,close=s.seal(first)
+  s.bank.reset();const bytes=s.cpu.reservedBytes;expect(bytes).toBeLessThan(beforeReset);expect(s.prepass.preparedCapacity().epoch).toBe(mask);expect(s.composite.preparedCapacity().epoch).toBe(composite)
+  expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.cpu.reservedBytes).toBe(bytes)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it.each(['prefix','range','layer','copy','ended','local-tail']as const)('mixed WASH close rejects %s before receipt/sequence/raw publication',kind=>{
+ const s=replayConsumer7()
+ try{
+  const first=kind==='ended'?s.recorded(s.operation('wash-negative',0,false,undefined,'wash'),1):mixedOriginalWashOpen(s,'wash-negative')
+  if(first.operation.type!=='canonical_stroke')throw Error('Original frame required')
+  if(kind==='local-tail'){
+   const op=first.operation,local=s.author('wash-negative','wash'),original=Object.freeze({type:'canonical_stroke' as const,id:op.id,userId:op.userId,timestamp:op.timestamp,layerId:op.layerId,frame:op.frame})
+   expect(s.coordinator.tryEnqueueLocal(local,original)).toBe(true);s.coordinator.enqueueRecorded(first)
+   expect(s.coordinator.tryEnqueueLocal(local,s.operation('wash-negative',1,true,undefined,'wash'))).toBe(true)
+  }else s.coordinator.enqueueRecorded(first)
+  const patch:Partial<CanonicalStrokeCloseOperation>=kind==='prefix'?{lastFrameOpId:'wrong-original'}:kind==='range'?{recordedNext:2}:kind==='layer'?{layerId:'other-layer'}:{}
+  const issued=s.seal(first,patch),close=kind==='copy'?{...issued}:issued,entry=s.coordinator['entries'][0],prefix=entry.recorded,bytes=s.cpu.reservedBytes,last=s.coordinator['lastSequence'],queue=s.coordinator.queuedFrameCount,native=entry.executor.rawWashSealed
+  expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(entry.recorded).toBe(prefix);expect(entry.closeReceipt).toBeUndefined();expect(s.cpu.reservedBytes).toBe(bytes);expect(s.coordinator['lastSequence']).toBe(last);expect(s.coordinator.queuedFrameCount).toBe(queue);expect(entry.executor.rawWashSealed).toBe(native)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})

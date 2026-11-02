@@ -185,7 +185,7 @@ interface ReplayWashGroup {
     readonly depositedNextOrdinal:number
     readonly frames:readonly ReplayGroupFrame7[]
     readonly presentation:PreviewSnapshotEntry
-    readonly close?:never
+    readonly close?:Readonly<Pick<RecordedCloseReceipt,'input'|'seal'>>
 }
 type ReplayCapturedGroup=ReplayGroup7|ReplayWashGroup
 interface MixedCandidateWork {
@@ -385,7 +385,7 @@ export class CanonicalWashLayerCoordinator {
     if(op.layerId!==this.options.layerId)throw new TypeError('Recorded source layer mismatch')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,close?op.targetUserId:op.userId,close?op.strokeId:op.frame.strokeId])
     const entry=this.entries.find(e=>e.id===id)
-    if(close){if(!entry?.recorded)throw new Error('Recorded close owner missing');return this.queue.includes(entry)||this.queue.length<8}
+    if(close){if(!entry?.recorded)throw new Error('Recorded close owner missing');return this.options.mixedReplay7||this.queue.includes(entry)||this.queue.length<8}
     if(entry?.local)return true // Original promotion adds no GPU frame.
     return this.queue.length<8&&(!entry||entry.executor.pendingFrameCount<8)
   }
@@ -525,17 +525,7 @@ export class CanonicalWashLayerCoordinator {
   }
 
   enqueueRecordedSeal(input:CanonicalRecordedInput):void {
-    if(this.options.mixedReplay7){
-      this.assertOpen();this.busy=true
-      let buildup=false
-      try{
-        // Routing only, under busy; the selected existing handler still verifies
-        // the exact issued input and original scope before any acceptance.
-        const op=input.operation
-        if(op.type==='canonical_stroke_close')buildup=this.entries.some(e=>e.mode==='buildup'&&(e.recorded?.userId??e.local?.author.userId)===op.targetUserId&&(e.recorded?.strokeId??e.local?.author.snapshot.strokeId)===op.strokeId)
-      }finally{this.busy=false}
-      if(buildup){this.enqueueBuildupRecordedSeal(input);return}
-    }
+    if(this.options.mixedReplay7){this.enqueueMixedRecordedSeal(input);return}
     this.assertOpen();input.delivery.assertCurrent(input)
     const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
     if(op.type!=='canonical_stroke_close')throw new TypeError('Recorded close input required')
@@ -550,8 +540,9 @@ export class CanonicalWashLayerCoordinator {
     entry!.recorded={...r,sealed:true}
   }
 
-  /** Original interrupted-close transaction; no frame, queue slot or fake END. */
-  private enqueueBuildupRecordedSeal(input:CanonicalRecordedInput):void {
+  /** Mixed original interrupted-close metadata; WASH does NOT seal native
+   * execution or claim completion. No frame, queue slot, source or fake END. */
+  private enqueueMixedRecordedSeal(input:CanonicalRecordedInput):void {
     this.assertOpen()
     this.busy=true
     const generation=this.replayGeneration,previousSequence=this.lastSequence
@@ -562,9 +553,11 @@ export class CanonicalWashLayerCoordinator {
       if(op.type!=='canonical_stroke_close'||input.read)throw new TypeError('Original close input required')
       const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.targetUserId,op.strokeId])
       const entry=this.entries.find(e=>e.id===id),prefix=entry?.recorded
-      if(!entry||!prefix||prefix.snapshot.materialVersion!==7||prefix.snapshot.composition.mode!=='buildup'
+      if(!entry||!prefix||prefix.snapshot.composition.mode!==entry.mode||entry.mode==='buildup'&&prefix.snapshot.materialVersion!==7
+        ||entry.committed||entry.metadataReleased||entry.metadataRetired
         ||prefix.lifetime!==lifetime||prefix.scope!==scope||prefix.sealed||entry.closeReceipt
         ||entry.local?.receipts.length)throw new Error('Recorded close owner missing or stale')
+      const source=entry.replaySource,sourceLease=entry.sourceLease,image=entry.image
       this.assertRecordedCurrent()
       this.assertLayers()
       // The closed normalized operation has seven texts, each <=256 UTF-16
@@ -584,15 +577,16 @@ export class CanonicalWashLayerCoordinator {
       if(lifetime.assertCurrent()!==scope)throw new Error('Recorded close scope replaced')
       this.assertRecordedCurrent()
       this.assertLayers()
-      const source=entry.replaySource
-      if(!source)throw new Error('Accepted close source missing')
-      source.assertCurrent()
-      this.assertReplayOriginal(source,prefix.snapshot)
+      if(entry.mode==='buildup'){
+        if(!source)throw new Error('Accepted close source missing')
+        source.assertCurrent();this.assertReplayOriginal(source,prefix.snapshot)
+      }
+      if(sourceLease&&!sourceLease.isReady())throw new Error('Accepted WASH close source retired')
       // Final pure CAS after every external assertion. No callback between
       // receipt, sealed-prefix, sequence and metadata-only control revision.
       if(this.closed||this.failed||!this.busy||generation!==this.replayGeneration
         ||previousSequence!==this.lastSequence||!this.entries.includes(entry)||entry.recorded!==prefix
-        ||entry.closeReceipt||entry.local?.receipts.length||entry.replaySource!==source||seal.closeSeq<=previousSequence)
+        ||entry.closeReceipt||entry.local?.receipts.length||entry.replaySource!==source||entry.sourceLease!==sourceLease||entry.image!==image||entry.metadataReleased||entry.metadataRetired||seal.closeSeq<=previousSequence)
         throw new Error('Recorded close owner changed before publication')
       entry.closeReceipt=receipt
       entry.recorded=sealed
@@ -1098,7 +1092,7 @@ export class CanonicalWashLayerCoordinator {
           const tiles=this.locals(owner)
           if(tiles.length>this.positions.size)throw Error('Mixed raw view count changed')
           for(const tile of tiles)if(!this.positions.has(key(tile)))throw Error('Mixed raw tile outside accepted union')
-          group=Object.freeze({kind:'wash',id:owner.id,depositedNextOrdinal:owner.depositedNextOrdinal,frames:Object.freeze(frames),presentation:Object.freeze({committed:owner.committed,opacity:owner.opacity,blend:owner.blend,tiles})})
+          group=Object.freeze({kind:'wash',id:owner.id,depositedNextOrdinal:owner.depositedNextOrdinal,frames:Object.freeze(frames),presentation:Object.freeze({committed:owner.committed,opacity:owner.opacity,blend:owner.blend,tiles}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
           proofs.push({owner,sourceLease:owner.sourceLease,ownership:owner.ownership,group,close,prefix,witness})
         }else{
           if(!source)throw Error('Accepted replay source unavailable')
