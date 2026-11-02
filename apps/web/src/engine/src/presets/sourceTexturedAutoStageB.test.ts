@@ -4,7 +4,7 @@ import{createHash}from'node:crypto'
 import def from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with{type:'json'}
 import soft from '../../../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json' with{type:'json'}
 import gauss from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/pencil3.texture-pressure.compiled3.metadata.json' with{type:'json'}
-import{canonicalTexturedAutoProgramBinding,captureTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalBrushDescriptorJSON,resolveCanonicalTexturePhase,canonicalTexturedAutoMaterialContext,canonicalSourceComposition,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,type BrushDescriptor,type CanonicalMaterialFrameV7}from'@grafetto/shared'
+import{packCanonicalTexturedAutoMaterial,unpackCanonicalTexturedAutoMaterial,canonicalTexturedAutoProgramBinding,captureTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalBrushDescriptorJSON,resolveCanonicalTexturePhase,canonicalTexturedAutoMaterialContext,canonicalSourceComposition,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,type BrushDescriptor,type CanonicalMaterialFrameV7}from'@grafetto/shared'
 import{sourceTexturedAutoAuthorProgram}from'./sourceStrokeAuthorDescriptor'
 import{SourceStrokeAuthor,sourceTexturedAutoProgramCpuBytes,type SourceAuthorPacket,type SourceStrokeAuthorStep}from'./sourceStrokeAuthor'
 import{createTexturedAutoMaterialAdapter,SourceStrokeMaterialAdapter,copySourceMaterialContext,type SourceStrokeMaterialContextV7,type SourceStrokeMaterialChunk}from'./sourceStrokeMaterialAdapter'
@@ -35,4 +35,97 @@ describe('explicit standalone7 phase-bound material adapter and encoder',()=>{
  copySourceMaterialContext(s.context)
  }expect(types).toBeTypeOf('function')})
  it('rejects own-data target/context/encoder callbacks before consuming state and fails encode atomically',()=>{const s=setup(def),state=s.author.createState(1,2,0),bad=structuredClone(s.context);let calls=0;Object.defineProperty(bad.targetGeometry!,'tileWidth',{get(){calls++;return 512}});expect(()=>createTexturedAutoMaterialAdapter(s.program,bad,state)).toThrow();const outer={...s.stroke};Object.defineProperty(outer,'composition',{get(){calls++;return s.stroke.composition}});expect(()=>createTexturedAutoFrameEncoder(outer)).toThrow();expect(calls).toBe(0);const encoder=createTexturedAutoFrameEncoder(s.stroke);expect(()=>encoder.encode('6|AAAA')).toThrow();expect(encoder.nextFrameOrdinal).toBe(0);expect(encoder.ended).toBe(false)})
+})
+
+
+/** Original Pencil3 DATA flows through the same named7 author and codec.
+ * Expected scale endpoints and quarter turns come from retained original
+ * curve endpoints / pinned native scalar laws, not sensor-helper self-calls. */
+function pencil3CpuStream(packets:readonly SourceAuthorPacket[],browser=false,restore=false){
+ const s=setup(gauss,browser)
+ let state=s.author.createState(11,22,0)
+ let adapter=createTexturedAutoMaterialAdapter(s.program,s.context,state)
+ const chunks:SourceStrokeMaterialChunk<CanonicalMaterialFrameV7>[]=[]
+ let restored=false
+ const consume=(initial:ReturnType<typeof s.author.plan>)=>{
+  let iterator=initial,next=iterator.next()
+  while(!next.done){
+   state=next.value.state
+   chunks.push(...adapter.accept(next.value))
+   const checkpoint=adapter.checkpoint()
+   if(restore&&!restored&&next.value.kind==='material'&&state.cursor&&checkpoint.active&&checkpoint.draws.length>0){
+    restored=true
+    const savedState=structuredClone(state),savedAdapter=structuredClone(checkpoint)
+    iterator.return(state)
+    state=savedState
+    adapter=createTexturedAutoMaterialAdapter(s.program,s.context,state,savedAdapter)
+    expect(adapter.checkpoint()).toEqual(checkpoint)
+    iterator=s.author.resume(state)
+   }
+   next=iterator.next()
+  }
+  state=next.value
+ }
+ for(const input of packets){chunks.push(...adapter.beginInput(state));consume(s.author.plan(state,input))}
+ chunks.push(...adapter.beginInput(state));consume(s.author.finish(state));chunks.push(...adapter.finish(state))
+ const encoder=createTexturedAutoFrameEncoder(s.stroke),encoded=chunks.map(chunk=>encoder.encode(chunk.packed))
+ expect(encoder.ended).toBe(true)
+ const recipes=encoded.flatMap(frame=>frame.frame.draws.map(draw=>frame.frame.definitions[draw.definition]))
+ expect(recipes.length).toBeGreaterThan(0)
+ for(const recipe of recipes)expect(recipe.kind).toBe('gaussianAuto')
+ return{...s,state,chunks,encoded,recipes,restored,checkpoint:adapter.checkpoint()}
+}
+const pencil3ConstantPackets=(pressure:number,tiltX:number,tiltY:number)=>[
+ {...packet(0,0,pressure),tiltX,tiltY},
+ {...packet(120,40,pressure),tiltX,tiltY}
+]
+describe('genuine Pencil3 pressure Size and tiltDirection named7 CPU closure only',()=>{
+ it.each([false,true])('keeps original nonidentity pressure Size endpoints (browser=%s)',browser=>{
+  const before=canonicalBrushDescriptorJSON(setup(gauss,browser).d)
+  const low=pencil3CpuStream(pencil3ConstantPackets(0,30,0),browser)
+  const high=pencil3CpuStream(pencil3ConstantPackets(1,30,0),browser)
+  const size=gauss.descriptor.sourceStamp.options.find(option=>option.id==='Size')!
+  expect(size.sensors.map(sensor=>sensor.id)).toEqual(['pressure'])
+  expect(size.sensors[0].curve.points.map(point=>[point.x,point.y])).toEqual([[0,.487437],[1,1]])
+  for(const recipe of low.recipes)expect(recipe.scale).toBeCloseTo(.487437,12)
+  for(const recipe of high.recipes)expect(recipe.scale).toBeCloseTo(1,12)
+  expect(Math.max(...low.recipes.map(recipe=>recipe.width))).toBeLessThan(Math.max(...high.recipes.map(recipe=>recipe.width)))
+  expect(canonicalBrushDescriptorJSON(low.d)).toBe(before)
+  expect(canonicalBrushDescriptorJSON(high.d)).toBe(before)
+ })
+ it.each([false,true])('resolves cardinal and neutral tilt at identical pressure without new sensor math (browser=%s)',browser=>{
+  const cases=[
+   {tiltX:30,tiltY:0,rotation:1.5*Math.PI},
+   {tiltX:-30,tiltY:0,rotation:.5*Math.PI},
+   {tiltX:0,tiltY:30,rotation:Math.PI},
+   {tiltX:0,tiltY:-30,rotation:0},
+   {tiltX:0,tiltY:0,rotation:1.5*Math.PI},
+   {tiltX:-0,tiltY:-0,rotation:1.5*Math.PI}
+  ]
+  const rotations:number[]=[]
+  for(const input of cases){
+   const s=pencil3CpuStream(pencil3ConstantPackets(.6,input.tiltX,input.tiltY),browser)
+   for(const recipe of s.recipes)expect(recipe.rotation).toBeCloseTo(input.rotation,14)
+   rotations.push(s.recipes[0].rotation)
+  }
+  expect(new Set(rotations.slice(0,4)).size).toBe(4)
+  expect(rotations[4]).toBe(rotations[0]);expect(rotations[5]).toBe(rotations[4])
+ })
+ it.each([false,true])('preserves resolved DRAW/phase through named7 codec and active author/material checkpoint (browser=%s)',browser=>{
+  const inputs=[{...packet(0,0,.2),tiltX:30,tiltY:0},{...packet(120,40,.8),tiltX:0,tiltY:30},{...packet(240,80,.4),tiltX:-30,tiltY:0}]
+  const direct=pencil3CpuStream(inputs,browser),restored=pencil3CpuStream(inputs,browser,true)
+  expect(restored.restored).toBe(true)
+  expect(restored.chunks.map(chunk=>chunk.packed)).toEqual(direct.chunks.map(chunk=>chunk.packed))
+  expect(restored.encoded.map(frame=>frame.frame)).toEqual(direct.encoded.map(frame=>frame.frame))
+  expect(restored.state).toEqual(direct.state);expect(restored.checkpoint).toEqual(direct.checkpoint)
+  const{targetGeometry:_target,...material}=direct.context
+  direct.chunks.forEach((chunk,index)=>{
+   const decoded=unpackCanonicalTexturedAutoMaterial(chunk.packed,material)
+   expect(decoded).toEqual(direct.encoded[index].frame)
+   expect(packCanonicalTexturedAutoMaterial(decoded,material)).toBe(chunk.packed)
+   expect(direct.encoded[index].envelope.texturePhase).toEqual(material.primaryTexture.phase)
+  })
+  expect(new Set(direct.recipes.map(recipe=>recipe.scale)).size).toBeGreaterThan(1)
+  expect(new Set(direct.recipes.map(recipe=>recipe.rotation)).size).toBeGreaterThan(1)
+ })
 })

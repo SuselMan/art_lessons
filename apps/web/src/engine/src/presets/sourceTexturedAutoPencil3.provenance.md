@@ -1,0 +1,11 @@
+# Genuine Pencil3 named7 author/codec CPU coverage
+
+Tests extend the existing sourceTexturedAutoStageB suite without any production change. Base34bd0254876e640b4c8021ed5aea85694e0bfb49 and immutable tracked Gaussian Pencil3 compiled3 metadata are used unchanged. Original descriptor SHA, native selected curve/strength program, pattern metadata and saved phase pass through existing named7 binding/program/adapter/encoder; no CAS pixel data or synthetic replacement descriptor is introduced.
+
+Original Size has the pressure curve endpoints0→.487437 and1→1. Tests require both nonzero distinct geometry scales and different mask extents. Rotation has the original identity ascension/tiltDirection option: the fixed cardinal quarter-turn table and zero/negative-zero neutral270° expectation come from pinned KisPaintInformation::tiltDirection and KisRotationOption fold, with viewport/offset/mirror0/false. The expectation does not call sourceSensorValue or build a duplicate evaluator. Primary source hashes and metadata/provider evidence remain in R52/pencil3-tilt-closure-source-evidence.json.
+
+Native and browser numeric contexts are separate cases. Actual named7 pack/unpack preserves frame definitions/DRAW/fences and envelope saved phase. Mid-material author state has a live cursor and the material adapter has pending DRAWs; the old iterator is explicitly closed, a structured-cloned author checkpoint resumes through author.resume and the actual material adapter checkpoint is restored. Packed chunks, decoded frames, final source/RNG state and adapter checkpoint equal uninterrupted execution.
+
+Gate:18 tests/1 suite PASS (12 existing+6 added), then strict actual app project options1 root/81 application inputs/0 diagnostics through immutable Git34bd+RAM source aliases. Both process receipts verify before/after frozen input hashes; processes reaped. No failed run, bugfix RED, lint result or real-device result is claimed. New cases exercise already implemented CPU behavior.
+
+This does not enable pointer eligibility, viewport conversion, catalog exposure, BEGIN, buildup publication, hardware sensor equivalence, native vendor pixels or online support. No new material/profile/format/grant/math/compiler. Coordinator/index/admission production files unchanged. No temporary resources/services/dependency copies; only compact RAM artifacts and logs retained.
