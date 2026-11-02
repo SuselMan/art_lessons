@@ -56,6 +56,14 @@ export type SourceStampCompiledData = {
   readonly buildId:string
   readonly curves:readonly SourceStampCompiledCurve[]
   readonly textureStrength:SourceStampTextureStrengthSlot
+} | {
+ readonly version:4
+ readonly reader:'krita-bd6e8d0-v1'
+ readonly profile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+ readonly buildId:string
+ readonly curves:readonly SourceStampCompiledCurve[]
+ readonly radialCurve:SourceStampCompiledCurve
+ readonly textureStrength:{readonly kind:'texture-pressure-native-default-v1';readonly curve:SourceStampCompiledCurve}
 }
 /** New material option data, never raster/source authority or provider attestation. */
 export interface SourceStampTextureStrengthSlot {
@@ -202,7 +210,7 @@ export function sourceStampDataBudget(value: unknown): number {
   }
   if(value.compiled !== undefined) {
     if(!record(value.compiled) || !Array.isArray(value.compiled.curves) || value.compiled.curves.length>64)return Infinity
-    const entries=[...value.compiled.curves,...(value.compiled.radialCurve===undefined?[]:[value.compiled.radialCurve]),...(value.compiled.version===3&&record(value.compiled.textureStrength)?[value.compiled.textureStrength.curve]:[])]
+    const entries=[...value.compiled.curves,...(value.compiled.radialCurve===undefined?[]:[value.compiled.radialCurve]),...((value.compiled.version===3||value.compiled.version===4)&&record(value.compiled.textureStrength)?[value.compiled.textureStrength.curve]:[])]
     if(entries.length>64)return Infinity
     for(const item of entries) {
       if(!record(item) || !record(item.source) || typeof item.source.text!=='string' || item.source.text.length>65536
@@ -229,14 +237,14 @@ export function isSourceStampCurveData(v: unknown): v is SourceStampCurveData {
       && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 && bool(p.corner) && (i === 0 || p.x > (v.points as {x:number}[])[i-1].x))
 }
 export function isSourceStampData(v: unknown): v is SourceStampData {
-  // New compiled3 must be captured before budget/schema code can enumerate it.
+  // New compiled3/4 must be captured before budget/schema code can enumerate it.
   if(record(v)){
     const field=Object.getOwnPropertyDescriptor(v,'compiled')
     if(!field&&'compiled'in v||field&&!Object.hasOwn(field,'value'))return false
     if(field&&Object.hasOwn(field,'value')&&record(field.value)){
       const version=Object.getOwnPropertyDescriptor(field.value,'version')
       if(!version||!Object.hasOwn(version,'value'))return false
-      if(version.value===3){try{v=textureCapture(v)}catch{return false}}
+      if(version.value===3||version.value===4){try{v=textureCapture(v)}catch{return false}}
     }
   }
   if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported','compiled','source']) || !sourceIdentity(v) || v.reader !== 'krita-bd6e8d0-v1'
@@ -276,15 +284,20 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   const compiled=v.compiled
   if(!record(compiled) || compiled.reader!==v.reader || !Array.isArray(compiled.curves))return false
   const material=compiled.version===3
-  const mapped=compiled.version===2||material
-  let pressureProgram:SourceTexturePressureProgramData|undefined
+  const nativeDefault=compiled.version===4
+  const mapped=compiled.version===2||material||nativeDefault
+  let pressureProgram:{readonly curve:SourceStampCompiledCurve}|undefined
   if(material){
     if(v.version!==2||!record(v.source)||v.source.kind!=='defaultAuto'||!record(v.flags)||v.flags.textureEnabled!==true)return false
     try{pressureProgram=texturePressureProgram(compiled,v.settings)}catch{return false}
   }
+  if(nativeDefault){
+    if(v.version!==2||v.options.length!==9||!record(v.source)||v.source.kind!=='softAuto'||!record(v.flags)||v.flags.textureEnabled!==true||v.flags.materialFixed1!==true)return false
+    try{pressureProgram=textureNativeDefaultProgram(compiled,v.settings)}catch{return false}
+  }
   const radial=v.version===2 && record(v.source) && v.source.kind==='softAuto' ? v.source.softnessCurve : undefined
   if(mapped) {
-    if(!keys(compiled,material?['version','reader','profile','buildId','curves','textureStrength']:['version','reader','profile','buildId','curves','radialCurve'])
+    if(!keys(compiled,nativeDefault?['version','reader','profile','buildId','curves','radialCurve','textureStrength']:material?['version','reader','profile','buildId','curves','textureStrength']:['version','reader','profile','buildId','curves','radialCurve'])
       || compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE || typeof compiled.buildId!=='string' || !/^[0-9a-f]{64}$/.test(compiled.buildId)
       || (radial===undefined)!==(compiled.radialCurve===undefined))return false
   } else if(!keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE)return false
@@ -363,5 +376,46 @@ export function captureSourceTexturePressureProgram(value:unknown):Readonly<{dat
  if(!isSourceStampData(captured))throw TypeError('Invalid original source data')
  const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
  const program=texturePressureProgram(source.compiled,source.settings)
+ return Object.freeze({data:captured,program})
+}
+
+/** DATA-only native default reader; never consumed by material5 author capability. */
+export interface SourceTextureNativeDefaultProgramData {
+ readonly kind:'texture-pressure-native-default-v1'
+ readonly reader:'krita-bd6e8d0-v1'
+ readonly profile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+ readonly buildId:string
+ readonly curve:SourceStampCompiledCurve
+}
+function textureNativeDefaultProgram(compiledValue:unknown,settingsValue:unknown):SourceTextureNativeDefaultProgramData {
+ const compiled=textureOwn(textureCapture(compiledValue),['version','reader','profile','buildId','curves','radialCurve','textureStrength'])
+ if(compiled.version!==4||compiled.reader!=='krita-bd6e8d0-v1'||compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE||typeof compiled.buildId!=='string'||!/^[a-f0-9]{64}$/.test(compiled.buildId))throw TypeError('Mapped material option unavailable')
+ const settings=textureCapture(settingsValue)
+ if(!record(settings))throw TypeError('Texture settings unavailable')
+ const expected:Readonly<Record<string,string>>={'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0'}
+ for(const key of Reflect.ownKeys(settings)){
+  if(typeof key!=='string'||typeof settings[key]!=='string')throw TypeError('Texture settings data')
+  if((key.startsWith('Texture/Strength/')&&!Object.hasOwn(expected,key)&&key!=='Texture/Strength/Sensor')||(key.startsWith('PressureTexture/Strength/')&&key!=='PressureTexture/Strength/')||key.startsWith('CustomTexture/Strength/')||key.startsWith('CurveTexture/Strength/'))throw TypeError('Unsupported texture strength field')
+ }
+ if(!Object.entries(expected).every(([k,v])=>settings[k]===v))throw TypeError('Unsupported pressure option')
+ const xml=settings['Texture/Strength/Sensor']
+ if(typeof xml!=='string'||xml.length>65536)throw TypeError('Pressure XML budget')
+ // One whole-input grammar. No entity expansion, DTD subsets, namespaces,
+ // extra attributes, child sensors or fallback/default curves.
+ if(!/^[ \t\r\n]*(?:<!DOCTYPE params>[ \t\r\n]*)?<params[ \t\r\n]+id[ \t\r\n]*=[ \t\r\n]*(?:"pressure"|'pressure')[ \t\r\n]*\/>[ \t\r\n]*$/.test(xml))throw TypeError('Unsupported native default pressure XML')
+ const slot=textureOwn(compiled.textureStrength,['kind','curve'])
+ if(slot.kind!=='texture-pressure-native-default-v1')throw TypeError('Unknown material option')
+ const curve=textureOwn(slot.curve,['source','coefficients'])
+ if(!isSourceStampCurveData(curve.source)||curve.source.text!=='0,0;1,1;'||curve.source.points.length!==2||curve.source.points[0].x!==0||curve.source.points[0].y!==0||curve.source.points[1].x!==1||curve.source.points[1].y!==1||curve.source.points.length<2||curve.source.points.length>9||curve.source.points[0].corner||curve.source.points[curve.source.points.length-1].corner||!Array.isArray(curve.coefficients)||curve.coefficients.length!==curve.source.points.length-1||curve.coefficients.some(row=>!Array.isArray(row)||row.length!==4||!row.every(finite)))throw TypeError('Pressure curve/compiled correspondence')
+ // Coefficients are structurally checked DATA. This is NOT native-provider or
+ // raster attestation. Actual importer/resolver binding remains a later unit.
+ return Object.freeze({kind:'texture-pressure-native-default-v1',reader:'krita-bd6e8d0-v1',profile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE,buildId:compiled.buildId,curve:Object.freeze({source:curve.source,coefficients:curve.coefficients})})
+}
+
+export function captureSourceTextureNativeDefaultProgram(value:unknown):Readonly<{data:SourceStampData;program:SourceTextureNativeDefaultProgramData}> {
+ const captured=textureCapture(value)
+ if(!isSourceStampData(captured))throw TypeError('Invalid native default source DATA')
+ const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
+ const program=textureNativeDefaultProgram(source.compiled,source.settings)
  return Object.freeze({data:captured,program})
 }

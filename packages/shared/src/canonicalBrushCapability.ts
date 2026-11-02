@@ -330,8 +330,8 @@ function extractImagePipeCapability(
  * therefore admits only identity curves or the already schema-checked retained
  * coefficient dictionary. No second option compiler is implemented here. */
 export function hasCanonicalSourceCurvePrograms(data: SourceStampData): boolean {
-  // compiled3 is material-option DATA only until the coherent semantic5 pair.
-  if(data.compiled?.version===3)return false
+  // Material-option compiled3/4 DATA cannot grant ordinary curve execution.
+  if(data.compiled?.version===3||data.compiled?.version===4)return false
   return sourceStampRequiredCurves(data.options).length === 0 || data.compiled !== undefined
 }
 

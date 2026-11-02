@@ -11,7 +11,7 @@ import struct
 from native_curve_compile import _number
 from native_curve_arm_v3 import MappedCurveProvider, PROFILE, compile_curves_arm_v3
 from source_stamp_data import (MAX_SOURCE_STAMP_BUDGET, required_source_curves,
-                               source_stamp_budget, validate_source_stamp_shape, mapped_soft_frontier_retired, texture_pressure_source_curve)
+                               source_stamp_budget, validate_source_stamp_shape, mapped_soft_frontier_retired, texture_pressure_source_curve, texture_native_default_source_curve)
 
 
 def _raw(data):
@@ -42,12 +42,16 @@ def _entry_budget(source):
             + 32 * max(1, len(source['points']) - 1))
 
 
-def compile_mapped_source_stamp(data, provider, *, texture_strength=False):
+def compile_mapped_source_stamp(data, provider, *, texture_strength=False, native_default_texture=False):
     if type(provider) is not MappedCurveProvider:
         raise ValueError('An explicit trusted mapped provider is required')
+    if type(native_default_texture) is not bool or native_default_texture and texture_strength: raise ValueError('Distinct native default option required')
     raw = _raw(data)
     sensors, radial = _sources(raw)
     texture = texture_pressure_source_curve(raw) if texture_strength else None
+    if native_default_texture:
+        texture=texture_native_default_source_curve(raw)
+        if texture is None or radial is None: raise ValueError('Unsupported native default texture DATA')
     if texture_strength and texture is None: raise ValueError('Unsupported mapped texture pressure DATA')
     sources = sensors + ([] if radial is None else [radial]) + ([] if texture is None else [texture])
     if len(sources) > 64 or sum(len(source['points']) for source in sources) > 4096:
@@ -64,8 +68,8 @@ def compile_mapped_source_stamp(data, provider, *, texture_strength=False):
     if radial is not None:
         result['radialCurve'] = {'source': radial, 'coefficients': coefficients[len(sensors)]}
     if texture is not None:
-        result['version']=3
-        result['textureStrength']={'kind':'texture-pressure-curve-v1','curve':{'source':texture,'coefficients':coefficients[-1]}}
+        result['version']=4 if native_default_texture else 3
+        result['textureStrength']={'kind':'texture-pressure-native-default-v1' if native_default_texture else 'texture-pressure-curve-v1','curve':{'source':texture,'coefficients':coefficients[-1]}}
     return result
 
 
@@ -90,11 +94,12 @@ def validate_mapped_source_stamp_shape(data, compiled):
     # Check structural work/size bounds before invoking a trusted child.
     raw = _raw(data)
     sensors, radial = _sources(raw)
-    texture=texture_pressure_source_curve(raw) if type(compiled) is dict and compiled.get('version')==3 else None
+    native_default=type(compiled) is dict and compiled.get('version')==4
+    texture=texture_native_default_source_curve(raw) if native_default else texture_pressure_source_curve(raw) if type(compiled) is dict and compiled.get('version')==3 else None
     if type(compiled) is not dict or set(compiled) != ({'version', 'reader', 'profile', 'buildId', 'curves'}
             | ({'radialCurve'} if radial is not None else set()) | ({'textureStrength'} if texture is not None else set())):
         raise ValueError('Invalid mapped source dictionary')
-    if (type(compiled['version']) is not int or compiled['version'] != (3 if texture is not None else 2)
+    if (type(compiled['version']) is not int or compiled['version'] != (4 if native_default and texture is not None else 3 if texture is not None else 2)
             or compiled['profile'] != PROFILE
             or type(compiled['buildId']) is not str or not re.fullmatch(r'[0-9a-f]{64}',compiled['buildId']) or compiled['reader'] != raw['reader']
             or type(compiled['curves']) is not list or len(compiled['curves']) != len(sensors)):
@@ -102,7 +107,7 @@ def validate_mapped_source_stamp_shape(data, compiled):
     texture_entries=[]
     if texture is not None:
         slot=compiled['textureStrength']
-        if type(slot) is not dict or set(slot)!={'kind','curve'} or slot['kind']!='texture-pressure-curve-v1':
+        if type(slot) is not dict or set(slot)!={'kind','curve'} or slot['kind']!=('texture-pressure-native-default-v1' if native_default else 'texture-pressure-curve-v1'):
             raise ValueError('Invalid mapped texture dictionary')
         texture_entries=[slot['curve']]
     entries = compiled['curves'] + ([] if radial is None else [compiled['radialCurve']]) + texture_entries
@@ -128,6 +133,6 @@ def verify_mapped_source_stamp(data, compiled, provider):
     validate_mapped_source_stamp_shape(data,compiled)
     if type(provider) is not MappedCurveProvider or compiled['buildId']!=provider.expected_build_id:
         raise ValueError('Mapped source profile/build binding differs')
-    expected = compile_mapped_source_stamp(data, provider, texture_strength=compiled['version']==3)
+    expected = compile_mapped_source_stamp(data, provider, texture_strength=compiled['version']==3,native_default_texture=compiled['version']==4)
     if not _same(compiled, expected):
         raise ValueError('Mapped source coefficients differ from trusted compiler')

@@ -106,3 +106,101 @@ class TexturePressureSourceTests(unittest.TestCase):
                                 and 'owned provider failure' in n['detail'] for n in brush['compatibility']))
 
 if __name__=='__main__':unittest.main()
+
+
+class NativeDefaultSoftDataTests(unittest.TestCase):
+    def native_raw(self):
+        from source_stamp_data import retain_source_stamp
+        from krita_import import xml
+        definition='<Brush type="auto_brush"><MaskGenerator id="soft" type="circle" diameter="7" ratio=".5" softness_curve="0,1;1,0"/></Brush>'
+        params={'brush_definition':definition,'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true',
+                'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true',
+                'Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<!DOCTYPE params> <params id="pressure"/> '}
+        return retain_source_stamp(params,xml(definition),7,3,xml)
+
+    def test_native_default_distinct_provider_inputs_and_preserved_raw(self):
+        from source_stamp_data import texture_native_default_source_curve
+        data=self.native_raw();before=copy.deepcopy(data);captured=[]
+        def provider(curves,_provider):
+            captured.extend(copy.deepcopy(curves))
+            return [[[0.,0.,1.,0.] for _ in range(len(c)-1)] for c in curves]
+        with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=provider):
+            baseline=compile_mapped_source_stamp(data,PROVIDER)
+            result=compile_mapped_source_stamp(data,PROVIDER,native_default_texture=True)
+            verify_mapped_source_stamp(data,result,PROVIDER)
+        self.assertEqual(data,before);self.assertEqual(baseline['version'],2);self.assertEqual(result['version'],4)
+        self.assertEqual(result['textureStrength']['kind'],'texture-pressure-native-default-v1')
+        self.assertEqual(result['textureStrength']['curve']['source'],texture_native_default_source_curve(data))
+        self.assertEqual(captured[-1],[[0.,0.,False],[1.,1.,False]])
+        self.assertEqual(result['curves'],baseline['curves']);self.assertEqual(result['radialCurve'],baseline['radialCurve'])
+        self.assertEqual(len(data['options']),9);self.assertEqual(data['source']['kind'],'softAuto')
+        validate_source_stamp_shape({'sourceStamp':{**data,'compiled':result}})
+
+    def test_native_default_closed_raw_grammar_before_provider(self):
+        from source_stamp_data import texture_native_default_source_curve
+        base=self.native_raw()
+        edits=[('CustomTexture/Strength/','false'),('CurveTexture/Strength/','0,0;1,1;'),
+               ('Texture/Strength/commonCurve',''),('Texture/Strength/UseCurve','false'),
+               ('Texture/Strength/UseSameCurve','false'),('Texture/Strength/Value','.5'),
+               ('Texture/Strength/curveMode','1'),('PressureTexture/Strength/','false'),
+               ('Texture/Strength/Sensor','<params id="pressure" extra="1"/>'),
+               ('Texture/Strength/Sensor','<params id="pressure"><curve>0,0;1,1;</curve></params>'),
+               ('Texture/Strength/Sensor','<params id="sensorslist"><ChildSensor id="pressure"/></params>')]
+        for key,value in edits:
+            data=copy.deepcopy(base);data['settings'][key]=value
+            self.assertIsNone(texture_native_default_source_curve(data),(key,value))
+            with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=AssertionError('must not invoke')):
+                with self.assertRaises(ValueError):compile_mapped_source_stamp(data,PROVIDER,native_default_texture=True)
+        with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=AssertionError('must not invoke')):
+            with self.assertRaises(ValueError):compile_mapped_source_stamp(base,PROVIDER,texture_strength=True,native_default_texture=True)
+
+    def test_native_default_version_kind_budget_and_provider_failure(self):
+        base=self.native_raw()
+        with patch('source_stamp_mapped.compile_curves_arm_v3',return_value=[[[0.,0.,1.,0.]],[[0.,0.,1.,0.]]]):
+            good=compile_mapped_source_stamp(base,PROVIDER,native_default_texture=True)
+        from source_stamp_mapped import validate_mapped_source_stamp_shape
+        for change in [lambda c:c.update(version=3),lambda c:c['textureStrength'].update(kind='texture-pressure-curve-v1'),
+                       lambda c:c.pop('radialCurve'),lambda c:c.update(extra=True),
+                       lambda c:c['textureStrength']['curve']['source'].update(text='0,0;1,.5;')]:
+            bad=copy.deepcopy(good);change(bad)
+            with self.assertRaises(ValueError):validate_mapped_source_stamp_shape(base,bad)
+        with patch('source_stamp_mapped.MAX_SOURCE_STAMP_BUDGET',1),patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=AssertionError('must not invoke')):
+            with self.assertRaises(ValueError):compile_mapped_source_stamp(base,PROVIDER,native_default_texture=True)
+        before=copy.deepcopy(base)
+        with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=ValueError('native provider failure')):
+            with self.assertRaisesRegex(ValueError,'native provider failure'):compile_mapped_source_stamp(base,PROVIDER,native_default_texture=True)
+        self.assertEqual(base,before);self.assertNotIn('compiled',base)
+
+
+class NativeDefaultNormalImportTests(unittest.TestCase):
+    def test_normal_kpp_explicit_option_preserves_raw_and_off_outcome(self):
+        import io,tempfile
+        from PIL import Image,PngImagePlugin
+        from brush_contract import Catalog
+        from krita_import import convert_krita
+        data=NativeDefaultSoftDataTests().native_raw();fields=dict(data['settings'])
+        fields.update({'Texture/Pattern/PatternFileName':'self.png','Texture/Pattern/TexturingMode':'1',
+          'Texture/Pattern/UseSoftTexturing':'false','Texture/Pattern/OffsetX':'0','Texture/Pattern/OffsetY':'0',
+          'Texture/Pattern/isRandomOffsetX':'false','Texture/Pattern/isRandomOffsetY':'false'})
+        params=''.join('<param name="'+k+'"><![CDATA['+v+']]></param>'for k,v in fields.items())
+        image=io.BytesIO();Image.new('L',(8,8),128).save(image,format='PNG')
+        def structural(curves,_provider):return [[[0.,0.,1.,0.]for _ in range(len(c)-1)]for c in curves]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'self.kpp';info=PngImagePlugin.PngInfo();info.add_text('version','5.0')
+            info.add_text('preset','<Preset name="Self authored default" paintopid="paintbrush">'+params+'</Preset>',zip=True)
+            Image.new('RGB',(2,2),'red').save(path,format='PNG',pnginfo=info)
+            off=Catalog(root/'off');on=Catalog(root/'on')
+            with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=structural):
+                convert_krita(path,off,{'self.png':image.getvalue()},mapped_curve_provider=PROVIDER)
+                convert_krita(path,on,{'self.png':image.getvalue()},mapped_curve_provider=PROVIDER,native_default_texture=True)
+            old=off.brushes[0]['descriptor']['sourceStamp'];new=on.brushes[0]['descriptor']['sourceStamp']
+            self.assertEqual(old['compiled']['version'],2);self.assertEqual(new['compiled']['version'],4)
+            self.assertEqual({k:v for k,v in old.items()if k!='compiled'},{k:v for k,v in new.items()if k!='compiled'})
+            self.assertEqual(new['settings']['Texture/Strength/Sensor'],fields['Texture/Strength/Sensor'])
+            self.assertEqual(new['source']['kind'],'softAuto');self.assertEqual(len(new['options']),9)
+            failed=Catalog(root/'failed')
+            with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=ValueError('native-default owned failure')):
+                convert_krita(path,failed,{'self.png':image.getvalue()},mapped_curve_provider=PROVIDER,native_default_texture=True)
+            failure=failed.brushes[0];self.assertNotIn('compiled',failure['descriptor']['sourceStamp'])
+            self.assertEqual(failure['descriptor']['sourceStamp']['settings'],new['settings'])
+            self.assertTrue(any(x['feature']=='sourceStampCompiler' and x['status']=='unsupported' for x in failure['compatibility']))

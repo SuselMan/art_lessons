@@ -1,0 +1,18 @@
+# Native implicit pressure Soft DATA (RAM proposal)
+
+compiled.version4 is SourceStamp dictionary version, NOT material4. New slot kind texture-pressure-native-default-v1 binds exact native reader bd6e8d0 default branch, original settings, unchanged sourceStamp.version2/Soft radial/old nine options, and SAME mapped provider/profile/buildId. Existing compiled3 explicit XML meaning and capability5 remain closed. Pure capture has no raster/source/grant authority.
+
+New normal importer option native_default_texture defaultsFalse; explicit provider required; semantic predicate never displayname/id. Native default points derived only inside compiled metadata, originalraw XML preserved. Unknown/custom/common/extras/multisensor refused initially even if native supports broader settings. DEFAULT source provenance retained separately in R52 pressure-soft-default-provenance-closure.json.
+
+Native provider compile and portability verification must still run; structural test coefficients are self-authored schema probes, never provider proof. Same cumulative limits include radial and material entry. No runtime/author/binder/material/wire policy widened.
+
+RAM gates: final Python33 tests,3existingSKIP; shared7/1PASS; strict shared target3roots0diagnostics. Baseline shared semantic1FAIL(expectedfalse→true),6PASS; baselinePython3ERROR rejects absent newcompileoption/reader helper (API RED, not a numerical reference). FirstsystemPythonmissingPIL bootstrapfailure retained; existingimportervenv reused without installs. Nativeactualgenuine@31 compile+portable recompile by retainedprovider PASS, proof R52 pressure-soft-native-default-v2-genuine-provider-proof.json binds final3PythonproductionSHAs. Catalog/raw/source/options9/radial unchanged. Actual provider coefficients never copied from fixture or anotherbrush. No new dependency/resource tree.
+
+Normal API option native_default_texture=False is explicit on preset()/convert_krita(); no massimport/activecatalog changes and no CLI frontend added. Full app/server typechecks, importer freshgenuineKPP descriptorrevision/outputinstallation, binder/material/author/wire/runtime/device gates are NOT claimed. Coefficients remain structurally checked DATA, not source/raster authority. ROOT may apply after independent exactSHAreview; no sourceapply/commit by this agent.
+
+Tests/schema coefficients are explicit self-authored dummy values; only separate retainedprovider proof attests native recomputation. Exact default source provenance snapshots retainedR52; sourceprofiles/build identity remain same mappedprovider plus distinct compiled4/native-default-kind as semantic reader discriminator. Oldcompiled3 explicitkind/XML and old5 pressurecapability are not broadened.
+
+Approved ninth path canonicalBrushCapability.ts explicitly refuses compiled4 in public ordinary curve-program helper, preserving compiled2 and explicit3 behavior. This closes a misleading readiness label; no execution widened.
+
+## V2 public predicate closure
+Independent review found public isSourceStampData captured only compiled3 before budget/settings enumeration. V2 also captures compiled4 through SAME bounded own-data traversal before any schema/budget getter access. Direct public API controls cover settings, curve point, coefficient and compiled version accessors, zero invocations. RED against preserved V1: settings getter invoked3times (1FAIL/10PASS). ExactV2 shared11/1PASS and strictTS3roots0. Python3production outputs unchanged, so previousPython33/3SKIP and genuineprovider finalinputSHA proof reused exactly; provider not rerun. V1 map/patch/freeze/gates preserved. No old1/2 exoticJS semantics claim or general Proxy sandbox claim.

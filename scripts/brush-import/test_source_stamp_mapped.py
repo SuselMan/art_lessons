@@ -300,3 +300,15 @@ class NewMappedSoftImporterTests(unittest.TestCase):
             self.assertFalse(mapped_soft_frontier_retired(data));self.assertFalse(soft_source_material_domain(data))
             with patch('source_stamp_mapped.compile_curves_arm_v3',side_effect=AssertionError('Malformed data reached compiler')):
                 with self.assertRaises(ValueError):validate_portable_source_stamp({'sourceStamp':data},mapped_curve_provider=PROVIDER)
+
+
+class NativeDefaultCompileOptionTests(unittest.TestCase):
+    def test_option_is_explicit_and_never_impersonates_existing_pressure(self):
+        from test_texture_pressure_source import NativeDefaultSoftDataTests, PROVIDER
+        from source_stamp_data import texture_pressure_source_curve,texture_native_default_source_curve
+        from source_stamp_mapped import compile_mapped_source_stamp
+        data=NativeDefaultSoftDataTests().native_raw()
+        self.assertIsNone(texture_pressure_source_curve(data))
+        self.assertIsNotNone(texture_native_default_source_curve(data))
+        for value in (None,1,'true'):
+            with self.assertRaises(ValueError):compile_mapped_source_stamp(data,PROVIDER,native_default_texture=value)
