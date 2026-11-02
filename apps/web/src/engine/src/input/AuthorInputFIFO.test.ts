@@ -236,3 +236,45 @@ it('retires the cancelled source when checkpoint descriptor capture reenters a n
  fifo.enqueue(function*(){try{yield token}finally{events.push('source-return')}},()=>events.push('release'))
  expect(events).toEqual(['source-return','release']);while(frames.length)frames.shift()!();expect(events).toEqual(['source-return','release','fresh']);expect(flush).not.toHaveBeenCalled();expect(fifo.pending).toBe(false)
 })
+
+it('keeps K8 remainder across cheap turns, with immediate first input and unchanged source order',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],cuts:number[][]=[],pending:number[]=[];let now=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}},4,2)
+ const flush=function*(){cuts.push(pending.splice(0));events.push('cut')}
+ fifo.enqueue(function*(){for(let i=0;i<18;i++){pending.push(i);events.push('source:'+i);yield{kind:'author-input-checkpoint' as const,flush,deadline:32,...i===0||pending.length>=8?{immediate:true as const}:{}}}})
+ while(frames.length){now+=3;frames.shift()!()}
+ expect(cuts).toEqual([[0],[1,2,3,4,5,6,7,8],[9,10,11,12,13,14,15,16],[17]])
+ expect(events.filter(e=>e.startsWith('source:'))).toEqual(Array.from({length:18},(_,i)=>'source:'+i));expect(fifo.pending).toBe(false)
+})
+it('never extends earliest remainder deadline through query-only checkpoints or GPU interleaves',()=>{
+ const frames:Array<()=>void>=[],cuts:number[][]=[],pending:number[]=[];let now=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}},4,2)
+ const flush=function*(){cuts.push(pending.splice(0))}
+ fifo.enqueue(function*(){for(let i=0;i<12;i++){pending.push(i);yield{kind:'author-input-checkpoint' as const,flush,deadline:now+32}}})
+ for(let i=0;i<3;i++){now+=6;frames.shift()!();expect(cuts).toEqual([])}
+ now=33;frames.shift()!();expect(cuts[0]).toEqual([0,1,2,3,4,5,6,7]);while(frames.length){now+=6;frames.shift()!()}
+ expect(cuts.flat()).toEqual(Array.from({length:12},(_,i)=>i));expect(fifo.pending).toBe(false)
+})
+it('honours a material count cut even with a frozen clock and a slow atomic source step',()=>{
+ const frames:Array<()=>void>=[],cuts:number[][]=[],pending:number[]=[];let now=0,steps=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}},4,2)
+ const flush=function*(){cuts.push(pending.splice(0))}
+ fifo.enqueue(function*(){for(let i=0;i<10;i++){pending.push(i);steps++;if(i===0)now+=5;yield{kind:'author-input-checkpoint' as const,flush,deadline:now+32,...pending.length>=8?{immediate:true as const}:{}}}})
+ expect(steps).toBe(1);while(frames.length)frames.shift()!();expect(cuts.map(c=>c.length)).toEqual([8,2]);expect(cuts.flat()).toEqual(Array.from({length:10},(_,i)=>i))
+})
+it('discards deferred remainder on revocation without executing its flush or stale producer',()=>{
+ const frames:Array<()=>void>=[],flush=vi.fn(function*(){}),release=vi.fn(),events:string[]=[],fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,2)
+ fifo.enqueue(function*(){try{for(let i=0;i<9;i++){events.push('source:'+i);yield{kind:'author-input-checkpoint' as const,flush,deadline:32}}}finally{events.push('closed')}},release)
+ fifo.cancel();while(frames.length)frames.shift()!();expect(events).toEqual(['source:0','source:1','closed']);expect(flush).not.toHaveBeenCalled();expect(release).toHaveBeenCalledOnce();expect(fifo.pending).toBe(false)
+})
+it('does not flush a revoked deferred owner when its deadline clock reenters cancellation',()=>{
+ const frames:Array<()=>void>=[],flush=vi.fn(function*(){}),errors:unknown[]=[],release=vi.fn();let armed=false,calls=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>{if(armed&&++calls===2){fifo.cancel();return 33}return 0},failed:e=>errors.push(e)},4,2)
+ fifo.enqueue(function*(){for(let i=0;i<9;i++)yield{kind:'author-input-checkpoint' as const,flush,deadline:32}},release)
+ armed=true;frames.shift()!();while(frames.length)frames.shift()!();expect(flush).not.toHaveBeenCalled();expect(errors).toEqual([]);expect(release).toHaveBeenCalledOnce();expect(fifo.pending).toBe(false)
+})
+it('captures only finite own DATA checkpoint deadlines without calling accessors',()=>{
+ const get=vi.fn(),bad=[-1,Infinity,NaN,undefined]
+ for(const deadline of bad){const errors:unknown[]=[],release=vi.fn(),fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)});fifo.enqueue(function*(){yield{kind:'author-input-checkpoint' as const,flush:function*(){},deadline}},release);expect(errors).toHaveLength(1);expect(release).toHaveBeenCalledOnce()}
+ for(const inherited of [false,true]){const errors:unknown[]=[],fields={kind:'author-input-checkpoint' as const,flush:function*(){}},token=inherited?Object.assign(Object.create({deadline:32}),fields):Object.defineProperty(fields,'deadline',{get}),fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)});fifo.enqueue(function*(){yield token});expect(errors).toHaveLength(1)}expect(get).not.toHaveBeenCalled()
+})

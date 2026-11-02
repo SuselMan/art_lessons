@@ -1,7 +1,7 @@
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
 import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
-import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
+import { isNativeBrushTextureCache, BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
 import type { BrushGlBatchLifetime } from './BrushGlBatch'
 import type { TransformedMaskSource, TransformedMaskPreparedSource } from './TransformedMaskPrepass'
@@ -48,6 +48,32 @@ export interface CanonicalPatternSourceJob {
 export type CanonicalMaskSourceJob=CanonicalNativeImageSourceJob|CanonicalPatternSourceJob
 const patternResourceBrand:unique symbol=Symbol('canonical-pattern-resource')
 const patternViews=new WeakMap<object,{readonly root:CanonicalMaskSourceLease;readonly lifetime:BrushGlBatchLifetime & {readonly kind:'external'};readonly assert:(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void}>()
+// Native Bank constructor record is its existing immutable ownership tuple.
+// Weak lookup excludes wrapped/forged receivers before descriptor operations.
+const issuedPatternBanks = new WeakMap<object, Readonly<{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}>>()
+function ownDataField(owner: object, name: string): PropertyDescriptor | undefined {
+  const field = Object.getOwnPropertyDescriptor(owner, name)
+  return field && Object.hasOwn(field, 'value') ? field : undefined
+}
+// Issued-lifetime provenance only, never queried texture state or a public brand.
+const nativePatternLifetimes = new WeakMap<object, {
+  readonly gl: WebGLRenderingContext
+  readonly native: () => boolean
+}>()
+function sameNativeMethod(owner: object, prototype: object, name: string, expected: unknown): boolean {
+  if (Object.getPrototypeOf(owner) !== prototype) return false
+  const own = Object.getOwnPropertyDescriptor(owner, name)
+  const inherited = Object.getOwnPropertyDescriptor(prototype, name)
+  return (!own || Object.hasOwn(own, 'value') && own.value === expected)
+    && !!inherited && Object.hasOwn(inherited, 'value') && inherited.value === expected
+}
+/** No candidate fields, lease, resource getter, cache method or GL call is read.
+ * Unknown/copied lifetime fails before inspecting arbitrary owner metadata. */
+export function isCanonicalOwnedPatternLifetime(gl: WebGLRenderingContext, lifetime: object): boolean {
+  const record = nativePatternLifetimes.get(lifetime)
+  if (!record || record.gl !== gl) return false
+  try { return record.native() } catch { return false }
+}
 export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):void {
   const check=patternViews.get(resource)
   if(!check)throw new Error('Unknown canonical pattern view')
@@ -341,7 +367,7 @@ export class CanonicalMaskSourceBank {
   constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache,
     inputs: readonly BankInput[], companion: CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[],mode:'full'|'root-residency'='full') {
     this.gl = gl; this.cache = cache; this.cpu = cpu;this.mode=mode
-    this.ownerProof=Object.freeze({gl,cache,cpu})
+    this.ownerProof=Object.freeze({gl,cache,cpu});issuedPatternBanks.set(this,this.ownerProof)
     if(mode==='root-residency'){
       if(!Array.isArray(inputs)||inputs.length||requiredLevels!==undefined||!companion||!integer(companion.gpuBytes)||!integer(companion.cpuBytes))throw new RangeError('Invalid root residency bank')
       this.companion=Object.freeze({...companion});this._jobs=Object.freeze([]);this.inputs=new Map();this.releaseMetadata=cpu.reserve(512);return
@@ -501,16 +527,44 @@ export class CanonicalMaskSourceBank {
             if(expected.gl!==this.gl||expected.cache!==this.cache||expected.cpu!==this.cpu||this.cache.resourceBytes(job.key)!==job.bytes||this.cache.get(job.key)!==texture)throw new Error('Canonical pattern view changed')
             assertHandle()
           }
-          const source=Object.freeze({gl:this.gl,get texture(){assertView(owners);return texture}})
+          // The borrower never re-reads caller-owned owners headers/getters.
+          // The public mint and each resource assertion still validate SAME tuple.
+          const capturedOwners = Object.freeze({gl:this.gl,cache:this.cache,cpu:this.cpu})
+          const source=Object.freeze({gl:this.gl,get texture(){assertView(capturedOwners);return texture}})
           const declaration=Object.freeze({texture,source,epoch:samplerEpoch})
           const lifetime:BrushGlBatchLifetime & {readonly kind:'external'}=Object.freeze({kind:'external',owner:samplerEpoch,ownedPointSampler:declaration,lease:()=>{
             // Claim before callback-bearing cache checks. Borrow existing child;
             // no retain(), new cache pin, texture, or per-turn CPU reservation.
             if(patternBorrows)throw new Error('Canonical pattern sampler borrow reentry')
             assertHandle();patternBorrows++;this.patternBorrows++
-            try{assertView(owners)}catch(error){patternBorrows--;this.patternBorrows--;throw error}
+            try{assertView(capturedOwners)}catch(error){patternBorrows--;this.patternBorrows--;throw error}
             let active=true
             return ()=>{if(!active)return;active=false;patternBorrows--;this.patternBorrows--}
+          }})
+          const bank = this, cache = this.cache, gl = this.gl
+          nativePatternLifetimes.set(lifetime, {gl, native: () => {
+            const proof = issuedPatternBanks.get(bank)
+            if (!proof || !isNativeBrushTextureCache(cache) || retired || released || state === 'cancelled') return false
+            // Actual native instances only: no Proxy can reach descriptors.
+            // Capture ALL fields as own DATA before consuming any scalar value.
+            const resetting = ownDataField(bank, 'resetting'), original = ownDataField(bank, 'originalOwner')
+            const currentGeneration = ownDataField(bank, 'generation'), bankGl = ownDataField(bank, 'gl')
+            const bankCache = ownDataField(bank, 'cache'), bankCpu = ownDataField(bank, 'cpu')
+            const ownerProof = ownDataField(bank, 'ownerProof'), metadata = ownDataField(bank, 'releaseMetadata')
+            const cacheGl = ownDataField(cache, 'gl'), entries = ownDataField(cache, 'entries')
+            if (!resetting || !original || !currentGeneration || !bankGl || !bankCache || !bankCpu
+              || !ownerProof || !metadata || !cacheGl || !entries) return false
+            // Native Map brand check is callback-free, rejects a Proxy map.
+            if (!entries.value) return false
+            Map.prototype.has.call(entries.value, undefined)
+            if (Object.getPrototypeOf(entries.value) !== Map.prototype) return false
+            return resetting.value === false && original.value === bank && currentGeneration.value === generation
+              && bankGl.value === gl && bankCache.value === cache && bankCpu.value === proof.cpu
+              && ownerProof.value === proof && proof.gl === gl && proof.cache === cache
+              && typeof metadata.value === 'function' && cacheGl.value === gl
+              && sameNativeMethod(bank, CanonicalMaskSourceBank.prototype, 'assertCurrentOwners', nativeBankOwnerCheck)
+              && sameNativeMethod(cache, BrushTextureCache.prototype, 'get', nativeCacheGet)
+              && sameNativeMethod(cache, BrushTextureCache.prototype, 'resourceBytes', nativeCacheResourceBytes)
           }})
           patternViews.set(view,{root:handle,lifetime,assert:assertView})
           return view
@@ -875,3 +929,8 @@ export class CanonicalMaskSourceBank {
     }finally{this.resetting=false}
   }
 }
+
+// Capture implementations once; late own/prototype overrides stay foreign.
+const nativeBankOwnerCheck = CanonicalMaskSourceBank.prototype.assertCurrentOwners
+const nativeCacheGet = BrushTextureCache.prototype.get
+const nativeCacheResourceBytes = BrushTextureCache.prototype.resourceBytes

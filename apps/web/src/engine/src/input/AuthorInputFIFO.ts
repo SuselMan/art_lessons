@@ -19,9 +19,11 @@ export interface AuthorInputCheckpoint {
   readonly kind:'author-input-checkpoint'
   readonly flush:()=>Generator<void,void,void>
   readonly immediate?:true
+  /** Local absolute scheduling hint; never extends a pending cut deadline. */
+  readonly deadline?:number
 }
 export type AuthorInputYield=void|AuthorInputWait|AuthorInputCheckpoint
-interface PendingCheckpoint {readonly flush:()=>Generator<void,void,void>;immediate:boolean}
+interface PendingCheckpoint {readonly flush:()=>Generator<void,void,void>;immediate:boolean;deadline?:number}
 type WaitOutcome={ok:true}|{ok:false;error:unknown}
 interface WaitCell { wake?: (outcome:WaitOutcome)=>void }
 interface JobWait {
@@ -80,23 +82,32 @@ export class AuthorInputFIFO {
     const fields=Object.getOwnPropertyDescriptors(value),kind=fields.kind
     if(!kind||!Object.hasOwn(kind,'value'))throw new TypeError('Invalid author input yield')
     if(kind.value!=='author-input-checkpoint')return undefined
-    if(Reflect.ownKeys(fields).some(key=>!['kind','flush','immediate'].includes(String(key)))
+    if(Reflect.ownKeys(fields).some(key=>!['kind','flush','immediate','deadline'].includes(String(key)))
       ||!fields.flush||!Object.hasOwn(fields.flush,'value')||typeof fields.flush.value!=='function'
-      ||fields.immediate&&(!Object.hasOwn(fields.immediate,'value')||fields.immediate.value!==true))throw new TypeError('Invalid author input checkpoint')
-    return{flush:fields.flush.value,immediate:fields.immediate?.value===true}
+      ||fields.immediate&&(!Object.hasOwn(fields.immediate,'value')||fields.immediate.value!==true)
+      ||('deadline'in value&&!fields.deadline)||fields.deadline&&(!Object.hasOwn(fields.deadline,'value')||typeof fields.deadline.value!=='number'||!Number.isFinite(fields.deadline.value)||fields.deadline.value<0))throw new TypeError('Invalid author input checkpoint')
+    return{flush:fields.flush.value,immediate:fields.immediate?.value===true,...fields.deadline?{deadline:fields.deadline.value}:{}}
   }
   private pump():void{
     if(this.pumping||!this.runnable())return
     this.pumping=true
     const epoch=this.epoch
     let steps=0,current:AuthorInputJob|undefined,failed=false,primary:unknown
-    // Material from an earlier pump is cut before querying its source again.
-    if(this.work?.checkpoint&&!this.work.checkpointSuspended)this.work.checkpoint.immediate=true
     try{
       const start=this.context.now()
+      // Old callers retain pump cuts. Opted-in remainder survives turns only
+      // until its original absolute deadline (or an explicit immediate token).
+      if(this.work?.checkpoint&&!this.work.checkpointSuspended
+        &&(this.work.checkpoint.deadline===undefined||start>=this.work.checkpoint.deadline))this.work.checkpoint.immediate=true
       while(this.pending){
         current=this.work??=this.jobs.shift()!
         if(epoch!==this.epoch){this.retire(current,true);break}
+        if(current.checkpoint&&!current.checkpointSuspended&&!current.checkpoint.immediate
+          &&current.checkpoint.deadline!==undefined){
+          const now=this.context.now()
+          if(epoch!==this.epoch){this.retire(current,true);break}
+          if(current.checkpoint&&now>=current.checkpoint.deadline!)current.checkpoint.immediate=true
+        }
         if(current.checkpoint?.immediate&&!current.checkpointSuspended&&!current.cut){
           const checkpoint=current.checkpoint;current.checkpoint=undefined
           current.cut=checkpoint.flush()
@@ -132,6 +143,10 @@ export class AuthorInputFIFO {
             if(epoch!==this.epoch){this.retire(current,true);break}
             if(checkpoint){
               if(current.checkpoint&&current.checkpoint.flush!==checkpoint.flush)throw new TypeError('Pending author checkpoint owner changed')
+              if(current.checkpoint){
+                checkpoint.immediate||=current.checkpoint.immediate
+                if(current.checkpoint.deadline!==undefined)checkpoint.deadline=checkpoint.deadline===undefined?current.checkpoint.deadline:Math.min(current.checkpoint.deadline,checkpoint.deadline)
+              }
               current.checkpoint=checkpoint;current.checkpointSuspended=false;steps++
             }else{
               current.checkpointSuspended=false
@@ -151,7 +166,7 @@ export class AuthorInputFIFO {
       try{this.cancel()}catch{/* the work failure remains primary */}
       if(active)try{this.retire(active,true)}catch{/* all releases attempted */}
     }finally{
-      if(epoch===this.epoch&&this.work?.checkpoint&&!this.work.checkpointSuspended)this.work.checkpoint.immediate=true
+      if(epoch===this.epoch&&this.work?.checkpoint&&!this.work.checkpointSuspended&&this.work.checkpoint.deadline===undefined)this.work.checkpoint.immediate=true
       this.pumping=false
     }
     let notificationFailed=false,notificationError:unknown
@@ -171,7 +186,7 @@ export class AuthorInputFIFO {
       if(!fields[key]||!Object.hasOwn(fields[key],'value'))throw new TypeError('Invalid author input wait')
     }
     const kind=fields.kind.value,promise=fields.promise.value
-    const deadline=fields.deadline.value,timeoutError=fields.timeoutError.value
+    const deadline=fields.deadline?.value,timeoutError=fields.timeoutError.value
     if(kind!=='author-input-wait'||typeof deadline!=='number'||!Number.isFinite(deadline))throw new TypeError('Invalid author input wait')
     if(epoch!==this.epoch||this.work!==job)return
     const wait:JobWait={cell:{}}

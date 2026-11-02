@@ -8450,11 +8450,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<AuthorInputYield,void,void> {
     const source=session.source!,owner=this
-    let firstMaterial=true
+    const coalesced=source.prepared.material.kind==='texturedAuto'
+    let firstMaterial=true,pendingMaterials=0,remainderDeadline:number|undefined
     // The existing adapter remains the only pending material owner. A lazy cut
     // captures packed bytes only when this SAME FIFO job can hand them off.
     const flush=function*(){
-      try{owner._assertCanonicalSource(session);const cut=source.adapter!.flush();if(cut)yield* owner._acceptCanonicalChunks(session,[cut])}
+      try{owner._assertCanonicalSource(session);const cut=source.adapter!.flush();if(cut)yield* owner._acceptCanonicalChunks(session,[cut]);pendingMaterials=0;remainderDeadline=undefined}
       catch(error){if(!source.partialCancel||error!==source.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     }
     const checkpoint={kind:'author-input-checkpoint' as const,flush},immediate={...checkpoint,immediate:true as const}
@@ -8464,9 +8465,17 @@ export class PencilEngine implements PencilEngineAPI {
         const next=iterator.next()
         if(next.done){source.state=next.value;return}
         source.state=next.value.state;yield* this._acceptCanonicalChunks(session,source.adapter!.accept(next.value))
-        // Preserve first paint latency for every captured START/MOVE input.
-        if(firstMaterial&&next.value.kind==='material'){yield* flush();firstMaterial=false}
-        yield next.value.kind==='inputComplete'?immediate:checkpoint
+        if(next.value.kind==='material'){
+          pendingMaterials++
+          // First material of EACH captured input is still handed off before
+          // another source next(). Only its remainder may span FIFO turns.
+          if(firstMaterial){yield* flush();firstMaterial=false}
+          else if(coalesced&&remainderDeadline===undefined)remainderDeadline=performance.now()+32
+        }
+        // K8 is conservative across automatic adapter cuts: only our completed
+        // flush resets the count. Query-only yields never extend its deadline.
+        yield next.value.kind==='inputComplete'||coalesced&&pendingMaterials>=8?immediate
+          :coalesced?{...checkpoint,deadline:remainderDeadline??performance.now()+32}:checkpoint
       }
     }finally{iterator.return(source.state!)}
   }
@@ -8482,11 +8491,13 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._authorProducer&&!this._authorProducer.ended)throw new Error('Canonical pointer gesture already active')
     const captured={...input},seeds=createBrushRandomContext('digitalBrush')!,controller=new AbortController()
     if(![captured.x,captured.y,captured.pressure,captured.tiltX,captured.tiltY,captured.timeStamp,snapshot.opts.opacity,...snapshot.opts.graphiteColor].every(Number.isFinite)||captured.pressure<0||captured.pressure>1||snapshot.opts.opacity<0||snapshot.opts.opacity>1||snapshot.opts.graphiteColor.some(v=>v<0||v>1))throw new Error('Invalid canonical captured input')
-    // Logical pending metadata: <=2 draws, two recipe trees per draw, projected
-    // 15-scalar inputs, <=10 fences and <=64 bounded target keys. SOFT copies
-    // additionally retain curve text/points; compiled coefficients are not recipes.
+    // Same adapter pending owner, precharged BEFORE its allocation/BEGIN:
+    // material7 <=8 DRAWs (legacy <=2), two recipe trees per draw, projected
+    // 15-scalar inputs, <=10 per-input fences and <=64 bounded target keys.
+    // Both SOFT recipe trees include curve text/points, not compiled tables.
     const curve=(prepared.material.kind==='auto'||prepared.material.kind==='autoSoftPressureTexture'||prepared.material.kind==='texturedAuto')&&prepared.material.pin.kind==='softAuto'?prepared.material.pin.source.softnessCurve:undefined
-    const pendingMetadata=1024+2*(2*1024+512+512)+10*128+64*256+(curve?4*(2*curve.text.length+32*curve.points.length):0)
+    const pendingDraws=prepared.material.kind==='texturedAuto'?8:2
+    const pendingMetadata=1024+pendingDraws*(2*1024+512+512)+10*128+64*256+(curve?2*pendingDraws*(2*curve.text.length+32*curve.points.length):0)
     const releaseCpu=this._brushMipCache.reserve((prepared.runtime7?0:prepared.bytes)+8192+pendingMetadata)
     let releasePrepared:(()=>void)|undefined,context7:CanonicalMaterialContextV7|undefined
     const assertStart7=()=>{

@@ -1,3 +1,6 @@
+// Concrete constructor provenance only; no texture handles or GL state are cached.
+const issuedBrushTextureCaches = new WeakSet<object>()
+export function isNativeBrushTextureCache(cache: object): boolean { return issuedBrushTextureCaches.has(cache) }
 import { assertStorageDomain, chargeContextOrphan, isStorageLeaseCurrent, materializeContextStorage, releaseStorageLease, releaseStorageReservation, reserveContextStorage, type StorageDomain, type StorageLease, type StorageReservation } from '../buffers/ContextStorageOwner';
 export interface OwnedBrushResource {
     readonly texture: WebGLTexture;
@@ -176,7 +179,7 @@ export class BrushTextureCache {
     private usedBytes = 0;
     private readonly gl: WebGLRenderingContext;
     private readonly targetBytes: number;
-    constructor(gl: WebGLRenderingContext, targetBytes = 16 * 1024 * 1024) { this.gl = gl; this.targetBytes = targetBytes; }
+    constructor(gl: WebGLRenderingContext, targetBytes = 16 * 1024 * 1024) { issuedBrushTextureCaches.add(this); this.gl = gl; this.targetBytes = targetBytes; }
     get bytes(): number { return this.usedBytes; }
     /** Metadata only. Caller must exclude a lost context's invalidated storage. */
     storageChargeSnapshot(): BrushStorageCharge {

@@ -1,3 +1,4 @@
+import {createBrushGlContextOwner} from './BrushGlState'
 import {runBrushGlBatch,runBrushGlTurn} from './BrushGlBatch'
 import {CanonicalWashLayerCoordinator,type CanonicalWashLayerCoordinatorOptions,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
@@ -14,15 +15,15 @@ import * as patternBankModule from './CanonicalMaskSourceBank'
 import {CanonicalRgba8CompositePass} from './CanonicalRgba8CompositePass'
 import {TransformedMaskPrepass} from './TransformedMaskPrepass'
 import {BrushMipCache} from './BrushMipCache'
-import {BrushTextureCache} from './BrushTextureCache'
+import {BrushTextureCache,isNativeBrushTextureCache} from './BrushTextureCache'
 import {RibbonScratchPool} from '../buffers/RibbonScratchPool'
 import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 const pattern={id:'asset:'+'b'.repeat(64),size:8,x:0,y:0,width:4,height:4}
 // Structural small Soft root fixture, not genuine descriptor/native admission proof.
 function context(profile:typeof G|typeof B=G):CanonicalMaterialContextV6{const softnessCurve={text:'0,0;1,1;',points:[{x:0,y:0,corner:false},{x:1,y:1,corner:false}]};return canonicalSoftNativeDefaultTexturedSourceMaterialContext({version:6,assets:[pattern],primarySource:canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft-fixture',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:4,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve},brushScale:1,brushAngle:0,coverageProfile:profile===B?'browser-number-coverage-v1':'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:softnessCurve,coefficients:[[0,0,1,0]]}}),primaryTexture:{kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:1,offsetY:2,strength:'source-pressure-curve-v1'},budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}})}
 function decoded(profile:typeof G|typeof B=G){const c=context(profile),g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:4,ratio:1,spikes:2,scale:1,angle:0},{scale:1,ratio:1,rotation:0}),recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:c.primarySource.source,coverageProfile:c.primarySource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false};return buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[0,4,8].map(x=>({recipe,role:'primary' as const,x,y:0,opacity:.75,flow:.7,grainDepth:x===0?0:x===4?.5:1})),fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:3,group:0},{kind:'segmentEnd',at:3,group:0},{kind:'gestureEnd',at:3}]},c).frame}
-function fixture(variant=true,rawCompanion=true,profile:typeof G|typeof B=G,overVariant=false,selected?:CanonicalMaterialContextV7){
- const{gl,snapshot}=recordingGL(),cache=new BrushTextureCache(gl),cpu=new BrushMipCache()
+function fixture(variant=true,rawCompanion=true,profile:typeof G|typeof B=G,overVariant=false,selected?:CanonicalMaterialContextV7,wrapCache?:(cache:BrushTextureCache)=>BrushTextureCache){
+ const{gl,snapshot}=recordingGL(),nativeCache=new BrushTextureCache(gl),cache=wrapCache?wrapCache(nativeCache):nativeCache,cpu=new BrushMipCache()
  gl.LUMINANCE=0x1909;gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
  gl.getShaderPrecisionFormat=()=>({precision:23,rangeMin:127,rangeMax:127});gl.texSubImage2D=vi.fn();gl.copyTexSubImage2D=vi.fn();gl.copyTexImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn()
  const attrib=gl.getAttribLocation;gl.getAttribLocation=(p:unknown,n:string)=>n==='position'?0:attrib(p,n)
@@ -1736,5 +1737,136 @@ it.each([false,true])('optional checkpoint reclaim within authority window prese
   else{snapshot.assertCurrent!();expect(snapshot.groups!()[0]).toBe(group);expect(entry.replayPins).toBe(pins!-1);expect(s.coordinator.poisoned).toBe(false)}
   expect(cp?.retired).toBe(true);expect(s.coordinator['busy']).toBe(false);faultArmed=false;if(fault)s.coordinator.cancel();snapshot.release()
  }finally{armed=false;faultArmed=false;pressure?.();spy.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+// Real bank-issued lifetime; managed bindings are test-owned equivalents of
+// the engine's paper/screen predicates, never inferred from sampler shape.
+function patternRestoreFixture() {
+ const s=fixture(),paper=s.gl.createTexture(),screen=s.gl.createBuffer()
+ const managed=createBrushGlContextOwner(s.gl,{textureIsCurrent:t=>t===paper,bufferIsCurrent:b=>b===screen})
+ const info=s.composite.brushGlBatchInfo()
+ const service={brushGlBatchInfo:()=>({...info,contextOwner:managed.owner}),enterBrushGlBatch:()=>()=>{}}
+ const view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],info)
+ const life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root)
+ for(let i=0;i<3;i++){s.gl.activeTexture(s.gl.TEXTURE0+i);s.gl.bindTexture(s.gl.TEXTURE_2D,paper)}
+ s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindBuffer(s.gl.ARRAY_BUFFER,screen)
+ const before=s.snapshot(),textures=vi.spyOn(s.gl,'isTexture'),buffers=vi.spyOn(s.gl,'isBuffer'),parameters=vi.spyOn(s.gl,'getParameter')
+ const turn=(owners:Parameters<typeof runBrushGlBatch>[0]['owners']=[life],action:()=>void=()=>{})=>runBrushGlTurn({participants:[service],callbackScope:managed.callbackScope},token=>{
+  const captures=parameters.mock.calls.length
+  runBrushGlBatch({turn:token,participants:[service],owners},()=>{action();s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,view.texture)})
+  expect(parameters.mock.calls.length).toBe(captures)
+ })
+ const close=()=>{textures.mockRestore();buffers.mockRestore();parameters.mockRestore();s.close()}
+ return{...s,paper,screen,service,managed,view,life,before,textures,buffers,parameters,turn,close}
+}
+it('native pattern lifetime preserves managed paper screen restore gate without deleting the capture',()=>{
+ const s=patternRestoreFixture()
+ try{s.turn();expect(s.textures).not.toHaveBeenCalled();expect(s.buffers.mock.calls.filter(([buffer])=>buffer===s.screen)).toHaveLength(0);expect(s.parameters.mock.calls.length).toBeGreaterThan(0);expect(s.snapshot()).toEqual(s.before)}finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('native pattern provenance lookup rejects copies wrappers and foreign context without reading candidate metadata',()=>{
+ const s=patternRestoreFixture(),trap=vi.fn(()=>{throw Error('candidate trap')})
+ try{
+  const proxy=new Proxy(s.life,{get:trap,getOwnPropertyDescriptor:trap,getPrototypeOf:trap})
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(true)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,{...s.life})).toBe(false)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,proxy)).toBe(false)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(recordingGL().gl,s.life)).toBe(false);expect(trap).not.toHaveBeenCalled()
+ }finally{s.close()}
+})
+it.each(['bank','get','resourceBytes'] as const)('native pattern late %s override and accessor stay foreign before callbacks',kind=>{
+ const s=patternRestoreFixture(),object=kind==='bank'?s.bank:s.cache,name=kind==='bank'?'assertCurrentOwners':kind
+ const before=Object.getOwnPropertyDescriptor(object,name),original=kind==='bank'?s.bank.assertCurrentOwners.bind(s.bank):kind==='get'?s.cache.get.bind(s.cache):s.cache.resourceBytes.bind(s.cache),getter=vi.fn(()=>original)
+ try{
+  Object.defineProperty(object,name,{configurable:true,get:getter})
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);expect(getter).not.toHaveBeenCalled()
+  s.turn();expect(getter).toHaveBeenCalled();expect(s.textures.mock.calls.length).toBeGreaterThan(0);expect(s.buffers.mock.calls.length).toBeGreaterThan(0)
+  s.textures.mockClear();s.buffers.mockClear()
+  Object.defineProperty(object,name,{configurable:true,value:original})
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);s.turn();expect(s.textures.mock.calls.length).toBeGreaterThan(0)
+ }finally{if(before)Object.defineProperty(object,name,before);else Reflect.deleteProperty(object,name);s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('native pattern subclass prototype and extra foreign lease cannot keep restore gate',()=>{
+ const s=patternRestoreFixture(),old=Object.getPrototypeOf(s.bank),callback=vi.fn(()=>()=>{})
+ try{
+  class ChildBank extends CanonicalMaskSourceBank {}
+  Object.setPrototypeOf(s.bank,ChildBank.prototype)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);s.turn();expect(s.textures.mock.calls.length).toBeGreaterThan(0)
+  Object.setPrototypeOf(s.bank,old);s.textures.mockClear();s.buffers.mockClear()
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(true)
+  s.turn([s.life,{owner:{},lease:callback}]);expect(callback).toHaveBeenCalledOnce();expect(s.textures.mock.calls.length).toBeGreaterThan(0);expect(s.buffers.mock.calls.length).toBeGreaterThan(0)
+ }finally{Object.setPrototypeOf(s.bank,old);s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('native pattern retired handle and bank reset lose provenance; undefined body error keeps state and borrow releasable',()=>{
+ const s=patternRestoreFixture()
+ try{
+  let caught=false;try{s.turn([s.life],()=>{throw undefined})}catch(error){caught=true;expect(error).toBeUndefined()}
+  expect(caught).toBe(true);expect(s.snapshot()).toEqual(s.before);s.life.lease()()
+  const child=s.root.retain(),other=child.patternResource(s.c.primaryTexture,s.c.assets[0],s.composite.brushGlBatchInfo()),otherLife=patternBankModule.canonicalPatternResourceLifetime(other,s.composite.brushGlBatchInfo(),child)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,otherLife)).toBe(true);child.release();expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,otherLife)).toBe(false)
+  s.bank.reset();expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('native bank lifetime never rereads caller owned headers after the validated mint',()=>{
+ const s=fixture(),read=vi.fn(),info=s.composite.brushGlBatchInfo()
+ const headers={get gl(){read();return s.gl},get cache(){read();return s.cache},get cpu(){read();return s.cpu}}
+ try{
+  const view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],headers)
+  expect(read.mock.calls.length).toBeGreaterThan(0)
+  const life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root);read.mockClear()
+  const release=life.lease();try{expect(life.ownedPointSampler!.source.texture).toBe(view.texture)}finally{release()}
+  expect(read).not.toHaveBeenCalled()
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('native pattern cache subclass and prototype accessor keep the foreign validity path',()=>{
+ const s=patternRestoreFixture(),original=Object.getPrototypeOf(s.cache),get=Object.getOwnPropertyDescriptor(BrushTextureCache.prototype,'get')!,getter=vi.fn(()=>get.value)
+ try{
+  class ChildCache extends BrushTextureCache {}
+  Object.setPrototypeOf(s.cache,ChildCache.prototype)
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);s.turn();expect(s.textures.mock.calls.length).toBeGreaterThan(0)
+  Object.setPrototypeOf(s.cache,original);s.textures.mockClear()
+  Object.defineProperty(BrushTextureCache.prototype,'get',{configurable:true,get:getter})
+  expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);expect(getter).not.toHaveBeenCalled()
+  s.turn();expect(getter).toHaveBeenCalled();expect(s.textures.mock.calls.length).toBeGreaterThan(0)
+ }finally{Object.defineProperty(BrushTextureCache.prototype,'get',get);Object.setPrototypeOf(s.cache,original);s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it.each(['generation','resetting','gl','cache','cpu','ownerProof','originalOwner','releaseMetadata'] as const)('native pattern Bank scalar %s accessor is refused without invocation',name=>{
+ const s=patternRestoreFixture(),field=Object.getOwnPropertyDescriptor(s.bank,name)!,getter=vi.fn(()=>field.value)
+ try{Object.defineProperty(s.bank,name,{configurable:true,get:getter});expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);expect(getter).not.toHaveBeenCalled()}
+ finally{Object.defineProperty(s.bank,name,field);s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it.each(['gl','entries'] as const)('native pattern cache field %s accessor is refused without invocation',name=>{
+ const s=patternRestoreFixture(),field=Object.getOwnPropertyDescriptor(s.cache,name)!,getter=vi.fn(()=>field.value)
+ try{Object.defineProperty(s.cache,name,{configurable:true,get:getter});expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,s.life)).toBe(false);expect(getter).not.toHaveBeenCalled()}
+ finally{Object.defineProperty(s.cache,name,field);s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('constructor cache provenance rejects wrapped native cache before Proxy metadata traps',()=>{
+ let armed=false
+ const trap=vi.fn(),s=fixture(true,true,G,false,undefined,cache=>new Proxy(cache,{
+  getPrototypeOf(target){if(armed)trap();return Reflect.getPrototypeOf(target)},
+  getOwnPropertyDescriptor(target,key){if(armed)trap();return Reflect.getOwnPropertyDescriptor(target,key)}
+ }))
+ try{
+  const info=s.composite.brushGlBatchInfo(),view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],info),life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root)
+  armed=true;expect(isNativeBrushTextureCache(s.cache)).toBe(false);expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,life)).toBe(false);expect(trap).not.toHaveBeenCalled()
+ }finally{armed=false;s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('constructor Bank provenance rejects a wrapped receiver before Proxy metadata traps',()=>{
+ const s=patternRestoreFixture(),trap=vi.fn(),proxy=new Proxy(s.bank,{get(target,key,receiver){return key==='originalOwner'?proxy:Reflect.get(target,key,receiver)},getPrototypeOf(target){trap();return Reflect.getPrototypeOf(target)},getOwnPropertyDescriptor(target,key){trap();return Reflect.getOwnPropertyDescriptor(target,key)}})
+ try{
+  const prep=proxy.prepareRoot([{kind:'raw-pattern-l8',asset:s.c.assets[0],pin:s.c.primaryTexture,readOriginalGray:()=>new Uint8Array(s.c.assets[0].size*s.c.assets[0].size)}],{gpuBytes:0,cpuBytes:0})
+  try{prep.jobs.forEach((_,i)=>prep.prepareJob(i));prep.assertPreparedPublication();const root=prep.publish();try{const view=root.patternResource(s.c.primaryTexture,s.c.assets[0],s.composite.brushGlBatchInfo()),life=patternBankModule.canonicalPatternResourceLifetime(view,s.composite.brushGlBatchInfo(),root);trap.mockClear();expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,life)).toBe(false);expect(trap).not.toHaveBeenCalled()}finally{root.release()}}finally{prep.cancel()}
+ }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })

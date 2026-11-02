@@ -64,3 +64,68 @@ A producer resume revokes the prior cut-safe suspension point until another chec
 Checkpoint descriptor capture invokes no accessors but may run Proxy traps, so epoch is rechecked immediately afterward before any assignment. A real reentrant-cancel witness was RED with missing source.return/release; the postcapture retire guard restores both and permits only fresh epoch work. Invalid descriptors/factory errors, cut.next/return errors, source.return/release errors, cancellation while cut runs/suspends, and late rejected waits attempt every owned cleanup and preserve the first work/cleanup failure. Cut fields/factory/iterator references detach before retirement callbacks. No metadata is emitted by cancellation itself.
 
 Evidence receipts are in R52/source-author-pump-{fifo-red,handoff-order-red,capture-cancel-red,final2-five-suites}.log. Runtime source scheduling and renderer responsiveness still require separate actual-device validation; these are unit/engine ownership proofs.
+
+## Material7 remainder coalescing (RAM scheduling unit)
+
+The existing material adapter remains the only pending DRAW owner. Material7
+uses an upper bound K8 of actual material yields. The first material of EACH
+captured START/MOVE input still flushes immediately; inputComplete, wait, source
+completion and END preserve existing ordering. No source query is repeated,
+removed or reordered, and no sensor, random stream, saved phase or fence changes.
+Legacy producers without a deadline retain pump-cut behavior.
+
+Only the remainder may span cooperative turns: its earliest absolute 32ms
+`performance.now()` deadline cannot be extended by later/query-only checkpoints.
+K8 also cuts with a frozen clock. The same FIFO two-yield / 4ms turn budget applies
+to both source and queue-pressure handoffs; a slow atomic step may overrun it.
+32ms is a soft eligibility deadline, not an atomic bound, debounce timer or
+promise of larger packets: queue pressure, automatic adapter limits and earlier
+query checkpoints can cut sooner. The existing MessageChannel task scheduler is
+used; no universal RAF/16ms assumption or measured speed claim follows.
+
+START reserves logical pending metadata on the SAME BrushMipCache before adapter
+allocation and BEGIN: 1024 + K*(2*1024+512+512) + 10*128 + 64*256 bytes,
+plus 2*K*(2*curve.text.length+32*curve.points.length) for an actual Soft curve.
+For material7 K=8 gives base43264 versus old K2 base24832 (+18432). The two
+recipe trees cover the generated recipe and adapter structured clone per DRAW;
+both carry Soft curve text/points. Existing reusable author/program tables retain
+their own charge and are not compiled per input. This is a conservative logical
+estimate, not exact JavaScript heap measurement; initial pointer/seed/controller
+capture still precedes this existing START reservation. No budget ceiling rises.
+
+A deferred checkpoint retains only the same producer flush capability. Ordinary
+void handoff suspends its cut-safe point, preventing newer pending material from
+overtaking an older automatic cut. Reentrant clock revocation is checked before
+using the checkpoint. Cancel retires the existing iterator/cut/capture and never
+flushes revoked pending material; the existing engine cancellation path commits
+only its already handed prefix without fabricating END. Existing partial-close
+and zero-frame-discard controls remain part of the coupled regression gate.
+
+Tests use recording GL and metadata-derived self-authored synthetic CAS fixtures,
+not vendor artwork or a native-pixel proof. The normal engine read/service path
+selects material7; no private preview flag is added by the new controls. Baseline
+contrast consumes BOTH old production modules through immutable Git and the SAME
+normal engine API, not an unsupported new checkpoint shape alone. Every actual
+DRAW (expanded recipe, grain included), fence, final source/RNG state and folded
+composition controls is compared to flush-every-yield source execution. HOST
+results establish scheduling/ownership semantics only. Actual response time,
+GPU pixels, network/IDB/outbox dominance and hardware support require later QA.
+
+Final immutable RAM gate V5: SAME-API baseline RED3 (both old production
+modules, all semantic/composition comparisons pass before max2-versus-K8 fails),
+then 139 tests / 4 existing suites PASS; strict4 roots / 285 source inputs / zero
+diagnostics. Configured explicit-path lint: zero errors, 51 baseline warnings
+and 54 candidate warnings (+3 intentional empty flush-generator test witnesses).
+All processes have PID/argv/TTL receipts, input hashes rechecked, jobs reaped.
+The registered disposable lint directory was finished and is absent. No browser,
+device, service, runtime build or dependency copy was created.
+
+V1/V2 failures were new fixture errors (missing mandatory decoder frame ordinal,
+then asserting a DRAW on the legitimate empty initial fence frame), not evidence
+of product failure. V3 new engine controls passed; strict exposed optional deadline
+descriptor narrowing in the existing wait parser. V4 uses optional descriptor
+value access followed by the unchanged own-DATA/type validation, with no cast or
+weakened schema; 139/4 and strict passed. V5 adds packed/decoded composition checks
+before RED and reruns full139/4 plus strict. These histories remain in R52.
+Base commit: `1e85d8cdb074e8a00c75e082ff9b7d9d8a4cf4e0`. Final evidence: R52/authored-coalescing-v5-*.
+This unit does not establish measured responsiveness or authorize QA deployment.

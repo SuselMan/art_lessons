@@ -1,3 +1,4 @@
+import {isCanonicalOwnedPatternLifetime} from './CanonicalMaskSourceBank'
 import {isCanonicalOwnedLifetime} from './CanonicalLayerTargets'
 import { saveBrushGlState,openBrushGlRestoreGate,disableBrushGlRestoreGate,closeBrushGlRestoreGate,type BrushGlStateRestore,type BrushGlContextOwner,type BrushGlCanonicalCallbackScope,type BrushGlRestoreGate } from './BrushGlState'
 import type { BrushMipCache } from './BrushMipCache'
@@ -317,7 +318,7 @@ export function runBrushGlBatch(options: {
   if(first.gl.isContextLost())throw new Error('Brush GL batch context lost')
   const resources = new Map<string, number>(), owners = [...new Set(options.owners ?? [])]
   // Downgrade BEFORE reading any untrusted owner metadata or invoking its lease.
-  if(borrowed?.restoreGate&&owners.some(owner=>!isCanonicalOwnedLifetime(first.gl,owner)))disableBrushGlRestoreGate(borrowed.restoreGate)
+  if(borrowed?.restoreGate&&owners.some(owner=>!isCanonicalOwnedLifetime(first.gl,owner)&&!isCanonicalOwnedPatternLifetime(first.gl,owner)))disableBrushGlRestoreGate(borrowed.restoreGate)
   if (owners.length > 64 || (options.resources?.length ?? 0) > 1024) throw new RangeError('Brush GL batch declarations exceed capacity')
   for (const info of infos.values()) if (info.gl !== first.gl || info.cache !== first.cache || info.cpu !== first.cpu || info.instancing !== first.instancing || info.vertexArrays !== first.vertexArrays) throw new Error('Brush GL batch context/cache mismatch')
   for (const item of [...[...infos.values()].flatMap(info => info.resources), ...options.resources ?? []]) {
