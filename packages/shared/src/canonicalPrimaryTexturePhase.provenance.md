@@ -1,0 +1,5 @@
+# Pure resolved texture phase boundary — RAM unit
+
+New pure DATA API only; no context7/Any/wire/policy/author integration. Original primary source research SHA4861fd08… establishes exclusive per-key phase and world-minus-effective-offset. API normalizes to existing plus sampler with actual crop dimensions. No RNG, seed, stroke ownership/cache, or native random/pixel identity claim. Per-invocation callbacks happen once for each requested random axis; stage A2 must own actual candidate caching. Captured plain ownDATA input validates before callbacks. Signed safe offsets supported without overflow; -0 rejected. External resolver may throw/reenter; this pure boundary holds no mutable state or resources and makes no rollback promise about external callback effects.
+
+Executed RAM gates: old sampler sign semantic RED (1 expected failure, 10 old PASS), final GREEN16/2 (6 new +10 existing), actual shared strict options2roots24inputs0, explicit no-ignore oxlint2files0. No GPU/native invocation. Tests structural asymmetric modulo oracle, not GPU/native fixture. Existing texture kernels/versions/budgets unchanged.

@@ -109,3 +109,51 @@ export function canonicalPrimaryTextureCell(world: number, size: number, offset:
   const reduced = remainder < 0 ? remainder + size : remainder
   return (reduced + offset) % size || 0
 }
+
+/** Resolved canonical PLUS-coordinate phase DATA, not a source/stroke grant. */
+export interface CanonicalResolvedTexturePhase {
+  readonly kind: 'resolved-stroke-phase-v1'
+  readonly x: number
+  readonly y: number
+}
+
+/** Capture saved phase against the actual sampled rectangle, never CAS padding. */
+export function canonicalResolvedTexturePhase(value: unknown, width: number, height: number): Readonly<CanonicalResolvedTexturePhase> {
+  phaseDimensions(width, height)
+  const p = capture(value, ['kind', 'x', 'y'])
+  if (p.kind !== 'resolved-stroke-phase-v1' || !integer(p.x, 0, width - 1) || !integer(p.y, 0, height - 1)) return fail()
+  return Object.freeze({ kind: 'resolved-stroke-phase-v1', x: p.x, y: p.y })
+}
+
+export type CanonicalTexturePhaseRandomKey = 'texture_offset_x' | 'texture_offset_y'
+
+/** Pure candidate invocation. The caller owns candidate lifetime/retry caching.
+ * Random replaces the original fixed axis. No RNG or stroke cache lives here.
+ * All input is captured/validated before invoking either external resolver. */
+export function resolveCanonicalTexturePhase(
+  value: unknown,
+  resolveRandom: (key: CanonicalTexturePhaseRandomKey, exclusiveUpper: number) => number,
+): Readonly<CanonicalResolvedTexturePhase> {
+  const p = capture(value, ['width', 'height', 'offsetX', 'offsetY', 'randomX', 'randomY'])
+  if (typeof p.width !== 'number' || typeof p.height !== 'number') return fail()
+  const width = p.width, height = p.height
+  phaseDimensions(width, height)
+  if (!signedOffset(p.offsetX) || !signedOffset(p.offsetY) || typeof p.randomX !== 'boolean' || typeof p.randomY !== 'boolean'
+    || typeof resolveRandom !== 'function') return fail()
+  const x = p.randomX ? resolveRandom('texture_offset_x', width) : p.offsetX
+  if (p.randomX && !integer(x, 0, width - 1)) return fail()
+  const y = p.randomY ? resolveRandom('texture_offset_y', height) : p.offsetY
+  if (p.randomY && !integer(y, 0, height - 1)) return fail()
+  return Object.freeze({ kind: 'resolved-stroke-phase-v1', x: negativeOffset(x, width), y: negativeOffset(y, height) })
+}
+
+function signedOffset(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && !Object.is(value, -0)
+}
+function phaseDimensions(width: number, height: number): void {
+  if (!dimension(width) || !dimension(height) || width * height > 1048576) return fail()
+}
+function negativeOffset(offset: number, period: number): number {
+  const remainder = offset % period
+  return (remainder === 0 ? 0 : remainder > 0 ? period - remainder : -remainder)
+}
