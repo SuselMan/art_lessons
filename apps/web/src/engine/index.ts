@@ -6801,7 +6801,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='canonical_stroke'){
       if(!input.read)throw new Error('Indexed frame source missing')
       const snapshot=input.read.capability.snapshot
-      if(![2,3,4,5,6].includes(snapshot.materialVersion)||snapshot.rasterProfile!==plan.profile||snapshot.layerId!==INITIAL_LAYER_ID||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported indexed canonical material')
+      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||snapshot.rasterProfile!==plan.profile||snapshot.layerId!==INITIAL_LAYER_ID||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported indexed canonical material')
       if(!active){
         if(op.frame.frameOrdinal!==0)throw new Error('Indexed continuation has no active original prefix')
         let evidence=state.proofs.get(key)
@@ -7119,7 +7119,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(op.type!=='canonical_stroke'||!input.read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical resource operation')
     const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
-    if(![2,3,4,5,6].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported canonical resource material')
+    if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported canonical resource material')
     // Decode under the original captured source even for an empty/control frame,
     // before capacity, readers, reservations or a resource candidate exist.
     const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame
@@ -7313,7 +7313,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       if(op.type!=='canonical_stroke'||!read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported recorded canonical extension')
       const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
-      if(![2,3,4,5,6].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
+      if(![2,3,4,5,6,7].includes(snapshot.materialVersion)||('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
       const image=canonicalRenderImage(snapshot)?.image,texture=canonicalTexture(snapshot)
       if((image||texture)&&!owner.bank||!image&&!texture&&(snapshot.material.assets.length||snapshot.assets.length)||texture&&!canonicalSoftAutoDataEqual(snapshot.assets,texture.assets))throw new TypeError('Unsupported fixed canonical layer assets')
       if(image&&!owner.indexedSource&&!owner.fullSource&&!this._canonicalImageSourceReady(owner,image,()=>this._assertCanonicalLayerCurrent(owner)))throw new Error('Canonical image source suffix unavailable')
