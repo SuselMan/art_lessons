@@ -116,3 +116,15 @@ codec-clock/directional inputs read the isolated spacing state before advancemen
 An isotropic option selects the largest characteristic axis with no tip rotation.
 Axes remain continuous rendered dimensions rather than native integer mask bounds.
 Preview forks deep-copy spacing controls; historical absent fields retain the old law.
+
+
+## CPU reservation accounting
+
+`BrushMipCache.reservedBytes` is a pure read-only observation; overrides must not
+mutate ownership. Side-effecting overrides intentionally lose their old behavior.
+`reserve` reuses one method-local total across callback-free checks and recomputes
+it after successful optional-reclaim callbacks. Detach/attempt-all, busy refusal
+and exact cleanup errors remain unchanged. The trim argument is computed before
+trim/eviction callbacks, as before; no later check moves across those callbacks.
+No persistent counter, mirror/cache, owner or budget ceiling is introduced.
+Evidence: R52/reserve-scan-v1-*; base1e2f3ff590cc90db6709ef1efb27362c07320303.

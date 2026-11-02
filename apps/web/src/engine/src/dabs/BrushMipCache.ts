@@ -16,12 +16,14 @@ export class BrushMipCache {
   constructor(targetBytes=4*1024*1024) {this.targetBytes=targetBytes}
   get bytes():number{return this.usedBytes}
   get budgetBytes():number{return this.targetBytes}
+  /** Pure read-only accounting observation; overrides must not mutate ownership. */
   get reservedBytes():number{return [...this.reservations.values()].reduce((a,b)=>a+b,0)}
   /** Retained/workspace peak charged before allocation, sharing the old cap. */
   reserve(bytes:number):()=>void {
     if(!Number.isSafeInteger(bytes)||bytes<0)throw new RangeError('CPU brush workspace exceeds its budget')
     if(this.reclaiming)throw new Error('Cannot reserve during CPU optional reclaim')
-    if(this.reservedBytes+bytes>this.targetBytes&&this.optionalReclaims.size){
+    let reserved=this.reservedBytes
+    if(reserved+bytes>this.targetBytes&&this.optionalReclaims.size){
       this.reclaiming=true
       let failed=false,primary:unknown
       try{
@@ -33,9 +35,10 @@ export class BrushMipCache {
         }
       }finally{this.reclaiming=false}
       if(failed)throw primary
+      reserved=this.reservedBytes
     }
-    if(this.reservedBytes+bytes>this.targetBytes)throw new RangeError('CPU brush workspace exceeds its budget')
-    const token=Symbol();this.reservations.set(token,bytes);this.trim(this.targetBytes-this.reservedBytes)
+    if(reserved+bytes>this.targetBytes)throw new RangeError('CPU brush workspace exceeds its budget')
+    const token=Symbol();this.reservations.set(token,bytes);this.trim(this.targetBytes-(reserved+bytes))
     return ()=>{this.reservations.delete(token)}
   }
   private trim(limit:number):void {
