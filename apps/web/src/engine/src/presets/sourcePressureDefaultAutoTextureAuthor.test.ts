@@ -95,6 +95,7 @@ describe('actual genuine compiled3 to explicit material5 author core only',()=>{
   const s=setup();try{
    for(const part of['point-index','point-field','coefficient-index','coefficient-field']as const){
     const program=structuredClone(s.program),material=program.roles[0].materialProgram!,getter=vi.fn(()=>0)
+    if(material.kind!=='texture-pressure-curve-v1')throw new Error('Expected original pressure program')
     if(part==='point-index')Object.defineProperty(material.curve.source.points,'0',{get:getter})
     if(part==='point-field')Object.defineProperty(material.curve.source.points[0],'x',{get:getter})
     if(part==='coefficient-index')Object.defineProperty(material.curve.coefficients,'0',{get:getter})
