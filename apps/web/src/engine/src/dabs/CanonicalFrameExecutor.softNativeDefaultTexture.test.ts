@@ -1677,3 +1677,64 @@ it('owned pattern sampler loss cleanup invalidates its real handle epoch without
   expect(life.ownedPointSampler!.epoch.alive).toBe(false);expect(()=>life.ownedPointSampler!.source.texture).toThrow();release()
  }finally{s.close()}
 })
+
+// Structural membership work counts, not walltime/whole-author complexity.
+it('snapshot assertion keeps both authority loops while membership Map.get cost scales linearly',()=>{
+ const run=(n:number)=>{
+  const s=replayConsumer7(),original=s.author('linear-snapshot');let callbacks=0
+  const author:CanonicalLocalWashAuthor=Object.freeze({...original,assertCurrent(candidate:CanonicalLocalWashAuthor){if(candidate!==author)throw Error('foreign source');callbacks++;return original.assertCurrent(original)}})
+  try{
+   for(let i=0;i<n;i++){expect(s.coordinator.tryEnqueueLocal(author,s.operation('linear-snapshot',i,true))).toBe(true);s.coordinator.advance()}
+   const snapshot=s.coordinator.retainReplaySnapshot(),groups=snapshot.groups!(),values=snapshot.values(),get=vi.spyOn(s.coordinator['replay'],'get')
+   callbacks=0;get.mockClear();snapshot.assertCurrent!();const count=get.mock.calls.length
+   expect(callbacks).toBe(2*n+1);
+   get.mockRestore();expect(snapshot.values()).toBe(values);expect(snapshot.groups!()).toBe(groups);snapshot.release()
+   return count
+  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+ const small=run(8),large=run(16);console.info(JSON.stringify({membershipMapGet:{frames8:small,frames16:large},authorityCallbacks:{frames8:17,frames16:33}}));expect(small).toBeGreaterThan(0);expect(large).toBeLessThanOrEqual(small*2+2)
+})
+it('snapshot authority callbacks cannot mutate, close, cancel or release the claimed public work window',()=>{
+ const s=replayConsumer7()
+ try{
+  const op=s.operation('busy-original',0,true),first=s.recorded(op,1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
+  const snapshot=s.coordinator.retainReplaySnapshot(),group=snapshot.groups!()[0],close=s.seal(first),next=s.recorded(s.operation('other-original',0,true),2),author=s.author('other-local'),local=s.operation('other-local',0,true)
+  const count=s.coordinator['replay'].size,bytes=s.cpu.reservedBytes;let callbacks=0
+  s.setLate(()=>{callbacks++
+   expect(()=>s.coordinator.enqueueRecorded(next)).toThrow('busy');expect(()=>s.coordinator.tryEnqueueLocal(author,local)).toThrow('busy')
+   expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow('busy');expect(()=>s.coordinator.cancel()).toThrow('turn')
+   expect(()=>snapshot.release()).toThrow('busy');expect(()=>snapshot.retainRoot!(group)).toThrow('busy');expect(()=>snapshot.assertCurrent!()).toThrow('busy')
+   expect(s.coordinator['busy']).toBe(true)
+  })
+  snapshot.assertCurrent!();s.setLate();expect(callbacks).toBeGreaterThan(0);expect(s.coordinator['replay'].size).toBe(count);expect(s.cpu.reservedBytes).toBe(bytes);expect(group.close).toBeUndefined();snapshot.release()
+ }finally{s.setLate();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('last original callback thrown undefined preserves owner and is not swallowed by scalar gates',()=>{
+ const s=replayConsumer7(),original=s.author('late-authority');let count=0,armed=false
+ const author:CanonicalLocalWashAuthor=Object.freeze({...original,assertCurrent(candidate:CanonicalLocalWashAuthor){if(candidate!==author)throw Error('foreign source');if(armed&&++count===8)throw undefined;return original.assertCurrent(original)}})
+ try{
+  for(let i=0;i<4;i++){s.coordinator.tryEnqueueLocal(author,s.operation('late-authority',i,true));s.coordinator.advance()}
+  const snapshot=s.coordinator.retainReplaySnapshot(),bytes=s.cpu.reservedBytes;armed=true
+  let caught=false;try{snapshot.assertCurrent!()}catch(error){caught=true;expect(error).toBeUndefined()}
+  armed=false;expect(caught).toBe(true);expect(count).toBe(8);expect(s.coordinator['busy']).toBe(false);expect(s.cpu.reservedBytes).toBe(bytes)
+  snapshot.assertCurrent!();snapshot.release()
+ }finally{armed=false;s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it.each([false,true])('optional checkpoint reclaim within authority window preserves snapshot pins or trips failed gate fault=%s',fault=>{
+ const s=replayConsumer7(undefined,true),original=s.author('window-pressure'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let armed=false,faultArmed=false,pressure:(()=>void)|undefined
+ const reserve=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{const release=reserve(bytes);if(bytes===2048&&new Error().stack?.includes('prepareRenderedTailOwned'))return()=>{release();if(faultArmed)throw undefined};return release})
+ const author:CanonicalLocalWashAuthor=Object.freeze({...original,assertCurrent(candidate:CanonicalLocalWashAuthor){if(candidate!==author)throw Error('foreign source');if(armed){armed=false;faultArmed=fault;try{pressure=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes+1)}catch(error){if(!fault)throw error;expect(error).toBeUndefined()}finally{pressure?.();pressure=undefined}}return original.assertCurrent(original)}})
+ try{
+  s.coordinator.tryEnqueueLocal(author,mixedOpenOperation(s,'window-pressure'));s.publish(mixedReady(s))
+  const cp=s.coordinator['renderedTail'];expect(cp?.ready).toBe(true)
+  const snapshot=s.coordinator.retainReplaySnapshot(),group=snapshot.groups!()[0],entry=s.coordinator['entries'][0],pins=entry.replayPins
+  armed=true
+  if(fault){expect(()=>snapshot.assertCurrent!()).toThrow('retired');expect(s.coordinator.poisoned).toBe(true)}
+  else{snapshot.assertCurrent!();expect(snapshot.groups!()[0]).toBe(group);expect(entry.replayPins).toBe(pins!-1);expect(s.coordinator.poisoned).toBe(false)}
+  expect(cp?.retired).toBe(true);expect(s.coordinator['busy']).toBe(false);faultArmed=false;if(fault)s.coordinator.cancel();snapshot.release()
+ }finally{armed=false;faultArmed=false;pressure?.();spy.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})

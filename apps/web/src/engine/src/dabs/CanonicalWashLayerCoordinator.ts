@@ -1133,30 +1133,36 @@ export class CanonicalWashLayerCoordinator {
     const releaseMetadata=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+count*128+groupCount*768+closeCount*256+rawBound*1024)
     const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source?:CanonicalReplaySource7;root?:CanonicalMaskSourceLease;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;group:ReplayCapturedGroup;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;capturedPrefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
     let released=false,checking=false,pinned=false,work:ReplayGroupsWork|undefined
-    const pure=()=>{
+    // One synchronous busy+checking window: public mutation is fenced before
+    // entry/prefix changes. Full membership remains checked at both boundaries.
+    const pureGate=()=>{
       if(released||this.closed||this.failed||!this.busy||generation!==this.replayGeneration||order!==this.replayOrderRevision||(work?this.replayWork!==work:!!this.replayWork))throw Error('Replay snapshot retired')
+    }
+    const pure=()=>{
+      pureGate()
       for(const entry of entries)if(entry.retired||this.replay.get(entry.id)!==entry)throw Error('Replay snapshot entry retired')
       for(const proof of proofs)if(!this.entries.includes(proof.owner)||proof.owner.replaySource!==proof.source||proof.owner.sourceLease!==proof.sourceLease||proof.owner.metadataReleased||proof.group.kind==='wash'&&(proof.owner.washInFlight||proof.owner.depositedNextOrdinal!==proof.group.depositedNextOrdinal||proof.owner.ownership!==proof.ownership))throw Error('Replay snapshot source replaced')
     }
     const assertValue=(value:ReplayValue)=>{
       if(value.kind==='recorded')value.input.delivery.assertCurrent(value.input)
       else if(value.author.assertCurrent(value.author)!==value.author.lifetime.assertCurrent())throw Error('Captured local replay scope replaced')
-      pure()
+      pureGate()
     }
     const assertBodyOwned=()=>{
-        pure();this.assertRecordedCurrent();pure();this.assertLayers();pure()
+        if(!checking)throw Error('Replay snapshot assertion window missing')
+        pure();this.assertRecordedCurrent();pureGate();this.assertLayers();pureGate()
         for(const entry of entries)assertValue(entry.value)
         for(const value of values)assertValue(value)
         for(const proof of proofs){
-          if(proof.sourceLease){if(!proof.sourceLease.isReady())throw Error('Captured pattern root retired');pure()}
-          if(proof.source){proof.source.assertCurrent();pure()
-          this.assertReplayOriginal(proof.source,proof.group.frames[0].value.kind==='recorded'?proof.group.frames[0].value.input.read?.capability.snapshot:proof.group.frames[0].value.author.snapshot);pure()}
+          if(proof.sourceLease){if(!proof.sourceLease.isReady())throw Error('Captured pattern root retired');pureGate()}
+          if(proof.source){proof.source.assertCurrent();pureGate()
+          this.assertReplayOriginal(proof.source,proof.group.frames[0].value.kind==='recorded'?proof.group.frames[0].value.input.read?.capability.snapshot:proof.group.frames[0].value.author.snapshot);pureGate()}
           if(proof.close){
             const prefix=proof.prefix!,close=proof.close
             if(!samePaintData(proof.witness,{firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq,state:prefix.state,userId:prefix.userId,strokeId:prefix.strokeId}))throw Error('Replay close prefix changed')
-            close.input.delivery.assertCurrent(close.input);pure()
+            close.input.delivery.assertCurrent(close.input);pureGate()
             if(prefix.lifetime.assertCurrent()!==prefix.scope)throw Error('Replay close original replaced')
-            pure()
+            pureGate()
             const seal=verifyCanonicalRecordedClose({...prefix.state,recordedNext:prefix.state.nextOrdinal,firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq},{userId:prefix.userId,layerId:this.options.layerId,strokeId:prefix.strokeId},close.input.operation)
             if(!samePaintData(seal,close.seal))throw Error('Replay close seal changed')
           }
