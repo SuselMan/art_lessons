@@ -212,9 +212,9 @@ describe('future generic7 buildup static DATA admission, not BEGIN authority',()
    expect(JSON.stringify(f)).toBe(before)
   })
  }
- it('keeps real Gaussian tiltDirection pointer guard and original metadata unchanged',()=>{
+ it('admits genuine Gaussian single TiltDirection only after generic7 extraction, without metadata edits',()=>{
   const before=JSON.stringify(gaussianActual)
-  expect(canonicalSourceAuthorAdmission(gaussianActual.descriptor as unknown as BrushDescriptor,generic,[gaussianActual.patternAsset],option)).toEqual({supported:false,reason:'Unsupported canonical pointer transform/sensor'})
+  expect(canonicalSourceAuthorAdmission(gaussianActual.descriptor as unknown as BrushDescriptor,generic,[gaussianActual.patternAsset],option)).toMatchObject({supported:true,material:{kind:'texturedAuto'}})
   expect(JSON.stringify(gaussianActual)).toBe(before)
  })
  it('does not downgrade malformed buildup to older routes or bypass effects, timing or sensors',()=>{
@@ -236,4 +236,16 @@ describe('future generic7 buildup static DATA admission, not BEGIN authority',()
   const plain=brush();plain.sourceStamp!.settings.PaintOpAction='1';plain.sourceStamp!.flags.indirectPainting=false
   expect(canonicalSourceAuthorAdmission(plain,generic,[],option).supported).toBe(false)
  })
+})
+
+it('keeps genuine Pencil3 older routes and unsupported Rotation sensors closed',()=>{
+ const d=gaussianActual.descriptor as unknown as BrushDescriptor
+ for(const profile of[generic,browser]){
+  expect(canonicalSourceAuthorAdmission(d,profile,[gaussianActual.patternAsset],{texturedAutoSource:'textured-auto-material-v7'})).toMatchObject({supported:true,nativeSizePx:10,material:{kind:'texturedAuto'}})
+  for(const flags of[undefined,{pressureTexturedSource:'pressure-default-auto-texture-v5'},{softPressureTexturedSource:'pressure-soft-auto-texture-v6'}])expect(Reflect.apply(canonicalSourceAuthorAdmission,undefined,[d,profile,[gaussianActual.patternAsset],flags]).supported).toBe(false)
+ }
+ for(const sensor of['xTilt','yTilt','tiltElevation','rotation','drawingAngle','speed']){
+  const changed=structuredClone(d)as Mutable<BrushDescriptor>;changed.sourceStamp!.options.find(o=>o.id==='Rotation')!.sensors[0].id=sensor as 'pressure'
+  expect(canonicalSourceAuthorAdmission(changed,generic,[gaussianActual.patternAsset],{texturedAutoSource:'textured-auto-material-v7'}).supported).toBe(false)
+ }
 })

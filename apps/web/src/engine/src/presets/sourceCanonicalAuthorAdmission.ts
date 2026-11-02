@@ -64,8 +64,19 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
  if(seeded&&(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!extractSeededDensityDefaultAutoSourceDataCapability(descriptor).supported))return{supported:false,reason:'Unsupported canonical seeded pointer material/profile'}
  const image=sourceStampSourceKind(data)==='image',size=data.options.find(option=>option.id==='Size')
  if(size?.checked&&(!Number.isFinite(size.min)||!Number.isFinite(size.max)||size.min<0||size.max>1||size.sensors.length!==1||size.sensors[0].id!=='pressure'))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
+ // Capture the genuine generic7 capability before granting its single native
+ // TiltDirection pointer consumer. Historical constructors remain closed.
+ let genericCapability:Extract<ReturnType<typeof extractCanonicalTexturedAutoProgramData>,{supported:true}>|undefined
+ if(generic&&data.version===2&&data.source.kind!=='image'&&data.flags.textureEnabled&&(data.compiled?.version===3||data.compiled?.version===4)){
+  const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
+  if(!pattern)return{supported:false,reason:'Canonical textured Auto metadata unavailable'}
+  const result=extractCanonicalTexturedAutoProgramData(descriptor,{pattern})
+  if(!result.supported)return{supported:false,reason:'Unsupported canonical textured Auto: '+result.reasons.join(',')}
+  genericCapability=result
+ }
  const rotation=data.options.find(option=>option.id==='Rotation')
- if(data.options.some(option=>(image||seeded?['Ratio','Scatter','Mirror']:['Ratio','Rotation','Scatter','Mirror']).includes(option.id)&&option.checked)
+ const texturedTilt=!!genericCapability&&rotation?.checked===true&&rotation.useCurve&&rotation.sensors.length===1&&rotation.sensors[0].id==='tiltDirection'
+ if(data.options.some(option=>(image||seeded||texturedTilt?['Ratio','Scatter','Mirror']:['Ratio','Rotation','Scatter','Mirror']).includes(option.id)&&option.checked)
   ||seeded&&rotation?.checked&&(!rotation.useCurve||rotation.sensors.length!==1||rotation.sensors[0].id!=='tiltDirection')
   ||image&&rotation?.checked&&(rotation.sensors.length!==1||rotation.sensors[0].id!=='drawingAngle')
   ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
@@ -89,11 +100,8 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
    return{supported:true,data,nativeSizePx,material:{kind:'image',pin}}
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
  }
- if(generic&&data.version===2&&data.source.kind!=='image'&&data.flags.textureEnabled&&(data.compiled?.version===3||data.compiled?.version===4)){
-  const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
-  if(!pattern)return{supported:false,reason:'Canonical textured Auto metadata unavailable'}
-  const result=extractCanonicalTexturedAutoProgramData(descriptor,{pattern})
-  if(!result.supported)return{supported:false,reason:'Unsupported canonical textured Auto: '+result.reasons.join(',')}
+ if(genericCapability){
+  const result=genericCapability
   if(result.data.version!==2||result.data.source.kind==='image')return{supported:false,reason:'Unsupported canonical textured Auto family'}
   const nativeSizePx=result.data.source.diameter*result.data.brush.scale
   if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return{supported:false,reason:'Invalid canonical textured Auto native size'}

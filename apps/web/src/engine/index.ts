@@ -2,7 +2,7 @@ import type {CanonicalPreviewCandidate,CanonicalPreviewPublication} from './src/
 import {canonicalTexturedAutoMaterialContext,canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalStrokeSnapshotV7,type CanonicalTexturedAutoProgramBinding,type CanonicalMaterialContextV7,type CanonicalStrokeSnapshotV7} from '@grafetto/shared'
 import {canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalSoftAutoNativeDefaultTextureSourceBinding,canonicalStrokeSnapshotV6,type CanonicalStrokeSnapshotV6,type CanonicalMaterialContextV6,canonicalPressureTexturedSourceMaterialContext,canonicalPressureCurvePrimaryTexturePin,canonicalStrokeSnapshotV5,canonicalDefaultAutoPressureTextureSourceBinding,type CanonicalMaterialContextV5,type CanonicalStrokeSnapshotV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,canonicalDefaultAutoFixedTextureSourceBinding,type CanonicalMaterialContextV4,type CanonicalStrokeSnapshotV4,CANONICAL_MATERIAL_LIMITS,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,type CanonicalMaterialContextV3,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import { canonicalImageMaterialPin, type CanonicalMaterialAsset } from '@grafetto/shared'
-import {canonicalAutoMaskCapacity,assertCanonicalAutoRecipeCapacity} from './src/dabs/canonicalAutoCapacity'
+import {canonicalAutoMaskCapacity,assertCanonicalAutoRecipeCapacity,canonicalTexturedAuto7MaskCapacity,assertCanonicalTexturedAuto7RecipeCapacity} from './src/dabs/canonicalAutoCapacity'
 import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity, canonicalImageRequiredSourceLevels } from './src/dabs/canonicalImageCapacity'
 import { CanonicalMaskSourceBank,canonicalMaskSourceBankBudget,type CanonicalMaskSourceRootPreparation,type CanonicalMaskSourceLease,type CanonicalPatternSourceInput } from './src/dabs/CanonicalMaskSourceBank'
 import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
@@ -1527,7 +1527,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
    if(s.materialVersion===5||s.materialVersion===6||s.materialVersion===7){const texture=s.materialVersion===7?canonicalTexturedAutoMaterialContext(s.material):s.materialVersion===6?canonicalSoftNativeDefaultTexturedSourceMaterialContext(s.material):canonicalPressureTexturedSourceMaterialContext(s.material),asset=canonicalPattern(texture);if(!canonicalSoftAutoDataEqual(s.assets,texture.assets)||!isBrushAssetReady(asset.id,asset.size))throw new TypeError('Canonical baseline pressure pattern binding unavailable');patterns.set(JSON.stringify(asset),Object.freeze({asset,pin:texture.primaryTexture}))}
    else if(s.materialVersion===4){const texture=canonicalTexturedSourceMaterialContext(s.material),asset=canonicalPattern(texture);if(!canonicalSoftAutoDataEqual(s.assets,texture.assets)||!isBrushAssetReady(asset.id,asset.size))throw new TypeError('Canonical baseline pattern binding unavailable');patterns.set(JSON.stringify(asset),Object.freeze({asset,pin:texture.primaryTexture}))}
    else if(s.material.assets.length||s.assets.length)throw new TypeError('Unsupported canonical baseline source assets')
-   fixed=canonicalAutoMaskCapacity(source)
+   fixed=s.materialVersion===7?canonicalTexturedAuto7MaskCapacity(s.material.primarySource):canonicalAutoMaskCapacity(source)
   }
   maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height)
   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal).frame
@@ -1537,7 +1537,8 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
    if(source.kind==='image'){
     if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Unsupported canonical baseline image material')
     assertCanonicalImageRecipeCapacity(recipe,source,canonicalRenderImage(s)!.image.assets,fixed)
-   }else assertCanonicalAutoRecipeCapacity(recipe,source,fixed)
+   }else if(s.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,s.material,fixed)
+   else assertCanonicalAutoRecipeCapacity(recipe,source,fixed)
    maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)
   }
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
@@ -7177,9 +7178,10 @@ export class PencilEngine implements PencilEngineAPI {
     const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame
     const render=canonicalRenderImage(snapshot),pin=render?.image,texture=canonicalTexture(snapshot)
     if(texture){if(!canonicalSoftAutoDataEqual(snapshot.assets,texture.assets))throw new TypeError('Canonical texture assets changed')}else if(!pin&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported canonical resource assets')
-    const capacity=pin?canonicalImageMaskCapacity(pin.primarySource,pin.assets):source.kind!=='image'?canonicalAutoMaskCapacity(source):undefined
+    const capacity=pin?canonicalImageMaskCapacity(pin.primarySource,pin.assets):source.kind!=='image'?(snapshot.materialVersion===7?canonicalTexturedAuto7MaskCapacity(snapshot.material.primarySource):canonicalAutoMaskCapacity(source)):undefined
     if(!capacity)throw new TypeError('Unsupported canonical resource source')
-    for(const recipe of decoded.definitions)if(pin){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,pin.primarySource,pin.assets,capacity)}else if(source.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,source,capacity)
+    for(const recipe of decoded.definitions)if(pin){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,pin.primarySource,pin.assets,capacity)}else if(snapshot.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,snapshot.material,capacity)
+    else if(source.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,source,capacity)
     while(!owner.prepared&&owner.resourceCandidate){
       await this._brushPreparation.whenIdle();current()
       if(options.signal?.aborted)return{status:'cancelled'}
@@ -7373,8 +7375,9 @@ export class PencilEngine implements PencilEngineAPI {
       const image=canonicalRenderImage(snapshot)?.image,texture=canonicalTexture(snapshot)
       if((image||texture)&&!owner.bank||!image&&!texture&&(snapshot.material.assets.length||snapshot.assets.length)||texture&&!canonicalSoftAutoDataEqual(snapshot.assets,texture.assets))throw new TypeError('Unsupported fixed canonical layer assets')
       if(image&&!owner.indexedSource&&!owner.fullSource&&!this._canonicalImageSourceReady(owner,image,()=>this._assertCanonicalLayerCurrent(owner)))throw new Error('Canonical image source suffix unavailable')
-      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):canonicalAutoMaskCapacity(pin),decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame
-      for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(pin.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)
+      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):snapshot.materialVersion===7?canonicalTexturedAuto7MaskCapacity(snapshot.material.primarySource):canonicalAutoMaskCapacity(pin),decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame
+      for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(snapshot.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,snapshot.material,owner.mask)
+      else if(pin.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
       const mask=owner.prepared?owner.mask:capacity,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
       const metadata=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities*(1024+1024+4096+64*512)+64*256+82432
@@ -8173,7 +8176,9 @@ export class PencilEngine implements PencilEngineAPI {
     if(image)requested=canonicalImageMaskCapacity(image.primarySource,image.assets)
     else{
       if(data.version!==2||data.source.kind==='image')throw new TypeError('Unsupported canonical pointer material')
-      if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+      if(generic){
+        requested=canonicalTexturedAuto7MaskCapacity({kind:data.source.kind,source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile})
+      }else if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
         if(data.source.kind!=='defaultAuto'||owner.plan.profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new TypeError('Unsupported canonical density source candidate')
         requested=canonicalAutoMaskCapacity({kind:'defaultAuto',source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile})
       }else requested=canonicalLayerMaskCapacity({source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle})
@@ -8228,7 +8233,11 @@ export class PencilEngine implements PencilEngineAPI {
       if(owner.prepared&&initialMask&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy')
       if(initialMask&&!owner.prepared&&(owner.inputs.length||owner.bank||!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical initial image preparation requires an empty idle owner')
       let material:CanonicalPreparedAuthor['material']
-      if(binding7)material={kind:'texturedAuto',pin:binding7.source,binding:binding7}
+      if(binding7){
+        const actual=canonicalTexturedAuto7MaskCapacity(binding7.source)
+        if(actual.width!==requested.width||actual.height!==requested.height||actual.slots!==requested.slots)throw new Error('Textured Auto7 source candidate capacity changed')
+        material={kind:'texturedAuto',pin:binding7.source,binding:binding7}
+      }
       else if(texture?.version===6)material={kind:'autoSoftPressureTexture',pin:texture.primarySource,texture}
       else if(texture?.version===5)material={kind:'autoPressureTexture',pin:texture.primarySource,texture}
       else if(texture?.version===4)material={kind:'autoTexture',pin:texture.primarySource,texture}
@@ -8372,8 +8381,21 @@ export class PencilEngine implements PencilEngineAPI {
       try{release()}finally{source.references--;this._retireCanonicalSource(session)}
     })
   }
+  /** Only the successfully compiled generic7 single TiltDirection consumer can
+   * capture a nonzero viewport pose. Native tilt remains in screen axes. */
+  private _canonicalTiltCamera(prepared:CanonicalPreparedAuthor):boolean {
+    const rotation=prepared.program.roles[0]?.options.Rotation
+    return prepared.material.kind==='texturedAuto'&&prepared.program.roles.length===1&&rotation?.checked===true&&rotation.useCurve&&rotation.sensors.length===1&&rotation.sensors[0].id==='tiltDirection'
+  }
+  private _canonicalCanvasRotation(prepared:CanonicalPreparedAuthor,angle:number):number {
+    if(!Number.isFinite(angle)||angle!==0&&!this._canonicalTiltCamera(prepared))throw new Error('Unsupported canonical author camera')
+    const degrees=angle*180/Math.PI
+    if(!Number.isFinite(degrees))throw new Error('Invalid canonical author camera')
+    // KisPaintInformation::setCanvasRotation normalizes positive native degrees.
+    return ((degrees%360)+360)%360
+  }
   private _assertCanonicalTiltInput(prepared:CanonicalPreparedAuthor,input:Pick<PointerData,'tiltX'|'tiltY'>):void {
-    if(prepared.material.kind==='auto'&&prepared.material.pin.kind==='defaultAuto'&&prepared.material.pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+    if((this._canonicalTiltCamera(prepared)||prepared.material.kind==='auto'&&prepared.material.pin.kind==='defaultAuto'&&prepared.material.pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)
       &&(![input.tiltX,input.tiltY].every(Number.isFinite)||Math.abs(input.tiltX)>90||Math.abs(input.tiltY)>90))throw new Error('Invalid canonical tilt input')
   }
   private _canonicalPacket(session:TimedAuthorSession,input:PointerData):SourceAuthorPacket {
@@ -8381,7 +8403,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._assertCanonicalTiltInput(source.prepared,input)
     if(!Number.isFinite(t)||t<session.lastTime)throw new Error('Invalid canonical pointer timestamp')
     session.lastTime=t
-    return{x:input.x,y:input.y,t,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}
+    return{x:input.x,y:input.y,t,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:this._canonicalCanvasRotation(source.prepared,session.snapshot.cameraAngle),mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}
   }
   private _createCanonicalLocalAuthor(layer:CanonicalLayerOwner,snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7,userId:string):CanonicalLocalWashAuthor {
     const engine=this,lifetime=layer.plan.read,scope=layer.plan.scope
@@ -8402,6 +8424,7 @@ export class PencilEngine implements PencilEngineAPI {
         // pressure; the encoder's decoded draw arrays are not a second queue.
         const encoded=source.encoder!.encode(chunk.packed),frame=encoded.envelope,lastEnded=source.encoder!.ended
         if(source.prepared.material.kind==='image'||source.prepared.material.kind==='imageTexture')for(const recipe of encoded.frame.definitions){if(!('asset'in recipe))throw new Error('Image local recipe required');assertCanonicalImageRecipeCapacity(recipe,source.prepared.material.pin.primarySource,source.prepared.material.pin.assets,source.prepared.owner.mask)}
+        else if(source.context7)for(const recipe of encoded.frame.definitions)assertCanonicalTexturedAuto7RecipeCapacity(recipe,source.context7,source.prepared.owner.mask)
         else if(source.prepared.material.kind==='autoTexture'||source.prepared.material.pin.kind==='defaultAuto'&&source.prepared.material.pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)for(const recipe of encoded.frame.definitions)assertCanonicalAutoRecipeCapacity(recipe,source.prepared.material.pin,source.prepared.owner.mask)
         const operation:import('@grafetto/shared').CanonicalStrokeOperation=Object.freeze({id:nanoid(),userId:this._userId,timestamp:Date.now(),type:'canonical_stroke',layerId:session.snapshot.layerId,frame})
         const layer=source.prepared.owner
@@ -8444,7 +8467,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!this._canonicalAuthorService||this._locked)return
     const prepared=this._canonicalPreparedAuthor
     if(prepared?.owner.retiring)throw new Error('Canonical author owner is retiring')
-    if(!prepared||prepared.preset!==this._opts.pencilType||this._opts.tool!=='digitalBrush'||this._opts.size!==prepared.nativeSizePx||this._authorCameraAngle!==0||this._ruler!==null||!this._onLocalOperation)throw new Error('Canonical pointer source is not prepared/fixed')
+    if(!prepared||prepared.preset!==this._opts.pencilType||this._opts.tool!=='digitalBrush'||this._opts.size!==prepared.nativeSizePx||!Number.isFinite(this._authorCameraAngle)||this._authorCameraAngle!==0&&!this._canonicalTiltCamera(prepared)||this._ruler!==null||!this._onLocalOperation)throw new Error('Canonical pointer source is not prepared/fixed')
     this._assertCanonicalPreparedRole(prepared)
     this._assertCanonicalTiltInput(prepared,input)
     const snapshot=this._captureAuthorStart(input,input.dispatchTime??performance.now())

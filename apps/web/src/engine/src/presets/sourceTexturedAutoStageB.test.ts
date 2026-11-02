@@ -129,3 +129,51 @@ describe('genuine Pencil3 pressure Size and tiltDirection named7 CPU closure onl
   expect(new Set(direct.recipes.map(recipe=>recipe.rotation)).size).toBeGreaterThan(1)
  })
 })
+
+import{Camera}from'../raster/Camera'
+import{sourceSensorValue}from'./sourceSensors'
+import{prepareSourceGaussianDab}from'./sourceGaussianDab'
+import{sourceGaussianResolvedMaskReference}from'./sourceGaussianResolvedMaskReference'
+describe('Pencil3 native canvas rotation law and independent screen-axis oracle',()=>{
+ it.each([false,true])('records +camera native recipe delta, pressure0 and near-vertical tilt without changing source browser=%s',browser=>{
+  const wrap=(a:number)=>(a%(2*Math.PI)+2*Math.PI)%(2*Math.PI)
+  // Pinned KisRotationOption + KisCurveOption body: normalizedBase=-camera/360,
+  // additive theta/pi, wrap[-1,1], then normalize((1-value)*pi).
+  const native=(x:number,y:number,c:number)=>{const theta=Math.abs(x)<=1e-12&&Math.abs(y)<=1e-12?-Math.PI/2:Math.atan2(-x,y);const v=-c/180+theta/Math.PI;return wrap((1-((v+1)%2+2)%2+1)*Math.PI)}
+  for(const [tiltX,tiltY]of[[30,0],[0,30],[-30,0],[0,-30],[0,0],[-0,-0],[1e-13,1e-13],[-1e-13,1e-13],[1e-9,-1e-9],[90,-90]]){
+   const theta=Math.abs(tiltX)<=1e-12&&Math.abs(tiltY)<=1e-12?-(tiltX>=0?1:-1)*(tiltY>=0?1:-1)*Math.PI/2:Math.atan2(-tiltX,tiltY)
+   const sensor=sourceSensorValue({id:'tiltDirection'},{pressure:0,maxPressure:0,tangentialPressure:0,speed:0,drawingAngle:0,lockedDrawingAngle:0,rotation:0,xTilt:tiltX,yTilt:tiltY,tiltDirectionOffset:0,perspective:1,time:0,dabSequence:0,distance:0,hover:false})
+   expect(sensor).toBeCloseTo(theta/Math.PI,13)
+  }
+  const short=(pressure:number)=>[{...packet(0,0,pressure),tiltX:30,tiltY:0},{...packet(16,40,pressure),tiltX:30,tiltY:0}]
+  for(const camera of[0,90,-90,45,180]){
+   const inputs=short(0).map(p=>({...p,canvasRotation:(camera+360)%360})),stream=pencil3CpuStream(inputs,browser)
+   for(const r of stream.recipes){expect(Math.sin(r.rotation)).toBeCloseTo(Math.sin(native(30,0,(camera+360)%360)),11);expect(Math.cos(r.rotation)).toBeCloseTo(Math.cos(native(30,0,(camera+360)%360)),11);expect(r.scale).toBeCloseTo(.487437,12)}
+  }
+  // Pure packet mirror mechanism, not an online mirrored viewport grant.
+  for(const mirroredH of[false,true])for(const mirroredV of[false,true]){
+   const stream=pencil3CpuStream(short(.6).map(p=>({...p,canvasRotation:45,mirroredH,mirroredV})),browser)
+   for(const r of stream.recipes){expect(r.mirrorH).toBe(mirroredH);expect(r.mirrorV).toBe(mirroredV);expect(Math.sin(r.rotation)).toBeCloseTo(Math.sin(native(30,0,45)),11)}
+  }
+  const zero=pencil3CpuStream(short(.6),browser),ninety=pencil3CpuStream(short(.6).map(p=>({...p,canvasRotation:90})),browser)
+  expect(wrap(ninety.recipes[0].rotation-zero.recipes[0].rotation)).toBeCloseTo(Math.PI/2,13)
+ })
+ it('independently preserves physical screen coverage using actual Camera inverse and Gaussian sampler; wrong sign/double transform differ at45',()=>{
+  const source=gauss.descriptor.sourceStamp.source;if(source.kind!=='gaussianAuto')throw Error('Gaussian fixture required')
+  const sample=(cameraAngle:number,recipeAngle:number)=>{
+   const camera=new Camera({canvas:{width:64,height:64},infinite:false,pageWidth:64,pageHeight:64,measureRect:()=>({left:0,top:0,width:64,height:64})}),inverse=camera.boundedPointerTransform(32,32,1,cameraAngle),brush=gauss.descriptor.sourceStamp.brush
+   const prepared=prepareSourceGaussianDab({dialect:'krita-gaussian-auto-qt5-arm64-v1',tip:{kind:'auto',generator:'gauss',shape:'circle',diameter:source.diameter,ratio:source.ratio,horizontalFade:source.horizontalFade,verticalFade:source.verticalFade,spikes:2,softness:1,randomness:0,density:1,antialias:source.antialias},storedScale:brush.scale,storedAngle:brush.angle,shape:{scale:1,ratio:1,rotation:recipeAngle},subpixelX:0,subpixelY:0,coverageProfile:'browser-number-coverage-v1',maxPixels:1048576,maxWorkSamples:16777216})
+   const bytes:number[]=[]
+   for(let y=-20;y<=20;y++)for(let x=-20;x<=20;x++){
+    const world=inverse(32+x/4,32+y/4),r=sourceGaussianResolvedMaskReference({profile:'browser-number-coverage-v1',coefficients:prepared.coefficients,effectiveWidth:source.diameter,effectiveHeight:source.diameter*source.ratio,antialias:false,centerX:32-world.x,centerY:32-world.y,cos:Math.cos(prepared.coverageAngle),sin:Math.sin(prepared.coverageAngle),width:1,height:1,maxPixels:1,maxWorkSamples:36})
+    bytes.push(r.mask[0])
+   }
+   return bytes
+  }
+  const base=sample(0,1.5*Math.PI);expect(new Set(base).size).toBeGreaterThanOrEqual(2)
+  for(const a of[Math.PI/4,Math.PI/2]){const correct=sample(a,1.5*Math.PI+a);correct.forEach((b,i)=>expect(Math.abs(b-base[i])).toBeLessThanOrEqual(1))}
+  // At90 the ellipse's180-degree symmetry hides sign errors:45 is mandatory.
+  expect(sample(Math.PI/4,1.5*Math.PI-Math.PI/4)).not.toEqual(base)
+  expect(sample(Math.PI/4,1.5*Math.PI+2*Math.PI/4)).not.toEqual(base)
+ })
+})

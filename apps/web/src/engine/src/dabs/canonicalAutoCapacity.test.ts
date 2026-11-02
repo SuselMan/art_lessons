@@ -63,3 +63,21 @@ it('accepts only the geometry Pick used before digest and matches the later full
  expect(canonicalAutoMaskCapacity(geometry)).toEqual(canonicalAutoMaskCapacity(source))
  expect(Object.keys(geometry)).not.toContain('descriptorSha256')
 })
+
+import gaussian7 from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/pencil3.texture-pressure.compiled3.metadata.json' with{type:'json'}
+import{canonicalTexturedAutoProgramBinding,canonicalTexturedAutoMaterialContext,resolveCanonicalTexturePhase,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,type BrushDescriptor}from'@grafetto/shared'
+import{canonicalTexturedAuto7MaskCapacity,assertCanonicalTexturedAuto7RecipeCapacity}from'./canonicalAutoCapacity'
+it.each([false,true])('bounds original Pencil3 saved rotations without widening old capacity guards browser=%s',browser=>{
+ const d=gaussian7.descriptor as unknown as BrushDescriptor,profile=browser?B:G,binding=canonicalTexturedAutoProgramBinding(d,createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex'),browser?'browser-number-coverage-v1':'neon64-f32-fma-v1',gaussian7.patternAsset,profile)
+ const context=canonicalTexturedAutoMaterialContext({version:7,assets:[binding.patternAsset],primarySource:binding.source,primaryTexture:{...binding.textureGeometry,phase:resolveCanonicalTexturePhase(binding.phasePolicy,()=>0),strength:'recorded-grain-v1'},budget:{workUnits:64000000,outputBytes:16000000,drawPixels:16000000}}),source=context.primarySource,capacity=canonicalTexturedAuto7MaskCapacity(source)
+ expect(capacity).toEqual({width:21,height:21,slots:1})
+ if(source.kind!=='gaussianAuto')throw Error('Original Gaussian source required')
+ for(const scale of[.487437,.7,1])for(const rotation of[0,Math.PI/4,Math.PI/2,Math.PI,3*Math.PI/2,2*Math.PI-.0001])for(const phase of[0,.999999]){
+  const g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:source.source.diameter,ratio:source.source.ratio,spikes:2,scale:source.brushScale,angle:source.brushAngle},{scale,ratio:1,rotation},phase,phase)
+  const r={kind:'gaussianAuto' as const,source:source.source,coverageProfile:source.coverageProfile,brushScale:source.brushScale,brushAngle:source.brushAngle,scale,ratio:1,rotation,subX:phase,subY:phase,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+  expect(()=>assertCanonicalTexturedAuto7RecipeCapacity(r,context,capacity)).not.toThrow()
+  if(rotation!==0)expect(()=>assertCanonicalAutoRecipeCapacity(r,source,capacity)).toThrow()
+  for(const bad of[{...r,width:r.width+1},{...r,brushAngle:r.brushAngle+.1},{...r,ratio:.5},{...r,scale:1.1}])expect(()=>assertCanonicalTexturedAuto7RecipeCapacity(bad,context,capacity)).toThrow()
+  expect(()=>assertCanonicalTexturedAuto7RecipeCapacity(r,context,{width:1,height:1,slots:1})).toThrow()
+ }
+})
