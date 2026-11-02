@@ -157,3 +157,19 @@ function negativeOffset(offset: number, period: number): number {
   const remainder = offset % period
   return (remainder === 0 ? 0 : remainder > 0 ? period - remainder : -remainder)
 }
+
+/** Recorded grain is renderer DATA, independent of source option evaluation. */
+export interface CanonicalRecordedPrimaryTexturePin extends Omit<CanonicalPrimaryTexturePin,'strength'|'offsetX'|'offsetY'> {
+ readonly strength:'recorded-grain-v1'
+ readonly phase:CanonicalResolvedTexturePhase
+}
+/** SAME closed geometry as historical pins; new token/phase never project into them. */
+export function canonicalRecordedPrimaryTexturePin(input:unknown,trustedAsset:CanonicalMaterialAsset):Readonly<CanonicalRecordedPrimaryTexturePin>{
+ const p=capture(input,['kind','asset','law','width','height','periodX','periodY','phase','strength']),a=capture(trustedAsset,assetFields)
+ if(p.kind!=='canvasTexture'||p.law!=='subtract-u8-v1'||p.strength!=='recorded-grain-v1'
+  ||!cas(p.asset)||p.asset!==a.id||!cas(a.id)||!dimension(p.width)||!dimension(p.height)||p.width*p.height>1048576
+  ||!dimension(a.size)||a.x!==0||Object.is(a.x,-0)||a.y!==0||Object.is(a.y,-0)||a.width!==p.width||a.height!==p.height||p.width>a.size||p.height>a.size
+  ||p.periodX!==p.width||p.periodY!==p.height)return fail()
+ const phase=canonicalResolvedTexturePhase(p.phase,p.width,p.height)
+ return Object.freeze({kind:'canvasTexture',asset:p.asset,law:'subtract-u8-v1',width:p.width,height:p.height,periodX:p.width,periodY:p.height,phase,strength:'recorded-grain-v1'})
+}

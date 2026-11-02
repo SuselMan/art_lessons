@@ -1,3 +1,4 @@
+import {canonicalTexturedAutoMaterialContext,unpackCanonicalTexturedAutoMaterial,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7} from './canonicalMaterialCodec.js'
 import { canonicalPrimaryTextureMaterialContext, canonicalTexturedSourceMaterialContext, canonicalPressureTexturedSourceMaterialContext,canonicalSoftNativeDefaultTexturedSourceMaterialContext, unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type CanonicalMaterialContextV3, type CanonicalMaterialFrameV3, type CanonicalMaterialContextV4, type CanonicalMaterialFrameV4, type CanonicalMaterialContextV5, type CanonicalMaterialFrameV5,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6 } from './canonicalMaterialCodec.js'
 
 /** Stroke resource policy; frame fences never reset this state. */
@@ -78,7 +79,8 @@ export interface CanonicalStrokeFrameContextV4 extends Omit<CanonicalStrokeFrame
   readonly material: CanonicalMaterialContextV5;
 }
 export interface CanonicalStrokeFrameContextV6 extends Omit<CanonicalStrokeFrameContextV5,'materialVersion'|'material'>{readonly materialVersion:6;readonly material:CanonicalMaterialContextV6}
-function selectedMaterial(trusted:CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3|CanonicalStrokeFrameContextV4|CanonicalStrokeFrameContextV5|CanonicalStrokeFrameContextV6):2|3|4|5|6 {
+export interface CanonicalStrokeFrameContextV7 extends Omit<CanonicalStrokeFrameContextV6,'materialVersion'|'material'>{readonly materialVersion:7;readonly material:CanonicalMaterialContextV7}
+function selectedMaterial(trusted:CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3|CanonicalStrokeFrameContextV4|CanonicalStrokeFrameContextV5|CanonicalStrokeFrameContextV6|CanonicalStrokeFrameContextV7):2|3|4|5|6 {
   if(!trusted||typeof trusted!=='object')return 2
   const selector=Object.getOwnPropertyDescriptor(trusted,'materialVersion')
   if('materialVersion'in trusted&&(!selector||!Object.hasOwn(selector,'value')||selector.value!==2&&selector.value!==3&&selector.value!==4&&selector.value!==5&&selector.value!==6))
@@ -88,7 +90,7 @@ function selectedMaterial(trusted:CanonicalStrokeFrameContext|CanonicalStrokeFra
 /** Recheck the selected legacy context immediately before its overload call.
  * Own-data version2 is established before reading the discriminant for TS;
  * malformed/accessor/inherited3/4 metadata cannot enter the legacy overload. */
-function legacyMaterial(material:CanonicalMaterialContext|CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6):CanonicalMaterialContext|CanonicalMaterialContextV2 {
+function legacyMaterial(material:CanonicalMaterialContext|CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6|CanonicalMaterialContextV7):CanonicalMaterialContext|CanonicalMaterialContextV2 {
   const version=Object.getOwnPropertyDescriptor(material,'version')
   if('version'in material){
     if(!version||!Object.hasOwn(version,'value')||version.value!==2||material.version!==2)
@@ -126,11 +128,24 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
 export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3|CanonicalStrokeFrameContextV4|CanonicalStrokeFrameContextV5|CanonicalStrokeFrameContextV6): {
   readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6
 } {
-  const selector=selectedMaterial(trusted),aware3=selector===3,aware4=selector===4,aware5=selector===5,aware6=selector===6
+  const result=decodeFrameCore(value,trusted,false)
+  if(result.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)throw new TypeError('Unsupported legacy material')
+  return {envelope:result.envelope,frame:result.frame}
+}
+export function decodeCanonicalTexturedAutoStrokeFrame(value:unknown,trusted:CanonicalStrokeFrameContextV7):{readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrameV7}{
+ const d=Object.getOwnPropertyDescriptor(trusted??{},'materialVersion')
+ if(!d||!Object.hasOwn(d,'value')||d.value!==7)throw new TypeError('Invalid standalone material selector')
+ const result=decodeFrameCore(value,trusted,true)
+ if(result.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)throw new TypeError('Invalid standalone material')
+ return Object.freeze({envelope:result.envelope,frame:result.frame})
+}
+function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3|CanonicalStrokeFrameContextV4|CanonicalStrokeFrameContextV5|CanonicalStrokeFrameContextV6|CanonicalStrokeFrameContextV7,standalone7:boolean):{readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7}{
+  const selector=standalone7?7:selectedMaterial(trusted),aware3=selector===3,aware4=selector===4,aware5=selector===5,aware6=selector===6,aware7=selector===7
   // Material4 context is independently immutable BEFORE ANY envelope/trusted
   // composition callback. Old selected2/3 validation ordering is unchanged.
-  const earlyField=aware4||aware5||aware6?Object.getOwnPropertyDescriptor(trusted,'material'):undefined
-  if((aware4||aware5||aware6)&&(!earlyField||!Object.hasOwn(earlyField,'value')))throw new TypeError('Invalid explicit canonical material context')
+  const earlyField=aware4||aware5||aware6||aware7?Object.getOwnPropertyDescriptor(trusted,'material'):undefined
+  if((aware4||aware5||aware6||aware7)&&(!earlyField||!Object.hasOwn(earlyField,'value')))throw new TypeError('Invalid explicit canonical material context')
+  const early7=aware7?canonicalTexturedAutoMaterialContext(earlyField!.value):undefined
   const early4=aware4?canonicalTexturedSourceMaterialContext(earlyField!.value):undefined
   const early6=aware6?canonicalSoftNativeDefaultTexturedSourceMaterialContext(earlyField!.value):undefined
   const early5=aware5?canonicalPressureTexturedSourceMaterialContext(earlyField!.value):undefined
@@ -139,31 +154,31 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
   if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile))
     throw new TypeError('Invalid trusted canonical stroke context')
   const field=Object.getOwnPropertyDescriptor(trusted,'material')
-  if((aware3||aware4||aware5||aware6)&&(!field||!Object.hasOwn(field,'value')))throw new TypeError('Invalid explicit canonical material context')
-  const captured=early6 ? {kind:6 as const,material:early6} : early5 ? {kind:5 as const,material:early5} : early4 ? {kind:4 as const,material:early4} : aware3 ? {kind:3 as const,material:canonicalPrimaryTextureMaterialContext(field!.value)} : {kind:2 as const,material:trusted.material}
+  if((aware3||aware4||aware5||aware6||aware7)&&(!field||!Object.hasOwn(field,'value')))throw new TypeError('Invalid explicit canonical material context')
+  const captured=early7 ? {kind:7 as const,material:early7} : early6 ? {kind:6 as const,material:early6} : early5 ? {kind:5 as const,material:early5} : early4 ? {kind:4 as const,material:early4} : aware3 ? {kind:3 as const,material:canonicalPrimaryTextureMaterialContext(field!.value)} : {kind:2 as const,material:trusted.material}
   const material=captured.material
   if(!material||typeof material!=='object'||Array.isArray(material))throw new TypeError('Invalid trusted canonical stroke context')
   const version=Object.getOwnPropertyDescriptor(material,'version')
-  if(aware3||aware4||aware5||aware6?(!version||!Object.hasOwn(version,'value')||version.value!==selector):('version'in material&&(!version||!Object.hasOwn(version,'value')||version.value!==2)))
+  if(aware3||aware4||aware5||aware6||aware7?(!version||!Object.hasOwn(version,'value')||version.value!==selector):('version'in material&&(!version||!Object.hasOwn(version,'value')||version.value!==2)))
     throw new TypeError('Unsupported canonical stroke material version')
-  if(aware3&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||(aware4||aware5||aware6)&&!contract.genericSC)throw new TypeError('Unsupported explicit texture raster profile')
+  if(aware3&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||(aware4||aware5||aware6||aware7)&&!contract.genericSC)throw new TypeError('Unsupported explicit texture raster profile')
   if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked'])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
   const materialPacked=value.materialPacked
-  if(typeof materialPacked!=='string'||!(aware6?/^6\|/:aware5?/^5\|/:aware4?/^4\|/:aware3?/^3\|/:/^[12]\|/).test(materialPacked))throw new TypeError('Unsupported selected canonical stroke material')
+  if(typeof materialPacked!=='string'||!(aware7?/^7\|/:aware6?/^6\|/:aware5?/^5\|/:aware4?/^4\|/:aware3?/^3\|/:/^[12]\|/).test(materialPacked))throw new TypeError('Unsupported selected canonical stroke material')
   const c = value.composition, expected = trusted.composition
   if (value.brush !== trusted.brush || value.strokeId !== trusted.strokeId || value.frameOrdinal !== trusted.frameOrdinal
     || value.pigmentRgb8.some((n, i) => n !== trusted.pigmentRgb8[i]) || c.mode !== expected.mode || c.alphaDarken !== expected.alphaDarken
     || c.outerResourceOpacity !== expected.outerResourceOpacity || c.outerBlend !== expected.outerBlend)
     throw new TypeError('Canonical stroke frame does not match the pinned gesture')
-  if('version'in material&&(material.version===2||material.version===4||material.version===5||material.version===6)){
-    for(const source of (material.version===4||material.version===5||material.version===6)?[material.primarySource]:[material.primarySource,material.maskSource])
+  if('version'in material&&(material.version===2||material.version===4||material.version===5||material.version===6||material.version===7)){
+    for(const source of (material.version===4||material.version===5||material.version===6||material.version===7)?[material.primarySource]:[material.primarySource,material.maskSource])
       if(source&&source.kind!=='image'&&!canonicalStrokeCoverageMatches(rasterProfile,source.coverageProfile))throw new TypeError('Canonical raster/coverage profile mismatch')
   }
   // Discriminated capture selects the overload; both branches use ONE codec.
-  const frame = captured.kind===6 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===5 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===4 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===3 ? unpackCanonicalMaterial(materialPacked,captured.material) : unpackCanonicalMaterial(materialPacked,legacyMaterial(captured.material))
+  const frame = captured.kind===7 ? unpackCanonicalTexturedAutoMaterial(materialPacked,captured.material) : captured.kind===6 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===5 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===4 ? unpackCanonicalMaterial(materialPacked,captured.material) : captured.kind===3 ? unpackCanonicalMaterial(materialPacked,captured.material) : unpackCanonicalMaterial(materialPacked,legacyMaterial(captured.material))
   Object.freeze(frame.entry)
   // Soft curves arrive as independent deep-frozen trusted-pin snapshots.
   for (const item of frame.definitions) { if ('kind' in item && (item.kind==='defaultAuto'||item.kind==='gaussianAuto'||item.kind==='softAuto')) Object.freeze(item.source); Object.freeze(item) }
