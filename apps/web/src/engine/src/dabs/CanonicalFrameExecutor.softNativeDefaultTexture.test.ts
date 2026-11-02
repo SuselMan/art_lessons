@@ -10,6 +10,7 @@ import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {CanonicalFrameExecutor,prepareRenderedPrefixCursor7,canonicalExecutorOperations,type CanonicalFrameSubmissionV6,type CanonicalFrameExecutorOptions} from './CanonicalFrameExecutor'
 import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
+import * as patternBankModule from './CanonicalMaskSourceBank'
 import {CanonicalRgba8CompositePass} from './CanonicalRgba8CompositePass'
 import {TransformedMaskPrepass} from './TransformedMaskPrepass'
 import {BrushMipCache} from './BrushMipCache'
@@ -1627,4 +1628,52 @@ it('actual optional root cleanup fault preserves undefined, poisons coordinator 
   expect(caught).toBe(true);expect(other).toHaveBeenCalledTimes(1);off();expect(s.coordinator.poisoned).toBe(true);expect(cp.retired).toBe(true)
  }finally{armed=false;spy.mockRestore();extra?.();clock.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
+})
+
+// Internal sampler ownership controls; structural recording GL, not GPU timings.
+it.each([G,B])('owned pattern sampler avoids only authenticated pattern queries %s',profile=>{
+ const s=fixture(true,true,profile,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],s.composite.brushGlBatchInfo()),texture=view.texture
+  // Real bank uploader, not hand-written sampling metadata.
+  s.gl.bindTexture(s.gl.TEXTURE_2D,texture)
+  expect([s.gl.TEXTURE_MIN_FILTER,s.gl.TEXTURE_MAG_FILTER,s.gl.TEXTURE_WRAP_S,s.gl.TEXTURE_WRAP_T].map(n=>s.gl.getTexParameter(s.gl.TEXTURE_2D,n))).toEqual([s.gl.NEAREST,s.gl.NEAREST,s.gl.CLAMP_TO_EDGE,s.gl.CLAMP_TO_EDGE])
+  let patternQueries=0,otherQueries=0
+  const original=s.gl.getTexParameter
+  const query=vi.spyOn(s.gl,'getTexParameter').mockImplementation((...args)=>{if(s.gl.getParameter(s.gl.TEXTURE_BINDING_2D)===texture)patternQueries++;else otherQueries++;return original(...args)})
+  const e=s.create(),input=s.submission();e.enqueue({...input,composition:{...input.composition,mode:'buildup'}});s.drain()
+  expect(patternQueries).toBe(0);expect(e.checkpointReady).toBe(true)
+  // Generic batch without bank lifetime keeps the four-query fallback even
+  // for this same texture. No shape/sampling-string implicit authority.
+  runBrushGlBatch({participants:[s.composite]},frame=>{s.gl.bindTexture(s.gl.TEXTURE_2D,texture);frame.pointSampling(texture)})
+  expect(patternQueries).toBe(4);query.mockRestore()
+ }finally{clock.mockRestore();s.close()}
+})
+it('owned pattern sampler authenticates view/root and guards bank and child until borrow release',()=>{
+ const s=fixture();try{
+  const info=s.composite.brushGlBatchInfo(),view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],info)
+  expect(()=>patternBankModule.canonicalPatternResourceLifetime({...view},info,s.root)).toThrow('Unknown canonical pattern view')
+  const child=s.root.retain();try{expect(()=>patternBankModule.canonicalPatternResourceLifetime(view,info,child)).toThrow('root handle changed')}finally{child.release()}
+  const life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root),before=s.cpu.reservedBytes,release=life.lease()
+  expect(()=>life.lease()).toThrow('reentry');expect(()=>s.root.release()).toThrow('borrowed');expect(()=>s.bank.reset()).toThrow('borrowed')
+  expect(s.cpu.reservedBytes).toBe(before);expect(life.ownedPointSampler!.source.texture).toBe(view.texture)
+  release();release();expect(s.cpu.reservedBytes).toBe(before)
+  s.bank.reset();expect(()=>patternBankModule.canonicalPatternResourceLifetime(view,info,s.root)).toThrow()
+ }finally{s.close()}
+})
+it('owned pattern sampler acquisition rollback preserves thrown undefined and next borrow works',()=>{
+ const s=fixture();try{
+  const info=s.composite.brushGlBatchInfo(),view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],info),life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root)
+  const get=s.cache.get.bind(s.cache);let fault=true
+  const spy=vi.spyOn(s.cache,'get').mockImplementation(key=>{if(key===view.key&&fault){fault=false;throw undefined}return get(key)})
+  let caught=false,value:unknown='unset';try{life.lease()}catch(e){caught=true;value=e}expect(caught).toBe(true);expect(value).toBeUndefined()
+  spy.mockRestore();life.lease()();expect(()=>s.root.isReady()).not.toThrow()
+ }finally{s.close()}
+})
+it('owned pattern sampler loss cleanup invalidates its real handle epoch without phantom retain',()=>{
+ const s=fixture();try{
+  const info=s.composite.brushGlBatchInfo(),view=s.root.patternResource(s.c.primaryTexture,s.c.assets[0],info),life=patternBankModule.canonicalPatternResourceLifetime(view,info,s.root),release=life.lease()
+  expect(()=>s.root.release(true)).toThrow('borrowed');s.gl.isContextLost=()=>true;s.root.release(true)
+  expect(life.ownedPointSampler!.epoch.alive).toBe(false);expect(()=>life.ownedPointSampler!.source.texture).toThrow();release()
+ }finally{s.close()}
 })

@@ -8,7 +8,7 @@ import {recordingGL} from '../../testing/brushPassTestUtils'
 import {ownedBrushFixture} from '../../testing/ownedBrushFixture'
 import {BrushMipCache} from './BrushMipCache'
 import {BrushTextureCache} from './BrushTextureCache'
-import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
+import {canonicalPatternResourceLifetime,CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
 import type {TransformedMaskView} from './TransformedMaskPrepass'
 import {runBrushGlBatch} from './BrushGlBatch'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeRequest,type CanonicalOwnedRgba8Target} from './CanonicalRgba8CompositePass'
@@ -86,7 +86,12 @@ it.each(['success','draw error','sampler error']as const)('restores sampler2 and
 })
 it('declares and leases the genuine pattern inside an actual full brush batch',()=>{
  const s=fixture();try{s.pass.prepare(limits,s.companions);const before=s.snapshot()
-  runBrushGlBatch({participants:[s.pass],owners:[s.target.lifetime]},frame=>expect(s.pass.drawSource(s.request,frame)).toBe('painted'))
+  const copies=s.gl.copyTexSubImage2D.mock.calls.length
+  expect(()=>runBrushGlBatch({participants:[s.pass],owners:[s.target.lifetime]},frame=>s.pass.drawSource(s.request,frame))).toThrow('Undeclared batch owner')
+  expect(s.gl.copyTexSubImage2D).toHaveBeenCalledTimes(copies)
+  const patternOwner=canonicalPatternResourceLifetime(s.pattern,{gl:s.gl,cache:s.cache,cpu:s.cpu},s.root)
+  runBrushGlBatch({participants:[s.pass],owners:[s.target.lifetime,patternOwner]},frame=>expect(s.pass.drawSource(s.request,frame)).toBe('painted'))
+  expect(s.root.isReady()).toBe(true)
   expect(s.snapshot()).toEqual(before);expect(s.gl.uniform1i).toHaveBeenCalledWith(expect.objectContaining({name:'patternTexture'}),2)
  }finally{s.close()}
 })

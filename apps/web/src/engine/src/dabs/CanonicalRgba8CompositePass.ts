@@ -1,5 +1,5 @@
 import {assertBrushGlMutationIdle} from './BrushGlBatch';
-import {assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
+import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
 import {canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
@@ -481,7 +481,7 @@ export class CanonicalRgba8CompositePass {
         const unique = new Map(resources.map(r => [r.key, r.bytes]));
         if ([...unique.values()].reduce((a, b) => a + b, 0) > this.cache.budgetBytes)
             throw new RangeError('Composite draw exceeds GPU budget');
-        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []];
+        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : [], ...frame&&pattern ? [canonicalPatternResourceLifetime(pattern.view,{gl:this.gl,cache:this.cache,cpu:this.cpu})] : []];
         const clip = this.clip(sampled.rect, target, bounds);
         if (!clip) {
             frame?.assert(this, resources, declaredOwners);

@@ -3,6 +3,7 @@ import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterial
 import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
+import type { BrushGlBatchLifetime } from './BrushGlBatch'
 import type { TransformedMaskSource, TransformedMaskPreparedSource } from './TransformedMaskPrepass'
 
 /** Trusted imageSampling provenance: original opaque grayscale, unchanged crop.
@@ -46,12 +47,17 @@ export interface CanonicalPatternSourceJob {
 }
 export type CanonicalMaskSourceJob=CanonicalNativeImageSourceJob|CanonicalPatternSourceJob
 const patternResourceBrand:unique symbol=Symbol('canonical-pattern-resource')
-const patternViews=new WeakMap<object,{readonly root:CanonicalMaskSourceLease;readonly assert:(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void}>()
+const patternViews=new WeakMap<object,{readonly root:CanonicalMaskSourceLease;readonly lifetime:BrushGlBatchLifetime & {readonly kind:'external'};readonly assert:(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void}>()
 export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):void {
   const check=patternViews.get(resource)
   if(!check)throw new Error('Unknown canonical pattern view')
   if(expectedRoot!==undefined&&check.root!==expectedRoot)throw new Error('Canonical pattern root handle changed')
   check.assert(owners)
+}
+/** Internal bank-authenticated sampler promise; never inferred from texture/view shape. */
+export function canonicalPatternResourceLifetime(resource:CanonicalPatternResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):BrushGlBatchLifetime & {readonly kind:'external'} {
+  assertCanonicalPatternResourceCurrent(resource,owners,expectedRoot)
+  return patternViews.get(resource)!.lifetime
 }
 export interface CanonicalPatternResource {
   readonly [patternResourceBrand]:true
@@ -325,6 +331,7 @@ export class CanonicalMaskSourceBank {
   private readonly cpu: BrushMipCache
   private companion: CanonicalMaskCompanionBudget
   private releaseMetadata?: () => void
+  private patternBorrows = 0
   private generation = 0
   private resetting = false
   private readonly mode:'full'|'root-residency'
@@ -463,10 +470,12 @@ export class CanonicalMaskSourceBank {
     }
     let handles=1
     const makeHandle=(key:object,releaseTokenCpu:()=>void):CanonicalMaskSourceLease=>{
-      let retired=false
+      let retired=false,patternBorrows=0
+      const samplerEpoch=Object.freeze({get alive(){return !retired}})
       const assertHandle=()=>{current();if(retired)throw new Error('Canonical source handle retired')}
       const releaseHandle=(lost=false):undefined=>{
         if(retired)return undefined
+        if(patternBorrows&&!(lost&&this.gl.isContextLost()))throw new Error('Canonical pattern sampler is borrowed')
         retired=true
         readers.get(jobs[0]?.key)?.rootOwners?.delete(key)
         handles--
@@ -487,11 +496,23 @@ export class CanonicalMaskSourceBank {
           if(!texture)throw new Error('Canonical pattern resource unavailable')
           assertHandle()
           const view:CanonicalPatternResource=Object.freeze({[patternResourceBrand]:true as const,kind:'raw-pattern-l8',key:job.key,asset:job.asset,texture,width:a.size,height:a.size,sampling:'nearest-clamp-l8-v1'})
-          patternViews.set(view,{root:handle,assert:expected=>{
+          const assertView=(expected:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
             assertHandle()
             if(expected.gl!==this.gl||expected.cache!==this.cache||expected.cpu!==this.cpu||this.cache.resourceBytes(job.key)!==job.bytes||this.cache.get(job.key)!==texture)throw new Error('Canonical pattern view changed')
             assertHandle()
+          }
+          const source=Object.freeze({gl:this.gl,get texture(){assertView(owners);return texture}})
+          const declaration=Object.freeze({texture,source,epoch:samplerEpoch})
+          const lifetime:BrushGlBatchLifetime & {readonly kind:'external'}=Object.freeze({kind:'external',owner:samplerEpoch,ownedPointSampler:declaration,lease:()=>{
+            // Claim before callback-bearing cache checks. Borrow existing child;
+            // no retain(), new cache pin, texture, or per-turn CPU reservation.
+            if(patternBorrows)throw new Error('Canonical pattern sampler borrow reentry')
+            assertHandle();patternBorrows++;this.patternBorrows++
+            try{assertView(owners)}catch(error){patternBorrows--;this.patternBorrows--;throw error}
+            let active=true
+            return ()=>{if(!active)return;active=false;patternBorrows--;this.patternBorrows--}
           }})
+          patternViews.set(view,{root:handle,lifetime,assert:assertView})
           return view
         },
         isReady:()=>{assertHandle();return ready()},
@@ -834,6 +855,7 @@ export class CanonicalMaskSourceBank {
     return this.cache.lease(this.jobs)
   }
   reset(lost = false): void {
+    if(this.patternBorrows)throw new Error('Canonical pattern sampler is borrowed')
     if(this.resetting)return
     this.resetting=true
     try{
