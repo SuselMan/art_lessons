@@ -1,3 +1,4 @@
+import {canonicalRecordedPrimaryTexturePin} from '@grafetto/shared'
 import {canonicalFixedPrimaryTexturePin} from '@grafetto/shared'
 import {expect,it,vi} from 'vitest'
 import {canonicalPrimaryTexturePin} from '@grafetto/shared'
@@ -122,4 +123,19 @@ it.each(['cancel','reset'] as const)('cleans fixed root preparation when provide
  try{p=s.bank.prepareRoot([{...a,pin,readOriginalGray:()=>{if(mode==='cancel')p.cancel();else s.bank.reset();return new Uint8Array(256)}}],companion)
   expect(p.prepareJob(0)).toBe('cancelled');expect(s.gl.createTexture).not.toHaveBeenCalled();p.cancel()
  }finally{cleanup(s)}
+})
+
+it('shares one physical raw pattern across recorded7 phases on actual51 crop/64 storage',()=>{
+ const s=fixture(),base=input(64),asset={...base.asset,width:51,height:51}
+ const pin=(x:number)=>canonicalRecordedPrimaryTexturePin({kind:'canvasTexture',asset:asset.id,law:'subtract-u8-v1',width:51,height:51,periodX:51,periodY:51,phase:{kind:'resolved-stroke-phase-v1',x,y:37},strength:'recorded-grain-v1'},asset)
+ const a={...base,asset,pin:pin(50)},b={...base,asset,pin:pin(0)}
+ try{const first=prepare(s,a),viewA=first.patternResource(a.pin,asset,s),textures=s.gl.createTexture.mock.calls.length,second=prepare(s,b),viewB=second.patternResource(b.pin,asset,s)
+  expect(viewA.key).toBe(viewB.key);expect(viewA.texture).toBe(viewB.texture);expect(s.gl.createTexture).toHaveBeenCalledTimes(textures);expect(viewA.asset.width).toBe(51);expect(viewA.width).toBe(64)
+  first.release();assertCanonicalPatternResourceCurrent(viewB,s,second);second.release();expect(()=>assertCanonicalPatternResourceCurrent(viewB,s)).toThrow()
+ }finally{cleanup(s)}
+})
+it('recorded7 phase getter/CAS/rectangle mismatch fails before reading raw pixels',()=>{
+ const s=fixture(),base=input(64),asset={...base.asset,width:51,height:51},pin={kind:'canvasTexture',asset:asset.id,law:'subtract-u8-v1',width:51,height:51,periodX:51,periodY:51,phase:{kind:'resolved-stroke-phase-v1',x:50,y:37},strength:'recorded-grain-v1'}
+ let calls=0;Object.defineProperty(pin.phase,'x',{get(){calls++;return 0}})
+ try{const baseline=s.cpu.reservedBytes;expect(()=>s.bank.prepareRoot([{...base,asset,pin}as unknown as CanonicalPatternSourceInput],companion)).toThrow();expect(calls).toBe(0);expect(base.readOriginalGray).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(baseline)}finally{cleanup(s)}
 })

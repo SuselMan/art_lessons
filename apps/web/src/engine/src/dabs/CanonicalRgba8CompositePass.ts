@@ -1,6 +1,6 @@
 import {assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
-import {canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
+import {canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
 import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
@@ -72,7 +72,7 @@ export type CanonicalCompositeSource = {
     readonly view:TransformedMaskView;
     readonly rgb:readonly [number,number,number];
     readonly pattern:CanonicalPatternResource;
-    readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin;
+    readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin;
     readonly strengthU8:number;
 } | {
     readonly kind: 'straightRgba8';
@@ -529,8 +529,8 @@ export class CanonicalRgba8CompositePass {
             gl.uniform1i(u.sourceTexture, 0);
             gl.uniform1i(u.destinationTexture, 1);
             if(pattern){
-                const phaseX=canonicalPrimaryTextureCell(sampled.rect.x+clip.maskX,pattern.pin.periodX,pattern.pin.offsetX);
-                const phaseY=canonicalPrimaryTextureCell(sampled.rect.y+clip.maskY,pattern.pin.periodY,pattern.pin.offsetY);
+                const phaseX=canonicalPrimaryTextureCell(sampled.rect.x+clip.maskX,pattern.pin.periodX,pattern.phaseX);
+                const phaseY=canonicalPrimaryTextureCell(sampled.rect.y+clip.maskY,pattern.pin.periodY,pattern.phaseY);
                 gl.uniform1i(u.patternTexture,2);gl.uniform2f(u.patternPhase,phaseX,phaseY);
                 gl.uniform2f(u.patternPeriod,pattern.pin.periodX,pattern.pin.periodY);
                 gl.uniform1f(u.patternSide,pattern.view.width);gl.uniform1f(u.patternStrength,pattern.strengthU8);
@@ -635,15 +635,15 @@ export class CanonicalRgba8CompositePass {
         if(failed)throw primary;
     }
 
-    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin;strengthU8:number} {
+    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin;strengthU8:number;phaseX:number;phaseY:number} {
         const view=source.pattern;
         assertCanonicalPatternResourceCurrent(view,{gl:this.gl,cache:this.cache,cpu:this.cpu});
         const strength=Object.getOwnPropertyDescriptor(source.pin,'strength');
         if(!strength||!Object.hasOwn(strength,'value'))throw new TypeError('Invalid textured strength pin');
-        const pin=strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
+        const pin=strength.value==='recorded-grain-v1'?canonicalRecordedPrimaryTexturePin(source.pin,view.asset):strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
         if(pin.strength==='fixed-one-v1'&&strengthU8!==255)throw new RangeError('Fixed texture requires S255');
         if(!whole(side,1)||side>4096||(side&(side-1))!==0||view.height!==side||!whole(strengthU8)||Object.is(strengthU8,-0)||strengthU8>255)throw new RangeError('Invalid textured composite source');
-        return {view,pin,strengthU8};
+        return {view,pin,strengthU8,phaseX:pin.strength==='recorded-grain-v1'?pin.phase.x:pin.offsetX,phaseY:pin.strength==='recorded-grain-v1'?pin.phase.y:pin.offsetY};
     }
     private validateSource(source: CanonicalCompositeSource): {
         texture: WebGLTexture;

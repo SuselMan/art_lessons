@@ -1,3 +1,4 @@
+import {canonicalRecordedPrimaryTexturePin} from '@grafetto/shared'
 import {compositeSourceFused32} from '../presets/sourceFused32'
 import {compositeSourceOver32Scalar} from '../presets/sourceOver32Scalar'
 import {canonicalFixedPrimaryTexturePin,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
@@ -13,14 +14,14 @@ import {runBrushGlBatch} from './BrushGlBatch'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeRequest,type CanonicalOwnedRgba8Target} from './CanonicalRgba8CompositePass'
 const operation={kind:'alphaDarken32FusedScalar' as const,control:{profile:'installed-arm64-scalar-fused-fpcr0-v1' as const,variant:'hard' as const,opacity:.8,averageOpacity:.5,flow:.7}}
 const limits={width:16,height:16,operations:['alphaDarken32FusedScalar']as const,texturedOperations:['alphaDarken32FusedScalar']as const}
-function fixture(side=4){
+function fixture(side=4,crop={width:3,height:2}){
  const{gl,snapshot}=recordingGL(),cache=new BrushTextureCache(gl),cpu=new BrushMipCache()
  gl.LUMINANCE=0x1909;gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
  gl.getShaderPrecisionFormat=()=>({precision:23,rangeMin:127,rangeMax:127});gl.copyTexSubImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn();gl.getAttribLocation=()=>0
  const params=new Map<object,Map<number,number>>(),original=gl.texParameteri
  gl.getTexParameter=(_:number,key:number)=>params.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(key)??(key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?gl.LINEAR:gl.REPEAT)
  gl.texParameteri=(_:number,key:number,value:number)=>{original(_,key,value);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D),p=params.get(texture)??new Map();p.set(key,value);params.set(texture,p)}
- const asset={id:'asset:'+'a'.repeat(64),size:side,x:0,y:0,width:3,height:2},pin=canonicalPrimaryTexturePin({kind:'canvasTexture',asset:asset.id,law:'subtract-u8-v1',width:3,height:2,periodX:3,periodY:2,offsetX:1,offsetY:1,strength:'pressure-identity-v1'},asset)
+ const asset={id:'asset:'+'a'.repeat(64),size:side,x:0,y:0,width:crop.width,height:crop.height},pin=canonicalPrimaryTexturePin({kind:'canvasTexture',asset:asset.id,law:'subtract-u8-v1',width:crop.width,height:crop.height,periodX:crop.width,periodY:crop.height,offsetX:1,offsetY:1,strength:'pressure-identity-v1'},asset)
  const bank=new CanonicalMaskSourceBank(gl,cache,cpu,[],{gpuBytes:0,cpuBytes:0},undefined,'root-residency'),p=bank.prepareRoot([{kind:'raw-pattern-l8',asset,pin,readOriginalGray:()=>Uint8Array.from({length:side*side},(_,i)=>i*13%256)}],{gpuBytes:0,cpuBytes:0});p.prepareJob(0);p.assertPreparedPublication();const root=p.publish(),pattern=root.patternResource(pin,asset,{gl,cache,cpu})
  const mask=ownedBrushFixture(gl,1024);cache.protect(['mask']);cache.putOwned('mask',mask)
  const view:TransformedMaskView={key:'mask',texture:mask.texture,rect:{x:8,y:18,width:6,height:7},bounds:{x:0,y:0,width:6/16,height:7/16},mirror:{horizontal:false,vertical:false},channel:'r' as const}
@@ -163,4 +164,21 @@ it('pins an independent opaque-destination U8 RGBA oracle for the existing nativ
   expect([...native]).toEqual(expected[i]);expect(browser).toEqual(expected[i])
  }
  // This is a CPU reference/selected-kernel oracle, NOT a mock-GL pixel readback proof.
+})
+
+it('maps captured recorded7 phase to SAME uniforms with independent minus-offset oracle/negative clipping',()=>{
+ const s=fixture(64,{width:51,height:51})
+ try{s.pass.prepare(limits,s.companions);const asset=s.pattern.asset,pin=canonicalRecordedPrimaryTexturePin({kind:'canvasTexture',asset:asset.id,law:'subtract-u8-v1',width:51,height:51,periodX:51,periodY:51,phase:{kind:'resolved-stroke-phase-v1',x:50,y:37},strength:'recorded-grain-v1'},asset),source=s.request.source
+  if(source.kind!=='texturedMaskRgb')throw Error('texture')
+  const textures=s.gl.createTexture.mock.calls.length
+  for(const strengthU8 of[0,128,255])for(const originX of[-52,10]){const originY=-65,x=originX+1,y=originY+1,view={...s.view,rect:{...s.view.rect,x:originX-2,y:originY-2}},target={...s.target,originX,originY}
+   s.pass.drawSource({...s.request,target,source:{...source,view,pin,strengthU8},writeBounds:{minX:x,minY:y,maxX:x+2,maxY:y+3}})
+   const actual=s.gl.uniform2f.mock.calls.filter((c:any[])=>c[0].name==='patternPhase').at(-1),mod=(v:number)=>((v%51)+51)%51
+   expect(actual.slice(1)).toEqual([mod(x-1),mod(y-65)]);expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),strengthU8)
+  }
+  expect(s.gl.createTexture).toHaveBeenCalledTimes(textures)
+  let getters=0;const bad=structuredClone(pin);Object.defineProperty(bad.phase,'x',{get(){getters++;return 0}})
+  const lease=vi.fn(()=>()=>{}),before=s.gl.copyTexSubImage2D.mock.calls.length
+  expect(()=>s.pass.drawSource({...s.request,target:{...s.target,lifetime:{kind:'external',owner:{},lease}},source:{...source,pin:bad}})).toThrow();expect(getters).toBe(0);expect(lease).not.toHaveBeenCalled();expect(s.gl.copyTexSubImage2D).toHaveBeenCalledTimes(before)
+ }finally{s.close()}
 })

@@ -1,4 +1,4 @@
-import {captureCanonicalSoftNativeDefaultTexturedSourceFrame,canonicalSoftNativeDefaultTexturedSourceMaterialContext,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,captureCanonicalPressureTexturedSourceFrame,canonicalPressureTexturedSourceMaterialContext,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
+import {captureCanonicalTexturedAutoFrame,canonicalTexturedAutoMaterialContext,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,captureCanonicalSoftNativeDefaultTexturedSourceFrame,canonicalSoftNativeDefaultTexturedSourceMaterialContext,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,captureCanonicalPressureTexturedSourceFrame,canonicalPressureTexturedSourceMaterialContext,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
 import type {BrushGlCanonicalCallbackScope} from './BrushGlState'
 import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
@@ -47,13 +47,27 @@ export interface CanonicalFrameSubmissionV4 extends Omit<CanonicalFrameSubmissio
 }
 export interface CanonicalFrameSubmissionV5 extends Omit<CanonicalFrameSubmission,'frame'|'densityStrokeIdentity'> {readonly frame:CanonicalMaterialFrameV5;readonly densityStrokeIdentity?:never}
 export interface CanonicalFrameSubmissionV6 extends Omit<CanonicalFrameSubmission,'frame'|'densityStrokeIdentity'> {readonly frame:CanonicalMaterialFrameV6;readonly densityStrokeIdentity?:never}
-type ExecutorFrameSubmission=CanonicalFrameSubmissionV6|CanonicalFrameSubmission|CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4|CanonicalFrameSubmissionV5
-const textureProfile=(profile:unknown)=>profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE||profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE||profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE
-function textureSubmission(input:ExecutorFrameSubmission):input is CanonicalFrameSubmissionV6|CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4|CanonicalFrameSubmissionV5 {return textureProfile(input.frame.profile)}
-function captureTextureContext(value:CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5):CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5 {
+export interface CanonicalFrameSubmissionV7 extends Omit<CanonicalFrameSubmission,'frame'|'densityStrokeIdentity'>{readonly frame:CanonicalMaterialFrameV7;readonly densityStrokeIdentity?:never}
+type ExecutorFrameSubmission=CanonicalFrameSubmissionV7|CanonicalFrameSubmissionV6|CanonicalFrameSubmission|CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4|CanonicalFrameSubmissionV5
+const textureProfile=(profile:unknown)=>profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE||profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE||profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE||profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE
+function textureSubmission(input:ExecutorFrameSubmission):input is CanonicalFrameSubmissionV7|CanonicalFrameSubmissionV6|CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4|CanonicalFrameSubmissionV5 {return textureProfile(input.frame.profile)}
+function captureTextureContext(value:CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5):CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5 {
   const version=Object.getOwnPropertyDescriptor(value,'version')
   if(!version||!Object.hasOwn(version,'value'))throw new TypeError('Explicit texture context required')
-  return version.value===6?canonicalSoftNativeDefaultTexturedSourceMaterialContext(value):version.value===5?canonicalPressureTexturedSourceMaterialContext(value):version.value===4?canonicalTexturedSourceMaterialContext(value):canonicalPrimaryTextureMaterialContext(value)
+  return version.value===7?canonicalTexturedAutoMaterialContext(value):version.value===6?canonicalSoftNativeDefaultTexturedSourceMaterialContext(value):version.value===5?canonicalPressureTexturedSourceMaterialContext(value):version.value===4?canonicalTexturedSourceMaterialContext(value):canonicalPrimaryTextureMaterialContext(value)
+}
+function phaseContextOwnField(value:unknown,key:string):unknown {
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new TypeError('Invalid standalone7 scalar source')
+  const prototype=Object.getPrototypeOf(value),field=Object.getOwnPropertyDescriptor(value,key)
+  if(prototype!==Object.prototype&&prototype!==null||!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid standalone7 scalar source')
+  return field.value
+}
+function assertStandalone7Density(value:unknown):void {
+  const source=phaseContextOwnField(value,'primarySource'),kind=phaseContextOwnField(source,'kind')
+  if(kind==='defaultAuto'){
+    const geometry=phaseContextOwnField(source,'source'),density=phaseContextOwnField(geometry,'density'),coverage=phaseContextOwnField(source,'coverageProfile')
+    if(density!==1||coverage===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Standalone textured7 density is unsupported')
+  }
 }
 function textureFrameCaptureBytes(frame:unknown):number {
   if(!frame||typeof frame!=='object')throw new TypeError('Invalid texture frame capture')
@@ -115,7 +129,7 @@ export interface CanonicalFrameExecutorOptions {
   readonly softProgramOwner?: CanonicalSoftCircleProgramOwner
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
-  readonly primaryTexture?:Readonly<{readonly context:CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;readonly root:CanonicalMaskSourceLease}>
+  readonly primaryTexture?:Readonly<{readonly context:CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;readonly root:CanonicalMaskSourceLease}>
   readonly bank?: CanonicalMaskSourceReader
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
@@ -191,9 +205,14 @@ export class CanonicalFrameExecutor {
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
-  private primaryTexture?:Readonly<{context:CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
+  private primaryTexture?:Readonly<{context:CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
 
   constructor(options: CanonicalFrameExecutorOptions) {
+    // Peek scalar DATA only: reject unsupported7 density before any capacity or
+    // root reservation. Full context/Soft capture stays inside the existing
+    // metadata reservation below; this peek never creates a source grant.
+    const version7=options.primaryTexture&&Object.getOwnPropertyDescriptor(options.primaryTexture.context,'version')
+    if(version7&&Object.hasOwn(version7,'value')&&version7.value===7)assertStandalone7Density(options.primaryTexture!.context)
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
     const operations = canonicalExecutorOperations(options.rasterProfile)
@@ -222,7 +241,7 @@ export class CanonicalFrameExecutor {
           if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.autoSource)throw new TypeError('Material3 requires its existing image GenericSC source')
         }else{
           if((options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
-            ||this.options.autoSource?.kind!==(context.version===6?'softAuto':'defaultAuto')||canonicalBrushDescriptorJSON(this.options.autoSource)!==canonicalBrushDescriptorJSON(context.primarySource)
+            ||this.options.autoSource?.kind!==(context.version===7?context.primarySource.kind:context.version===6?'softAuto':'defaultAuto')||canonicalBrushDescriptorJSON(this.options.autoSource)!==canonicalBrushDescriptorJSON(context.primarySource)
             ||!canonicalStrokeCoverageMatches(options.rasterProfile,context.primarySource.coverageProfile))throw new TypeError('Material4 source/profile binding mismatch')
         }
         const patternAsset=context.assets[context.version===3?1:0]
@@ -295,6 +314,7 @@ export class CanonicalFrameExecutor {
    * caller mutation cannot relabel a queued definition, pigment or opacity. */
   enqueue(input:CanonicalFrameSubmission):void
   enqueue(input:CanonicalFrameSubmissionV3):void
+  enqueue(input:CanonicalFrameSubmissionV7):void
   enqueue(input:CanonicalFrameSubmissionV6):void
   enqueue(input:CanonicalFrameSubmissionV5):void
   enqueue(input:CanonicalFrameSubmissionV4):void
@@ -323,8 +343,11 @@ export class CanonicalFrameExecutor {
       assertCanonicalPatternResourceCurrent(source.view,info,source.root)
       const context=captureTextureContext({...source.context,assets:input.assets})
       if(JSON.stringify(context.assets)!==JSON.stringify(source.context.assets))throw new TypeError('Canonical texture frame assets changed')
-      if(input.frame.profile!==(source.context.version===6?CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===5?CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===4?CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE:CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE))throw new TypeError('Texture frame/context version mismatch')
-      if(source.context.version===6){
+      if(input.frame.profile!==(source.context.version===7?CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE:source.context.version===6?CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===5?CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===4?CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE:CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE))throw new TypeError('Texture frame/context version mismatch')
+      if(source.context.version===7){
+        const frame=captureCanonicalTexturedAutoFrame(input.frame,source.context)
+        this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+      }else if(source.context.version===6){
         const frame=captureCanonicalSoftNativeDefaultTexturedSourceFrame(input.frame,source.context)
         this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
       }else if(source.context.version===5){
@@ -352,7 +375,7 @@ export class CanonicalFrameExecutor {
     if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     if (!isCanonicalStrokeComposition(input?.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid canonical composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
-    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
+    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'softAuto') && this.options.autoSource?.kind !== 'softAuto') throw new TypeError('Soft source data requires a trusted canonical executor raster grant')
@@ -440,7 +463,7 @@ export class CanonicalFrameExecutor {
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
-      const textureStrengths=input.frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>{if(d.grainDepth!==1)throw new TypeError('Fixed material4 strength required');return 255}):(input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
+      const textureStrengths=input.frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>{if(d.grainDepth!==1)throw new TypeError('Fixed material4 strength required');return 255}):(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE||input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
       let saved:ExecutorFrameSubmission
       if(textureSubmission(input)){
         saved=input

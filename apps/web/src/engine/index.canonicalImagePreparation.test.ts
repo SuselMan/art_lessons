@@ -753,7 +753,7 @@ it('keeps concurrent SAME-CAS texture phases in distinct preparation keys and pa
   const draw=vi.spyOn(owner.composite,'drawSource')
   expect(await engine.prepareOriginalRecorded(a)).toEqual({status:'ready'});engine.appendOriginalRecorded(a)
   await vi.waitFor(()=>expect(draw.mock.calls.some(([r])=>r.source.kind==='texturedMaskRgb')).toBe(true),{timeout:10000})
-  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').every(([r])=>r.source.kind==='texturedMaskRgb'&&r.source.pin.offsetX===2)).toBe(true)
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').every(([r])=>r.source.kind==='texturedMaskRgb'&&r.source.pin.strength==='pressure-identity-v1'&&r.source.pin.offsetX===2)).toBe(true)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 

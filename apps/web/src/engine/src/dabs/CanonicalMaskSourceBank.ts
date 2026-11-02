@@ -1,5 +1,5 @@
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
-import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
+import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
 import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
@@ -34,7 +34,7 @@ export interface CanonicalNativeImageSourceJob {
 export interface CanonicalPatternSourceInput {
   readonly kind:'raw-pattern-l8'
   readonly asset:CanonicalMaterialAsset
-  readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin
+  readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin
   readonly readOriginalGray:()=>Uint8Array
 }
 export interface CanonicalPatternSourceJob {
@@ -76,9 +76,10 @@ function assertImageOnlyInputs(inputs:unknown):void {
     if(kind&&Object.hasOwn(kind,'value')&&kind.value==='raw-pattern-l8')throw new TypeError('Raw pattern requires root residency')
   }
 }
-function capturePatternPin(value:unknown,asset:CanonicalMaterialAsset):CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin {
+function capturePatternPin(value:unknown,asset:CanonicalMaterialAsset):CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin {
   const field=value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,'strength'):undefined
   if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid canonical pattern strength')
+  if(field.value==='recorded-grain-v1')return canonicalRecordedPrimaryTexturePin(value,asset)
   if(field.value==='source-pressure-curve-v1')return canonicalPressureCurvePrimaryTexturePin(value,[asset])
   if(field.value==='fixed-one-v1')return canonicalFixedPrimaryTexturePin(value,asset)
   return canonicalPrimaryTexturePin(value,asset)
@@ -289,7 +290,7 @@ export interface CanonicalMaskSourceReader {
   assertCurrentOwners(generation:number):void
 }
 export interface CanonicalMaskSourceLease extends CanonicalMaskSourceReader {
-  patternResource(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalPatternResource
+  patternResource(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalPatternResource
   /** Resource-only child ownership; no pixel read, readiness scan or GL work. */
   retain():CanonicalMaskSourceLease
   release(lost?:boolean):undefined
@@ -476,7 +477,7 @@ export class CanonicalMaskSourceBank {
         return undefined
       }
       const handle:CanonicalMaskSourceLease=Object.freeze({
-        patternResource:(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
+        patternResource:(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
           assertHandle()
           if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu)throw new Error('Canonical pattern owner changed')
           const a=captureAsset(asset);capturePatternPin(pin,a)
