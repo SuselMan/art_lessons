@@ -2,7 +2,7 @@ import {captureCanonicalFullHistoryMetadata,type Operation,type SendResult} from
 import type {CanonicalSendLineage,OutboxDeliveryContext,Outbox} from './net/outbox'
 import {prepareCanonicalRoomState,assertCanonicalRoomStateRead,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead,type CanonicalRoomConnectionRead} from './net/canonicalRoomState'
 import type {CanonicalIndexedSocketOrigin} from './net/canonicalIndexedRead'
-import type {RoomStatePayload} from './restoreRoomState'
+import {isCurrentIndexedRestoreOwner,type RoomStatePayload,type IndexedRestoreOwnerCurrent} from './restoreRoomState'
 import type {LocalDeliveryLane} from './net/outboxStorage'
 import type {CanonicalOutboxVerdicts} from './net/outboxVerdict'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './net/sendCanonicalStrokeBegin'
@@ -20,6 +20,10 @@ export function canonicalBootstrapOf(stash:RoomStatePayload|null|undefined,board
  return {read,tail}
 }
 export function stageCanonicalRoomReplacement(stash:RoomStatePayload,deps:{readonly boardId:string;readonly minimumSequence:number;readonly pending:{current:RoomStatePayload|null};readonly installedRead:CanonicalRoomConnectionRead|undefined;readonly hasPendingLocals:()=>boolean;readonly retire:()=>void;readonly bump:()=>void}):boolean{
+ if(stash.canonicalIndexedRead)return stageIndexedRoomReplacement(stash,stash.canonicalIndexedRead,{
+  boardId:deps.boardId,minimumSequence:()=>deps.minimumSequence,installedRead:()=>deps.installedRead,
+  pending:deps.pending,hasPendingLocals:deps.hasPendingLocals,retire:deps.retire,bump:deps.bump,
+ })
  const original=canonicalBootstrapOf(stash,deps.boardId,true)!
  if(deps.pending.current?.canonicalRead===original.read||deps.installedRead===original.read)return false
  if(deps.hasPendingLocals())throw Error('Canonical replacement has unresolved local work')
@@ -27,6 +31,53 @@ export function stageCanonicalRoomReplacement(stash:RoomStatePayload,deps:{reado
  // No queue: replace the SAME pending slot only after every admission check.
  deps.retire();deps.pending.current=stash;deps.bump();return true
 }
+function stageIndexedRoomReplacement(stash:RoomStatePayload,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead,deps:{
+ readonly boardId:string
+ readonly minimumSequence:()=>number
+ readonly installedRead:()=>CanonicalRoomConnectionRead|undefined
+ readonly pending:{current:RoomStatePayload|null}
+ readonly hasPendingLocals:()=>boolean
+ readonly retire:()=>void
+ readonly bump:()=>void
+}):boolean{
+ read.assertCurrent(read)
+ if(read.kind!=='full'||read.floor!==0||read.scope.roomId!==deps.boardId||read.throughSeq<deps.minimumSequence())throw Error('Current indexed original baseline required')
+ if(deps.installedRead()===read.lifetime)return false
+ if(deps.hasPendingLocals())throw Error('Canonical replacement has pending local work')
+ deps.retire();deps.pending.current=stash;deps.bump();return true
+}
+
+/** Mount validation only: the original stash and its lifetime are returned unchanged. */
+export function canonicalRoomBootstrapOf(stash:RoomStatePayload|null|undefined,boardId:string,required:boolean){
+ const indexed=stash?.canonicalIndexedRead
+ if(required&&!stash?.canonicalRead&&!indexed)return undefined
+ if(indexed){
+  indexed.assertCurrent(indexed)
+  if(indexed.kind!=='full'||indexed.floor!==0||indexed.scope.roomId!==boardId)throw Error('Original indexed room bootstrap required')
+ }
+ const bootstrap=indexed?undefined:canonicalBootstrapOf(stash,boardId,required)
+ return {indexed,bootstrap,connectionRead:indexed?.lifetime??bootstrap?.read}
+}
+
+/** Same pending slot and callbacks as the Room mount; no additional owner. */
+export function createCanonicalRoomReplacement(deps:{
+ readonly minimumSequence:()=>number
+ readonly pending:{current:RoomStatePayload|null}
+ readonly installedRead:()=>CanonicalRoomConnectionRead|undefined
+ readonly hasPendingLocals:()=>boolean
+ readonly retire:()=>void
+ readonly bump:()=>void
+ readonly failed:()=>void
+}){
+ return (board:string,stash:RoomStatePayload)=>{
+  try{
+   if(stash.canonicalIndexedRead){stageIndexedRoomReplacement(stash,stash.canonicalIndexedRead,{...deps,boardId:board});return}
+   stageCanonicalRoomReplacement(stash,{boardId:board,minimumSequence:deps.minimumSequence(),pending:deps.pending,
+    installedRead:deps.installedRead(),hasPendingLocals:deps.hasPendingLocals,retire:deps.retire,bump:deps.bump})
+  }catch(error){deps.failed();throw error}
+ }
+}
+
 export function createCanonicalRoomAuthor(read:CanonicalRoomConnectionRead,socket:CanonicalBeginEmitter,getSocket:()=>CanonicalBeginEmitter|null,isEngineCurrent:()=>boolean):CanonicalSourceAuthorService{
  read.assertCurrent()
  const primaryTextureSource=read.authorPrimaryTextureSource,texturedSource=read.authorTexturedSource,pressureTexturedSource=read.authorPressureTexturedSource,softPressureTexturedSource=read.authorSoftPressureTexturedSource
@@ -500,6 +551,16 @@ export function createCanonicalRoomHistoryLifecycle(deps:{
   try{await restoreCanonicalRoomBaseline(engine,read,tail,getEngine,deps.appliedRef.current);control.restored(engine)}
   catch(error){control.failed(engine);throw error}
  }
+ const isIndexedRestoreOwnerCurrent:IndexedRestoreOwnerCurrent=(engine,read)=>getEngine()===engine&&getRead()===read.lifetime&&isJoined()&&getSocketBoard()===read.scope.roomId
+ const restoreIndexed=async(engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead,isLatestRestore:()=>boolean)=>{
+  try{
+   await engine.restoreCanonicalIndexedRoom(read)
+   if(getEngine()===engine&&getRead()===read.lifetime)control.restored(engine)
+  }catch(error){
+   if(isCurrentIndexedRestoreOwner(engine,read,isIndexedRestoreOwnerCurrent)&&isLatestRestore())control.failed(engine)
+   throw error
+  }
+ }
  const confirmed=(operation:Operation,read:CanonicalRoomStateRead,engine:PencilEngineAPI)=>{
   if(getEngine()!==engine||getRead()!==read||read.scope.roomId!==getBoard())return
   control.confirmedControl(engine,read.scope.roomId,read,read.tailOperations,operation)
@@ -508,7 +569,19 @@ export function createCanonicalRoomHistoryLifecycle(deps:{
   if(getEngine()!==engine||getRead()!==origin||origin.scope.roomId!==getBoard())return false
   return control.confirmedIndexedControl(engine,origin.scope.roomId,origin,input)
  }
- return Object.freeze({control,canRequest,restore,confirmed,confirmedIndexed})
+ const engineCallbacks=(getConstructed:()=>PencilEngineAPI|undefined,board:string,indexed:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead|undefined,onReadIdle:()=>void)=>({
+  onCanonicalIndexedMetadata:(input:CanonicalRecordedInput)=>{
+   const engine=getConstructed()
+   if(engine&&indexed)confirmedIndexed(input,indexed.lifetime,engine)
+  },
+  onCanonicalAuthorIdle:()=>{const engine=getConstructed();if(engine)control.authorIdle(engine,board)},
+  onCanonicalIndexedReadIdle:()=>{queueMicrotask(()=>{
+   const engine=getConstructed()
+   if(engine&&getEngine()===engine)onReadIdle()
+  })},
+  onCanonicalRecoveryRequired:()=>{const engine=getConstructed();if(engine)control.retired(engine,board)},
+ })
+ return Object.freeze({control,canRequest,restore,restoreIndexed,isIndexedRestoreOwnerCurrent,confirmed,confirmedIndexed,engineCallbacks})
 }
 
 /** Preserve the socket's original captured lifetime and expected board. */

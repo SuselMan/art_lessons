@@ -609,3 +609,89 @@ it('mints pressure5 service only from SAME normalized original and keeps4 OFF in
  const pending=service.begin(f.input,{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:f.sha});ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});const accepted=await pending;expect(accepted.ok).toBe(true)
  const off=createCanonicalRoomAuthor(stash.canonicalRead,socket,()=>socket,()=>true);expect(off.pressureTexturedSource).toBeUndefined();current=false;expect(()=>createCanonicalRoomAuthor(original,socket,()=>socket,()=>true)).toThrow()
 })
+
+it('extracts indexed bootstrap and stages the original stash with unchanged retirement order',async()=>{
+ const {indexedSocketFixture}=await import('../../engine/testing/canonicalIndexedReadFixture')
+ const {canonicalRoomBootstrapOf}=await import('./canonicalRoomController')
+ const f=indexedSocketFixture([]),read=await f.open(),stash={participants:[],palette:[],frozen:false,latestSnapshotSeq:null,canonicalIndexedRead:read} satisfies import('./restoreRoomState').RoomStatePayload
+ const mount=canonicalRoomBootstrapOf(stash,'room',true)!
+ expect(mount.indexed).toBe(read);expect(mount.connectionRead).toBe(read.lifetime);expect(mount.bootstrap).toBeUndefined()
+ const events:string[]=[],pending={current:null as typeof stash|null}
+ const deps={boardId:'room',minimumSequence:0,pending,installedRead:undefined,hasPendingLocals:()=>false,retire:()=>{expect(pending.current).toBeNull();events.push('retire')},bump:()=>{expect(pending.current).toBe(stash);events.push('bump')}}
+ expect(stageCanonicalRoomReplacement(stash,deps)).toBe(true);expect(events).toEqual(['retire','bump'])
+ expect(stageCanonicalRoomReplacement(stash,{...deps,installedRead:read.lifetime})).toBe(false)
+ expect(()=>canonicalRoomBootstrapOf(stash,'other',true)).toThrow()
+ expect(()=>stageCanonicalRoomReplacement(stash,{...deps,minimumSequence:1})).toThrow()
+ pending.current=null
+ expect(()=>stageCanonicalRoomReplacement(stash,{...deps,hasPendingLocals:()=>true})).toThrow()
+ expect(pending.current).toBeNull();expect(events).toEqual(['retire','bump'])
+ f.setCurrent(false);expect(()=>canonicalRoomBootstrapOf(stash,'room',true)).toThrow()
+})
+
+it('replacement adapter retains old stash and primary error when validation fails',async()=>{
+ const {createCanonicalRoomReplacement}=await import('./canonicalRoomController')
+ const old=state().stash,next=state().stash,pending={current:old},retire=vi.fn(),bump=vi.fn(),failed=vi.fn()
+ const replace=createCanonicalRoomReplacement({minimumSequence:()=>0,pending,installedRead:()=>undefined,hasPendingLocals:()=>true,retire,bump,failed})
+ expect(()=>replace('B',next)).toThrow('unresolved local work')
+ expect(pending.current).toBe(old);expect(retire).not.toHaveBeenCalled();expect(bump).not.toHaveBeenCalled();expect(failed).toHaveBeenCalledOnce()
+})
+
+async function extractedIndexedLifecycle(){
+ const {indexedSocketFixture}=await import('../../engine/testing/canonicalIndexedReadFixture')
+ const {createCanonicalRoomHistoryLifecycle}=await import('./canonicalRoomController'),{createReplayGate}=await import('./replayGate')
+ const f=indexedSocketFixture([]),read=await f.open()
+ const restore=vi.fn<(value:typeof read)=>Promise<void>>().mockResolvedValue(undefined)
+ const engine={restoreCanonicalIndexedRoom:restore,hasActiveCanonicalAuthor:()=>false,setLocked:vi.fn()} as unknown as import('../../engine').PencilEngineAPI
+ const engineRef:{current:typeof engine|null}={current:engine},readRef:{current:import('./net/canonicalRoomState').CanonicalRoomConnectionRead|undefined}={current:read.lifetime},socketBoardRef={current:'room'},joinedRef={current:true}
+ const lifecycle=createCanonicalRoomHistoryLifecycle({engineRef,readRef,socketBoardRef,joinedRef,boardIdRef:{current:'room'},socketRef:{current:{connected:true,id:'socket'}},outboxRef:{current:{pendingCount:0}},pendingIdsRef:{current:new Set()},strokeActiveRef:{current:false},readyRef:{current:true},latestKnownSeqRef:{current:0},resyncRef:{current:vi.fn()},replayGateRef:{current:createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>()},appliedRef:{current:new Set()},legacyHistory:()=>false,onWaiting:vi.fn(),onJoining:vi.fn(),notify:vi.fn()})
+ return {f,read,engine,engineRef,readRef,socketBoardRef,joinedRef,restore,lifecycle}
+}
+
+it.each(['owned','engine','origin','board','latest','reentrant']as const)('extracted indexed restore reports only its original latest owner: %s',async kind=>{
+ const h=await extractedIndexedLifecycle(),error=Error('original restore error')
+ h.lifecycle.control.bind(h.engine,'room')
+ h.restore.mockImplementation(async()=>{throw error})
+ if(kind==='engine')h.engineRef.current=null
+ if(kind==='origin')h.readRef.current=undefined
+ if(kind==='board')h.socketBoardRef.current='other'
+ if(kind==='reentrant'){let reads=0;Object.defineProperty(h.engineRef,'current',{get:()=>++reads===1?h.engine:null})}
+ await expect(h.lifecycle.restoreIndexed(h.engine,h.read,()=>kind!=='latest')).rejects.toBe(error)
+ expect(h.lifecycle.control.isReplacing()).toBe(kind!=='owned')
+})
+
+it('engine callback extraction is lazy and checks the current constructed engine after queued idle',async()=>{
+ const h=await extractedIndexedLifecycle(),getConstructed=vi.fn(()=>h.engine),idle=vi.fn()
+ const callbacks=h.lifecycle.engineCallbacks(getConstructed,'room',h.read,idle)
+ expect(getConstructed).not.toHaveBeenCalled()
+ callbacks.onCanonicalIndexedReadIdle();h.engineRef.current=null
+ await Promise.resolve();expect(idle).not.toHaveBeenCalled()
+ h.engineRef.current=h.engine;callbacks.onCanonicalIndexedReadIdle();await Promise.resolve();expect(idle).toHaveBeenCalledOnce()
+ // A retired stale engine cannot request recovery for a different mounted owner.
+ h.lifecycle.control.bind(h.engine,'room')
+ h.engineRef.current=null;callbacks.onCanonicalRecoveryRequired()
+ expect(h.lifecycle.control.isReplacing()).toBe(true)
+})
+
+it('replacement reads the accepted minimum after the original authorization callback reenters',async()=>{
+ const {indexedSocketFixture}=await import('../../engine/testing/canonicalIndexedReadFixture')
+ const {openCanonicalIndexedRoomForSocket}=await import('./net/canonicalIndexedRead')
+ const {createCanonicalRoomReplacement}=await import('./canonicalRoomController')
+ const f=indexedSocketFixture([]);let armed=false,minimum=0
+ const read=await openCanonicalIndexedRoomForSocket(f.socket,f.offer,{expectedBoardId:'room',isCurrent:()=>{if(armed)minimum=1;return true}})
+ const stash={participants:[],palette:[],frozen:false,latestSnapshotSeq:null,canonicalIndexedRead:read} satisfies import('./restoreRoomState').RoomStatePayload
+ const pending={current:null as import('./restoreRoomState').RoomStatePayload|null},retire=vi.fn(),bump=vi.fn(),failed=vi.fn()
+ const replace=createCanonicalRoomReplacement({minimumSequence:()=>minimum,pending,installedRead:()=>undefined,hasPendingLocals:()=>false,retire,bump,failed})
+ armed=true
+ expect(()=>replace('room',stash)).toThrow('Current indexed original baseline required')
+ expect(pending.current).toBeNull();expect(retire).not.toHaveBeenCalled();expect(bump).not.toHaveBeenCalled();expect(failed).toHaveBeenCalledOnce()
+})
+
+it('engine idle and recovery callbacks do not follow a constructed getter that replaces the current engine',async()=>{
+ const h=await extractedIndexedLifecycle(),idle=vi.fn()
+ h.lifecycle.control.bind(h.engine,'room')
+ const callbacks=h.lifecycle.engineCallbacks(()=>{h.engineRef.current=null;return h.engine},'room',h.read,idle)
+ callbacks.onCanonicalIndexedReadIdle();await Promise.resolve()
+ expect(idle).not.toHaveBeenCalled()
+ h.engineRef.current=h.engine;callbacks.onCanonicalRecoveryRequired()
+ expect(h.lifecycle.control.isReplacing()).toBe(true)
+})
