@@ -169,3 +169,75 @@ it('keeps standalone7 direct OVER/cancel/deposition guards with actual finite ca
  }
  const c=context7('softAuto'),s=fixture(true,true,G,true,c);try{const e=s.create({washMode:'deposition-only'}),input=submission7(c),baseline=s.cpu.reservedBytes;expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('Deposition-only');expect(s.cpu.reservedBytes).toBe(baseline)}finally{s.close()}
 })
+
+// Admission-only structural7 tests; recording GL is NOT a GPU pixel oracle.
+it('replay frontier denies executable enqueue/advance while default actual7 OVER stays valid',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1'}),input=submission7(c),draw=vi.spyOn(s.composite,'drawSource'),before=s.cpu.reservedBytes
+  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('Replay frontier')
+  expect(()=>e.advance()).toThrow('Replay frontier');expect(e.pendingFrameCount).toBe(0);expect(e.replayReservationCount).toBe(0);expect(e.checkpointReady).toBe(false);expect(draw).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(before)
+ }finally{s.close()}
+})
+it.each(['defaultAuto','gaussianAuto','softAuto']as const)('charged replay admission shares actual7 capture/source/cost before pure publication %s',kind=>{
+ const c=context7(kind),s=fixture(true,true,G,true,c)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1'}),input=submission7(c),draw=vi.spyOn(s.composite,'drawSource'),before=s.cpu.reservedBytes,t=e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})
+  expect(s.cpu.reservedBytes).toBeGreaterThan(before);expect(s.reserve).toHaveBeenCalledTimes(1);expect(e.pending).toBe(false);expect(e.pendingFrameCount).toBe(0);expect(e.replayReservationCount).toBe(1)
+  expect(()=>t.publish()).toThrow('not checked');expect(()=>Reflect.apply(t.assertCurrent,{},[])).toThrow('receiver');t.assertCurrent();t.publish();expect(()=>t.publish()).toThrow();expect(draw).not.toHaveBeenCalled();expect(s.layer.gpuAllocationSnapshot()).toHaveLength(0)
+  t.release();t.release();expect(e.replayReservationCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)
+  expect(()=>e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})).toThrow()
+ }finally{s.close()}
+})
+it('replay full7 capture rejects bad grain/assets/prepared capacity before any accepted prefix',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1'}),input=submission7(c),before=s.cpu.reservedBytes,bad=structuredClone(input)
+  Reflect.set(bad.frame.draws[0],'grainDepth',NaN);expect(()=>e.prepareReplayFrontier({...bad,composition:{...bad.composition,mode:'buildup'}})).toThrow()
+  expect(()=>e.prepareReplayFrontier({...input,assets:[{...c.assets[0],width:50}],composition:{...input.composition,mode:'buildup'}})).toThrow()
+  const old=input.frame.definitions[0],g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:4,ratio:1,spikes:2,scale:1,angle:0},{scale:4,ratio:1,rotation:0}),recipe={...old,scale:4,width:g.maskSize[0],height:g.maskSize[1]},large=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.75,flow:.7,grainDepth:.5}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},c).frame
+  expect(()=>e.prepareReplayFrontier({...input,frame:large,composition:{...input.composition,mode:'buildup'}})).toThrow('prepared capacity')
+  expect(e.replayReservationCount).toBe(0);expect(e.pending).toBe(false);expect(s.cpu.reservedBytes).toBe(before);expect(s.reserve).not.toHaveBeenCalled()
+  const retry=e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}});retry.cancel();expect(s.cpu.reservedBytes).toBe(before)
+ }finally{s.close()}
+})
+it('replay target reservation failure and unchecked late owner failure leave prior prefix reusable',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let late:undefined|(()=>void)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1',layer:()=>{late?.();return{buffer:s.layer,epoch:0}}}),input={...submission7(c),composition:{...submission7(c).composition,mode:'buildup' as const}},before=s.cpu.reservedBytes
+  s.reserve.mockImplementationOnce(()=>{throw Error('target denied')});expect(()=>e.prepareReplayFrontier(input)).toThrow('target denied');expect(s.cpu.reservedBytes).toBe(before)
+  const ticket=e.prepareReplayFrontier(input);late=()=>{expect(()=>e.prepareReplayFrontier(input)).toThrow('pending');throw Error('late owner')};expect(()=>ticket.assertCurrent()).toThrow('late owner');expect(()=>ticket.publish()).toThrow('not checked');ticket.cancel();late=undefined;expect(s.cpu.reservedBytes).toBe(before)
+  const retry=e.prepareReplayFrontier(input);retry.assertCurrent();retry.publish();retry.release();expect(s.cpu.reservedBytes).toBe(before)
+ }finally{late=undefined;s.close()}
+})
+it('replay reservations bound accepted frontier to eight and cancellation retires every receipt',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1'}),empty=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame,input={...submission7(c),frame:empty,composition:{...submission7(c).composition,mode:'buildup' as const}},tickets=[]
+  for(let ordinal=0;ordinal<8;ordinal++){const t=e.prepareReplayFrontier({...input,ordinal});t.assertCurrent();t.publish();tickets.push(t)}
+  expect(e.replayReservationCount).toBe(8);expect(e.pendingFrameCount).toBe(0);expect(()=>e.prepareReplayFrontier({...input,ordinal:8})).toThrow('full');tickets[0].release();const t=e.prepareReplayFrontier({...input,ordinal:8});t.assertCurrent();t.publish();expect(e.replayReservationCount).toBe(8)
+  e.cancel();expect(e.replayReservationCount).toBe(0);for(const t of tickets)t.cancel();t.cancel();expect(e.pendingFrameCount).toBe(0)
+ }finally{s.close()}
+})
+it('replay prepare reserve callback cancellation cannot publish a retired source or leak capture',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1'}),input=submission7(c);s.reserve.mockImplementationOnce(()=>{e.cancel();return()=>{}})
+  expect(()=>e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})).toThrow();expect(e.replayReservationCount).toBe(0);expect(e.pendingFrameCount).toBe(0)
+ }finally{s.close()}
+})
+
+it('independent same-ticket layer reentry cannot publish while outer assertion fails',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let callback:undefined|(()=>void)
+ try{
+  const e=s.create({replayFrontier:'textured7-buildup-v1',layer:()=>{callback?.();return{buffer:s.layer,epoch:0}}}),input=submission7(c)
+  const ticket=e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})
+  let entered=false
+  callback=()=>{if(entered)return;entered=true;ticket.assertCurrent();ticket.publish()}
+  expect(()=>ticket.assertCurrent()).toThrow()
+  expect(e['planned']).toBeUndefined()
+  expect(e['gesture']).toBeUndefined()
+  ticket.cancel()
+ }finally{callback=undefined;s.close()}
+})
+
+it('replay ticket assertion guard clears even when layer callback throws undefined',()=>{
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c);let callback:undefined|(()=>void)
+ try{const e=s.create({replayFrontier:'textured7-buildup-v1',layer:()=>{callback?.();return{buffer:s.layer,epoch:0}}}),input=submission7(c),ticket=e.prepareReplayFrontier({...input,composition:{...input.composition,mode:'buildup'}})
+  callback=()=>{throw undefined};let caught=false;try{ticket.assertCurrent()}catch{caught=true}expect(caught).toBe(true);expect(()=>ticket.publish()).toThrow('not checked');expect(e['planned']).toBeUndefined();callback=undefined;ticket.assertCurrent();ticket.publish();ticket.release()
+ }finally{callback=undefined;s.close()}
+})

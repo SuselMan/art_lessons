@@ -119,6 +119,8 @@ export interface CanonicalFrameExecutorOptions {
   /** Engine-only closed callback capability; generic/custom executors omit it. */
   readonly callbackScope?:BrushGlCanonicalCallbackScope
   readonly washMode?: 'exclusive' | 'deposition-only'
+  /** Internal persistent Entry admission role; no executable queue or paint. */
+  readonly replayFrontier?:'textured7-buildup-v1'
   /** Pinned by the room/capability adapter, never selected from mutable tools.
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
@@ -152,6 +154,13 @@ interface WashTile extends TilePosition {
   lifetime: CanonicalOwnedRgba8Target['lifetime']
 }
 type PreparedTurnAction = 'paint' | 'presentation' | 'physical'
+/** Internal charged admission receipt, never a source/read/profile grant. */
+export interface CanonicalReplayAdmissionTicket {
+  assertCurrent():void
+  publish():void
+  release():void
+  cancel():void
+}
 interface Work {
   input: ExecutorFrameSubmission
   textureStrengths?:Uint8Array
@@ -193,6 +202,10 @@ export class CanonicalFrameExecutor {
   private readonly washes = new Map<string, WashTile>()
   private readonly admittedTiles = new Map<string, TilePosition>()
   private readonly admissionReleases = new Set<() => void>()
+  private frontierPreparing=false
+  private frontierPending?:CanonicalReplayAdmissionTicket
+  private frontierGeneration=0
+  private readonly frontierReleases=new Set<()=>void>()
   private planned?: SourcePrimaryCompositionState
   private gesture?: { densityStrokeIdentity?: Readonly<SourceDefaultAutoDensityStrokeIdentity>; id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: ExecutorFrameSubmission['frame']['profile'] }
   private failed = false
@@ -213,6 +226,7 @@ export class CanonicalFrameExecutor {
     // metadata reservation below; this peek never creates a source grant.
     const version7=options.primaryTexture&&Object.getOwnPropertyDescriptor(options.primaryTexture.context,'version')
     if(version7&&Object.hasOwn(version7,'value')&&version7.value===7)assertStandalone7Density(options.primaryTexture!.context)
+    if(options.replayFrontier!==undefined&&(options.replayFrontier!=='textured7-buildup-v1'||!version7||!Object.hasOwn(version7,'value')||version7.value!==7||options.washMode==='deposition-only'))throw new TypeError('Replay frontier requires explicit textured7 source')
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
     const operations = canonicalExecutorOperations(options.rasterProfile)
@@ -295,8 +309,9 @@ export class CanonicalFrameExecutor {
   }
 
   get pending(): boolean { return this.queue.length !== 0 }
-  get checkpointReady(): boolean { return !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
+  get checkpointReady(): boolean { return !this.options.replayFrontier && !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
   get pendingFrameCount(): number { return this.queue.length }
+  get replayReservationCount():number {return this.frontierReleases.size}
   /** The existing physical ticket can own unmaterialized layer targets across
    * turns. Its owner must finish that preparation before another layer writer. */
   get hasPendingLayerTargetPreparation():boolean {
@@ -319,6 +334,18 @@ export class CanonicalFrameExecutor {
   enqueue(input:CanonicalFrameSubmissionV5):void
   enqueue(input:CanonicalFrameSubmissionV4):void
   enqueue(input:ExecutorFrameSubmission):void {
+    if(this.options.replayFrontier)throw new Error('Replay frontier cannot enqueue executable work')
+    this.submit(input)
+  }
+  /** Same source/capture/planning path, persistent prefix, no executable Work queue. */
+  prepareReplayFrontier(input:CanonicalFrameSubmissionV7):CanonicalReplayAdmissionTicket {
+    if(this.options.replayFrontier!=='textured7-buildup-v1'||input?.frame?.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE||input.composition?.mode!=='buildup')throw new TypeError('Closed replay frontier material7 buildup required')
+    if(this.frontierPreparing||this.frontierPending||this.frontierReleases.size>=8)throw new Error('Replay admission already pending or full')
+    this.frontierPreparing=true
+    try{const ticket=this.submit(input,true);if(!ticket||this.frontierPending!==ticket||this.failed||this.sourceRetired){if(ticket)this.cleanup(()=>ticket.cancel());throw new Error('Replay admission retired during capture')}return ticket}
+    finally{this.frontierPreparing=false}
+  }
+  private submit(input:ExecutorFrameSubmission,frontier=false):CanonicalReplayAdmissionTicket|undefined {
     if(!textureProfile(input?.frame?.profile)){
       if(this.primaryTexture)throw new TypeError('Texture executor requires its selected material profile')
       return this.enqueueCaptured(input)
@@ -338,6 +365,7 @@ export class CanonicalFrameExecutor {
     const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
     const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
     const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(textureFrameCaptureBytes(input.frame))
+    let admission:CanonicalReplayAdmissionTicket|undefined
     let failed=false,failure:unknown
     try{
       assertCanonicalPatternResourceCurrent(source.view,info,source.root)
@@ -346,7 +374,7 @@ export class CanonicalFrameExecutor {
       if(input.frame.profile!==(source.context.version===7?CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE:source.context.version===6?CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===5?CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE:source.context.version===4?CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE:CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE))throw new TypeError('Texture frame/context version mismatch')
       if(source.context.version===7){
         const frame=captureCanonicalTexturedAutoFrame(input.frame,source.context)
-        this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+        admission=this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame},frontier)
       }else if(source.context.version===6){
         const frame=captureCanonicalSoftNativeDefaultTexturedSourceFrame(input.frame,source.context)
         this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
@@ -363,12 +391,14 @@ export class CanonicalFrameExecutor {
     }catch(error){failed=true;failure=error}
     try{release()}catch(error){
       if(failed)this.cleanupErrors.push(error)
-      else{if(!this.failed)this.fail(error,this.cleanupContextLost());throw error}
+      else{this.cleanup(()=>admission?.cancel());if(!this.failed)this.fail(error,this.cleanupContextLost());throw error}
     }
-    if(failed)throw failure
+    if(failed){this.cleanup(()=>admission?.cancel());throw failure}
+    return admission
   }
 
-  private enqueueCaptured(input:ExecutorFrameSubmission):void {
+  private enqueueCaptured(input:ExecutorFrameSubmission,frontier=false):CanonicalReplayAdmissionTicket|undefined {
+    const previousPlanned=this.planned,previousGesture=this.gesture,generation=this.frontierGeneration
     if(textureProfile(input?.frame?.profile)!==!!this.primaryTexture)throw new TypeError('Canonical texture source/frame mismatch')
     if (this.failed || this.sourceRetired || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
@@ -471,8 +501,29 @@ export class CanonicalFrameExecutor {
         const legacy:CanonicalFrameSubmission=seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input
         saved=structuredClone(legacy)
       }
-      this.queue.push({ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
-        releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
+      const work:Work={ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
+        releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } }
+      if(frontier){
+        if(newTiles.size||releaseBudget||releaseWashMetadata||releaseDensityIdentity)throw new Error('Replay frontier cannot retain wash/density admission')
+        let state:'pending'|'published'|'retired'='pending',checked=false,asserting=false,released=false,ticket:CanonicalReplayAdmissionTicket
+        let retainedWork:Work|undefined=work
+        const executor=this
+        const releaseWork=work.releaseMetadata
+        const assertPure=()=>{if(!retainedWork||state!=='pending'||this.frontierPending!==ticket||this.frontierGeneration!==generation||this.failed||this.sourceRetired||this.planned!==previousPlanned||this.gesture!==previousGesture)throw new Error('Replay admission owner changed')}
+        const retire=()=>{if(released)return;released=true;state='retired';if(this.frontierPending===ticket)this.frontierPending=undefined;this.frontierReleases.delete(retire);retainedWork=undefined;releaseWork()}
+        ticket=Object.freeze({
+          assertCurrent(){if(this!==ticket)throw new Error('Foreign replay admission receiver');if(asserting)throw new Error('Replay admission assertion reentered');assertPure();checked=false;asserting=true;try{const current=executor.options.layer(input.layerId);if(current.buffer!==buffer||current.epoch!==input.layerEpoch)throw new Error('Replay layer changed');executor.assertPrepared();assertPure();checked=true}finally{asserting=false}},
+          publish(){if(this!==ticket)throw new Error('Foreign replay admission receiver');if(asserting)throw new Error('Replay admission assertion is in flight');assertPure();if(!checked)throw new Error('Replay admission was not checked');state='published';executor.frontierPending=undefined;
+            executor.gesture??={densityStrokeIdentity,id:input.gestureId,layerId:input.layerId,epoch:input.layerEpoch,buffer,rgb:[input.rgb[0],input.rgb[1],input.rgb[2]],profile:input.frame.profile};executor.washLayerId=input.layerId;executor.planned=result.state},
+          release(){if(this!==ticket)throw new Error('Foreign replay admission receiver');if(state==='pending')throw new Error('Pending replay admission must be cancelled');retire()},
+          cancel(){if(this!==ticket)throw new Error('Foreign replay admission receiver');retire()},
+        })
+        // Constructor/capture/reserve callbacks can retire the source or reenter.
+        if(this.frontierPending||this.frontierGeneration!==generation||this.failed||this.sourceRetired||this.planned!==previousPlanned||this.gesture!==previousGesture)throw new Error('Replay admission preparation changed')
+        this.frontierPending=ticket;this.frontierReleases.add(retire)
+        return ticket
+      }
+      this.queue.push(work)
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
       if (releaseBudget) {
         const gpu = releaseBudget, cpu = releaseWashMetadata!
@@ -500,6 +551,7 @@ export class CanonicalFrameExecutor {
    * prove the exact recorded prefix and reconcile live-only work first. Attach
    * closure to the last real queued frame; no material tail or ordinal is made. */
   sealRecordedPrefix(input: {readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly recordedNext:number}): void {
+    if(this.options.replayFrontier)throw new Error('Replay close metadata belongs to its Entry prefix')
     if(this.failed||this.sourceRetired||this.advancing||this.rawOwner.leases)throw new Error('Canonical executor is poisoned or busy')
     const {gestureId,layerId,layerEpoch,recordedNext}=input
     if(!this.gesture||!this.planned||gestureId!==this.gesture.id||layerId!==this.gesture.layerId||layerEpoch!==this.gesture.epoch)
@@ -530,6 +582,7 @@ export class CanonicalFrameExecutor {
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
   advance(): { pending: boolean; checkpointReady: boolean } {
+    if(this.options.replayFrontier)throw new Error('Replay frontier cannot execute pixels')
     const result=this.advanceWork()
     this.retireFinishedMask()
     return result
@@ -891,6 +944,7 @@ export class CanonicalFrameExecutor {
     if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical resources on a live context')
     if (this.advancing || this.rawOwner.leases) throw new Error('Cannot cancel inside a canonical GL batch')
     const before = this.cleanupErrors.length
+    if(this.options.replayFrontier){this.failed=true;this.retireFrontierAdmissions()}
     this.retireSoftProgram()
     if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
       this.fail(reason, options.lost ?? this.cleanupContextLost())
@@ -900,7 +954,14 @@ export class CanonicalFrameExecutor {
     if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
   }
 
+  private retireFrontierAdmissions():void {
+    this.frontierGeneration++
+    const releases=[...this.frontierReleases];this.frontierReleases.clear();this.frontierPending=undefined
+    const preparing=this.frontierPreparing;this.frontierPreparing=true
+    try{for(const release of releases)this.cleanup(release)}finally{this.frontierPreparing=preparing}
+  }
   private fail(reason: unknown, lost = false): void {
+    if(this.options.replayFrontier){this.failed=true;this.retireFrontierAdmissions()}
     const layerId = this.gesture?.layerId ?? this.washLayerId, pending = this.queue.splice(0)
     this.failed = true
     // Detach cursor ownership before invoking arbitrary notification/release
