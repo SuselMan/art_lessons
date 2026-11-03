@@ -724,7 +724,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
   if(isV8(c)){
     const pin=c.primarySource
     if(pin.kind==='image'){
-      if(auto(r)||!('kind'in r)||r.kind!=='image'||!(pin.frames??[pin.asset]).includes(r.asset)||!Object.is(r.brushScale,pin.brushScale)||!Object.is(r.brushAngle,pin.brushAngle))return fail()
+      if(auto(r)||!('kind'in r)||r.kind!=='image'||!Array.prototype.includes.call(pin.frames??[pin.asset],r.asset)||!Object.is(r.brushScale,pin.brushScale)||!Object.is(r.brushAngle,pin.brushAngle))return fail()
       if(c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(r.scale>1||r.ratio!==1||r.mirrorH||r.mirrorV))return fail()
       cost=canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c))
       if(pin.imageMaterial){const planes=pin.imageMaterial.kind==='color-stamp-v1'?4:2;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}
@@ -765,7 +765,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
   } else {
     if(!assetId(r.asset)||!number(r.brushScale,Number.MIN_VALUE,1e6)||versioned(c)&&(!('kind' in r)||r.kind!=='image'))fail()
     cost=versioned(c)?canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c)):c.preflightDefinition(r,asset(c,r.asset))
-    if(isV2(c)){const pin=indexedImages(c)?r.sourceSlot===0?c.primarySource:c.maskSource:[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&(source.frames??[source.asset]).includes(r.asset));if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='color-stamp-v1'?4:2;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
+    if(isV2(c)){const pin=indexedImages(c)?r.sourceSlot===0?c.primarySource:c.maskSource:[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&Array.prototype.includes.call(source.frames??[source.asset],r.asset));if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='color-stamp-v1'?4:2;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
   }
   if(((isV2(c)||isV8(c))&&c.materialParams)||seededContext(c))cost={...cost,outputBytes:cost.outputBytes+48}
   if(!cost||!integer(cost.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(cost.outputBytes,r.width*r.height,CANONICAL_MATERIAL_LIMITS.outputBytes))fail()
@@ -779,7 +779,7 @@ function roleMatches(r:AnyCanonicalMaterialRecipe,role:'primary'|'mask',c:CodecC
   if(isV4(c)||isV5(c)){if(role!=='primary'||!auto(r)||r.kind!=='defaultAuto')return false;try{canonicalAutoCost(r,c.primarySource,scaledContext(c)?c.primarySource.brushScale:undefined);return true}catch{return false}}
   if(isV3(c))return role==='primary'&&!auto(r)&&r.asset===c.primarySource.asset&&Object.is(r.brushScale,c.primarySource.brushScale)&&Object.is(r.brushAngle,c.primarySource.brushAngle)
   if(!isV2(c))return !auto(r)&&(role==='primary'
-    ?c.primaryImageFrames?c.primaryImageFrames.includes(r.asset):r.asset===c.primaryAsset
+    ?c.primaryImageFrames?Array.prototype.includes.call(c.primaryImageFrames,r.asset):r.asset===c.primaryAsset
     :r.asset===c.maskAsset)
   const source=role==='primary'?c.primarySource:c.maskSource
   if(!source)return false
@@ -1021,7 +1021,7 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
     if((version===4||version===5)&&((tag!==1&&tag!==2)||(u8(o+1)!==1&&u8(o+1)!==2&&u8(o+1)!==3)||u8(o+2)>7||u8(o+3)!==0))fail()
     if(version===2&&(tag>4||u8(o+1)>(tag?5:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
     if(version===1&& (u8(o+1)>3||u16(o+2)!==0))fail()
-    if(version===2&&u8(o+1)===4&&(!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined||u8(7)!==0))fail()
+    if(version===2&&u8(o+1)===4&&((tag!==1&&tag!==2)||!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined||u8(7)!==0))fail()
     if(tag) {if(tag===4||u8(o+1)===5?u8(o+3)>1:u8(o+3)!==0)fail();if(u8(o+1)===5&&!seededContext(c)||version===8&&u8(o+1)===4)fail()}
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
     if(version!==1&&!tag)for(let j=indexedImages(c)?80:64;j<96;j++)if(u8(o+j))fail()

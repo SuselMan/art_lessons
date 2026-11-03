@@ -43,6 +43,21 @@ def changed(**settings):
     return out.getvalue()
 
 
+
+# Rendering4 retains five additional raw option fields for each native colour
+# option. All are unchecked in this fixture: pixels/compiled coefficients stay
+# historical; only metadata and content identity change. Keep rendering3 golden.
+COLOR_RETAINED_KEYS={name+suffix for name in ('Darken','Mix','h','s','v') for suffix in ('Sensor','UseCurve','UseSameCurve','Value','curveMode')}
+
+def rendering3_projection(result):
+    from brush_contract import finalize_identity
+    projected=copy.deepcopy(result)
+    settings=projected['descriptor']['sourceStamp']['settings']
+    for key in COLOR_RETAINED_KEYS: settings.pop(key)
+    with patch('brush_contract.IMPORTER_RENDERING_VERSION',3):
+        finalize_identity(projected['descriptor'],original())
+    return projected
+
 class DensityImporterTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
@@ -61,7 +76,7 @@ class DensityImporterTests(unittest.TestCase):
 
     def test_legacy_default_is_identical_and_retains_warnings(self):
         result=self.run_import()
-        digest=hashlib.sha256(json.dumps(result,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+        digest=hashlib.sha256(json.dumps(rendering3_projection(result),sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
         self.assertEqual(digest,FIXTURE['legacyImportedSHA256'])
         self.assertEqual(result['descriptor']['tip']['kind'],'bitmap')
         self.assertTrue(any(n['feature']=='activeDynamics' for n in result['compatibility']))
@@ -77,9 +92,12 @@ class DensityImporterTests(unittest.TestCase):
         self.assertEqual(s['compiled'],FIXTURE['compiled'])
         bits=b''.join(struct.pack('<d',x) for c in s['compiled']['curves'] for piece in c['coefficients'] for x in piece)
         self.assertEqual(hashlib.sha256(bits).hexdigest(),FIXTURE['coefficientF64LESHA256'])
-        self.assertEqual(len(s['settings']),FIXTURE['retainedParameterCount'])
+        self.assertEqual(len(s['settings']),FIXTURE['retainedParameterCount']+len(COLOR_RETAINED_KEYS))
+        original_settings={p.get('name'):p.text or '' for p in xml(Image.open(io.BytesIO(original())).info['preset']).findall('param')}
+        self.assertEqual({k:s['settings'][k] for k in COLOR_RETAINED_KEYS},{k:original_settings[k] for k in COLOR_RETAINED_KEYS})
+        self.assertNotIn('colorOptions',s) # unchecked metadata must not activate colour/RNG
         self.assertEqual(len(xml(Image.open(io.BytesIO(original())).info['preset']).findall('param')),FIXTURE['originalParameterCount'])
-        self.assertEqual(hashlib.sha256(json.dumps(s['settings'],sort_keys=True,separators=(',',':')).encode()).hexdigest(),FIXTURE['settingsSHA256'])
+        self.assertEqual(hashlib.sha256(json.dumps({k:v for k,v in s['settings'].items() if k not in COLOR_RETAINED_KEYS},sort_keys=True,separators=(',',':')).encode()).hexdigest(),FIXTURE['settingsSHA256'])
         validate_source_stamp_shape(d)
         self.assertFalse(any(n['status']=='unsupported' for n in result['compatibility']))
         self.assertTrue(any(n['feature']=='seededDensity' for n in result['compatibility']))

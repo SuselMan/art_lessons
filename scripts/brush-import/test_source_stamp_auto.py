@@ -55,6 +55,10 @@ class SourceAutoRetentionTests(unittest.TestCase):
                 if generator=='default':
                     self.assertEqual(d['sourceStamp']['source']['kind'],'defaultAuto');self.assertNotIn('mask',d['tip'])
                     validate_source_stamp_shape(d)
+                elif generator in ('gauss','soft'):
+                    self.assertEqual(d['sourceStamp']['source']['kind'],'gaussianAuto' if generator=='gauss' else 'softAuto')
+                    self.assertEqual(d['sourceStamp']['source']['shape'],'rect')
+                    validate_source_stamp_shape(d)
                 else:
                     self.assertNotIn('sourceStamp',d)
                     self.assertTrue(any(n['feature']=='sourceStampData' and n['status']=='unsupported' for n in row['compatibility']))
@@ -71,8 +75,11 @@ class SourceAutoRetentionTests(unittest.TestCase):
         for edit in (lambda d:d['source'].update(generator='default'),lambda d:d['source'].update(kind='defaultAuto'),lambda d:d['source'].update(horizontalFade=.8),lambda d:d['brush'].update(height=4)):
             forged=copy.deepcopy(data);edit(forged)
             with self.assertRaisesRegex(ValueError,'differs from raw'):validate_source_stamp_shape({'sourceStamp':forged})
-        with self.assertRaisesRegex(ValueError,'Gaussian auto shape'):
-            retain_source_stamp({'brush_definition':definition('gauss')},xml(definition('gauss')),1,1,xml)
+        rect=retain_source_stamp({'brush_definition':definition('gauss')},xml(definition('gauss')),1,1,xml)
+        self.assertEqual(rect['source']['shape'],'rect')
+        validate_source_stamp_shape({'sourceStamp':rect})
+        with self.assertRaises(ValueError):
+            retain_source_stamp({'brush_definition':definition('gauss').replace('diameter="7"','diameter="0"')},xml(definition('gauss').replace('diameter="7"','diameter="0"')),1,1,xml)
 
     def test_actual_gaussian_importer_retains_source_and_exception_without_material_grant(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -217,6 +217,8 @@ describe('brush library contract', () => {
     expect(isBrushLibrary(data)).toBe(false)
     t.patternSize!.width = 2
     Object.assign(t.application!, { mode: 'height' })
+    expect(isBrushLibrary(data)).toBe(true)
+    Object.assign(t.application!, { mode: 'unknown-pixel-texture-mode' })
     expect(isBrushLibrary(data)).toBe(false)
     t.application!.mode = 'multiply'
     Object.assign(t.offset!, { randomX: 1 })

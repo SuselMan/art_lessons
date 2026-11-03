@@ -1,5 +1,5 @@
 import {extractCanonicalPrimaryTextureCapability} from './canonicalBrushCapability.js'
-import {canonicalSourceComposition,canonicalSourceEffectReject,extractCanonicalIncrementalImagePipeCapability,extractCanonicalRandomImagePipeCapability} from './canonicalBrushCapability.js'
+import {canonicalPixelSourceComposition,canonicalSourceComposition,canonicalSourceEffectReject,extractCanonicalIncrementalImagePipeCapability,extractCanonicalRandomImagePipeCapability} from './canonicalBrushCapability.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor } from './brushes.js'
@@ -209,4 +209,11 @@ describe('closed primary texture semantic capability; no execution authority',()
   const d=texturedDescriptor();let called=0;Object.defineProperty(d.sourceStamp!.settings,'Texture/Strength/Sensor',{get(){called++;return 'x'}})
   expect(textureCapability(d).supported).toBe(false);expect(called).toBe(0)
  })
+})
+
+it('keeps erase exclusive to the named Pixel composition selector',()=>{
+ const d=descriptor();Object.assign(d,{behavior:{erase:true}})
+ expect(canonicalSourceComposition(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toBeUndefined()
+ expect(canonicalPixelSourceComposition(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toEqual({mode:'wash',outerBlend:'erase'})
+ expect(canonicalPixelSourceComposition(d,CANONICAL_STROKE_RASTER_PROFILE)).toBeUndefined()
 })

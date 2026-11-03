@@ -100,7 +100,10 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
  * owns authentication, descriptor SHA verification and execution policy. */
 export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
   coverageProfile: CanonicalAutoCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalDefaultAutoSource {
-  if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Default-auto outer composition unavailable')
+  // Historical direct source binding never grants erase; named Pixel source2
+  // factories bind their own extended composition to the same typed source pin.
+  const composition=canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)?canonicalSourceComposition(descriptor,rasterProfile):undefined
+  if(!composition||composition.outerBlend==='erase')throw new TypeError('Default-auto outer composition unavailable')
   const result = coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE ? extractSeededDensityDefaultAutoSourceDataCapability(descriptor) : extractDefaultAutoSourceDataCapability(descriptor)
   if (!result.supported || !/^[a-f0-9]{64}$/.test(descriptorSha256)
     || !['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
@@ -176,7 +179,10 @@ export function canonicalGaussianAutoCost(recipe: CanonicalGaussianAutoRecipe, s
 }
 export function canonicalGaussianAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
   coverageProfile: CanonicalGaussianCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalGaussianAutoSource {
-  if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Gaussian outer composition unavailable')
+  // Historical direct source binding never grants erase; named Pixel source2
+  // factories bind their own extended composition to the same typed source pin.
+  const composition=canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)?canonicalSourceComposition(descriptor,rasterProfile):undefined
+  if(!composition||composition.outerBlend==='erase')throw new TypeError('Gaussian outer composition unavailable')
   const result = extractGaussianAutoSourceDataCapability(descriptor)
   if (!result.supported) throw new TypeError('Gaussian source capability unavailable')
   return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,

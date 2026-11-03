@@ -78,8 +78,11 @@ class KritaTests(unittest.TestCase):
         self.assertEqual(result['mode'],'random')
         self.assertEqual([f.size for f in result['frames']],[(2,2),(3,1)])
         self.assertEqual([f.getpixel((0,0)) for f in result['frames']],[64,192])
-        for invalid in [data[:-1],data+b'extra',data.replace(b'dim:1',b'dim:2'),data.replace(b'sel0:random',b'sel0:pressure'),data.replace(b'rank0:2',b'rank0:3')]:
+        for invalid in [data[:-1],data+b'extra',data.replace(b'dim:1',b'dim:2'),data.replace(b'sel0:random',b'sel0:unknown'),data.replace(b'rank0:2',b'rank0:0')]:
             with self.assertRaises(ValueError):gih(invalid)
+        native=gih(data.replace(b'sel0:random',b'sel0:pressure'))
+        self.assertEqual(native['mode'],'native-dimensions-v1')
+        self.assertEqual(native['dimensions'],[{'mode':'pressure','rank':2,'stride':1}])
         incomplete=data[:-len(frame(3,1,192))]
         result=gih(incomplete)
         self.assertEqual(len(result['frames']),1)

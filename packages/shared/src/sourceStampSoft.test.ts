@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import original from './fixtures/sourceSoftAutoData/stock.native.js'
 import stock from './fixtures/sourceDefaultAutoData/stock.native.js'
 import { isSourceStampData, sourceStampDataBudget, sourceStampSourceKind } from './sourceStampData.js'
-import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability } from './canonicalBrushCapability.js'
+import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability } from './canonicalBrushCapability.js'
 import type { BrushDescriptor } from './brushes.js'
 
 function softData() {
@@ -22,7 +22,10 @@ describe('raw soft source retention',()=>{
   })
   it('binds raw curve text, points, source tag and initial geometry',()=>{
     const data=softData()
-    for(const patch of [{generator:'gauss'},{shape:'rect'},{kind:'gaussianAuto'},{unknown:1},
+    const rectangle={...data,source:{...data.source,shape:'rect'}}
+    expect(isSourceStampData(rectangle)).toBe(true)
+    expect(extractSoftAutoSourceDataCapability({...stock.rows[0].descriptor,sourceStamp:rectangle} as unknown as BrushDescriptor).supported).toBe(false)
+    for(const patch of [{generator:'gauss'},{shape:'unknown-shape'},{kind:'gaussianAuto'},{unknown:1},
       {softnessCurve:{...data.source.softnessCurve,text:'0,1;.5,.5,is_corner;1,0'}},
       {softnessCurve:{...data.source.softnessCurve,points:[]}},
       {softnessCurve:{...data.source.softnessCurve,text:'0,1;1,NaN'}},

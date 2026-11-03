@@ -25,9 +25,14 @@ class ProceduralTests(unittest.TestCase):
         b,_=self.brush('rect',generator={'hfade':'0','vfade':'1','antialiasEdges':'0'})
         self.assertEqual(b['descriptor']['tip']['profile']['horizontalFade'],0);self.assertFalse(b['descriptor']['tip']['profile']['antialias'])
     def test_excluded_density_randomness_spikes_and_softness_remain_explicit(self):
-        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'}),dict(generator={'spikes':'4'}),dict(extra={'PressureSoftness':'true','SoftnessUseCurve':'true'})]:
+        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'}),dict(extra={'PressureSoftness':'true','SoftnessUseCurve':'true'})]:
             b,_=self.brush('rect',**kw);self.assertNotIn('profile',b['descriptor']['tip'])
             self.assertTrue(any(c['feature']=='standardMaskProfile'and c['status']=='unsupported'for c in b['compatibility']))
+    def test_bounded_spikes_retain_standard_profile_and_original_source(self):
+        b,assets=self.brush('rect',generator={'spikes':'4'})
+        self.assertEqual(b['descriptor']['tip']['profile']['shape'],'rectangle')
+        self.assertEqual(b['descriptor']['sourceStamp']['source']['spikes'],4)
+        self.assertEqual(assets,{})
     def test_checked_unit_constant_softness_and_unchecked_stale_values(self):
         for params in [{'PressureSoftness':'false','SoftnessValue':'.2'},{'PressureSoftness':'true','SoftnessUseCurve':'false','SoftnessValue':'1'}]:
             b,_=self.brush(extra=params);self.assertEqual(b['descriptor']['tip']['profile']['kind'],'standard')

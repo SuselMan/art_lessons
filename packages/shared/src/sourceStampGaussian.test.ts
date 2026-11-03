@@ -40,8 +40,11 @@ describe('Gaussian retained source identity', () => {
   })
   it('binds the generator, shape, version and source geometry strictly', () => {
     const d = gaussianData()
+    const rectangle={...d,source:{...d.source,shape:'rect'}}
+    expect(isSourceStampData(rectangle)).toBe(true)
+    expect(extractGaussianAutoSourceDataCapability({...stock.rows[0].descriptor,sourceStamp:rectangle} as unknown as BrushDescriptor).supported).toBe(false)
     for (const source of [
-      { ...d.source, generator: 'default' }, { ...d.source, shape: 'rect' },
+      { ...d.source, generator: 'default' }, { ...d.source, shape: 'unknown-shape' },
       { ...d.source, kind: 'defaultAuto' }, { ...d.source, diameter: d.source.diameter + 10 },
       { ...d.source, ratio: 0 }, { ...d.source, horizontalFade: NaN },
       { ...d.source, coefficients: [] },

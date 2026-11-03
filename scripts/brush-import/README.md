@@ -5,7 +5,7 @@ summary: импорт внешних кистей
 
 # Offline brush import
 
-Offline conversion of Procreate `.brush` / `.brushset` , Photoshop ABR 1/2 sampled and 6/7/9/10, and Krita `.kpp` / `.bundle` into Grafetto's shared `BrushDescriptor` contract. Python's standard library reads archives, keyed plist objects, Photoshop Action Descriptors and VMAL channels. Pillow decodes/resamples images; no external converter or vendor engine runs.
+Offline conversion of Procreate `.brush` / `.brushset` , Photoshop ABR 1/2 sampled and 6/7/9/10, and Krita `.kpp` / `.bundle` into Grafetto's shared `BrushDescriptor` contract. Python's standard library reads archives, keyed plist objects, Photoshop Action Descriptors and VMAL channels. Pillow decodes image resources. Text capture uses bounded fontconfig/Pillow; the closed SVG subset uses the sandboxed sharp/librsvg helper. No vendor paint engine runs.
 
 ```sh
 python3 -m venv ~/.local/share/grafetto/brush-import-python
@@ -27,7 +27,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),26 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+New imports use rendering version **4**, manifest schema version **1**, `id: imported-<24 hexadecimal digits>` and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
@@ -37,9 +37,21 @@ ABR 6/7/9/10 minor 1/2: descriptor blocks plus both the minor-1 bitmap layout an
 
 Procreate: signed pressure curves, source spacing down to 1e-6, shape Rotation (stroke following, distinct from pencil azimuth), random orientation per stroke, count/count jitter, moving grain settings, rendering flags, wet/burnt edges, wet-mix fields, pressure taper and one secondary archive are retained. Normalized count is approximated linearly to 1–16; published numeric blend identifiers are decoded; rendering formulas and private archive-to-handbook scales remain explicitly approximate. Small spacing is declarative: runtime must enforce its own minimum pixel step/budget. Any active Wet Mix scalar or recursive rendering selects the mixer model, including charge/dilution-only presets, so wet parameters execute rather than remaining inert on stamp. Load/pickup/strength mappings are explicitly approximate. Dry presets retain stamp. Dual components have independent spacing/scatter/count/dynamics/grain and optical Wet Mix coverage in the common renderer. Separate secondary canvas-colour pickup and final retrospective mixer-tail recomposition remain approximations. Azimuth, mapped tilt/speed/pressure dynamics execute from recorded input. Remaining unmapped scalar fields are reported individually, not silently presented as supported. Factory bundled images are never substituted when absent.
 
+## Pixel SOURCE capture (rendering version 4)
+
+Original SOURCE metadata, compiled option programs and actual prepared CAS planes are retained together. GradientMap tips keep separate gray/alpha planes even when the source RGBA alpha channel is entirely opaque; the selected tip gradient is a START resource, not a fabricated preset LUT. Source replay consumes recorded material/color results.
+
+Static text and TextPipe need Pillow with FreeType plus `fc-match`. The bounded resolver captures actual selected font SHA/face/size and reports family substitution; it does not promise Qt font identity. RAQM is required for complex shaping, otherwise those texts fail explicitly. A TextPipe uses UTF16-unit selection, at most256 unique glyph frames and4096 sequence entries; each original child rectangle remains independent.
+
+General SVG uses the closed grayscale vector subset, Node with the existing sharp dependency and `bwrap`; external references, reference cycles, scripting and unsupported elements are rejected before spawning the helper. No network access or generic browser raster fallback is used. Pinned stock SVG capture retains its separate provenance.
+
+Krita `abr_brush` resolves only explicitly supplied original ABR collections. Modern names select collection-stem/ordinal; legacy names retain exact Unicode and slash characters. Captured collection/sample provenance is distinct from Krita's PNG-encoding MD5. Missing/ambiguous collections, selected trailing bytes and oversized selected images fail closed; arbitrary PNG resources cannot stand in for ABR. This differs from importing a standalone Photoshop ABR pack and its dynamics.
+
+The existing Python environment can be reused; no per-run virtualenv or Node dependency copy is needed. Reimports receive version4 identities; historical descriptors and recorded laws are not rewritten.
+
 ## Portable export import
 
-Krita `.kpp` and `.bundle` are also accepted: Pixel Brush, Color Smudge approximation, erasers, circle/rect tips, embedded or bundled GBR/PNG masks and PAT/PNG grain, pressure/tilt/speed/direction curves, scatter and one independent masking brush. Animated GIH tips, SVG/text generators and specialized paint engines are reported as unsupported; missing resources are not replaced with thumbnail pixels. XML and archive limits apply before resource decoding.
+Krita `.kpp` and `.bundle` are also accepted: Pixel Brush, Color Smudge approximation, erasers, circle/rect tips, embedded or bundled GBR/PNG masks and PAT/PNG grain, pressure/tilt/speed/direction curves, scatter and one independent masking brush. GIH retains per-index original rectangles and common parent scale, including unequal child dimensions without resize/padding of their drawing geometry. Text pipes retain UTF16 selection and captured glyph metrics. Specialized non-Pixel paint engines remain outside the Pixel SOURCE route; missing resources are not replaced with thumbnail pixels. XML and archive limits apply before resource decoding.
 
 The CLI also accepts `.grafetto-brushes.json`: `{library, assets: {"asset:<sha256>": "<base64 raw>"}}`. This keeps exact descriptor IDs. Envelope/counts/paths/dimensions/asset-reference/SHA256/decoded-size limits are checked before writes (360 MiB encoded, 256 MiB raw). Runtime **must still run the shared `isBrushLibrary` semantic guard** before serving/importing the resulting catalog; Python does not duplicate all TypeScript descriptor constraints. Extra payloads, nested dual components, duplicate IDs and corrupt raw bytes fail closed.
 

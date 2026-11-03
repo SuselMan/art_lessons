@@ -82,15 +82,22 @@ class TextureImportTests(unittest.TestCase):
             self.assertEqual(t['strength'],.2)
             self.assertNotIn('grainDepth',b['descriptor']['behavior'].get('modulations',{}))
 
-    def test_unknown_application_keeps_explicit_legacy_fallback(self):
+    def test_native_height_mode12_is_captured_not_unknown_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'12'})
+            self.assertEqual(t['application']['mode'],'height')
+            self.assertIn('patternSize',t)
+            self.assertFalse(any(n['feature']=='textureApplication' and n['status']=='unsupported' for n in b['compatibility']))
+
+    def test_unknown_application_keeps_explicit_legacy_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'999'})
             self.assertNotIn('application',t);self.assertNotIn('patternSize',t)
             self.assertTrue(any(n['feature']=='textureApplication' and n['status']=='unsupported' for n in b['compatibility']))
 
     def test_unhandled_texture_strength_remains_reported(self):
         with tempfile.TemporaryDirectory() as tmp:
-            b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'12','PressureTexture/Strength/':'true'})
+            b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'999','PressureTexture/Strength/':'true'})
             self.assertTrue(any(n['feature']=='activeDynamics' and 'PressureTexture/Strength/' in n['detail'] for n in b['compatibility']))
 
     def test_resolution_cap_keeps_world_period(self):

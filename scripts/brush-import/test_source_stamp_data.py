@@ -97,20 +97,19 @@ class SourceStampDataTests(unittest.TestCase):
                 for i,asset_id in enumerate(frame_ids):
                     payload=(catalog.output/catalog.assets[asset_id]['file']).read_bytes()
                     self.assertEqual(payload,b''.join(bytes([64+i*64])*3+b'\0' for _ in range(3))+bytes(4))
+                stamp=d['sourceStamp']
+                self.assertEqual(stamp['source'],{'kind':'image'})
+                self.assertEqual((stamp['brush']['width'],stamp['brush']['height']),(3,3))
+                self.assertEqual(stamp['settings']['brush_definition'],'<Brush type="gbr_brush" filename="tip.gih" BrushVersion="2"/>')
+                self.assertNotIn('paper.png',stamp['settings']['brush_definition'])
+                self.assertTrue(stamp['flags']['textureEnabled'])
                 if count==1:
-                    # The pipe capability explicitly requires at least two frames.
-                    self.assertNotIn('sourceStamp',d)
+                    self.assertNotIn('animation',d['tip'])
                 else:
-                    stamp=d['sourceStamp']
-                    self.assertEqual(stamp['source'],{'kind':'image'})
-                    self.assertEqual((stamp['brush']['width'],stamp['brush']['height']),(3,3))
-                    self.assertEqual(stamp['settings']['brush_definition'],'<Brush type="gbr_brush" filename="tip.gih" BrushVersion="2"/>')
-                    self.assertNotIn('paper.png',stamp['settings']['brush_definition'])
-                    self.assertTrue(stamp['flags']['textureEnabled'])
                     self.assertEqual(d['tip']['animation']['mode'],'random')
-                    self.assertEqual(d['tip']['mask'],frame_ids[0])
-                    self.assertEqual(d['tip']['imageSampling']['sourceRect'],{'x':0,'y':0,'width':3,'height':3})
-                    validate_portable_source_stamp(d)
+                self.assertEqual(d['tip']['mask'],frame_ids[0])
+                self.assertEqual(d['tip']['imageSampling']['sourceRect'],{'x':0,'y':0,'width':3,'height':3})
+                validate_portable_source_stamp(d)
                 path=root/'static.kpp';tip=io.BytesIO();Image.new('L',(3,5),0).save(tip,format='PNG')
                 path.write_bytes(kpp('<Brush type="png_brush" filename="tip.png" BrushVersion="2"/>',resources=settings))
                 static=convert.Catalog(root/'static');convert_krita(path,static,{'tip.png':tip.getvalue(),'paper.png':texture.getvalue()})

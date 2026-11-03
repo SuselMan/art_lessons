@@ -30,6 +30,7 @@ export function hasCanonicalOverComposition(descriptor:BrushDescriptor):boolean 
  * This is neither source-data readiness nor room/server execution permission.
  * Other material/effect gates remain with source extractors and the resolver. */
 export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):Readonly<{mode:'wash'|'buildup';outerBlend:CanonicalStrokeComposition['outerBlend']}>|undefined {
+  if(descriptor.behavior?.erase)return
   let contract:ReturnType<typeof canonicalStrokeRasterContract>
   try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return}
   const outerBlend=nativeOuterBlend(descriptor)
@@ -44,6 +45,14 @@ export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProf
 /** Named Pixel composition extension. The browser HSY law is explicit and
  * never admitted by the historical native composition selector. */
 export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):ReturnType<typeof canonicalSourceComposition>{
+ if(descriptor.behavior?.erase){
+  let contract:ReturnType<typeof canonicalStrokeRasterContract>
+  try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return}
+  const data=descriptor.sourceStamp
+  if(!contract.genericSC||!isSourceStampData(data))return
+  const mode=sourceStampPaintingMode(data)
+  return mode?Object.freeze({mode,outerBlend:'erase'}):undefined
+ }
  const existing=canonicalSourceComposition(descriptor,rasterProfile)
  if(existing)return existing
  let contract:ReturnType<typeof canonicalStrokeRasterContract>

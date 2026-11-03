@@ -47,7 +47,7 @@ describe('closed plain Auto tilt DATA and protocol9 policy',()=>{
   for(const value of[offer,begin,follow]){expect(value.plainTiltSource).toBe(token);expect(value.authorPlainTiltSource).toBe(token);expect(Object.isFrozen(value)).toBe(true)}
   expect(()=>parseCanonicalIndexedHistoryOffer({...base,plainTiltSource:undefined,kind:'canonical-indexed-history-offer-v1',offerId:'offer'})).toThrow()
  })
- it('requires literal9 while retaining historical known compatibility',()=>{expect(DRAWING_PROTOCOL_VERSION).toBe('9');expect(supportsDrawingProtocol('9','9')).toBe(true);expect(supportsDrawingProtocol('9','8')).toBe(true);for(const value of[undefined,'8','10',9,'9.0'])expect(supportsDrawingProtocol(value,'9')).toBe(false)})
+ it('advertises literal10 and requires literal9 while retaining historical known compatibility',()=>{expect(DRAWING_PROTOCOL_VERSION).toBe('10');expect(supportsDrawingProtocol('10','9')).toBe(true);expect(supportsDrawingProtocol('9','9')).toBe(true);expect(supportsDrawingProtocol('9','8')).toBe(true);for(const value of[undefined,'8','11',9,'9.0',10,'10.0'])expect(supportsDrawingProtocol(value,'9')).toBe(false)})
 })
 
 // Type contract: nonliteral spread variables bypass excess-property checking,
