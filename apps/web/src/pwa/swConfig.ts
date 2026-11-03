@@ -27,7 +27,7 @@ type InjectManifestConfig = NonNullable<VitePWAOptions['injectManifest']>
 /** Handed to `injectManifest` in vite.config.ts. Only the glob half: in
  *  `injectManifest` mode workbox-build generates the precache manifest and
  *  nothing else, and every routing decision below is made by sw.ts. */
-export const precacheConfig: Pick<InjectManifestConfig, 'globPatterns' | 'globIgnores'> = {
+export const precacheConfig: Pick<InjectManifestConfig, 'globPatterns' | 'globIgnores' | 'maximumFileSizeToCacheInBytes'> = {
   // Enumerated, not inherited. `.paper` is deliberately absent from these
   // extensions: those are the 4 MB textures, handled at runtime below.
   //
@@ -37,6 +37,9 @@ export const precacheConfig: Pick<InjectManifestConfig, 'globPatterns' | 'globIg
   //
   // `index.html` is precached too, but since #502 it is no longer what a
   // navigation is normally answered with — see APP_SHELL_FALLBACK.
+  // Pixel's client engine exceeds Workbox's implicit 2 MiB ceiling. Keep
+  // an explicit bounded script allowance; paper textures remain excluded.
+  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
   globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,webmanifest}', 'paper/*.preview'],
   globIgnores: [
     // The bake's textures. `paper/*.paper` rather than `paper/**` — the
