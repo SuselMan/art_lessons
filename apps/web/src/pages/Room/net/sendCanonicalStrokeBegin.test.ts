@@ -1,7 +1,7 @@
 import{softPressureTextureFixture}from'./canonicalSoftPressureTexture.testFixture'
 import{pressureTextureFixture}from'./canonicalPressureTexture.testFixture'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,canonicalPrimaryTexturePin,CANONICAL_STROKE_RASTER_PROFILE,canonicalSoftAutoSourcePin,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
+import {canonicalSourceMaterialContext,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,canonicalPrimaryTexturePin,CANONICAL_STROKE_RASTER_PROFILE,canonicalSoftAutoSourcePin,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {Socket} from 'socket.io-client'
 import type {ServerToClientEvents,ClientToServerEvents} from '@grafetto/shared'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './sendCanonicalStrokeBegin'
@@ -287,4 +287,21 @@ it('rejects caller-owned plainTilt AUTHOR accessor before getter or BEGIN emit',
  const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime)
  if(s.sent.length)s.ack({ok:false,reason:'invalid_operation'})
  await expect(pending).rejects.toThrow('policy');expect(getter).not.toHaveBeenCalled();expect(s.sent).toHaveLength(0)
+})
+
+function maskedAnswer(){
+ const result=answer();if(!result.ok||result.snapshot.materialVersion!==2)throw Error('Source2 fixture required')
+ const primary=result.snapshot.material.primarySource;if(primary.kind!=='softAuto')throw Error('Soft fixture required')
+ const material=canonicalSourceMaterialContext({...result.snapshot.material,maskSource:{...primary,sourceSlot:1},maskingBlend:'multiply'})
+ return{...result,snapshot:{...result.snapshot,rasterProfile:generic,material}}
+}
+it.each(['paired','changed-mask','no-masked-author'] as const)('validates real dual transport ACK against captured original (%s)',async mode=>{
+ const s=socket(),result=maskedAnswer(),expected=result.snapshot.material
+ const lifetime={boardEpoch:2,authorRasterProfile:generic,isCurrent:()=>true,expectedDescriptorSha256:'a'.repeat(64),expectedSourceMaterialContext2:expected,authorImageMaterialSource:'pixel-image-material-v1' as const,authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1' as const,authorPrimaryGrainSource:'primary-grain-image-v1' as const,...mode!=='no-masked-author'?{authorPixelMaskedSource:'pixel-masked-v1' as const}:{}}
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime)
+ if(mode==='no-masked-author'){await expect(pending).rejects.toThrow();expect(s.emitter.emit).not.toHaveBeenCalled();return}
+ const response=mode==='changed-mask'?{...result,snapshot:{...result.snapshot,material:canonicalSourceMaterialContext({...expected,maskSource:{...expected.maskSource,brushAngle:1}})}}:result
+ if(mode==='changed-mask'){const rejected=expect(pending).rejects.toThrow();s.ack(response);await rejected}
+ else{s.ack(response);const accepted=await pending;expect(accepted.ok).toBe(true);if(accepted.ok){expect(accepted.snapshot.material.maskSource).toEqual(expected.maskSource);expect(Object.isFrozen(accepted.snapshot.material.maskSource)).toBe(true)}}
+ expect(s.listeners.size).toBe(0)
 })

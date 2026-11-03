@@ -83,7 +83,7 @@ function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,e
  if(capturedSnapshot.layerId!==input.layerId||capturedSnapshot.brush!==input.brush||capturedSnapshot.strokeId!==input.strokeId||capturedSnapshot.boardEpoch!==epoch
   ||!Array.isArray(capturedSnapshot.pigmentRgb8)||capturedSnapshot.pigmentRgb8.length!==3||capturedSnapshot.pigmentRgb8.some((v,i)=>v!==input.pigmentRgb8[i])
   ||capturedSnapshot.composition?.outerResourceOpacity!==input.outerResourceOpacity||capturedSnapshot.composition?.alphaDarken!==input.alphaDarken
-  ||!capturedSnapshot.material||capturedSnapshot.material.version!==selector.value||('maskSource'in capturedSnapshot.material&&capturedSnapshot.material.maskSource!==undefined))throw Error('Canonical BEGIN resource mismatch')
+  ||!capturedSnapshot.material||capturedSnapshot.material.version!==selector.value||(!expectedSourceMaterialContext2&&'maskSource'in capturedSnapshot.material&&capturedSnapshot.material.maskSource!==undefined))throw Error('Canonical BEGIN resource mismatch')
  const accepted=textureSnapshot??(expectedSourceMaterialContext2?canonicalSourceStrokeSnapshotV2(capturedSnapshot,epoch,rasterProfile):canonicalStrokeSnapshotV2(capturedSnapshot,epoch,rasterProfile))
  if((selector.value===3||selector.value===4||selector.value===5||selector.value===6||selector.value===7||selector.value===8)&&expectedDescriptorSha256===undefined||expectedDescriptorSha256!==undefined&&accepted.descriptorSha256!==expectedDescriptorSha256)throw Error('Canonical BEGIN descriptor identity mismatch')
  if(selector.value===7){
