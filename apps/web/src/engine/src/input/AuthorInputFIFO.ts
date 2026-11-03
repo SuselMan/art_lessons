@@ -14,7 +14,7 @@ export interface AuthorInputWait {
   readonly timeoutError:Error
 }
 /** Internal scheduling signal: retain this exact handoff and let other tasks drain. */
-export interface AuthorInputBackpressure {readonly kind:'author-input-backpressure'}
+export interface AuthorInputBackpressure {readonly kind:'author-input-backpressure';readonly promise?:Promise<unknown>}
 export type AuthorInputCutYield=void|AuthorInputBackpressure
 /** Pending material stays with the producer. This only cuts its SAME owner
  * before another pump/input proceeds; it never carries a source result. */
@@ -44,6 +44,7 @@ interface AuthorInputJob {
   iterator?:Generator<AuthorInputYield,void,void>
   wait?:JobWait
   checkpoint?:PendingCheckpoint
+  capacityWait?:JobWait
   checkpointSuspended?:boolean
   cut?:Generator<AuthorInputCutYield,void,void>
   producerDone?:boolean
@@ -69,9 +70,10 @@ export class AuthorInputFIFO {
     if(job.retired)return
     job.retired=true
     let failed=false,primary:unknown
-    const wait=job.wait,cut=job.cut,iterator=job.iterator
-    job.wait=undefined;job.cut=undefined;job.iterator=undefined;job.checkpoint=undefined;job.checkpointSuspended=undefined
+    const wait=job.wait,capacity=job.capacityWait,cut=job.cut,iterator=job.iterator
+    job.wait=undefined;job.capacityWait=undefined;job.cut=undefined;job.iterator=undefined;job.checkpoint=undefined;job.checkpointSuspended=undefined
     try{if(wait)this.detachWait(wait)}catch(error){failed=true;primary=error}
+    try{if(capacity)this.detachWait(capacity)}catch(error){if(!failed){failed=true;primary=error}}
     try{if(close)cut?.return()}catch(error){if(!failed){failed=true;primary=error}}
     try{if(close)iterator?.return()}catch(error){if(!failed){failed=true;primary=error}}
     try{job.release?.()}catch(error){if(!failed){failed=true;primary=error}}
@@ -79,14 +81,15 @@ export class AuthorInputFIFO {
   }
   private runnable():boolean {
     const job=this.work
+    if(job?.capacityWait&&!job.capacityWait.outcome)return job.wait?.outcome?.ok===false
     return !job?.wait||!!job.wait.outcome||!!job.cut||!!job.checkpoint
   }
-  private captureYield(value:AuthorInputWait|AuthorInputCheckpoint|AuthorInputBackpressure):PendingCheckpoint|'backpressure'|undefined {
+  private captureYield(value:AuthorInputWait|AuthorInputCheckpoint|AuthorInputBackpressure):PendingCheckpoint|{readonly kind:'backpressure';readonly promise?:unknown}|undefined {
     const fields=Object.getOwnPropertyDescriptors(value),kind=fields.kind
     if(!kind||!Object.hasOwn(kind,'value'))throw new TypeError('Invalid author input yield')
     if(kind.value==='author-input-backpressure'){
-      if(Reflect.ownKeys(fields).length!==1)throw new TypeError('Invalid author input backpressure')
-      return 'backpressure'
+      if(Reflect.ownKeys(fields).some(k=>k!=='kind'&&k!=='promise')||fields.promise&&!Object.hasOwn(fields.promise,'value'))throw new TypeError('Invalid author input backpressure')
+      return{kind:'backpressure',...fields.promise?{promise:fields.promise.value}:{}}
     }
     if(kind.value!=='author-input-checkpoint')return undefined
     if(Reflect.ownKeys(fields).some(key=>!['kind','flush','immediate','deadline'].includes(String(key)))
@@ -109,6 +112,12 @@ export class AuthorInputFIFO {
       while(this.pending){
         current=this.work??=this.jobs.shift()!
         if(epoch!==this.epoch){this.retire(current,true);break}
+        const capacity=current.capacityWait
+        if(capacity&&!capacity.outcome){
+          if(current.wait?.outcome?.ok===false)throw current.wait.outcome.error
+          break
+        }
+        if(capacity)current.capacityWait=undefined
         if(current.checkpoint&&!current.checkpointSuspended&&!current.checkpoint.immediate
           &&current.checkpoint.deadline!==undefined){
           const now=this.context.now()
@@ -122,7 +131,7 @@ export class AuthorInputFIFO {
         }
         if(current.cut){
           calls++
-          const step=current.cut.next()
+          const step=capacity?.outcome?.ok===false?current.cut.throw(capacity.outcome.error):current.cut.next()
           if(epoch!==this.epoch){this.retire(current,true);break}
           if(step.done){
             current.cut=undefined
@@ -132,7 +141,8 @@ export class AuthorInputFIFO {
             if(step.value!==undefined){
               const pressure=this.captureYield(step.value)
               if(epoch!==this.epoch){this.retire(current,true);break}
-              if(pressure!=='backpressure')throw new TypeError('Author checkpoint may only yield queue pressure')
+              if(!pressure||!('kind'in pressure)||pressure.kind!=='backpressure')throw new TypeError('Author checkpoint may only yield queue pressure')
+              if(Object.hasOwn(pressure,'promise'))this.parkCapacity(current,pressure.promise,epoch)
             }
             // A cut yield is already a full local queue/CPU admission wait.
             // Retain its cursor; do not poll it another 31 times this turn.
@@ -147,7 +157,7 @@ export class AuthorInputFIFO {
           // plain queue-pressure yield is NOT a new cut-safe suspension point.
           if(current.checkpoint)current.checkpointSuspended=true
           calls++
-          const step=wait?.outcome?.ok===false?iterator.throw(wait.outcome.error):iterator.next()
+          const step=capacity?.outcome?.ok===false?iterator.throw(capacity.outcome.error):wait?.outcome?.ok===false?iterator.throw(wait.outcome.error):iterator.next()
           if(epoch!==this.epoch){this.retire(current,true);break}
           if(step.done){
             current.producerDone=true;current.checkpointSuspended=false
@@ -156,12 +166,13 @@ export class AuthorInputFIFO {
           }else if(step.value!==undefined){
             const checkpoint=this.captureYield(step.value)
             if(epoch!==this.epoch){this.retire(current,true);break}
-            if(checkpoint==='backpressure'){
+            if(checkpoint&&'kind'in checkpoint&&checkpoint.kind==='backpressure'){
+              if(Object.hasOwn(checkpoint,'promise'))this.parkCapacity(current,checkpoint.promise,epoch)
               // Keep checkpointSuspended: an older automatic handoff may still
               // own a cut. Never flush newer pending data ahead of that cursor.
               steps++;break
             }
-            if(checkpoint){
+            if(checkpoint&&'flush'in checkpoint){
               if(current.checkpoint&&current.checkpoint.flush!==checkpoint.flush)throw new TypeError('Pending author checkpoint owner changed')
               if(current.checkpoint){
                 checkpoint.immediate||=current.checkpoint.immediate
@@ -194,6 +205,19 @@ export class AuthorInputFIFO {
     try{this.schedulePending()}catch(error){if(!notificationFailed){notificationFailed=true;notificationError=error}}
     if(notificationFailed)throw notificationError
   }
+  /** Progress-only pressure wait: no timer or result/authority is introduced. */
+  private parkCapacity(job:AuthorInputJob,promise:unknown,epoch:number):void {
+    if(job.capacityWait)throw new Error('Local capacity wait already attached')
+    const wait:JobWait={cell:{}};job.capacityWait=wait
+    const current=()=>epoch===this.epoch&&this.work===job&&job.capacityWait===wait&&!job.retired
+    wait.cell.wake=outcome=>{
+      if(!current()||wait.outcome)return
+      wait.outcome=outcome;this.detachWait(wait)
+      if(!current()||this.pumping)return
+      try{this.schedulePending()}catch{try{this.schedulePending()}catch{/* already notified */}}
+    }
+    observeWait(promise,wait.cell)
+  }
   private detachWait(wait:JobWait):void {
     wait.cell.wake=undefined
     const timer=wait.timer;wait.timer=undefined
@@ -205,7 +229,7 @@ export class AuthorInputFIFO {
     for(const key of ['kind','promise','deadline','timeoutError']){
       if(!fields[key]||!Object.hasOwn(fields[key],'value'))throw new TypeError('Invalid author input wait')
     }
-    const kind=fields.kind.value,promise=fields.promise.value
+    const kind=fields.kind.value,promise=fields.promise?.value
     const deadline=fields.deadline?.value,timeoutError=fields.timeoutError.value
     if(kind!=='author-input-wait'||typeof deadline!=='number'||!Number.isFinite(deadline))throw new TypeError('Invalid author input wait')
     if(epoch!==this.epoch||this.work!==job)return

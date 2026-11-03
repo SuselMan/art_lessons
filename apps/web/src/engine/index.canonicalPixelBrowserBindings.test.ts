@@ -1,3 +1,8 @@
+import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
+import {prepareCanonicalRecordedAttachmentV8} from '@grafetto/shared'
+import watercSpreadMetadata from './src/presets/fixtures/pixelWaterCSpreadPreparation.metadata.json'
+import charcoalOriginals from './src/presets/fixtures/pixelTexturedDualAvailability.metadata.json'
+import {CanonicalFrameExecutor} from './src/dabs/CanonicalFrameExecutor'
 import dryCreasesMetadata from './src/presets/fixtures/pixelDryCreasesPreparation.metadata.json'
 import {afterEach,expect,it,vi} from 'vitest'
 import {SourceStrokeAuthor} from './src/presets/sourceStrokeAuthor'
@@ -16,8 +21,8 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'thickpaint'|'dry-creases',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
- const row=kind==='thickpaint'?thickpaintMetadata:kind==='dry-creases'?dryCreasesMetadata.rows[0]:kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
+async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'thickpaint'|'dry-creases'|'charcoal',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false,charcoalIndex=0){
+ const row=kind==='charcoal'?{...charcoalOriginals.brushes[charcoalIndex],assets:charcoalOriginals.assets}:kind==='thickpaint'?thickpaintMetadata:kind==='dry-creases'?dryCreasesMetadata.rows[0]:kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
  if(recordedColor){if(!descriptor.sourceStamp)throw Error('Original source required');Object.assign(descriptor.sourceStamp.settings,{'ColorSource/Type':'uniform_random'});const mask=descriptor.behavior?.dual?.brush.sourceStamp;if(mask)Object.assign(mask.settings,{'ColorSource/Type':'uniform_random'})}
  if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?(recordedColor?'c3':'c1'):'c2').repeat(16)
  let assets=row.assets.map(a=>{if(!a.id.startsWith('asset:'))throw Error('Original CAS asset required');return{...a,id:a.id as `asset:${string}`}})
@@ -29,10 +34,10 @@ async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'th
   const t=descriptor.texture!;descriptor.texture={id:id as `asset:${string}`,strength:t.strength,periodPx:8,patternSize:{width:8,height:8},offset:{x:0,y:0,randomX:false,randomY:false},application:t.application!}
   assets=assets.filter(a=>a.id!==t.id);assets.push({id:id as `asset:${string}`,size:8,file:id.slice(6)+'.bin'});installBrushPixels(id,pixels)
  }
- if(kind==='pencil3'||kind==='pencil5'||kind==='dry-creases'||kind==='thickpaint'){
+ if(kind==='pencil3'||kind==='pencil5'||kind==='dry-creases'||kind==='thickpaint'||kind==='charcoal'){
   // Keep exact original source/compiler/geometry, but use explicitly derived
   // self-authored L8 resources. This is preparation coverage, not native pixels.
-  descriptor.id='imported-'+(kind==='thickpaint'?'d2':kind==='pencil3'?'d3':kind==='pencil5'?'d5':'d6').repeat(16)
+  descriptor.id='imported-'+(kind==='thickpaint'?'d2':kind==='pencil3'?'d3':kind==='pencil5'?'d5':kind==='charcoal'?'d'+String(charcoalIndex):'d6').repeat(16)
   for(let index=0;index<assets.length;index++){
    const original=assets[index],pixels=Uint8Array.from({length:original.size*original.size},(_,i)=>(i*17+index*31+3)%256)
    const id='asset:'+createHash('sha256').update(pixels).digest('hex') as `asset:${string}`
@@ -265,3 +270,143 @@ it('retains named image-texture frame bounds through capacity and actual Thickpa
   expect(frames.flatMap(frame=>frame.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 },15000)
+
+
+it.each([0,1,2])('admits original Auto+Auto Charcoal role texture #%s assets through actual full-policy START while rejecting foreign assets',async charcoalIndex=>{
+ let snapshot!:CanonicalStrokeSnapshotV2
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedSourceMaterialContext2
+  if(!material?.maskSource||!material.roleTextures||material.primarySource.kind==='image'||material.maskSource.kind==='image')throw Error('Actual textured Auto dual required')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Original composition required')
+  snapshot=canonicalSourceStrokeSnapshotV2({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:2,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup('charcoal',begin,false,true,false,charcoalIndex),{engine}=h;let negative=0
+ const enqueue=CanonicalFrameExecutor.prototype.enqueue
+ vi.spyOn(CanonicalFrameExecutor.prototype,'enqueue').mockImplementation(function(this:CanonicalFrameExecutor,input){
+  if(!negative&&input.assets.length){
+   const before=engine['_brushMipCache'].reservedBytes
+   const foreign={...input.assets[0],id:('asset:'+'f'.repeat(64)) as `asset:${string}`}
+   expect(()=>Reflect.apply(enqueue,this,[{...input,assets:[...input.assets,foreign]}])).toThrow('Auto-only frame must not supply image assets')
+   expect(engine['_brushMipCache'].reservedBytes).toBe(before);negative++
+  }
+  return Reflect.apply(enqueue,this,[input])
+ })
+ try{
+  console.info('CHARCOAL_STAGE',charcoalIndex,'prepare')
+  engine.setSize(24);expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  console.info('CHARCOAL_STAGE',charcoalIndex,'start')
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(4,112));engine['_onEnd'](packet(4,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(begin).toHaveBeenCalledOnce();expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Actual source frame required');return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
+  expect(negative).toBe(1);expect(frames.flatMap(f=>f.draws).length).toBeGreaterThan(0)
+  expect(new Set(frames.flatMap(f=>f.draws).map(d=>d.role))).toEqual(new Set(['primary','mask']))
+  expect(frames.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  expect(engine['_canonicalLayerOwner']?.coordinator?.poisoned).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
+},15000)
+
+function installWaterCSpread(index:0|1|2|3){
+ const row=watercSpreadMetadata.rows[index];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
+ descriptor.id='imported-'+['f8','f9','fa','fb'][index].repeat(16)
+ const assets=row.assets.map((a,i)=>{
+  const pixels=Uint8Array.from({length:a.size*a.size},(_,at)=>(at*13+i*29+index*7)%256),id=('asset:'+createHash('sha256').update(pixels).digest('hex')) as `asset:${string}`
+  descriptor=JSON.parse(JSON.stringify(descriptor).replaceAll(a.id,id)) as BrushDescriptor
+  installBrushPixels(id,pixels);return{...a,id,file:id.slice(6)+'.bin'}
+ })
+ installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'Derived actual WaterC Spread '+index,source:'original compiled metadata; self-authored L8',warnings:[]}],assets,skipped:[]})
+ return{descriptor,preset:'brush:'+descriptor.id+'@'+descriptor.version}
+}
+it.each(['completed','round-grunge','same-preset','retained-reference','pending-input','true-overbudget'] as const)('replaces only idle sole-reference WaterC author under genuine two-program pressure: %s',async(mode)=>{
+ let selected:ReturnType<typeof installWaterCSpread>,snapshot!:CanonicalStrokeSnapshotV2
+ const begin:CanonicalSourceAuthorService['begin']=async(request,lifetime)=>{
+  const material=lifetime.expectedSourceMaterialContext2;if(!material)throw Error('Actual captured SOURCE2 required')
+  const composition=canonicalPixelSourceComposition(selected.descriptor,B);if(!composition)throw Error('Actual original composition required')
+  snapshot=canonicalSourceStrokeSnapshotV2({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:2,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ }
+ vi.stubGlobal('window',{setTimeout,clearTimeout})
+ const h=await setup('dual',begin),{engine}=h;let releaseBaseline:(()=>void)|undefined,releaseReference:(()=>void)|undefined
+ try{
+  selected=installWaterCSpread(mode==='round-grunge'?2:0);engine.setPencil(selected.preset);engine.setSize(24)
+  expect(await engine.prepareBrush(selected.preset)).toEqual({status:'ready'})
+  const old=engine['_canonicalPreparedAuthor']!;expect(old.bytes).toBeGreaterThan(1200000)
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(5,112));engine['_onEnd'](packet(5,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  for(const op of h.operations){
+   if(op.type!=='canonical_stroke')throw Error('Actual canonical source frame required')
+   const seq=engine['_log'].entries.length+1,recorded={...op,seq}
+   const atom=prepareCanonicalRecordedAttachmentV8({version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:op.userId,snapshot}],bindings:[{operationId:op.id,sequence:seq,originalUserId:op.userId,capability:0}]},[recorded],h.p.canonicalRead.scope)[0]
+   const input=attachCanonicalRecordedDelivery(atom,h.p.canonicalRead.scope);if(!('delivery'in input))throw Error('Actual confirmed delivery required')
+   engine.appendOriginalRecorded(input)
+  }
+  await vi.waitFor(()=>{expect(!!engine['_canonicalLayerOwner']?.coordinator?.hasPendingLocal).toBe(false);expect(!!engine['_canonicalLayerOwner']?.coordinator?.pending).toBe(false)},{timeout:5000})
+  // Actual source tables/runtime remain owned after the completed gesture.
+  expect(engine['_canonicalPreparedAuthor']).toBe(old);if(old.canRetirePreparedRuntime)expect(old.canRetirePreparedRuntime()).toBe(true)
+  const cpu=engine['_brushMipCache'],baseline=mode==='true-overbudget'?4194304-100000:mode==='round-grunge'?2297952:mode==='same-preset'?2700000:2566292
+  expect(cpu.reservedBytes).toBeLessThanOrEqual(baseline)
+  releaseBaseline=cpu.reserve(baseline-cpu.reservedBytes)
+  if(mode==='retained-reference')releaseReference=old.retainPreparedRuntime!()
+  const pendingSpy=mode==='pending-input'?vi.spyOn(engine['_authorInput'],'pending','get').mockReturnValue(true):undefined
+  if(mode==='same-preset')engine.setSize(20);else selected=installWaterCSpread(mode==='round-grunge'?3:1);engine.setPencil(selected.preset)
+  const o=engine['_canonicalLayerOwner']!;console.info('WATERC_GATE',mode,{sameOwner:old.owner===o,refs:old.canRetirePreparedRuntime?.(),holds:engine['_canonicalSourceLifetimeHolds'],fifo:engine['_authorInput'].pending,producer:!!engine['_authorProducer'],accepting:o.accepting,inputs:o.inputs.length,outstanding:o.outstanding,job:!!o.job,wake:o.wake,park:o.orderParked,pending:o.coordinator?.pending,local:o.coordinator?.hasPendingLocal,retiring:o.retiring,selected:engine['_opts'].pencilType===selected.preset})
+  const before=cpu.reservedBytes,release=vi.spyOn(old,'release')
+  if(mode==='completed'||mode==='round-grunge'||mode==='same-preset'){
+   expect(await engine.prepareBrush(selected.preset)).toEqual({status:'ready'})
+   expect(release).toHaveBeenCalledOnce();expect(engine['_canonicalPreparedAuthor']).not.toBe(old)
+   expect(cpu.reservedBytes).toBeLessThan(cpu.budgetBytes)
+  }else{
+   await expect(engine.prepareBrush(selected.preset)).rejects.toThrow()
+   if(mode==='true-overbudget'){expect(release).toHaveBeenCalledOnce();expect(engine['_canonicalPreparedAuthor']).toBeUndefined()}
+   else{expect(release).not.toHaveBeenCalled();expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(cpu.reservedBytes).toBe(before)}
+  }
+  pendingSpy?.mockRestore()
+ }catch(error){console.error('WATERC_PRIMARY',mode,error);throw error}finally{releaseReference?.();releaseBaseline?.();engine.destroy();vi.unstubAllGlobals();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+
+it('waits for real local queue progress instead of scheduling repeated rejected handoffs',async()=>{
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedSourceMaterialContext2;if(!material)throw Error('Original dual START material required')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Original composition missing')
+  const snapshot=canonicalSourceStrokeSnapshotV2({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:2,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup('dual',begin),{engine}=h,callbacks:Array<()=>void>=[]
+ const scheduler=vi.spyOn(engine['_authorTasks'],'schedule').mockImplementation(callback=>{callbacks.push(callback);return callbacks.length})
+ const originalStep=engine['_stepCanonicalLayer'].bind(engine),resume=()=>{engine['_stepCanonicalLayer']=originalStep}
+ engine['_stepCanonicalLayer']=()=>{}
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let firstRejected:Operation|undefined,acceptedSame=false,falseCount=0
+ try{
+  await engine.prepareBrush(h.preset)
+  const coordinator=engine['_ensureCanonicalLayerCoordinator'](engine['_canonicalLayerOwner']!)
+  engine['_onStart']({...packet(1,100),pressure:.3});await Promise.resolve();await Promise.resolve()
+  engine['_onMove']({...packet(160,112),pressure:.95});engine['_onEnd']({...packet(160,124),pressure:0})
+  const enqueue=coordinator.tryEnqueueLocal.bind(coordinator)
+  vi.spyOn(coordinator,'tryEnqueueLocal').mockImplementation((author,operation)=>{const accepted=enqueue(author,operation);if(!accepted){falseCount++;firstRejected??=operation}else if(operation===firstRejected)acceptedSame=true;return accepted})
+  for(let turns=0;turns<500&&!falseCount;turns++){await Promise.resolve();const callback=callbacks.shift();if(callback)callback()}
+  expect(falseCount).toBe(1);expect(coordinator.queuedFrameCount).toBe(8)
+  // Drain any already accepted wake. A blocked FIFO must NOT create another.
+  for(let turns=0;turns<8&&callbacks.length;turns++){callbacks.shift()!();await Promise.resolve()}
+  expect(callbacks).toHaveLength(0);expect(falseCount).toBe(1)
+  resume();engine['_stepCanonicalLayer'](engine['_canonicalLayerOwner']!.job!)
+  for(let turns=0;turns<10000&&(callbacks.length||engine.hasActiveCanonicalAuthor());turns++){await Promise.resolve();const callback=callbacks.shift();if(callback)callback();else if(!engine.hasActiveCanonicalAuthor())break}
+  if(engine['_authorInputError']!==undefined)throw engine['_authorInputError']
+  expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(acceptedSame).toBe(true)
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Source frame required');return op.frame})
+  expect(frames.map(frame=>frame.frameOrdinal)).toEqual(frames.map((_,index)=>index));expect(new Set(h.operations.map(op=>op.id)).size).toBe(h.operations.length)
+ }finally{resume();scheduler.mockRestore();clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_canonicalLayerOwner']?.localCapacity).toBeUndefined()}
+},20000)
+it('subscribes before the local-capacity revision recheck and removes canceled wait ownership',async()=>{
+ const h=await setup('dual',vi.fn()),{engine}=h
+ try{
+  await engine.prepareBrush(h.preset);const owner=engine['_canonicalLayerOwner']!,coordinator=engine['_ensureCanonicalLayerCoordinator'](owner),revision=coordinator.localCapacityProgressRevision
+  const first=engine['_subscribeCanonicalLocalCapacity'](owner,coordinator,revision);expect(owner.localCapacity).toBeDefined();first.release();expect(owner.localCapacity).toBeUndefined()
+  // A progress stamp observed after a failed handoff but before subscription
+  // must be noticed by the install-then-recheck, with no synchronous pump.
+  Object.defineProperty(coordinator,'localCapacityProgressRevision',{configurable:true,get:()=>revision+1})
+  let resolved=false;const raced=engine['_subscribeCanonicalLocalCapacity'](owner,coordinator,revision);void raced.promise.then(()=>{resolved=true});expect(resolved).toBe(false);expect(owner.localCapacity).toBeUndefined();await Promise.resolve();expect(resolved).toBe(true)
+  Reflect.deleteProperty(coordinator,'localCapacityProgressRevision')
+  const retired=engine['_subscribeCanonicalLocalCapacity'](owner,coordinator,revision);engine['_retireCanonicalLayerCycle'](owner,false);await retired.promise;expect(owner.localCapacity).toBeUndefined()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

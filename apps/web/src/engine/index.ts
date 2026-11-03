@@ -1396,7 +1396,7 @@ interface CanonicalPreparedAuthor {
   readonly composition7?:NonNullable<ReturnType<typeof canonicalSourceComposition>>
   readonly geometryCapability?:CanonicalPlainAutoGeometryCapability|Extract<ReturnType<typeof canonicalDynamicAutoGeometryAuthorAdmission>,{supported:true}>['geometryCapability']
   readonly imageLease?:CanonicalMaskSourceLease
-  readonly preparedRuntime?:SourceStrokeAuthor;readonly retainPreparedRuntime?:()=>()=>void
+  readonly preparedRuntime?:SourceStrokeAuthor;readonly retainPreparedRuntime?:()=>()=>void;readonly canRetirePreparedRuntime?:()=>boolean
   readonly sourceContext2?:CanonicalMaterialContextV2
   readonly selectedSizePx?:number;readonly sourceScale?:number;readonly nativeSizePx:number;readonly program:SourceStrokeAuthorProgram;readonly bytes:number;readonly release:()=>void
 }
@@ -1897,6 +1897,7 @@ interface CanonicalLayerOwner {
  indexedLocalSource?:{readonly author:CanonicalLocalWashAuthor;readonly lease:CanonicalMaskSourceLease}
  resourceCandidate?:{cancel(lost:boolean):void}
  recordedCapacity?:{readonly promise:Promise<void>;readonly resolve:()=>void;readonly release:()=>void}
+ localCapacity?:{readonly coordinator:CanonicalWashLayerCoordinator;readonly revision:number;readonly promise:Promise<void>;readonly resolve:()=>void;readonly release:()=>void}
  releaseResources?:()=>void
  indexedCandidate?:CanonicalEmptyJob;indexedCut?:CanonicalAcceptedCut;indexedCarry?:Map<string,CanonicalIndexedActiveRoot>;historySelecting?:boolean;exporting?:boolean;indexedFollowing?:boolean;mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
  derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
@@ -7489,6 +7490,21 @@ export class PencilEngine implements PencilEngineAPI {
     return eligible&&this._followPresentationOwned(owner,borrow)&&borrow.previous===previous&&borrow.next===next?borrow:undefined
   }
 
+  /** One retained local handoff observes progress; it never owns another frame. */
+  private _subscribeCanonicalLocalCapacity(owner:CanonicalLayerOwner,coordinator:CanonicalWashLayerCoordinator,revision:number):{readonly promise:Promise<void>;readonly release:()=>void}{
+    if(owner.localCapacity)throw new Error('Local handoff already waits for capacity')
+    let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done})
+    const cell={coordinator,revision,promise,resolve,release:()=>{if(owner.localCapacity===cell)owner.localCapacity=undefined}}
+    owner.localCapacity=cell
+    // Install BEFORE recheck: progress during the rejected handoff cannot be lost.
+    this._notifyCanonicalLocalCapacity(owner)
+    return cell
+  }
+  private _notifyCanonicalLocalCapacity(owner:CanonicalLayerOwner,force=false):void{
+    const cell=owner.localCapacity
+    if(!cell||!force&&!owner.failed&&!owner.retiring&&owner.coordinator===cell.coordinator&&cell.coordinator.localCapacityProgressRevision===cell.revision)return
+    cell.release();cell.resolve() // Promise reaction schedules; never reenters FIFO pump.
+  }
   private _notifyCanonicalRecordedCapacity(owner:CanonicalLayerOwner):void {
     const pending=owner.recordedCapacity;owner.recordedCapacity=undefined
     if(pending)try{pending.release()}finally{pending.resolve()}
@@ -8115,6 +8131,7 @@ export class PencilEngine implements PencilEngineAPI {
     const current=()=>{if(!owned())return false;this._assertCanonicalLayerCurrent(owner);return owned()}
     let notificationFailed=false
     const notify=()=>{
+      this._notifyCanonicalLocalCapacity(owner)
       if(owner.recordedCapacity&&coordinator.queuedFrameCount<8)try{this._notifyCanonicalRecordedCapacity(owner)}catch(error){notificationFailed=true;throw error}
       return current()
     }
@@ -8136,7 +8153,7 @@ export class PencilEngine implements PencilEngineAPI {
           if(!successorCurrent())return
           // Detach pending before its release/resolve callbacks; never consult
           // the dead coordinator's capacity or schedule the dead job again.
-          try{this._notifyCanonicalRecordedCapacity(owner)}catch(error){notificationFailed=true;throw error}
+          try{this._notifyCanonicalRecordedCapacity(owner);this._notifyCanonicalLocalCapacity(owner)}catch(error){notificationFailed=true;throw error}
           if(!successorCurrent())return
           this._invalidateSplitCache();this._displayIfNotSuspended()
           if(!successorCurrent())return
@@ -8198,6 +8215,7 @@ export class PencilEngine implements PencilEngineAPI {
     owner.retiring=true
     const errors:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){errors.push(error)}}
     const coordinator=owner.coordinator;owner.coordinator=undefined
+    attempt(()=>this._notifyCanonicalLocalCapacity(owner,true))
     if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical layer cycle retired'),{lost}));errors.push(...coordinator.cleanupFailures)}
     const derived=owner.derived;owner.derived=undefined;if(derived)attempt(()=>derived.destroy())
     owner.retiring=false
@@ -8572,6 +8590,23 @@ export class PencilEngine implements PencilEngineAPI {
     const prepared=this._canonicalPreparedAuthor;this._canonicalPreparedAuthor=undefined
     this._retireCanonicalPreparedAuthor(prepared)
   }
+  /** A completed producer is not needed by recorded replay. Retire only the
+   * sole prepared-runtime reference; bank, prepass and history owners survive. */
+  private _retireIdleCanonicalAuthorForSelection(owner:CanonicalLayerOwner,preset:string,signal?:AbortSignal):void {
+    const previous=this._canonicalPreparedAuthor
+    this._assertCanonicalLayerCurrent(owner)
+    if(signal?.aborted||owner.retiring||this._opts.pencilType!==preset)return
+    if(!previous||previous.owner!==owner||!previous.canRetirePreparedRuntime
+      ||this._canonicalSourceLifetimeHolds||this._authorInput.pending||this._authorProducer||owner.accepting
+      ||owner.outstanding||owner.job||owner.wake!==undefined||owner.orderParked||owner.resourceCandidate||owner.historySelecting||owner.exporting
+      ||owner.coordinator?.pending||owner.coordinator?.hasPendingLocal||!previous.canRetirePreparedRuntime())return
+    // Pure checks above precede detachment. Cleanup cannot leave a retired
+    // runtime advertised as ready, even when the next preparation fails.
+    if(this._canonicalPreparedAuthor!==previous)return
+    this._canonicalPreparedAuthor=undefined
+    this._retireCanonicalPreparedAuthor(previous)
+    this._assertCanonicalLayerCurrent(owner)
+  }
   private _retireCanonicalPreparedAuthor(prepared:CanonicalPreparedAuthor|undefined):void {
     let failed=false,primary:unknown
     for(const action of [()=>prepared?.imageLease?.release(),()=>prepared?.release()])try{action()}catch(error){if(!failed){failed=true;primary=error}}
@@ -8614,7 +8649,7 @@ export class PencilEngine implements PencilEngineAPI {
       let refs=1,retired=false,released=false
       const drop=()=>{if(refs<1)throw new Error('Image material prepared reference underflow');if(!--refs&&!released){released=true;releaseCpu()}}
       const retain=()=>{if(retired||released||refs>=Number.MAX_SAFE_INTEGER)throw new Error('Image material prepared runtime retired');refs++;let done=false;return()=>{if(!done){done=true;drop()}}}
-      const data=binding.data,next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material:{kind:'imageMaterial',pin,context,binding},sourceContext2:context,sourceScale,selectedSizePx,nativeSizePx:Math.max(data.brush.width,data.brush.height)*data.brush.scale,program:compiled.program,bytes:charge,preparedRuntime:runtime,retainPreparedRuntime:retain,imageLease:lease,release:()=>{if(!retired){retired=true;drop()}}}
+      const data=binding.data,next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material:{kind:'imageMaterial',pin,context,binding},sourceContext2:context,sourceScale,selectedSizePx,nativeSizePx:Math.max(data.brush.width,data.brush.height)*data.brush.scale,program:compiled.program,bytes:charge,preparedRuntime:runtime,retainPreparedRuntime:retain,canRetirePreparedRuntime:()=>!retired&&!released&&refs===1,imageLease:lease,release:()=>{if(!retired){retired=true;drop()}}}
       const previous=this._canonicalPreparedAuthor
       check()
       if(this._canonicalPreparedAuthor!==previous||options.signal?.aborted)throw new Error('Image material prepared publication changed')
@@ -8680,7 +8715,7 @@ export class PencilEngine implements PencilEngineAPI {
       let refs=1,retired=false,released=false
       const drop=()=>{if(refs<1)throw new Error('Masked prepared reference underflow');if(!--refs&&!released){released=true;releaseCpu()}}
       const retain=()=>{if(retired||released||refs>=Number.MAX_SAFE_INTEGER)throw new Error('Masked prepared runtime retired');refs++;let done=false;return()=>{if(!done){done=true;drop()}}}
-      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material:{kind:'masked',pin:primarySource,context,binding},sourceContext2:context,sourceScale,selectedSizePx,nativeSizePx:(captured.primary.data.version===2&&captured.primary.data.source.kind!=='image'?captured.primary.data.source.diameter:Math.max(captured.primary.data.brush.width,captured.primary.data.brush.height))*captured.primary.effectiveBrushScale,program:compiled.program,bytes:bytesCharge,preparedRuntime:runtime,retainPreparedRuntime:retain,imageLease:lease,release:()=>{if(!retired){retired=true;drop()}}}
+      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material:{kind:'masked',pin:primarySource,context,binding},sourceContext2:context,sourceScale,selectedSizePx,nativeSizePx:(captured.primary.data.version===2&&captured.primary.data.source.kind!=='image'?captured.primary.data.source.diameter:Math.max(captured.primary.data.brush.width,captured.primary.data.brush.height))*captured.primary.effectiveBrushScale,program:compiled.program,bytes:bytesCharge,preparedRuntime:runtime,retainPreparedRuntime:retain,canRetirePreparedRuntime:()=>!retired&&!released&&refs===1,imageLease:lease,release:()=>{if(!retired){retired=true;drop()}}}
       const previous=this._canonicalPreparedAuthor
       check()
       if(this._canonicalPreparedAuthor!==previous||options.signal?.aborted)throw new Error('Masked prepared publication changed')
@@ -8695,6 +8730,7 @@ export class PencilEngine implements PencilEngineAPI {
     let plainRelease:(()=>void)|undefined,plainCharge=0
     try{
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!originalDescriptor)throw new Error('Canonical source author services unavailable')
+    this._retireIdleCanonicalAuthorForSelection(owner,preset,options.signal)
     if(originalDescriptor.behavior?.dual)return this._prepareCanonicalMaskedAuthorBrush(preset,originalDescriptor,owner,options)
     if(originalDescriptor.tip.kind==='bitmap'&&originalDescriptor.sourceStamp?.version===2&&originalDescriptor.sourceStamp.source.kind==='image'&&!originalDescriptor.sourceStamp.flags.textureEnabled&&this._canonicalAuthorService?.authorImageMaterialSource==='pixel-image-material-v1')return this._prepareCanonicalImageMaterialAuthorBrush(preset,originalDescriptor,owner,options)
     let descriptor=originalDescriptor
@@ -8912,7 +8948,7 @@ export class PencilEngine implements PencilEngineAPI {
       const drop7=()=>{if(refs7<1)throw new Error('Prepared runtime underflow');refs7--;if(!refs7&&!released7){released7=true;release()}}
       const retire7=()=>{if(retired7)return;retired7=true;drop7()}
       const retainPreparedRuntime=()=>{if(retired7||released7||refs7>=Number.MAX_SAFE_INTEGER)throw new Error('Prepared runtime retired or bound');refs7++;let done=false;return()=>{if(!done){done=true;drop7()}}}
-      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material,...sourceContext2?{sourceContext2}:{},...geometryCapability?{geometryCapability}:{},...(generic||grain)&&originalComposition?{composition7:originalComposition}:{},...sourceScale!==undefined?{sourceScale,selectedSizePx}:{},nativeSizePx:admission.nativeSizePx,program:compiled.program,bytes:charge,release:preparedRuntime?retire7:release,imageLease,...preparedRuntime?{preparedRuntime,retainPreparedRuntime}:{}}
+      const next:CanonicalPreparedAuthor={preset,owner,generation,descriptor,sha,material,...sourceContext2?{sourceContext2}:{},...geometryCapability?{geometryCapability}:{},...(generic||grain)&&originalComposition?{composition7:originalComposition}:{},...sourceScale!==undefined?{sourceScale,selectedSizePx}:{},nativeSizePx:admission.nativeSizePx,program:compiled.program,bytes:charge,release:preparedRuntime?retire7:release,imageLease,...preparedRuntime?{preparedRuntime,retainPreparedRuntime,canRetirePreparedRuntime:()=>!retired7&&!released7&&refs7===1}:{}}
       if(preparedRuntime){
         const previous=this._canonicalPreparedAuthor,candidateSignal=options.signal
         current()
@@ -9122,8 +9158,15 @@ export class PencilEngine implements PencilEngineAPI {
         const operation:import('@grafetto/shared').CanonicalStrokeOperation=Object.freeze({id:nanoid(),userId:this._userId,timestamp:Date.now(),type:'canonical_stroke',layerId:session.snapshot.layerId,frame})
         const layer=source.prepared.owner
         this._ensureCanonicalLayerCoordinator(layer)
-        while(!layer.coordinator!.tryEnqueueLocal(source.localAuthor!,operation)){
-          this._wakeCanonicalLayer(layer);yield {kind:'author-input-backpressure' as const};this._assertCanonicalSource(session)
+        while(true){
+          const coordinator=layer.coordinator!,revision=coordinator.localCapacityProgressRevision
+          if(coordinator.tryEnqueueLocal(source.localAuthor!,operation))break
+          this._assertCanonicalSource(session)
+          const capacity=this._subscribeCanonicalLocalCapacity(layer,coordinator,revision)
+          try{this._wakeCanonicalLayer(layer);yield {kind:'author-input-backpressure' as const,promise:capacity.promise}}
+          finally{capacity.release()}
+          this._assertCanonicalSource(session)
+          if(layer.coordinator!==coordinator)throw new Error('Canonical local capacity owner changed')
         }
         source.localAdmitted=true;this._canonicalRecoveryDirty=true
         this._wakeCanonicalLayer(layer)

@@ -1,4 +1,4 @@
-import {scaleIntegerImageSampledU8} from '../raster/integerImageScale'
+import {scaleIntegerImageSampledU8,INTEGER_IMAGE_STREAM_QUANTUM} from '../raster/integerImageScale'
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
 import { assertNativeImageSourceSize, selectNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
 import { sourcePngPyramid, sourcePngSelectLevel } from '../presets/sourcePngPyramid'
@@ -147,7 +147,7 @@ export function* nativeImageRgbaSteps(resource:NativeImageResource,original:Uint
   const value=alpha[y*size.width+x],at=((y+1)*resource.width+x+1)*4
   if(channels)rgba[at+3]=value
   else{rgba[at]=rgba[at+1]=rgba[at+2]=value;rgba[at+3]=255}
-  if(++ticks===64){ticks=0;yield}
+  if(++ticks===INTEGER_IMAGE_STREAM_QUANTUM){ticks=0;yield}
  }
  if(channels)for(let c=0;c<channels.length;c++){
   const plane=channels[c]
@@ -155,7 +155,7 @@ export function* nativeImageRgbaSteps(resource:NativeImageResource,original:Uint
   for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++){
    const i=y*size.width+x,value=alpha[i]?Math.min(255,Math.floor(level[i]*255/alpha[i]+.5)):0,at=((y+1)*resource.width+x+1)*4
    if(channels.length===1)rgba[at]=rgba[at+1]=rgba[at+2]=value;else rgba[at+c]=value
-   if(++ticks===64){ticks=0;yield}
+   if(++ticks===INTEGER_IMAGE_STREAM_QUANTUM){ticks=0;yield}
   }
  }
  return rgba

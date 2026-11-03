@@ -372,6 +372,9 @@ export class CanonicalWashLayerCoordinator {
     return !!this.options.mixedReplay7&&!this.closed&&!this.failed
       &&this.entries.length>0&&this.replayCount>0&&this.revision>this.completedPresentation
   }
+  private localCapacityRevision=0
+  /** Notification stamp only: no readiness or admission authority. */
+  get localCapacityProgressRevision():number{return this.localCapacityRevision}
   get queuedFrameCount():number { return this.queue.length }
   private washSlot(index:number):Entry {const slot=this.queue[index];if(!slot||'kind'in slot)throw new Error('Expected executable wash slot');return slot}
   /** A partially published stable commit cannot be shown through a raw-wash
@@ -1387,7 +1390,9 @@ export class CanonicalWashLayerCoordinator {
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
   advance(options:{readonly deferPresentation?:true}={}): CanonicalPreviewOutcome|undefined {
-    this.assertOpen();this.assertRecordedCurrent(); this.busy = true
+    this.assertOpen();this.assertRecordedCurrent()
+    const capacityCpu=this.options.prepass.brushGlBatchInfo().cpu,beforeCpu=capacityCpu.reservedBytes,beforeQueue=this.queue.length
+    this.busy = true
     try {
       const turnStarted = performance.now()
       this.assertLayers()
@@ -1428,7 +1433,7 @@ export class CanonicalWashLayerCoordinator {
       this.releaseAll(this.cleanupContextLost())
       this.clean(() => this.notifyPoison(error))
       throw error
-    } finally { this.busy = false }
+    } finally { this.busy = false;if(this.queue.length<beforeQueue||capacityCpu.reservedBytes<beforeCpu)this.localCapacityRevision++ }
   }
 
   private advanceEntry(entry:Entry,index:number):boolean {

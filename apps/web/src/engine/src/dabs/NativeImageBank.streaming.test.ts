@@ -4,7 +4,7 @@ import {BrushTextureCache} from './BrushTextureCache'
 import type {BrushTip,TipMaskId} from '@grafetto/shared'
 import {expect,it,vi} from 'vitest'
 import {sourceImageScaleAxis} from '../presets/sourceImageScaleAxis'
-import {scaleIntegerImageSampledU8} from '../raster/integerImageScale'
+import {scaleIntegerImageSampledU8,INTEGER_IMAGE_STREAM_QUANTUM} from '../raster/integerImageScale'
 import {nativeImageBankFromRect,nativeImagePixels,nativeImageRgbaSteps,nativeImageStreamingTransientBytes,type NativeImageResource} from './NativeImageBank'
 import {BrushPreparation,brushPreparationSteps} from './BrushPreparation'
 const oldIntegerScale=(()=>{
@@ -168,7 +168,7 @@ it('sampled scalar SIMD/scalar kernels retain all resize branches and yield at m
  for(const law of ['scalar','simd']as const)for(const [w,h]of [[3,5],[13,5],[3,17],[13,17],[7,9]]){
   const source=Uint8Array.from({length:63},(_,i)=>(i*43)%256);let reads=0,last=0
   const iterator=scaleIntegerImageSampledU8({width:7,height:9},{width:w,height:h},(x,y)=>{reads++;return source[y*7+x]},law)
-  while(true){const n=iterator.next();expect(reads-last).toBeLessThanOrEqual(64);last=reads;if(n.done){expect(n.value).toEqual(oldIntegerScale(source,{width:7,height:9},{width:w,height:h},1,law));break}}
+  while(true){const n=iterator.next();expect(reads-last).toBeLessThanOrEqual(INTEGER_IMAGE_STREAM_QUANTUM);last=reads;if(n.done){expect(n.value).toEqual(oldIntegerScale(source,{width:7,height:9},{width:w,height:h},1,law));break}}
  }
 })
 it('Leaves1000crop and pairedRock511crop fit their genuine streamed output/axis peak without fullcrop copies',()=>{
@@ -177,7 +177,7 @@ it('Leaves1000crop and pairedRock511crop fit their genuine streamed output/axis 
   const resource=nativeImageBankFromRect(`asset:${'2'.repeat(64)}`,{x:side===1024?12:0,y:side===1024?12:0,width:crop,height:crop}).find(r=>r.nativeWidth>=24&&r.nativeWidth<48)!
   expect(resource).toBeDefined()
   const result=drain(nativeImageRgbaSteps(resource,alpha,planes))
-  expect(result.quanta).toBeGreaterThan(1000);expect(result.value.length).toBe(resource.width*resource.height*4)
+  expect(result.quanta).toBeGreaterThanOrEqual(Math.floor(crop*crop/INTEGER_IMAGE_STREAM_QUANTUM));expect(result.value.length).toBe(resource.width*resource.height*4)
   const peak=nativeImageStreamingTransientBytes(resource,!!planes),retainedBaseline=side===1024?1302160:1141232,sourceStage=side*side
   expect(retainedBaseline+sourceStage+peak+128*1024).toBeLessThan(4*1024*1024)
   // Pixel-sized allocations are bounded by destination only: outputRGBA,
@@ -297,4 +297,16 @@ it('real reduced peak admits previously overbudget200x64 enlargement while prese
  const original=s.gl.texImage2D.getMockImplementation()
  s.gl.texImage2D.mockImplementation((...args:unknown[])=>{expect(s.cpu.reservedBytes+s.cpu.bytes).toBeLessThanOrEqual(s.cpu.budgetBytes);return original(...args)})
  try{expect(s.bank.prepareJob(index)).toBe('ready');expect(s.cpu.budgetBytes).toBe(4*1024*1024)}finally{s.bank.reset();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+it('actual identity image work drains in one callback without the artificial64tap/256next throughput floor',async()=>{
+ const callbacks=new Map<number,FrameRequestCallback>();let token=0,count=0,done=false
+ vi.stubGlobal('requestAnimationFrame',(cb:FrameRequestCallback)=>{callbacks.set(++token,cb);return token});vi.stubGlobal('cancelAnimationFrame',(id:number)=>callbacks.delete(id));const clock=vi.spyOn(performance,'now').mockReturnValue(0),preparation=new BrushPreparation()
+ const original=Uint8Array.from({length:256*256},(_,i)=>i%256),resource=nativeImageBankFromRect(`asset:${'5'.repeat(64)}`,{x:0,y:0,width:256,height:256}).find(r=>r.scale===1)!
+ function* work(){const pixels=yield* nativeImageRgbaSteps(resource,original);expect(Buffer.from(pixels).equals(Buffer.from(oldPixels(resource,original)))).toBe(true);done=true}
+ try{
+  const pending=preparation.run([()=>brushPreparationSteps(work())],{},()=>true,'image-quantum')
+  while(callbacks.size){const [id,cb]=callbacks.entries().next().value!;callbacks.delete(id);cb(0);count++;expect(count).toBeLessThan(8)}
+  expect(await pending).toEqual({status:'ready'});expect(done).toBe(true);expect(count).toBe(1)
+ }finally{preparation.cancel();clock.mockRestore();vi.unstubAllGlobals()}
 })

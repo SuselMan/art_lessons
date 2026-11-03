@@ -341,3 +341,41 @@ it('keeps FIRST, inputComplete and K8 remainder cuts immediate under the default
  expect(cuts).toEqual([[0],[1,2,3,4,5,6,7,8],[9,10,11,12,13,14,15,16],[17]])
  expect(cuts.flat()).toEqual(Array.from({length:18},(_,i)=>i));expect(events.at(-1)).toBe('inputComplete');expect(fifo.pending).toBe(false)
 })
+
+it('parks capacity pressure without timers or callbacks and keeps the exact producer before MOVE and END',async()=>{
+ vi.useFakeTimers();const capacity=deferred(),frames:Array<()=>void>=[],events:unknown[]=[],operation={ordinal:8}
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ fifo.enqueue(function*(){events.push(operation);yield{kind:'author-input-backpressure',promise:capacity.promise};events.push(operation)})
+ fifo.enqueue(function*(){events.push('MOVE')});fifo.enqueue(function*(){events.push('END')})
+ expect(frames).toHaveLength(0);expect(vi.getTimerCount()).toBe(0);expect(events).toEqual([operation])
+ capacity.resolve();capacity.resolve();await Promise.resolve();expect(events).toEqual([operation]);expect(frames).toHaveLength(1)
+ while(frames.length)frames.shift()!()
+ expect(events).toEqual([operation,operation,'MOVE','END']);expect(fifo.pending).toBe(false);expect(vi.getTimerCount()).toBe(0)
+})
+it('parks a suspended checkpoint cut on capacity and detaches both wait and retained cut on cancellation',async()=>{
+ const capacity=deferred(),frames:Array<()=>void>=[],events:string[]=[],errors:unknown[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)})
+ const flush=function*(){try{events.push('cut');yield{kind:'author-input-backpressure' as const,promise:capacity.promise};events.push('never')}finally{events.push('release-cut')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint',flush,immediate:true};events.push('never-producer')}finally{events.push('release-producer')}})
+ expect(events).toEqual(['cut']);expect(frames).toHaveLength(0)
+ fifo.cancel();capacity.resolve();await Promise.resolve();expect(events).toEqual(['cut','release-cut','release-producer']);expect(frames).toHaveLength(0);expect(errors).toEqual([]);expect(fifo.pending).toBe(false)
+})
+it('propagates rejected capacity through the exact suspended cut with undefined kept as primary',async()=>{
+ const capacity=deferred(),frames:Array<()=>void>=[],events:unknown[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>events.push(e)})
+ const flush=function*(){try{yield{kind:'author-input-backpressure' as const,promise:capacity.promise}}catch(error){events.push(error)}finally{events.push('released')}}
+ fifo.enqueue(function*(){yield{kind:'author-input-checkpoint',flush,immediate:true}})
+ capacity.reject(undefined);await Promise.resolve();expect(events).toEqual([]);expect(frames).toHaveLength(1);frames.shift()!()
+ expect(events).toEqual([undefined,'released']);expect(fifo.pending).toBe(false)
+})
+
+it('retires a capacity-parked cut when its concurrent service wait rejects with undefined',async()=>{
+ const service=deferred(),capacity=deferred(),frames:Array<()=>void>=[],events:string[]=[],failed=vi.fn()
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed},4,2)
+ const flush=function*(){try{yield{kind:'author-input-backpressure' as const,promise:capacity.promise};events.push('stale-cut')}finally{events.push('cut-return')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush};yield{kind:'author-input-wait' as const,promise:service.promise,deadline:1000,timeoutError:Error('timeout')};events.push('stale-source')}finally{events.push('source-return')}},()=>events.push('release'))
+ expect(frames).toHaveLength(0);expect(fifo.pending).toBe(true)
+ service.reject(undefined);await Promise.resolve();await Promise.resolve();expect(frames).toHaveLength(1);frames.shift()!()
+ expect(failed).toHaveBeenCalledExactlyOnceWith(undefined);expect(events).toEqual(['cut-return','source-return','release']);expect(fifo.pending).toBe(false)
+ capacity.resolve();await Promise.resolve();await Promise.resolve();expect(frames).toHaveLength(0)
+})

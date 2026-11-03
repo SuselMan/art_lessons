@@ -18,6 +18,7 @@ export type IntegerImageInterpolationLaw = 'scalar' | 'simd'
 
 const MAX_SIDE = 4096
 const MAX_PIXELS = 4 * 1024 * 1024
+export const INTEGER_IMAGE_STREAM_QUANTUM=1024
 const MAX_CHANNEL_SAMPLES = 64 * 1024 * 1024
 const AREA_UNIT = 16384
 
@@ -143,7 +144,7 @@ export function scaleIntegerImageU8(
 
 
 /** Same fixed-point kernel over an immutable sampled plane. No source-sized
- * identity/crop/premultiplication buffer. A step yields every 64 source taps;
+ * identity/crop/premultiplication buffer. A step yields every 1024 source taps;
  * callers reserve output+axis storage before creating the iterator. */
 /** Constant-space axis cursor; arithmetic matches sourceImageScaleAxis exactly.
  * No per-destination arrays or per-tap weight objects are retained. */
@@ -183,11 +184,11 @@ export function* scaleIntegerImageSampledU8(
   for(let x=0;x<destinationSize.width;x++){
    sampledCursor(xAxis,x,horizontal);let value=0
    if(xAxis.up&&yAxis.up&&law==='scalar'){
-    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===64){ticks=0;yield}}value+=Math.floor(row/256)*sampledWeight(vertical,iy)}value=Math.floor(value/256)
+    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===INTEGER_IMAGE_STREAM_QUANTUM){ticks=0;yield}}value+=Math.floor(row/256)*sampledWeight(vertical,iy)}value=Math.floor(value/256)
    }else if(xAxis.up&&yAxis.up){
-    for(let ix=0;ix<horizontal.length;ix++){let column=0;for(let iy=0;iy<vertical.length;iy++){column+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(vertical,iy);if(++ticks===64){ticks=0;yield}}value+=Math.floor(column/256)*sampledWeight(horizontal,ix)}value=Math.floor(value/256)
+    for(let ix=0;ix<horizontal.length;ix++){let column=0;for(let iy=0;iy<vertical.length;iy++){column+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(vertical,iy);if(++ticks===INTEGER_IMAGE_STREAM_QUANTUM){ticks=0;yield}}value+=Math.floor(column/256)*sampledWeight(horizontal,ix)}value=Math.floor(value/256)
    }else{
-    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===64){ticks=0;yield}}if(!xAxis.up&&!yAxis.up)row=Math.floor(row/16);value+=row*sampledWeight(vertical,iy)}value=Math.floor(value/(!xAxis.up&&!yAxis.up?16777216:4194304))
+    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===INTEGER_IMAGE_STREAM_QUANTUM){ticks=0;yield}}if(!xAxis.up&&!yAxis.up)row=Math.floor(row/16);value+=row*sampledWeight(vertical,iy)}value=Math.floor(value/(!xAxis.up&&!yAxis.up?16777216:4194304))
    }
    if(write)write(x,y,value);else output[y*destinationSize.width+x]=value
   }

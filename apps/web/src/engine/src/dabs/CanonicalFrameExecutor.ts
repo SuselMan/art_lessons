@@ -690,7 +690,14 @@ export class CanonicalFrameExecutor {
       || this.options.sourceMaterial?.primarySource.kind === 'image'
     const hasImage = capturedImage || hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
     if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
-    if (!hasImage && input.assets.length&&!this.primaryTexture) throw new TypeError('Auto-only frame must not supply image assets')
+    if (!hasImage&&!this.primaryTexture) {
+      if(this.roleTextures){
+        const original=this.options.sourceMaterial
+        if(!original?.roleTextures||!this.roleTextures.bindings.primary&&!this.roleTextures.bindings.mask
+          ||!canonicalSoftAutoDataEqual(input.assets,original.assets))throw new TypeError('Auto-only frame must not supply image assets')
+        if(!this.roleTextures.root.isReady())throw new Error('Canonical role texture bank is not prepared')
+      }else if(input.assets.length)throw new TypeError('Auto-only frame must not supply image assets')
+    }
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const indexedImages=this.options.sourceMaterial?.imageFrameIndices==='source-image-pipe-frame-v1'||this.primaryTexture?.context.version===8&&this.primaryTexture.context.imageFrameIndices==='source-image-pipe-frame-v1'
     const definitionSources=input.frame.definitions.map((recipe,index)=>{
