@@ -14,7 +14,7 @@ import type { TiledLayerBuffer,PreparedLayerTargets } from '../buffers/TiledLaye
 import type { WorldRect } from '../buffers/tileMath'
 import { runBrushGlBatch, runBrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
-import {prepareRenderedPrefixCursor7,type CanonicalRenderedPrefixCursor7, CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalReplaySource,type CanonicalReplaySourceData, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
+import {prepareRenderedPrefixCursor7,type CanonicalRenderedPrefixCursor7, CanonicalFrameExecutor, CanonicalFrameCpuPressure, canonicalWashOuterOperation, type CanonicalReplaySource,type CanonicalReplaySourceData, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
@@ -613,7 +613,8 @@ export class CanonicalWashLayerCoordinator {
     if(this.entries.reduce((n,e)=>n+(e.local?.receipts.length??0),0)>=1024)throw new RangeError('Local receipt capacity exceeded')
     const cpu=this.options.prepass.brushGlBatchInfo().cpu,release=cpu.reserve(JSON.stringify(op).length*2+512)
     let released=false;const retire=()=>{if(!released){released=true;release()}}
-    let rejected=false
+    let rejected=false,retryCpuPressure=false
+    const errorsBefore=this.errors.length
     const local:LocalPrefix=previous??{author,scope,state,receipts:[]}
     let staged:ReturnType<CanonicalWashLayerCoordinator['stageReplay']>|undefined
     try{
@@ -627,9 +628,15 @@ export class CanonicalWashLayerCoordinator {
       rejected=true
       if(this.options.mixedReplay7)this.cleanFrontier(retire);else this.clean(retire)
       if(this.failed&&(!this.options.mixedReplay7||!staged?.published)){this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(error))}
-      throw error
-    }finally{if(this.options.mixedReplay7){const before=this.errors.length;this.cleanFrontier(()=>staged?.rollback());if(this.errors.length>before){this.releaseAll(this.cleanupContextLost());if(!rejected)throw this.errors[before]}}else staged?.rollback()}
-    return true
+      // Only already-published Work can release retained DTO metadata by
+      // draining. An empty executor queue is a real baseline/budget failure.
+      retryCpuPressure=error instanceof CanonicalFrameCpuPressure&&!this.failed
+        &&this.entries.some(entry=>entry.executor.pendingFrameCount>0)
+      if(!retryCpuPressure)throw error
+    }finally{if(this.options.mixedReplay7){const before=this.errors.length;this.cleanFrontier(()=>staged?.rollback());if(this.errors.length>before){this.releaseAll(this.cleanupContextLost());if(!rejected||retryCpuPressure)throw this.errors[before]}}else staged?.rollback()}
+    // Never turn a rollback/release failure into cooperative waiting.
+    if(retryCpuPressure&&this.errors.length>errorsBefore)throw this.errors[errorsBefore]
+    return !retryCpuPressure
     }finally{this.busy=false}
   }
 

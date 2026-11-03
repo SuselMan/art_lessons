@@ -25,6 +25,17 @@ import type { AnyTransformedMaskRequest, CanonicalMaskCapacityLease, Transformed
 const autoRecipe = (recipe:AnyCanonicalMaterialRecipe):recipe is CanonicalAutoRecipe|CanonicalSoftAutoRecipe =>
   'kind' in recipe && (recipe.kind==='defaultAuto'||recipe.kind==='gaussianAuto'||recipe.kind==='softAuto')
 
+/** Admission-only pressure, before Work publication or any pixel write. */
+export class CanonicalFrameCpuPressure extends RangeError {
+  readonly reservedBytes:number
+  readonly requiredHeadroomBytes:number
+  readonly budgetBytes:number
+  constructor(reservedBytes:number,requiredHeadroomBytes:number,budgetBytes:number){
+    super(`Canonical queue exceeds shared CPU work headroom: reserved=${reservedBytes}, required=${requiredHeadroomBytes}, budget=${budgetBytes}`)
+    this.name='CanonicalFrameCpuPressure';this.reservedBytes=reservedBytes;this.requiredHeadroomBytes=requiredHeadroomBytes;this.budgetBytes=budgetBytes
+  }
+}
+
 /** Both authoring and history adapters submit the SAME already-decoded frame.
  * No pointer, sensor, author DTO, random source or mutable tool state enters here. */
 export interface CanonicalFrameSubmission {
@@ -777,7 +788,8 @@ export class CanonicalFrameExecutor {
       const info = this.maskParticipant.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
-      if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
+      const requiredHeadroom=(input.frame.definitions.some(autoRecipe) ? 82432 : 65536)+resources*128
+      if (info.cpu.reservedBytes + requiredHeadroom > info.cpu.budgetBytes) throw new CanonicalFrameCpuPressure(info.cpu.reservedBytes,requiredHeadroom,info.cpu.budgetBytes)
       const roleStrengths=this.options.sourceMaterial?.roleTextures
       const textureStrengths=roleStrengths?Uint8Array.from(input.frame.draws,d=>{const pin=roleStrengths[d.role];if(pin?.law==='pixel-color-texture-v1'){if(typeof d.textureColorStrength!=='number')throw new TypeError('Recorded role color strength required');return 0}if(typeof d.grainStrengthU8!=='number'||!pin&&d.grainStrengthU8!==0)throw new TypeError('Recorded role grain strength required');return d.grainStrengthU8}):input.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE?this.primaryTexture?.context.primaryTexture.law==='pixel-color-texture-v1'?undefined:Uint8Array.from(input.frame.draws,d=>{if(!('grainStrengthU8' in d)||typeof d.grainStrengthU8!=='number')throw new TypeError('Recorded grain byte required');return d.grainStrengthU8}):input.frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>{if(d.grainDepth!==1)throw new TypeError('Fixed material4 strength required');return 255}):(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE||input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE||input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
       let saved:ExecutorFrameSubmission

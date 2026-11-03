@@ -1,5 +1,5 @@
 import {canonicalExecutorOperations} from './CanonicalFrameExecutor'
-import {canonicalSourceMaterialContext,prepareCanonicalRecordedAttachmentV8,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from '@grafetto/shared'
+import {canonicalSourceMaterialContext,prepareCanonicalRecordedAttachmentV8,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from '@grafetto/shared'
 import {compositeSourceFused32} from '../presets/sourceFused32'
 import {prepareCanonicalRoomState} from '../../../pages/Room/net/canonicalRoomState'
 import {describe,it,expect,vi} from 'vitest'
@@ -17,8 +17,8 @@ import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
-function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false){
- const profile=masked?G:CANONICAL_STROKE_RASTER_PROFILE
+function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false,browser=false){
+ const profile=browser?B:masked?G:CANONICAL_STROKE_RASTER_PROFILE
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
  gl.LINEAR=9010;gl.REPEAT=9011
@@ -38,8 +38,8 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'recorded-owner-composite')
  composite.prepare({width:compositeSide,height:compositeSide,operations:masked?canonicalExecutorOperations(profile,{masked:true}):['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
  const scratch=new RibbonScratchPool(gl)
- const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
- const nativeCoverage=pin.coverageProfile;if(nativeCoverage==='browser-number-coverage-v1'||nativeCoverage==='neon64-f32-fma-seeded-density-v1')throw Error('Native fixture coverage required')
+ const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),browser?'browser-number-coverage-v1':'neon64-f32-fma-v1',profile)
+ const nativeCoverage=pin.coverageProfile;if(!browser&&nativeCoverage==='browser-number-coverage-v1'||nativeCoverage==='neon64-f32-fma-seeded-density-v1'||nativeCoverage==='seeded-auto-mask-browser-v1')throw Error('Native fixture coverage required')
  const material={version:2 as const,assets:[],primarySource:pin,...masked?{maskSource:pin,maskingBlend:'multiply' as const}:{},budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:profile,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:profile,...masked?{pixelMaskedSource:'pixel-masked-v1' as const}:{}})
@@ -48,9 +48,9 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
  const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0,x=0)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
-  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:1,group},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
+  const paintedMaterial=painted?buildCanonicalMaterial({masked,entry:{phase:'between'},draws:[{recipe,role:'primary',x,y:0,opacity:.5,flow:.7},...(masked?[{recipe,role:'mask' as const,x,y:0,opacity:.5,flow:.7}]:[])],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:masked?2:1,group},...(ended?[{kind:'gestureEnd' as const,at:masked?2:1}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
-  const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{version:masked?2:1,rasterProfile:profile,brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+  const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{...(masked?{version:2 as const,rasterProfile:browser?B:G}:{version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=(masked?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment)({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
   let accepted:CanonicalRecordedInput
   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==accepted)throw Error('foreign');lifetime.assertCurrent()}})
@@ -201,6 +201,32 @@ describe('same wash lane provisional original promotion',()=>{
 })
 
 describe('provisional lane pressure and global original ordering',()=>{
+ it('retries CPU headroom pressure below the eight-frame cap only after queued Work drains',()=>{
+  const s=fixture();let releasePressure:(()=>void)|undefined
+  try{
+   const author=s.localAuthor()
+   for(let i=0;i<4;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1,false,true,i)))).toBe(true)
+   expect(s.coordinator.queuedFrameCount).toBe(4)
+   releasePressure=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-84000)
+   const next=s.local(s.input('author',4,5,false,true,4)),before=s.cpu.reservedBytes
+   expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(false)
+   expect(s.coordinator.queuedFrameCount).toBe(4);expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator.poisoned).toBe(false)
+   for(let i=0;i<100&&s.coordinator.queuedFrameCount;i++)s.coordinator.advance()
+   expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBeLessThan(before)
+   expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(true)
+   expect(s.coordinator.queuedFrameCount).toBe(1)
+   expect(()=>s.coordinator.tryEnqueueLocal(author,next)).toThrow()
+  }finally{releasePressure?.();s.close()}
+  expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+ })
+ it('keeps CPU headroom failure fatal when no queued Work can release metadata',()=>{
+  const s=fixture();const release=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-84000)
+  try{const before=s.cpu.reservedBytes
+   expect(()=>s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(s.input('author',0,1,false,true)))).toThrow(/Canonical queue exceeds shared CPU work headroom: reserved=\d+, required=\d+, budget=\d+/)
+   expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)
+  }finally{release();s.close()}
+  expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+ })
  it('retries exactly the same ninth envelope after queue pressure without retaining it twice',()=>{
   const s=fixture();try{const author=s.localAuthor()
    for(let i=0;i<8;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1)))).toBe(true)
@@ -772,8 +798,8 @@ describe('owner-scoped active replay retention', () => {
 
 // Real material2 recorded delivery and native execution. The scalar shadow is
 // one fully covered sample with installed fused CPU math, not recordingGL pixels.
-function mixedDeferredWashFixture(){
- const s=fixture(),options=s.coordinator['options'];s.coordinator.cancel()
+function mixedDeferredWashFixture(masked=false,browser=false){
+ const s=fixture(4,undefined,masked,browser),options=s.coordinator['options'];s.coordinator.cancel()
  let stable=s.layer,derived:TiledLayerBuffer|undefined=s.derived
  const stagedBuffers:TiledLayerBuffer[]=[],stagedCuts:number[][]=[],pixels=new Map<WebGLTexture,Uint8Array>()
  const clear=AccumulationBuffer.prototype.clear,copy=AccumulationBuffer.prototype.copyTo
@@ -782,6 +808,7 @@ function mixedDeferredWashFixture(){
  const native=s.composite.drawSource.bind(s.composite),draw=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{
   const result=native(request,frame);if(result==='empty')return result
   const operation=request.operation
+  if(browser)return result // Pressure fixture uses real browser programs; no synthetic pixel oracle.
   if(operation.kind!=='alphaDarken32FusedScalar'&&operation.kind!=='over32FusedScalar')throw Error('Fixture requires installed fused law')
   const control=operation.control,source=request.source.kind==='maskRgb'?Uint8Array.from([...request.source.rgb,255]):pixels.get(request.source.view.texture)??new Uint8Array(4)
   const destination=pixels.get((request.readDestination??request.target).texture)??new Uint8Array(4)
@@ -946,4 +973,25 @@ it('accepts original READ paired source2 context and preserves recorded lifetime
   expect(s.coordinator['entries'][0].recorded?.state.nextOrdinal).toBe(2)
   s.stale();expect(()=>s.coordinator.enqueueRecorded(end)).toThrow('stale')
  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('rolls back mixed browser SOURCE2 masked replay staging on CPU headroom and retries the identical local envelope',()=>{
+ const s=mixedDeferredWashFixture(true,true);let releasePressure:(()=>void)|undefined
+ try{
+  expect(s.snapshot.rasterProfile).toBe(B);expect(s.snapshot.material.maskSource).toBeDefined()
+  const author=s.localAuthor()
+  for(let i=0;i<4;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1,false,true,i)))).toBe(true)
+  expect(s.coordinator.queuedFrameCount).toBe(4)
+  releasePressure=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-120000)
+  const next=s.local(s.input('author',4,5,false,true,4)),before=s.cpu.reservedBytes,entry=s.coordinator['entries'][0],state=entry.local!.state,receipts=entry.local!.receipts.length,replay=s.coordinator['replay'].size
+  expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(false)
+  expect(s.cpu.reservedBytes).toBe(before);expect(entry.local!.state).toBe(state);expect(entry.local!.receipts).toHaveLength(receipts)
+  expect(s.coordinator['replay'].size).toBe(replay);expect(s.coordinator.queuedFrameCount).toBe(4);expect(s.coordinator.poisoned).toBe(false)
+  for(let i=0;i<100&&s.coordinator.queuedFrameCount;i++)s.step(true)
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBeLessThan(before)
+  expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(true)
+  expect(entry.local!.receipts).toHaveLength(receipts+1);expect(entry.local!.state.nextOrdinal).toBe(5);expect(s.coordinator['replay'].size).toBe(replay+1)
+  expect(()=>s.coordinator.tryEnqueueLocal(author,next)).toThrow()
+ }finally{releasePressure?.();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
 })
