@@ -1,3 +1,4 @@
+import {canonicalSourceTipGradient,canonicalSourceMaterialTipGradient,type CanonicalSourceTipGradient} from '@grafetto/shared'
 import {canonicalSourceRoleTexturesInput,sourceRoleTextureInputsFromPins,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
 import {canonicalSourceColorFields,type CanonicalSourceColorFields} from '@grafetto/shared'
 import {canonicalTextureGradientRGBA,type CanonicalTextureGradientRGBA} from '@grafetto/shared'
@@ -113,7 +114,7 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
   if(expectedDescriptorSha256!==undefined&&(typeof expectedDescriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(expectedDescriptorSha256))){reject(Error('Invalid canonical BEGIN descriptor identity'));return}
   let authorPixelMaskedSource:CanonicalAuthorPixelMaskedSource|undefined,expectedSourceMaterialContext2:CanonicalMaterialContextV2|undefined
   let authorPrimaryGrainSource:CanonicalAuthorPrimaryGrainSource|undefined,expectedMaterialContext8:CanonicalMaterialContextV8|undefined
-  let sourceScale:number|undefined,textureGradient:CanonicalTextureGradientRGBA|undefined,sourceColorFields:CanonicalSourceColorFields|undefined,sourceRoleTextureInputs:CanonicalSourceRoleTexturesInput|undefined
+  let sourceTipGradient:CanonicalSourceTipGradient|undefined,sourceScale:number|undefined,textureGradient:CanonicalTextureGradientRGBA|undefined,sourceColorFields:CanonicalSourceColorFields|undefined,sourceRoleTextureInputs:CanonicalSourceRoleTexturesInput|undefined
   let profiles:readonly CanonicalStrokeRasterProfile[],authorTexturedSource:CanonicalAuthorTexturedSource|undefined,authorPressureTexturedSource:CanonicalAuthorPressureTexturedSource|undefined,authorSoftPressureTexturedSource:CanonicalAuthorSoftPressureTexturedSource|undefined,authorTexturedAutoSource:CanonicalAuthorTexturedAutoSource|undefined,expectedMaterialContext7:CanonicalMaterialContextV7|undefined,texturePhase:CanonicalResolvedTexturePhase|undefined
   try{
    if(lifetime.rasterProfile!==undefined&&(lifetime.authorRasterProfile!==undefined||lifetime.responseRasterProfiles!==undefined))throw Error('Ambiguous canonical BEGIN raster profile')
@@ -153,6 +154,12 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
     texturePhase=canonicalResolvedTexturePhase(phaseField.value,expectedMaterialContext7.primaryTexture.width,expectedMaterialContext7.primaryTexture.height)
     if(texturePhase.x!==expectedMaterialContext7.primaryTexture.phase.x||texturePhase.y!==expectedMaterialContext7.primaryTexture.phase.y)throw Error('Canonical BEGIN7 request phase mismatch')
    }else if(!expectedMaterialContext8&&(Object.getOwnPropertyDescriptor(input,'texturePhase')||'texturePhase'in input))throw Error('Canonical BEGIN phase without preparation')
+   const tipField=Object.getOwnPropertyDescriptor(input,'sourceTipGradient'),tipContext=expectedSourceMaterialContext2??expectedMaterialContext8,expectedTip=tipContext?canonicalSourceMaterialTipGradient(tipContext):undefined
+   if(tipField||'sourceTipGradient'in input){
+    if(!tipField||!Object.hasOwn(tipField,'value')||!expectedTip)throw Error('Canonical BEGIN tip gradient preparation missing')
+    sourceTipGradient=canonicalSourceTipGradient(tipField.value)
+    if(JSON.stringify(sourceTipGradient)!==JSON.stringify(expectedTip))throw Error('Canonical BEGIN tip gradient differs')
+   }else if(expectedTip)throw Error('Canonical BEGIN tip gradient missing')
    const roleInputs=Object.getOwnPropertyDescriptor(input,'sourceRoleTextureInputs'),expectedRoles=expectedSourceMaterialContext2?.roleTextures
    if(roleInputs||'sourceRoleTextureInputs'in input){
     if(!roleInputs||!Object.hasOwn(roleInputs,'value')||!expectedRoles)throw Error('Canonical BEGIN role texture preparation missing')
@@ -180,7 +187,7 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
   if(!integer(boardEpoch)||!Number.isSafeInteger(timeout)||timeout<=0||timeout>2147483647){reject(Error('Invalid canonical BEGIN lifetime'));return}
   const nonce=Object.getOwnPropertyDescriptor(input,'emptyDiscardNonce')
   if('emptyDiscardNonce'in input&&(!nonce||!Object.hasOwn(nonce,'value')||typeof nonce.value!=='string'||!/^[A-Za-z0-9_-]{10,64}$/.test(nonce.value))){reject(Error('Invalid canonical BEGIN empty control'));return}
-  const request=freeze({...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...nonce?{emptyDiscardNonce:nonce.value}:{},...texturePhase?{texturePhase}:{},layerId:input.layerId,brush:input.brush,strokeId:input.strokeId,pigmentRgb8:[...input.pigmentRgb8] as [number,number,number],outerResourceOpacity:input.outerResourceOpacity,alphaDarken:input.alphaDarken})
+  const request=freeze({...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...nonce?{emptyDiscardNonce:nonce.value}:{},...texturePhase?{texturePhase}:{},layerId:input.layerId,brush:input.brush,strokeId:input.strokeId,pigmentRgb8:[...input.pigmentRgb8] as [number,number,number],outerResourceOpacity:input.outerResourceOpacity,alphaDarken:input.alphaDarken})
   let emitted=false,discarded=false
   const discard=()=>{if(discarded||!emitted||!request.emptyDiscardNonce)return;discarded=true;try{lifetime.discardEmpty?.()}catch(error){console.error('Canonical empty discard cleanup failed',error)}}
   let settled=false,timer:ReturnType<typeof setTimeout>|undefined,registered=false,abortRegistered=false

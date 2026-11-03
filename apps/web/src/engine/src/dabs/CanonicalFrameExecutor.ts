@@ -1,4 +1,4 @@
-import {canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
+import {canonicalSourceMaterialTipGradient,canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
 import {assertCanonicalAutoRecipeCapacity,type CanonicalAutoGeometryMechanism} from './canonicalAutoCapacity'
 import type {BrushMipCache} from './BrushMipCache'
 import {canonicalPrimaryGrainMaterialContext,captureCanonicalPrimaryGrainFrame,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalMaterialContextV8,type CanonicalMaterialFrameV8,canonicalSoftAutoDataEqual,captureCanonicalTexturedAutoFrame,canonicalTexturedAutoMaterialContext,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,captureCanonicalSoftNativeDefaultTexturedSourceFrame,canonicalSoftNativeDefaultTexturedSourceMaterialContext,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,captureCanonicalPressureTexturedSourceFrame,canonicalPressureTexturedSourceMaterialContext,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
@@ -16,7 +16,7 @@ import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
-import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalGradientResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
+import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalGradientResource,type CanonicalTipGradientResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import {CANONICAL_DUAL_MASKING_MODES} from './CanonicalRgba8CompositePass'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
@@ -314,6 +314,8 @@ export class CanonicalFrameExecutor {
   private replaySourceRead?: (receiver:CanonicalFrameExecutor)=>CanonicalReplaySource
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
+  private tipGradientMetadataRelease?:()=>void
+  private tipGradientRoot?:Readonly<{root:CanonicalMaskSourceLease;view:CanonicalTipGradientResource}>
   private roleTextureMetadataRelease?:()=>void
   private roleTextures?:Readonly<{root:CanonicalMaskSourceLease;bindings:Readonly<Partial<Record<'primary'|'mask',Readonly<{pin:CanonicalSourceRoleTexturePin;view:CanonicalPatternResource;gradient?:CanonicalGradientResource}>>>>}>
   private primaryTexture?:Readonly<{context:CanonicalMaterialContextV8|CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;gradient?:CanonicalGradientResource;releaseMetadata:()=>void}>
@@ -337,6 +339,10 @@ export class CanonicalFrameExecutor {
     const roleField=sourceContext&&Object.getOwnPropertyDescriptor(sourceContext,'roleTextures')
     if(roleField){if(!Object.hasOwn(roleField,'value'))throw new TypeError('Role textures must be captured DATA');this.roleTextureMetadataRelease=options.prepass.brushGlBatchInfo().cpu.reserve(65536)}
     try{
+    const tipHeader=sourceContext??options.primaryTexture?.context;
+    let declaredTipGradient=false;
+    for(const key of ['primarySource','maskSource']){const source=tipHeader&&Object.getOwnPropertyDescriptor(tipHeader,key);const m=source&&Object.hasOwn(source,'value')&&source.value&&typeof source.value==='object'?Object.getOwnPropertyDescriptor(source.value,'imageMaterial'):undefined;const kind=m&&Object.hasOwn(m,'value')&&m.value&&typeof m.value==='object'?Object.getOwnPropertyDescriptor(m.value,'kind'):undefined;if(kind&&Object.hasOwn(kind,'value')&&kind.value==='gradient-map-v1')declaredTipGradient=true;}
+    if(declaredTipGradient)this.tipGradientMetadataRelease=options.prepass.brushGlBatchInfo().cpu.reserve(65536);
     const material=options.sourceMaterial?canonicalSourceMaterialContext(options.sourceMaterial):options.maskedSource?canonicalMaskedSourceMaterialContext(options.maskedSource):undefined
     const masked=material?.maskSource?canonicalMaskedSourceMaterialContext(material):undefined
     if(material&&options.maskedSource&&!canonicalSoftAutoDataEqual(material,canonicalMaskedSourceMaterialContext(options.maskedSource)))throw new TypeError('Source2 context aliases differ')
@@ -425,6 +431,21 @@ export class CanonicalFrameExecutor {
         if(child.preparedResources().some(r=>!a.resources.some(p=>p.key===r.key&&p.bytes===r.bytes)))throw new Error('Role texture original union changed')
         this.roleTextures=Object.freeze({root:child,bindings:Object.freeze(bindings)})
       }catch(primary){try{child.release()}catch{}throw primary}
+    }
+    const tipContext=material??(this.primaryTexture?.context.version===8?this.primaryTexture.context:undefined);
+    if(tipContext){
+      const sources=tipContext.version===2?[tipContext.primarySource,tipContext.maskSource]:[tipContext.primarySource];
+      for(const [slot,source]of sources.entries())if(source?.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'){
+        const provider=slot===1?tipContext.sourceColorFields?.mask:tipContext.sourceColorFields?.primary;
+        if((source.imageMaterial.application==='spatial-mask')!==!!provider)throw new TypeError('Original gradient tip source provider differs');
+      }
+      const needed=sources.some(s=>s?.kind==='image'&&s.imageMaterial?.kind==='gradient-map-v1'&&s.imageMaterial.application==='plain-gradient');
+      if(needed){
+        if(!this.maskParticipant.supportsTipGradient())throw new Error('Tip gradient program was not prepared');
+        const gradient=canonicalSourceMaterialTipGradient(tipContext),parent=options.sourceLease??options.primaryTexture?.root;
+        if(!gradient||!parent)throw new TypeError('Tip gradient original root required');
+        const root=parent.retain();try{const view=root.tipGradientResource(gradient,a);assertCanonicalPatternResourceCurrent(view,a,root);this.tipGradientRoot=Object.freeze({root,view})}catch(primary){try{root.release()}catch{}throw primary}
+      }
     }
     const source=this.options.autoSource
     if(source?.kind==='softAuto') {
@@ -685,9 +706,9 @@ export class CanonicalFrameExecutor {
       if(material){
         if(frameIndex!==undefined){
           if(typeof frameIndex!=='number'||!Number.isInteger(frameIndex)||frameIndex<0||frameIndex>255||original?.kind!=='image'||(original.frames??[original.asset])[frameIndex]!==recipe.asset)throw new TypeError('Paired material frame index changed')
-          expectedChannels=material.kind==='lightness-map-v1'?material.grayFrames?.[frameIndex]?[material.grayFrames[frameIndex]]:(frameIndex===0&&(original.frames?.length??1)===1?[material.grayAsset]:undefined):material.frames?.[frameIndex]??(frameIndex===0&&(original.frames?.length??1)===1?material.channels:undefined)
+          expectedChannels=material.kind!=='color-stamp-v1'?material.grayFrames?.[frameIndex]?[material.grayFrames[frameIndex]]:(frameIndex===0&&(original.frames?.length??1)===1?[material.grayAsset]:undefined):material.frames?.[frameIndex]??(frameIndex===0&&(original.frames?.length??1)===1?material.channels:undefined)
           if(!expectedChannels)throw new TypeError('Paired material frame planes missing')
-        }else expectedChannels=material.kind==='lightness-map-v1'?[material.grayAsset]:material.channels
+        }else expectedChannels=material.kind!=='color-stamp-v1'?[material.grayAsset]:material.channels
       }
       const sourceSlot='sourceSlot'in recipe?recipe.sourceSlot:undefined
       const source = prepared.find(p => !!p.canonical&&(!indexedImages||p.canonical.sourceSlot===sourceSlot&&p.canonical.frameIndex===frameIndex)&&(material?!!p.canonical?.imageMaterial&&p.canonical.imageMaterial.kind===material.kind&&p.canonical.imageMaterial.frameIndex===frameIndex&&canonicalSoftAutoDataEqual(p.canonical.imageMaterial.channels.map(c=>c.id),expectedChannels):!p.canonical?.imageMaterial)&&p.canonical?.asset.id === asset.id && p.canonical.index === m.index
@@ -698,7 +719,7 @@ export class CanonicalFrameExecutor {
     })
     for(const d of result.draws){
       const original=definitionSources[d.definition]
-      if(this.primaryTexture?.context.version===8||original?.kind==='image'&&original.imageMaterial){
+      if(this.primaryTexture?.context.version===8||original?.kind==='image'&&original.imageMaterial&&original.imageMaterial.kind!=='gradient-map-v1'){
         const kind:CanonicalCompositeOperationKind=d.controls.kind==='localAlphaDarken'?(this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'alphaDarken32':'alphaDarken32FusedScalar'):d.controls.kind==='directErase'&&!this.options.maskedSource?'erase32FusedScalar':this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'over32':'over32FusedScalar'
         if(this.primaryTexture?.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:kind==='alphaDarken32FusedScalar'||kind==='alphaDarkenBrowserFloat'||kind==='overBrowserFloat'||kind==='erase32FusedScalar'?kind:'over32FusedScalar',law:this.primaryTexture.context.primaryTexture.law}]):!this.options.composite.supportsImageMaterialOperations([kind]))throw new TypeError('Image material composition was not prepared')
       }
@@ -1136,6 +1157,8 @@ export class CanonicalFrameExecutor {
   }
 
   private assertPrepared(): void {
+    if(this.tipGradientRoot){assertCanonicalPatternResourceCurrent(this.tipGradientRoot.view,this.options.prepass.brushGlBatchInfo(),this.tipGradientRoot.root);if(!this.maskParticipant.supportsTipGradient())throw new Error('Tip gradient preparation changed')}
+
     if(this.options.sourceMaterial&&this.options.sourceLease&&!this.options.sourceLease.isReady())throw new Error('Masked source root retired')
     if(this.primaryTexture){
       const source=this.primaryTexture,info=this.options.composite.brushGlBatchInfo()
@@ -1248,7 +1271,7 @@ export class CanonicalFrameExecutor {
       if (!tasks.length) return;
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
       const roleTexture=this.roleTextures?.bindings[work.result.draws[tasks[0].draw].role],roleRoot=this.roleTextures?.root
-      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [...roleTexture&&roleRoot?[canonicalPatternResourceLifetime(roleTexture.view,this.options.composite.brushGlBatchInfo(),roleRoot),...roleTexture.gradient?[canonicalPatternResourceLifetime(roleTexture.gradient,this.options.composite.brushGlBatchInfo(),roleRoot)]:[]]:[],...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime,...this.options.maskedSource?[...this.dualTiles.values()].map(t=>t.lifetime):[], ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : []), ...this.primaryTexture ? [canonicalPatternResourceLifetime(this.primaryTexture.view,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)] : []] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [...this.tipGradientRoot?[canonicalPatternResourceLifetime(this.tipGradientRoot.view,this.options.prepass.brushGlBatchInfo(),this.tipGradientRoot.root)]:[],...roleTexture&&roleRoot?[canonicalPatternResourceLifetime(roleTexture.view,this.options.composite.brushGlBatchInfo(),roleRoot),...roleTexture.gradient?[canonicalPatternResourceLifetime(roleTexture.gradient,this.options.composite.brushGlBatchInfo(),roleRoot)]:[]]:[],...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime,...this.options.maskedSource?[...this.dualTiles.values()].map(t=>t.lifetime):[], ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : []), ...this.primaryTexture ? [canonicalPatternResourceLifetime(this.primaryTexture.view,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)] : []] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], d = work.result.draws[task.draw]
@@ -1271,10 +1294,14 @@ export class CanonicalFrameExecutor {
             const recipe=work.input.frame.definitions[d.definition]
             const rgba=d.sourcePigmentRGBA
             const pigment:readonly[number,number,number]=rgba?[rgba[0],rgba[1],rgba[2]]:d.sourcePigmentRGB??work.input.rgb
-            const materialControl=imageMaterial?{kind:imageMaterial.kind,strength:imageMaterial.kind==='lightness-map-v1'?(('materialParams'in recipe?recipe.materialParams?.lightnessStrength:undefined)??imageMaterial.strength):0,foregroundAlpha:imageMaterial.kind==='lightness-map-v1'?(rgba?rgba[3]/255:imageMaterial.foregroundAlpha):imageMaterial.foregroundOpacity}:undefined
+            const materialControl=imageMaterial?{kind:imageMaterial.kind,strength:imageMaterial.kind==='lightness-map-v1'?(('materialParams'in recipe?recipe.materialParams?.lightnessStrength:undefined)??imageMaterial.strength):0,foregroundAlpha:imageMaterial.kind==='lightness-map-v1'?(rgba?rgba[3]/255:imageMaterial.foregroundAlpha):imageMaterial.kind==='color-stamp-v1'?imageMaterial.foregroundOpacity:1}:undefined
             const spatialContext=this.options.sourceMaterial??(texture?.context.version===8?texture.context:undefined)
             const provider=d.role==='mask'?spatialContext?.sourceColorFields?.mask:spatialContext?.sourceColorFields?.primary
             let view=group.views[0]
+            if(imageMaterial?.kind==='gradient-map-v1'&&imageMaterial.application==='plain-gradient'){
+              if(provider||!this.tipGradientRoot)throw new TypeError('Tip gradient source/provider changed');
+              view=this.maskParticipant.materializeTipGradient(view,this.tipGradientRoot.view,frame);
+            }else if(imageMaterial?.kind==='gradient-map-v1'&&!provider)throw new TypeError('Gradient tip spatial provider missing');
             if(provider){
               const fieldDraw=d.sourceColorField;if(!fieldDraw)throw new TypeError('Recorded spatial field parameters required')
               let field:import('./TransformedMaskPrepass').TransformedMaskSource|undefined
@@ -1288,8 +1315,8 @@ export class CanonicalFrameExecutor {
               }
               view=this.maskParticipant.materializeSpatial(view,{provider,draw:fieldDraw,field,material:materialControl},frame)
             }
-            const imageControl=view.spatialRGBA?{kind:'color-stamp-v1' as const,strength:0,foregroundAlpha:1}:materialControl
-            const source=roleTexture?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:roleTexture.view,pin:roleTexture.pin,...roleTexture.pin.law==='pixel-color-texture-v1'?{textureColorStrength:work.textureColorStrengths![d.frameDrawIndex],gradient:roleTexture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]},imageMaterial:imageControl}:(work.textureStrengths||work.textureColorStrengths)&&texture?texture.context.version===8?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,...(work.textureColorStrengths?{textureColorStrength:work.textureColorStrengths[d.frameDrawIndex],gradient:texture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]}),imageMaterial:imageControl}:{kind:'texturedMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,strengthU8:work.textureStrengths![d.frameDrawIndex]}:materialControl&&!view.spatialRGBA?{kind:'imageMaterialRgba' as const,view,rgb:pigment,material:materialControl.kind,strength:materialControl.strength,foregroundAlpha:materialControl.foregroundAlpha}:{kind:'maskRgb' as const,view,rgb:d.role==='mask'?[255,255,255] as const:pigment}
+            const imageControl=view.spatialRGBA?{kind:'color-stamp-v1' as const,strength:0,foregroundAlpha:1}:view.materialRGBA?{kind:'gradient-map-v1' as const,strength:0,foregroundAlpha:1}:materialControl
+            const source=roleTexture?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:roleTexture.view,pin:roleTexture.pin,...roleTexture.pin.law==='pixel-color-texture-v1'?{textureColorStrength:work.textureColorStrengths![d.frameDrawIndex],gradient:roleTexture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]},imageMaterial:imageControl}:(work.textureStrengths||work.textureColorStrengths)&&texture?texture.context.version===8?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,...(work.textureColorStrengths?{textureColorStrength:work.textureColorStrengths[d.frameDrawIndex],gradient:texture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]}),imageMaterial:imageControl}:{kind:'texturedMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,strengthU8:work.textureStrengths![d.frameDrawIndex]}:materialControl&&!view.spatialRGBA&&!view.materialRGBA?{kind:'imageMaterialRgba' as const,view,rgb:pigment,material:materialControl.kind,strength:materialControl.strength,foregroundAlpha:materialControl.foregroundAlpha}:{kind:'maskRgb' as const,view,rgb:d.role==='mask'?[255,255,255] as const:pigment}
             if((work.textureStrengths||work.textureColorStrengths)&&!texture&&!this.options.sourceMaterial?.roleTextures)throw new Error('Canonical texture root retired before paint')
             this.options.composite.drawSource({ source:{...source,pigmentAlphaU8:rgba?.[3]}, target: output, operation, writeBounds: task.writeBounds }, frame)
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile; work.paintPart=task.part+1;
@@ -1556,6 +1583,9 @@ export class CanonicalFrameExecutor {
   }
 
   private retireRoleTextures(lost=false):void {
+    const tip=this.tipGradientRoot,tipRelease=this.tipGradientMetadataRelease;this.tipGradientRoot=undefined;this.tipGradientMetadataRelease=undefined;
+    if(tip){this.sourceRetired=true;this.cleanup(()=>tip.root.release(lost))}if(tipRelease)this.cleanup(tipRelease);
+
     const source=this.roleTextures,release=this.roleTextureMetadataRelease;this.roleTextures=undefined;this.roleTextureMetadataRelease=undefined
     if(source){this.sourceRetired=true;this.cleanup(()=>source.root.release(lost))}if(release)this.cleanup(release)
   }

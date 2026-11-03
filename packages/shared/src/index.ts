@@ -105,3 +105,5 @@ export * from './canonicalSourceScale.js'
 export * from './canonicalSourceSpatialColor.js'
 
 export * from './canonicalSourceRoleTextures.js'
+
+export * from './canonicalSourceTipGradient.js'

@@ -1,3 +1,4 @@
+import {canonicalSourceTipGradient,type CanonicalSourceTipGradient} from './canonicalSourceTipGradient.js'
 import {canonicalSourceRoleTextures,type CanonicalSourceRoleTextures,type CanonicalSourceRoleTexturePin} from './canonicalSourceRoleTextures.js'
 import {canonicalSourceColorFields,canonicalSourceColorFieldDraw,type CanonicalSourceColorFields,type CanonicalSourceColorFieldDraw} from './canonicalSourceSpatialColor.js'
 import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
@@ -106,7 +107,7 @@ export interface CanonicalMaterialImageSource {
   readonly frames?:readonly string[]
   readonly frameBounds?:readonly Readonly<{x:number;y:number;width:number;height:number}>[]
   /** Static original lightness-map parameters; never inferred from alpha CAS. */
-  readonly imageMaterial?:Readonly<{kind:'lightness-map-v1';grayAsset:string;grayFrames?:readonly string[];strength:number;foregroundAlpha:number}>|Readonly<{kind:'color-stamp-v1';channels:readonly[string,string,string];frames?:readonly (readonly[string,string,string])[];foregroundOpacity:number}>
+  readonly imageMaterial?:Readonly<{kind:'lightness-map-v1';grayAsset:string;grayFrames?:readonly string[];strength:number;foregroundAlpha:number}>|Readonly<{kind:'color-stamp-v1';channels:readonly[string,string,string];frames?:readonly (readonly[string,string,string])[];foregroundOpacity:number}>|Readonly<{kind:'gradient-map-v1';grayAsset:string;grayFrames?:readonly string[];gradient:CanonicalSourceTipGradient;application:'plain-gradient'|'spatial-mask'}>
   readonly brushScale:number; readonly brushAngle:number
 }
 export interface CanonicalMaterialFrameV2 extends Omit<CanonicalMaterialFrame,'profile'|'definitions'> {
@@ -333,6 +334,11 @@ function captureCanonicalImageMaterial(value:unknown):NonNullable<CanonicalMater
  const kind=Object.getOwnPropertyDescriptor(value??{},'kind');if(!kind||!Object.hasOwn(kind,'value'))return fail()
  const readId=(id:unknown):string=>{if(typeof id!=='string'||!assetId(id))return fail();return id}
  const triple=(value:unknown):readonly[string,string,string]=>{const ids=ownArray(value,3,v=>v).map(readId);if(ids.length!==3)return fail();return Object.freeze([ids[0],ids[1],ids[2]])}
+ if(kind.value==='gradient-map-v1'){
+  const m=ownRecord(value,['kind','grayAsset','gradient','application'],['grayFrames']);
+  if(m.application!=='plain-gradient'&&m.application!=='spatial-mask')return fail();
+  return Object.freeze({kind:'gradient-map-v1',grayAsset:readId(m.grayAsset),gradient:canonicalSourceTipGradient(m.gradient),application:m.application,...m.grayFrames!==undefined?{grayFrames:Object.freeze(ownArray(m.grayFrames,256,v=>v).map(readId))}:{}});
+ }
  if(kind.value==='lightness-map-v1'){
   const m=ownRecord(value,['kind','grayAsset','strength','foregroundAlpha'],['grayFrames'])
   if(!number(m.strength,0,1)||!number(m.foregroundAlpha,0,1))return fail()
@@ -530,7 +536,7 @@ export function canonicalSourceAssetStorageCompatible(sources:readonly Canonical
    const image=captureSourceSlot({kind:p.kind,asset:p.asset,brushScale:p.brushScale,brushAngle:p.brushAngle,...p.frames!==undefined?{frames:p.frames}:{},...p.frameBounds!==undefined?{frameBounds:p.frameBounds}:{},...p.imageMaterial!==undefined?{imageMaterial:p.imageMaterial}:{}},0);
    if(image.kind!=='image')return false;
    const ids=new Set(image.frames??[image.asset]),m=image.imageMaterial;
-   if(m?.kind==='lightness-map-v1'){ids.add(m.grayAsset);for(const id of m.grayFrames??[])ids.add(id)}
+   if(m&&(m.kind==='lightness-map-v1'||m.kind==='gradient-map-v1')){ids.add(m.grayAsset);for(const id of m.grayFrames??[])ids.add(id)}
    else if(m){for(const id of m.channels)ids.add(id);for(const row of m.frames??[])for(const id of row)ids.add(id)}
    if(ids.has(previous.id)&&(!image.frameBounds||image.frameBounds.length!==(image.frames?.length??1)))return false;
   }
@@ -572,15 +578,33 @@ function selectedImageRecipeAsset(r:CanonicalMaterialRecipe,c:CodecContext):Cano
 }
 function validateImageMaterialFrames(source:CanonicalMaterialImageSource,c:CodecContext):readonly string[]{
  const m=captureCanonicalImageMaterial(source.imageMaterial),frames=source.frames??[source.asset]
- const rows=m.kind==='lightness-map-v1'?(m.grayFrames??[m.grayAsset]).map(id=>[id]):m.frames??[m.channels]
- if(rows.length!==1&&!indexedImages(c)||rows.length!==(m.kind==='lightness-map-v1'&&m.grayFrames||m.kind==='color-stamp-v1'&&m.frames?frames.length:1))return fail()
- if(m.kind==='lightness-map-v1'&&rows[0]?.[0]!==m.grayAsset||m.kind==='color-stamp-v1'&&rows[0]?.some((id,i)=>id!==m.channels[i]))return fail()
+ const rows=m.kind!=='color-stamp-v1'?(m.grayFrames??[m.grayAsset]).map(id=>[id]):m.frames??[m.channels]
+ if(rows.length!==1&&!indexedImages(c)||rows.length!==(m.kind!=='color-stamp-v1'&&m.grayFrames||m.kind==='color-stamp-v1'&&m.frames?frames.length:1))return fail()
+ if(m.kind!=='color-stamp-v1'&&rows[0]?.[0]!==m.grayAsset||m.kind==='color-stamp-v1'&&rows[0]?.some((id,i)=>id!==m.channels[i]))return fail()
  const ids:string[]=[]
  for(let i=0;i<rows.length;i++){const frameIndex=rows.length===1?0:i,alpha=canonicalImageFrameAsset(source,c.assets,frameIndex);for(const id of rows[i]){const plane=asset(c,id);if(plane.size!==alpha.size||!source.frameBounds&&['x','y','width','height'].some(k=>Reflect.get(alpha,k)!==Reflect.get(plane,k)))return fail();ids.push(id)}}
  return ids
 }
 const browserHsyContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
+/** One selected application gradient is captured once at START. Original
+ * role material pins stay separate from source/texture gradient semantics. */
+export function canonicalSourceMaterialTipGradient(context:CanonicalMaterialContextV2|CanonicalMaterialContextV8):Readonly<CanonicalSourceTipGradient>|undefined{
+ let gradient:Readonly<CanonicalSourceTipGradient>|undefined;
+ for(const source of context.version===2?[context.primarySource,context.maskSource]:[context.primarySource])if(source?.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'){
+  const captured=canonicalSourceTipGradient(source.imageMaterial.gradient);
+  if(gradient&&captured.rgba.some((n,i)=>n!==gradient!.rgba[i]))return fail();gradient=captured;
+ }
+ return gradient;
+}
 function context(c:CodecContext):void {
+  if(isV2(c)||isV8(c)){
+   canonicalSourceMaterialTipGradient(c);
+   for(const [slot,source]of (isV2(c)?[c.primarySource,c.maskSource]:[c.primarySource]).entries())if(source?.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'){
+    if(!indexedImages(c))return fail();
+    const field=slot===1?c.sourceColorFields?.mask:c.sourceColorFields?.primary;
+    if((source.imageMaterial.application==='spatial-mask')!==!!field)return fail();
+   }
+  }
   const outer=Object.getOwnPropertyDescriptor(c??{},'outerCompositionLaw')
   if(outer&&(!Object.hasOwn(outer,'value')||!browserHsyContext(c)||isV8(c)&&c.primaryTexture.law==='hard-multiply-u8-native-v1'))return fail()
   if(spatialContext(c)){
@@ -703,7 +727,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
       if(auto(r)||!('kind'in r)||r.kind!=='image'||!(pin.frames??[pin.asset]).includes(r.asset)||!Object.is(r.brushScale,pin.brushScale)||!Object.is(r.brushAngle,pin.brushAngle))return fail()
       if(c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(r.scale>1||r.ratio!==1||r.mirrorH||r.mirrorV))return fail()
       cost=canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c))
-      if(pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}
+      if(pin.imageMaterial){const planes=pin.imageMaterial.kind==='color-stamp-v1'?4:2;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}
     }else{
       if(!auto(r)||r.kind!==pin.kind)return fail()
       if(r.kind==='softAuto'){if(pin.kind!=='softAuto'||r.sourceSlot!==0)return fail();cost=canonicalSoftAutoCost(r,pin,scaledContext(c)?pin.brushScale:undefined)}
@@ -741,7 +765,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
   } else {
     if(!assetId(r.asset)||!number(r.brushScale,Number.MIN_VALUE,1e6)||versioned(c)&&(!('kind' in r)||r.kind!=='image'))fail()
     cost=versioned(c)?canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c)):c.preflightDefinition(r,asset(c,r.asset))
-    if(isV2(c)){const pin=indexedImages(c)?r.sourceSlot===0?c.primarySource:c.maskSource:[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&(source.frames??[source.asset]).includes(r.asset));if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
+    if(isV2(c)){const pin=indexedImages(c)?r.sourceSlot===0?c.primarySource:c.maskSource:[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&(source.frames??[source.asset]).includes(r.asset));if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='color-stamp-v1'?4:2;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
   }
   if(((isV2(c)||isV8(c))&&c.materialParams)||seededContext(c))cost={...cost,outputBytes:cost.outputBytes+48}
   if(!cost||!integer(cost.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(cost.outputBytes,r.width*r.height,CANONICAL_MATERIAL_LIMITS.outputBytes))fail()

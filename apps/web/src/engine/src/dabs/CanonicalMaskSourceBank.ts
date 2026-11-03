@@ -1,3 +1,4 @@
+import {canonicalSourceTipGradient,type CanonicalSourceTipGradient} from '@grafetto/shared'
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalPixelColorTexturePin,type CanonicalPixelColorTexturePin,type CanonicalTextureGradientRGBA,canonicalPixelPrimaryTexturePin,type CanonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin, type CanonicalMultiplyPrimaryTexturePin, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
 import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels,nativeImageMaterialPixels, type NativeImageResource } from './NativeImageBank'
@@ -34,14 +35,16 @@ export interface CanonicalImageMaterialSourceInput {
  readonly sourceSlot?:0|1
  readonly frameIndex?:number
  readonly asset:CanonicalMaterialAsset
- readonly material:'lightness-map-v1'|'color-stamp-v1'
+ readonly material:'lightness-map-v1'|'color-stamp-v1'|'gradient-map-v1'
  readonly channels:readonly CanonicalMaterialAsset[]
+ readonly tipGradient?:CanonicalSourceTipGradient
+ readonly tipGradientApplication?:'plain-gradient'|'spatial-mask'
  readonly readOriginalCoverage:()=>Uint8Array
  readonly readOriginalChannels:()=>readonly Uint8Array[]
 }
 export interface CanonicalNativeImageSourceJob {
   readonly kind: 'native-image'
-  readonly material?:'lightness-map-v1'|'color-stamp-v1'
+  readonly material?:'lightness-map-v1'|'color-stamp-v1'|'gradient-map-v1'
   readonly key: string
   readonly resource: NativeImageResource
   readonly bytes: number
@@ -64,7 +67,8 @@ export interface CanonicalPatternSourceJob {
   readonly transientCpuBytes:number
 }
 interface CanonicalGradientSourceJob {readonly kind:'captured-gradient-rgba8';readonly key:string;/** Actual parent pattern provenance; NOT a gradient CAS asset. */readonly asset:CanonicalMaterialAsset;readonly gradient:CanonicalTextureGradientRGBA;readonly bytes:1024;readonly transientCpuBytes:1024}
-export type CanonicalMaskSourceJob=CanonicalNativeImageSourceJob|CanonicalPatternSourceJob|CanonicalGradientSourceJob
+interface CanonicalTipGradientSourceJob extends Omit<CanonicalGradientSourceJob,'kind'|'gradient'>{readonly kind:'captured-tip-gradient-rgba8';readonly gradient:CanonicalSourceTipGradient}
+export type CanonicalMaskSourceJob=CanonicalNativeImageSourceJob|CanonicalPatternSourceJob|CanonicalGradientSourceJob|CanonicalTipGradientSourceJob
 const patternResourceBrand:unique symbol=Symbol('canonical-pattern-resource')
 const patternViews=new WeakMap<object,{readonly root:CanonicalMaskSourceLease;readonly lifetime:BrushGlBatchLifetime & {readonly kind:'external'};readonly assert:(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void}>()
 // Native Bank constructor record is its existing immutable ownership tuple.
@@ -93,14 +97,14 @@ export function isCanonicalOwnedPatternLifetime(gl: WebGLRenderingContext, lifet
   if (!record || record.gl !== gl) return false
   try { return record.native() } catch { return false }
 }
-export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource|CanonicalGradientResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):void {
+export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource|CanonicalGradientResource|CanonicalTipGradientResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):void {
   const check=patternViews.get(resource)
   if(!check)throw new Error('Unknown canonical pattern view')
   if(expectedRoot!==undefined&&check.root!==expectedRoot)throw new Error('Canonical pattern root handle changed')
   check.assert(owners)
 }
 /** Internal bank-authenticated sampler promise; never inferred from texture/view shape. */
-export function canonicalPatternResourceLifetime(resource:CanonicalPatternResource|CanonicalGradientResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):BrushGlBatchLifetime & {readonly kind:'external'} {
+export function canonicalPatternResourceLifetime(resource:CanonicalPatternResource|CanonicalGradientResource|CanonicalTipGradientResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):BrushGlBatchLifetime & {readonly kind:'external'} {
   assertCanonicalPatternResourceCurrent(resource,owners,expectedRoot)
   return patternViews.get(resource)!.lifetime
 }
@@ -115,11 +119,12 @@ export interface CanonicalPatternResource {
   readonly height:number
   readonly sampling:'nearest-clamp-l8-v1'
 }
+export interface CanonicalTipGradientResource {readonly [patternResourceBrand]:true;readonly kind:'captured-tip-gradient-rgba8';readonly key:string;readonly texture:WebGLTexture;readonly width:16;readonly height:16;readonly gradient:CanonicalSourceTipGradient;readonly sampling:'nearest-clamp-rgba8-v1'}
 export interface CanonicalGradientResource {readonly [patternResourceBrand]:true;readonly kind:'captured-gradient-rgba8';readonly key:string;readonly texture:WebGLTexture;readonly width:16;readonly height:16;readonly gradient:CanonicalTextureGradientRGBA;readonly sampling:'nearest-clamp-rgba8-v1'}
 const imageJob=(job:CanonicalMaskSourceJob):job is CanonicalNativeImageSourceJob=>job.kind==='native-image'
 const jobAsset=(job:CanonicalMaskSourceJob,side:number):CanonicalMaterialAsset=>imageJob(job)?{id:job.resource.id,size:side,...job.resource.rect}:job.asset
-const jobWidth=(job:CanonicalMaskSourceJob)=>imageJob(job)?job.resource.width:job.kind==='captured-gradient-rgba8'?16:job.asset.size
-const jobHeight=(job:CanonicalMaskSourceJob)=>imageJob(job)?job.resource.height:job.kind==='captured-gradient-rgba8'?16:job.asset.size
+const jobWidth=(job:CanonicalMaskSourceJob)=>imageJob(job)?job.resource.width:job.kind!=='raw-pattern-l8'?16:job.asset.size
+const jobHeight=(job:CanonicalMaskSourceJob)=>imageJob(job)?job.resource.height:job.kind!=='raw-pattern-l8'?16:job.asset.size
 function assertImageOnlyInputs(inputs:unknown):void {
   if(!Array.isArray(inputs)||inputs.length>518)return // Existing full planner reports malformed arrays/counts.
   for(let i=0;i<inputs.length;i++){
@@ -149,19 +154,27 @@ function capturePatternInput(value:unknown):CanonicalPatternSourceInput {
   if(pin.law==='pixel-color-texture-v1'){if(!alphaAsset||alphaAsset.id!==pin.alphaAsset||['size','x','y','width','height'].some(k=>Reflect.get(alphaAsset,k)!==Reflect.get(asset,k))||typeof input.readOriginalAlpha!=='function')throw new TypeError('Color texture requires exact original alpha plane')}else if(alphaAsset||input.readOriginalAlpha!==undefined)throw new TypeError('Unexpected pattern alpha plane')
   return Object.freeze({kind:'raw-pattern-l8',asset,pin,...alphaAsset?{alphaAsset,readOriginalAlpha:input.readOriginalAlpha as ()=>Uint8Array}:{},readOriginalGray:input.readOriginalGray as ()=>Uint8Array})
 }
-function captureImageMaterialInput(value:unknown):CanonicalImageMaterialSourceInput {
- const data=ownData(value,['kind','asset','material','channels','readOriginalCoverage','readOriginalChannels'],['frameIndex','sourceSlot']),asset=captureAsset(data.asset)
- if(data.kind!=='image-material-rgba8'||data.material!=='lightness-map-v1'&&data.material!=='color-stamp-v1'||!Array.isArray(data.channels)||data.channels.length!==(data.material==='lightness-map-v1'?1:3)||typeof data.readOriginalCoverage!=='function'||typeof data.readOriginalChannels!=='function')throw new TypeError('Invalid paired image material')
+function captureImageMaterialInput(value:unknown,expectedGradient?:CanonicalSourceTipGradient):CanonicalImageMaterialSourceInput {
+ const data=ownData(value,['kind','asset','material','channels','readOriginalCoverage','readOriginalChannels'],['frameIndex','sourceSlot','tipGradient','tipGradientApplication']),asset=captureAsset(data.asset)
+ if(data.kind!=='image-material-rgba8'||data.material!=='lightness-map-v1'&&data.material!=='color-stamp-v1'&&data.material!=='gradient-map-v1'||!Array.isArray(data.channels)||data.channels.length!==(data.material==='color-stamp-v1'?3:1)||typeof data.readOriginalCoverage!=='function'||typeof data.readOriginalChannels!=='function')throw new TypeError('Invalid paired image material')
  if(data.sourceSlot!==undefined&&data.sourceSlot!==0&&data.sourceSlot!==1)throw new TypeError('Invalid image source role slot')
  if(data.frameIndex!==undefined&&(typeof data.frameIndex!=='number'||!integer(data.frameIndex)||data.frameIndex>255||Object.is(data.frameIndex,-0)))throw new TypeError('Invalid paired image frame index')
+ let tipGradient:CanonicalSourceTipGradient|undefined;
+ if(data.material==='gradient-map-v1'){
+  if(data.tipGradientApplication!=='plain-gradient'&&data.tipGradientApplication!=='spatial-mask')throw new TypeError('Gradient tip application required');
+  const captured=canonicalSourceTipGradient(data.tipGradient);
+  if(expectedGradient&&captured.rgba.some((n,i)=>n!==expectedGradient.rgba[i]))throw new TypeError('One global tip gradient required');
+  tipGradient=expectedGradient??captured;
+ }else if(data.tipGradient!==undefined||data.tipGradientApplication!==undefined)throw new TypeError('Unexpected tip gradient');
  const channels=Object.freeze(data.channels.map(captureAsset))
  if(channels.some(c=>c.size!==asset.size||c.x!==asset.x||c.y!==asset.y||c.width!==asset.width||c.height!==asset.height))throw new TypeError('Image material crops differ')
- return Object.freeze({kind:'image-material-rgba8',asset,material:data.material,channels,...data.sourceSlot!==undefined?{sourceSlot:data.sourceSlot}:{},...data.frameIndex!==undefined?{frameIndex:data.frameIndex}:{},readOriginalCoverage:data.readOriginalCoverage as ()=>Uint8Array,readOriginalChannels:data.readOriginalChannels as ()=>readonly Uint8Array[]})
+ return Object.freeze({kind:'image-material-rgba8',asset,material:data.material,channels,...tipGradient?{tipGradient,tipGradientApplication:data.tipGradientApplication as 'plain-gradient'|'spatial-mask'}:{},...data.sourceSlot!==undefined?{sourceSlot:data.sourceSlot}:{},...data.frameIndex!==undefined?{frameIndex:data.frameIndex}:{},readOriginalCoverage:data.readOriginalCoverage as ()=>Uint8Array,readOriginalChannels:data.readOriginalChannels as ()=>readonly Uint8Array[]})
 }
 const patternKey=(asset:CanonicalMaterialAsset,alpha?:CanonicalMaterialAsset)=>`canonical-pattern:raw-l8-nearest-clamp-v1:${assetKey(asset)}${alpha?':alpha:'+assetKey(alpha):''}`
+const tipGradientKey=(g:CanonicalSourceTipGradient)=>'canonical-tip-gradient:rgba8-v1:'+JSON.stringify(g.rgba)
 const gradientKey=(g:CanonicalTextureGradientRGBA)=>'canonical-texture-gradient:rgba8-v1:'+JSON.stringify(g.rgba)
 const gradientMetadataBytes=24576
-const jobMetadataBytes=(j:CanonicalMaskSourceJob)=>JOB_METADATA_BYTES+(j.kind==='captured-gradient-rgba8'?gradientMetadataBytes:0)
+const jobMetadataBytes=(j:CanonicalMaskSourceJob)=>JOB_METADATA_BYTES+(j.kind!=='native-image'&&j.kind!=='raw-pattern-l8'?gradientMetadataBytes:0)
 export interface CanonicalMaskCompanionBudget { readonly gpuBytes: number; readonly cpuBytes: number }
 const integer = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min
 const JOB_METADATA_BYTES = 512
@@ -237,12 +250,13 @@ function rootPlanningBound(inputs:readonly (CanonicalMaskAssetSourceInput|Canoni
     return n
   }
   const inputCount=length(inputs,518)
-  let levels=0,indexes=0,gradientMetadata=0
+  let levels=0,indexes=0,gradientMetadata=0,tipGradientSeen=false
   for(let i=0;i<inputCount;i++){
     const asset=data(data(inputs,String(i)),'asset'),width=data(asset,'width'),height=data(asset,'height')
     if(typeof width!=='number'||typeof height!=='number'||!integer(width,1)||!integer(height,1)||width>4096||height>4096)throw new RangeError('Invalid root source dimensions')
     const item=data(inputs,String(i)),tag=Object.getOwnPropertyDescriptor(item as object,'kind')
     if(tag&&Object.hasOwn(tag,'value')&&tag.value==='raw-pattern-l8'){levels++;const pin=data(item,'pin'),law=data(pin,'law');if(law==='pixel-color-texture-v1'&&data(pin,'mode')==='gradient'){levels++;gradientMetadata+=2*gradientMetadataBytes}continue}
+    if(tag&&Object.hasOwn(tag,'value')&&tag.value==='image-material-rgba8'&&data(item,'material')==='gradient-map-v1'&&!tipGradientSeen){tipGradientSeen=true;levels++;gradientMetadata+=2*gradientMetadataBytes}
     for(let scale=8;scale>1;scale*=.5)if(width*scale<=512||height*scale<=512)levels++
     levels++
     for(let scale=.5;Math.floor(width*scale+.5)!==0&&Math.floor(height*scale+.5)!==0;scale*=.5)levels++
@@ -284,6 +298,7 @@ function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly Canonic
   const required=captureRequirements(requiredLevels),used=new Set<string>()
   const plannedInputs=new Map<string,BankReader>()
     const jobs = new Map<string, CanonicalMaskSourceJob>()
+    let tipGradient:CanonicalSourceTipGradient|undefined
     for (let i=0;i<inputs.length;i++) {
       const field=Object.getOwnPropertyDescriptor(inputs,String(i))
       if(!field||!Object.hasOwn(field,'value')||!field.value||typeof field.value!=='object')throw new TypeError('Invalid canonical source input')
@@ -300,7 +315,11 @@ function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly Canonic
       let sourceSlot:0|1|undefined,frameIndex:number|undefined
       let resources:readonly NativeImageResource[],assetSide:number,readOriginalCoverage:()=>Uint8Array
       if(tag&&Object.hasOwn(tag,'value')&&tag.value==='image-material-rgba8'){
-        material=captureImageMaterialInput(input);sourceSlot=material.sourceSlot;frameIndex=material.frameIndex;assetSide=material.asset.size;readOriginalCoverage=material.readOriginalCoverage
+        material=captureImageMaterialInput(input,tipGradient);if(material.tipGradient)tipGradient=material.tipGradient;sourceSlot=material.sourceSlot;frameIndex=material.frameIndex;assetSide=material.asset.size;readOriginalCoverage=material.readOriginalCoverage
+        if(material.tipGradient&&material.tipGradientApplication==='plain-gradient'){
+          const gradient=material.tipGradient,key=tipGradientKey(gradient);
+          if(!jobs.has(key)){jobs.set(key,Object.freeze({kind:'captured-tip-gradient-rgba8',key,asset:material.asset,gradient,bytes:1024,transientCpuBytes:1024}));plannedInputs.set(key,Object.freeze({assetSide:assetSide,readOriginalCoverage:()=>Uint8Array.from(gradient.rgba)}))}
+        }
         const namespace=JSON.stringify([material.material,material.sourceSlot,material.frameIndex,material.asset,...material.channels])
         resources=nativeImageBankFromRect(material.asset.id as TipMaskId,material.asset).map(r=>({...r,key:r.key+':material:'+namespace}))
       }else if('asset' in input){
@@ -329,7 +348,13 @@ function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly Canonic
         const prior=jobs.get(key)
         if(prior&&plannedInputs.get(key)!.assetSide!==assetSide)throw new RangeError('Conflicting canonical source metadata')
         for(const [k,j] of jobs)if(imageJob(j)&&j.resource.id===resource.id&&plannedInputs.get(k)!.assetSide!==assetSide)throw new RangeError('Conflicting canonical source side')
-        if (!prior) { jobs.set(key, job); plannedInputs.set(key,Object.freeze({assetSide,readOriginalCoverage,...sourceSlot!==undefined?{sourceSlot}:{},...frameIndex!==undefined?{frameIndex}:{},...material?{material}:{}})) }
+        if (!prior) {
+          // The raw gray/alpha job has no use for an application LUT. Retain
+          // that table only in the separately charged derived LUT job; bypass
+          // keeps it in the captured source context, not an uncharged reader.
+          const physicalMaterial:CanonicalImageMaterialSourceInput|undefined=material?Object.freeze({kind:'image-material-rgba8' as const,asset:material.asset,material:material.material,channels:material.channels,...material.sourceSlot!==undefined?{sourceSlot:material.sourceSlot}:{},...material.frameIndex!==undefined?{frameIndex:material.frameIndex}:{},readOriginalCoverage:material.readOriginalCoverage,readOriginalChannels:material.readOriginalChannels}):undefined;
+          jobs.set(key,job);plannedInputs.set(key,Object.freeze({assetSide,readOriginalCoverage,...sourceSlot!==undefined?{sourceSlot}:{},...frameIndex!==undefined?{frameIndex}:{},...physicalMaterial?{material:physicalMaterial}:{}}));
+        }
       }
     }
   if(required&&used.size!==required.size)throw new RangeError('Unknown canonical source level requirement')
@@ -371,6 +396,7 @@ export interface CanonicalMaskSourceReader {
 }
 export interface CanonicalMaskSourceLease extends CanonicalMaskSourceReader {
   patternResource(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin|CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalPatternResource
+  tipGradientResource(gradient:CanonicalSourceTipGradient,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalTipGradientResource
   textureGradientResource(pin:CanonicalPixelColorTexturePin,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalGradientResource
   /** Resource-only child ownership; no pixel read, readiness scan or GL work. */
   retain():CanonicalMaskSourceLease
@@ -461,12 +487,14 @@ export class CanonicalMaskSourceBank {
       if(typeof c.gpuBytes!=='number'||!integer(c.gpuBytes)||typeof c.cpuBytes!=='number'||!integer(c.cpuBytes))throw new RangeError('Invalid root companion budget')
       const companion=Object.freeze({gpuBytes:c.gpuBytes,cpuBytes:c.cpuBytes})
       const captured:(CanonicalMaskAssetSourceInput|CanonicalPatternSourceInput|CanonicalImageMaterialSourceInput)[]=[]
+      let capturedTipGradient:CanonicalSourceTipGradient|undefined
       if(inputs.length!==bound.inputCount)throw new Error('Root source capture changed')
       for(let i=0;i<bound.inputCount;i++){
         const field=Object.getOwnPropertyDescriptor(inputs,String(i))
         if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid root source capture')
         const tag=Object.getOwnPropertyDescriptor(field.value,'kind')
-        captured.push(tag&&Object.hasOwn(tag,'value')&&tag.value==='raw-pattern-l8'?capturePatternInput(field.value):tag&&Object.hasOwn(tag,'value')&&tag.value==='image-material-rgba8'?captureImageMaterialInput(field.value):captureAssetInput(field.value))
+        if(tag&&Object.hasOwn(tag,'value')&&tag.value==='image-material-rgba8'){const material=captureImageMaterialInput(field.value,capturedTipGradient);if(material.tipGradient)capturedTipGradient=material.tipGradient;captured.push(material)}
+        else captured.push(tag&&Object.hasOwn(tag,'value')&&tag.value==='raw-pattern-l8'?capturePatternInput(field.value):captureAssetInput(field.value))
       }
       const selected:CanonicalMaskSourceLevelRequirement[]=[]
       let indexCount=0
@@ -483,7 +511,7 @@ export class CanonicalMaskSourceBank {
       const actual=rootPlanningBound(captured,requiredLevels===undefined?undefined:selected)
       if(actual.levels>bound.levels||actual.indexes>bound.indexes)throw new Error('Root source capture changed')
       const plan=planInputs(Object.freeze(captured),requiredLevels===undefined?undefined:Object.freeze(selected))
-      const release=this.cpu.reserve(ROOT_METADATA_BYTES+(2*plan.jobs.length+this.jobs.length)*JOB_METADATA_BYTES+2*plan.jobs.reduce((n,j)=>n+(j.kind==='captured-gradient-rgba8'?gradientMetadataBytes:0),0)+this.jobs.reduce((n,j)=>n+(j.kind==='captured-gradient-rgba8'?gradientMetadataBytes:0),0))
+      const release=this.cpu.reserve(ROOT_METADATA_BYTES+(2*plan.jobs.length+this.jobs.length)*JOB_METADATA_BYTES+2*plan.jobs.reduce((n,j)=>n+(j.kind!=='native-image'&&j.kind!=='raw-pattern-l8'?gradientMetadataBytes:0),0)+this.jobs.reduce((n,j)=>n+(j.kind!=='native-image'&&j.kind!=='raw-pattern-l8'?gradientMetadataBytes:0),0))
       let active=true
       releaseMetadata=()=>{if(active){active=false;release()}}
       planned=Object.freeze({plan,companion})
@@ -560,8 +588,8 @@ export class CanonicalMaskSourceBank {
         if(failed)throw error
         return undefined
       }
-      let patternSamplerBorrowed=false,gradientSamplerBorrowed=false
-      const mintSampler=<T extends CanonicalPatternResource|CanonicalGradientResource>(view:T,job:CanonicalMaskSourceJob,texture:WebGLTexture):T=>{
+      let patternSamplerBorrowed=false,gradientSamplerBorrowed=false,tipGradientSamplerBorrowed=false
+      const mintSampler=<T extends CanonicalPatternResource|CanonicalGradientResource|CanonicalTipGradientResource>(view:T,job:CanonicalMaskSourceJob,texture:WebGLTexture):T=>{
           const assertView=(expected:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
             assertHandle()
             if(expected.gl!==this.gl||expected.cache!==this.cache||expected.cpu!==this.cpu||this.cache.resourceBytes(job.key)!==job.bytes||this.cache.get(job.key)!==texture)throw new Error('Canonical pattern view changed')
@@ -575,11 +603,11 @@ export class CanonicalMaskSourceBank {
           const lifetime:BrushGlBatchLifetime & {readonly kind:'external'}=Object.freeze({kind:'external',owner:samplerEpoch,ownedPointSampler:declaration,lease:()=>{
             // Claim before callback-bearing cache checks. Borrow existing child;
             // no retain(), new cache pin, texture, or per-turn CPU reservation.
-            if(view.kind==='captured-gradient-rgba8'?gradientSamplerBorrowed:patternSamplerBorrowed)throw new Error('Canonical sampler borrow reentry')
-            assertHandle();if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=true;else patternSamplerBorrowed=true;patternBorrows++;this.patternBorrows++
-            try{assertView(capturedOwners)}catch(error){if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=false;else patternSamplerBorrowed=false;patternBorrows--;this.patternBorrows--;throw error}
+            if(view.kind==='captured-tip-gradient-rgba8'?tipGradientSamplerBorrowed:view.kind==='captured-gradient-rgba8'?gradientSamplerBorrowed:patternSamplerBorrowed)throw new Error('Canonical sampler borrow reentry')
+            assertHandle();if(view.kind==='captured-tip-gradient-rgba8')tipGradientSamplerBorrowed=true;else if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=true;else patternSamplerBorrowed=true;patternBorrows++;this.patternBorrows++
+            try{assertView(capturedOwners)}catch(error){if(view.kind==='captured-tip-gradient-rgba8')tipGradientSamplerBorrowed=false;else if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=false;else patternSamplerBorrowed=false;patternBorrows--;this.patternBorrows--;throw error}
             let active=true
-            return ()=>{if(!active)return;active=false;if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=false;else patternSamplerBorrowed=false;patternBorrows--;this.patternBorrows--}
+            return ()=>{if(!active)return;active=false;if(view.kind==='captured-tip-gradient-rgba8')tipGradientSamplerBorrowed=false;else if(view.kind==='captured-gradient-rgba8')gradientSamplerBorrowed=false;else patternSamplerBorrowed=false;patternBorrows--;this.patternBorrows--}
           }})
           const bank = this, cache = this.cache, gl = this.gl
           nativePatternLifetimes.set(lifetime, {gl, native: () => {
@@ -622,6 +650,14 @@ export class CanonicalMaskSourceBank {
           assertHandle()
           const view:CanonicalPatternResource=Object.freeze({[patternResourceBrand]:true as const,kind:'raw-pattern-l8',key:job.key,asset:job.asset,...job.alphaAsset?{alphaAsset:job.alphaAsset}:{},texture,width:a.size,height:a.size,sampling:'nearest-clamp-l8-v1'})
           return mintSampler(view,job,texture)
+        },
+        tipGradientResource:(value:CanonicalSourceTipGradient,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
+          assertHandle();if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu)throw new Error('Tip gradient owner changed');
+          const gradient=canonicalSourceTipGradient(value),job=jobs.find(j=>j.kind==='captured-tip-gradient-rgba8'&&j.key===tipGradientKey(gradient));
+          if(!job||job.kind!=='captured-tip-gradient-rgba8'||this.cache.resourceBytes(job.key)!==job.bytes)throw new Error('Captured tip gradient missing');
+          const texture=this.cache.get(job.key);if(!texture)throw new Error('Captured tip gradient texture missing');assertHandle();
+          const view:CanonicalTipGradientResource=Object.freeze({[patternResourceBrand]:true as const,kind:'captured-tip-gradient-rgba8',key:job.key,texture,width:16,height:16,gradient:job.gradient,sampling:'nearest-clamp-rgba8-v1'});
+          return mintSampler(view,job,texture);
         },
         textureGradientResource:(pin:CanonicalPixelColorTexturePin,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
           assertHandle()
@@ -907,11 +943,11 @@ export class CanonicalMaskSourceBank {
       const generation=this.generation
       result=(()=>{
       const original = input.readOriginalCoverage()
-      if (!(original instanceof Uint8Array) || original.length !== (job.kind==='captured-gradient-rgba8'?1024:input.assetSide * input.assetSide))
+      if (!(original instanceof Uint8Array) || original.length !== (!imageJob(job)&&job.kind!=='raw-pattern-l8'?1024:input.assetSide * input.assetSide))
         throw new RangeError('Canonical source asset layout changed')
       if (!current() || generation !== this.generation) return 'cancelled'
       if(!imageJob(job)){
-        if(job.kind==='captured-gradient-rgba8')uploaded=uploadBrushTexture(this.gl,[original],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,{width:16,height:16},storage)
+        if(job.kind!=='raw-pattern-l8')uploaded=uploadBrushTexture(this.gl,[original],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,{width:16,height:16},storage)
         else if(job.alphaAsset){const alpha=input.readPatternAlpha?.();if(!(alpha instanceof Uint8Array)||alpha.length!==original.length)throw new TypeError('Original texture alpha plane changed');if(!current()||generation!==this.generation)return 'cancelled';const rgba=new Uint8Array(original.length*4);for(let i=0;i<original.length;i++){rgba[i*4]=rgba[i*4+1]=rgba[i*4+2]=original[i];rgba[i*4+3]=alpha[i]}uploaded=uploadBrushTexture(this.gl,[rgba],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,undefined,storage)}
         else uploaded=uploadBrushTexture(this.gl,[original],this.gl.LUMINANCE,this.gl.CLAMP_TO_EDGE,true,undefined,storage)
         if(!current()||generation!==this.generation)return 'cancelled'

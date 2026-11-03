@@ -11,3 +11,9 @@ export function bakeCanonicalTextureGradient(resource:SourceGradientResource):Re
  }
  return Object.freeze({kind:'captured-texture-gradient-rgba8-v1',rgba:Object.freeze(rgba)})
 }
+
+/** Separate tip-application resource; never a texture phase/provider fallback. */
+export function bakeCanonicalSourceTipGradient(resource:SourceGradientResource):Readonly<{kind:'captured-tip-gradient-rgba8-v1';rgba:readonly number[]}> {
+ const table=bakeCanonicalTextureGradient(resource)
+ return Object.freeze({kind:'captured-tip-gradient-rgba8-v1',rgba:table.rgba})
+}

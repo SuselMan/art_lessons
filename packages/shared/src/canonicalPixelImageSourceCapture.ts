@@ -1,6 +1,39 @@
+import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
+import {canonicalSourceTipGradient,type CanonicalSourceTipGradient} from './canonicalSourceTipGradient.js'
+import {sourceColorProviderKind} from './sourceStampData.js'
 import type {BrushDescriptor} from './brushes.js'
 import type {SourceStampData} from './sourceStampData.js'
 import type {CanonicalMaterialAsset,CanonicalMaterialImageSource} from './canonicalMaterialCodec.js'
+export interface CanonicalPixelGradientMapTemplate {
+ readonly kind:'gradient-map-template-v1'
+ readonly grayAsset:string
+ readonly grayFrames?:readonly string[]
+ readonly application:'plain-gradient'|'spatial-mask'
+}
+export interface CanonicalPixelSourceMaterialInputs {
+ readonly sourceTipGradient?:CanonicalSourceTipGradient
+ readonly sourceColorFields?:CanonicalSourceColorFields
+ readonly sourceColorAvailable?:readonly Readonly<{id:string;size:number}>[]
+}
+/** Strict START resource capture, independent of a prepared program identity. */
+export function capturePixelSourceMaterialInputs(original:BrushDescriptor,value:CanonicalPixelSourceMaterialInputs|undefined):Readonly<{sourceTipGradient?:CanonicalSourceTipGradient;sourceColorFields?:CanonicalSourceColorFields;spatialAssets:readonly CanonicalMaterialAsset[]}>{
+ if(value===undefined)return{spatialAssets:[]}
+ if(!value||typeof value!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw new TypeError('Invalid Pixel START inputs')
+ const descriptors=Object.getOwnPropertyDescriptors(value)
+ if(Reflect.ownKeys(value).some(k=>typeof k!=='string'||!['sourceTipGradient','sourceColorFields','sourceColorAvailable'].includes(k)||!Object.hasOwn(descriptors[k],'value')))throw new TypeError('Invalid Pixel START input field')
+ const tip=descriptors.sourceTipGradient,fields=descriptors.sourceColorFields,available=descriptors.sourceColorAvailable
+ const sourceTipGradient=tip?canonicalSourceTipGradient(tip.value):undefined
+ const sourceColorFields=fields?canonicalSourceColorFieldsForDescriptor(original,fields.value):undefined
+ if(fields&&!sourceColorFields||available&&!fields)throw new TypeError('Unbound source color START resource')
+ const spatialAssets=sourceColorFields?canonicalSourceColorFieldAssets(sourceColorFields,available?.value??[]):[]
+ return{...sourceTipGradient?{sourceTipGradient}:{},...sourceColorFields?{sourceColorFields}:{},spatialAssets}
+}
+export function pixelGradientMapMaterial(template:CanonicalPixelGradientMapTemplate,gradient:CanonicalSourceTipGradient):NonNullable<CanonicalMaterialImageSource['imageMaterial']>{
+ return Object.freeze({kind:'gradient-map-v1',grayAsset:template.grayAsset,...template.grayFrames?{grayFrames:template.grayFrames}:{},application:template.application,gradient:canonicalSourceTipGradient(gradient)})
+}
+export function pixelPreparationImageAssets(source:CanonicalMaterialImageSource,assets:readonly CanonicalMaterialAsset[]){
+ const refs=new Set(source.frames??[source.asset]);return assets.filter(a=>refs.has(a.id))
+}
 /** Original image pixels occupy their actual rectangle, not the square
  * drawing crop. Named consumers share this check; legacy PNG stays separate. */
 export function captureOriginalPixelImageGrid(descriptor:BrushDescriptor,data:SourceStampData,asset:Readonly<{id:string;size:number}>,frameIndex=0){
@@ -30,8 +63,13 @@ export function captureOriginalPixelImageRole(descriptor:BrushDescriptor,data:So
   for(const a of frameAssets)if(!assets.some(p=>p.id===a.id))assets.push(a)
   const alpha=assets[0],material=descriptor.tip.material
   let imageMaterial:CanonicalMaterialImageSource['imageMaterial']
+  let gradientMapTemplate:CanonicalPixelGradientMapTemplate|undefined
   const plane=(id:string,index=0)=>{const selected=frameAssets[index],a=available.find(a=>a.id===id);if(!selected||!a||a.size!==selected.size)return fail();const p=Object.freeze({...selected,id});if(!assets.some(a=>a.id===id))assets.push(p);return id}
-  if(material?.kind==='lightness'){
+  if(material?.kind==='gradient'){
+   const grayFrames=material.grayFrames;if(grayFrames&&(grayFrames.length!==ids.length||grayFrames[0]!==material.gray))return fail()
+   const provider=sourceColorProviderKind(data)
+   gradientMapTemplate=Object.freeze({kind:'gradient-map-template-v1',grayAsset:plane(material.gray),...grayFrames?{grayFrames:Object.freeze(grayFrames.map((id,index)=>plane(id,index)))}:{},application:provider==='total_random'||provider==='pattern'||provider==='lockedpattern'?'spatial-mask':'plain-gradient'})
+  }else if(material?.kind==='lightness'){
 
    const enabled=data.settings.PressureLightnessStrength==='true',strength=enabled?Math.max(0,Math.min(1,Number(data.settings.LightnessStrengthValue??'1'))):1
    if(!Number.isFinite(strength)||material.strength!==strength)return fail()
@@ -44,7 +82,7 @@ export function captureOriginalPixelImageRole(descriptor:BrushDescriptor,data:So
   }
   source=Object.freeze({kind:'image',asset:alpha.id,brushScale,brushAngle:data.brush.angle,...descriptor.tip.animation?{frames:Object.freeze([...ids])}:{},frameBounds:Object.freeze(frameAssets.map(({x,y,width,height})=>Object.freeze({x,y,width,height}))),...imageMaterial?{imageMaterial}:{}})
 
- return Object.freeze({source,assets:Object.freeze(assets)})
+ return Object.freeze({source,assets:Object.freeze(assets),...gradientMapTemplate?{gradientMapTemplate}:{}})
 }
 
 /** Descriptor provenance is added only by this existing SHA-bound wrapper. */

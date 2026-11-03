@@ -53,6 +53,7 @@ export interface BrushTip {
   }
   /** Offline selected-font provenance; playback consumes captured mask bytes. */
   svgRasterization?: {kind:'librsvg-gray-vector-subset-v1';originalFilename:string;originalSha256:string;sanitizedSha256:string;rasterSha256:string;helperSha256:string;width:1000;height:number;sharpVersion:string;rsvgVersion:string}
+  abrSource?: {kind:'krita-abr-sample-v1';collectionFilename:string;collectionSha256:string;sampleOrdinal:number;sampleId:string;sampleName:string;width:number;height:number;coverageSha256:string}
   textRasterization?: {kind:'fontconfig-pillow-text-mask-v1';originalFont:string;fontSha256:string;faceIndex:number;pixelSize:number;dpi:96;family:string;style:string;layout:'basic'|'raqm';substituted:boolean}
   /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
    * Absence preserves legacy round/bitmap sampling. */
@@ -69,7 +70,8 @@ export interface BrushTip {
     | {mode:'native-dimensions-v1';frames:AssetId[];declaredCells:number;dimensions:readonly {mode:'constant'|'incremental'|'random'|'pressure'|'angular'|'xtilt'|'ytilt'|'velocity';rank:number;stride:number}[]}
     | {mode:'text-sequence-v1';frames:AssetId[];sequence:readonly number[];dimensions?:never;declaredCells?:never}) & {frameBounds?:readonly Readonly<{x:number;y:number;width:number;height:number}>[]}
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
-  material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number; channels?:never; frames?:never }
+  material?: {kind:'gradient';gray:AssetId;grayFrames?:AssetId[];strength?:never;channels?:never;frames?:never}
+    | { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number; channels?:never; frames?:never }
     | {kind:'color';channels:readonly [AssetId,AssetId,AssetId];frames?:readonly (readonly [AssetId,AssetId,AssetId])[];gray?:never;grayFrames?:never;strength?:never}
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
@@ -454,6 +456,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || !numberIn(bounds.width,1/2048,1) || !numberIn(bounds.height,1/2048,1)
         || bounds.x + bounds.width > 1 || bounds.y + bounds.height > 1) return false
     }
+    if(d.tip.abrSource!==undefined){
+      const p=d.tip.abrSource
+      if(d.tip.kind!=='bitmap'||!record(p)||Object.keys(p).length!==9||Object.keys(p).some(k=>!['kind','collectionFilename','collectionSha256','sampleOrdinal','sampleId','sampleName','width','height','coverageSha256'].includes(k))||p.kind!=='krita-abr-sample-v1'||typeof p.collectionFilename!=='string'||!/^([^/\\\x00]{1,1024})[.]abr$/i.test(p.collectionFilename)||typeof p.collectionSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.collectionSha256)||typeof p.coverageSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.coverageSha256)||!Number.isInteger(p.sampleOrdinal)||!numberIn(p.sampleOrdinal,1,4096)||typeof p.sampleId!=='string'||p.sampleId.length<1||p.sampleId.length>256||typeof p.sampleName!=='string'||p.sampleName.length<1||p.sampleName.length>1024||p.sampleName.includes('\0')||!Number.isInteger(p.width)||!numberIn(p.width,1,2048)||!Number.isInteger(p.height)||!numberIn(p.height,1,2048)||p.width*p.height>1048576)return false
+    }
     if(d.tip.textRasterization!==undefined){
       const p=d.tip.textRasterization
       if(d.tip.kind!=='bitmap'||!record(p)||Object.keys(p).length!==10||Object.keys(p).some(k=>!['kind','originalFont','fontSha256','faceIndex','pixelSize','dpi','family','style','layout','substituted'].includes(k))||p.kind!=='fontconfig-pillow-text-mask-v1'||typeof p.originalFont!=='string'||p.originalFont.length>4096||typeof p.fontSha256!=='string'||!/^([a-f0-9]{64})$/.test(p.fontSha256)||!Number.isInteger(p.faceIndex)||!numberIn(p.faceIndex,0,65535)||!Number.isInteger(p.pixelSize)||!numberIn(p.pixelSize,1,2048)||p.dpi!==96||typeof p.family!=='string'||p.family.length>1024||typeof p.style!=='string'||p.style.length>1024||!['basic','raqm'].includes(String(p.layout))||typeof p.substituted!=='boolean')return false
@@ -529,8 +535,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const animation=d.tip.animation as {frames:unknown[]}|undefined
       const alphaFrames=animation?.frames??[d.tip.mask]
       let planes:unknown[]
-      if(material.kind==='lightness'){
-        if(Object.keys(material).some(k=>!['kind','gray','grayFrames','strength'].includes(k))||!ref(material.gray)||!numberIn(material.strength,0,1))return false
+      if(material.kind==='lightness'||material.kind==='gradient'){
+        if(Object.keys(material).some(k=>!(material.kind==='gradient'?['kind','gray','grayFrames']:['kind','gray','grayFrames','strength']).includes(k))||!ref(material.gray)||material.kind==='lightness'&&!numberIn(material.strength,0,1))return false
         if(animation?!Array.isArray(material.grayFrames)||material.grayFrames.length!==alphaFrames.length||material.grayFrames[0]!==material.gray||!material.grayFrames.every(ref):material.grayFrames!==undefined)return false
         planes=(material.grayFrames??[material.gray]) as unknown[]
       }else if(material.kind==='color'){

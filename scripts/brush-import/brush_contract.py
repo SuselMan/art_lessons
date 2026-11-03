@@ -6,7 +6,7 @@ from PIL import Image, ImageOps
 
 MAX_PIXELS = 64 * 1024 * 1024
 IMPORTER_SCHEMA_VERSION = 1
-IMPORTER_RENDERING_VERSION = 3
+IMPORTER_RENDERING_VERSION = 4
 
 def number(value, fallback=0):
     if isinstance(value,dict): value = value.get('value',fallback)

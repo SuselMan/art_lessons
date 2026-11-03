@@ -50,7 +50,7 @@ export function assertCanonicalImageRecipeCapacity(recipe: CanonicalMaterialReci
   transformedMaskPrepassBudget(capacity)
   if (!recipe || !Object.is(recipe.brushScale, s.brushScale)
     || !Object.is(recipe.brushAngle, s.brushAngle) || !Number.isFinite(recipe.scale) || recipe.scale <= 0 || recipe.scale > 1
-    || recipe.ratio !== 1 || recipe.mirrorH !== false || recipe.mirrorV !== false)
+    || (s.frameBounds ? !Number.isFinite(recipe.ratio)||recipe.ratio<=0||recipe.ratio>1||!Number.isFinite(recipe.rotation)||Math.abs(recipe.rotation)>1e6||typeof recipe.mirrorH!=='boolean'||typeof recipe.mirrorV!=='boolean' : recipe.ratio !== 1 || recipe.mirrorH !== false || recipe.mirrorV !== false))
     throw new RangeError('Canonical image recipe differs from admitted source')
   const selected=s.frameBounds?(recipe.imageFrameIndex===undefined?undefined:canonicalImageFrameAsset(s,pin.assets,recipe.imageFrameIndex)):pin.assets.find(asset=>asset.id===recipe.asset)
   if(!selected||selected.id!==recipe.asset)throw new RangeError('Canonical image recipe asset is not pinned')

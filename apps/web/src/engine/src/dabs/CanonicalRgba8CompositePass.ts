@@ -64,7 +64,7 @@ export interface CanonicalRgba8SourceView {
     readonly rowOrder: 'topAtV0' | 'bottomAtV0';
     readonly residency: CanonicalSourceResidency;
 }
-export type CanonicalCompositeSource = ({readonly kind:'imageMaterialRgba';readonly material:'lightness-map-v1'|'color-stamp-v1';readonly view:TransformedMaskView;readonly rgb:readonly[number,number,number];readonly strength:number;readonly foregroundAlpha:number} | {
+export type CanonicalCompositeSource = ({readonly kind:'imageMaterialRgba';readonly material:'lightness-map-v1'|'color-stamp-v1'|'gradient-map-v1';readonly view:TransformedMaskView;readonly rgb:readonly[number,number,number];readonly strength:number;readonly foregroundAlpha:number} | {
     readonly kind: 'maskRgb';
     readonly view: TransformedMaskView;
     readonly rgb: readonly [
@@ -88,7 +88,7 @@ export type CanonicalCompositeSource = ({readonly kind:'imageMaterialRgba';reado
     readonly pin:CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin;
     readonly gradient?:CanonicalGradientResource;
     readonly textureColorStrength?:number;
-    readonly imageMaterial?:Readonly<{kind:'lightness-map-v1'|'color-stamp-v1';strength:number;foregroundAlpha:number}>;
+    readonly imageMaterial?:Readonly<{kind:'lightness-map-v1'|'color-stamp-v1'|'gradient-map-v1';strength:number;foregroundAlpha:number}>;
     readonly strengthU8?:number;
 } | {
     readonly kind: 'straightRgba8';
@@ -735,12 +735,13 @@ export class CanonicalRgba8CompositePass {
             }
             if(source.kind==='primaryGrainMaskRgb'&&source.gradient){gl.activeTexture(gl.TEXTURE0+3);gl.bindTexture(gl.TEXTURE_2D,source.gradient.texture);restoreSamplings.push(frame?frame.pointSampling(source.gradient.texture):this.pointSampling(source.gradient.texture,gl.TEXTURE0+3));}
             const u = info.uniforms;
+            const materialRGBA=source.kind!=='straightRgba8'&&source.view.materialRGBA;
             const spatialRGBA=source.kind!=='straightRgba8'&&source.view.spatialRGBA;
-            const bitmapColor=spatialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
+            const bitmapColor=spatialRGBA||materialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
             gl.uniform1f(u.pigmentAlpha,source.kind==='straightRgba8'||bitmapColor?255:source.pigmentAlphaU8??255);
-            gl.uniform1f(u.sourceAlphaChannel,spatialRGBA||source.kind==='straightRgba8'||source.kind==='imageMaterialRgba'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?1:0);
+            gl.uniform1f(u.sourceAlphaChannel,spatialRGBA||materialRGBA||source.kind==='straightRgba8'||source.kind==='imageMaterialRgba'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?1:0);
             const parameters=source.kind==='straightRgba8'?undefined:source.view.materialParams;gl.uniform3f(u.sharpness,parameters?.sharpnessThreshold??0,(parameters?.sharpnessSoftness??0)/100,parameters?.sharpnessChecked?1:0);
-            if(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')){const m=source.imageMaterial;gl.uniform3f(u.lightnessMaterial,spatialRGBA?2:m?(m.kind==='lightness-map-v1'?1:2):0,m?.strength??0,m?.foregroundAlpha??1);}
+            if(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')){const m=source.imageMaterial;gl.uniform3f(u.lightnessMaterial,spatialRGBA||materialRGBA?2:m?(m.kind==='lightness-map-v1'?1:2):0,m?.strength??0,m?.foregroundAlpha??1);}
             if(source.kind==='imageMaterialRgba')gl.uniform3f(u.lightnessMaterial,source.material==='lightness-map-v1'?1:2,source.strength,source.foregroundAlpha);
             gl.uniform1i(u.sourceTexture, 0);
             gl.uniform1i(u.destinationTexture, 1);
@@ -757,7 +758,7 @@ export class CanonicalRgba8CompositePass {
             gl.uniform4f(u.sourceGeometry, clip.maskX, clip.maskY, sampled.rect.width, sampled.rect.height);
             gl.uniform4f(u.sourceBounds, sampled.bounds.x, sampled.bounds.y, sampled.bounds.width, sampled.bounds.height);
             gl.uniform2f(u.mirrorFlags, +sampled.mirror.horizontal, +sampled.mirror.vertical);
-            gl.uniform2f(u.sourcePolicy, source.kind === 'straightRgba8'||spatialRGBA ? 1 : 0, sampled.rowOrder === 'bottomAtV0' ? 1 : 0);
+            gl.uniform2f(u.sourcePolicy, source.kind === 'straightRgba8'||spatialRGBA||materialRGBA ? 1 : 0, sampled.rowOrder === 'bottomAtV0' ? 1 : 0);
             gl.uniform2f(u.scratchSize, this.limits.width, this.limits.height);
             gl.uniform3f(u.pigment, ...source.kind !== 'straightRgba8' ? source.rgb : [0, 0, 0] as [
                 number,
@@ -886,7 +887,8 @@ export class CanonicalRgba8CompositePass {
             throw new RangeError('Invalid composite source view');
         if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb'||source.kind==='primaryGrainMaskRgb'||source.kind==='imageMaterialRgba') {
             const mask = source.view;
-            if(source.kind==='primaryGrainMaskRgb'&&source.imageMaterial){const m=source.imageMaterial;if((source.pin.law!=='pixel-texture-u8-v1'&&source.pin.law!=='pixel-color-texture-v1')||!mask.spatialRGBA&&mask.imageMaterial!==m.kind||!Number.isFinite(m.strength)||m.strength<0||m.strength>1||!Number.isFinite(m.foregroundAlpha)||m.foregroundAlpha<0||m.foregroundAlpha>1)throw new RangeError('Invalid grain image material');}
+            if(source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='gradient-map-v1'&&!mask.materialRGBA&&!mask.spatialRGBA||source.kind==='imageMaterialRgba'&&source.material==='gradient-map-v1'&&!mask.materialRGBA)throw new RangeError('Gradient material must be resolved by its prepared pass');
+            if(source.kind==='primaryGrainMaskRgb'&&source.imageMaterial){const m=source.imageMaterial;if((source.pin.law!=='pixel-texture-u8-v1'&&source.pin.law!=='pixel-color-texture-v1')||!mask.spatialRGBA&&!mask.materialRGBA&&mask.imageMaterial!==m.kind||!Number.isFinite(m.strength)||m.strength<0||m.strength>1||!Number.isFinite(m.foregroundAlpha)||m.foregroundAlpha<0||m.foregroundAlpha>1)throw new RangeError('Invalid grain image material');}
             if(source.kind==='imageMaterialRgba'&&(mask.imageMaterial!==source.material||!Number.isFinite(source.strength)||source.strength<0||source.strength>1||!Number.isFinite(source.foregroundAlpha)||source.foregroundAlpha<0||source.foregroundAlpha>1))throw new RangeError('Invalid lightness material source');
             if (mask.channel !== 'r' || !mask.key || !Array.isArray(source.rgb) || source.rgb.length !== 3 || !source.rgb.every(v => whole(v) && v <= 255))
                 throw new RangeError('Invalid mask source/pigment bytes');

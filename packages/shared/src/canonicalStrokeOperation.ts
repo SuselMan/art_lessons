@@ -14,6 +14,7 @@ export type CanonicalStrokeOperation = OperationBase & {
   frame: CanonicalStrokeFrameEnvelope
 }
 export interface CanonicalStrokeBegin {
+  readonly sourceTipGradient?:import('./canonicalSourceTipGradient.js').CanonicalSourceTipGradient
   readonly sourceRoleTextureInputs?:import('./canonicalSourceRoleTextures.js').CanonicalSourceRoleTexturesInput
   readonly sourceColorFields?:import('./canonicalSourceSpatialColor.js').CanonicalSourceColorFields
   readonly textureGradient?:import('./canonicalPrimaryTexture.js').CanonicalTextureGradientRGBA

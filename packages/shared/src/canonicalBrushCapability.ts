@@ -86,6 +86,43 @@ export function extractCanonicalSinglePngCapability(
   return extractImageFrameCapability(descriptor,asset)
 }
 
+/** Original explicit image application is not an alpha-mask fallback.
+ * Legacy resource-derived mode stays with the original paired asset capture. */
+function pixelImageRootAttributes(xml:unknown):ReadonlyMap<string,string>|undefined{
+ if(typeof xml!=='string')return undefined
+ const tag=/^\s*(?:<\?xml[^?]*\?>\s*)?<[-\w:.]+((?:\s+[-\w:.]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*\/?>/.exec(xml)
+ if(!tag)return undefined
+ const attributes=new Map<string,string>()
+ for(const entry of tag[1].matchAll(/\s+([-\w:.]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)){
+   if(attributes.has(entry[1]))return undefined
+   const raw=entry[2]??entry[3]
+   if(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[\da-fA-F]+);)/.test(raw))return undefined
+   let valid=true
+   const value=raw.replace(/&([^;]+);/g,(_,entity:string)=>{
+     const named:Readonly<Record<string,string>>={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}
+     if(Object.hasOwn(named,entity))return named[entity]
+     const cp=entity.startsWith('#x')?Number.parseInt(entity.slice(2),16):Number(entity.slice(1))
+     if(!Number.isSafeInteger(cp)||!(cp===9||cp===10||cp===13||cp>=32&&cp<=0xd7ff||cp>=0xe000&&cp<=0xfffd||cp>=0x10000&&cp<=0x10ffff)){valid=false;return ''}
+     return String.fromCodePoint(cp)
+   })
+   if(!valid)return undefined
+   attributes.set(entry[1],value)
+ }
+ return attributes
+
+}
+
+function unsupportedPixelImageApplication(data:SourceStampData,descriptor:BrushDescriptor):boolean{
+ const attributes=pixelImageRootAttributes(data.settings.brush_definition)
+ if(!attributes)return true
+ const number=(key:string)=>{const raw=attributes.get(key);return raw===undefined?undefined:/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw.trim())?Number(raw):NaN}
+ // Native legacy preserveLightness takes precedence over brushApplication.
+ if(attributes.has('preserveLightness'))return !Number.isFinite(number('preserveLightness'))
+ if(!attributes.has('brushApplication'))return false
+ const application=number('brushApplication')
+ return application===3?descriptor.tip.material?.kind!=='gradient':application===undefined||![0,1,2].includes(application)
+}
+
 function extractImageFrameCapability(
   descriptor:BrushDescriptor,asset:{readonly id:string;readonly size:number},
   policy?:Readonly<{frameIndex?:number;animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture';pixelTexture?:true;nativeImage?:true;role?:'primary'|'mask';dual?:true}>,
@@ -96,6 +133,14 @@ function extractImageFrameCapability(
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
   if (!isSourceStampData(data)) return reject('invalid-source-data')
   if (sourceStampSourceKind(data) !== 'image') return reject('source-material-is-not-image')
+  if(policy?.nativeImage||policy?.pixelTexture){
+    const original=pixelImageRootAttributes(data.settings.brush_definition)
+    if(original?.get('type')==='abr_brush'){
+      const proof=descriptor.tip.abrSource,selector=original.get('filename')||original.get('name')
+      if(!proof||!selector||proof.sampleName!==selector||proof.width!==data.brush.width||proof.height!==data.brush.height)return reject('declared-abr-original-proof-unavailable')
+    }
+  }
+  if((policy?.nativeImage||policy?.pixelTexture)&&unsupportedPixelImageApplication(data,descriptor))return reject('original-image-application-consumer-unavailable')
   if (data.unsupported.some(reason=>!(policy?.role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')&&!((policy?.pixelTexture||policy?.nativeImage)&&(reason==='source-image-adjustments-unavailable'||reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)!==undefined&&sourceColorProviderKind(data)!=='plain'))))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (policy?.role??'primary') || descriptor.behavior?.dual&&!policy?.dual) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation !== animation || descriptor.tip.material&&!policy?.pixelTexture&&!policy?.nativeImage) return reject('unsupported-source-material')

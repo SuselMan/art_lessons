@@ -116,11 +116,17 @@ class FrameEncoderCore<C extends CoreContext> {
     return {
       version: canonicalStrokeRasterContract(rasterProfile).envelopeVersion, rasterProfile,
       brush: this.context.brush, strokeId: this.context.strokeId, frameOrdinal: this.nextFrameOrdinal,
-      pigmentRgb8: this.context.pigmentRgb8, composition: this.context.composition, materialPacked,...('version'in this.context.material&&this.context.material.version===2&&this.context.material.roleTextures?{sourceRoleTextures:this.context.material.roleTextures}:{}),...('version'in this.context.material&&(this.context.material.version===2||this.context.material.version===8)&&this.context.material.sourceColorFields?{sourceColorFields:this.context.material.sourceColorFields}:{}),...('version'in this.context.material&&(this.context.material.version===2||this.context.material.version===8)&&this.context.material.scaledSource?{sourceScale:this.context.material.primarySource.brushScale}:{}),
+      pigmentRgb8: this.context.pigmentRgb8, composition: this.context.composition, materialPacked,...('version'in this.context.material&&(this.context.material.version===2||this.context.material.version===8)&&sourceTipGradient(this.context.material)?{sourceTipGradient:sourceTipGradient(this.context.material)}:{}),...('version'in this.context.material&&this.context.material.version===2&&this.context.material.roleTextures?{sourceRoleTextures:this.context.material.roleTextures}:{}),...('version'in this.context.material&&(this.context.material.version===2||this.context.material.version===8)&&this.context.material.sourceColorFields?{sourceColorFields:this.context.material.sourceColorFields}:{}),...('version'in this.context.material&&(this.context.material.version===2||this.context.material.version===8)&&this.context.material.scaledSource?{sourceScale:this.context.material.primarySource.brushScale}:{}),
     }
   }
 }
 
+function sourceTipGradient(material:import('@grafetto/shared').CanonicalMaterialContextV2|import('@grafetto/shared').CanonicalMaterialContextV8){
+ const p=material.primarySource,m=material.version===2?material.maskSource:undefined
+ const a=p.kind==='image'&&p.imageMaterial?.kind==='gradient-map-v1'?p.imageMaterial.gradient:undefined,b=m?.kind==='image'&&m.imageMaterial?.kind==='gradient-map-v1'?m.imageMaterial.gradient:undefined
+ if(a&&b&&JSON.stringify(a)!==JSON.stringify(b))throw new TypeError('Role tip gradient resources differ')
+ return a??b
+}
 export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStrokeContext> extends FrameEncoderCore<C>{
  constructor(context:C){if(Object.getOwnPropertyDescriptor(context,'materialVersion')?.value===7||Object.getOwnPropertyDescriptor(context,'materialVersion')?.value===8||Object.getOwnPropertyDescriptor(context.material,'version')?.value===8||Object.getOwnPropertyDescriptor(context.material,'version')?.value===7)throw new RangeError('Legacy encoder excludes7');super(context)}
 }

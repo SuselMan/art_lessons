@@ -1,12 +1,13 @@
-import {canonicalPixelDualSourceMaterialContext,canonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
+import {canonicalSourceMaterialTipGradient} from '@grafetto/shared'
+import {canonicalPixelDualSourcePreparationContext,canonicalPixelDualSourceMaterialContext,canonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
 import {sourceSpatialRoleProvider} from './src/presets/sourceSpatialColor'
 import {canonicalSourcePatternResource,canonicalSourceColorFields,canonicalSourceColorFieldAssets,type CanonicalSourceColorFields,type CanonicalSourcePatternResource} from '@grafetto/shared'
 export type {CanonicalSourcePatternResource} from '@grafetto/shared'
-import {bakeCanonicalTextureGradient} from './src/input/CanonicalTextureGradient'
+import {bakeCanonicalSourceTipGradient,bakeCanonicalTextureGradient} from './src/input/CanonicalTextureGradient'
 import {assertSourceGradientResource,captureSourceGradientResource,type SourceGradientResource} from './src/presets/sourceGradientResource'
 export type {SourceGradientResource} from './src/presets/sourceGradientResource'
 import {canonicalSourceScale} from './src/input/CanonicalSourceScale'
-import {canonicalPixelImageSourceBinding,canonicalPixelImageMaterialContext,type CanonicalPixelImageSourceBinding} from '@grafetto/shared'
+import {canonicalPixelImageSourceBinding,canonicalPixelImagePreparationContext,canonicalPixelImageMaterialContext,type CanonicalPixelImageSourceBinding} from '@grafetto/shared'
 import {canonicalDynamicAutoSourceBinding} from '@grafetto/shared'
 import {hasActiveSourceMaterialOptions,sourceColorRecording,sourceColorProviderKind} from '@grafetto/shared'
 import {canonicalPointerHardware} from './src/input/CanonicalSourceInput'
@@ -14,7 +15,7 @@ import {prepareCanonicalImageMaterialSources} from './src/dabs/canonicalImageMat
 import {canonicalImageMaterialReadSource,canonicalAuthorImageMaterialSource} from '@grafetto/shared'
 import {canonicalSourceMaterialContext,canonicalSourceStrokeSnapshotV2,canonicalPixelMaskedReadSource,canonicalAuthorPixelMaskedSource,extractCanonicalPixelDualSourceData,canonicalPixelDualSourceBinding,canonicalMaskedSourceMaterialContext,type CanonicalPixelDualSourceBinding,type CanonicalMaterialContextV2} from '@grafetto/shared'
 import {canonicalGaussianAutoStatic,canonicalGaussianAutoSourcePin,canonicalSoftAutoStatic,canonicalSoftAutoSourcePin,canonicalPlainAutoGeometryReadSource,canonicalAuthorPlainAutoGeometrySource} from '@grafetto/shared'
-import {canonicalPixelColorTexturePin,canonicalPixelPrimaryTexturePin,canonicalPixelTextureSourceBinding,canonicalPixelTextureMaterialContext,type CanonicalPixelTextureSourceBinding,canonicalPrimaryGrainReadSource,canonicalAuthorPrimaryGrainSource,canonicalPrimaryGrainMaterialContext,canonicalStandaloneStrokeSnapshotV8,resolveCanonicalTexturePhase,type CanonicalMaterialContextV8,type CanonicalStrokeSnapshotV8} from '@grafetto/shared'
+import {canonicalPixelColorTexturePin,canonicalPixelPrimaryTexturePin,canonicalPixelTextureSourceBinding,canonicalPixelTexturePreparationContext,canonicalPixelTextureMaterialContext,type CanonicalPixelTextureSourceBinding,canonicalPrimaryGrainReadSource,canonicalAuthorPrimaryGrainSource,canonicalPrimaryGrainMaterialContext,canonicalStandaloneStrokeSnapshotV8,resolveCanonicalTexturePhase,type CanonicalMaterialContextV8,type CanonicalStrokeSnapshotV8} from '@grafetto/shared'
 import {canonicalPlainTiltReadSource,canonicalAuthorPlainTiltSource,canonicalDefaultAutoStatic,canonicalDefaultAutoSourcePin} from '@grafetto/shared'
 import {canonicalPlainAutoGeometryMaskCapacity,assertCanonicalPlainAutoGeometryRecipeCapacity} from './src/dabs/canonicalAutoCapacity'
 import {canonicalDynamicAutoGeometryAuthorAdmission,canonicalPlainAutoGeometryAuthorAdmission,type CanonicalPlainAutoGeometryCapability} from './src/presets/sourceCanonicalAuthorAdmission'
@@ -1508,15 +1509,15 @@ function canonicalGrainImageMaterial(context:CanonicalMaterialContextV8):Canonic
  const source=context.primarySource
  if(!canonicalHasSpatialPattern(context.sourceColorFields)&&(source.kind!=='image'||!source.imageMaterial&&!context.imageFrameIndices))return undefined
  const ids=new Set(source.kind==='image'?source.frames??[source.asset]:[]),law=source.kind==='image'?source.imageMaterial:undefined
- if(law?.kind==='lightness-map-v1'){ids.add(law.grayAsset);for(const id of law.grayFrames??[])ids.add(id)}else if(law){for(const id of law.channels)ids.add(id);for(const frame of law.frames??[])for(const id of frame)ids.add(id)}
+ if(law?.kind==='lightness-map-v1'||law?.kind==='gradient-map-v1'){ids.add(law.grayAsset);for(const id of law.grayFrames??[])ids.add(id)}else if(law){for(const id of law.channels)ids.add(id);for(const frame of law.frames??[])for(const id of frame)ids.add(id)}
  for(const field of [context.sourceColorFields?.primary,context.sourceColorFields?.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1'){ids.add(field.resource.alphaAsset);for(const id of field.resource.channels)ids.add(id)}
  return canonicalSourceMaterialContext({version:2,assets:context.assets.filter(a=>ids.has(a.id)),primarySource:source,budget:context.budget,...context.outerCompositionLaw?{outerCompositionLaw:context.outerCompositionLaw}:{},...context.sourceColorFields?{sourceColorFields:context.sourceColorFields}:{},...context.scaledSource?{scaledSource:context.scaledSource}:{},...context.imageFrameIndices?{imageFrameIndices:context.imageFrameIndices}:{},...context.materialParams?{materialParams:context.materialParams}:{},...context.colorParams?{colorParams:context.colorParams}:{}})
 }
 function canonicalRenderImage(snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7|CanonicalStrokeSnapshotV8):{image:ReturnType<typeof canonicalImageMaterialPin>;texture?:CanonicalMaterialContextV3|CanonicalMaterialContextV8}|undefined {
  if(snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7)return undefined
- if(snapshot.materialVersion===8){const texture=canonicalPrimaryGrainMaterialContext(snapshot.material),source=texture.primarySource;if(source.kind!=='image')return undefined;const alpha=texture.assets.find(a=>a.id===source.asset);if(!alpha)throw new Error('Original alpha asset missing');return{image:canonicalImageMaterialPin({kind:'image',asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames?{frames:source.frames}:{}},(source.frames??[source.asset]).map(id=>{const asset=texture.assets.find(a=>a.id===id);if(!asset)throw new Error('Original frame asset missing');return asset})),texture}}
+ if(snapshot.materialVersion===8){const texture=canonicalPrimaryGrainMaterialContext(snapshot.material),source=texture.primarySource;if(source.kind!=='image')return undefined;return{image:canonicalImageGeometryPin(source,texture.assets),texture}}
  if(snapshot.materialVersion===3){const texture=canonicalPrimaryTextureMaterialContext(snapshot.material);return{image:canonicalImageMaterialPin(texture.primarySource,[texture.assets[0]]),texture}}
- if(snapshot.materialVersion===2&&snapshot.material.primarySource.kind==='image'&&snapshot.material.primarySource.imageMaterial){const source=snapshot.material.primarySource,asset=snapshot.material.assets.find(a=>a.id===source.asset);if(!asset)throw new Error('Image material alpha missing');return{image:canonicalImageMaterialPin({kind:'image',asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle},[asset])}}
+ if(snapshot.materialVersion===2&&snapshot.material.primarySource.kind==='image'&&snapshot.material.primarySource.imageMaterial)return{image:canonicalImageGeometryPin(snapshot.material.primarySource,snapshot.material.assets)}
  return snapshot.material.primarySource.kind==='image'?{image:canonicalImageGeometryPin(snapshot.material.primarySource,snapshot.material.assets)}:undefined
 }
 /** Normalized source DATA inventory only. Execution additionally requires the
@@ -1669,7 +1670,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const maskedGestures=new Set<string>()
  const imageMaterials=new Map<string,CanonicalMaterialContextV2>()
  const imageAssets=new Map<string,CanonicalMaterialAsset>(),patterns=new Map<string,Pick<CanonicalPatternSourceInput,'asset'|'pin'|'alphaAsset'>>(),imageGestures=new Set<string>()
- let maskWidth=1,maskHeight=1,maskSlots=1,spatialColors=false,browserHsy=false
+ let maskWidth=1,maskHeight=1,maskSlots=1,spatialColors=false,tipGradient=false,browserHsy=false
  for(let i=0;i<read.preparedAtoms.length;i++){
   const atom=read.preparedAtoms[i],delivery=Object.getOwnPropertyDescriptor(atom,'delivery')
   if(!delivery||!Object.hasOwn(delivery,'value')||!delivery.value||delivery.value.lifetime!==read||atom.operation!==tail[i])throw new TypeError('Original canonical input required')
@@ -1718,6 +1719,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
    fixed=s.materialVersion===8||canonicalPlainAutoGeometryReadSource(read,'plainAutoGeometrySource',read.authorRasterProfile)?canonicalAutoMaskCapacity(source,'dynamic-auto-geometry-v1'):s.materialVersion===7?canonicalTexturedAuto7MaskCapacity(s.material.primarySource):s.materialVersion===2&&source.kind==='defaultAuto'&&canonicalPlainTiltReadSource(read,'plainTiltSource',read.authorRasterProfile)?canonicalPlainAutoGeometryMaskCapacity(source):canonicalAutoMaskCapacity(source)
   }
   if((s.materialVersion===2||s.materialVersion===8)&&s.material.sourceColorFields){spatialColors=true;maskSlots=Math.max(maskSlots,3)}
+  if(s.materialVersion===2||s.materialVersion===8){const c=s.material;if([c.primarySource,...c.version===2&&c.maskSource?[c.maskSource]:[]].some(source=>source.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'&&source.imageMaterial.application==='plain-gradient')){tipGradient=true;maskSlots=Math.max(maskSlots,2)}}
   if((s.materialVersion===2||s.materialVersion===8)&&s.material.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')browserHsy=true
   maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height);maskSlots=Math.max(maskSlots,fixed.slots)
   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal).frame
@@ -1741,7 +1743,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  }
  if(!full&&[...imageGestures].some(key=>!prefixes.get(key)?.ended))throw new TypeError('Open canonical image baseline unsupported')
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
- const mask={width:maskWidth,height:maskHeight,slots:maskSlots,...spatialColors?{spatialColors:true as const}:{}};let composite=canonicalCompositePlan(read.authorRasterProfile,tileWidth,tileHeight,canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile)==='primary-grain-image-v1',canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)==='pixel-masked-v1',!!canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)||!!canonicalPlainAutoGeometryReadSource(read,'plainAutoGeometrySource',read.authorRasterProfile)||!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile)||!!canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile),!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile))
+ const mask={width:maskWidth,height:maskHeight,slots:maskSlots,...spatialColors?{spatialColors:true as const}:{},...tipGradient?{tipGradient:true as const}:{}};let composite=canonicalCompositePlan(read.authorRasterProfile,tileWidth,tileHeight,canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile)==='primary-grain-image-v1',canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)==='pixel-masked-v1',!!canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)||!!canonicalPlainAutoGeometryReadSource(read,'plainAutoGeometrySource',read.authorRasterProfile)||!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile)||!!canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile),!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile))
  composite=canonicalHsyCompositeLimits(composite,browserHsy)
  const roleErase=paintInputs.some(input=>input.read?.capability.snapshot.composition.outerBlend==='erase')
  const rolePrograms=[...imageMaterials.values()].flatMap(context=>canonicalRoleTexturePrograms(context,read.authorRasterProfile,roleErase))
@@ -7514,7 +7516,9 @@ export class PencilEngine implements PencilEngineAPI {
     if(texture){if(!canonicalSoftAutoDataEqual(snapshot.assets,texture.assets))throw new TypeError('Canonical texture assets changed')}else if(!pin&&!masked&&!imageMaterial?.sourceColorFields&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported canonical resource assets')
     const baseCapacity=masked?canonicalMaskedCapacity(masked):pin?canonicalImageMaskCapacity(pin.primarySource,pin.assets):source.kind!=='image'?(snapshot.materialVersion===8||canonicalPlainAutoGeometryReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainAutoGeometrySource',owner.plan.profile)?canonicalAutoMaskCapacity(source,'dynamic-auto-geometry-v1'):snapshot.materialVersion===7?canonicalTexturedAuto7MaskCapacity(snapshot.material.primarySource):snapshot.materialVersion===2&&source.kind==='defaultAuto'&&canonicalPlainTiltReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainTiltSource',owner.plan.profile)?canonicalPlainAutoGeometryMaskCapacity(source):canonicalAutoMaskCapacity(source)):undefined
     if(!baseCapacity)throw new TypeError('Unsupported canonical resource source')
-    const capacity=(snapshot.materialVersion===2||snapshot.materialVersion===8)&&snapshot.material.sourceColorFields?{...baseCapacity,slots:Math.max(3,baseCapacity.slots),spatialColors:true as const}:baseCapacity
+    const resourceContext=snapshot.materialVersion===2||snapshot.materialVersion===8?snapshot.material:undefined
+    const tipGradient=!!resourceContext&&[resourceContext.primarySource,...resourceContext.version===2&&resourceContext.maskSource?[resourceContext.maskSource]:[]].some(source=>source.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'&&source.imageMaterial.application==='plain-gradient')
+    const capacity={...baseCapacity,...resourceContext?.sourceColorFields?{slots:Math.max(3,baseCapacity.slots),spatialColors:true as const}:tipGradient?{slots:Math.max(2,baseCapacity.slots)}:{},...tipGradient?{tipGradient:true as const}:{}}
     for(const recipe of decoded.definitions)if(masked)assertCanonicalMaskedRecipeCapacity(recipe,masked,capacity);else if(pin){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,pin.primarySource,pin.assets,capacity)}else if((snapshot.materialVersion===8||canonicalPlainAutoGeometryReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainAutoGeometrySource',owner.plan.profile))&&source.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,source,capacity,'dynamic-auto-geometry-v1',(snapshot.materialVersion===2||snapshot.materialVersion===8)&&snapshot.material.scaledSource?source.brushScale:undefined)
     else if(snapshot.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,snapshot.material,capacity)
     else if(source.kind!=='image'){if(snapshot.materialVersion===2&&source.kind==='defaultAuto'&&canonicalPlainTiltReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainTiltSource',owner.plan.profile))assertCanonicalPlainAutoGeometryRecipeCapacity(recipe,source,capacity);else assertCanonicalAutoRecipeCapacity(recipe,source,capacity)}
@@ -7523,7 +7527,7 @@ export class PencilEngine implements PencilEngineAPI {
       await this._brushPreparation.whenIdle();current()
       if(options.signal?.aborted)return{status:'cancelled'}
     }
-    const replace=!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height||capacity.slots>owner.mask.slots||!!capacity.spatialColors&&!owner.mask.spatialColors
+    const replace=!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height||capacity.slots>owner.mask.slots||!!capacity.spatialColors&&!owner.mask.spatialColors||!!capacity.tipGradient&&!owner.mask.tipGradient
     if(replace&&!owner.prepared&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical cold workspace requires an idle owner')
     if(!pin&&!texture&&!imageMaterial?.roleTextures&&!canonicalHasSpatialPattern(imageMaterial?.sourceColorFields)){
       if(!replace){if(imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')this._ensureCanonicalHsyProgram(owner,current);return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)}
@@ -7555,7 +7559,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(op.frame.frameOrdinal>0)return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     }
     if(!owner.indexedCandidate&&!owner.indexedCut&&!replace&&op.frame.frameOrdinal>0&&pin&&!texture&&!imageMaterial&&(images??[pin]).every(image=>this._canonicalImageSourceReady(owner,image,current)))return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
-    const result=await this._prepareCanonicalImageResources(owner,pin,current,options,replace?{width:Math.max(owner.mask.width,capacity.width),height:Math.max(owner.mask.height,capacity.height),slots:Math.max(owner.mask.slots,capacity.slots),...owner.mask.spatialColors||capacity.spatialColors?{spatialColors:true as const}:{}}:undefined,true,input,undefined,texture,images?.slice(1),imageMaterial,snapshot.composition.outerBlend==='erase')
+    const result=await this._prepareCanonicalImageResources(owner,pin,current,options,replace?{width:Math.max(owner.mask.width,capacity.width),height:Math.max(owner.mask.height,capacity.height),slots:Math.max(owner.mask.slots,capacity.slots),...owner.mask.spatialColors||capacity.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||capacity.tipGradient?{tipGradient:true as const}:{}}:undefined,true,input,undefined,texture,images?.slice(1),imageMaterial,snapshot.composition.outerBlend==='erase')
     if(result.status==='ready')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     return result
   }
@@ -7817,7 +7821,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(owner.bank||!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical cold auto workspace unavailable')
     const oldMask=owner.mask,oldPrepassReady=owner.prepass.isReady(),oldCompositeReady=owner.composite.isReady(),generation=owner.generation
     let inner:CanonicalPreparedResourceUpdate|undefined,releaseExisting:undefined|(()=>void),newPrepass=false,newComposite=false,state:'pending'|'published'|'cancelled'='pending',checked=false,cleaned=false
-    const mask=Object.freeze({width:Math.max(oldMask.width,requested.width),height:Math.max(oldMask.height,requested.height),slots:Math.max(oldMask.slots,requested.slots),...oldMask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}})
+    const mask=Object.freeze({width:Math.max(oldMask.width,requested.width),height:Math.max(oldMask.height,requested.height),slots:Math.max(oldMask.slots,requested.slots),...oldMask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...oldMask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}})
     const all=(tasks:(()=>void)[])=>{let failed=false,primary:unknown;for(const task of tasks)try{task()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}
     const lost=()=>generation!==this._physicalGeneration||this._contextLost
     const retire=()=>all([()=>inner?.cancel(),()=>{if(newPrepass)owner.prepass.reset(lost())},()=>{if(newComposite)owner.composite.reset(lost())},()=>{const release=releaseExisting;releaseExisting=undefined;release?.()}])
@@ -7851,11 +7855,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _prepareCanonicalLayerWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits,originalAddition=false,browserHsy=false):CanonicalPreparedResourceUpdate|undefined {
     this._assertCanonicalLayerCurrent(owner)
     if(browserHsy)this._ensureCanonicalHsyProgram(owner,()=>this._assertCanonicalLayerCurrent(owner))
-    if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots&&(!requested.spatialColors||owner.mask.spatialColors))return
+    if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots&&(!requested.spatialColors||owner.mask.spatialColors)&&(!requested.tipGradient||owner.mask.tipGradient))return
     const oldPrepared=owner.prepared,growing=owner.prepared||owner.prepass.isReady()&&owner.composite.isReady()
     if(growing){
       if(!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
-      const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}}),sources=owner.bank?.preparedResources()??[]
+      const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}),sources=owner.bank?.preparedResources()??[]
       let update:CanonicalPreparedCapacityUpdate|undefined,companions:CanonicalPreparedResourceUpdate|undefined,release:undefined|(()=>void),published=false
       const capturedMask=owner.mask,capturedResources=owner.releaseResources
       const retained=owner.prepass.preparedResources(),compositeInventory=owner.composite.preparedResources()
@@ -7884,7 +7888,7 @@ export class PencilEngine implements PencilEngineAPI {
       }catch(error){if(!published)for(const cleanup of [()=>companions?.cancel(),()=>update?.cancel(),()=>release?.()])try{cleanup()}catch{/* Preserve transaction error. */}throw error}finally{releaseInventory()}
     }
     if(owner.bank)throw new TypeError('Canonical unprepared image owner unavailable')
-    const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}})
+    const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}})
     const cost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(this._canonicalCompositeLimits(owner,browserHsy)),compositeReady=owner.composite.isReady()
     const replacing=growing||compositeReady
     const oldMaskCpu=growing?transformedMaskPrepassBudget(owner.mask).cpuBytes:0
@@ -8553,7 +8557,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Engine foreground colour is RGB; foreground alpha is one. Resource
       // opacity remains the separate captured BEGIN opacity, applied once.
       const binding=canonicalPixelImageSourceBinding(original,sha,metadata,owner.plan.profile,1,{sourceScale})
-      const descriptor=binding.descriptor,context=canonicalPixelImageMaterialContext(binding,{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+      const descriptor=binding.descriptor,context=canonicalPixelImagePreparationContext(binding,{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
       const source=binding.source,pin=canonicalImageMaterialPin({kind:'image',asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames?{frames:source.frames}:{}},(source.frames??[source.asset]).map(id=>{const asset=binding.assets.find(a=>a.id===id);if(!asset)throw new Error('Original pipe alpha frame missing');return asset})),requested=canonicalSpatialCapacity(canonicalImageMaskCapacity(pin.primarySource,pin.assets),source.imageMaterial?.kind!=='color-stamp-v1'&&canonicalSpatialProvider(binding.data))
       const base={inputProfile:'krita-freehand-no-smoothing-v1' as const,colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile:'neon64-f32-fma-v1' as const,scale:sourceScale}
       const compiled=sourcePixelImageAuthorProgram(descriptor,{...base,binding})
@@ -8561,7 +8565,7 @@ export class PencilEngine implements PencilEngineAPI {
       const preparationIdentity=preset+':sourceScale:'+sourceScale
       if(this._brushPreparationPreset!==preparationIdentity){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preparationIdentity}
       const generation=this._brushPreparationGeneration,check=()=>{current();if(generation!==this._brushPreparationGeneration)throw new Error('Image material generation changed')}
-      const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}}:undefined
+      const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}:undefined
       let result=await this._prepareCanonicalImageResources(owner,pin,check,options,initial,false,undefined,localLease,undefined,[],source.imageMaterial?context:undefined)
       if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,pin,check,options,undefined,false,undefined,localLease,undefined,[],source.imageMaterial?context:undefined)
       lease=localLease.lease;localLease.lease=undefined
@@ -8615,7 +8619,7 @@ export class PencilEngine implements PencilEngineAPI {
         return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:slot,...identity,...canonicalSoftAutoStatic(data.source,scale,data.brush.angle,coverageProfile),coverageProfile,reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})
       }
       const primaryColor=sourceColorRecording(captured.primary.data),maskColor=sourceColorRecording(captured.mask.data),colorParams=primaryColor==='source-pigment-rgba8-v1'||maskColor==='source-pigment-rgba8-v1'?'source-pigment-rgba8-v1':primaryColor??maskColor
-      const primarySource=source(captured.primary,0),maskSource=source(captured.mask,1),context=canonicalMaskedSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1' as const}:{},...primarySource.kind==='image'||maskSource.kind==='image'?{imageFrameIndices:'source-image-pipe-frame-v1' as const}:{},assets:imageAssets,primarySource,maskSource,maskingBlend:captured.blendMode,...hasActiveSourceMaterialOptions(captured.primary.data)||hasActiveSourceMaterialOptions(captured.mask.data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}),binding=canonicalPixelDualSourceBinding(descriptor,sha,context,{sourceScale},metadata)
+      const primarySource=source(captured.primary,0),maskSource=source(captured.mask,1),baseContext=canonicalMaskedSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1' as const}:{},...primarySource.kind==='image'||maskSource.kind==='image'?{imageFrameIndices:'source-image-pipe-frame-v1' as const}:{},assets:imageAssets,primarySource,maskSource,maskingBlend:captured.blendMode,...hasActiveSourceMaterialOptions(captured.primary.data)||hasActiveSourceMaterialOptions(captured.mask.data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}),binding=canonicalPixelDualSourceBinding(descriptor,sha,baseContext,{sourceScale},metadata),context=canonicalPixelDualSourcePreparationContext(binding)
       const requested=canonicalSpatialCapacity(canonicalMaskedCapacity(context),[captured.primary,captured.mask].some(role=>role.imageSource?.imageMaterial?.kind!=='color-stamp-v1'&&canonicalSpatialProvider(role.data))),images=canonicalMaskedImages(context),compiled=sourcePixelDualAuthorProgram(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile:'neon64-f32-fma-v1',assets:metadata,binding,scale:sourceScale})
       if(!compiled.supported)throw new Error(compiled.reasons.join(','))
       const preparationIdentity=preset+':sourceScale:'+sourceScale
@@ -8623,7 +8627,7 @@ export class PencilEngine implements PencilEngineAPI {
       const generation=this._brushPreparationGeneration,check=()=>{current();if(generation!==this._brushPreparationGeneration)throw new Error('Masked source generation changed')}
       let result:BrushPreparationResult
       if(images.length){
-        const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}}:undefined
+        const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}:undefined
         result=await this._prepareCanonicalImageResources(owner,images[0],check,options,initial,false,undefined,localLease,undefined,images.slice(1),context)
         if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,images[0],check,options,undefined,false,undefined,localLease,undefined,images.slice(1),context)
         lease=localLease.lease;localLease.lease=undefined
@@ -8751,7 +8755,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(growing&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
     if(initializing&&(owner.inputs.length||owner.bank||!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical initial image preparation requires an empty idle owner')
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),materialCpu=generic?sourceTexturedAutoProgramCpuBytes(generic.program):softPressure?sourceNativeDefaultMaterialProgramCpuBytes(softPressure.program):pressure?sourcePressureMaterialProgramCpuBytes(pressure.program):0,charge=plainCharge||bytes.length*8+8192+materialCpu
-    const mask=owner.prepared?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}}):requested,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(canonicalHsyCompositeLimits(owner.plan.composite,originalComposition?.outerBlend==='colorHsyBrowser'))
+    const mask=owner.prepared?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}):requested,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(canonicalHsyCompositeLimits(owner.plan.composite,originalComposition?.outerBlend==='colorHsyBrowser'))
     if(resources){
       const budget=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>image?accept(image.primarySource,image.assets,image):undefined,requirements=>canonicalMaskSourceBankBudget([...(image?.assets??[]).map(asset=>({asset,readOriginalCoverage:()=>{throw new Error('Pure image budget cannot read pixels')}})),...pattern?[{kind:'raw-pattern-l8' as const,asset:pattern,pin:grainPattern??fixed?.primaryTexture??((pressure||softPressure)?canonicalPressureCurvePrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:descriptor.texture!.patternSize!.width,height:descriptor.texture!.patternSize!.height,periodX:descriptor.texture!.periodPx,periodY:descriptor.texture!.periodPx,offsetX:descriptor.texture!.offset!.x,offsetY:descriptor.texture!.offset!.y,strength:'source-pressure-curve-v1'},[pattern]):texture!.primaryTexture),...grain?.alphaAsset?{alphaAsset:grain.alphaAsset,readOriginalAlpha:()=>{throw new Error('Pure pattern budget cannot read alpha')}}:{},readOriginalGray:()=>{throw new Error('Pure pattern budget cannot read pixels')}}]:[]],requirements.length?requirements:undefined)),oldKeys=new Set(owner.bank?.jobs.map(job=>job.key)??[]),union=new Map((owner.bank?.jobs??[]).map(job=>[job.key,job.bytes]))
       for(const resource of budget.resources)union.set(resource.key,resource.bytes)
@@ -8773,7 +8777,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
         binding8=canonicalPixelTextureSourceBinding(descriptor,fixedSha,importedBrushAssetMetadata(preset)??[],coverageProfile,owner.plan.profile,1,{sourceScale})
         // Zero entropy only plans fixed-size resources; actual START samples phase once.
-        if(!deferredTextureGradient)texture=canonicalPixelTextureMaterialContext(binding8,resolveCanonicalTexturePhase(binding8.phasePolicy,()=>0),{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+        if(!deferredTextureGradient)texture=canonicalPixelTexturePreparationContext(binding8,resolveCanonicalTexturePhase(binding8.phasePolicy,()=>0),{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
       }
       if(generic){fixedSha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');this._assertCanonicalLayerCurrent(owner);if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'};if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Textured Auto density unsupported');binding7=canonicalTexturedAutoProgramBinding(descriptor,fixedSha,coverageProfile,{id:generic.patternAsset.id,size:generic.patternAsset.size},owner.plan.profile)}
       if(softPressure){
@@ -8801,7 +8805,7 @@ export class PencilEngine implements PencilEngineAPI {
       const sha=fixedSha??Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('')
       this._assertCanonicalLayerCurrent(owner)
       if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
-      const initialMask=resources&&(!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors)?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{}}):undefined
+      const initialMask=resources&&(!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors)?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}):undefined
       if(owner.prepared&&initialMask&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy')
       if(initialMask&&!owner.prepared&&(owner.inputs.length||owner.bank||!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical initial image preparation requires an empty idle owner')
       let material:CanonicalPreparedAuthor['material']
@@ -9142,14 +9146,16 @@ export class PencilEngine implements PencilEngineAPI {
     const pendingDraws=prepared.material.kind==='texturedAuto'?8:2
     const pendingMetadata=1024+pendingDraws*(2*1024+512+512)+10*128+64*256+(curve?2*pendingDraws*(2*curve.text.length+32*curve.points.length):0)
     const roleTextureSources=prepared.material.kind==='masked'?[prepared.material.binding.primary.textureSource,prepared.material.binding.mask.textureSource]:[],roleTextureGradient=roleTextureSources.some(source=>source?.textureGeometry.mode==='gradient')
-    const sourceNeedsGradient=prepared.program.roles.some(role=>role.sourceColorProvider==='gradient'),textureNeedsGradient=prepared.material.kind==='pixelTexture'&&prepared.material.binding.textureGeometry.mode==='gradient',needsGradient=sourceNeedsGradient||textureNeedsGradient||roleTextureGradient,selectedGradient=this._sourceGradient
+    const tipNeedsGradient=prepared.material.kind==='masked'?!!(prepared.material.binding.primary.gradientMapTemplate||prepared.material.binding.mask.gradientMapTemplate):(prepared.material.kind==='pixelTexture'||prepared.material.kind==='imageMaterial')&&!!prepared.material.binding.gradientMapTemplate
+    const sourceNeedsGradient=prepared.program.roles.some(role=>role.sourceColorProvider==='gradient'),textureNeedsGradient=prepared.material.kind==='pixelTexture'&&prepared.material.binding.textureGeometry.mode==='gradient',needsGradient=sourceNeedsGradient||textureNeedsGradient||roleTextureGradient||tipNeedsGradient,selectedGradient=this._sourceGradient
     // Selected capture, author-owned START clone and one transient plan clone.
     // Logical metadata allowance, not an exact JS heap measurement.
     const spatialProviders=prepared.program.roles.map(sourceSpatialRoleProvider),needsPattern=spatialProviders.some(p=>p==='pattern'||p==='lockedpattern'),needsNoise=spatialProviders.includes('total_random'),needsSpatial=needsPattern||needsNoise,selectedPattern=this._sourcePattern
     if(needsPattern&&!selectedPattern)throw new Error('Select a source paint pattern before drawing')
     const gradientMetadata=needsGradient?8192+(selectedGradient?.stops.length??2)*1024:0
-    const releaseCpu=this._brushMipCache.reserve((prepared.preparedRuntime?0:prepared.bytes)+8192+pendingMetadata+gradientMetadata+((textureNeedsGradient||roleTextureGradient)?65536:0)+(needsSpatial?65536:0))
+    const releaseCpu=this._brushMipCache.reserve((prepared.preparedRuntime?0:prepared.bytes)+8192+pendingMetadata+gradientMetadata+((textureNeedsGradient||roleTextureGradient||tipNeedsGradient)?65536:0)+(needsSpatial?65536:0))
     let releasePrepared:(()=>void)|undefined,context2:CanonicalMaterialContextV2|undefined,context7:CanonicalMaterialContextV7|undefined,context8:CanonicalMaterialContextV8|undefined,textureGradient:ReturnType<typeof bakeCanonicalTextureGradient>|undefined
+    let sourceTipGradient:ReturnType<typeof bakeCanonicalSourceTipGradient>|undefined
     let authorColors:CanonicalSourceSession['authorColors'],sourceColorFields:CanonicalSourceColorFields|undefined,sourceRoleTextureInputs:CanonicalSourceRoleTexturesInput|undefined
     const pigment=snapshot.opts.graphiteColor.map(v=>Math.round(v*255)) as [number,number,number]
     const assertStart7=()=>{
@@ -9163,11 +9169,11 @@ export class PencilEngine implements PencilEngineAPI {
     // selected resource is immutable and captured before BEGIN, never replayed.
     const gradient=needsGradient?captureSourceGradientResource(selectedGradient??{kind:'srgb8-linear-stops-v1',stops:[{position:0,rgba:[pigment[0],pigment[1],pigment[2],255]},{position:1,rgba:[255,255,255,255]}]}):undefined
     if(textureNeedsGradient||roleTextureGradient){if(!gradient)throw new Error('Selected texture gradient missing');textureGradient=bakeCanonicalTextureGradient(gradient)}
+    if(tipNeedsGradient){if(!gradient)throw new Error('Selected tip gradient missing');sourceTipGradient=bakeCanonicalSourceTipGradient(gradient)}
     context2=prepared.sourceContext2
     if(prepared.material.kind==='masked'&&roleTextureSources.some(Boolean)){
       const role=(source:typeof roleTextureSources[number])=>source?{phase:createCanonicalTexturePhaseCandidate(source.phasePolicy),...source.textureGeometry.mode==='gradient'?{textureGradient}:{}}:null
       sourceRoleTextureInputs=canonicalSourceRoleTexturesInput({primary:role(roleTextureSources[0]),mask:role(roleTextureSources[1])})
-      context2=canonicalPixelDualSourceMaterialContext(prepared.material.binding,sourceRoleTextureInputs)
     }
     const pattern=needsPattern?canonicalSourcePatternResource(selectedPattern):undefined
     const spatialColor=needsSpatial?Object.freeze({...pattern?{pattern}:{},...needsNoise?{noiseSeed:crypto.getRandomValues(new Uint32Array(1))[0]}:{}}):undefined
@@ -9175,22 +9181,25 @@ export class PencilEngine implements PencilEngineAPI {
     if(needsSpatial){
       const field=(provider:typeof spatialProviders[number])=>provider==='total_random'?{kind:'total-random-rgb8-hash-v1' as const}:provider==='pattern'||provider==='lockedpattern'?{kind:provider,resource:pattern!}:null
       sourceColorFields=canonicalSourceColorFields({primary:field(spatialProviders[0]),...spatialProviders.length>1?{mask:field(spatialProviders[1])}:{}})
-      if(context2){
+      if(context2&&prepared.material.kind!=='masked'&&prepared.material.kind!=='imageMaterial'){
         const additions=canonicalSourceColorFieldAssets(sourceColorFields,sourceColorAvailable)
         const merged=new Map(context2.assets.map(a=>[a.id,a]));for(const asset of additions){const previous=merged.get(asset.id);if(previous&&!canonicalSourceAssetStorageCompatible([context2.primarySource,...context2.maskSource?[context2.maskSource]:[]],previous,asset))throw new Error('Spatial source storage side conflict');if(!previous)merged.set(asset.id,asset)}
         const assets=[...merged.values()]
         context2=canonicalSourceMaterialContext({...context2,assets,sourceColorFields})
-      }else if(prepared.material.kind!=='pixelTexture')throw new Error('Spatial paint requires a captured source material')
+      }else if(!context2&&prepared.material.kind!=='pixelTexture')throw new Error('Spatial paint requires a captured source material')
     }
+    const materialInputs=(sourceTipGradient||sourceColorFields)?{...sourceTipGradient?{sourceTipGradient}:{},...sourceColorFields?{sourceColorFields,sourceColorAvailable}:{}}:undefined
+    if(prepared.material.kind==='masked')context2=canonicalPixelDualSourceMaterialContext(prepared.material.binding,sourceRoleTextureInputs,materialInputs)
+    if(prepared.material.kind==='imageMaterial')context2=canonicalPixelImageMaterialContext(prepared.material.binding,prepared.material.context.budget,materialInputs)
     authorColors=(prepared.program.colorParams||needsSpatial)?Object.freeze({foregroundRGB:Object.freeze([pigment[0],pigment[1],pigment[2]] as const),backgroundRGB:Object.freeze([255,255,255] as const),...sourceNeedsGradient&&gradient?{gradient}:{},...spatialColor?{spatialColor}:{}}):undefined
       if(prepared.material.kind==='masked'||prepared.material.kind==='imageMaterial'){releasePrepared=prepared.retainPreparedRuntime!();assertStart7()}
-      if(prepared.material.kind==='pixelTexture'){releasePrepared=prepared.retainPreparedRuntime!();assertStart7();const phase=createCanonicalTexturePhaseCandidate(prepared.material.binding.phasePolicy);assertStart7();context8=canonicalPixelTextureMaterialContext(prepared.material.binding,phase,{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels},(textureGradient||sourceColorFields)?{...textureGradient?{textureGradient}:{},...sourceColorFields?{sourceColorFields,sourceColorAvailable}:{}}:undefined)}
+      if(prepared.material.kind==='pixelTexture'){releasePrepared=prepared.retainPreparedRuntime!();assertStart7();const phase=createCanonicalTexturePhaseCandidate(prepared.material.binding.phasePolicy);assertStart7();context8=canonicalPixelTextureMaterialContext(prepared.material.binding,phase,{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels},(textureGradient||materialInputs)?{...materialInputs,...textureGradient?{textureGradient}:{}}:undefined)}
       if(prepared.geometryCapability&&prepared.material.kind!=='texturedAuto'){releasePrepared=prepared.retainPreparedRuntime!();assertStart7()}
       if(prepared.material.kind==='texturedAuto'){releasePrepared=prepared.retainPreparedRuntime!();const phase=createCanonicalTexturePhaseCandidate(prepared.material.binding.phasePolicy);assertStart7();context7=canonicalTexturedAutoMaterialContext({version:7,assets:[prepared.material.binding.patternAsset],primarySource:prepared.material.pin,primaryTexture:{...prepared.material.binding.textureGeometry,phase,strength:'recorded-grain-v1'},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}});assertTexturedAutoProgramContext(prepared.material.binding,context7)}
     }catch(error){try{releasePrepared?.()}finally{releaseCpu()}throw error}
     let releaseDone=false;const release=()=>{if(releaseDone)return;releaseDone=true;let failure:unknown;try{releasePrepared?.()}catch(e){failure=e}try{releaseCpu()}catch(e){failure??=e}if(failure)throw failure}
     try{
-    const request:CanonicalStrokeBegin=Object.freeze({...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureNeedsGradient&&textureGradient?{textureGradient}:{},...prepared.sourceScale!==undefined?{sourceScale:prepared.sourceScale}:{},emptyDiscardNonce:nanoid(),layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...(context8||context7)?{texturePhase:(context8??context7)!.primaryTexture.phase}:{}})
+    const request:CanonicalStrokeBegin=Object.freeze({...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureNeedsGradient&&textureGradient?{textureGradient}:{},...prepared.sourceScale!==undefined?{sourceScale:prepared.sourceScale}:{},emptyDiscardNonce:nanoid(),layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...(context8||context7)?{texturePhase:(context8??context7)!.primaryTexture.phase}:{}})
     const capturedService=this._canonicalAuthorService
     const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,...context2?{context2}:{},...authorColors?{authorColors}:{},...context8?{context8}:{},...context7?{context7}:{},...capturedService.discardEmpty?{discardEmpty:()=>capturedService.discardEmpty!(request)}:{},timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}
     assertStart7()
@@ -9204,13 +9213,16 @@ export class PencilEngine implements PencilEngineAPI {
       try{
         owner._assertCanonicalSource(session)
         const isCurrent=()=>{try{owner._assertCanonicalSource(session);return true}catch{return false}}
-        if(source.context2?.sourceColorFields||source.context8?.sourceColorFields){
-          const capacity={...prepared.owner.mask,slots:Math.max(3,prepared.owner.mask.slots),spatialColors:true as const}
+        const sourceContext=source.context2??source.context8
+        const needsTipPass=!!sourceContext&&[sourceContext.primarySource,...sourceContext.version===2&&sourceContext.maskSource?[sourceContext.maskSource]:[]].some(role=>role.kind==='image'&&role.imageMaterial?.kind==='gradient-map-v1'&&role.imageMaterial.application==='plain-gradient')
+        if(source.context2?.sourceColorFields||source.context8?.sourceColorFields||needsTipPass){
+          const spatial=!!sourceContext?.sourceColorFields
+          const capacity={...prepared.owner.mask,slots:Math.max(spatial?3:2,prepared.owner.mask.slots),...spatial?{spatialColors:true as const}:{},...needsTipPass?{tipGradient:true as const}:{}}
           const update=owner._prepareCanonicalLayerWorkspace(prepared.owner,capacity,true)
           try{owner._assertCanonicalSource(session);update?.assertCurrent();update?.publish();update?.finalizeCleanup()}catch(error){try{update?.cancel()}catch{/* Preserve the operational failure. */}throw error}
           owner._assertCanonicalSource(session)
         }
-        if(source.context7||source.context8||source.context2?.roleTextures||canonicalHasSpatialPattern(source.context2?.sourceColorFields)){
+        if(source.context7||source.context8||source.context2?.roleTextures||canonicalHasSpatialPattern(source.context2?.sourceColorFields)||source.context2&&canonicalSourceMaterialTipGradient(source.context2)){
           const localLease:{lease?:CanonicalMaskSourceLease}={},preparedOutcome:{active:boolean;value?:BrushPreparationResult}={active:true}
           try{
             const work=owner._prepareCanonicalImageResources(prepared.owner,prepared.material.kind==='pixelTexture'?prepared.material.pin:undefined,()=>owner._assertCanonicalSource(session),{signal:controller.signal},undefined,false,undefined,localLease,source.context8??source.context7,[],source.context8?canonicalGrainImageMaterial(source.context8):source.context2,canonicalPreparedSourceComposition(prepared)?.outerBlend==='erase')

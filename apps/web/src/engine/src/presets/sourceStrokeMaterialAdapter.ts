@@ -21,7 +21,19 @@ import type { SourceDabGeometry } from './sourceDabCache'
 type Draw=CanonicalMaterialBuildInputV8['draws'][number] | CanonicalMaterialBuildInputV7['draws'][number] | CanonicalMaterialBuildInputV6['draws'][number] | CanonicalMaterialBuildInputV5['draws'][number] | CanonicalMaterialBuildInput['draws'][number] | CanonicalMaterialBuildInputV2['draws'][number] | CanonicalMaterialBuildInputV3['draws'][number] | CanonicalMaterialBuildInputV4['draws'][number]
 type MaterialContext=CanonicalMaterialContextV8|CanonicalMaterialContextV7|CanonicalMaterialContextV6|CanonicalMaterialContextV5|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4
 type MaterialFrame=CanonicalMaterialFrameV8|CanonicalMaterialFrameV7|CanonicalMaterialFrameV6|CanonicalMaterialFrameV5|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4
-function pixelSourceInputs(c:CanonicalMaterialContextV8){const gradient=c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.mode==='gradient'?c.primaryTexture.gradient:undefined;return gradient||c.sourceColorFields?{...gradient?{textureGradient:gradient}:{},...c.sourceColorFields?{sourceColorFields:c.sourceColorFields,sourceColorAvailable:c.assets.map(a=>({id:a.id,size:a.size}))}:{}}:undefined}
+function pixelSourceInputs(c:CanonicalMaterialContextV8|CanonicalMaterialContextV2){
+ const gradient=c.version===8&&c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.mode==='gradient'?c.primaryTexture.gradient:undefined
+ const primary=c.primarySource.kind==='image'&&c.primarySource.imageMaterial?.kind==='gradient-map-v1'?c.primarySource.imageMaterial.gradient:undefined
+ const mask=c.version===2&&c.maskSource?.kind==='image'&&c.maskSource.imageMaterial?.kind==='gradient-map-v1'?c.maskSource.imageMaterial.gradient:undefined
+ if(primary&&mask&&!sameData(primary,mask))invalid()
+ const sourceTipGradient=primary??mask
+ return gradient||sourceTipGradient||c.sourceColorFields?{...gradient?{textureGradient:gradient}:{},...sourceTipGradient?{sourceTipGradient}:{},...c.sourceColorFields?{sourceColorFields:c.sourceColorFields,sourceColorAvailable:c.assets.map(a=>({id:a.id,size:a.size}))}:{}}:undefined
+}
+function sourceImageMaterialMatches(role:SourceStrokeAuthorProgram['roles'][number],pin:import('@grafetto/shared').CanonicalMaterialImageSource):boolean{
+ const template=role.gradientMapTemplate,material=pin.imageMaterial
+ if(template)return material?.kind==='gradient-map-v1'&&material.grayAsset===template.grayAsset&&sameData(material.grayFrames,template.grayFrames)&&material.application===template.application
+ return sameData(role.imageMaterial,material)
+}
 function textureDrawControls(context:MaterialContext,role:'primary'|'mask',value:object):{grainStrengthU8:number}|{textureColorStrength:number}|Record<string,never>{
  const grain=Object.getOwnPropertyDescriptor(value,'grainStrengthU8'),color=Object.getOwnPropertyDescriptor(value,'textureColorStrength')
  if(grain&&!Object.hasOwn(grain,'value')||color&&!Object.hasOwn(color,'value'))invalid()
@@ -220,7 +232,7 @@ class MaterialAdapterCore<C extends CoreSourceContext> {
     this.program={id:program.id,...prepared?{reusable:program,binding:prepared.binding}:{},roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
     for(const r of program.roles){
       const indexedPin=version8(this.context)?this.context.primarySource:version2(this.context)?r.id==='primary'?this.context.primarySource:this.context.maskSource:undefined
-      if(indexedPin?.kind==='image'){const sizes=indexedPin.frames?indexedPin.frameBounds?.map(({width,height})=>({width,height})):undefined;if(!sameData(sizes,r.imageFrameSizes))invalid()}else if(r.imageFrameSizes)invalid()
+      if(indexedPin?.kind==='image'){const sizes=indexedPin.frames?indexedPin.frameBounds?.map(({width,height})=>({width,height})):undefined;if(!sameData(sizes,r.imageFrameSizes)||!sourceImageMaterialMatches(r,indexedPin))invalid()}else if(r.imageFrameSizes)invalid()
       if(version8(this.context)){
         const c=this.context,pin=c.primarySource
         if(program.roles.length!==1||r.id!=='primary'||r.materialProgram||!r.material.textureEnabled)invalid()
@@ -269,7 +281,7 @@ class MaterialAdapterCore<C extends CoreSourceContext> {
           ||!Object.is(r.brush.scale,c.primarySource.brushScale)||!Object.is(r.brush.angle,c.primarySource.brushAngle)||r.geometry&&r.geometry.kind!=='image')invalid()
         continue
       }
-      if(r.textureProgram?.strength==='pixel-role-grain-u8-v1'){if(!version2(this.context)||!this.context.roleTextures)invalid();const expected=canonicalPixelDualSourceMaterialContext(r.textureProgram.binding,sourceRoleTextureInputsFromPins(this.context.roleTextures));if(!sameData(expected.roleTextures,this.context.roleTextures))invalid()}
+      if(r.textureProgram?.strength==='pixel-role-grain-u8-v1'){if(!version2(this.context)||!this.context.roleTextures)invalid();const expected=canonicalPixelDualSourceMaterialContext(r.textureProgram.binding,sourceRoleTextureInputsFromPins(this.context.roleTextures),pixelSourceInputs(this.context));if(!sameData(expected.roleTextures,this.context.roleTextures))invalid()}
       if(r.materialProgram||r.textureProgram&&r.textureProgram.strength!=='pixel-role-grain-u8-v1'||r.materialPolicy==='png-pressure-texture-v1'||r.materialPolicy==='default-auto-fixed-texture-v1')invalid()
       if(r.imagePipe){
         if(version2(this.context)&&program.roles.length!==1&&(!this.context.imageFrameIndices||!this.context.maskingBlend)||!version2(this.context)&&r.id!=='primary')invalid()
@@ -296,7 +308,7 @@ class MaterialAdapterCore<C extends CoreSourceContext> {
           if(!sameData(actual,expected))invalid()
         } else {
           const a=canonicalImageFrameAsset(pin,this.context.assets,0)
-          if(r.geometry?.kind==='defaultAuto'||r.materialPolicy!==(pin.imageMaterial?pin.imageMaterial.kind==='lightness-map-v1'?'image-lightness-map-v1':'image-color-stamp-v1':'png-fixed1-rng-free')||!sameData(r.imageMaterial,pin.imageMaterial)||r.material.brushIdentity!==pin.asset||!a
+          if(r.geometry?.kind==='defaultAuto'||r.materialPolicy!==(pin.imageMaterial?pin.imageMaterial.kind==='lightness-map-v1'?'image-lightness-map-v1':'image-color-stamp-v1':'png-fixed1-rng-free')||!sourceImageMaterialMatches(r,pin)||r.material.brushIdentity!==pin.asset||!a
             ||r.brush.width!==a.width||r.brush.height!==a.height||!Object.is(r.brush.scale,pin.brushScale)||!Object.is(r.brush.angle,pin.brushAngle))invalid()
         }
       } else {

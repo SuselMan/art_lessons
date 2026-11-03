@@ -665,10 +665,24 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('textPipe','Original UTF16 sequence selects captured per-glyph rectangles; isolated surrogate units use a captured replacement glyph in this functional raster profile.'))
         source_static_image=True;source_metric=mask.size;source_size=max(mask.size)
         notes.append(compatibility('textRasterization','Actual resolver-selected font bytes/face and functional Pillow mask retained; native Qt/font identity is not claimed.'+(' Requested family was substituted.' if provenance['substituted'] else '')))
-    elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
+    elif kind=='abr_brush':
+        if engine!='paintbrush':raise ValueError('Declared ABR SOURCE requires Pixel paintbrush')
+        from krita_abr import resolve_abr_tip
+        image,proof=resolve_abr_tip(definition,resources)
+        # Only original collection/sample decoding can reach this branch;
+        # arbitrary PNG bytes under a native ABR sample name are not accepted.
+        mask=image_coverage(image,0)
+        d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
+        d['tip']['abrSource']=proof
+        d['tip']['imageSampling']=integer_image_sampling(image,0,catalog.assets[d['tip']['mask']]['size'],max_side=2048)
+        source_static_image=True;source_metric=mask.size
+        source_size=max(mask.size)*numeric(definition.get('scale'),1)
+        notes.append(compatibility('abrSource','Original declared ABR collection and native sample selector captured; collection SHA and raw coverage SHA are distinct from Krita PNG-encoded brush MD5.'))
+    elif kind in ('gbr_brush', 'png_brush', 'svg_brush'):
         filename = source_tip_filename
         material_gray=[]
         material_color=[]
+        material_gradient=False
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
@@ -676,14 +690,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if application==0 and adjustment_active:
                 pipe['frames']=[adjusted_mask_image(frame,definition) if frame.mode=='RGBA' else frame for frame in pipe['frames']]
             if application==1 and engine=='paintbrush': material_color=[frame.convert('RGBA') for frame in pipe['frames']]
-            if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
+            if application in (2,3) and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
+                material_gradient=application==3
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 material_gray=[gray for gray,alpha in planes]
                 frames=[alpha for gray,alpha in planes]
             else:
                 frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
-            if len({frame.size for frame in frames})!=1:
-                raise ValueError('GIH frames with unequal dimensions are unsupported')
+            variable_frames=len({frame.size for frame in frames})!=1
+            # Original child grids stay distinct; common parent size is frame0.
+            # The GIH parser already bounded all decoded frames before CAS writes.
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
@@ -693,6 +709,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 if sampling: d['tip']['imageSampling']=sampling
             if len(assets)>1 or pipe['mode']=='native-dimensions-v1':
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
+                if variable_frames:
+                    bounds=[]
+                    for frame,(aid,_) in zip(frames,assets):
+                        side=catalog.assets[aid]['size'];width,height=frame.size
+                        bounds.append({'x':((side-width)//2)/side,'y':((side-height)//2)/side,'width':width/side,'height':height/side})
+                    d['tip']['animation']['frameBounds']=bounds
                 if pipe['mode']=='native-dimensions-v1':
                     d['tip']['animation'].update(declaredCells=pipe['declaredCells'],dimensions=pipe['dimensions'])
             if pipe['declaredCount']!=len(frames):
@@ -711,19 +733,21 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 raise ValueError('SVG requires verified stock raster preparation; general SVG is unsupported')
             image=gbr(payload,preserve_color=True) if filename.lower().endswith('.gbr') else raster(payload,filename)
             source_static_image = kind in ('png_brush','gbr_brush') or verified_svg
-            adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
+            adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or 'A' in image.getbands() or 'transparency' in image.info
             application=brush_application(definition,[image])
             if verified_svg and application!=0:
                 raise ValueError('Prepared SVG SOURCE supports native grayscale mask application only')
             if application==0 and adjustment_active:
                 image=adjusted_mask_image(image,definition)
             if application==1 and engine=='paintbrush': material_color=[image.convert('RGBA')]
-            if application==2 and engine=='paintbrush' and adjustment_active:
+            if application in (2,3) and engine=='paintbrush' and adjustment_active:
+                material_gradient=application==3
                 gray,mask=lightness_planes(image,definition)
                 material_gray=[gray]
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
+            assets=[(d['tip']['mask'],d['tip']['maskBounds'])]
             if (verified_svg or kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr'))) and not material_gray:
                 sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'],max_side=2048 if verified_svg else 512)
                 if sampling:
@@ -737,21 +761,21 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
         if material_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
-            if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
-                raise ValueError('Lightness/alpha plane bounds mismatch')
+            if len(gray_assets)!=len(assets) or any(bounds!=assets[i][1] or catalog.assets[asset]['size']!=catalog.assets[assets[i][0]]['size'] for i,(asset,bounds) in enumerate(gray_assets)):
+                raise ValueError('Lightness/alpha selected-frame grid mismatch')
             strength=clamp(numeric(params.get('LightnessStrengthValue'),1)) if enabled(params.get('PressureLightnessStrength')) else 1
-            d['tip']['material']={'kind':'lightness','gray':gray_assets[0][0],'strength':strength}
+            d['tip']['material']=({'kind':'gradient','gray':gray_assets[0][0]} if material_gradient else {'kind':'lightness','gray':gray_assets[0][0],'strength':strength})
             if len(gray_assets)>1: d['tip']['material']['grayFrames']=[asset for asset,bounds in gray_assets]
-            if enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
+            if not material_gradient and enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
                 notes.append(compatibility('lightnessStrength','Active native lightness-strength sensors are not applied; constant strength retained.','unsupported'))
-            notes.append(compatibility('lightnessMaterial','Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
+            notes.append(compatibility('gradientMapMaterial' if material_gradient else 'lightnessMaterial','Adjusted original gray and alpha captured; GradientMap requires the selected START tip-gradient after geometry transformation.' if material_gradient else 'Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
         elif material_color:
             channels=[]
-            for frame in material_color:
+            for frame_index,frame in enumerate(material_color):
                 ids=[]
                 for channel in frame.convert('RGB').split():
                     aid,bounds=tip_asset(channel,catalog,warnings)
-                    if bounds!=d['tip']['maskBounds']: raise ValueError('Color/alpha plane bounds mismatch')
+                    if frame_index>=len(assets) or bounds!=assets[frame_index][1] or catalog.assets[aid]['size']!=catalog.assets[assets[frame_index][0]]['size']:raise ValueError('Color/alpha selected-frame grid mismatch')
                     ids.append(aid)
                 channels.append(ids)
             d['tip']['material']={'kind':'color','channels':channels[0]}
@@ -1229,7 +1253,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 from source_stamp_mapped import compile_mapped_source_stamp, validate_mapped_source_stamp_shape
                 try:
                     # A partial/invalid result never becomes a published dictionary.
-                    compiled=(compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider,native_default_texture=True) if native_default_texture and _texture_native_default_data_candidate(d) else compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider, texture_strength=True) if (_texture_pressure_data_candidate(d) or _gaussian_texture_pressure_data_candidate(d)) else compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider))
+                    # Fresh Pixel DATA uses the common sensor/radial dictionary2.
+                    # Historical dictionaries3/4 are still verified/replayed as
+                    # recorded; only the explicit legacy native-default import
+                    # option may create dictionary4. No old coefficients mutate.
+                    compiled=(compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider,native_default_texture=True) if native_default_texture and _texture_native_default_data_candidate(d) else compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider))
                     validate_mapped_source_stamp_shape(d['sourceStamp'],compiled)
                     if compiled['buildId']!=mapped_curve_provider.expected_build_id:
                         raise ValueError('Mapped source profile/build binding differs')

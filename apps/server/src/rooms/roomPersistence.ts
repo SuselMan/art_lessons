@@ -1,3 +1,4 @@
+import {canonicalSourceTipGradient} from '@grafetto/shared'
 import {canonicalSourceRoleTexturesData,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
 import {canonicalSourceColorFields,type CanonicalSourceSpatialColor} from '@grafetto/shared'
 import {canonicalTextureGradientRGBA} from '@grafetto/shared'
@@ -71,8 +72,8 @@ function roleTextureRow(pin:CanonicalSourceRoleTexturePin|null){
  return {...base,phase:{...phase}}
 }
 function canonicalFrameRow(frame:CanonicalStrokeOperation['frame']){
- const {texturePhase,textureGradient,sourceColorFields,sourceRoleTextures,...base}=frame
- return {...base,composition:{...frame.composition},...sourceRoleTextures?{sourceRoleTextures:{primary:roleTextureRow(sourceRoleTextures.primary),...sourceRoleTextures.mask!==undefined?{mask:roleTextureRow(sourceRoleTextures.mask)}:{}}}:{},...sourceColorFields?{sourceColorFields:{primary:spatialColorRow(sourceColorFields.primary),...sourceColorFields.mask!==undefined?{mask:spatialColorRow(sourceColorFields.mask)}:{}}}:{},...textureGradient?{textureGradient:{kind:textureGradient.kind,rgba:[...textureGradient.rgba]}}:{},...texturePhase?{texturePhase:{kind:texturePhase.kind,x:texturePhase.x,y:texturePhase.y}}:{}}
+ const {sourceTipGradient,texturePhase,textureGradient,sourceColorFields,sourceRoleTextures,...base}=frame
+ return {...base,composition:{...frame.composition},...sourceTipGradient?{sourceTipGradient:{kind:sourceTipGradient.kind,rgba:[...sourceTipGradient.rgba]}}:{},...sourceRoleTextures?{sourceRoleTextures:{primary:roleTextureRow(sourceRoleTextures.primary),...sourceRoleTextures.mask!==undefined?{mask:roleTextureRow(sourceRoleTextures.mask)}:{}}}:{},...sourceColorFields?{sourceColorFields:{primary:spatialColorRow(sourceColorFields.primary),...sourceColorFields.mask!==undefined?{mask:spatialColorRow(sourceColorFields.mask)}:{}}}:{},...textureGradient?{textureGradient:{kind:textureGradient.kind,rgba:[...textureGradient.rgba]}}:{},...texturePhase?{texturePhase:{kind:texturePhase.kind,x:texturePhase.x,y:texturePhase.y}}:{}}
 }
 
 /** One immutable row projection shared by original insert and explicit repair. */
@@ -184,6 +185,9 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
  const scaleField=frame&&Object.getOwnPropertyDescriptor(frame,'sourceScale')
  const sourceScale=scaleField?(()=>{if(!Object.hasOwn(scaleField,'value')||!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string'||!(/^[28]\|/).test(packed.value))return fail();return canonicalSourceScale(scaleField.value)})():undefined
  if(frame&&!scaleField&&'sourceScale'in frame)return fail()
+ const tipField=frame&&Object.getOwnPropertyDescriptor(frame,'sourceTipGradient')
+ const sourceTipGradient=tipField?(()=>{if(!Object.hasOwn(tipField,'value')||!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string'||!(/^[28]\|/).test(packed.value))return fail();return canonicalSourceTipGradient(tipField.value)})():undefined
+ if(frame&&!tipField&&'sourceTipGradient'in frame)return fail()
  const gradientField=frame&&Object.getOwnPropertyDescriptor(frame,'textureGradient')
  const textureGradient=gradientField?(()=>{if(!Object.hasOwn(gradientField,'value')||!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string'||!packed.value.startsWith('8|'))return fail();return canonicalTextureGradientRGBA(gradientField.value)})():undefined
  if(frame&&!gradientField&&'textureGradient'in frame)return fail()
@@ -202,9 +206,9 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
     ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
     ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
    if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
-    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...hasSavedPhase?['texturePhase']:[],...sourceScale!==undefined?['sourceScale']:[],...textureGradient?['textureGradient']:[],...sourceColorFields?['sourceColorFields']:[],...sourceRoleTextures?['sourceRoleTextures']:[]].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...hasSavedPhase?['texturePhase']:[],...sourceScale!==undefined?['sourceScale']:[],...textureGradient?['textureGradient']:[],...sourceTipGradient?['sourceTipGradient']:[],...sourceColorFields?['sourceColorFields']:[],...sourceRoleTextures?['sourceRoleTextures']:[]].includes(k))
     ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
-   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...sourceRoleTextures?{sourceRoleTextures}:{},...sourceColorFields?{sourceColorFields}:{},...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...texturePhase?{texturePhase}:{},
+   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextures?{sourceRoleTextures}:{},...sourceColorFields?{sourceColorFields}:{},...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...texturePhase?{texturePhase}:{},
     pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
  const bytes=Buffer.byteLength(JSON.stringify(projected),'utf8')
  if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()

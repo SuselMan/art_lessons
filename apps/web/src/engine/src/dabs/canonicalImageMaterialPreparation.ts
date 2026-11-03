@@ -44,12 +44,12 @@ export function prepareCanonicalImageMaterialSources(material:CanonicalMaterialC
      const key=JSON.stringify([sourceSlot,frameIndex,asset]);if(seen.has(key))continue;seen.add(key)
      inputs.push(Object.freeze({asset,...sourceSlot!==undefined?{sourceSlot}:{},...frameIndex!==undefined?{frameIndex}:{},readOriginalCoverage:()=>read(asset)}));continue
     }
-    const channelIds=law.kind==='lightness-map-v1'?[law.grayFrames?.[index]??law.grayAsset]:law.frames?.[index]??law.channels
-    if(ids.length>1&&(law.kind==='lightness-map-v1'?law.grayFrames?.length!==ids.length:law.frames?.length!==ids.length))throw new TypeError('Original paired frame count differs')
+    const channelIds=law.kind==='lightness-map-v1'||law.kind==='gradient-map-v1'?[law.grayFrames?.[index]??law.grayAsset]:law.frames?.[index]??law.channels
+    if(ids.length>1&&(law.kind==='lightness-map-v1'||law.kind==='gradient-map-v1'?law.grayFrames?.length!==ids.length:law.frames?.length!==ids.length))throw new TypeError('Original paired frame count differs')
     const channels=Object.freeze(channelIds.map(id=>{const plane=byId.get(id);if(!plane||plane.size!==asset.size||!source.frameBounds&&!sameCrop(plane,asset))throw new TypeError('Original material channel crop differs');used.add(id);return source.frameBounds?Object.freeze({...plane,x:asset.x,y:asset.y,width:asset.width,height:asset.height}):plane}))
     const key=JSON.stringify([sourceSlot,frameIndex,asset,law.kind,channels])
     if(seen.has(key))continue;seen.add(key)
-    inputs.push(Object.freeze({kind:'image-material-rgba8' as const,asset,...sourceSlot!==undefined?{sourceSlot}:{},...frameIndex!==undefined?{frameIndex}:{},material:law.kind,channels,readOriginalCoverage:()=>read(asset),readOriginalChannels:()=>Object.freeze(channels.map(read))}))
+    inputs.push(Object.freeze({kind:'image-material-rgba8' as const,asset,...sourceSlot!==undefined?{sourceSlot}:{},...frameIndex!==undefined?{frameIndex}:{},material:law.kind,channels,...law.kind==='gradient-map-v1'?{tipGradient:law.gradient,tipGradientApplication:law.application}:{},readOriginalCoverage:()=>read(asset),readOriginalChannels:()=>Object.freeze(channels.map(read))}))
    }
    const original=[...new Map(alphaAssets.map(a=>[a.id,byId.get(a.id)!])).values()]
    geometries.push(source.frameBounds?Object.freeze({primarySource:Object.freeze({kind:'image' as const,asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames?{frames:source.frames}:{},frameBounds:source.frameBounds}),assets:Object.freeze(original)}):canonicalImageMaterialPin({kind:'image',asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames?{frames:source.frames}:{}},original))

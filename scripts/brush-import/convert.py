@@ -64,8 +64,8 @@ def packbits(data, expected):
     return bytes(out)
 
 
-def read_pixels(r, width, height, depth, compression):
-    if not (0 < width <= 10000 and 0 < height <= 10000 and width*height <= MAX_PIXELS):
+def read_pixels(r, width, height, depth, compression, *, max_side=10000, max_pixels=MAX_PIXELS):
+    if not (0 < width <= max_side and 0 < height <= max_side and width*height <= max_pixels):
         raise ValueError('Image dimensions exceed limit')
     if depth not in (8,16): raise ValueError('Only 8/16-bit sampled ABR is supported')
     stride = width * (depth//8)
@@ -78,18 +78,22 @@ def read_pixels(r, width, height, depth, compression):
     return raw if depth == 8 else raw[::2]
 
 
-def abr_sample(data, minor):
+def abr_sample(data, minor, *, max_side=10000, max_pixels=MAX_PIXELS, strict_record=False):
     r = Reader(data); key = r.take(r.num('B')).decode('ascii')
     if minor == 1:
         r.take(10); bounds = [r.num('i') for _ in range(4)]
         depth, compression = r.num('H'), r.num('B')
         w,h = bounds[3]-bounds[1],bounds[2]-bounds[0]
-        return key, Image.frombytes('L',(w,h), read_pixels(r,w,h,depth,compression))
+        pixels=read_pixels(r,w,h,depth,compression,max_side=max_side,max_pixels=max_pixels)
+        if strict_record and r.pos!=len(data): raise ValueError('Selected ABR sample has trailing bytes')
+        return key, Image.frombytes('L',(w,h),pixels)
     if len(data) >= r.pos+283 and data[r.pos+4:r.pos+8] != b'\0\0\0\3':
         r.take(264); bounds = [r.num('i') for _ in range(4)]
         depth, compression = r.num('H'), r.num('B')
         w,h = bounds[3]-bounds[1],bounds[2]-bounds[0]
-        return key, Image.frombytes('L',(w,h),read_pixels(r,w,h,depth,compression))
+        pixels=read_pixels(r,w,h,depth,compression,max_side=max_side,max_pixels=max_pixels)
+        if strict_record and r.pos!=len(data): raise ValueError('Selected ABR sample has trailing bytes')
+        return key, Image.frombytes('L',(w,h),pixels)
     r.take(4)
     if r.u32() != 3: raise ValueError('Unsupported VMAL version')
     length = r.u32(); end = r.pos + length
@@ -104,7 +108,7 @@ def abr_sample(data, minor):
         depth = channel.u32(); b = [channel.u32() for _ in range(4)]
         if channel.num('H') != depth: raise ValueError('VMAL pixel depth mismatch')
         compression = channel.num('B'); w,h = b[3]-b[1],b[2]-b[0]
-        pixels = read_pixels(channel,w,h,depth,compression)
+        pixels = read_pixels(channel,w,h,depth,compression,max_side=max_side,max_pixels=max_pixels)
         if channel.pos != len(channel.data): raise ValueError('VMAL channel has trailing bytes')
         if image is not None: raise ValueError('Multiple written sample channels unsupported')
         image = Image.frombytes('L',(w,h),pixels)
@@ -697,10 +701,10 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
             if d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict):
                 raise ValueError('Invalid portable image material')
             alpha_frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
-            if material.get('kind')=='lightness':
-                if (set(material)-{'kind','gray','grayFrames','strength'}
+            if material.get('kind') in ('lightness','gradient'):
+                if (set(material)-({'kind','gray','grayFrames'} if material.get('kind')=='gradient' else {'kind','gray','grayFrames','strength'})
                         or not isinstance(material.get('gray'),str) or material['gray'] not in ids
-                        or type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1):
+                        or material.get('kind')=='lightness' and (type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1)):
                     raise ValueError('Invalid portable lightness material')
                 frames=material.get('grayFrames',[material['gray']])
                 if ('animation' in tip and ('grayFrames' not in material or not isinstance(frames,list) or len(frames)!=len(alpha_frames)
@@ -717,7 +721,10 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
                     raise ValueError('Portable color animation mismatch')
                 planes=[a for frame in frames for a in frame]
             else: raise ValueError('Unknown portable image material')
-            if len({asset_sizes[frame] for frame in alpha_frames+planes})!=1: raise ValueError('Portable image plane dimensions differ')
+            if tip.get('animation',{}).get('frameBounds') is not None:
+                count=3 if material['kind']=='color' else 1
+                if any(asset_sizes[a]!=asset_sizes[alpha] for i,alpha in enumerate(alpha_frames) for a in planes[i*count:(i+1)*count]):raise ValueError('Portable selected-frame image plane dimensions differ')
+            elif len({asset_sizes[frame] for frame in alpha_frames+planes})!=1:raise ValueError('Portable image plane dimensions differ')
         if 'maskBounds' in tip:
             bounds=tip['maskBounds']
             if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')
@@ -730,6 +737,16 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
                     or p['width']!=1000 or type(p['height']) is not int or not 1<=p['height']<=1000
                     or any(not isinstance(p[k],str) or not 1<=len(p[k])<=128 for k in ('sharpVersion','rsvgVersion'))):
                 raise ValueError('Invalid captured SVG provenance')
+        if 'abrSource' in tip:
+            p=tip['abrSource']
+            if (tip.get('kind')!='bitmap' or not isinstance(p,dict) or set(p)!={'kind','collectionFilename','collectionSha256','sampleOrdinal','sampleId','sampleName','width','height','coverageSha256'}
+                    or p['kind']!='krita-abr-sample-v1' or not isinstance(p['collectionFilename'],str) or not re.fullmatch(r'[^/\\\x00]{1,1024}[.]abr',p['collectionFilename'],re.I)
+                    or any(not isinstance(p[k],str) or not re.fullmatch('[a-f0-9]{64}',p[k]) for k in ('collectionSha256','coverageSha256'))
+                    or type(p['sampleOrdinal']) is not int or not 1<=p['sampleOrdinal']<=4096
+                    or not isinstance(p['sampleId'],str) or not 1<=len(p['sampleId'])<=256
+                    or not isinstance(p['sampleName'],str) or not 1<=len(p['sampleName'])<=1024 or '\x00' in p['sampleName']
+                    or any(type(p[k]) is not int or not 1<=p[k]<=2048 for k in ('width','height')) or p['width']*p['height']>1048576):
+                raise ValueError('Invalid declared ABR sample provenance')
         if 'textRasterization' in tip:
             p=tip['textRasterization']
             if (tip.get('kind')!='bitmap' or not isinstance(p,dict) or set(p)!={'kind','originalFont','fontSha256','faceIndex','pixelSize','dpi','family','style','layout','substituted'}

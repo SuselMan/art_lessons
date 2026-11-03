@@ -35,7 +35,7 @@ export function resolvedTransformedMaskPlan(source: SourceDabMaterialSpec): Tran
 export interface CanonicalMaskSourceBinding {
   readonly frameIndex?:number
   readonly sourceSlot?:0|1
-  readonly imageMaterial?:Readonly<{kind:'lightness-map-v1'|'color-stamp-v1';frameIndex?:number;channels:readonly CanonicalMaterialAsset[]}>
+  readonly imageMaterial?:Readonly<{kind:'lightness-map-v1'|'color-stamp-v1'|'gradient-map-v1';frameIndex?:number;channels:readonly CanonicalMaterialAsset[]}>
   readonly asset: CanonicalMaterialAsset;
   readonly index: number;
   readonly baseScale: number;

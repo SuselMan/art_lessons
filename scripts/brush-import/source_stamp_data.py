@@ -336,7 +336,7 @@ def source_identity(definition):
     kind=definition.get('type')
     # SVG enters SOURCE only after the importer verified its prepared mask.
     # Retain the original svg_brush XML; legacy v1 remains PNG/GBR-only.
-    if kind in ('png_brush','gbr_brush','svg_brush','kis_text_brush'): return {'kind':'image'}
+    if kind in ('png_brush','gbr_brush','svg_brush','kis_text_brush','abr_brush'): return {'kind':'image'}
     if kind!='auto_brush': raise ValueError('Unsupported raw source brush')
     generator=definition.find('MaskGenerator')
     if generator is None or generator.get('id','default') not in ('default','gauss','soft'): raise ValueError('Unsupported native auto source generator')

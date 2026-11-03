@@ -1,168 +1,100 @@
-# Krita Pixel: карта реализации и оставшихся механизмов
+# Krita Pixel: текущая карта реализации
 
-Срез: `c1cda464ea9251e623d127b0c8dfa24038612528`; эталон законов — Krita
-`bd6e8d061d2f0388c5b10278786cf0fe62e3135f`. Это карта кода для завершения
-**Pixel / defaultpaintops brush**, а не объявление поддержки всех кистей или
-план очередных аппаратных проверок. В этой итерации — только реализация кода;
-тесты, браузеры, устройства и сборки приложения не запускались.
+Срез кода: 3 ноября 2026, ветка `agents/brush-import`. Эталон механизмов —
+Krita `bd6e8d061d2f0388c5b10278786cf0fe62e3135f`. Цель — функциональное поведение
+Pixel/defaultpaintops в клиентском Grafetto; побитовая идентичность не требуется.
+Другие движки Krita и эффекты Procreate не входят в эту итерацию.
 
-Принцип: один source author с общими option/query/RNG/distance kernels выдаёт
-разрешённые готовые DRAW/recipes/fences; replay исполняет запись, не повторяет
-кривые, случайность или состояние указателя. Общие source/context/resource/cost
-контракты расширяются по механизмам, без имён пресетов, подмены descriptor и
-отдельного renderer на каждую кисть. «CPU есть» не означает «публичный путь готов».
+## Что означает состояние
 
-## Условные обозначения
+«Код подключён» означает наличие importer/source binding, author, ресурсов,
+записанного исполнения и необходимых границ admission в рабочем дереве.
+Это **не результат запуска** и не количество поддержанных пресетов. Последний
+аудит исходного набора выделил 101 Pixel из 118 пресетов; это классификация
+входа, не 101 успешная проверка. Исторические 27 проверенных кистей этим кодом
+не переоценены. Старый QA R10 не содержит новую реализацию.
 
-- **Интеграция**: основной алгоритм уже существует, но отсутствуют конкретные
-  admission, авторский адаптер, ресурсный или записанный путь.
-- **Частичная реализация**: есть ограниченный kernel/legacy-путь, но отсутствует
-  часть исходной семантики. Нельзя решить снятием guard.
-- **Реализация**: необходим новый алгоритм/источник данных/ресурсная семантика.
-- Ни одна строка не даёт нового READ/AUTHOR-разрешения. Старые записи и законы
-  сохраняются; новый reader floor устанавливается до публикации новой истории.
+## Карта механизмов
 
-## Полная карта направлений Pixel
-
-| Механизм | Что действительно есть в текущем коде | Что осталось реализовать / подключить |
+| Механизм | Подключённый код | Практическая проверка |
 |---|---|---|
-| Default Auto: circle/rectangle, fade, AA, ratio | `sourceDefaultAutoDab`, shared `sourceAutoGeometry`, native coverage profiles, canonical mask/cache/prepass. Закрытые исходные формы исполняются | **Частично:** spikes≠2 и native mask randomness закрыты. Density имеет отдельный seeded Default kernel, не универсальное разрешение на стохастические формы. Полный набор mask generator параметров требует собственных законов, не fallback circle |
-| Gaussian Auto | `sourceGaussianDab`, коэффициенты/erf/native profiles, исходный compiled2 и текстурный compiled3; обычный и7 source kernel | **Интеграция:** rotating Gaussian storage helper уже committed; plain Scatter+DrawingAngle/fan admission и все read/capacity callers ещё не подключены. **Реализация:** иные закрытые параметры mask generator |
-| Soft Auto | `sourceSoftCircleDab`, radial native compiled curve, closed plain/texture kernels | **Интеграция:** более широкие механизмы через те же kernels. Сохранить radial/source/profile correspondence; наличие произвольной кривой не означает её компиляцию |
-| PNG/GBR alpha mask, pyramid/crop/transform | Оригинальный inverse-gray source, integer pyramid/LOD, crop, image geometry/transform/coverage, canonical image budget | **Интеграция:** image SizeTilt/RotationTilt и texture8 author binding. **Частично:** изображение с brightness/contrast/midpoint/autoadjust вне исходного закрытого контракта; не заменять его текущим alpha mask |
-| Color-stamp / lightness-map image | Есть legacy `lightnessMaterialColor/Coverage/Mips`, color helpers; importer различает image material | **Реализация canonical closure:** двухканальный/цветной source, foreground alpha/color semantics, профили/LOD/ресурсные pins, recorded recipes и source-aware composition. Single inverse-gray PNG extractor намеренно отвергает `tip.material` |
-| Imagepipe GIH | Incremental и random selection в author/cache, исходные frame assets, последовательный RNG и canonical image frames | **Интеграция/частично:** закрытые существующие selectors не равны всей системе GIH ranks/selection modes. Для иных dimensions/pressure/angle/random combinations нужны явные selection laws и bounded frame ownership; не выбирать кадр снова при replay |
-| Кривые и комбинации сенсоров | `sourceOption`, `sourceOptionProgram`, `sourceCurve`; native compiled option tables, curveMode/strength/min/max; независимые sequential и per-stroke RNG | **Интеграция:** разрешать только consumers с готовым renderer/resource domain. **Реализация:** отсутствующие native compiler/provider inputs нельзя заменить линейной кривой или synthetic compiled metadata |
-| Pressure / maximum pressure | Query kernel и обычный ingress есть; Size/Opacity/Flow работают в закрытых путях | Сохранить maxPressure registration order, early returns и indirect opacity. Подключение прочих option consumers — **интеграция**, не новый sensor kernel |
-| Tilt X/Y, elevation/direction; DrawingAngle/locked angle | `sourceSensors`, native input history/fan; camera-aware source/world rotation для известных Auto/plainTilt | **Интеграция:** image tilt, Gaussian drawing-angle closure. Camera0/45/90 и mirror interplay должны проходить один закон. Нельзя переносить viewport rotation в записанный мировой рецепт дважды |
-| Speed, barrel rotation, tangential pressure, perspective, elapsed time/distance/dab sequence | CPU sensor laws есть; browser packet сейчас передаёт speed0, rotation0, tangential0, perspective1; author ведёт time/distance/sequence | **Реализация ingress:** настоящее нормирование speed/native units, доступные pen fields и их отсутствие/defaults. Только затем admission. CPU evaluator сам не создаёт отсутствующую физическую величину |
-| Fuzzy per dab / per stroke | `nativeRandom`, `sourceOption` ведут sequential stream и keyed per-stroke source; порядок sensor construction фиксирован, checkpoint сохраняет оба | **Интеграция:** соответствующие consumers и исходные sensor combinations; fuzzy не заменяет Scatter/density. Нельзя брать новый seed на Copy/yield/replay |
-| Scatter | `sourceScatter`, query ordering и native geometry: оба axes2 RNG draws, single axis1 с Qt/F32 rounding; lazy disabled path; source author checkpoint | **Интеграция:** genuine Pencil1/2 Gaussian WASH с pressure Scatter и fan90. Позиции уже записываются; server RNG не нужен. Удержать target/tile fanout/work/CPU limits. Scatter≠density≠mask randomness≠Spray |
-| Mirror | Native option/query kernels, material vs spacing mirror, saved mirror bits в recipes | **Интеграция:** закрытые pointer/source consumers ещё отказывают checked Mirror. Нужны общий camera parity/geometry/cache/Copy/checkpoint и соответствующие read bounds; не использовать второй spacing-only Mirror как материал |
-| Spacing и fan corners | Native distance loop, automatic/manual/isotropic spacing, refresh, angle history, fan-before-normal; bounded cursor и очередь запросов | **Интеграция:** разрешение полного известного домена с source-specific bounds. Fan0t — отдельный paint request; нельзя убрать его из-за симметричной формы. **Частично:** независимый child input policy пока не исполнен |
-| Airbrush / ignore distance / Rate | `SourceDistanceTiming`, source timing interval, Rate query и author refresh state существуют | **Реализация production producer:** monotonic elapsed-time scheduling без MOVE, pause/up/cancel/visibility и bounded backlog; deterministic emitted draw sequence/checkpoint. Нельзя открыть timing flag на event-only pointer path |
-| Texture preparation | Импорт сохраняет period/crop/offset/POT padding; weighted gray + alpha-to-white + brightness/contrast/neutral/invert/cutoff preparation. Bank raw L8/root leases есть | **Частично:** PIL resampling не тождествен native Qt; downsample/clamped offsets помечаются unsupported. AutoInvertOnErase отсутствует. Проверять provenance preprocessing; texture alpha не primary inverse-gray, двойная инверсия запрещена |
-| Texture hard Subtract | Закрытые material3–7, fixed/pressure/curve/native-default strength, saved phase и program/source bindings | **Интеграция:** новые комбинации источника/сенсоров через существующие законы; old ties-even неизменен. Не расширять old entrypoints неявно |
-| Texture hard Multiply | Новый scalar half-up/mul3, material8 codec, standalone snapshot, lower Composite и named Executor8 committed | **Интеграция:** source8 binding/compiler role/adapter/encoder; named mixed recorded attachment, original read/author/server/frontend/cutover. Genuine Pencil5 ещё не допущена. Byte strength вычисляется один раз author и записывается, replay не вычисляет давление |
-| Texture soft modes / прочие texture operators | Pinned native masking factory/texture source описывают отдельные soft laws и операции; новый Pixel texture8 имеет все 14 alpha laws, hard/soft, recorded strength | **Компилируется:** law/quantizer/author/codec/executor замкнуты; поведение ещё не проверено. Lightness/Gradient подключены отдельно, auto-invert ещё отсутствует |
-| Wash / buildup / opacity / flow | `sourcePainterOpacity`, `sourcePrimaryComposition`, OVER/alphaDarken CPU laws; canonical target/composite, mixed coordinator, frozen snapshots/prefix replay | **Интеграция:** material8 в SAME lane/owner/candidate/handoff. **Частично:** не весь native composite registry/цветовые пространства; unsupported outer blends нельзя переименовать normal/OVER. Замена стабильного результата требует полного baseline и exact close |
-| Masking brush / dual | Author умеет две roles, независимые distance/cache/options/fan state, SAME RNG pair; adapter/fences и legacy dual metadata есть | **Реализация coherent canonical closure:** master-size ownership, абсолютный/relative child size, independently timed/input child, source bundle/context, mask+primary pairing, supported mask composite law, budgets и cancellation. Shared extractors намеренно отказывают dual; legacy approximation не готовый native путь |
-| Color sources / dynamic HSV/HSY | `sourceColorRgba8` и color native arithmetic helpers; importer/legacy behavior сохраняют часть modulations | **Реализация/интеграция:** native plain/gradient/pattern/random/color-source provider, foreground/background and color-space semantics, per-DRAW captured pigment/material color, recorded deterministic result. `source-color-provider-unresolved` нельзя убрать без provider. Цветовой kernel отдельно не является producer |
-| Lightness/softness/sharpness options, threshold | Legacy lightness/threshold и отдельные coverage helpers существуют; raw settings частично сохранены | **Реализация canonical option consumers:** native order/alpha/color effect, dynamic size/softness mask identity, source cache/cost and resource representation. Canonical source effect guards отказывают alphaThreshold и ряд эффектов, source author material пока softness1/lightness1/sharpnessfalse |
-| Eraser / blend modes / gamma-luminance / edge effects | Legacy editor имеет дополнительные эффекты, canonical profile выбирает конкретные проверенные законы | **Частично/реализация:** source-aware eraser/texture auto-invert, native blend registry, color-space conversion и edge effects в recorded composition. Gamma/luminance/wetMix/edgeBleed/grain/taper не поддерживаются canonical admission автоматически |
-| Масштаб UI и lifetime | Prepared source/root/runtime, LOD/cost/reservations, source SHA/fullcontext, BEGIN/FIFO/Undo/cold infrastructure существуют | **Интеграция:** обычный size slider пока закрыт native-size equality; нужен единый source scale capacity+prepared runtime policy без подмены original descriptor. Release/reprepare/camera/RNG state и bounded overlap обязательны для каждого механизма |
+| Default/Gaussian/Soft Auto | Circle/rectangle, fade, ratio, AA, Soft curve, spikes2..64, seeded randomness/density, общий geometry/cache/prepass | Предстоит |
+| Динамические options/sensors | Общий compiler/query: pressure/maxPressure, tilt, angle, speed, pen rotation/tangential, time/distance, fuzzy, комбинации кривых | Предстоит |
+| Spacing/scatter/fan/mirror | Общий author и checkpoint/RNG order; source/world rotation и ограниченные очереди | Предстоит |
+| Airbrush | Timed producer, Rate/ignoreDistance, тот же author/FIFO | Предстоит |
+| Масштаб | Выбор размера, исходный scale, START/BEGIN/frame и coverageScaleFactor; bounded capacity | Предстоит |
+| PNG/GBR | Исходные прямоугольники, integer levels/LOD, ratio/mirror/rotation, original image capture | Предстоит |
+| RGB/Lightness | Парные alpha/gray/RGB, собственные кадры/rect, преобразование и правильный foreground режим | Предстоит |
+| Gradient Map отпечатка | Gray/alpha → transform → захваченный tip LUT → sharpness → texture/dual; sourceTipGradient в истории | Предстоит |
+| GIH | Native dimensions/ranks/selectors/EOF, разные размеры кадров, записанные index/slot; родительский scale не подменяется размером child | Предстоит |
+| Static Text/TextPipe | Фактический шрифт и provenance, UTF16 sequence, уникальные glyph masks и per-frame geometry; native Qt pixels не заявлены | Предстоит |
+| SVG | Проверенный stock SVG и отдельный ограниченный vector subset; offline subprocess, исходные SHA и фактические версии renderer | Предстоит |
+| ABR как ресурс Krita | Только объявленная коллекция, native ordinal/точное legacy имя; существующий bounded ABR decoder, без PNG fallback | Предстоит |
+| Softness/LightnessStrength/Sharpness | Общие compiled material options и записанные параметры; sharpness после фактической материализации alpha | Предстоит |
+| Цветовые options | Mix/Darken/HSV через общий author; recorded RGB/RGBA | Предстоит |
+| ColorSource | Plain/uniform_random/gradient/total_random/pattern/lockedpattern; явные seed/phase/resource pins и spatial prepass | Предстоит |
+| Текстуры | 14 hard/soft alpha laws, Lightness/Gradient, gray/alpha, phase, AutoInvertOnErase, отдельные primary/mask textures | Предстоит |
+| Dual/masking | Исходные parent/child данные и размеры, независимые options, общий порядок RNG, первые10 допустимых alpha laws и fences | Предстоит |
+| Внешняя композиция | Over/erase/multiply/lighten/colorDodge/overlay и отдельный functional browser Color/HSY | Предстоит; другие modes закрыты |
+| UI и ресурсы | Source size, pattern catalogue/выбор/готовность; оригинальные asset pins сохраняются в комнате | Предстоит |
+| Онлайн/история | Author вычисляет DRAW; replay не повторяет sensors/RNG. BEGIN/frame/resume/persistence/snapshot/recorded attachments расширены для новых данных | Предстоит |
 
-Отдельно полный native texture mode frontier: `MULTIPLY`, `SUBTRACT`, `DARKEN`,
-`OVERLAY`, `COLOR_DODGE`, `COLOR_BURN`, `LINEAR_DODGE`, `LINEAR_BURN`,
-`HARD_MIX_PHOTOSHOP`, `HARD_MIX_SOFTER_PHOTOSHOP`, `HEIGHT`, `LINEAR_HEIGHT`,
-`HEIGHT_PHOTOSHOP`, `LINEAR_HEIGHT_PHOTOSHOP`; `LIGHTNESS` и `GRADIENT` идут
-отдельными ветками с сохранением alpha/цветовым ресурсом. В новом Pixel texture8 кодом подключены все 14 alpha modes (hard/soft),
-Lightness и Gradient; этот блок компилируется, но ещё не проверен в приложении.
-Исторические material3–7 и hard Multiply8 сохраняют закрытые прежние законы.
-Gradient использует captured RGBA resource, gray/alpha pattern и START metadata.
+## Общие инварианты
 
-## Опорные native источники и текущие границы
+Один source author и один canonical renderer, без пресетных исключений. CAS —
+идентичность пикселей, а не область чтения. У каждого image/pattern/texture
+consumer своя исходная область; одинаковый CAS с разными crop допускается
+только при явных original-bound pins. Legacy unbound-пути сохраняют строгую
+проверку. Индекс кадра выбирается автором и записывается; replay его не выбирает.
 
-Pinned Krita: `plugins/paintops/defaultpaintops/brush/kis_brushop.cpp` (paintAt/query),
-`plugins/paintops/libpaintop/kis_brush_based_paintop.cpp` (spacing/material),
-`libs/image/kis_paintop_utils.h` и `kis_distance_information.cpp` (fan/distance/time),
-`plugins/paintops/libpaintop/KisScatterOption.cpp`, `KisRotationOption.cpp`,
-`kis_texture_option.cpp`, `libs/ui/tool/strokes/KisMaskingBrushCompositeOp.h` и
-`KisMaskingBrushCompositeOpFactory.cpp` (texture/masking laws),
-`libs/pigment/KoIntegerMaths.h` и `KoColorSpaceMaths.h` (integer/color composition).
-Официальная база ссылок: `https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f`.
-Локальные exact source pins/native provenance уже лежат в существующих source
-fixtures/R52 reports. GPL reference код не копируется в production.
+Gradient Map не заменяется ColorSource/texture Gradient. PREP хранит template
+без выдуманной LUT; только START с настоящей captured таблицей создаёт реальный
+материал. При native nonPlain spatial provider используются inverse-gray alpha
+и цвет поля, затем sharpness; таблица остаётся в immutable metadata. Программа,
+LUT и дополнительные slots резервируются только по потребности до pixels.
 
-Точки единого изменения: shared `canonicalBrushCapability`, source DATA/schema и
-source bindings; `sourceStrokeAuthorDescriptor` / `sourceStrokeAuthor` /
-`sourceStampQuery` / `sourceStrokeMaterialAdapter` / `sourceCanonicalFrameEncoder`;
-`canonicalAutoCapacity` / `canonicalImageCapacity`, `CanonicalMaskSourceBank`,
-`TransformedMaskPrepass`, `CanonicalRgba8CompositePass`, `CanonicalFrameExecutor`,
-`CanonicalWashLayerCoordinator`; затем engine ingress, original read lifetime и
-server admission. Не снимать guards раньше наличия соответствующего consumer.
-Protected `sourceDefaultAutoVectorShader.ts` в этом аудите не читался.
+Структура даба не содержит шрифты или LUT. Ресурсы и material metadata связаны
+с BEGIN/gesture/history; сервер ретранслирует и проверяет, но не рисует. Бюджеты
+CPU/GPU/work, room authorization и атомарная отмена подготовки сохраняются.
 
-## Приоритеты реализации — сначала код, без очередного QA-цикла
+## Явные границы
 
-1. **Закрыть image+Multiply/source8 целиком:** ownDATA capability + genuine source
-   binding, исходный compiled2, fixed saved phase, image tilt/camera, byte strength,
-   author adapter/encoder и named mixed recorded attachment. Продолжить SAME
-   owner/resource/program model; старые3/7 не переписывать. Это открывает механизм
-   Pencil5, а не отдельное исключение по её ID.
-2. **Plain dynamic geometry:** Gaussian Scatter+DrawingAngle/fan+Mirror с готовыми
-   kernels, rotating capacity и explicit read/author contract; затем native-size
-   slider через тот же source scale/budget model. Не добавлять ещё один renderer.
-3. **Timed producer:** завершить elapsed-time airbrush/Rate/ignoreDistance state
-   machine поверх существующего author и FIFO с bounded ownership.
-4. **Dual/masking closure:** master/child geometry, independent streams, composite
-   operator, one shared RNG sequence, source roots и recorded fences.
-5. **Остальные материал/цветовые механизмы:** soft texture и оставшиеся texture
-   laws, lightness/color stamps, source color providers/dynamic color,
-   softness/sharpness; затем оставшиеся Auto mask parameters и composite laws.
-   Расширять формат по смысловым данным, а не по номеру очередного пресета.
+- Общий compositor вне семи перечисленных outer modes пока закрыт, как и
+  non-over/non-erase buildup. Screen/burn/add/HSL и прочие не подменяются normal.
+- Application assistants, wrap/document mirror, channel/alpha locks и tool
+  overrides — отдельные входы приложения, а не ещё один Pixel mask kernel.
+- Image side2048/1M pixels, frames256/role, sequence4096 UTF16 units,
+  исходные assets2048, wire inventory255 и остальные budgets — ограничения
+  admission. Нельзя обходить их padding, fake CAS или неограниченным fallback.
+- SVG поддерживает закрытый subset; сложные scripts/CSS/external resources
+  не исполняются. Text требует фактического font backend и сохраняет substitution.
+- sRGB/браузерная арифметика, AA, Pillow/librsvg и deterministic noise — явные
+  функциональные профили. ICC/HDR/native entropy и точные Qt edges не обещаются.
+- Новый импорт имеет rendering revision4. Старые descriptor/recorded revisions,
+  коэффициенты3/4 и законы material3–7 не переписываются. Новый импорт по умолчанию
+  использует общий compiled2, legacy4 — только явный opt-in.
 
-Фаза «код без тестов» не превращает незапущенные проверки в PASS. В этой карте
-нет нового процента готовности. Каталог125 содержит исторические/QA revisions;
-36 pure admission positives старого среза — не36 production brushes, а27 ранее
-проверенных пресетов — не покрытие всего Pixel.19 пропущенных importer engines
-(Spray/Deform/Sketch/Filter и прочие) **вне Pixel**; их нельзя включить в обещание
-завершить Pixel или объявить исправленными через Scatter. Production deploy,
-новый каталог, protocol/runtime cutover и Grafetto push здесь не выполнялись.
+## Проверки на конец фазы кода
 
-## Реализация 3 ноября: незапущенный код
+Локальные checkpoints `6a3c6aa9b` и `1f3226dbf`; следующий блок Gradient Map/ABR
+ещё фиксируется. Shared compile27: 70 production roots/0 diagnostics; server
+compile24: 68/0. Frontend compile21: 619/0 на том же кодовом блоке. Девять Python-файлов проверены через compile() без импортов/декодирования.
 
-После исходного среза добавлены общие контракты source2/source8, независимые
-READ/AUTHOR-политики protocol10, оригинальные CAS/SHA-привязки и смешанная
-recorded-доставка. В рабочем дереве реализованы динамическая Auto-геометрия
-(включая spikes2..64), primary/mask planes, первые10 alpha masking operators,
-source2 buildup/erase, парные lightness/RGB ресурсы и их LOD/prepass, material
-options и per-DRAW RGB. Новые параметры записываются автором; replay не повторяет
-sensor/curve/RNG-запросы. Ввод получает доступные twist/tangential и нормированную
-скорость в координатах вида; timed airbrush имеет отдельный bounded producer.
+В этой фазе не запускались тесты, приложение, браузеры, импорт кистей, Krita
+или планшеты. Следующая фаза — исправлять реальные ошибки запусков, проверить
+ресурсную/историческую целостность и ожидаемые штрихи, затем отзывчивость и память.
+Наличие кода и успешная компиляция ещё не дают оснований объявить полную поддержку.
 
-Это **код в интеграции**, а не подтверждённая визуальная совместимость. После
-крупного блока frontend production typecheck (607 roots) нашёл12 диагностик;
-причины исправлены, повторная проверка назначена после следующего связного блока.
-Server production typecheck (67 roots) завершился без диагностик. Тесты,
-приложение, устройства и производственная сборка в этой фазе не запускались.
+## Источники и рабочие отчёты
 
-Сейчас единый texture8 расширяется до image/Auto +14 hard/soft alpha laws через
-одну реализацию с параметром режима. Старые3–7 сохраняют свои законы; история
-выбирает версию по исходной записи. Следующие незавершённые области: полный
-GIH selection/ranks и цветные pipes, mask randomness/density для всех Auto,
-color-source/gradient providers, texture LIGHTNESS/GRADIENT, UI source scale
-с записанной неизменяемой идентичностью и оставшиеся composite/color-space laws.
-Число подтверждённых кистей и состояние тестового стенда этим кодом не изменены.
+Официальные исходники: https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f
+— `KisDabCacheUtils`, `kis_brush.cpp`, `KisColorfulBrush`, mask generators,
+masking/texture composite factories, `kis_text_brush` и ABR collection.
+Формулы реализованы в общем клиентском пути; исходный код GPL не переносится
+целиком как зависимость.
 
-Следующий кодовый checkpoint: production typecheck клиента —611 roots/0 diagnostics,
-сервера —67/0; общий контракт перед ним —66/0. Включены общий image/Auto texture8,
-многомерный GIH и выбранный sourceScale через подготовку, BEGIN, frame и snapshot.
-После этого продолжается реализация ColorSource: uniform random и gradient RGBA.
-Эти результаты компиляции не подтверждают визуальное поведение или отзывчивость.
-
-### Pixel CODE FIRST: цветные текстуры, 3 ноября
-
-Lightness/Gradient получили явные gray/alpha ресурсы и захваченный на START
-RGBA LUT; BEGIN, кадры и сохранение истории несут ту же таблицу.
-Сервер: 67 production roots, 0 diagnostics (compile11); shared: 67, 0
-(compile15). Frontend compile9: 613 roots, 7 diagnostics; исправления в работе.
-Это проверка типов, приложение, тесты и устройства не запускались.
-Остаётся отдельный spatial color путь для total_random и pattern/lockedpattern;
-один записанный цвет даба его не заменяет.
-
-Frontend compile11 завершён: 613 production roots, 0 diagnostics.
-Текущий блок ColorTexture компилируется во всех трёх пакетах; поведение ещё
-не проверялось.
-
-### Pixel CODE FIRST: spatial ColorSource
-
-В новый source2/source8 добавлены versioned total_random и pattern/lockedpattern:
-role provider, исходные четыре CAS-плоскости, записанные seed/phase каждого DRAW.
-Shared compile16: 68 roots без диагностик; server compile14: 67 без диагностик.
-Frontend compile12 обнаружил синтаксическую ошибку вставки метода и две ошибки
-типов/стиля; исправлены, compile13 в процессе. Приложение и тесты не запускались.
-Шум формируется точным CPU uint32 hash; pattern использует существующий RGBA Bank.
-Дополнительный prepass program/slots готовится атомарно только при необходимости,
-с прежними пределами памяти; source RGBA поступает в Composite до текстуры.
-Ресурсы авторизуются каталогом владельца/комнаты/оператора и удерживаются в комнате.
+Статические отчёты и компиляции: `temp/device-runs/krita-stroke-20261024/fixes-v52/`:
+`pixel-finite-residual-mechanisms-readonly.md`,
+`pixel-raster-remaining-mechanisms-readonly-v1.md`,
+`pixel-frontend-closure-static-audit-v1.md`, `ROOT-CODE-FIRST-CURRENT.json`.
+Protected `sourceDefaultAutoVectorShader.ts` не читается и не участвует в проверках.

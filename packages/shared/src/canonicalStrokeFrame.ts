@@ -1,3 +1,5 @@
+import {canonicalSourceTipGradient,type CanonicalSourceTipGradient} from './canonicalSourceTipGradient.js'
+import {canonicalSourceMaterialTipGradient} from './canonicalMaterialCodec.js'
 import {canonicalSourceRoleTextures,type CanonicalSourceRoleTextures} from './canonicalSourceRoleTextures.js'
 import {canonicalSourceColorFields,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
 import {canonicalSourceScale} from './canonicalSourceScale.js'
@@ -38,6 +40,7 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
   return canonicalStrokeRasterContract(profile).coverageProfiles.some(value=>value===coverage)
 }
 interface CanonicalStrokeFrameData {
+  readonly sourceTipGradient?:CanonicalSourceTipGradient
   readonly sourceRoleTextures?:CanonicalSourceRoleTextures
   readonly textureGradient?:import('./canonicalPrimaryTexture.js').CanonicalTextureGradientRGBA
   readonly sourceColorFields?:CanonicalSourceColorFields
@@ -200,8 +203,10 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(roles&&(!Object.hasOwn(roles,'value')||aware3||aware4||aware5||aware6||aware7||!contract.genericSC||!('version'in material)||material.version!==2))throw new TypeError('Unsupported role texture context')
   const sourceRoleTextures=roles&&'version'in material&&material.version===2?canonicalSourceRoleTextures(roles.value,material.assets,!!material.maskSource):undefined
   if(sourceRoleTextures){const d=Object.getOwnPropertyDescriptor(value??{},'sourceRoleTextures');if(!d||!Object.hasOwn(d,'value')||!('version'in material)||material.version!==2||JSON.stringify(canonicalSourceRoleTextures(d.value,material.assets,!!material.maskSource))!==JSON.stringify(sourceRoleTextures))throw new TypeError('Role texture envelope differs')}
+  const sourceTipGradient='version'in material&&material.version===2?canonicalSourceMaterialTipGradient(material):undefined
+  if(sourceTipGradient){const d=Object.getOwnPropertyDescriptor(value??{},'sourceTipGradient');if(!d||!Object.hasOwn(d,'value')||JSON.stringify(canonicalSourceTipGradient(d.value))!==JSON.stringify(sourceTipGradient))throw new TypeError('Tip gradient envelope differs')}
   if(early7)value=captureEnvelope7(value,early7)
-  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[]),...(sourceRoleTextures?['sourceRoleTextures']:[])])
+  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[]),...(sourceRoleTextures?['sourceRoleTextures']:[]),...(sourceTipGradient?['sourceTipGradient']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile,browserHsy) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
@@ -227,7 +232,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked,...sourceRoleTextures?{sourceRoleTextures}:{},...sourceColorFields?{sourceColorFields}:{},...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
+    materialPacked,...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextures?{sourceRoleTextures}:{},...sourceColorFields?{sourceColorFields}:{},...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })
