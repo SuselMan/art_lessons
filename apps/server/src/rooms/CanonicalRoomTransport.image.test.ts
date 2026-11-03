@@ -91,9 +91,21 @@ it('cannot cold-read V2 image via policy-off or a tampered indexed row, and does
 it('requires explicit V2 base and author pipe roles to be a subset of immutable recorded roles',()=>{
  const base={rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'] as const}
  const recorded=['incremental-inverse-gray-v2'] as const,author=['random-inverse-gray-v2'] as const
- expect(()=>new CanonicalRoomTransport({...base,...{allowedRecordedImagePipeSources:recorded}})).toThrow()
- expect(()=>new CanonicalRoomTransport({...base,primaryImageSource:'single-inverse-gray-v2',...{allowedRecordedImagePipeSources:recorded,authorImagePipeSources:author}})).toThrow()
- const mutable:import('./canonicalExecutionPolicy.js').CanonicalImagePipeSource[]=['incremental-inverse-gray-v2'],transport=new CanonicalRoomTransport({...base,primaryImageSource:'single-inverse-gray-v2',...{allowedRecordedImagePipeSources:mutable}})
+ expect(()=>new CanonicalRoomTransport(({
+	...base,
+	allowedRecordedImagePipeSources: recorded
+}))).toThrow()
+ expect(()=>new CanonicalRoomTransport(({
+	...base,
+	primaryImageSource: 'single-inverse-gray-v2',
+	allowedRecordedImagePipeSources: recorded,
+	authorImagePipeSources: author
+}))).toThrow()
+ const mutable:import('./canonicalExecutionPolicy.js').CanonicalImagePipeSource[]=['incremental-inverse-gray-v2'],transport=new CanonicalRoomTransport(({
+	...base,
+	primaryImageSource: 'single-inverse-gray-v2',
+	allowedRecordedImagePipeSources: mutable
+}))
  mutable[0]='random-inverse-gray-v2'
  expect(transport['policy'].allowedRecordedImagePipeSources).toEqual(['incremental-inverse-gray-v2'])
  expect(Object.isFrozen(transport['policy'].allowedRecordedImagePipeSources)).toBe(true)
@@ -633,14 +645,18 @@ it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMa
  const grayHash=createHash('sha256').update(grayBytes).digest('hex')
  const grayId:`asset:${string}`=`asset:${grayHash}`
  d.tip.material={kind:'gradient',gray:grayId};delete d.tip.imageSampling
- const source=d.sourceStamp;if(!source)throw Error('Original compiled SOURCE missing')
+ const retained=d.sourceStamp;if(!retained)throw Error('Original compiled SOURCE missing')
+ // New mechanism fixture declares SOURCE2 explicitly; the historical fixture
+ // remains SOURCE1 even though its curve dictionary is already compiled2.
+ d.sourceStamp={...retained,version:2,source:{kind:'image'}}
+ const source=d.sourceStamp
  source.settings.brush_definition=source.settings.brush_definition.replace(/brushApplication="[^"]*"/,'').replace(/<Brush\b/,'<Brush brushApplication="3"')
  if(application==='spatial-mask'){
   source.settings['ColorSource/Type']='total_random'
   if(!source.unsupported.includes('source-color-provider-unresolved'))source.unsupported.push('source-color-provider-unresolved')
  }
  const f=setup(d,{id:grayId,size:fixture.asset.size,bytes:grayBytes})
- const config={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'] as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}
+ const config={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'] as const,primaryImageSource:'single-inverse-gray-v2' as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}
  const transport=new CanonicalRoomTransport(config)
  const fields=application==='spatial-mask'?{primary:{kind:'total-random-rgb8-hash-v1' as const}}:undefined
  const resource={kind:'captured-tip-gradient-rgba8-v1' as const,rgba:Array.from({length:1024},(_,i)=>i%4===3?137:Math.floor(i/4))}
@@ -648,7 +664,11 @@ it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMa
  // Missing actual START resource must not allocate a grant or persist a row.
  expect(await transport.begin(identity,{...f.input,...fields?{sourceColorFields:fields}:{}},()=>true)).toMatchObject({ok:false})
  expect(f.board.operations).toEqual([]);expect(db.operation.create).not.toHaveBeenCalled()
- const s=snapshot(await transport.begin(identity,{...f.input,sourceTipGradient:resource,...fields?{sourceColorFields:fields}:{}},()=>true))
+ const selectedInput={...f.input,sourceTipGradient:resource,...fields?{sourceColorFields:fields}:{}}
+ const resolver=new CanonicalBrushCapabilityResolver({...config,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const preview=resolver.prepareBeginGesture(identity,selectedInput)
+ expect(preview.grant.material.primarySource.kind).toBe('image')
+ const s=snapshot(await transport.begin(identity,selectedInput,()=>true))
  const p=s.material.primarySource
  if(p.kind!=='image'||p.imageMaterial?.kind!=='gradient-map-v1')throw Error('Expected captured GradientMap image')
  expect(p.imageMaterial.application).toBe(application);expect(p.imageMaterial.gradient).toEqual(original)

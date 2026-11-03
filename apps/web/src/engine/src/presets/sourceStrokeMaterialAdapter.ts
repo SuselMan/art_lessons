@@ -308,7 +308,7 @@ class MaterialAdapterCore<C extends CoreSourceContext> {
           if(!sameData(actual,expected))invalid()
         } else {
           const a=canonicalImageFrameAsset(pin,this.context.assets,0)
-          if(r.geometry?.kind==='defaultAuto'||r.materialPolicy!==(pin.imageMaterial?pin.imageMaterial.kind==='lightness-map-v1'?'image-lightness-map-v1':'image-color-stamp-v1':'png-fixed1-rng-free')||!sourceImageMaterialMatches(r,pin)||r.material.brushIdentity!==pin.asset||!a
+          if(r.geometry?.kind==='defaultAuto'||r.materialPolicy!==(pin.imageMaterial?pin.imageMaterial.kind==='gradient-map-v1'?'png-fixed1-rng-free':pin.imageMaterial.kind==='lightness-map-v1'?'image-lightness-map-v1':'image-color-stamp-v1':'png-fixed1-rng-free')||!sourceImageMaterialMatches(r,pin)||r.material.brushIdentity!==pin.asset||!a
             ||r.brush.width!==a.width||r.brush.height!==a.height||!Object.is(r.brush.scale,pin.brushScale)||!Object.is(r.brush.angle,pin.brushAngle))invalid()
         }
       } else {

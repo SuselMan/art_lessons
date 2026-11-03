@@ -8,7 +8,7 @@ type ImageAssets=CanonicalMaterialAsset|readonly CanonicalMaterialAsset[]
 function capture(source:CanonicalMaterialImageSource,assets:ImageAssets){
   const inventory='id' in assets?[assets]:assets
   if(Object.hasOwn(source,'frameBounds')){
-    const context=canonicalSourceMaterialContext({version:2,primarySource:source,assets:inventory,imageFrameIndices:'source-image-pipe-frame-v1',budget:CANONICAL_MATERIAL_LIMITS})
+    const context=canonicalSourceMaterialContext({version:2,primarySource:source,assets:inventory,imageFrameIndices:'source-image-pipe-frame-v1',budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}})
     if(context.primarySource.kind!=='image')throw new TypeError('Expected original image geometry')
     return {primarySource:context.primarySource,assets:context.assets}
   }
