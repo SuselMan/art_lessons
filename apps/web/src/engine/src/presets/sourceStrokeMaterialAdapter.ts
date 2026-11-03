@@ -298,7 +298,7 @@ class MaterialAdapterCore<C extends CoreSourceContext> {
           if(pin.kind==='defaultAuto'&&pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE&&(r.id!=='primary'||program.roles.length!==1||this.context.maskSource!==undefined))invalid()
           const policy=this.context.materialParams&&r.materialOptions?'auto-source-material-v1':pin.kind==='softAuto'?'soft-auto-fixed1-rng-free':pin.kind==='defaultAuto'?pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
           if(pin.kind==='softAuto'&&pin.sourceSlot!==(r.id==='primary'?0:1))invalid()
-          if(!g||g.kind!==pin.kind||r.materialPolicy!==policy||pin.brushScale!==(program.roles.length===2?r.brush.scale:1)
+          if(!g||g.kind!==pin.kind||r.materialPolicy!==policy||pin.brushScale!==(program.roles.length===2||this.context.scaledSource?r.brush.scale:1)
             ||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion
             ||g.coverageProfile!==pin.coverageProfile)invalid()
           const actual=g.kind==='defaultAuto'?canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle,g.coverageProfile)

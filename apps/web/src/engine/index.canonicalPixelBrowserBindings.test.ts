@@ -10,10 +10,10 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture',begin:CanonicalSourceAuthorService['begin']){
- const row=originals.rows[kind==='dual'?0:1],descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
- descriptor.id='imported-'+(kind==='dual'?'c1':'c2').repeat(16)
- let assets=row.assets.map(a=>({...a}))
+async function setup(kind:'dual'|'texture'|'bitmap-auto',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true){
+ const row=originals.rows[kind==='dual'?0:kind==='texture'?1:2],descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
+ if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?'c1':'c2').repeat(16)
+ let assets=row.assets.map(a=>{if(!a.id.startsWith('asset:'))throw Error('Original CAS asset required');return{...a,id:a.id as `asset:${string}`}})
  if('coverage'in row&&row.coverage)installBrushPixels(row.coverage.id,new Uint8Array(inflateSync(Buffer.from(row.coverage.deflateBase64,'base64'))))
  if(kind==='texture'){
   // Keep original compiled2 queries/geometry; explicitly replace only artwork
@@ -22,18 +22,18 @@ async function setup(kind:'dual'|'texture',begin:CanonicalSourceAuthorService['b
   const t=descriptor.texture!;descriptor.texture={id:id as `asset:${string}`,strength:t.strength,periodPx:8,patternSize:{width:8,height:8},offset:{x:0,y:0,randomX:false,randomY:false},application:t.application!}
   assets=assets.filter(a=>a.id!==t.id);assets.push({id:id as `asset:${string}`,size:8,file:id.slice(6)+'.bin'});installBrushPixels(id,pixels)
  }
- const preset='brush:'+descriptor.id+'@'+descriptor.version,sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
+ const preset='brush:'+descriptor.id+'@'+descriptor.version+(modifiers?':flat:fixed':''),sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'Derived '+kind+' browser integration',source:'actual compiled2 metadata, derived resource identity',warnings:[]}],assets,skipped:[]})
- const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:32,canvasHeight:32,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:B,canonicalPrimaryGrainSource:'primary-grain-image-v1',canonicalAuthorPrimaryGrainSource:'primary-grain-image-v1',canonicalPixelMaskedSource:'pixel-masked-v1',canonicalAuthorPixelMaskedSource:'pixel-masked-v1',canonicalReadScope:{roomId:'room',boardEpoch:2,allowedRasterProfiles:[B]},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:32,canvasHeight:32,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:B,canonicalImageMaterialSource:'pixel-image-material-v1',canonicalAuthorImageMaterialSource:'pixel-image-material-v1',canonicalPlainAutoGeometrySource:'dynamic-auto-geometry-v1',canonicalAuthorPlainAutoGeometrySource:'dynamic-auto-geometry-v1',canonicalPrimaryGrainSource:'primary-grain-image-v1',canonicalAuthorPrimaryGrainSource:'primary-grain-image-v1',canonicalPixelMaskedSource:'pixel-masked-v1',...maskedAuthor?{canonicalAuthorPixelMaskedSource:'pixel-masked-v1' as const}:{},canonicalReadScope:{roomId:'room',boardEpoch:2,allowedRasterProfiles:[B]},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
  const p=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>true}),operations:Operation[]=[]
- const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:32,pageHeight:32,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{authorPrimaryGrainSource:'primary-grain-image-v1',authorPixelMaskedSource:'pixel-masked-v1',begin},onLocalOperation:op=>operations.push(op)},{width:32,height:32}),engine=r.engine
+ const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:32,pageHeight:32,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{authorImageMaterialSource:'pixel-image-material-v1',authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1',authorPrimaryGrainSource:'primary-grain-image-v1',...maskedAuthor?{authorPixelMaskedSource:'pixel-masked-v1' as const}:{},begin},onLocalOperation:op=>operations.push(op)},{width:32,height:32}),engine=r.engine
  const gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,32,32]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(12);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,p,operations,preset,sha,descriptor}
 }
-it.each(['dual','texture'] as const)('prepares actual browser %s and carries its bound source through real START and encoded END',async kind=>{
+it.each([{kind:'dual',modifiers:false},{kind:'dual',modifiers:true},{kind:'texture',modifiers:false},{kind:'bitmap-auto',modifiers:false}] as const)('prepares actual browser $kind (UI modifiers=$modifiers) under all named policies through START and encoded END',async({kind,modifiers})=>{
  let snapshot!:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV8
  const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
   const material=lifetime.expectedSourceMaterialContext2??lifetime.expectedMaterialContext8
@@ -43,10 +43,11 @@ it.each(['dual','texture'] as const)('prepares actual browser %s and carries its
   snapshot=material.version===8?canonicalStandaloneStrokeSnapshotV8(raw,2,B):canonicalSourceStrokeSnapshotV2(raw,2,B)
   return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
  })
- const h=await setup(kind,begin),{engine}=h
+ const h=await setup(kind,begin,modifiers),{engine}=h
  try{
   expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
-  const prepared=engine['_canonicalPreparedAuthor']!;expect(prepared.material.kind).toBe(kind==='dual'?'masked':'pixelTexture')
+  const prepared=engine['_canonicalPreparedAuthor']!;expect(prepared.material.kind).toBe(kind==='dual'?'masked':kind==='texture'?'pixelTexture':'auto')
+  if(kind==='bitmap-auto'){expect(h.descriptor.tip.kind).toBe('bitmap');expect(prepared.material.kind).toBe('auto');expect(prepared.imageLease).toBeUndefined();if(prepared.material.kind==='auto')expect(prepared.material.pin.coverageProfile).toBe('seeded-auto-mask-browser-v1')}
   if(prepared.material.kind==='masked'){
    const p=prepared.material.context.primarySource,m=prepared.material.context.maskSource!
    if(m.kind!=='softAuto')throw Error('Original Auto+Soft dual required')
@@ -58,6 +59,7 @@ it.each(['dual','texture'] as const)('prepares actual browser %s and carries its
   await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
   const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Actual source operation required');expect(op.frame.rasterProfile).toBe(B);return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
   expect(frames.reduce((n,f)=>n+f.draws.length,0)).toBeGreaterThan(0);expect(frames.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  if(kind==='bitmap-auto')for(const recipe of frames.flatMap(f=>Array.from(f.definitions))){if(!('kind'in recipe)||recipe.kind!=='defaultAuto')throw Error('Actual default Auto recipe required');expect(recipe.coverageProfile).toBe('seeded-auto-mask-browser-v1');expect(Number.isInteger(recipe.maskSeed)).toBe(true);expect(recipe.sourceSlot).toBe(0)}
   if(kind==='dual')expect(new Set(frames.flatMap(f=>f.draws).map(d=>d.role))).toEqual(new Set(['primary','mask']))
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 },15000)
@@ -80,3 +82,8 @@ it('rejects a changed original mask in a real browser dual BEGIN before local fr
   expect(engine['_authorInputError']).toBeDefined();expect(h.operations).toHaveLength(0)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 },15000)
+
+it('does not use the image author grant as a fallback for a bitmap dual when masked author is absent',async()=>{
+ const begin=vi.fn(),h=await setup('dual',begin,false,false),{engine}=h
+ try{await expect(engine.prepareBrush(h.preset)).rejects.toThrow('Masked author original policy missing');expect(begin).not.toHaveBeenCalled();expect(h.operations).toHaveLength(0)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

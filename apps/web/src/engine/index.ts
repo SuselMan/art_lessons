@@ -8658,8 +8658,8 @@ export class PencilEngine implements PencilEngineAPI {
     let plainRelease:(()=>void)|undefined,plainCharge=0
     try{
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!originalDescriptor)throw new Error('Canonical source author services unavailable')
-    if(originalDescriptor.tip.kind==='bitmap'&&originalDescriptor.sourceStamp?.version===2&&!originalDescriptor.sourceStamp.flags.textureEnabled&&this._canonicalAuthorService?.authorImageMaterialSource==='pixel-image-material-v1')return this._prepareCanonicalImageMaterialAuthorBrush(preset,originalDescriptor,owner,options)
     if(originalDescriptor.behavior?.dual)return this._prepareCanonicalMaskedAuthorBrush(preset,originalDescriptor,owner,options)
+    if(originalDescriptor.tip.kind==='bitmap'&&originalDescriptor.sourceStamp?.version===2&&originalDescriptor.sourceStamp.source.kind==='image'&&!originalDescriptor.sourceStamp.flags.textureEnabled&&this._canonicalAuthorService?.authorImageMaterialSource==='pixel-image-material-v1')return this._prepareCanonicalImageMaterialAuthorBrush(preset,originalDescriptor,owner,options)
     let descriptor=originalDescriptor
     if(owner.retiring)throw new Error('Canonical author owner is retiring')
     this._assertCanonicalLayerCurrent(owner)
@@ -8734,7 +8734,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     const data=admission.data,image=grainImage??(admission.material.kind==='image'||admission.material.kind==='imageTexture'?admission.material.pin:undefined),fixed=admission.material.kind==='autoTexture'?admission.material.capability:undefined,pressure=admission.material.kind==='autoPressureTexture'?admission.material.capability:undefined,softPressure=admission.material.kind==='autoSoftPressureTexture'?admission.material.capability:undefined,generic=admission.material.kind==='texturedAuto'?admission.material.capability:undefined
     let texture:CanonicalTextureContext|undefined=admission.material.kind==='imageTexture'?canonicalPrimaryTextureMaterialContext({version:3,assets:[admission.material.capability.asset,admission.material.capability.patternAsset],primarySource:admission.material.pin.primarySource,primaryTexture:admission.material.capability.primaryTexture,budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}):undefined
-    const coverageProfile=admission.material.kind==='auto'&&'coverageProfile'in admission.material&&admission.material.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
+    const coverageProfile=dynamicPlain&&data.version===2&&data.source.kind!=='image'&&(data.source.randomness!==0||data.source.density!==1)?CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE:admission.material.kind==='auto'&&'coverageProfile'in admission.material&&admission.material.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
     let requested:TransformedMaskLimits
     if(image)requested=canonicalImageMaskCapacity(image.primarySource,image.assets)
     else{

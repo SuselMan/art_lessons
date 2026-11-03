@@ -4,7 +4,7 @@ import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame
 import type {BrushDescriptor} from './brushes.js'
 import { expect, it, vi } from 'vitest'
 import { assertPrimaryCanonicalMaterial, buildCanonicalMaterial, packCanonicalMaterial, unpackCanonicalMaterial, CANONICAL_SOURCE_MATERIAL_PROFILE,
-  CANONICAL_MATERIAL_PROFILE, type CanonicalMaterialContextV2, type CanonicalMaterialContext, type CanonicalMaterialFrameV2,
+  CANONICAL_MATERIAL_PROFILE, canonicalSourceMaterialContext, type CanonicalMaterialContextV2, type CanonicalMaterialContext, type CanonicalMaterialFrameV2,
   type CanonicalMaterialBuildInputV2, type CanonicalMaterialFrame } from './canonicalMaterialCodec.js'
 import { canonicalDefaultAutoStatic, type CanonicalDefaultAutoRecipe } from './canonicalDefaultAutoMaterial.js'
 import { decodeCanonicalStrokeFrame, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
@@ -151,4 +151,17 @@ it('keeps direct default-auto binding old-Over-only and admits explicit V2 nativ
   expect(canonicalDefaultAutoSourceBinding(d,'a'.repeat(64),'scalar-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toEqual(old)
   Object.assign(d.behavior!,{erase:true});expect(()=>canonicalDefaultAutoSourceBinding(d,'a'.repeat(64),'scalar-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
  }
+})
+
+it('captures a seeded Default Auto SOURCE2 context without losing its density or profile',()=>{
+  const raw=context(), seededSource={...source,density:.8,randomness:.2}
+  raw.primarySource={...raw.primarySource,source:seededSource,coverageProfile:'seeded-auto-mask-browser-v1'} as typeof raw.primarySource
+  const captured=canonicalSourceMaterialContext(JSON.parse(JSON.stringify(raw)))
+  expect(captured.primarySource).toEqual(raw.primarySource)
+  expect(Object.isFrozen(captured.primarySource)).toBe(true)
+  expect(()=>canonicalSourceMaterialContext({...raw,primarySource:{...raw.primarySource,coverageProfile:'unknown'}})).toThrow()
+  let invoked=0
+  const accessor={...seededSource};Object.defineProperty(accessor,'density',{enumerable:true,get(){invoked++;return .8}})
+  expect(()=>canonicalSourceMaterialContext({...raw,primarySource:{...raw.primarySource,source:accessor}})).toThrow()
+  expect(invoked).toBe(0)
 })
