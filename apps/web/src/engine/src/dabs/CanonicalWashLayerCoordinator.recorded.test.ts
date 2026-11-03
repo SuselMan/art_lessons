@@ -1024,3 +1024,65 @@ it('preserves structured fatal planning pressure when no Work can drain',()=>{
  }finally{release();s.close()}
  expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
 })
+
+
+it('WASH confirmation-only promotion keeps published raw and GL untouched until the final receipt frontier',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const inputs=Array.from({length:4},(_,ordinal)=>s.input('author',ordinal,ordinal+1,ordinal===3,true,ordinal))
+  const author=s.localAuthor()
+  for(const input of inputs)expect(s.coordinator.tryEnqueueLocal(author,s.local(input))).toBe(true)
+  s.drain()
+  const entry=s.coordinator['entries'][0],raw=entry.ownership,deposited=entry.depositedNextOrdinal
+  const revision=s.coordinator['revision'],completed=s.coordinator['completedPresentation']
+  const stages=s.stage.mock.calls.length,commands=s.draw.mock.calls.length
+  expect(deposited).toBe(4);expect(stages).toBeGreaterThan(0)
+  expect(s.coordinator['candidate']).toBeUndefined();expect(s.coordinator['replayWork']).toBeUndefined()
+  for(const input of inputs.slice(0,3)){
+   s.coordinator.enqueueRecorded(input);s.drain()
+   expect(entry.ownership).toBe(raw);expect(entry.depositedNextOrdinal).toBe(deposited)
+   expect(s.coordinator['revision']).toBe(revision);expect(s.coordinator['completedPresentation']).toBe(completed)
+   expect(s.stage).toHaveBeenCalledTimes(stages);expect(s.draw).toHaveBeenCalledTimes(commands)
+   expect(s.coordinator['replay'].get(input.operation.id)?.value.kind).toBe('recorded')
+  }
+  expect(entry.recorded?.state.nextOrdinal).toBe(3);expect(entry.local?.receipts).toHaveLength(1)
+  s.coordinator.enqueueRecorded(inputs[3]);s.drain()
+  expect(s.stage.mock.calls.length).toBeGreaterThan(stages)
+  expect(s.coordinator.pending).toBe(false);expect(s.coordinator.hasPendingLocal).toBe(false);expect(s.coordinator['closed']).toBe(true);expect(s.stagedCuts.at(-1)).toEqual([4]);expect(s.pixel()[3]).toBeGreaterThan(0)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('WASH confirmation preserves active candidate proof and requests fresh metadata before closing',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const inputs=Array.from({length:3},(_,ordinal)=>s.input('author',ordinal,ordinal+1,ordinal===2,true,ordinal))
+  const author=s.localAuthor()
+  for(const input of inputs)expect(s.coordinator.tryEnqueueLocal(author,s.local(input))).toBe(true)
+  s.drain(true)
+  for(let n=0;!s.coordinator['candidate'];n++){if(n>2000)throw Error('No actual candidate');s.step()}
+  const candidate=s.coordinator['candidate'],revision=s.coordinator['revision']
+  s.coordinator.enqueueRecorded(inputs[0])
+  expect(s.coordinator['candidate']).toBe(candidate);expect(s.coordinator['revision']).toBeGreaterThan(revision)
+  s.drain();expect(s.coordinator.poisoned).toBe(false)
+  for(const input of inputs.slice(1))s.coordinator.enqueueRecorded(input)
+  s.drain();expect(s.coordinator.pending).toBe(false);expect(s.coordinator.hasPendingLocal).toBe(false);expect(s.coordinator['closed']).toBe(true);expect(s.stagedCuts.at(-1)).toEqual([3])
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('WASH first-sequence reorder still dirties and republishes genuine peer order',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const a=s.input('A',0,2,false,true,0),a1=s.input('A',1,3,true,true,1)
+  const b=s.input('B',0,1,false,true,0),b1=s.input('B',1,4,true,true,1)
+  const authorA=s.localAuthor('A'),authorB=s.localAuthor('B')
+  for(const input of [a,a1])expect(s.coordinator.tryEnqueueLocal(authorA,s.local(input))).toBe(true)
+  for(const input of [b,b1])expect(s.coordinator.tryEnqueueLocal(authorB,s.local(input))).toBe(true)
+  s.drain();const before=s.coordinator['entries'].slice(),revision=s.coordinator['revision'],stages=s.stage.mock.calls.length
+  expect(s.coordinator['dirty'].size).toBe(0)
+  s.coordinator.enqueueRecorded(b)
+  expect(s.coordinator['entries']).toEqual([before[1],before[0]])
+  expect(s.coordinator['revision']).toBeGreaterThan(revision);expect(s.coordinator['dirty'].size).toBeGreaterThan(0)
+  s.drain();expect(s.stage.mock.calls.length).toBeGreaterThan(stages)
+  for(const input of [a,a1,b1])s.coordinator.enqueueRecorded(input)
+  s.drain();expect(s.coordinator.pending).toBe(false);expect(s.coordinator.hasPendingLocal).toBe(false);expect(s.coordinator['closed']).toBe(true);expect(s.stagedCuts.at(-1)).toEqual([2,2]);expect(s.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})

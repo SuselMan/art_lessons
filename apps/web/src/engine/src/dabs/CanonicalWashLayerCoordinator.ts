@@ -503,7 +503,7 @@ export class CanonicalWashLayerCoordinator {
       if(this.options.mixedReplay7){
         const source=existing.replaySource,sourceLease=existing.sourceLease
         const previousSequence=this.lastSequence,previousPrefix=existing.recorded
-        const recapture=this.stagePreviewRecaptureOwned()
+        let recapture:ReturnType<CanonicalWashLayerCoordinator['stagePreviewRecaptureOwned']>|undefined
         let rejected=false
         try{
           this.assertLayers();input.delivery.assertCurrent(input);this.assertLocal(local)
@@ -519,7 +519,18 @@ export class CanonicalWashLayerCoordinator {
             targetIndex=0
             while(targetIndex<this.entries.length&&this.entries[targetIndex].firstSequence!==undefined)targetIndex++
           }
-          recapture.assertPrepared();stage?.assertPrepared()
+          // Confirmation changes retained delivery authority, not native paint.
+          // No captured display/replay owner may survive this metadata-only
+          // publication. Terminal/last-receipt promotion retains the ordinary
+          // close-proof recapture, even when its pixels were already displayed.
+          const metadataOnly=existing.mode==='wash'&&!existing.committed
+            &&!existing.metadataRetired&&!existing.metadataReleased
+            &&targetIndex===previousIndex&&!existing.washInFlight&&!this.dirty.size
+            &&op.frame.frameOrdinal<existing.depositedNextOrdinal
+            &&local.receipts.length>1&&!recorded.state.ended&&!recorded.sealed
+            &&!this.candidate&&!this.replayWork&&!this.previewLane&&!this.work&&!this.renderedTail
+          if(!metadataOnly)recapture=this.stagePreviewRecaptureOwned()
+          recapture?.assertPrepared();stage?.assertPrepared()
           if(this.closed||this.failed||!this.busy||existing.local!==local
             ||local.receipts[0]!==receipt||existing.recorded!==previousPrefix
             ||existing.replaySource!==source||existing.sourceLease!==sourceLease
@@ -534,7 +545,7 @@ export class CanonicalWashLayerCoordinator {
             for(let index=previousIndex;index>targetIndex;index--)this.entries[index]=this.entries[index-1]
             this.entries[targetIndex]=existing;this.replayOrderRevision++
           }
-          recapture.publishPrepared()
+          recapture?.publishPrepared()
           try{receipt.release()}catch(error){
             this.failed=true;this.errors.push(error);this.clean(()=>this.notifyPoison(error));throw error
           }
@@ -542,7 +553,7 @@ export class CanonicalWashLayerCoordinator {
         }catch(primary){rejected=true;throw primary}
         finally{
           const before=this.errors.length
-          this.cleanFrontier(recapture.release)
+          if(recapture)this.cleanFrontier(recapture.release)
           if(!rejected&&this.errors.length>before)throw this.errors[before]
         }
       }
