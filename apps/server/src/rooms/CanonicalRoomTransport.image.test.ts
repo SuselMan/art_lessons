@@ -624,3 +624,54 @@ it.each([{mode:'direct',buildup:false},{mode:'disconnect',buildup:false},{mode:'
   expect((await t.recorded(identity,{...op,id:'after-auto7-close'},()=>true)).result.ok).toBe(false)
  }finally{leaveRoom('board','author','auto7-close-seat')}
 })
+
+it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMap START table through transport, durable row and cold READ (%s)',async application=>{
+ // Mechanism variant of a real compiled image program, with authored gray CAS;
+ // not a claim that this fixture is a stock GradientMap preset or GPU pixels.
+ const d:BrushDescriptor=structuredClone(fixture.descriptor)
+ const grayBytes=Buffer.alloc(fixture.asset.size*fixture.asset.size,91)
+ const grayHash=createHash('sha256').update(grayBytes).digest('hex')
+ const grayId:`asset:${string}`=`asset:${grayHash}`
+ d.tip.material={kind:'gradient',gray:grayId};delete d.tip.imageSampling
+ const source=d.sourceStamp;if(!source)throw Error('Original compiled SOURCE missing')
+ source.settings.brush_definition=source.settings.brush_definition.replace(/brushApplication="[^"]*"/,'').replace(/<Brush\b/,'<Brush brushApplication="3"')
+ if(application==='spatial-mask'){
+  source.settings['ColorSource/Type']='total_random'
+  if(!source.unsupported.includes('source-color-provider-unresolved'))source.unsupported.push('source-color-provider-unresolved')
+ }
+ const f=setup(d,{id:grayId,size:fixture.asset.size,bytes:grayBytes})
+ const config={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'] as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}
+ const transport=new CanonicalRoomTransport(config)
+ const fields=application==='spatial-mask'?{primary:{kind:'total-random-rgb8-hash-v1' as const}}:undefined
+ const resource={kind:'captured-tip-gradient-rgba8-v1' as const,rgba:Array.from({length:1024},(_,i)=>i%4===3?137:Math.floor(i/4))}
+ const original=structuredClone(resource)
+ // Missing actual START resource must not allocate a grant or persist a row.
+ expect(await transport.begin(identity,{...f.input,...fields?{sourceColorFields:fields}:{}},()=>true)).toMatchObject({ok:false})
+ expect(f.board.operations).toEqual([]);expect(db.operation.create).not.toHaveBeenCalled()
+ const s=snapshot(await transport.begin(identity,{...f.input,sourceTipGradient:resource,...fields?{sourceColorFields:fields}:{}},()=>true))
+ const p=s.material.primarySource
+ if(p.kind!=='image'||p.imageMaterial?.kind!=='gradient-map-v1')throw Error('Expected captured GradientMap image')
+ expect(p.imageMaterial.application).toBe(application);expect(p.imageMaterial.gradient).toEqual(original)
+ expect(s.material.sourceColorFields).toEqual(fields)
+ expect(p.frameBounds).toHaveLength(1)
+ resource.rgba[3]=0
+ expect(p.imageMaterial.gradient.rgba[3]).toBe(137)
+ expect(Object.isFrozen(p.imageMaterial.gradient.rgba)).toBe(true)
+ const shape=sourcePngMaskExtent({width:150,height:150,scale:p.brushScale,angle:p.brushAngle},{scale:.5,ratio:1,rotation:.3},0,0)
+ const recipe={kind:'image' as const,asset:p.asset,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.5,ratio:1,rotation:.3,subX:0,subY:0,width:shape[0],height:shape[1],mirrorH:false,mirrorV:false,imageFrameIndex:0,sourceSlot:0 as const}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1,...fields?{sourceColorField:{seed:123,offsetX:0,offsetY:0}}:{}}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
+ const frame={version:2 as const,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked,sourceTipGradient:original,...fields?{sourceColorFields:fields}:{}}
+ const operation:CanonicalStrokeOperation={id:'gradient-tip-'+application,userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame}
+ const wrong:CanonicalStrokeOperation={...operation,frame:{...frame,sourceTipGradient:{...original,rgba:original.rgba.map((v,i)=>i===3?138:v)}}}
+ expect((await transport.recorded(identity,wrong,()=>true)).result.ok).toBe(false)
+ expect(db.operation.create).not.toHaveBeenCalled()
+ const saved=await transport.recorded(identity,operation,()=>true)
+ expect(saved.result).toMatchObject({ok:true,seq:1})
+ await flushRoomWrites('board')
+ const row=db.operation.create.mock.calls[0][0].data,accepted=saved.accepted!
+ const cold=new CanonicalBrushCapabilityResolver({...config,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const read=cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:accepted,row})
+ expect(read.material).toEqual(s.material)
+ expect(cold.resolve(identity,{strokeId:s.strokeId,brush:s.brush,layerId:'layer'})).toBeUndefined()
+ expect(projectCanonicalIndexedOperation('board',row).operation.frame).toMatchObject({sourceTipGradient:original,...fields?{sourceColorFields:fields}:{}})
+})
