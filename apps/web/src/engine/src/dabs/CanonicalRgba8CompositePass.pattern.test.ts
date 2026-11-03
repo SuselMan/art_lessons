@@ -17,6 +17,8 @@ const limits={width:16,height:16,operations:['alphaDarken32FusedScalar']as const
 function fixture(side=4,crop={width:3,height:2}){
  const{gl,snapshot}=recordingGL(),cache=new BrushTextureCache(gl),cpu=new BrushMipCache()
  gl.LUMINANCE=0x1909;gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
+ const shaderTypes=new Map<object,number>(),createShader=gl.createShader.getMockImplementation();gl.createShader.mockImplementation((type:number)=>{const shader=createShader(type);if(shader)shaderTypes.set(shader,type);return shader});
+ const shaderSources=(type:number)=>gl.shaderSource.mock.calls.filter(([shader]:unknown[])=>shaderTypes.get(shader as object)===type).map(([,source]:unknown[])=>source as string);
  gl.getShaderPrecisionFormat=()=>({precision:23,rangeMin:127,rangeMax:127});gl.copyTexSubImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn();gl.getAttribLocation=()=>0
  const params=new Map<object,Map<number,number>>(),original=gl.texParameteri
  gl.getTexParameter=(_:number,key:number)=>params.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(key)??(key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?gl.LINEAR:gl.REPEAT)
@@ -30,16 +32,16 @@ function fixture(side=4,crop={width:3,height:2}){
  const pass=new CanonicalRgba8CompositePass(gl,cache,cpu,'pattern-composite'),companions=[{key:'mask',bytes:1024},{key:pattern.key,bytes:side*side*4}]
  const request:CanonicalCompositeRequest={source:{kind:'texturedMaskRgb',view,rgb:[198,36,90],pattern,pin,strengthU8:128},target,operation}
  const close=()=>{pass.reset();root.release();bank.reset();cache.clear();expect(cpu.reservedBytes).toBe(0)}
- return{gl,cache,cpu,pass,root,bank,pattern,pin,view,target,request,companions,params,snapshot,close}
+ return{gl,cache,cpu,pass,root,bank,pattern,pin,view,target,request,companions,params,snapshot,close,shaderTypes,shaderSources}
 }
 it('uses the real fused source path and separately keyed/program-accounted variant while keeping legacy shader bytes',()=>{
  const s=fixture();try{
   const plain=new CanonicalRgba8CompositePass(s.gl,s.cache,s.cpu,'plain'),legacy={width:16,height:16,operations:limits.operations}
-  plain.prepare(legacy,s.companions);const plainShaders=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);plain.reset();s.gl.shaderSource.mockClear()
+  plain.prepare(legacy,s.companions);const plainVertex=s.shaderSources(s.gl.VERTEX_SHADER),plainFragments=s.shaderSources(s.gl.FRAGMENT_SHADER);plain.reset();s.gl.shaderSource.mockClear()
   const before=canonicalRgba8CompositeBudget(legacy),after=canonicalRgba8CompositeBudget(limits);expect(after.gpuBytes).toBe(before.gpuBytes);expect(after.cpuBytes-before.cpuBytes).toBe(8192)
   s.pass.prepare(limits,s.companions);expect(s.pass.supportsTexturedOperations(['alphaDarken32FusedScalar'])).toBe(true);expect(s.pass.supportsTexturedOperations(['genericSCU8'])).toBe(false)
-  const shaders=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);expect(shaders.slice(0,2)).toEqual(plainShaders)
-  const textured=shaders[3]as string;expect(textured).toContain('sampled.r-grain-(255.0-patternStrength)');expect(textured.indexOf('highp float coverage')).toBeLessThan(textured.lastIndexOf('gl_FragColor='));expect(textured.slice(textured.indexOf('highp float patternCell'),textured.lastIndexOf('void main(){'))).not.toContain('mod(')
+  expect(s.shaderSources(s.gl.VERTEX_SHADER)).toEqual(plainVertex);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER);expect(fragments[0]).toBe(plainFragments[0])
+  const textured=fragments[1];expect(textured).toContain('sampled.r-grain-(255.0-patternStrength)');expect(textured.indexOf('highp float coverage')).toBeLessThan(textured.lastIndexOf('gl_FragColor='));expect(textured.slice(textured.indexOf('highp float patternCell'),textured.lastIndexOf('void main(){'))).not.toContain('mod(')
   const count=s.gl.texImage2D.mock.calls.length
   for(const strengthU8 of [0,128,255])expect(s.pass.drawSource({...s.request,source:{...s.request.source as Extract<typeof s.request.source,{kind:'texturedMaskRgb'}>,strengthU8}})).toBe('painted')
   expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),0);expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),128);expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),255)
@@ -117,8 +119,8 @@ it('requires the pattern in the actual frame resource declaration before any des
  }finally{s.close()}
 })
 it('cleans an unsuccessful additional shader variant and can prepare again under unchanged owners',()=>{
- const s=fixture();try{const bytes=s.cpu.reservedBytes,cacheBytes=s.cache.bytes;let calls=0
-  s.gl.getShaderParameter=()=>++calls!==4
+ const s=fixture();try{const bytes=s.cpu.reservedBytes,cacheBytes=s.cache.bytes;let fragments=0
+  s.gl.getShaderParameter=(shader:object)=>s.shaderTypes.get(shader)!==s.gl.FRAGMENT_SHADER||++fragments!==2
   expect(()=>s.pass.prepare(limits,s.companions)).toThrow(/shader compile/);expect(s.cpu.reservedBytes).toBe(bytes);expect(s.cache.bytes).toBe(cacheBytes);expect(s.pass.isReady()).toBe(false)
   expect(s.gl.deleteProgram).toHaveBeenCalledTimes(1);s.gl.getShaderParameter=()=>true;expect(s.pass.prepare(limits,s.companions)).toBe('ready');expect(s.pass.drawSource(s.request)).toBe('painted')
  }finally{s.close()}
@@ -144,12 +146,12 @@ it.each(['alphaDarken32FusedScalar','alphaDarkenBrowserFloat'] as const)('uses f
 it.each(['over32FusedScalar','overBrowserFloat']as const)('prepares a separately charged texture+OVER variant without changing the plain kernel %s',kind=>{
  const s=fixture();try{
   const plain=new CanonicalRgba8CompositePass(s.gl,s.cache,s.cpu,'plain-over'),manifest={width:16,height:16,operations:[kind]}
-  plain.prepare(manifest,s.companions);const old=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);plain.reset();s.gl.shaderSource.mockClear()
+  plain.prepare(manifest,s.companions);const oldVertex=s.shaderSources(s.gl.VERTEX_SHADER),oldFragments=s.shaderSources(s.gl.FRAGMENT_SHADER);plain.reset();s.gl.shaderSource.mockClear()
   const textured={...manifest,texturedOperations:[kind]},before=canonicalRgba8CompositeBudget(manifest),after=canonicalRgba8CompositeBudget(textured)
   expect(after.gpuBytes).toBe(before.gpuBytes);expect(after.cpuBytes-before.cpuBytes).toBe(8192)
   s.pass.prepare(textured,s.companions)
-  const shaders=s.gl.shaderSource.mock.calls.map((c:unknown[])=>c[1]);expect(shaders.slice(0,2)).toEqual(old)
-  const fragment=String(shaders[3]);expect(fragment).toContain('sampled.r-grain-(255.0-patternStrength)')
+  expect(s.shaderSources(s.gl.VERTEX_SHADER)).toEqual(oldVertex);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER);expect(fragments[0]).toBe(oldFragments[0])
+  const fragment=fragments[1];expect(fragment).toContain('sampled.r-grain-(255.0-patternStrength)')
   expect(fragment).toContain(kind==='over32FusedScalar'?'sourceCompositeFusedOver32Scalar(source,destination':'sourceCompositeOver32Scalar(source,destination')
   const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Expected original pattern source')
   const operation=kind==='overBrowserFloat'?{kind,control:{profile:B,opacity:.75}}:{kind,control:{profile:'installed-arm64-scalar-fused-fpcr0-v1' as const,opacity:.75}}

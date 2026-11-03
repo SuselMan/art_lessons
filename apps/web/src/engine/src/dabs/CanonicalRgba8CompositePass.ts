@@ -350,7 +350,7 @@ export class CanonicalRgba8CompositePass {
         try{bufferStorage=reserveContextStorage(this.gl,VBO_BYTES,'brush-buffer')}catch(error){releaseStorageReservation(textureStorage);throw error}
         let releaseCpu=()=>{},restore=()=>{},retainedCpu=false,failed=false,failure:unknown,cancelled=false;
         const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[],programs=new Map<CompositeProgramKey,ProgramInfo>();
-        let vao:WebGLVertexArrayObjectOES|null=null,auxTransferred=false;
+        let vao:WebGLVertexArrayObjectOES|null=null,auxTransferred=false,vertex:WebGLShader|null=null;
         const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}};
         try {
             releaseCpu=this.cpu.reserve(budget.cpuBytes);
@@ -364,8 +364,16 @@ export class CanonicalRgba8CompositePass {
                 for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,gl.NEAREST);
                 for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
             },textureStorage);loose.push(texture);
-            for(const kind of operations)programs.set(kind,this.compile(kind));
-            for(const kind of texturedOperations)programs.set(texturedProgram(kind),this.compile(kind,true));
+            // One unpublished shader belongs to this exact cold transaction.
+            // Every program still links/checks its own fragment and interface.
+            vertex=gl.createShader(gl.VERTEX_SHADER);
+            if(!vertex)throw new Error('Composite vertex shader allocation failed');
+            gl.shaderSource(vertex,VERTEX);gl.compileShader(vertex);
+            if(!gl.getShaderParameter(vertex,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(vertex));
+            for(const kind of operations)programs.set(kind,this.compile(kind,vertex));
+            for(const kind of texturedOperations)programs.set(texturedProgram(kind),this.compile(kind,vertex,true));
+            // Cleanup failure is fatal BEFORE workspace/program publication.
+            const completedVertex=vertex;vertex=null;gl.deleteShader(completedVertex);
             const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
             vao=this.vertexArrays?.createVertexArrayOES()??null;
             if(this.vertexArrays&&!vao)throw new Error('Composite VAO allocation failed');
@@ -382,6 +390,7 @@ export class CanonicalRgba8CompositePass {
             this.releaseCpu=releaseCpu;this.reservedCpuBytes=budget.cpuBytes;retainedCpu=true;cancelled=!!signal?.aborted;
         }catch(error){failed=true;failure=error}
         finally{
+            if(vertex){const unpublishedVertex=vertex;vertex=null;attempt(()=>this.gl.deleteShader(unpublishedVertex))}
             attempt(restore);
             if(failed||cancelled)attempt(()=>this.reset());
             for(const resource of loose)attempt(()=>releaseUnpublishedBrushResource(resource));
@@ -736,44 +745,36 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,textured=false): ProgramInfo {
-        const gl = this.gl, shaders: WebGLShader[] = [];
-        let program: WebGLProgram | null = null;
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured=false): ProgramInfo {
+        const gl=this.gl;
+        let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
+        let failed=false,failure:unknown;
+        const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}};
         try {
-            for (const [type, source] of [[gl.VERTEX_SHADER, VERTEX], [gl.FRAGMENT_SHADER, textured?texturedFragmentFor(kind):fragmentFor(kind)]] as const) {
-                const shader = gl.createShader(type);
-                if (!shader)
-                    throw new Error('Composite shader allocation failed');
-                shaders.push(shader);
-                gl.shaderSource(shader, source);
-                gl.compileShader(shader);
-                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-                    throw new Error('Composite shader compile failed: ' + gl.getShaderInfoLog(shader));
-            }
-            program = gl.createProgram();
-            if (!program)
-                throw new Error('Composite program allocation failed');
-            for (const shader of shaders)
-                gl.attachShader(program, shader);
+            fragment=gl.createShader(gl.FRAGMENT_SHADER);
+            if(!fragment)throw new Error('Composite shader allocation failed');
+            gl.shaderSource(fragment,textured?texturedFragmentFor(kind):fragmentFor(kind));
+            gl.compileShader(fragment);
+            if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
+            program=gl.createProgram();
+            if(!program)throw new Error('Composite program allocation failed');
+            gl.attachShader(program,vertex);gl.attachShader(program,fragment);
             gl.linkProgram(program);
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-                throw new Error('Composite link failed: ' + gl.getProgramInfoLog(program));
-            const attribute = gl.getAttribLocation(program, 'position');
-            if (attribute < 0)
-                throw new Error('Composite attribute unavailable');
-            const uniforms: Record<string, WebGLUniformLocation | null> = {};
+            if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error('Composite link failed: '+gl.getProgramInfoLog(program));
+            const attribute=gl.getAttribLocation(program,'position');
+            if(attribute<0)throw new Error('Composite attribute unavailable');
+            const uniforms:Record<string,WebGLUniformLocation|null>={};
             for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength']:[]])
-                uniforms[name] = gl.getUniformLocation(program, name);
-            return { program, attribute, uniforms };
+                uniforms[name]=gl.getUniformLocation(program,name);
+            info={program,attribute,uniforms};
+        }catch(error){failed=true;failure=error}
+        finally{
+            // A fragment-delete exception must not discard a linked program
+            // through a throwing finally after it was returned to its owner.
+            if(fragment){const ownedFragment=fragment;fragment=null;attempt(()=>gl.deleteShader(ownedFragment))}
+            if(failed&&program){const unpublishedProgram=program;program=null;attempt(()=>gl.deleteProgram(unpublishedProgram))}
         }
-        catch (error) {
-            if (program)
-                gl.deleteProgram(program);
-            throw error;
-        }
-        finally {
-            for (const shader of shaders)
-                gl.deleteShader(shader);
-        }
+        if(failed)throw failure;
+        return info!;
     }
 }

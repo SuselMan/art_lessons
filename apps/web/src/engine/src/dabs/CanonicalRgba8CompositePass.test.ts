@@ -479,3 +479,54 @@ describe('explicit browser arithmetic in the existing composite pass',()=>{
         expect(s.gl.drawArrays).not.toHaveBeenCalled();s.pass.reset();expect(s.cpu.reservedBytes).toBe(0);
     });
 });
+
+
+// Public cold prepare; no private compiler calls or substituted source metadata.
+const sharedVertexLimits={width:16,height:16,operations:['alphaDarken32FusedScalar','over32FusedScalar','genericSCU8'] as const,texturedOperations:['alphaDarken32FusedScalar','over32FusedScalar'] as const};
+function sharedVertexFixture(){
+ const s=setup();s.gl.getShaderPrecisionFormat=()=>({precision:23,rangeMax:127,rangeMin:127});s.gl.getProgramInfoLog=()=>'';
+ const types=new Map<unknown,number>(),create=s.gl.createShader.getMockImplementation();
+ s.gl.createShader.mockImplementation((type:number)=>{const shader=create(type);if(shader)types.set(shader,type);return shader});
+ const shaderStatus=vi.spyOn(s.gl,'getShaderParameter'),programStatus=vi.spyOn(s.gl,'getProgramParameter');
+ return{...s,types,shaderStatus,programStatus};
+}
+it('cold GSC prepares five exact program variants with one local shared vertex, then warm companion updates compile nothing',()=>{
+ const s=sharedVertexFixture(),before=s.snapshot();
+ try{
+  s.pass.prepare(sharedVertexLimits,s.companion);
+  const vertices=s.gl.createShader.mock.results.map((x:any)=>x.value).filter((x:object)=>s.types.get(x)===s.gl.VERTEX_SHADER);
+  expect(vertices).toHaveLength(1);expect(s.gl.createShader).toHaveBeenCalledTimes(6);expect(s.gl.createProgram).toHaveBeenCalledTimes(5);
+  expect(s.shaderStatus).toHaveBeenCalledTimes(6);expect(s.programStatus).toHaveBeenCalledTimes(5);
+  expect(s.gl.shaderSource.mock.calls.find(([shader]:any[])=>shader===vertices[0])?.[1]).toBe('attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}');
+  const fragments=s.gl.shaderSource.mock.calls.filter(([shader]:any[])=>s.types.get(shader)===s.gl.FRAGMENT_SHADER).map(([,source]:any[])=>source);
+  expect(fragments).toHaveLength(5);expect(new Set(fragments).size).toBe(5);expect(fragments.filter((source:string)=>source.includes('uniform highp sampler2D patternTexture;'))).toHaveLength(2);
+  for(const {value:program}of s.gl.createProgram.mock.results)expect(s.gl.attachShader.mock.calls.filter(([p]:any[])=>p===program).map(([,shader]:any[])=>shader)).toEqual([vertices[0],expect.any(Object)]);
+  expect(s.gl.deleteShader.mock.calls.filter(([shader]:any[])=>shader===vertices[0])).toHaveLength(1);expect(s.gl.deleteShader).toHaveBeenCalledTimes(6);
+  expect(s.pass.supportsOperations(sharedVertexLimits.operations)).toBe(true);expect(s.pass.supportsTexturedOperations(sharedVertexLimits.texturedOperations)).toBe(true);expect(s.snapshot()).toEqual(before);
+  s.pass.prepare(sharedVertexLimits,s.companion);expect(s.gl.createShader).toHaveBeenCalledTimes(6);expect(s.gl.createProgram).toHaveBeenCalledTimes(5);
+ }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
+ expect(s.gl.deleteProgram).toHaveBeenCalledTimes(5);
+});
+it('cold shared vertex transaction rolls back status/allocation/deletion faults, preserving undefined primary and restoring GL',()=>{
+ for(const fault of ['vertex-status','fragment3-status','link3-status','program3-allocation','fragment-delete-undefined','vertex-delete-undefined'] as const){
+  const s=sharedVertexFixture(),before=s.snapshot();let fragments=0,links=0,allocations=0;
+  if(fault==='vertex-status'||fault==='fragment3-status')s.shaderStatus.mockImplementation((shader:unknown)=>s.types.get(shader)===s.gl.VERTEX_SHADER?fault!=='vertex-status':++fragments!==3);
+  if(fault==='link3-status')s.programStatus.mockImplementation(()=>++links!==3);
+  if(fault==='program3-allocation'){const create=s.gl.createProgram.getMockImplementation();s.gl.createProgram.mockImplementation(()=>++allocations===3?null:create())}
+  if(fault.endsWith('delete-undefined')){const remove=s.gl.deleteShader.getMockImplementation();let thrown=false;s.gl.deleteShader.mockImplementation((shader:object)=>{remove(shader);if(!thrown&&s.types.get(shader)===(fault==='vertex-delete-undefined'?s.gl.VERTEX_SHADER:s.gl.FRAGMENT_SHADER)){thrown=true;throw undefined}})}
+  let failed=false,primary:unknown='not-rejected';try{s.pass.prepare(sharedVertexLimits,s.companion)}catch(error){failed=true;primary=error}
+  expect(failed).toBe(true);if(fault.endsWith('delete-undefined'))expect(primary).toBeUndefined();else expect(primary).toBeInstanceOf(Error);
+  expect(s.pass.isReady()).toBe(false);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(1024);
+  const createdPrograms=s.gl.createProgram.mock.results.map((x:any)=>x.value).filter(Boolean);expect(s.gl.deleteProgram.mock.calls.map(([p]:any[])=>p)).toEqual(expect.arrayContaining(createdPrograms));expect(new Set(s.gl.deleteProgram.mock.calls.map(([p]:any[])=>p)).size).toBe(createdPrograms.length);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(createdPrograms.length);
+  const createdShaders=s.gl.createShader.mock.results.map((x:any)=>x.value).filter(Boolean);expect(s.gl.deleteShader.mock.calls.map(([p]:any[])=>p)).toEqual(expect.arrayContaining(createdShaders));expect(new Set(s.gl.deleteShader.mock.calls.map(([p]:any[])=>p)).size).toBe(createdShaders.length);expect(s.gl.deleteShader).toHaveBeenCalledTimes(createdShaders.length);
+  s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0);
+ }
+});
+it('cold shared vertex cancellation and lost reset retain existing program retirement semantics',()=>{
+ for(const lost of [false,true]){
+  const s=sharedVertexFixture(),abort=new AbortController(),before=s.snapshot();
+  if(!lost){const link=s.gl.linkProgram.getMockImplementation();s.gl.linkProgram.mockImplementation((p:object)=>{link?.(p);abort.abort()});expect(s.pass.prepare(sharedVertexLimits,s.companion,0,abort.signal)).toBe('cancelled');expect(s.pass.isReady()).toBe(false);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(5)}
+  else{s.pass.prepare(sharedVertexLimits,s.companion);s.pass.reset(true);expect(s.gl.deleteProgram).not.toHaveBeenCalled()}
+  expect(s.gl.deleteShader).toHaveBeenCalledTimes(6);expect(s.snapshot()).toEqual(before);s.pass.reset(lost);s.cache.clear();expect(s.cpu.reservedBytes).toBe(0);
+ }
+});
