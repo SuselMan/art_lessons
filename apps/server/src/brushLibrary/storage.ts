@@ -172,11 +172,11 @@ export class BrushStorage {
     catch { return false }
   }
 
-  pin(room: string, owner: string, presets: string[], operator=empty()): void {
+  pin(room: string, owner: string, presets: string[], operator=empty(), materialAssets:readonly Readonly<{id:string;size:number}>[]=[]): void {
     this.mutate(()=> {
       const current=this.library('rooms',room)
       const has=(preset:string)=>current.brushes.some(b=>preset===b.descriptor.id || new RegExp('^brush:'+b.descriptor.id+'@'+b.descriptor.version+'(?::[a-z0-9-]+)*$').test(preset))
-      if(presets.every(has)) return
+      if(presets.every(has)&&materialAssets.every(a=>current.assets.some(b=>a.id===b.id&&a.size===b.size))) return
       const available=merge(current,this.library('owners',owner),operator), selected=empty()
       for (const preset of [...new Set(presets)]) {
         const match=/^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(preset)
@@ -185,6 +185,13 @@ export class BrushStorage {
         selected.brushes.push(brush)
       }
       const referenced = new Set(selected.brushes.flatMap(brush => brushAssetIds(brush.descriptor)))
+      // Stroke-selected paint resources must belong to this room, owner or
+      // operator catalog; an existing global CAS blob is not authorization.
+      for(const asset of materialAssets){
+        const authorized=available.assets.find(a=>a.id===asset.id&&a.size===asset.size)
+        if(!authorized)throw Error('Stroke paint resource unavailable')
+        referenced.add(authorized.id)
+      }
       selected.assets=available.assets.filter(a=>referenced.has(a.id))
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
       const next=merge(current,selected)

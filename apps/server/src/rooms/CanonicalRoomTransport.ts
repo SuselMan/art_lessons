@@ -416,7 +416,7 @@ export class CanonicalRoomTransport {
       if (lifetime.sessions.get(key) !== previous || this.binder !== binder) fail('canonical_repair_required')
       this.requireHealthyWrites(lifetime)
       const prepared=binder.prepareBeginGesture(identity,input)
-      context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
+      context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator, prepared.grant.material.assets)
       prepared.commit()
       return snapshot(previous)
     }
@@ -462,7 +462,7 @@ export class CanonicalRoomTransport {
     } catch { fail('canonical_repair_required') }
     // No await or arbitrary callback after this recheck through pin/publication.
     this.sameLifetime(identity, input.layerId, lifetime)
-    context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
+    context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator, prepared.grant.material.assets)
     prepared.commit(); hydrating = false
     const session: Session = { grant: prepared.grant, admission, durableRecordedNext: prefix.length,...emptyDiscardNonce?{emptyDiscardNonce}:{} }
     lifetime.sessions.set(key, session)
@@ -512,7 +512,7 @@ export class CanonicalRoomTransport {
     current()
     if(!prepared||!admission)fail('canonical_repair_required')
     if(admission.cursor(identity,input.strokeId).ended)return snapshot({grant:prepared.grant,admission,durableRecordedNext:count,...emptyDiscardNonce?{emptyDiscardNonce}:{}})
-    context.storage.pin(identity.roomId,identity.userId,[prepared.grant.brush],context.operator)
+    context.storage.pin(identity.roomId,identity.userId,[prepared.grant.brush],context.operator,prepared.grant.material.assets)
     prepared.commit();hydrating=false
     const session:Session={grant:prepared.grant,admission,durableRecordedNext:count,...emptyDiscardNonce?{emptyDiscardNonce}:{}}
     lifetime.sessions.set(key,session)
@@ -780,7 +780,7 @@ export class CanonicalRoomTransport {
       const lifetime = this.authorized(identity, value.layerId), session = this.session(lifetime, identity, value.frame.strokeId)
       this.requireUnsealedOrdinal(lifetime,identity,value.frame.strokeId,value.frame.frameOrdinal)
       const ticket = session.admission.prepare(identity, { type: 'canonical_stroke_live', layerId: value.layerId, frame: value.frame })
-      this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator)
+      this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator, session.grant.material.assets)
       ticket.commit()
       return { result: { ok: true, duplicate: ticket.duplicate }, ...(ticket.duplicate ? {} : { accepted: { layerId: ticket.value.candidate.layerId, frame: ticket.value.candidate.frame } }) }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
@@ -826,7 +826,7 @@ export class CanonicalRoomTransport {
       this.requireUnsealedOrdinal(lifetime,identity,op.frame.strokeId,op.frame.frameOrdinal)
       const ticket = session.admission.prepare(identity, { type: 'canonical_stroke', id: op.id, layerId: op.layerId, frame: op.frame })
       if (ticket.duplicate) fail('canonical_repair_required')
-      this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator)
+      this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator, session.grant.material.assets)
       const canonical: CanonicalStrokeOperation = { ...op, frame: ticket.value.candidate.frame }
       updateAliveIds(identity.roomId, canonical)
       const accepted = recordOperation(identity.roomId, canonical) as CanonicalStrokeOperation
