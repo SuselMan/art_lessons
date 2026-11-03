@@ -76,7 +76,7 @@ it.each([G,B])('routes standalone textured buildup EACH draw to its installed OV
 it('requires explicit OVER preparation before capture/reserve and keeps deposition-only closed',()=>{
  const s=fixture();try{
   const e=s.create(),input=s.submission(),bytes=s.cpu.reservedBytes
-  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('OVER variant')
+  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('Canonical texture direct variant was not prepared')
   expect(s.cpu.reservedBytes).toBe(bytes);expect(s.reserve).not.toHaveBeenCalled();expect(e.pending).toBe(false)
  }finally{s.close()}
  const t=fixture(true,true,G,true);try{

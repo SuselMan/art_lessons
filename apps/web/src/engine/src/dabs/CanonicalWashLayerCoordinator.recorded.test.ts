@@ -22,7 +22,7 @@ import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
-function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false,browser=false){
+function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false,browser=false,poison?: (layerId:string,reason:unknown)=>void){
  const profile=browser?B:masked?G:CANONICAL_STROKE_RASTER_PROFILE
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
@@ -76,7 +76,7 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   })
  }
  const source=vi.fn(()=>({autoSource:pin,...masked?{sourceMaterial:canonicalSourceMaterialContext(material)}:{}}))
- const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:profile,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>{layerObserver?.();return {buffer:layer,epoch:layerEpoch}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:profile,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>{layerObserver?.();return {buffer:layer,epoch:layerEpoch}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:poison??(()=>{})})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
   const op=frame.operation;if(op.type!=='canonical_stroke')throw Error('frame')
   let accepted:CanonicalRecordedInput
@@ -1201,4 +1201,40 @@ it('shared body remains inside the same maxBytes admission while exact per-frame
    else{expect(()=>s.coordinator.enqueueRecorded(inputs[2])).not.toThrow();expect(s.coordinator['replayBytes']).toBe(exact);expect(s.coordinator['replayCount']).toBe(3)}
   }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
  }
+})
+
+
+describe('bounded coordinator GL submission boundary',()=>{
+ it('submits once after each real pending recorded quantum, including the final completion',()=>{
+  const s=fixture();const flush=vi.spyOn(s.gl,'flush');
+  try{
+   s.coordinator.enqueueRecorded(s.input('author',0,1,true,true,0,0,12));flush.mockClear();let calls=0;
+   do{const before=flush.mock.calls.length;s.coordinator.advance();calls++;expect(flush.mock.calls.length).toBe(before+1);expect(s.coordinator['busy']).toBe(false);if(calls>2000)throw Error('Recorded submission stalled')}while(s.coordinator.executionPending);
+   expect(calls).toBeGreaterThan(1);expect(s.coordinator.queuedFrameCount).toBe(0);expect(flush).toHaveBeenCalledTimes(calls);
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('submits empty, preview-candidate early return and mixed early return exactly once',()=>{
+  const s=fixture();const opts=s.coordinator['options'];s.coordinator.cancel();
+  const flush=vi.spyOn(s.gl,'flush');
+  try{
+   for(const extra of [{},{previewCandidate:()=>{throw Error('Empty preview must not allocate')}},{mixedReplay7:true as const,replayRetention:{maxEntries:64,maxBytes:1048576},pageBounds:{minX:0,minY:0,maxX:4,maxY:4},previewCandidate:()=>{throw Error('Empty mixed preview must not allocate')}}]){
+    const c=new CanonicalWashLayerCoordinator({...opts,...extra});const before=flush.mock.calls.length;
+    try{c.advance({deferPresentation:true});expect(flush.mock.calls.length).toBe(before+1);expect(c['busy']).toBe(false)}finally{c.cancel()}
+   }
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('keeps busy through flush so synchronous reentry cannot execute another quantum',()=>{
+  const s=fixture();let reentry:unknown;
+  const flush=vi.spyOn(s.gl,'flush').mockImplementation(()=>{expect(s.coordinator['busy']).toBe(true);try{s.coordinator.advance()}catch(e){reentry=e}});
+  try{s.coordinator.advance();expect(reentry).toBeInstanceOf(Error);expect(String(reentry)).toContain('busy');expect(flush).toHaveBeenCalledTimes(1);expect(s.coordinator['failed']).toBe(false);expect(s.coordinator['busy']).toBe(false)}finally{s.close()}
+ })
+ it('does not submit after original work throws undefined and preserves it over poison failure',()=>{
+  const poison=vi.fn(()=>{throw Error('secondary poison failure')});const s=fixture(4,undefined,false,false,poison);const flush=vi.spyOn(s.gl,'flush');
+  s.observeLayer(()=>{throw undefined});let caught=false,value:unknown='sentinel';
+  try{try{s.coordinator.advance()}catch(e){caught=true;value=e}expect(caught).toBe(true);expect(value).toBeUndefined();expect(flush).not.toHaveBeenCalled();expect(poison).toHaveBeenCalled();expect(s.coordinator['busy']).toBe(false);expect(s.coordinator['failed']).toBe(true)}finally{s.observeLayer(undefined);s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('routes a flush throw through the existing poison cleanup and preserves undefined',()=>{
+  const poison=vi.fn();const s=fixture(4,undefined,false,false,poison);const flush=vi.spyOn(s.gl,'flush').mockImplementation(()=>{throw undefined});let caught=false,value:unknown='sentinel';
+  try{try{s.coordinator.advance()}catch(e){caught=true;value=e}expect(caught).toBe(true);expect(value).toBeUndefined();expect(flush).toHaveBeenCalledTimes(1);expect(poison).toHaveBeenCalledWith('layer',undefined);expect(s.coordinator['busy']).toBe(false);expect(s.coordinator['failed']).toBe(true)}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
 })

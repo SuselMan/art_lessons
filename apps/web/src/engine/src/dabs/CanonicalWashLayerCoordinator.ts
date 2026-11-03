@@ -1437,46 +1437,53 @@ export class CanonicalWashLayerCoordinator {
     const capacityCpu=this.options.prepass.brushGlBatchInfo().cpu,beforeCpu=capacityCpu.reservedBytes,beforeQueue=this.queue.length
     this.busy = true
     try {
-      const turnStarted = performance.now()
-      this.assertLayers()
-      if(this.options.mixedReplay7){this.assertMixedSourcesCurrent();return this.advanceMixed(turnStarted,options.deferPresentation===true)}
-      if(this.options.previewCandidate)return this.advancePreview(turnStarted)
-      const frontier = this.commitFrontier()
-      const preparing=this.queue.findIndex(entry=>!('kind'in entry)&&entry.executor.hasPendingLayerTargetPreparation)
-      // A confirmation can dirty presentation while this SAME executor still
-      // owns an unmaterialized stable target ticket. Finish its bounded turn
-      // before either presentation or commit attempts another admission.
-      if(preparing>=0)this.advanceEntry(this.washSlot(preparing),preparing)
-      else if (frontier?.ownership) this.commit(frontier,turnStarted)
-      else if(this.stableOrderBlocked){
-        if(!this.queue.length)return
-        // Keep a partial stable commit's SAME pin. Resident plans compose via
-        // the layer's existing storagePins; no partial buffer is unpinned.
-        const pending=this.entries.find(entry=>entry.targetPlan&&!entry.commitTarget)
-        if(pending){
-          const tile=pending.ownership!.tiles[pending.tile]
-          pending.commitTarget=this.target(pending.targetPlan!,tile,true)
-          if(!pending.commitTarget){
-            runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
-              this.gl.activeTexture(this.gl.TEXTURE0)
-              pending.commitTarget=this.target(pending.targetPlan!,tile)
-            })
-            return // At most one materialization; raw work starts next turn.
-          }
-        }
-        this.advanceEntry(this.washSlot(0),0)
-      }
-      // A started preview owns physical plans and must finish normally. Only
-      // a NEW preview may wait while an unpublished indexed candidate consumes
-      // its next already-delivered continuation. Readiness remains unchanged.
-      else if (this.dirty.size && (this.work || !options.deferPresentation)) this.present(turnStarted)
-      else if (this.queue.length)this.advanceEntry(this.washSlot(0),0)
+      const result=this.advanceQuantum(performance.now(),options)
+      // Submit every successful bounded quantum before exposing idle/capacity.
+      // This submits queued commands without requesting GPU completion.
+      this.gl.flush()
+      return result
     } catch (error) {
       this.failed = true
       this.releaseAll(this.cleanupContextLost())
       this.clean(() => this.notifyPoison(error))
       throw error
     } finally { this.busy = false;if(this.queue.length<beforeQueue||capacityCpu.reservedBytes<beforeCpu)this.localCapacityRevision++ }
+  }
+
+  private advanceQuantum(turnStarted:number,options:{readonly deferPresentation?:true}):CanonicalPreviewOutcome|undefined {
+    this.assertLayers()
+    if(this.options.mixedReplay7){this.assertMixedSourcesCurrent();return this.advanceMixed(turnStarted,options.deferPresentation===true)}
+    if(this.options.previewCandidate)return this.advancePreview(turnStarted)
+    const frontier = this.commitFrontier()
+    const preparing=this.queue.findIndex(entry=>!('kind'in entry)&&entry.executor.hasPendingLayerTargetPreparation)
+    // A confirmation can dirty presentation while this SAME executor still
+    // owns an unmaterialized stable target ticket. Finish its bounded turn
+    // before either presentation or commit attempts another admission.
+    if(preparing>=0)this.advanceEntry(this.washSlot(preparing),preparing)
+    else if (frontier?.ownership) this.commit(frontier,turnStarted)
+    else if(this.stableOrderBlocked){
+      if(!this.queue.length)return
+      // Keep a partial stable commit's SAME pin. Resident plans compose via
+      // the layer's existing storagePins; no partial buffer is unpinned.
+      const pending=this.entries.find(entry=>entry.targetPlan&&!entry.commitTarget)
+      if(pending){
+        const tile=pending.ownership!.tiles[pending.tile]
+        pending.commitTarget=this.target(pending.targetPlan!,tile,true)
+        if(!pending.commitTarget){
+          runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
+            this.gl.activeTexture(this.gl.TEXTURE0)
+            pending.commitTarget=this.target(pending.targetPlan!,tile)
+          })
+          return // At most one materialization; raw work starts next turn.
+        }
+      }
+      this.advanceEntry(this.washSlot(0),0)
+    }
+    // A started preview owns physical plans and must finish normally. Only
+    // a NEW preview may wait while an unpublished indexed candidate consumes
+    // its next already-delivered continuation. Readiness remains unchanged.
+    else if (this.dirty.size && (this.work || !options.deferPresentation)) this.present(turnStarted)
+    else if (this.queue.length)this.advanceEntry(this.washSlot(0),0)
   }
 
   private advanceEntry(entry:Entry,index:number):boolean {

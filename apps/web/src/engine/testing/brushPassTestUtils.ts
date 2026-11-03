@@ -45,7 +45,7 @@ export function recordingGL() {
   gl.vertexAttribPointer = (i: number, size: number, type: number, normalized: boolean, stride: number, offset: number) => { Object.assign(state.attribs.get(i), { buffer: state.buffer, size, type, normalized, stride, offset }); };
   gl.getVertexAttrib = (i: number, p: number) => { const a = state.attribs.get(i); return p === extension.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE ? divisors.get(i) : p === gl.VERTEX_ATTRIB_ARRAY_ENABLED ? a.enabled : p === gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING ? a.buffer : p === gl.VERTEX_ATTRIB_ARRAY_SIZE ? a.size : p === gl.VERTEX_ATTRIB_ARRAY_TYPE ? a.type : p === gl.VERTEX_ATTRIB_ARRAY_NORMALIZED ? a.normalized : a.stride; };
   gl.getVertexAttribOffset = (i: number) => state.attribs.get(i).offset;
-  for (const name of ['shaderSource', 'compileShader', 'attachShader', 'linkProgram', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'bufferData', 'bufferSubData', 'uniform1i', 'uniform1f', 'uniform2f', 'drawArrays', 'clear'])
+  for (const name of ['shaderSource', 'compileShader', 'attachShader', 'linkProgram', 'texImage2D', 'texParameteri', 'framebufferTexture2D', 'bufferData', 'bufferSubData', 'uniform1i', 'uniform1f', 'uniform2f', 'drawArrays', 'clear', 'flush'])
     gl[name] = vi.fn();
   return { gl, snapshot };
 }

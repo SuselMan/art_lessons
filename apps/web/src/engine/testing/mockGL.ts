@@ -502,6 +502,7 @@ export class MockGL {
   getError(): number { return ENUM.NO_ERROR }
   isContextLost(): boolean { return false }
   finish(): void {}
+  flush(): void {}
 
   // (#474) Present so gpuInfo() — which every snapshot restore now calls to
   // stamp its report — exercises the same shape here as in a browser. A mock
