@@ -165,11 +165,36 @@ export interface CanonicalRecordedPrimaryTexturePin extends Omit<CanonicalPrimar
 }
 /** SAME closed geometry as historical pins; new token/phase never project into them. */
 export function canonicalRecordedPrimaryTexturePin(input:unknown,trustedAsset:CanonicalMaterialAsset):Readonly<CanonicalRecordedPrimaryTexturePin>{
+ return captureRecordedPrimaryTexturePin(input,trustedAsset,'subtract-u8-v1')
+}
+
+/** New standalone material DATA; never accepted by historical subtract pins. */
+export interface CanonicalMultiplyPrimaryTexturePin extends Omit<CanonicalRecordedPrimaryTexturePin,'law'> {
+ readonly law:'hard-multiply-u8-native-v1'
+}
+export function canonicalMultiplyPrimaryTexturePin(input:unknown,trustedAsset:CanonicalMaterialAsset):Readonly<CanonicalMultiplyPrimaryTexturePin>{
+ return captureRecordedPrimaryTexturePin(input,trustedAsset,'hard-multiply-u8-native-v1')
+}
+function captureRecordedPrimaryTexturePin<L extends CanonicalRecordedPrimaryTexturePin['law']|CanonicalMultiplyPrimaryTexturePin['law']>(input:unknown,trustedAsset:CanonicalMaterialAsset,law:L):Readonly<Omit<CanonicalRecordedPrimaryTexturePin,'law'>&{readonly law:L}>{
  const p=capture(input,['kind','asset','law','width','height','periodX','periodY','phase','strength']),a=capture(trustedAsset,assetFields)
- if(p.kind!=='canvasTexture'||p.law!=='subtract-u8-v1'||p.strength!=='recorded-grain-v1'
+ if(p.kind!=='canvasTexture'||p.law!==law||p.strength!=='recorded-grain-v1'
   ||!cas(p.asset)||p.asset!==a.id||!cas(a.id)||!dimension(p.width)||!dimension(p.height)||p.width*p.height>1048576
   ||!dimension(a.size)||a.x!==0||Object.is(a.x,-0)||a.y!==0||Object.is(a.y,-0)||a.width!==p.width||a.height!==p.height||p.width>a.size||p.height>a.size
   ||p.periodX!==p.width||p.periodY!==p.height)return fail()
  const phase=canonicalResolvedTexturePhase(p.phase,p.width,p.height)
- return Object.freeze({kind:'canvasTexture',asset:p.asset,law:'subtract-u8-v1',width:p.width,height:p.height,periodX:p.width,periodY:p.height,phase,strength:'recorded-grain-v1'})
+ return Object.freeze({kind:'canvasTexture',asset:p.asset,law,width:p.width,height:p.height,periodX:p.width,periodY:p.height,phase,strength:'recorded-grain-v1'})
+}
+
+/** Native nonsoft grain strength: binary64 scale, add half, then truncate.
+ * Separate from the historical ties-even subtract convention. */
+export function canonicalMultiplyTextureStrengthU8(strength:number):number {
+ if(typeof strength!=='number'||!Number.isFinite(strength)||strength<0||strength>1)return fail()
+ return Math.floor(strength*255+.5)||0
+}
+/** One triple product with the native U8 bias, not two rounded pair products.
+ * Every intermediate is an exact integer below 2^24; strength0 gives alpha0. */
+export function canonicalPrimaryTextureMultiplyU8(mask:number,texture:number,strengthU8:number):number {
+ if(!integer(mask,0,255)||!integer(texture,0,255)||!integer(strengthU8,0,255))return fail()
+ const biased=mask*texture*strengthU8+32603
+ return Math.floor((biased+Math.floor(biased/128))/65536)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canonicalPrimaryTexturePin, canonicalPrimaryTextureStrengthU8, canonicalPrimaryTextureSubtractU8, canonicalPrimaryTextureCell } from './canonicalPrimaryTexture.js'
+import { canonicalMultiplyPrimaryTexturePin, canonicalRecordedPrimaryTexturePin, canonicalMultiplyTextureStrengthU8, canonicalPrimaryTextureMultiplyU8, canonicalPrimaryTexturePin, canonicalPrimaryTextureStrengthU8, canonicalPrimaryTextureSubtractU8, canonicalPrimaryTextureCell } from './canonicalPrimaryTexture.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 
 const id = 'asset:' + 'a'.repeat(64)
@@ -118,5 +118,63 @@ describe('top-left canvas cell phase', () => {
   it('refuses unsafe coordinates and unreduced offsets rather than repairing them', () => {
     for (const world of [Number.MAX_SAFE_INTEGER + 1, .5, NaN, Infinity]) expect(() => canonicalPrimaryTextureCell(world, 252, 0)).toThrow(TypeError)
     for (const [size, offset] of [[0, 0], [4097, 0], [1.5, 0], [252, -1], [252, 252], [252, .5], [252, -0]]) expect(() => canonicalPrimaryTextureCell(0, size, offset)).toThrow(TypeError)
+  })
+})
+
+describe('named native hard-multiply grain law (metadata only)', () => {
+  const grainAsset = () => ({ id, size:512, x:0, y:0, width:307, height:307 })
+  const grainPin = () => ({ kind:'canvasTexture', asset:id, law:'hard-multiply-u8-native-v1', width:307, height:307,
+    periodX:307, periodY:307, phase:{kind:'resolved-stroke-phase-v1',x:306,y:1}, strength:'recorded-grain-v1' })
+  it('matches pinned native integer boundary vectors, not nested rounded multiplication', () => {
+    const vectors = [[0,255,255,0],[255,0,255,0],[255,255,0,0],[255,255,1,1],[255,255,128,128],[255,255,255,255],
+      [255,128,1,1],[255,128,128,64],[128,128,128,32],[1,128,128,0],[128,1,128,0],[128,128,1,0],[1,128,255,1],[254,255,255,254]]
+    for(const [m,t,s,q] of vectors) expect(canonicalPrimaryTextureMultiplyU8(m,t,s)).toBe(q)
+    // Independent nearest pair reference: this intentionally differs from native triple rounding.
+    const roundedPair = (a:number,b:number) => Math.floor((a*b+127)/255)
+    expect(roundedPair(roundedPair(1,128),128)).toBe(1)
+    expect(canonicalPrimaryTextureMultiplyU8(1,128,128)).toBe(0)
+    expect(255**3+32603+Math.floor((255**3+32603)/128)).toBe(16743774)
+    expect(16743774).toBeLessThan(2**24)
+  })
+  it('keeps native half-up separate from historical ties-even and preserves caller signed zero', () => {
+    expect(canonicalPrimaryTextureStrengthU8(.3)).toBe(76)
+    expect(canonicalMultiplyTextureStrengthU8(.3)).toBe(77)
+    for(const [s,q] of [[0,0],[1/255,1],[1/510,1],[.5,128],[1,255]])expect(canonicalMultiplyTextureStrengthU8(s)).toBe(q)
+    expect(canonicalMultiplyTextureStrengthU8(adjacent(.3,-1))).toBe(76)
+    expect(canonicalMultiplyTextureStrengthU8(adjacent(.3,1))).toBe(77)
+    const input=Object.freeze({s:-0});expect(Object.is(canonicalMultiplyTextureStrengthU8(input.s),0)).toBe(true)
+    expect(Object.is(input.s,-0)).toBe(true)
+    for(const s of [NaN,Infinity,-Infinity,-.01,1.01,'0' as unknown as number])expect(()=>canonicalMultiplyTextureStrengthU8(s)).toThrow(TypeError)
+    for(const value of [-1,256,.5,NaN,Infinity,-0,'0' as unknown as number])for(let axis=0;axis<3;axis++){
+      const args:[number,number,number]=[255,128,128];args[axis]=value
+      expect(()=>canonicalPrimaryTextureMultiplyU8(...args)).toThrow(TypeError)
+    }
+  })
+  it('captures own immutable crop307/phase data without treating padding512 as period', () => {
+    const input=grainPin(),trusted=grainAsset(),captured=canonicalMultiplyPrimaryTexturePin(input,trusted)
+    expect(captured).toEqual(input);expect(Object.isFrozen(captured)).toBe(true);expect(Object.isFrozen(captured.phase)).toBe(true)
+    input.phase.x=0;input.width=1;trusted.width=1
+    expect(captured.width).toBe(307);expect(captured.phase.x).toBe(306)
+    expect(canonicalPrimaryTextureCell(-1,307,captured.phase.x)).toBe(305)
+    for(const patch of [{periodX:512},{periodY:512},{width:512},{law:'subtract-u8-v1'},{strength:'pressure-identity-v1'},{extra:0},
+      {phase:{kind:'resolved-stroke-phase-v1',x:307,y:0}},{phase:{kind:'resolved-stroke-phase-v1',x:-0,y:0}}])
+      expect(()=>canonicalMultiplyPrimaryTexturePin({...grainPin(),...patch},grainAsset())).toThrow(TypeError)
+    expect(()=>canonicalMultiplyPrimaryTexturePin(grainPin(),{...grainAsset(),id:'asset:'+'b'.repeat(64)})).toThrow(TypeError)
+    expect(()=>canonicalMultiplyPrimaryTexturePin(grainPin(),{...grainAsset(),size:256})).toThrow(TypeError)
+  })
+  it('never calls pin/phase/asset accessors and retains strict old/new law separation', () => {
+    const getter=vi.fn(()=>307)
+    for(const [target,key] of [['pin','width'],['phase','x'],['asset','width']] as const){
+      const p=grainPin(),a=grainAsset();Object.defineProperty(target==='pin'?p:target==='phase'?p.phase:a,key,{get:getter,enumerable:true})
+      expect(()=>canonicalMultiplyPrimaryTexturePin(p,a)).toThrow(TypeError)
+    }
+    expect(getter).not.toHaveBeenCalled()
+    expect(()=>canonicalMultiplyPrimaryTexturePin(Object.create(grainPin()),grainAsset())).toThrow(TypeError)
+    const old={...grainPin(),law:'subtract-u8-v1'}
+    expect(canonicalRecordedPrimaryTexturePin(old,grainAsset()).law).toBe('subtract-u8-v1')
+    expect(()=>canonicalRecordedPrimaryTexturePin(grainPin(),grainAsset())).toThrow(TypeError)
+    expect(()=>canonicalMultiplyPrimaryTexturePin(old,grainAsset())).toThrow(TypeError)
+    expect(()=>canonicalPrimaryTexturePin(grainPin(),grainAsset())).toThrow(TypeError)
+    expect(()=>canonicalMultiplyPrimaryTexturePin(pin(),asset())).toThrow(TypeError)
   })
 })
