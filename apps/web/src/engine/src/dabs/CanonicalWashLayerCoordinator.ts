@@ -575,7 +575,12 @@ export class CanonicalWashLayerCoordinator {
       if(snapshot.materialVersion!==7||!canonicalSoftAutoDataEqual(source.autoSource,snapshot.material.primarySource))throw new TypeError('Accepted Auto replay source differs from original snapshot')
     }else if(source.materialVersion===2){
       if(snapshot.materialVersion!==2||!canonicalSoftAutoDataEqual(canonicalSourceMaterialContext(source.context),canonicalSourceMaterialContext(snapshot.material)))throw new TypeError('Accepted masked replay source differs from original snapshot')
-    }else if(snapshot.materialVersion!==8||source.autoSource!==undefined)throw new TypeError('Accepted image replay source differs from original snapshot')
+    }else{
+      if(snapshot.materialVersion!==8)throw new TypeError('Accepted image replay source differs from original snapshot')
+      const original=snapshot.material.primarySource
+      if(original.kind==='image'?source.autoSource!==undefined:!source.autoSource||!canonicalSoftAutoDataEqual(source.autoSource,original))
+        throw new TypeError('Accepted primary replay source differs from original snapshot')
+    }
   }
   private sameLocalOperation(a:CanonicalStrokeOperation,b:CanonicalStrokeOperation,frame:CanonicalStrokeOperation['frame']):boolean {
     return a.id===b.id&&a.userId===b.userId&&a.layerId===b.layerId&&a.timestamp===b.timestamp&&samePaintData(a.frame,frame)

@@ -1,3 +1,6 @@
+import pencilMetadata from '../presets/fixtures/pixelPencilPreparation.metadata.json'
+import {canonicalPixelTextureSourceBinding,canonicalPixelTextureMaterialContext,resolveCanonicalTexturePhase,canonicalStandaloneStrokeSnapshotV8} from '@grafetto/shared'
+import type {CanonicalReplaySource} from './CanonicalFrameExecutor'
 import {canonicalExecutorOperations} from './CanonicalFrameExecutor'
 import {canonicalSourceMaterialContext,prepareCanonicalRecordedAttachmentV8,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from '@grafetto/shared'
 import {compositeSourceFused32} from '../presets/sourceFused32'
@@ -1085,4 +1088,29 @@ it('WASH first-sequence reorder still dirties and republishes genuine peer order
   for(const input of [a,a1,b1])s.coordinator.enqueueRecorded(input)
   s.drain();expect(s.coordinator.pending).toBe(false);expect(s.coordinator.hasPendingLocal).toBe(false);expect(s.coordinator['closed']).toBe(true);expect(s.stagedCuts.at(-1)).toEqual([2,2]);expect(s.coordinator.poisoned).toBe(false)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+
+it('checks V8 Gaussian replay pin exactly while preserving the image-only absence rule',()=>{
+ const s=fixture()
+ try{
+  const row=pencilMetadata.rows[0],descriptor=row.descriptor as unknown as BrushDescriptor
+  const binding=canonicalPixelTextureSourceBinding(descriptor,'b'.repeat(64),row.assets.map(a=>({id:a.id,size:a.size})),'browser-number-coverage-v1',B,1,{sourceScale:2.4})
+  const context=canonicalPixelTextureMaterialContext(binding,resolveCanonicalTexturePhase(binding.phasePolicy,()=>0),{workUnits:1048576,outputBytes:1048576,drawPixels:1048576})
+  const originalAuto=context.primarySource
+  if(originalAuto.kind!=='gaussianAuto')throw Error('Original Gaussian required')
+  const snapshot=canonicalStandaloneStrokeSnapshotV8({layerId:'layer',brush:'brush:'+descriptor.id+'@'+descriptor.version,strokeId:'gaussian',boardEpoch:1,descriptorSha256:'b'.repeat(64),rasterProfile:B,pigmentRgb8:[0,0,0],composition:{...binding.composition,alphaDarken:'hard',outerResourceOpacity:1},assets:context.assets,materialVersion:8,material:context},1,B)
+  const source:CanonicalReplaySource={materialVersion:8,rasterProfile:B,context,autoSource:originalAuto,assertCurrent(){throw Error('Guard must not invoke source callbacks')},retainRoot(){throw Error('Guard must not acquire roots')}}
+  expect(()=>s.coordinator['assertReplayOriginal'](source,snapshot)).not.toThrow()
+  expect(()=>s.coordinator['assertReplayOriginal']({...source,autoSource:undefined},snapshot)).toThrow('Accepted primary replay source differs')
+  expect(()=>s.coordinator['assertReplayOriginal']({...source,autoSource:{...originalAuto,brushAngle:originalAuto.brushAngle+.1}},snapshot)).toThrow('Accepted primary replay source differs')
+  const imageRow=pencilMetadata.rows[1],imageDescriptor=imageRow.descriptor as unknown as BrushDescriptor
+  const imageBinding=canonicalPixelTextureSourceBinding(imageDescriptor,'c'.repeat(64),imageRow.assets.map(a=>({id:a.id,size:a.size})),'browser-number-coverage-v1',B)
+  const imageContext=canonicalPixelTextureMaterialContext(imageBinding,resolveCanonicalTexturePhase(imageBinding.phasePolicy,()=>0),context.budget)
+  const imageSnapshot=canonicalStandaloneStrokeSnapshotV8({...snapshot,brush:'brush:'+imageDescriptor.id+'@'+imageDescriptor.version,descriptorSha256:'c'.repeat(64),assets:imageContext.assets,material:imageContext},1,B)
+  const imageSource:CanonicalReplaySource={...source,context:imageContext,autoSource:undefined}
+  expect(()=>s.coordinator['assertReplayOriginal'](imageSource,imageSnapshot)).not.toThrow()
+  expect(()=>s.coordinator['assertReplayOriginal']({...imageSource,autoSource:originalAuto},imageSnapshot)).toThrow('Accepted primary replay source differs')
+
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

@@ -5,6 +5,7 @@ import {SourceCanonicalFrameEncoder,createPixelTextureFrameEncoder} from './src/
 import {createHash} from 'node:crypto'
 import {inflateSync} from 'node:zlib'
 import originals from './src/presets/fixtures/pixelBrowserBindings.native.json'
+import pencilMetadata from './src/presets/fixtures/pixelPencilPreparation.metadata.json'
 import {canonicalBrushDescriptorJSON,canonicalSourceStrokeSnapshotV2,canonicalSourceMaterialContext,canonicalStandaloneStrokeSnapshotV8,canonicalPixelSourceComposition,decodeCanonicalRecordedSnapshotFrameV8,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV8,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {createTestEngine} from './testing/engineTestUtils'
 import type {CanonicalSourceAuthorService} from './index'
@@ -13,18 +14,29 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture'|'bitmap-auto',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
- const row=originals.rows[kind==='dual'?0:kind==='texture'?1:2],descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
+async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
+ const row=kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
  if(recordedColor){if(!descriptor.sourceStamp)throw Error('Original source required');Object.assign(descriptor.sourceStamp.settings,{'ColorSource/Type':'uniform_random'});const mask=descriptor.behavior?.dual?.brush.sourceStamp;if(mask)Object.assign(mask.settings,{'ColorSource/Type':'uniform_random'})}
  if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?(recordedColor?'c3':'c1'):'c2').repeat(16)
  let assets=row.assets.map(a=>{if(!a.id.startsWith('asset:'))throw Error('Original CAS asset required');return{...a,id:a.id as `asset:${string}`}})
- if('coverage'in row&&row.coverage)installBrushPixels(row.coverage.id,new Uint8Array(inflateSync(Buffer.from(row.coverage.deflateBase64,'base64'))))
+ if(kind==='dual'&&originals.rows[0].coverage)installBrushPixels(originals.rows[0].coverage.id,new Uint8Array(inflateSync(Buffer.from(originals.rows[0].coverage.deflateBase64,'base64'))))
  if(kind==='texture'){
   // Keep original compiled2 queries/geometry; explicitly replace only artwork
   // with a self-authored L8 pattern and a distinct immutable descriptor ID.
   const pixels=Uint8Array.from({length:8*8},(_,i)=>(i*31+17)%256),id='asset:'+createHash('sha256').update(pixels).digest('hex')
   const t=descriptor.texture!;descriptor.texture={id:id as `asset:${string}`,strength:t.strength,periodPx:8,patternSize:{width:8,height:8},offset:{x:0,y:0,randomX:false,randomY:false},application:t.application!}
   assets=assets.filter(a=>a.id!==t.id);assets.push({id:id as `asset:${string}`,size:8,file:id.slice(6)+'.bin'});installBrushPixels(id,pixels)
+ }
+ if(kind==='pencil3'||kind==='pencil5'){
+  // Keep exact original source/compiler/geometry, but use explicitly derived
+  // self-authored L8 resources. This is preparation coverage, not native pixels.
+  descriptor.id='imported-'+(kind==='pencil3'?'d3':'d5').repeat(16)
+  for(let index=0;index<assets.length;index++){
+   const original=assets[index],pixels=Uint8Array.from({length:original.size*original.size},(_,i)=>(i*17+index*31+3)%256)
+   const id='asset:'+createHash('sha256').update(pixels).digest('hex') as `asset:${string}`
+   descriptor=JSON.parse(JSON.stringify(descriptor).replaceAll(original.id,id)) as BrushDescriptor
+   assets[index]={...original,id,file:id.slice(6)+'.bin'};installBrushPixels(id,pixels)
+  }
  }
  const preset='brush:'+descriptor.id+'@'+descriptor.version+(modifiers?':flat:fixed':''),sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'Derived '+kind+' browser integration',source:'actual compiled2 metadata, derived resource identity',warnings:[]}],assets,skipped:[]})
@@ -131,3 +143,46 @@ it.each(['dual','texture','bitmap-auto'] as const)('coalesces only named Pixel %
   expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
  }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
+
+// Actual failed sweep metadata; app preparation is absent from the CPU101 chain.
+it.each(['pencil3','pencil5'] as const)('prepares actual $kind source geometry through full-policy engine resource ownership',async kind=>{
+ const begin=vi.fn(),h=await setup(kind,begin),{engine}=h
+ try{
+  expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  const prepared=engine['_canonicalPreparedAuthor']
+  if(!prepared||prepared.material.kind!=='pixelTexture'||!prepared.material.texture)throw Error('Actual neutral8 preparation required')
+  const texture=prepared.material.texture,source=texture.primarySource
+  expect(source.kind).toBe(kind==='pencil5'?'image':'gaussianAuto')
+  if(source.kind==='image'){
+   expect(source.frameBounds).toEqual([{x:18,y:18,width:220,height:220}])
+   // The original V8 context must retain descriptor identity; only the internal
+   // V2 resource projection is identity-free. No shared guard is relaxed.
+   expect(source.descriptorSha256).toBe(h.sha)
+   expect(()=>canonicalSourceMaterialContext({version:2,assets:texture.assets.filter(a=>a.id===source.asset),primarySource:source,budget:texture.budget})).toThrow()
+  }
+  expect(begin).not.toHaveBeenCalled();expect(h.operations).toHaveLength(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+
+it('admits actual Pencil3 Gaussian V8 START through full-policy BEGIN and local DRAW/END',async()=>{
+ let snapshot!:CanonicalStrokeSnapshotV8
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedMaterialContext8
+  if(!material||material.primarySource.kind!=='gaussianAuto')throw Error('Actual Gaussian V8 context required')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Actual composition required')
+  snapshot=canonicalStandaloneStrokeSnapshotV8({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:8,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup('pencil3',begin),{engine}=h
+ try{
+  engine.setSize(24);expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(8,112));engine['_onEnd'](packet(8,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(begin).toHaveBeenCalledOnce();expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Source frame required');return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
+  expect(frames.flatMap(f=>f.draws).length).toBeGreaterThan(0)
+  expect(frames.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  for(const frame of frames)for(const recipe of frame.definitions){if(!('kind'in recipe)||recipe.kind!=='gaussianAuto')throw Error('Original Gaussian definition required');expect(recipe.source.ratio).toBe(.9);expect(recipe.coverageProfile).toBe('browser-number-coverage-v1')}
+  expect(engine['_canonicalLayerOwner']?.coordinator?.poisoned).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
+})
