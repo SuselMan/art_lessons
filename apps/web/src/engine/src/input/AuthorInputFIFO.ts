@@ -13,17 +13,20 @@ export interface AuthorInputWait {
   readonly deadline:number
   readonly timeoutError:Error
 }
+/** Internal scheduling signal: retain this exact handoff and let other tasks drain. */
+export interface AuthorInputBackpressure {readonly kind:'author-input-backpressure'}
+export type AuthorInputCutYield=void|AuthorInputBackpressure
 /** Pending material stays with the producer. This only cuts its SAME owner
  * before another pump/input proceeds; it never carries a source result. */
 export interface AuthorInputCheckpoint {
   readonly kind:'author-input-checkpoint'
-  readonly flush:()=>Generator<void,void,void>
+  readonly flush:()=>Generator<AuthorInputCutYield,void,void>
   readonly immediate?:true
   /** Local absolute scheduling hint; never extends a pending cut deadline. */
   readonly deadline?:number
 }
-export type AuthorInputYield=void|AuthorInputWait|AuthorInputCheckpoint
-interface PendingCheckpoint {readonly flush:()=>Generator<void,void,void>;immediate:boolean;deadline?:number}
+export type AuthorInputYield=void|AuthorInputWait|AuthorInputCheckpoint|AuthorInputBackpressure
+interface PendingCheckpoint {readonly flush:()=>Generator<AuthorInputCutYield,void,void>;immediate:boolean;deadline?:number}
 type WaitOutcome={ok:true}|{ok:false;error:unknown}
 interface WaitCell { wake?: (outcome:WaitOutcome)=>void }
 interface JobWait {
@@ -42,7 +45,7 @@ interface AuthorInputJob {
   wait?:JobWait
   checkpoint?:PendingCheckpoint
   checkpointSuspended?:boolean
-  cut?:Generator<void,void,void>
+  cut?:Generator<AuthorInputCutYield,void,void>
   producerDone?:boolean
   retired:boolean
 }
@@ -55,7 +58,7 @@ export class AuthorInputFIFO {
   private readonly context:AuthorInputFIFOContext
   private readonly budgetMs:number
   private readonly maxSteps:number
-  constructor(context:AuthorInputFIFOContext,budgetMs=4,maxSteps=2){this.context=context;this.budgetMs=budgetMs;this.maxSteps=maxSteps}
+  constructor(context:AuthorInputFIFOContext,budgetMs=4,maxSteps=32){this.context=context;this.budgetMs=budgetMs;this.maxSteps=maxSteps}
   get pending():boolean{return !!this.work||this.jobs.length>0}
   /** release owns captured data even if cancellation precedes generator start. */
   enqueue(job:()=>Generator<AuthorInputYield,void,void>,release?:()=>void):void{
@@ -78,9 +81,13 @@ export class AuthorInputFIFO {
     const job=this.work
     return !job?.wait||!!job.wait.outcome||!!job.cut||!!job.checkpoint
   }
-  private captureCheckpoint(value:AuthorInputWait|AuthorInputCheckpoint):PendingCheckpoint|undefined {
+  private captureYield(value:AuthorInputWait|AuthorInputCheckpoint|AuthorInputBackpressure):PendingCheckpoint|'backpressure'|undefined {
     const fields=Object.getOwnPropertyDescriptors(value),kind=fields.kind
     if(!kind||!Object.hasOwn(kind,'value'))throw new TypeError('Invalid author input yield')
+    if(kind.value==='author-input-backpressure'){
+      if(Reflect.ownKeys(fields).length!==1)throw new TypeError('Invalid author input backpressure')
+      return 'backpressure'
+    }
     if(kind.value!=='author-input-checkpoint')return undefined
     if(Reflect.ownKeys(fields).some(key=>!['kind','flush','immediate','deadline'].includes(String(key)))
       ||!fields.flush||!Object.hasOwn(fields.flush,'value')||typeof fields.flush.value!=='function'
@@ -92,7 +99,7 @@ export class AuthorInputFIFO {
     if(this.pumping||!this.runnable())return
     this.pumping=true
     const epoch=this.epoch
-    let steps=0,current:AuthorInputJob|undefined,failed=false,primary:unknown
+    let steps=0,calls=0,current:AuthorInputJob|undefined,failed=false,primary:unknown
     try{
       const start=this.context.now()
       // Old callers retain pump cuts. Opted-in remainder survives turns only
@@ -114,6 +121,7 @@ export class AuthorInputFIFO {
           if(epoch!==this.epoch){this.retire(current,true);break}
         }
         if(current.cut){
+          calls++
           const step=current.cut.next()
           if(epoch!==this.epoch){this.retire(current,true);break}
           if(step.done){
@@ -121,8 +129,14 @@ export class AuthorInputFIFO {
             if(current.producerDone){this.work=undefined;this.retire(current,false)}
             else if(current.wait&&!current.wait.outcome)break
           }else{
-            if(step.value!==undefined)throw new TypeError('Author checkpoint may only yield queue pressure')
-            steps++
+            if(step.value!==undefined){
+              const pressure=this.captureYield(step.value)
+              if(epoch!==this.epoch){this.retire(current,true);break}
+              if(pressure!=='backpressure')throw new TypeError('Author checkpoint may only yield queue pressure')
+            }
+            // A cut yield is already a full local queue/CPU admission wait.
+            // Retain its cursor; do not poll it another 31 times this turn.
+            steps++;break
           }
         }else{
           if(current.wait&&!current.wait.outcome)break
@@ -132,6 +146,7 @@ export class AuthorInputFIFO {
           // Resuming a producer can enter an older automatic-cut handoff. A
           // plain queue-pressure yield is NOT a new cut-safe suspension point.
           if(current.checkpoint)current.checkpointSuspended=true
+          calls++
           const step=wait?.outcome?.ok===false?iterator.throw(wait.outcome.error):iterator.next()
           if(epoch!==this.epoch){this.retire(current,true);break}
           if(step.done){
@@ -139,8 +154,13 @@ export class AuthorInputFIFO {
             if(current.checkpoint)current.checkpoint.immediate=true
             else{this.work=undefined;this.retire(current,false)}
           }else if(step.value!==undefined){
-            const checkpoint=this.captureCheckpoint(step.value)
+            const checkpoint=this.captureYield(step.value)
             if(epoch!==this.epoch){this.retire(current,true);break}
+            if(checkpoint==='backpressure'){
+              // Keep checkpointSuspended: an older automatic handoff may still
+              // own a cut. Never flush newer pending data ahead of that cursor.
+              steps++;break
+            }
             if(checkpoint){
               if(current.checkpoint&&current.checkpoint.flush!==checkpoint.flush)throw new TypeError('Pending author checkpoint owner changed')
               if(current.checkpoint){
@@ -157,7 +177,7 @@ export class AuthorInputFIFO {
             }
           }else steps++
         }
-        if(epoch!==this.epoch||steps>=this.maxSteps||this.context.now()-start>=this.budgetMs)break
+        if(epoch!==this.epoch||steps>=this.maxSteps||calls>=32||this.context.now()-start>=this.budgetMs)break
         current=undefined
       }
     }catch(error){
@@ -179,7 +199,7 @@ export class AuthorInputFIFO {
     const timer=wait.timer;wait.timer=undefined
     if(timer!==undefined)clearTimeout(timer)
   }
-  private park(job:AuthorInputJob,token:AuthorInputWait|AuthorInputCheckpoint,epoch:number):void {
+  private park(job:AuthorInputJob,token:AuthorInputWait|AuthorInputCheckpoint|AuthorInputBackpressure,epoch:number):void {
     // Capture data fields without invoking accessors from a malformed yield.
     const fields=Object.getOwnPropertyDescriptors(token)
     for(const key of ['kind','promise','deadline','timeoutError']){

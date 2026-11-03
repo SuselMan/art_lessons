@@ -42,7 +42,7 @@ import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, 
 import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
 import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
-import { AuthorInputFIFO, type AuthorInputYield } from './src/input/AuthorInputFIFO'
+import { AuthorInputFIFO, type AuthorInputYield, type AuthorInputBackpressure } from './src/input/AuthorInputFIFO'
 import {CanonicalAirbrushProducer,type CanonicalAirbrushSample} from './src/input/CanonicalAirbrushProducer'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
@@ -9081,7 +9081,7 @@ export class PencilEngine implements PencilEngineAPI {
     }})
     return localAuthor
   }
-  private *_acceptCanonicalChunks(session:TimedAuthorSession,chunks:readonly (ReturnType<SourcePrimaryGrainMaterialAdapter['finish']>[number]|ReturnType<SourceTexturedAutoMaterialAdapter['finish']>[number]|ReturnType<SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3|SourceStrokeMaterialContextV4|SourceStrokeMaterialContextV5|SourceStrokeMaterialContextV6>['finish']>[number])[]):Generator<void,void,void> {
+  private *_acceptCanonicalChunks(session:TimedAuthorSession,chunks:readonly (ReturnType<SourcePrimaryGrainMaterialAdapter['finish']>[number]|ReturnType<SourceTexturedAutoMaterialAdapter['finish']>[number]|ReturnType<SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3|SourceStrokeMaterialContextV4|SourceStrokeMaterialContextV5|SourceStrokeMaterialContextV6>['finish']>[number])[]):Generator<AuthorInputBackpressure,void,void> {
     if(!chunks.length)return
     const source=session.source!,release=this._brushMipCache.reserve(chunks.reduce((bytes,chunk)=>bytes+chunk.packed.length*2+1024,0))
     try{
@@ -9103,7 +9103,7 @@ export class PencilEngine implements PencilEngineAPI {
         const layer=source.prepared.owner
         this._ensureCanonicalLayerCoordinator(layer)
         while(!layer.coordinator!.tryEnqueueLocal(source.localAuthor!,operation)){
-          this._wakeCanonicalLayer(layer);yield;this._assertCanonicalSource(session)
+          this._wakeCanonicalLayer(layer);yield {kind:'author-input-backpressure' as const};this._assertCanonicalSource(session)
         }
         source.localAdmitted=true;this._canonicalRecoveryDirty=true
         this._wakeCanonicalLayer(layer)

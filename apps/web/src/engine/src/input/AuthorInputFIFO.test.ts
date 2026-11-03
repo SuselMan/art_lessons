@@ -167,7 +167,8 @@ it('charges cut CPU to the same deadline and never advances source while a cut i
  const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}},4,2)
  const flush=function*(){while(blocked--){events.push('wait');yield}events.push('cut');now+=5}
  fifo.enqueue(function*(){events.push('source:0');now+=5;yield{kind:'author-input-checkpoint' as const,flush};events.push('source:1')})
- expect(events).toEqual(['source:0']);frames.shift()!();expect(events).toEqual(['source:0','wait','wait'])
+ expect(events).toEqual(['source:0']);frames.shift()!();expect(events).toEqual(['source:0','wait'])
+ frames.shift()!();expect(events).toEqual(['source:0','wait','wait'])
  frames.shift()!();expect(events).toEqual(['source:0','wait','wait','cut']);expect(fifo.pending).toBe(true)
  frames.shift()!();expect(events.at(-1)).toBe('source:1');expect(fifo.pending).toBe(false)
 })
@@ -277,4 +278,66 @@ it('captures only finite own DATA checkpoint deadlines without calling accessors
  const get=vi.fn(),bad=[-1,Infinity,NaN,undefined]
  for(const deadline of bad){const errors:unknown[]=[],release=vi.fn(),fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)});fifo.enqueue(function*(){yield{kind:'author-input-checkpoint' as const,flush:function*(){},deadline}},release);expect(errors).toHaveLength(1);expect(release).toHaveBeenCalledOnce()}
  for(const inherited of [false,true]){const errors:unknown[]=[],fields={kind:'author-input-checkpoint' as const,flush:function*(){}},token=inherited?Object.assign(Object.create({deadline:32}),fields):Object.defineProperty(fields,'deadline',{get}),fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)});fifo.enqueue(function*(){yield token});expect(errors).toHaveLength(1)}expect(get).not.toHaveBeenCalled()
+})
+
+it('uses the four-ms budget before the default hard32 ceiling and keeps later inputs FIFO',()=>{
+ const tasks:Array<()=>void>=[],events:string[]=[];let now=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}})
+ fifo.enqueue(function*(){for(let i=0;i<12;i++){events.push('draw:'+i);now+=.75;yield}})
+ fifo.enqueue(function*(){events.push('END')});fifo.enqueue(function*(){events.push('nextSTART')})
+ expect(events).toEqual(Array.from({length:6},(_,i)=>'draw:'+i));expect(now).toBe(4.5);expect(tasks).toHaveLength(1)
+ while(tasks.length)tasks.shift()!()
+ expect(events).toEqual([...Array.from({length:12},(_,i)=>'draw:'+i),'END','nextSTART']);expect(fifo.pending).toBe(false)
+})
+it('bounds a frozen clock at32 next calls including zero-yield job completions',()=>{
+ const tasks:Array<()=>void>=[],events:number[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ fifo.enqueue(function*(){for(let i=0;i<40;i++)fifo.enqueue(function*(){events.push(i)})})
+ expect(events).toHaveLength(31);expect(tasks).toHaveLength(1) // The initial completed producer was call1.
+ tasks.shift()!();expect(events).toEqual(Array.from({length:40},(_,i)=>i));expect(fifo.pending).toBe(false)
+})
+it('pauses explicit outer queue pressure once per pump instead of polling32 times',()=>{
+ const tasks:Array<()=>void>=[],events:string[]=[];let blocked=true,attempts=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ fifo.enqueue(function*(){while(blocked){attempts++;yield{kind:'author-input-backpressure' as const}}events.push('same-frame-admitted')})
+ fifo.enqueue(function*(){events.push('END')})
+ expect(attempts).toBe(1);expect(events).toEqual([]);tasks.shift()!();expect(attempts).toBe(2)
+ blocked=false;tasks.shift()!();expect(events).toEqual(['same-frame-admitted','END']);expect(fifo.pending).toBe(false)
+})
+it('pauses legacy cut void pressure once per pump while retaining cut ownership',()=>{
+ const tasks:Array<()=>void>=[],events:string[]=[];let blocked=true,attempts=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ const flush=function*(){while(blocked){attempts++;yield}events.push('cut')}
+ fifo.enqueue(function*(){yield{kind:'author-input-checkpoint' as const,flush,immediate:true as const};events.push('source-resumed')})
+ expect(attempts).toBe(1);tasks.shift()!();expect(attempts).toBe(2);expect(events).toEqual([])
+ blocked=false;tasks.shift()!();expect(events).toEqual(['cut','source-resumed']);expect(fifo.pending).toBe(false)
+})
+it('does not flush a suspended newer checkpoint ahead of explicit older handoff pressure',()=>{
+ const tasks:Array<()=>void>=[],events:string[]=[],pending:number[]=[];let now=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}})
+ const flush=function*(){events.push('cut:'+pending.splice(0).join(','))}
+ fifo.enqueue(function*(){pending.push(0);yield{kind:'author-input-checkpoint' as const,flush,deadline:32};const older=pending.splice(0);pending.push(1);yield{kind:'author-input-backpressure' as const};events.push('admit:'+older.join(','));yield{kind:'author-input-checkpoint' as const,flush,immediate:true as const}})
+ expect(events).toEqual([]);now=40;tasks.shift()!();expect(events).toEqual(['admit:0','cut:1']);expect(fifo.pending).toBe(false)
+})
+it('cancels a pressure-suspended source once and never resumes stale queued work',()=>{
+ const tasks:Array<()=>void>=[],events:string[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ fifo.enqueue(function*(){try{yield{kind:'author-input-backpressure' as const};events.push('stale')}finally{events.push('closed')}},()=>events.push('release'))
+ fifo.cancel();while(tasks.length)tasks.shift()!();expect(events).toEqual(['closed','release']);expect(fifo.pending).toBe(false)
+})
+it('rejects malformed pressure data without invoking getters or losing captured ownership',()=>{
+ const get=vi.fn(),errors:unknown[]=[],release=vi.fn()
+ const fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)})
+ const token=Object.defineProperty({},'kind',{get}) as {kind:'author-input-backpressure'}
+ fifo.enqueue(function*(){yield token},release);expect(get).not.toHaveBeenCalled();expect(errors).toHaveLength(1);expect(release).toHaveBeenCalledOnce()
+})
+
+it('keeps FIRST, inputComplete and K8 remainder cuts immediate under the default time-first policy',()=>{
+ const tasks:Array<()=>void>=[],cuts:number[][]=[],pending:number[]=[],events:string[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{tasks.push(cb);return tasks.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ const flush=function*(){if(pending.length)cuts.push(pending.splice(0))}
+ fifo.enqueue(function*(){for(let i=0;i<18;i++){pending.push(i);events.push('material:'+i);yield{kind:'author-input-checkpoint' as const,flush,deadline:32,...i===0||pending.length>=8?{immediate:true as const}:{}}}events.push('inputComplete');yield{kind:'author-input-checkpoint' as const,flush,immediate:true as const}})
+ while(tasks.length)tasks.shift()!()
+ expect(cuts).toEqual([[0],[1,2,3,4,5,6,7,8],[9,10,11,12,13,14,15,16],[17]])
+ expect(cuts.flat()).toEqual(Array.from({length:18},(_,i)=>i));expect(events.at(-1)).toBe('inputComplete');expect(fifo.pending).toBe(false)
 })
