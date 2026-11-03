@@ -96,6 +96,27 @@ class PixelSourceClosureTests(unittest.TestCase):
                     rasterize_svg(('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2">'+body+'</svg>').encode())
             launch.assert_not_called()
 
+    def test_svg_local_instances_masks_and_gradient_inheritance(self):
+        from general_svg import sanitize_svg
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2 2"><defs><linearGradient id="a"><stop offset="0" stop-color="black"/></linearGradient><linearGradient id="b" xlink:href="#a"/><symbol id="tip" viewBox="0 0 2 2"><rect width="2" height="2" fill="url(#b)"/></symbol><mask id="m"><circle cx="1" cy="1" r="1" fill="white"/></mask></defs><use xlink:href="#tip" width="2" height="2" mask="url(#m)"/></svg>'
+        sanitized, width, height = sanitize_svg(svg)
+        self.assertEqual((width,height),(1000,1000))
+        self.assertIn(b'href="#tip"',sanitized)
+        self.assertNotIn(b'xlink',sanitized)
+
+    def test_svg_instances_reject_cycles_external_links_and_exponential_expansion(self):
+        from general_svg import sanitize_svg
+        bodies = ['<use href="https://example.invalid/tip.svg#tip"/>',
+                  '<g id="a"><use href="#a"/></g>',
+                  '<use href="#missing"/>']
+        chain = '<g id="a0"><rect width="1" height="1"/></g>'
+        for i in range(1,19):
+            chain += '<g id="a%s"><use href="#a%s"/><use href="#a%s"/></g>' % (i,i-1,i-1)
+        bodies.append('<defs>'+chain+'</defs><use href="#a18"/>')
+        for body in bodies:
+            with self.subTest(body=body), self.assertRaises(ValueError):
+                sanitize_svg(('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2">'+body+'</svg>').encode())
+
     def test_text_pipe_uses_utf16_units_and_unpadded_child_metrics(self):
         from krita_text import render_text_source
         with tempfile.TemporaryDirectory() as tmp:
@@ -107,3 +128,40 @@ class PixelSourceClosureTests(unittest.TestCase):
             self.assertEqual(sequence,[0,1,2,0]);self.assertEqual([i.size for i in images],[(3,5),(5,5),(5,5)])
             self.assertEqual([call.args[0] for call in font.getbbox.call_args_list],['A','\ufffd','\ufffd'])
             self.assertEqual(proof['family'],'Authored');self.assertFalse(proof['substituted'])
+
+    def test_text_separators_stay_on_one_baseline_and_tabs_use_qt_default_stops(self):
+        from krita_text import _baseline_text_layout
+        font=Mock();font.getbbox.side_effect=lambda text,**kw:(-1,-3,len(text)*7,2);font.getlength.side_effect=lambda text:len(text)*8
+        bounds,runs=_baseline_text_layout('A\nB\rC\fD\u2028E\u2029F\tG',font)
+        self.assertEqual(runs,[('A',0),('B',8),('C',16),('D',24),('E',32),('F',40),('G',80)])
+        self.assertEqual(bounds,(-1,-3,87,2))
+        self.assertNotIn('AB',[run for run,_ in runs])
+        self.assertEqual(_baseline_text_layout('A\t',font)[0],(-1,-3,80,2))
+        self.assertEqual(_baseline_text_layout('\t\n\r\f\u2028\u2029',font),((0,0,1,1),[]))
+
+    def test_text_pipe_keeps_separator_utf16_positions_as_blank_children_without_raqm(self):
+        from krita_text import render_text_source
+        with tempfile.TemporaryDirectory() as tmp:
+            fontdir=Path(tmp)/'.fonts';fontdir.mkdir();f=fontdir/'authored.ttf';f.write_bytes(b'authored-font-placeholder')
+            resolver=SimpleNamespace(stdout=(str(f)+'\n0\nAuthored\nRegular\n').encode(),stderr=b'')
+            font=Mock();font.getbbox.return_value=(0,-2,3,2)
+            with patch('krita_text.Path.home',return_value=Path(tmp)),patch('krita_text.subprocess.run',return_value=resolver),patch('krita_text.features.check_feature',return_value=False),patch('krita_text.ImageFont.truetype',return_value=font),patch('krita_text.ImageDraw.Draw'):
+                images,proof,sequence=render_text_source({'pipe':'true','text':'A\n\t\n\u2028A','font':'Authored,12'})
+            self.assertEqual(sequence,[0,1,2,1,3,0]);self.assertEqual([image.size for image in images],[(3,4),(1,1),(1,1),(1,1)])
+            self.assertTrue(all(pixel==255 for image in images[1:] for pixel in image.tobytes()))
+            self.assertEqual(proof['layout'],'basic')
+
+    def test_text_unknown_controls_remain_closed_before_font_resolution(self):
+        from krita_text import render_text_source
+        with patch('krita_text.subprocess.run') as resolve:
+            for text in ['A\0B','A\x07B']:
+                with self.subTest(text=repr(text)),self.assertRaisesRegex(ValueError,'Unsupported text control'):
+                    render_text_source({'text':text})
+            resolve.assert_not_called()
+
+    def test_text_bidi_controls_are_a_layout_gap_separate_from_missing_raqm(self):
+        from krita_text import render_text_source
+        with patch('krita_text.subprocess.run') as resolve:
+            with self.assertRaisesRegex(ValueError,'positional layout backend'):
+                render_text_source({'text':'\u0627\t\u0628'})
+            resolve.assert_not_called()

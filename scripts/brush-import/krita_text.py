@@ -8,6 +8,44 @@ import unicodedata
 from PIL import Image, ImageDraw, ImageFont, features
 
 
+# KisTextBrush uses QPainter's point/baseline overload, not rectangle layout.
+# Qt5 suppresses these separators; they do not start another text line.
+_HIDDEN_BASELINE_CONTROLS=frozenset('\n\r\f\u2028\u2029')
+_BASELINE_CONTROLS=_HIDDEN_BASELINE_CONTROLS|{'\t'}
+
+
+def _baseline_text_layout(text,font):
+    """Bounded functional single-baseline layout, preserving control boundaries.
+
+    Keep the old Pillow path byte-for-byte for text without these controls.
+    A control breaks shaping runs: removing it and joining the neighbours could
+    create a ligature that was not present in the original input. Tabs use Qt5's
+    default 80px stop at the captured 96dpi; TextBrush sets no QTextOption stops.
+    """
+    if not any(c in _BASELINE_CONTROLS for c in text):
+        return font.getbbox(text,anchor='ls'),[(text,0)]
+    runs=[];pen=0.;tab_extent=0.;start=0
+    for at,c in enumerate(text+'\0'):
+        if at<len(text) and c not in _BASELINE_CONTROLS:
+            continue
+        run=text[start:at]
+        if run:
+            runs.append((run,pen))
+            advance=float(font.getlength(run))
+            if not math.isfinite(advance) or advance<0:raise ValueError('Invalid text advance')
+            pen+=advance
+        if c=='\t':
+            pen=(math.floor(pen/80)+1)*80;tab_extent=pen
+        start=at+1
+    bounds=[]
+    for run,x in runs:
+        left,top,right,bottom=font.getbbox(run,anchor='ls')
+        if right>left and bottom>top:bounds.append((x+left,top,x+right,bottom))
+    if not bounds:return (0,0,1,1),[]
+    return (math.floor(min(b[0] for b in bounds)),math.floor(min(b[1] for b in bounds)),
+            math.ceil(max(tab_extent,max(b[2] for b in bounds))),math.ceil(max(b[3] for b in bounds))),runs
+
+
 def render_text_source(definition):
     pipe=definition.get('pipe','false')
     if pipe not in ('true','false'):raise ValueError('Invalid native text pipe flag')
@@ -16,8 +54,10 @@ def render_text_source(definition):
     original_font=definition.get('font','')
     if len(text.encode('utf-16-le',errors='surrogatepass'))>8192 or len(original_font)>4096:
         raise ValueError('Text/font metadata exceeds limit')
-    if any(unicodedata.category(c)=='Cc' or not pipe and unicodedata.category(c)=='Cs' for c in text):
-        raise ValueError('Control/multiline text layout is not captured')
+    if any((unicodedata.category(c)=='Cc' and c not in _BASELINE_CONTROLS) or not pipe and unicodedata.category(c)=='Cs' for c in text):
+        raise ValueError('Unsupported text control or isolated surrogate')
+    if any(c in _BASELINE_CONTROLS for c in text) and any(unicodedata.bidirectional(c) in ('R','AL','AN') for c in text):
+        raise ValueError('Bidirectional text with baseline controls needs an unavailable positional layout backend')
     fields=original_font.split(',')
     family=fields[0].strip() or 'sans-serif'
     if len(family)>256 or any(c in family for c in '\n\r\0'):
@@ -53,7 +93,7 @@ def render_text_source(definition):
     face=int(lines[1]);raqm=features.check_feature('raqm')
     # BASIC is deliberately limited to unshaped Latin/Greek/Cyrillic text. It
     # must not silently draw joining/RTL/complex scripts as disconnected glyphs.
-    if not raqm and any(ord(c)>0x052f or unicodedata.combining(c) for c in text):
+    if not raqm and any((ord(c)>0x052f or unicodedata.combining(c)) and c not in _BASELINE_CONTROLS for c in text):
         raise ValueError('This text requires the unavailable RAQM shaping backend')
     layout=ImageFont.Layout.RAQM if raqm else ImageFont.Layout.BASIC
     font=ImageFont.truetype(io.BytesIO(font_bytes),size=pixel_size,index=face,layout_engine=layout)
@@ -74,13 +114,14 @@ def render_text_source(definition):
         glyphs=[text];sequence=[0]
     images=[];total_pixels=0
     for glyph in glyphs:
-        left,top,right,bottom=font.getbbox(glyph,anchor='ls')
+        (left,top,right,bottom),runs=_baseline_text_layout(glyph,font)
         width,height=max(1,right-left),max(1,bottom-top)
         if max(width,height)>2048 or width*height>1048576:raise ValueError('Text mask exceeds resolution/pixel budget')
         total_pixels+=width*height
         if total_pixels>64*1024*1024:raise ValueError('Text pipe cumulative pixels exceed import budget')
         image=Image.new('L',(width,height),255)
-        ImageDraw.Draw(image).text((-left,-top),glyph,font=font,fill=0,anchor='ls')
+        draw=ImageDraw.Draw(image)
+        for run,x in runs:draw.text((x-left,-top),run,font=font,fill=0,anchor='ls')
         images.append(image)
     selected_family,selected_style=lines[2],lines[3]
     if len(selected_family)>1024 or len(selected_style)>1024:raise ValueError('Resolved font metadata exceeds limit')

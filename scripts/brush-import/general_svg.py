@@ -14,16 +14,19 @@ from pathlib import Path
 PROFILE = 'librsvg-gray-vector-subset-v1'
 MAX_INPUT = 256 * 1024
 NS = 'http://www.w3.org/2000/svg'
-ELEMENTS = {'svg', 'g', 'defs', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'linearGradient', 'radialGradient', 'stop', 'clipPath'}
-COMMON = {'id', 'transform', 'fill', 'stroke', 'stroke-width', 'opacity', 'fill-opacity', 'stroke-opacity', 'fill-rule', 'clip-rule', 'clip-path', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit'}
+ELEMENTS = {'svg', 'g', 'defs', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'linearGradient', 'radialGradient', 'stop', 'clipPath', 'use', 'symbol', 'mask'}
+COMMON = {'id', 'transform', 'fill', 'stroke', 'stroke-width', 'opacity', 'fill-opacity', 'stroke-opacity', 'fill-rule', 'clip-rule', 'clip-path', 'mask', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit'}
 ATTRS = {
     'svg': {'viewBox', 'width', 'height', 'preserveAspectRatio'}, 'g': set(), 'defs': set(),
     'path': {'d'}, 'rect': {'x', 'y', 'width', 'height', 'rx', 'ry'},
     'circle': {'cx', 'cy', 'r'}, 'ellipse': {'cx', 'cy', 'rx', 'ry'},
     'line': {'x1', 'x2', 'y1', 'y2'}, 'polyline': {'points'}, 'polygon': {'points'},
-    'linearGradient': {'x1', 'x2', 'y1', 'y2', 'gradientUnits', 'gradientTransform', 'spreadMethod'},
-    'radialGradient': {'cx', 'cy', 'r', 'fx', 'fy', 'gradientUnits', 'gradientTransform', 'spreadMethod'},
+    'linearGradient': {'x1', 'x2', 'y1', 'y2', 'gradientUnits', 'gradientTransform', 'spreadMethod', 'href'},
+    'radialGradient': {'cx', 'cy', 'r', 'fx', 'fy', 'gradientUnits', 'gradientTransform', 'spreadMethod', 'href'},
     'stop': {'offset', 'stop-color', 'stop-opacity'}, 'clipPath': {'clipPathUnits'},
+    'use': {'href', 'x', 'y', 'width', 'height'},
+    'symbol': {'viewBox', 'preserveAspectRatio'},
+    'mask': {'x', 'y', 'width', 'height', 'maskUnits', 'maskContentUnits', 'mask-type'},
 }
 NUMBER = re.compile(r'[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?')
 REF = re.compile(r'url\(\s*#([A-Za-z_][A-Za-z0-9_.-]{0,63})\s*\)')
@@ -40,7 +43,7 @@ def sanitize_svg(original: bytes):
         raise ValueError('SVG namespace/root required')
     nodes, ids, edges = [], {}, {}
     stack = [(root, 1)]
-    commands = 0
+    commands, node_costs = 0, {}
     while stack:
         node, depth = stack.pop()
         tag = node.tag.removeprefix('{' + NS + '}')
@@ -50,17 +53,29 @@ def sanitize_svg(original: bytes):
             raise ValueError('Text/font content forbidden')
         nodes.append(node)
         references = []
-        for key, value in node.attrib.items():
+        node_cost = 1
+        attributes = list(node.attrib.items())
+        if 'href' in node.attrib and '{http://www.w3.org/1999/xlink}href' in node.attrib:
+            raise ValueError('Duplicate SVG href')
+        for raw_key, value in attributes:
+            key = 'href' if raw_key == '{http://www.w3.org/1999/xlink}href' else raw_key
             if key not in COMMON | ATTRS[tag] or len(value) > 65536:
                 raise ValueError('SVG attribute not allowed')
             if key == 'id':
                 if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]{0,63}', value) or value in ids:
                     raise ValueError('SVG id')
                 ids[value] = node
+            if key == 'href':
+                if not re.fullmatch(r'#[A-Za-z_][A-Za-z0-9_.-]{0,63}', value):
+                    raise ValueError('Only local SVG href allowed')
+                references.append(value[1:])
+                if raw_key != key:
+                    del node.attrib[raw_key]
+                    node.set(key, value)
             # Only entire local paint/clip references; no CSS or URL syntax elsewhere.
-            if 'url' in value.lower():
+            elif 'url' in value.lower():
                 match = REF.fullmatch(value)
-                if key not in {'fill', 'stroke', 'clip-path'} or not match:
+                if key not in {'fill', 'stroke', 'clip-path', 'mask'} or not match:
                     raise ValueError('External/complex reference forbidden')
                 references.append(match.group(1))
             elif any(c in value for c in [';', '{', '}', '<', '>', '\\', ':', '&']):
@@ -71,7 +86,10 @@ def sanitize_svg(original: bytes):
             if key == 'd':
                 if re.sub(NUMBER, '', value).strip(' ,\t\r\nMmZzLlHhVvCcSsQqTtAa'):
                     raise ValueError('Path syntax')
-                commands += len(re.findall('[MmZzLlHhVvCcSsQqTtAa]', value)) + len(NUMBER.findall(value))
+                cost = len(re.findall('[MmZzLlHhVvCcSsQqTtAa]', value)) + len(NUMBER.findall(value))
+                commands += cost
+                node_cost += cost
+        node_costs[node] = node_cost
         edges[node] = references
         stack.extend((child, depth + 1) for child in node)
     if commands > 100000:
@@ -80,20 +98,24 @@ def sanitize_svg(original: bytes):
     for node in reversed(nodes):
         edges[node] = edges[node] + [child for child in node]
     # Resolve both id names and direct structural edges with bounded traversal.
-    visiting, done = set(), set()
+    visiting, done = set(), {}
     def checked(node, depth):
         if node in visiting or depth > 64:
             raise ValueError('SVG reference cycle/depth')
         if node in done:
-            return
+            return done[node]
         visiting.add(node)
+        expanded_cost = node_costs[node]
         for ref in edges[node]:
             target = ids.get(ref) if isinstance(ref, str) else ref
             if target is None:
                 raise ValueError('Missing SVG reference')
-            checked(target, depth + 1)
+            expanded_cost += checked(target, depth + 1)
+            if expanded_cost > 200000:
+                raise ValueError('SVG reference expansion complexity')
         visiting.remove(node)
-        done.add(node)
+        done[node] = expanded_cost
+        return expanded_cost
     checked(root, 0)
     box = root.get('viewBox', '').replace(',', ' ').split()
     if len(box) != 4:
