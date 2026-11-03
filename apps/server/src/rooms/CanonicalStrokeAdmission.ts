@@ -181,7 +181,7 @@ export class CanonicalStrokeAdmission {
       || !/^[0-9a-f]{64}$/.test(grant.descriptorSha256)) fail('trusted board/brush capability unavailable')
     if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>2048)fail('unsupported trusted material capability')
     const m=grant.material
-    let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
+    let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown,maskedSource2=false
     if('version'in m&&m.version===8){
       const c=canonicalPrimaryGrainMaterialContext(m),pin=c.primarySource
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')||pin.kind!=='image'&&!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile))fail('trusted material8 descriptor/raster/composition mismatch')
@@ -214,7 +214,7 @@ export class CanonicalStrokeAdmission {
       materialSignature=canonicalSourceMaterialContext(m);preflight=undefined
     }else if('version'in m&&m.version===2&&m.maskSource){
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('masked Pixel raster unavailable')
-      materialSignature=canonicalMaskedSourceMaterialContext(m);preflight=undefined
+      materialSignature=canonicalMaskedSourceMaterialContext(m);preflight=undefined;maskedSource2=true
     }else if('version' in m){
       if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.maskSource!==undefined)fail('unsupported trusted material capability')
       if(m.primarySource?.kind==='image'){
@@ -247,7 +247,7 @@ export class CanonicalStrokeAdmission {
     if (!live && [...state.fingerprints].some(([n, item]) => n !== ordinal && item.operationId === value.id)) fail('operation ID reused across frames')
     if (ordinal > next || ordinal < next && !old || live && ordinal >= state.recordedNext + this.window) fail('noncontiguous or expired frame ordinal')
     const decoded=decodeTrustedCanonicalFrame(f,grant,ordinal)
-    if (decoded.frame.masked) fail('masked executor not admitted')
+    if (decoded.frame.masked&&!maskedSource2) fail('masked executor not admitted')
     const hash = createHash('sha256').update(JSON.stringify(decoded.envelope)).digest('hex')
     if (old && (old.hash !== hash || !live && old.operationId !== undefined && old.operationId !== value.id)) fail('frame identity conflicts with accepted lane')
     const duplicate = !!old && (live ? old.live : old.recorded)

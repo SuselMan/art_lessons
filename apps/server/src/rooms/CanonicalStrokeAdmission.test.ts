@@ -1,3 +1,5 @@
+import actualDual from './fixtures/pixelDualActualFrames.json'
+import{canonicalSourceStrokeSnapshotV2,canonicalSourceMaterialContext,decodeCanonicalRecordedSnapshotFrameV8}from'@grafetto/shared'
 import {verifyCanonicalRecordedPrefix,verifyCanonicalRecordedClose} from '@grafetto/shared'
 import {buildCanonicalMaterial,canonicalPrimaryTextureMaterialContext,canonicalMaterialGeometryCost,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,type CanonicalMaterialContextV3} from '@grafetto/shared'
 import { describe, expect, it, vi } from 'vitest'
@@ -199,4 +201,20 @@ it('seals the actual admitted3 recorded prefix through typed commitPartial witho
  const ticket=f.service.prepareRecordedClose(identity,f.grant.strokeId,seal);ticket.commit()
  expect(f.service.cursor(identity,f.grant.strokeId)).toMatchObject({recordedNext:1,ended:true})
  expect(f.candidate.frame.materialPacked).toBe(frame.value.candidate.frame.materialPacked)
+})
+
+it('admits actual paired source2 ordinal0/1 through both lanes and refuses an unpaired grant',()=>{
+ const first=actualDual.rows[0],snapshot=canonicalSourceStrokeSnapshotV2(first.snapshot,first.snapshot.boardEpoch,first.snapshot.rasterProfile)
+ const grant:TrustedCanonicalGesture={...identity,layerId:snapshot.layerId,boardEpoch:snapshot.boardEpoch,roomRasterVersion:STRAIGHT_ROOM_RASTER_VERSION,rasterProfile:snapshot.rasterProfile,descriptorSha256:snapshot.descriptorSha256,brush:snapshot.brush,strokeId:snapshot.strokeId,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}
+ const service=new CanonicalStrokeAdmission({resolve:()=>grant,retainedFrames:8,maxGestures:64})
+ for(const [ordinal,row]of actualDual.rows.entries()){
+  const decoded=decodeCanonicalRecordedSnapshotFrameV8(row.frame,snapshot,ordinal);expect(decoded.frame.masked).toBe(true)
+  const candidate={type:'canonical_stroke',id:'actual-dual-'+ordinal,layerId:snapshot.layerId,frame:row.frame}
+  const recorded=service.prepare(identity,candidate);expect(recorded.duplicate).toBe(false);recorded.commit()
+  service.prepare(identity,{type:'canonical_stroke_live',layerId:snapshot.layerId,frame:row.frame}).commit()
+ }
+ expect(service.cursor(identity,snapshot.strokeId)).toMatchObject({recordedNext:2,liveNext:2})
+ const {maskSource:_,maskingBlend:__,...unpaired}=snapshot.material
+ const bad=new CanonicalStrokeAdmission({resolve:()=>({...grant,material:canonicalSourceMaterialContext(unpaired)}),retainedFrames:8,maxGestures:64})
+ expect(()=>bad.prepare(identity,{type:'canonical_stroke',id:'unpaired',layerId:snapshot.layerId,frame:first.frame})).toThrow();expect(bad.size).toBe(0)
 })
