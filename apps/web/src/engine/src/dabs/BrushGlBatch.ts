@@ -220,6 +220,21 @@ interface TurnRecord {
 // Authority/reentry bookkeeping only: no implicit current token or ambient GL
 // state cache. A batch must receive its genuine caller-owned token explicitly.
 const turns = new WeakMap<BrushGlTurn, TurnRecord>()
+// Exact live frame -> inherited unpack restore. No ambient context lookup.
+const batchUploadScopes=new WeakMap<BrushGlBatchFrame,{record:TurnRecord;infos:Map<BrushGlBatchParticipant,BrushGlBatchInfo>}>()
+export function borrowBrushGlBatchAutoUploadRestore(frame:BrushGlBatchFrame,participant:BrushGlBatchParticipant):(()=>void)|undefined {
+  const scope=batchUploadScopes.get(frame)
+  if(!scope)return undefined
+  frame.assert(participant,[])
+  if(!scope.record.active||!scope.record.restoreAutoUpload||!scope.infos.has(participant))throw new Error('Closed or foreign batch upload scope')
+  const restore=scope.record.restoreAutoUpload
+  return()=>{
+    if(batchUploadScopes.get(frame)!==scope||!scope.record.active)throw new Error('Expired batch upload restore')
+    frame.assert(participant,[])
+    restore()
+  }
+}
+
 const turnContexts = new WeakSet<WebGLRenderingContext>()
 /** Internal mutation barrier only; no GL read, lease or execution authority. */
 export function assertBrushGlMutationIdle(gl:WebGLRenderingContext):void {
@@ -450,10 +465,12 @@ export function runBrushGlBatch(options: {
     // Owner callbacks may touch GL: capture precedes them, including failure paths.
     for (const [participant, info] of infos) if (!sameParticipantBinding(participant.brushGlBatchInfo(),info)) throw new Error('Brush GL batch service changed during acquisition')
     frame.open(authority)
+    if(borrowed?.restoreAutoUpload)batchUploadScopes.set(frame,{record:borrowed,infos})
     const value: unknown = execute(frame)
     if (value && typeof (value as { then?: unknown }).then === 'function') throw new Error('Brush GL batch callback must be synchronous')
   } catch (error) { if(borrowed?.sequenceChild)borrowed.stepFailure??={error}; failed = true; failure = error }
   finally {
+    batchUploadScopes.delete(frame)
     cleanup(() => frame.close(authority))
     if (restore) cleanup(() => { if (!first.gl.isContextLost()) restore!() })
     for (const release of releases.reverse()) cleanup(release)

@@ -50,6 +50,10 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
+  gl.UNPACK_FLIP_Y_WEBGL=9201;gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9202
+  const originalPixelStore=gl.pixelStorei,originalParameter=gl.getParameter,uploadFlags=new Map([[9201,true],[9202,true]])
+  gl.pixelStorei=(key:number,value:number|boolean)=>uploadFlags.has(key)?uploadFlags.set(key,!!value):originalPixelStore(key,value)
+  gl.getParameter=(key:number)=>uploadFlags.has(key)?uploadFlags.get(key):originalParameter(key)
   gl.texSubImage2D = vi.fn();
   gl.copyTexSubImage2D = vi.fn(); gl.copyTexImage2D = vi.fn(); gl.uniform3f = vi.fn(); gl.uniform4f = vi.fn()
   gl.isContextLost = () => false
@@ -67,9 +71,14 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   gl.getTexParameter = (_: number, n: number) => parameters.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(n) ?? gl.NEAREST
   const tip: BrushTip = { kind: 'bitmap', mask: id as TipMaskId, hardness: 1, aspect: 1, angle: 0, rotation: 'fixed',
     imageSampling: { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 0, y: 0, width: 1, height: 1 } } }
-  const bank = autoSource ? undefined : new CanonicalMaskSourceBank(gl, cache, cpu, [{ id: id as TipMaskId, tip, assetSide: 1, readOriginalCoverage: () => new Uint8Array([255]) }], { gpuBytes: 0, cpuBytes: 0 })
-  bank?.jobs.forEach((_, i) => bank.prepareJob(i))
-  const bankResources = bank?.preparedResources() ?? []
+  const image2=sourceMaterial?.primarySource.kind==='image'
+  const bank = autoSource ? undefined : image2?new CanonicalMaskSourceBank(gl,cache,cpu,[],{gpuBytes:0,cpuBytes:0},undefined,'root-residency'):new CanonicalMaskSourceBank(gl, cache, cpu, [{ id: id as TipMaskId, tip, assetSide: 1, readOriginalCoverage: () => new Uint8Array([255]) }], { gpuBytes: 0, cpuBytes: 0 })
+  const preparation=image2?bank!.prepareRoot([{asset,frameIndex:0,sourceSlot:0,readOriginalCoverage:()=>new Uint8Array([255])}],{gpuBytes:0,cpuBytes:0},[{asset,indexes:[canonicalTransformedMaskMetadata(recipe,asset).index]}]):undefined
+  preparation?.jobs.forEach((_,i)=>preparation.prepareJob(i))
+  preparation?.assertPreparedPublication()
+  const root=preparation?.publish();preparation?.finalizeCleanup()
+  if(!image2)bank?.jobs.forEach((_, i) => bank.prepareJob(i))
+  const bankResources = root?.preparedResources()??bank?.preparedResources() ?? []
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
@@ -79,7 +88,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ washMode, rasterProfile, autoSource, sourceMaterial, bank, prepass, composite, scratch,
+  const executor = new CanonicalFrameExecutor({ washMode, rasterProfile, autoSource, sourceMaterial, bank:root??bank,sourceLease:root, prepass, composite, scratch,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -92,7 +101,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
     finally{executor['preparePhysical']=physical}
   }
   const drain = () => { let n = 0; while (executor.pending && n++ < 200) executor.advance(); expect(n).toBeLessThan(200) }
-  const close = () => { executor.cancel(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank?.reset() }
+  const close = () => { executor.cancel();root?.release(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank?.reset();if(image2)cache.clear() }
   return { gl, snapshot, cache, cpu, bank, prepass, composite, scratch, layer, executor, submit, prepareStorage, drain, close, releases, reserveTransient, changed, poison, setEpoch: () => { epoch++ } }
 }
 
@@ -2199,9 +2208,11 @@ it('masked B resident same-role draws share one real capture and preserve role/f
  try{
   const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource')
   s.executor.advance()
-  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2])
+  // The new mixed parent also deposits the mask role after closing the last
+  // primary child; segment resolve remains outside the parent.
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2,0])
   expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
-  expect(s.work.draw).toBe(3);expect(s.work.segment??0).toBe(0)
+  expect(s.work.draw).toBe(4);expect(s.work.segment??0).toBe(0)
   expect(s.executor.pending).toBe(true);expect(s.snapshot()).toEqual(before)
   s.drain()
   expect(draw.mock.calls.filter(([r])=>r.operation.kind==='maskingAlpha')).toHaveLength(1)
@@ -2230,4 +2241,65 @@ it('masked warm sequence preserves a thrown undefined primary and performs full 
   expect(caught).toBe(true);expect(value).toBeUndefined();expect(calls).toBe(2)
   expect(s.poison).toHaveBeenCalledTimes(1);expect(s.executor.pending).toBe(false)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+function mixedColdImageSoftFixture(){
+ const original=nativeSoftFrame(),soft=canonicalSoftAutoSourcePin({...original.pin,sourceSlot:1,coverageProfile:CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE})
+ const oldRecipe=original.frame.definitions[0];if(oldRecipe.kind!=='softAuto')throw Error('Actual soft recipe required')
+ const softRecipe:CanonicalSoftAutoRecipe={...oldRecipe,sourceSlot:1,coverageProfile:CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE}
+ const context:CanonicalMaterialContextV2={version:2,assets:[asset],primarySource:{kind:'image',asset:id,frameBounds:[{x:0,y:0,width:1,height:1}],brushScale:1,brushAngle:0},maskSource:soft,maskingBlend:'multiply',imageFrameIndices:'source-image-pipe-frame-v1',budget:{workUnits:16*1048576,outputBytes:4*1048576,drawPixels:1048576}}
+ const s=setup('buildup',64,64,undefined,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,undefined,64,undefined,context)
+ const image={...recipe,kind:'image' as const,imageFrameIndex:0,sourceSlot:0 as const}
+ const frame=buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[{recipe:image,role:'primary',x:0,y:0,opacity:.5,flow:1},{recipe:{...image,mirrorH:true},role:'primary',x:1,y:0,opacity:.5,flow:1},{recipe:softRecipe,role:'mask',x:0,y:0,opacity:1,flow:1},{recipe:softRecipe,role:'mask',x:1,y:0,opacity:1,flow:1}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:2,group:0},{kind:'segmentEnd',at:4,group:0},{kind:'gestureEnd',at:4}]},context).frame
+ s.executor.enqueue({...s.submit(),frame});const work=s.executor['queue'][0]
+ s.executor['preparePhysicalPlan'](work,s.layer)
+ let n=0;while(!s.executor['preparePhysical'](work,s.layer,0)||!s.executor['prepareDualPlanes'](work,0))expect(++n).toBeLessThan(100)
+ return{...s,work}
+}
+it('SAME Work cold IMAGE definitions and Soft role share one capture without crossing segment resolution',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=mixedColdImageSoftFixture()
+ try{
+  const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource'),uploads=vi.spyOn(s.gl,'texSubImage2D')
+  let turns=0;while(!s.executor['maskedSegmentDue'](s.work)){s.executor.advance();expect(++turns).toBeLessThan(100)}
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,0,1])
+  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  expect(uploads).toHaveBeenCalled();expect(s.work.draw).toBe(4);expect(s.work.segment??0).toBe(0)
+  expect(s.snapshot()).toEqual(before);s.drain();expect(draw.mock.calls.filter(([r])=>r.operation.kind==='maskingAlpha')).toHaveLength(1)
+  expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+it('mixed cold sequence closes actual scopes when second-role paint throws undefined',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=mixedColdImageSoftFixture()
+ try{
+  const before=s.snapshot(),original=s.composite.drawSource.bind(s.composite);let calls=0
+  vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{if(++calls===3)throw undefined;return original(request,frame)})
+  let caught=false,value:unknown='not-thrown';try{s.executor.advance()}catch(error){caught=true;value=error}
+  expect(caught).toBe(true);expect(value).toBeUndefined();expect(calls).toBe(3)
+  expect(s.snapshot()).toEqual(before);expect(s.prepass['turnDepth']).toBe(0);expect(s.poison).toHaveBeenCalledOnce()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+it('mixed parent has hard32 native children even when the original clock does not advance',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=maskedWarmSequenceFixture(40)
+ try{
+  const original=s.executor['paint'],paint=vi.fn((...args:Parameters<typeof original>)=>Reflect.apply(original,s.executor,args)),query=vi.spyOn(s.gl,'getParameter')
+  s.executor['paint']=paint
+  s.executor.advance();expect(paint).toHaveBeenCalledTimes(32);expect(s.work.draw).toBeGreaterThan(0);expect(s.work.draw).toBeLessThanOrEqual(32)
+  expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  expect(s.prepass['turnDepth']).toBe(0);expect(s.work.segment??0).toBe(0)
+  s.drain();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('unfinished Soft table after a mixed role switch resumes CPU64 without another GL capture',()=>{
+ let now=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),s=mixedColdImageSoftFixture()
+ try{
+  const table=s.executor['maskSoftProgram']!,advance=table.advance.bind(table)
+  table.advance=(n)=>{const result=advance(n);now+=4;return result}
+  const query=vi.spyOn(s.gl,'getParameter')
+  s.executor.advance();expect(s.work.draw).toBe(2);expect(table.done).toBe(false)
+  expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  query.mockClear();s.executor.advance();expect(query).not.toHaveBeenCalled();expect(s.work.draw).toBe(2)
+  table.advance=advance;now=0;s.drain();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })
