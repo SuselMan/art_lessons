@@ -1,5 +1,5 @@
 import type {Operation} from './operations.js'
-import {canonicalRecordedRasterProfiles,type CanonicalRecordedReadScope,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
+import {canonicalRecordedRasterProfiles,type CanonicalRecordedReadScope,type CanonicalRecordedAttachmentV8} from './canonicalRecordedAttachment.js'
 import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 
 /** Closed indexed-history wire DATA. Parsing these shapes never grants original
@@ -87,6 +87,32 @@ function plainTiltField(owner:unknown,key:string,profile:CanonicalStrokeRasterPr
 export function canonicalPlainTiltReadSource(owner:unknown,key:'plainTiltSource'|'canonicalPlainTiltSource',profile:CanonicalStrokeRasterProfile):CanonicalPlainTiltReadSource|undefined{return plainTiltField(owner,key,profile)}
 export function canonicalAuthorPlainTiltSource(owner:unknown,key:'authorPlainTiltSource'|'canonicalAuthorPlainTiltSource',profile:CanonicalStrokeRasterProfile):CanonicalAuthorPlainTiltSource|undefined{return plainTiltField(owner,key,profile)}
 
+/** Pixel image grain uses its own negotiated reader and author capability. */
+export type CanonicalPrimaryGrainReadSource='primary-grain-image-v1'
+export type CanonicalAuthorPrimaryGrainSource='primary-grain-image-v1'
+function primaryGrainField(owner:unknown,key:string,profile:CanonicalStrokeRasterProfile):CanonicalPrimaryGrainReadSource|undefined {
+ if(!owner||typeof owner!=='object'||Array.isArray(owner))return fail()
+ const d=Object.getOwnPropertyDescriptor(owner,key)
+ if(!d){if(key in owner)return fail();return undefined}
+ if(!Object.hasOwn(d,'value')||d.value!=='primary-grain-image-v1'||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return fail()
+ return d.value
+}
+export function canonicalPrimaryGrainReadSource(owner:unknown,key:'primaryGrainSource'|'canonicalPrimaryGrainSource',profile:CanonicalStrokeRasterProfile):CanonicalPrimaryGrainReadSource|undefined{return primaryGrainField(owner,key,profile)}
+export function canonicalAuthorPrimaryGrainSource(owner:unknown,key:'authorPrimaryGrainSource'|'canonicalAuthorPrimaryGrainSource',profile:CanonicalStrokeRasterProfile):CanonicalAuthorPrimaryGrainSource|undefined{return primaryGrainField(owner,key,profile)}
+
+/** General bounded Auto transforms and resolved placement; separate from tilt9. */
+export type CanonicalPlainAutoGeometryReadSource='dynamic-auto-geometry-v1'
+export type CanonicalAuthorPlainAutoGeometrySource='dynamic-auto-geometry-v1'
+function plainAutoGeometryField(owner:unknown,key:string,profile:CanonicalStrokeRasterProfile):CanonicalPlainAutoGeometryReadSource|undefined {
+ if(!owner||typeof owner!=='object'||Array.isArray(owner))return fail()
+ const d=Object.getOwnPropertyDescriptor(owner,key)
+ if(!d){if(key in owner)return fail();return undefined}
+ if(!Object.hasOwn(d,'value')||d.value!=='dynamic-auto-geometry-v1'||!canonicalStrokeRasterContract(profile).genericSC)return fail()
+ return d.value
+}
+export function canonicalPlainAutoGeometryReadSource(owner:unknown,key:'plainAutoGeometrySource'|'canonicalPlainAutoGeometrySource',profile:CanonicalStrokeRasterProfile):CanonicalPlainAutoGeometryReadSource|undefined{return plainAutoGeometryField(owner,key,profile)}
+export function canonicalAuthorPlainAutoGeometrySource(owner:unknown,key:'authorPlainAutoGeometrySource'|'canonicalAuthorPlainAutoGeometrySource',profile:CanonicalStrokeRasterProfile):CanonicalAuthorPlainAutoGeometrySource|undefined{return plainAutoGeometryField(owner,key,profile)}
+
 // SHARED WIRE DATA ONLY. Numeric invariants require actual closed validators:
 // C integer0..DBIntMax; floor0; operationCount===C; dense actual seq1..C.
 export interface CanonicalIndexedHistoryOfferV1 {
@@ -99,6 +125,10 @@ export interface CanonicalIndexedHistoryOfferV1 {
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
   readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
+  readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+  readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+  readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+  readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
   readonly plainTiltSource?:CanonicalPlainTiltReadSource
   readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
   readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -121,6 +151,10 @@ export interface CanonicalIndexedHistoryBeginV1 {
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
   readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
+  readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+  readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+  readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+  readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
   readonly plainTiltSource?:CanonicalPlainTiltReadSource
   readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
   readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -147,6 +181,10 @@ export interface CanonicalIndexedHistoryFollowV1 {
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
   readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
+  readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+  readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+  readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+  readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
   readonly plainTiltSource?:CanonicalPlainTiltReadSource
   readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
   readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -172,7 +210,7 @@ interface CanonicalIndexedPageCommon {
   readonly throughSeq:number
   readonly afterSeq:number
   readonly nextAfterSeq:number // last ACTUAL consumed seq, not seq+1/ordinal
-  readonly canonicalCapabilities:CanonicalRecordedAttachmentV1
+  readonly canonicalCapabilities:CanonicalRecordedAttachmentV8
 }
 export type CanonicalIndexedHistoryPageV1 =
   | (CanonicalIndexedPageCommon & {
@@ -198,7 +236,7 @@ export interface CanonicalIndexedHistoryRootEvidenceV1 {
   readonly throughSeq:number
   readonly root:CanonicalIndexedRootV1
   readonly rows:readonly CanonicalIndexedOperation[] //1..6 unique original rows; ALL used by refs, total<=4MiB
-  readonly canonicalCapabilities:CanonicalRecordedAttachmentV1
+  readonly canonicalCapabilities:CanonicalRecordedAttachmentV8
   readonly first:number // integer0..rows.length-1; actual frameOrdinal0 exactroot
   readonly terminal:number|null // actual ENDframe/typedclose, null=issuer absence<=C
   readonly lastMetadata:number|null // undo/redo, exact issuer verified rootassociation
@@ -265,36 +303,44 @@ function geometry(value:unknown):Readonly<CanonicalIndexedRoomGeometry>{
  return Object.freeze({width:v.width,height:v.height,infinite:false})
 }
 export function parseCanonicalIndexedHistoryOffer(value:unknown):Readonly<CanonicalIndexedHistoryOfferV1>{
- const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource'])
+ const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource','primaryGrainSource','authorPrimaryGrainSource','plainAutoGeometrySource','authorPlainAutoGeometrySource'])
  if(v.kind!=='canonical-indexed-history-offer-v1'||!text(v.offerId))return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',author)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',author)
+ const plainAutoGeometrySource=canonicalPlainAutoGeometryReadSource(value,'plainAutoGeometrySource',author),authorPlainAutoGeometrySource=canonicalAuthorPlainAutoGeometrySource(value,'authorPlainAutoGeometrySource',author)
+ if(authorPlainAutoGeometrySource&&!plainAutoGeometrySource)return fail()
+ const primaryGrainSource=canonicalPrimaryGrainReadSource(value,'primaryGrainSource',author),authorPrimaryGrainSource=canonicalAuthorPrimaryGrainSource(value,'authorPrimaryGrainSource',author)
+ if(authorPrimaryGrainSource&&!primaryGrainSource)return fail()
  const plainTiltSource=canonicalPlainTiltReadSource(value,'plainTiltSource',author),authorPlainTiltSource=canonicalAuthorPlainTiltSource(value,'authorPlainTiltSource',author)
  if(authorPlainTiltSource&&!plainTiltSource)return fail()
  const texturedAutoSource=canonicalTexturedAutoReadSource(value,'texturedAutoSource',author)
  const authorTexturedAutoSource=canonicalAuthorTexturedAutoSource(value,'authorTexturedAutoSource',author)
  const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
+ return Object.freeze({...(plainAutoGeometrySource?{plainAutoGeometrySource}:{}),...(authorPlainAutoGeometrySource?{authorPlainAutoGeometrySource}:{}),...(primaryGrainSource?{primaryGrainSource}:{}),...(authorPrimaryGrainSource?{authorPrimaryGrainSource}:{}),...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
 }
 export function parseCanonicalIndexedHistoryBegin(value:unknown):Readonly<CanonicalIndexedHistoryBeginV1>{
- const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource'])
+ const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource','primaryGrainSource','authorPrimaryGrainSource','plainAutoGeometrySource','authorPlainAutoGeometrySource'])
  if(v.kind!=='canonical-indexed-history-begin-v1'||!text(v.streamId)||!text(v.offerId)||v.floor!==0||!sequence(v.throughSeq)||v.operationCount!==v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',author)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',author)
+ const plainAutoGeometrySource=canonicalPlainAutoGeometryReadSource(value,'plainAutoGeometrySource',author),authorPlainAutoGeometrySource=canonicalAuthorPlainAutoGeometrySource(value,'authorPlainAutoGeometrySource',author)
+ if(authorPlainAutoGeometrySource&&!plainAutoGeometrySource)return fail()
+ const primaryGrainSource=canonicalPrimaryGrainReadSource(value,'primaryGrainSource',author),authorPrimaryGrainSource=canonicalAuthorPrimaryGrainSource(value,'authorPrimaryGrainSource',author)
+ if(authorPrimaryGrainSource&&!primaryGrainSource)return fail()
  const plainTiltSource=canonicalPlainTiltReadSource(value,'plainTiltSource',author),authorPlainTiltSource=canonicalAuthorPlainTiltSource(value,'authorPlainTiltSource',author)
  if(authorPlainTiltSource&&!plainTiltSource)return fail()
  const texturedAutoSource=canonicalTexturedAutoReadSource(value,'texturedAutoSource',author)
  const authorTexturedAutoSource=canonicalAuthorTexturedAutoSource(value,'authorTexturedAutoSource',author)
  const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
+ return Object.freeze({...(plainAutoGeometrySource?{plainAutoGeometrySource}:{}),...(authorPlainAutoGeometrySource?{authorPlainAutoGeometrySource}:{}),...(primaryGrainSource?{primaryGrainSource}:{}),...(authorPrimaryGrainSource?{authorPrimaryGrainSource}:{}),...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
 }
 export function parseCanonicalIndexedRoot(value:unknown):Readonly<CanonicalIndexedRootV1>{
  const v=fields(value,['originalUserId','strokeId','layerId','firstOperationId','firstSequence'])
@@ -350,19 +396,23 @@ export type CanonicalHistoryStreamClientEvents = {
 /** Follow is a bounded original range after an actual completed parent; the
  * received floor is DATA until bound to that parent by private ingress. */
 export function parseCanonicalIndexedHistoryFollow(value:unknown):Readonly<CanonicalIndexedHistoryFollowV1>{
- const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource'])
+ const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource','authorTexturedAutoSource','texturedAutoSource','plainTiltSource','authorPlainTiltSource','primaryGrainSource','authorPrimaryGrainSource','plainAutoGeometrySource','authorPlainAutoGeometrySource'])
  if(v.kind!=='canonical-indexed-history-follow-v1'||!text(v.streamId)||!text(v.parentStreamId)||v.streamId===v.parentStreamId||!sequence(v.floor)||!sequence(v.throughSeq)||v.throughSeq<v.floor||v.throughSeq-v.floor>CANONICAL_INDEXED_HISTORY_LIMITS.pageOperations||v.operationCount!==v.throughSeq-v.floor||!sequence(v.latestObservedSeq)||v.latestObservedSeq<v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry),authorRasterProfile=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',authorRasterProfile)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',authorRasterProfile)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',authorRasterProfile)
+ const plainAutoGeometrySource=canonicalPlainAutoGeometryReadSource(value,'plainAutoGeometrySource',authorRasterProfile),authorPlainAutoGeometrySource=canonicalAuthorPlainAutoGeometrySource(value,'authorPlainAutoGeometrySource',authorRasterProfile)
+ if(authorPlainAutoGeometrySource&&!plainAutoGeometrySource)return fail()
+ const primaryGrainSource=canonicalPrimaryGrainReadSource(value,'primaryGrainSource',authorRasterProfile),authorPrimaryGrainSource=canonicalAuthorPrimaryGrainSource(value,'authorPrimaryGrainSource',authorRasterProfile)
+ if(authorPrimaryGrainSource&&!primaryGrainSource)return fail()
  const plainTiltSource=canonicalPlainTiltReadSource(value,'plainTiltSource',authorRasterProfile),authorPlainTiltSource=canonicalAuthorPlainTiltSource(value,'authorPlainTiltSource',authorRasterProfile)
  if(authorPlainTiltSource&&!plainTiltSource)return fail()
  const texturedAutoSource=canonicalTexturedAutoReadSource(value,'texturedAutoSource',authorRasterProfile)
  const authorTexturedAutoSource=canonicalAuthorTexturedAutoSource(value,'authorTexturedAutoSource',authorRasterProfile)
  const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',authorRasterProfile)
  if(!s.allowedRasterProfiles!.includes(authorRasterProfile))return fail()
- return Object.freeze({...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
+ return Object.freeze({...(plainAutoGeometrySource?{plainAutoGeometrySource}:{}),...(authorPlainAutoGeometrySource?{authorPlainAutoGeometrySource}:{}),...(primaryGrainSource?{primaryGrainSource}:{}),...(authorPrimaryGrainSource?{authorPrimaryGrainSource}:{}),...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
 }
 export function parseCanonicalIndexedHistoryStart(value:unknown):Readonly<CanonicalIndexedHistoryStartV1>{
  if(!value||typeof value!=='object')return fail()

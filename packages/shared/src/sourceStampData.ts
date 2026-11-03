@@ -114,7 +114,7 @@ export interface SourceSoftAutoData extends Omit<SourceGaussianAutoData, 'kind' 
   readonly generator: 'soft'
   readonly softnessCurve: SourceStampCurveData
 }
-interface SourceStampCommon {
+export interface SourceStampCommon {
   readonly compiled?: SourceStampCompiledData
   readonly reader: 'krita-bd6e8d0-v1'
   readonly role: 'primary' | 'mask'
@@ -289,7 +289,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   let pressureProgram:{readonly curve:SourceStampCompiledCurve}|undefined
   if(material){
     if(v.version!==2||!record(v.source)||!['defaultAuto','gaussianAuto'].includes(String(v.source.kind))||!record(v.flags)||v.flags.textureEnabled!==true)return false
-    if(v.source.kind==='gaussianAuto'&&(v.role!=='primary'||v.options.length!==9||!Array.isArray(v.unsupported)||v.unsupported.length!==0||v.flags.materialFixed1!==true||v.source.shape!=='circle'||v.source.antialias!==false||!finite(v.source.ratio)||v.source.ratio<=0||v.source.ratio>1||v.source.spikes!==2||v.source.randomness!==0||v.source.density!==1))return false
+    if(v.source.kind==='gaussianAuto'&&(v.options.length!==9||!Array.isArray(v.unsupported)||v.unsupported.length!==0||v.flags.materialFixed1!==true||v.source.shape!=='circle'||v.source.antialias!==false||!finite(v.source.ratio)||v.source.ratio<=0||v.source.ratio>1||v.source.spikes!==2||v.source.randomness!==0||v.source.density!==1))return false
     try{pressureProgram=texturePressureProgram(compiled,v.settings)}catch{return false}
   }
   if(nativeDefault){

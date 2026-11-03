@@ -1,6 +1,6 @@
-import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
+import {decodeCanonicalRecordedSnapshotFrameV8} from './canonicalRecordedAttachment.js'
 import type {Operation} from './operations.js'
-import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadCapability,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
+import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperationV8,type CanonicalRecordedReadCapabilityV8,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
 import {verifyCanonicalRecordedPrefix,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalRecordedPrefixFrame} from './canonicalRecordedPrefix.js'
 import {parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedClose} from './canonicalStrokeClose.js'
 
@@ -42,7 +42,7 @@ export function captureCanonicalFullHistoryMetadata(value:unknown):Readonly<Cano
  return Object.freeze({type:v.type,id:v.id,userId:v.userId,targetOpId:v.targetOpId,timestamp:v.timestamp,seq:v.seq})
 }
 interface Gesture {
- readonly capability:CanonicalRecordedReadCapability
+ readonly capability:CanonicalRecordedReadCapabilityV8
  readonly frames:CanonicalRecordedPrefixFrame[]
  state:CanonicalMaterialPrefixState
  sealed:boolean
@@ -69,7 +69,7 @@ export interface CanonicalFullHistoryGesture {
 /** DATA validation of one complete prepared batch, not proof of an absent DB
  * row, actor permissions, original delivery lifetime or an execution grant.
  * The original read owner must retain its full indexed range receipt. */
-export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly CanonicalPreparedRecordedOperation[],scope:CanonicalRecordedReadScope):{
+export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly CanonicalPreparedRecordedOperationV8[],scope:CanonicalRecordedReadScope):{
  readonly base:Readonly<CanonicalFullHistoryBaseV2>;readonly gestures:readonly CanonicalFullHistoryGesture[]
 }{
  const base=parseCanonicalFullHistoryBase(value),profiles=canonicalRecordedRasterProfiles(scope)
@@ -87,7 +87,7 @@ export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly Cano
    const key=JSON.stringify([op.userId,s.strokeId]),previous=gestures.get(key)
    if(previous&&(previous.capability!==cap||previous.sealed))return fail()
    if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
-   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
+   const decoded=decodeCanonicalRecordedSnapshotFrameV8(op.frame,s,op.frame.frameOrdinal)
    if(!previous)for(const group of gestures.values())if(group.capability.originalUserId===op.userId)Object.assign(group,transitionCanonicalHistoryGesture(group,'new-own-gesture'))
    const group:Gesture=previous??{capability:cap,frames:[],state:CANONICAL_MATERIAL_PREFIX_START,sealed:false,visible:true,redoable:true}
    group.frames.push({operationId:op.id,sequence:op.seq,frameOrdinal:op.frame.frameOrdinal,decoded:decoded.frame})

@@ -1,5 +1,5 @@
-import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
-import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,prepareCanonicalRecordedAttachment,type CanonicalPreparedRecordedOperation,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
+import {decodeCanonicalRecordedSnapshotFrameV8} from './canonicalRecordedAttachment.js'
+import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,prepareCanonicalRecordedAttachmentV8,type CanonicalPreparedRecordedOperationV8,type CanonicalRecordedAttachmentV8} from './canonicalRecordedAttachment.js'
 import {captureCanonicalFullHistoryMetadata} from './canonicalFullHistoryBase.js'
 import {CANONICAL_INDEXED_HISTORY_LIMITS,parseCanonicalIndexedRoot,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedRootV1,type CanonicalIndexedOperation} from './canonicalIndexedHistory.js'
 
@@ -24,7 +24,7 @@ function captureRows(value:unknown,limit:number):readonly CanonicalIndexedOperat
   const op=fields(d.value,['id','userId','timestamp','seq','type','layerId','frame'])
   const packed=op.frame&&typeof op.frame==='object'?Object.getOwnPropertyDescriptor(op.frame,'materialPacked'):undefined
   if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')return fail()
-  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...(packed.value.startsWith('7|')?['texturePhase']:[])])
+  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...((packed.value.startsWith('7|')||packed.value.startsWith('8|'))?['texturePhase']:[])])
   if(typeof frame.materialPacked!=='string')return fail()
   // Bound packed input BEFORE material decode or any full payload allocation.
   packedBytes+=frame.materialPacked.length
@@ -32,9 +32,9 @@ function captureRows(value:unknown,limit:number):readonly CanonicalIndexedOperat
   return { ...op,frame } as unknown as CanonicalIndexedOperation
  }))
 }
-function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperation[],begin:CanonicalIndexedHistoryStartV1):CanonicalRecordedAttachmentV1{
- const capabilities:CanonicalRecordedAttachmentV1['capabilities'][number][]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[]
- const indexes=new Map<NonNullable<CanonicalPreparedRecordedOperation['read']>['capability'],number>()
+function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperationV8[],begin:CanonicalIndexedHistoryStartV1):CanonicalRecordedAttachmentV8{
+ const capabilities:CanonicalRecordedAttachmentV8['capabilities'][number][]=[],bindings:CanonicalRecordedAttachmentV8['bindings'][number][]=[]
+ const indexes=new Map<NonNullable<CanonicalPreparedRecordedOperationV8['read']>['capability'],number>()
  for(const atom of atoms){if(!atom.read)continue
   const r=atom.read;let index=indexes.get(r.capability)
   if(index===undefined){index=capabilities.length;indexes.set(r.capability,index);capabilities.push(r.capability)}
@@ -44,7 +44,8 @@ function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperation[],begin:
 }
 function prepareRows(value:unknown,rawAttachment:unknown,begin:CanonicalIndexedHistoryStartV1,limit:number){
  const rows=captureRows(value,limit)
- const atoms=prepareCanonicalRecordedAttachment(rawAttachment,rows,begin.scope)
+ const atoms=prepareCanonicalRecordedAttachmentV8(rawAttachment,rows,begin.scope)
+ if(!begin.primaryGrainSource&&atoms.some(atom=>atom.read?.capability.snapshot.materialVersion===8))return fail()
  const operations=Object.freeze(atoms.map(atom=>atom.operation as CanonicalIndexedOperation))
  const canonicalCapabilities=attachmentOf(atoms,begin)
  // Walk only normalized, bounded own DATA, never arbitrary received objects.
@@ -54,7 +55,7 @@ function prepareRows(value:unknown,rawAttachment:unknown,begin:CanonicalIndexedH
 }
 /** DATA preparation only. Actual authenticated ingress binds issuer, current
  * origin and request before lending these originals to an executor. */
-export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:CanonicalIndexedHistoryStartV1,afterSeq:number):Readonly<{page:CanonicalIndexedHistoryPageV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
+export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:CanonicalIndexedHistoryStartV1,afterSeq:number):Readonly<{page:CanonicalIndexedHistoryPageV1;atoms:readonly CanonicalPreparedRecordedOperationV8[]}>{
  if(!seq(afterSeq)||afterSeq<begin.floor||afterSeq>begin.throughSeq||!value||typeof value!=='object')return fail()
  const t=Object.getOwnPropertyDescriptor(value,'terminal')
  if(!t||!Object.hasOwn(t,'value')||typeof t.value!=='boolean')return fail()
@@ -81,7 +82,7 @@ export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:Canonical
 
 /** Bounded original witnesses. Root membership and absence are attested by the
  * actual indexed issuer; this parser alone cannot establish that issuer. */
-export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:CanonicalIndexedHistoryStartV1,expectedRoot:CanonicalIndexedRootV1):Readonly<{evidence:CanonicalIndexedHistoryRootEvidenceV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
+export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:CanonicalIndexedHistoryStartV1,expectedRoot:CanonicalIndexedRootV1):Readonly<{evidence:CanonicalIndexedHistoryRootEvidenceV1;atoms:readonly CanonicalPreparedRecordedOperationV8[]}>{
  const v=fields(value,['kind','streamId','throughSeq','root','rows','canonicalCapabilities','first','terminal','lastMetadata','latestRedo','firstUndoAfterLatestRedo','ownBranchAfterUndo'])
  if(v.kind!=='canonical-indexed-history-root-evidence-v1'||v.streamId!==begin.streamId||v.throughSeq!==begin.throughSeq)return fail()
  const root=parseCanonicalIndexedRoot(v.root),expected=parseCanonicalIndexedRoot(expectedRoot)
@@ -105,7 +106,7 @@ export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:Canonica
   }else if(op.type==='canonical_stroke'){
    if(op.userId!==root.originalUserId||op.layerId!==root.layerId||op.frame.strokeId!==root.strokeId)return fail()
    const s=atoms[terminal].read?.capability.snapshot;if(!s)return fail()
-   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
+   const decoded=decodeCanonicalRecordedSnapshotFrameV8(op.frame,s,op.frame.frameOrdinal)
    if(!decoded.frame.fences.some(fence=>fence.kind==='gestureEnd'))return fail()
   }else return fail()
  }

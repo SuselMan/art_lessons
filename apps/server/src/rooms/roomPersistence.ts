@@ -161,9 +161,9 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
  const frame=op&&op.type==='canonical_stroke'?op.frame:undefined
  const packed=frame&&Object.getOwnPropertyDescriptor(frame,'materialPacked')
  const phase=frame&&Object.getOwnPropertyDescriptor(frame,'texturePhase')
- const is7=!!packed&&Object.hasOwn(packed,'value')&&typeof packed.value==='string'&&packed.value.startsWith('7|')
- const texturePhase=is7?(()=>{if(!phase||!Object.hasOwn(phase,'value'))return fail();return captureCanonicalSavedTexturePhase(phase.value)})():undefined
- if(!is7&&frame&&(phase||'texturePhase'in frame))return fail()
+ const hasSavedPhase=!!packed&&Object.hasOwn(packed,'value')&&typeof packed.value==='string'&&(packed.value.startsWith('7|')||packed.value.startsWith('8|'))
+ const texturePhase=hasSavedPhase?(()=>{if(!phase||!Object.hasOwn(phase,'value'))return fail();return captureCanonicalSavedTexturePhase(phase.value)})():undefined
+ if(!hasSavedPhase&&frame&&(phase||'texturePhase'in frame))return fail()
  verifyCanonicalOperationRow(roomId,op,row)
  if(op.type!=='canonical_stroke' ||!text(op.id)||!text(op.userId)||!text(op.layerId)||!Number.isFinite(op.timestamp)||!op.frame||!text(op.frame.strokeId)
     ||!text(op.frame.brush)||!text(op.frame.rasterProfile)||(op.frame.version!==1&&op.frame.version!==2)||!Number.isSafeInteger(op.frame.frameOrdinal)||op.frame.frameOrdinal<0
@@ -171,7 +171,7 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
     ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
     ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
    if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
-    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...is7?['texturePhase']:[]].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...hasSavedPhase?['texturePhase']:[]].includes(k))
     ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
    const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...texturePhase?{texturePhase}:{},
     pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}

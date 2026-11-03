@@ -48,7 +48,7 @@ function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(so
     || !(source.kind === 'defaultAuto' && source.generator === 'default' && ['circle','rect'].includes(source.shape)
       || source.kind === 'gaussianAuto' && source.generator === 'gauss' && source.shape === 'circle' && source.ratio <= 1)
     || ![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
-    || source.diameter <= 0 || source.ratio <= 0 || source.spikes !== 2 || source.randomness !== 0 || !finite(source.density) || source.density < 0 || source.density > 1 || (!seededDensity && source.density !== 1) || (seededDensity && source.kind !== 'defaultAuto')
+    || source.diameter <= 0 || source.ratio <= 0 || (!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.randomness !== 0 || !finite(source.density) || source.density < 0 || source.density > 1 || (!seededDensity && source.density !== 1) || (seededDensity && source.kind !== 'defaultAuto')
     || source.horizontalFade < 0 || source.horizontalFade > 1 || source.verticalFade < 0 || source.verticalFade > 1
     || typeof source.antialias !== 'boolean' || brushScale < 0) throw new TypeError('Invalid default-auto static source')
   return { source: Object.freeze<S>({ ...source, diameter: zero(source.diameter), ratio: zero(source.ratio),
@@ -72,14 +72,14 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
   const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)
   // Raw static -0 is not a canonical wire spelling. Trusted input is normalized
   // independently; no descriptor JSON hash is claimed to attest float bits.
-  for (const k of ['diameter','ratio','horizontalFade','verticalFade','randomness','density'] as const)
+  for (const k of ['diameter','ratio','horizontalFade','verticalFade','spikes','randomness','density'] as const)
     if (!Object.is(recipe.source[k], actual.source[k]) || !Object.is(actual.source[k], pin.source[k])) throw new TypeError('Auto source static mismatch')
   if (!Object.is(recipe.brushScale,actual.brushScale) || !Object.is(recipe.brushAngle,actual.brushAngle)
     || !Object.is(actual.brushScale,pin.brushScale) || !Object.is(actual.brushAngle,pin.brushAngle)
     || fields.some(k => typeof actual.source[k] !== 'number' && actual.source[k] !== pin.source[k])
     || recipe.coverageProfile !== trusted.coverageProfile) throw new TypeError('Auto source policy mismatch')
   const geometry = sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:actual.source.diameter,
-    ratio:actual.source.ratio,spikes:2,scale:actual.brushScale,angle:actual.brushAngle},
+    ratio:actual.source.ratio,spikes:actual.source.spikes,scale:actual.brushScale,angle:actual.brushAngle},
   {scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},recipe.subX,recipe.subY)
   if (recipe.scale <= 0 || recipe.ratio <= 0 || geometry.maskSize[0] !== recipe.width || geometry.maskSize[1] !== recipe.height
     || recipe.width > 4096 || recipe.height > 4096 || recipe.width * recipe.height > 1048576) throw new RangeError('Auto allocation mismatch')

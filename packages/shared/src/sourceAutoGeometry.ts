@@ -7,7 +7,7 @@ export interface SourceAutoGeometryTip {
   readonly profile: 'default-auto-qt5-arm64-f64-v1'
   readonly diameter: number
   readonly ratio: number
-  readonly spikes: 2
+  readonly spikes: number
   readonly scale: number
   readonly angle: number
 }
@@ -57,7 +57,7 @@ function transformed(width: number, height: number, sx: number, sy: number, angl
  * match the independent installed Bionic oracle only at the retained inputs;
  * no cross-browser/universal-libm identity or author admission is implied. */
 export function sourceAutoGeometry(tip: SourceAutoGeometryTip, shape: SourceAutoGeometryShape, subX = 0, subY = 0): SourceAutoGeometry {
-  if (tip.kind !== 'auto' || tip.profile !== 'default-auto-qt5-arm64-f64-v1' || tip.spikes !== 2
+  if (tip.kind !== 'auto' || tip.profile !== 'default-auto-qt5-arm64-f64-v1' || (!Number.isSafeInteger(tip.spikes)||tip.spikes<2||tip.spikes>64)
     || ![tip.diameter, tip.ratio, tip.scale, tip.angle, shape.scale, shape.ratio, shape.rotation, subX, subY].every(Number.isFinite)
     || tip.diameter <= 0 || tip.ratio <= 0 || tip.scale < 0 || shape.scale < 0 || shape.ratio < 0
     || subX < 0 || subX >= 1 || subY < 0 || subY >= 1) throw new RangeError('Unsupported source auto geometry')
@@ -66,7 +66,7 @@ export function sourceAutoGeometry(tip: SourceAutoGeometryTip, shape: SourceAuto
   const initialSize = [Math.trunc(Math.max(1, tip.diameter)), Math.trunc(Math.max(1, rawHeight))] as const
   // Native ctor calculates this window before applying the brush angle/scale.
   const brushSize = sourceImageAllocationExtent(transformed(initialSize[0], initialSize[1], 1, 1, 0, 0, 0))
-  const scale = shape.scale * tip.scale, ratio = shape.ratio, angle = normalizeAngle(shape.rotation + tip.angle)
+  const scale = shape.scale * tip.scale, ratio = tip.spikes>2?1:shape.ratio, angle = normalizeAngle(shape.rotation + tip.angle)
   if (![scale, scale * ratio, angle].every(Number.isFinite)) throw new RangeError('Auto transform overflow')
   const rect = transformed(brushSize[0], brushSize[1], scale, scale * ratio, angle, 0, 0)
   const mask = transformed(brushSize[0], brushSize[1], scale, scale * ratio, angle, subX, subY)

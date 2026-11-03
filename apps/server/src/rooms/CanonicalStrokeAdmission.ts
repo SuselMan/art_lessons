@@ -1,3 +1,4 @@
+import {canonicalPrimaryGrainMaterialContext,decodeCanonicalPrimaryGrainStrokeFrame,type CanonicalMaterialContextV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
 import { createHash } from 'node:crypto'
 import { canonicalTexturedAutoMaterialContext,decodeCanonicalTexturedAutoStrokeFrame,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeRasterContract,canonicalStrokeCoverageMatches,canonicalPrimaryTextureMaterialContext,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3,canonicalImageMaterialPin,advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
@@ -8,7 +9,7 @@ export interface CanonicalAdmissionIdentity { readonly roomId: string; readonly 
  * The resolver must use the authoritative pixel-owning board, permissions,
  * immutable descriptor revision and verified CAS metadata. sourceStamp presence
  * and a client's profile name are NOT an authorization. */
-export type CanonicalTrustedMaterialContext=CanonicalMaterialContextV7|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
+export type CanonicalTrustedMaterialContext=CanonicalMaterialContextV8|CanonicalMaterialContextV7|AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
 export interface TrustedCanonicalGesture {
   readonly roomId: string
   readonly userId: string
@@ -22,12 +23,16 @@ export interface TrustedCanonicalGesture {
   readonly pigmentRgb8: readonly [number, number, number]
   readonly composition: CanonicalStrokeComposition
   /** Server-owned mechanism marker, never a wire/source authority field. */
-  readonly plainAutoGeometry?:'plain-auto-tilt-v1'
+  readonly plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'
   readonly material: CanonicalTrustedMaterialContext
 }
 /** One typed decoder seam used by live, record, durable retry and hydration. */
 export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonicalGesture,ordinal:number){
   const material=grant.material,common={rasterProfile:grant.rasterProfile,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
+  if('version'in material&&material.version===8){
+    if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')fail('material8 raster/composition mismatch')
+    return decodeCanonicalPrimaryGrainStrokeFrame(value,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material})
+  }
   if('version'in material&&material.version===7){
     const contract=canonicalStrokeRasterContract(grant.rasterProfile)
     if(!contract.genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,material.primarySource.coverageProfile)||!(grant.composition.mode==='wash'||grant.composition.mode==='buildup'&&grant.composition.outerBlend==='over'))fail('material7 raster/composition mismatch')
@@ -51,8 +56,9 @@ export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonical
   if('version'in material&&material.version===3){if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('material3 raster mismatch');return decodeCanonicalStrokeFrame(value,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material})}
   const decoded='version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
   if(grant.plainAutoGeometry){
-    if(grant.plainAutoGeometry!=='plain-auto-tilt-v1'||!('version'in material)||material.version!==2||material.primarySource.kind!=='defaultAuto'||!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||grant.composition.mode!=='wash')fail('plain-tilt grant mismatch')
-    assertCanonicalPlainAutoGeometryFrame(decoded.frame)
+    if(!('version'in material)||material.version!==2||material.primarySource.kind==='image'||!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||grant.composition.mode!=='wash')fail('plain Auto geometry grant mismatch')
+    if(grant.plainAutoGeometry==='dynamic-auto-geometry-v1')assertCanonicalDynamicAutoGeometryFrame(decoded.frame)
+    else{if(grant.plainAutoGeometry!=='plain-auto-tilt-v1'||material.primarySource.kind!=='defaultAuto')fail('plain-tilt grant mismatch');assertCanonicalPlainAutoGeometryFrame(decoded.frame)}
   }
   return decoded
 }
@@ -65,7 +71,7 @@ export type CanonicalFrameCandidate = {
 export interface AcceptedCanonicalFrame {
   readonly identity: CanonicalAdmissionIdentity
   readonly candidate: CanonicalFrameCandidate
-  readonly decoded: CanonicalMaterialFrameV7|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6
+  readonly decoded: CanonicalMaterialFrameV8|CanonicalMaterialFrameV7|AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6
   readonly descriptorSha256: string
   readonly boardEpoch: number
 }
@@ -174,7 +180,11 @@ export class CanonicalStrokeAdmission {
     if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
     const m=grant.material
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
-    if('version'in m&&m.version===7){
+    if('version'in m&&m.version===8){
+      const c=canonicalPrimaryGrainMaterialContext(m),pin=c.primarySource
+      if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')fail('trusted material8 descriptor/raster/composition mismatch')
+      materialSignature=c;preflight=undefined
+    }else if('version'in m&&m.version===7){
       const c=canonicalTexturedAutoMaterialContext(m),pin=c.primarySource
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile)
         ||pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||!(grant.composition.mode==='wash'||grant.composition.mode==='buildup'&&grant.composition.outerBlend==='over'))fail('trusted material7 descriptor/raster/composition mismatch')
@@ -280,5 +290,12 @@ export class CanonicalStrokeAdmission {
 export function assertCanonicalPlainAutoGeometryFrame(frame:Readonly<{definitions:readonly unknown[]}>):void {
  for(const recipe of frame.definitions){
   if(!recipe||typeof recipe!=='object'||!('kind'in recipe)||recipe.kind!=='defaultAuto'||!('scale'in recipe)||typeof recipe.scale!=='number'||recipe.scale<=0||recipe.scale>1||!('ratio'in recipe)||typeof recipe.ratio!=='number'||recipe.ratio<=0||recipe.ratio>1||!('rotation'in recipe)||typeof recipe.rotation!=='number'||!Number.isFinite(recipe.rotation)||!('mirrorH'in recipe)||recipe.mirrorH!==false||!('mirrorV'in recipe)||recipe.mirrorV!==false)fail('plain-tilt recipe transform')
+ }
+}
+
+/** Resolved placement needs no server RNG. Validate the bounded mask domain. */
+export function assertCanonicalDynamicAutoGeometryFrame(frame:Readonly<{definitions:readonly unknown[]}>):void {
+ for(const recipe of frame.definitions){
+  if(!recipe||typeof recipe!=='object'||!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(String(recipe.kind))||!('scale'in recipe)||typeof recipe.scale!=='number'||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||!('ratio'in recipe)||typeof recipe.ratio!=='number'||!Number.isFinite(recipe.ratio)||recipe.ratio<=0||recipe.ratio>1||!('rotation'in recipe)||typeof recipe.rotation!=='number'||!Number.isFinite(recipe.rotation)||!('mirrorH'in recipe)||typeof recipe.mirrorH!=='boolean'||!('mirrorV'in recipe)||typeof recipe.mirrorV!=='boolean')fail('dynamic Auto recipe transform')
  }
 }

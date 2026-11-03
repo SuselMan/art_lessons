@@ -1,6 +1,6 @@
-import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
-import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
-import type { BrushDescriptor } from './brushes.js'
+import {canonicalMultiplyPrimaryTexturePin,resolveCanonicalTexturePhase,canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
+import {isBrushLibrary,type BrushDescriptor} from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import { captureSourcePlainAutoGeometryData, captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
 
@@ -138,7 +138,7 @@ function texturePressureIdentity(text:string):boolean {
   ws();if(!take('</curve>'))return false;ws();if(!take('</params>'))return false;ws()
   return at===text.length
 }
-function textureStrengthSettings(value:unknown):boolean {
+function textureStrengthSettings(value:unknown,mode:'explicit'|'primary-grain8'='explicit'):boolean {
   if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))return false
   const keys=Reflect.ownKeys(value)
   if(keys.length>256)return false
@@ -158,7 +158,7 @@ function textureStrengthSettings(value:unknown):boolean {
     captured[key]=d.value
   }
   return Object.entries(expected).every(([key,v])=>captured[key]===v)
-    &&typeof captured['Texture/Strength/Sensor']==='string'&&texturePressureIdentity(captured['Texture/Strength/Sensor'])
+    &&typeof captured['Texture/Strength/Sensor']==='string'&&(mode==='primary-grain8'?primaryGrainPressureIdentity(captured['Texture/Strength/Sensor']):texturePressureIdentity(captured['Texture/Strength/Sensor']))
 }
 export function extractCanonicalPrimaryTextureCapability(
   descriptor:BrushDescriptor,assets:Readonly<{primary:Readonly<{id:string;size:number}>;pattern:Readonly<{id:string;size:number}>}>,
@@ -547,4 +547,88 @@ export function extractCanonicalPlainAutoTiltGeometryData(original:unknown):
   for(const o of data.options)if(o.checked&&!['Size','Ratio','Rotation'].includes(o.id)&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure'))return reject('plain-tilt auxiliary option')
   return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'plain-auto-tilt-v1' as const,descriptor:Object.freeze(descriptor),data:base.data,maxScale:1 as const,maxRatio:1 as const,allRotations:true as const})
  }catch{return reject('invalid plain-tilt original DATA')}
+}
+
+/** Full original DATA copy before image/material filters inspect nested fields.
+ * Local bounded capture only; this does not attest origin, hashes or CAS bytes. */
+function capturePrimaryGrainOriginal(value:unknown):unknown {
+ let nodes=0,chars=0
+ const stack=new Set<object>()
+ const copy=(v:unknown,depth:number):unknown=>{
+  if(++nodes>8192||depth>24)throw new TypeError('Primary grain descriptor bound')
+  if(v===null||typeof v==='boolean')return v
+  if(typeof v==='number'){if(!Number.isFinite(v))throw new TypeError('Nonfinite primary grain DATA');return v}
+  if(typeof v==='string'){chars+=v.length;if(v.length>65536||chars>524288)throw new TypeError('Primary grain text bound');return v}
+  if(!v||typeof v!=='object'||stack.has(v))throw new TypeError('Primary grain DATA required')
+  const array=Array.isArray(v),proto=Object.getPrototypeOf(v),keys=Reflect.ownKeys(v)
+  if(array?proto!==Array.prototype:proto!==Object.prototype&&proto!==null)throw new TypeError('Primary grain DATA prototype')
+  const length=array?Object.getOwnPropertyDescriptor(v,'length'):undefined
+  if(array?(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>4096||keys.length!==length.value+1):keys.length>256)throw new TypeError('Primary grain DATA keys')
+  const out:Record<string,unknown>|unknown[]=array?[]:Object.create(null);stack.add(v)
+  try{for(const key of keys){if(array&&key==='length')continue;if(typeof key!=='string'||key.length>128||array&&(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>=length!.value))throw new TypeError('Primary grain DATA key');chars+=key.length;if(chars>524288)throw new TypeError('Primary grain text bound');const d=Object.getOwnPropertyDescriptor(v,key);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Primary grain DATA accessor');Object.defineProperty(out,key,{value:copy(d.value,depth+1),enumerable:true})}}
+  finally{stack.delete(v)}
+  return Object.freeze(out)
+ }
+ return copy(value,0)
+}
+/** This native default grammar is enabled ONLY by the named8 classifier. */
+function primaryGrainPressureIdentity(xml:string):boolean {
+ return texturePressureIdentity(xml)||xml.length<=2048&&/^[ \t\r\n]*(?:<!DOCTYPE params>[ \t\r\n]*)?<params[ \t\r\n]+id[ \t\r\n]*=[ \t\r\n]*(?:"pressure"|'pressure')[ \t\r\n]*\/>[ \t\r\n]*$/.test(xml)
+}
+export function extractCanonicalPrimaryGrainImageAuthorData(original:unknown,assets:Readonly<{primary:Readonly<{id:string;size:number}>;pattern:Readonly<{id:string;size:number}>}>) {
+ const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
+ try{
+  const available=textureData(assets,['primary','pattern']),primary=textureData(available.primary,['id','size']),pattern=textureData(available.pattern,['id','size'])
+  if(typeof primary.id!=='string'||typeof primary.size!=='number'||typeof pattern.id!=='string'||typeof pattern.size!=='number'||primary.id===pattern.id)return reject('primary-grain assets unavailable')
+  // Reuse the existing descriptor schema against declared metadata only. The
+  // synthetic library envelope is NOT a claim of original import provenance.
+  const descriptorData=capturePrimaryGrainOriginal(original)
+  const library={schemaVersion:1,brushes:[{descriptor:descriptorData,name:'',source:'',warnings:[]}],assets:[primary,pattern].map(a=>({id:a.id,size:a.size,file:String(a.id).slice(6)+'.bin'})),skipped:[]}
+  if(!isBrushLibrary(library))return reject('invalid primary-grain original descriptor')
+  const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
+  if(!isSourceStampData(data)||data.version!==2||data.source.kind!=='image'||data.compiled?.version!==2||!hasCanonicalSourceCurvePrograms(data)||data.timing.enabled||data.unsupported.length||data.flags.mirrorX||data.flags.mirrorY)return reject('primary-grain image program unavailable')
+  if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.dual||canonicalSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported primary-grain effect')
+  const selected=canonicalSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+  if(selected?.mode!=='buildup'||selected.outerBlend!=='over')return reject('primary-grain requires original buildup OVER')
+  if(data.options.some(o=>o.checked&&['Ratio','Scatter','Mirror','Spacing','Rate'].includes(o.id)))return reject('unsupported primary-grain option')
+  for(const o of data.options){if(!o.checked)continue
+   const sensors=o.id==='Size'?['pressure','tiltElevation']:o.id==='Rotation'?['drawingAngle','tiltDirection']:['pressure']
+   if(!['Size','Rotation','Opacity','Flow'].includes(o.id)||!o.useCurve||!o.useSameCurve||o.curveMode!==0||o.min!==0||o.max!==1||o.strength!==1||o.sensors.length!==1||!sensors.includes(o.sensors[0].id))return reject('unsupported primary-grain sensor/curve')
+  }
+  if(!textureStrengthSettings(data.settings,'primary-grain8'))return reject('primary-grain native pressure identity unavailable')
+  if(Object.keys(data.settings).some(k=>k.startsWith('Texture/Pattern/')&&k!=='Texture/Pattern/Enabled'))return reject('unresolved retained pattern preprocessing')
+  const t=textureData(descriptor.texture,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+  if(t.id!==pattern.id||t.strength!==1||application.mode!=='multiply'||application.soft!==false||offset.randomX!==false||offset.randomY!==false||typeof size.width!=='number'||typeof size.height!=='number'||size.width!==size.height||t.periodPx!==size.width||typeof offset.x!=='number'||typeof offset.y!=='number')return reject('unsupported primary-grain texture law')
+  const phasePolicy=Object.freeze({width:size.width,height:size.height,offsetX:offset.x,offsetY:offset.y,randomX:false,randomY:false})
+  const phase=resolveCanonicalTexturePhase(phasePolicy,()=>{throw new TypeError('Unexpected primary-grain entropy')})
+  const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
+  canonicalMultiplyPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'hard-multiply-u8-native-v1',width:size.width,height:size.height,periodX:size.width,periodY:size.height,phase,strength:'recorded-grain-v1'},patternAsset)
+  const image=extractImageFrameCapability(descriptor,{id:primary.id,size:primary.size},{material:'verified-primary-texture'})
+  if(!image.supported)return image
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'primary-grain-image-author-v1' as const,descriptor:Object.freeze(descriptor),data,image:image.capability,patternAsset,phasePolicy,strengthPolicy:'pressure-identity-half-up-u8-v1' as const,composition:selected})
+ }catch{return reject('invalid primary-grain original DATA')}
+}
+
+/** Captured native Pixel Auto mechanism; DATA only, never a policy/BEGIN grant. */
+export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {
+ const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
+ try{
+  const captured=capturePrimaryGrainOriginal(original)
+  const library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:assets?[{id:assets.pattern.id,size:assets.pattern.size,file:assets.pattern.id.slice(6)+'.bin'}]:[],skipped:[]}
+  if(!isBrushLibrary(library))return reject('invalid dynamic Auto descriptor')
+  const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
+  if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.length||canonicalSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dynamic Auto source')
+  const material=data.flags.textureEnabled?(assets?extractCanonicalTexturedAutoProgramData(descriptor,assets):undefined):data.source.kind==='defaultAuto'?extractDefaultAutoSourceDataCapability(descriptor):data.source.kind==='gaussianAuto'?extractGaussianAutoSourceDataCapability(descriptor):extractSoftAutoSourceDataCapability(descriptor)
+  if(!material?.supported)return reject('unsupported dynamic Auto kernel/program')
+  if(data.brush.scale<=0||data.brush.scale>1)return reject('dynamic Auto scale bound')
+  const airbrush=data.settings['PaintOpSettings/isAirbrushing']
+  if(airbrush!==undefined&&airbrush!=='true'&&airbrush!=='false'||(airbrush==='true')!==data.timing.enabled||!Number.isFinite(data.timing.rate)||data.timing.rate<=0||typeof data.timing.ignoreDistance!=='boolean')return reject('inconsistent dynamic Auto timing')
+  for(const option of data.options){
+   if(!option.checked)continue
+   if((option.id==='Size'||option.id==='Ratio')&&(option.min<0||option.max>1))return reject('dynamic Auto geometry bound')
+   if(option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id)))return reject('unnormalized dynamic Auto sensor')
+   for(const sensor of option.sensors)if(option.useCurve&&sensor.id==='drawingAngle'&&sensor.fanCorners&&(!Number.isFinite(sensor.fanStep)||sensor.fanStep!<5||sensor.fanStep!>90))return reject('dynamic Auto fan bound')
+  }
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'dynamic-auto-geometry-v1' as const,descriptor,data,material,maxScale:1 as const,maxRatio:1 as const,allRotations:true as const})
+ }catch{return reject('invalid dynamic Auto original DATA')}
 }

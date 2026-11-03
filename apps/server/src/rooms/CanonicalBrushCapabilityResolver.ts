@@ -1,3 +1,6 @@
+import {extractCanonicalDynamicAutoGeometryData} from '@grafetto/shared'
+import {canonicalPrimaryGrainImageSourceBinding,canonicalPrimaryGrainImageMaterialContext,decodeCanonicalPrimaryGrainStrokeFrame,canonicalStandaloneStrokeSnapshotV8,prepareCanonicalRecordedAttachmentV8,type CanonicalMaterialContextV8,type CanonicalRecordedAttachmentV8,type CanonicalRecordedReadCapabilityV8} from '@grafetto/shared'
+import {freezeCanonicalPrimaryGrainPolicies,freezeCanonicalPlainAutoGeometryPolicies} from './canonicalExecutionPolicy.js'
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
@@ -14,7 +17,7 @@ import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
 import { captureCanonicalSavedTexturePhase,verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type {CanonicalIndexedCloseEvidence} from './snapshotStore.js'
-import {assertCanonicalPlainAutoGeometryFrame} from './CanonicalStrokeAdmission.js'
+import {assertCanonicalPlainAutoGeometryFrame,assertCanonicalDynamicAutoGeometryFrame} from './CanonicalStrokeAdmission.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture,CanonicalTrustedMaterialContext } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
@@ -26,7 +29,7 @@ export interface CanonicalRecordedCapability {
  readonly rasterProfile:CanonicalStrokeRasterProfile
  readonly pigmentRgb8:readonly[number,number,number]
  readonly composition:TrustedCanonicalGesture['composition']
- readonly material:CanonicalMaterialContextV7|CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
+ readonly material:CanonicalMaterialContextV8|CanonicalMaterialContextV7|CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6
 }
 interface RecordedFoldCheckpoint extends CanonicalMaterialPrefixState {
  readonly recordedNext:number;readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
@@ -61,6 +64,8 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly plainAutoGeometryPolicies:ReturnType<typeof freezeCanonicalPlainAutoGeometryPolicies>
+  private readonly primaryGrainPolicies:ReturnType<typeof freezeCanonicalPrimaryGrainPolicies>
   private readonly plainTiltPolicies:ReturnType<typeof freezeCanonicalPlainTiltPolicies>
   private readonly texturedAutoPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedAutoSource'|'authorTexturedAutoSource'>>
   private readonly softPressureTexturedPolicies:Readonly<Pick<CanonicalRoomExecutionPolicy,'softPressureTexturedSource'|'authorSoftPressureTexturedSource'>>
@@ -95,6 +100,10 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly plainAutoGeometrySource?:CanonicalRoomExecutionPolicy['plainAutoGeometrySource']
+    readonly authorPlainAutoGeometrySource?:CanonicalRoomExecutionPolicy['authorPlainAutoGeometrySource']
+    readonly primaryGrainSource?:CanonicalRoomExecutionPolicy['primaryGrainSource']
+    readonly authorPrimaryGrainSource?:CanonicalRoomExecutionPolicy['authorPrimaryGrainSource']
     readonly plainTiltSource?:CanonicalRoomExecutionPolicy['plainTiltSource']
     readonly authorPlainTiltSource?:CanonicalRoomExecutionPolicy['authorPlainTiltSource']
     readonly texturedAutoSource?:CanonicalRoomExecutionPolicy['texturedAutoSource']
@@ -132,6 +141,8 @@ export class CanonicalBrushCapabilityResolver {
     this.authorPrimaryTextureSource=freezeCanonicalAuthorPrimaryTexturePolicy(options)
     this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
     this.seededPolicies=freezeCanonicalSeededDefaultAutoPolicies(options)
+    this.plainAutoGeometryPolicies=freezeCanonicalPlainAutoGeometryPolicies(options)
+    this.primaryGrainPolicies=freezeCanonicalPrimaryGrainPolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
@@ -223,9 +234,11 @@ export class CanonicalBrushCapabilityResolver {
     if (previous) {
       if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
-      if(g.plainAutoGeometry&&!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
+      if(g.plainAutoGeometry==='dynamic-auto-geometry-v1'&&!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
+      if(g.plainAutoGeometry==='plain-auto-tilt-v1'&&!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
       if('version'in g.material&&g.material.version===7&&(!this.texturedAutoPolicies.authorTexturedAutoSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material7 author/phase changed')
-      if(input.texturePhase&&(!('version'in g.material)||g.material.version!==7))fail('phase on legacy gesture')
+      if('version'in g.material&&g.material.version===8&&(!this.primaryGrainPolicies.authorPrimaryGrainSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material8 author/phase changed')
+      if(input.texturePhase&&(!('version'in g.material)||g.material.version!==7&&g.material.version!==8))fail('phase on legacy gesture')
       if('version'in g.material&&g.material.version===6&&!this.softPressureTexturedPolicies.authorSoftPressureTexturedSource)fail('material6 author policy disabled')
       if('version'in g.material&&g.material.version===5&&!this.pressureTexturedPolicies.authorPressureTexturedSource)fail('material5 author policy disabled')
       if('version'in g.material&&g.material.version===4&&!this.texturedPolicies.authorTexturedSource)fail('material4 author policy disabled')
@@ -301,7 +314,7 @@ export class CanonicalBrushCapabilityResolver {
         assert(this)
         try{
         if(operation.type==='canonical_stroke_close'){
-          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||(bound.material.version!==2&&bound.material.version!==3&&bound.material.version!==4&&bound.material.version!==5&&bound.material.version!==6&&bound.material.version!==7))fail('recorded close V1 source read unsupported')
+          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||(bound.material.version!==2&&bound.material.version!==3&&bound.material.version!==4&&bound.material.version!==5&&bound.material.version!==6&&bound.material.version!==7&&bound.material.version!==8))fail('recorded close V1 source read unsupported')
           const close=projectCanonicalIndexedCloseOperation(roomId,row),op=parseCanonicalStrokeCloseOperation(operation)
           if(!isDeepStrictEqual(close.operation,op)||op.id===firstOperationId||op.id===lastOperationId)fail('recorded close immutable identity changed')
           bytes+=close.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
@@ -315,7 +328,7 @@ export class CanonicalBrushCapabilityResolver {
         if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
         bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
         const common={rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition}
-        const decoded=bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
+        const decoded=bound.material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material:bound.material}):bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
         if(decoded.frame.masked)fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
@@ -397,9 +410,10 @@ export class CanonicalBrushCapabilityResolver {
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
-    const decoded=material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
+    const decoded=material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material}):material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
     if(decoded.frame.masked)fail('recorded masked material unavailable')
-    if(plainAutoGeometry)assertCanonicalPlainAutoGeometryFrame(decoded.frame)
+    if(plainAutoGeometry==='dynamic-auto-geometry-v1')assertCanonicalDynamicAutoGeometryFrame(decoded.frame)
+    else if(plainAutoGeometry)assertCanonicalPlainAutoGeometryFrame(decoded.frame)
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
       descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:profile,
       pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,material})
@@ -409,7 +423,7 @@ export class CanonicalBrushCapabilityResolver {
    * subsequence of operations, in delivery order, from the authoritative loader.
    * Same read-permission/lifetime preconditions as readRecordedCapability.
    * Dictionary/interner exists only during this synchronous serialization. */
-  prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV1 {
+  prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV8 {
     const {roomId,boardEpoch,operations,rows}=input
     if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
     let rowIndex=0
@@ -424,7 +438,7 @@ export class CanonicalBrushCapabilityResolver {
 
   /** Transient delivery may combine exact resident receipts with actual rows
    * recovered by the SAME replay query. A row never mints a resident receipt. */
-  prepareMixedRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV1 {
+  prepareMixedRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV8 {
     if(!Array.isArray(input.rows)||input.rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment row capacity exceeded')
     const rows=new Map<string,CanonicalStoredOperationRow>()
     for(const row of input.rows){if(!row||rows.has(row.id))fail('duplicate recorded attachment row');rows.set(row.id,row)}
@@ -439,7 +453,7 @@ export class CanonicalBrushCapabilityResolver {
     return attachment
   }
 
-  prepareResidentRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]}):CanonicalRecordedAttachmentV1 {
+  prepareResidentRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]}):CanonicalRecordedAttachmentV8 {
     return this.projectRecordedAttachment(input,op=>{
       const board=rooms.get(input.roomId)
       if(!board||!hasSucceededCanonicalWrite(board,op))fail('recorded resident receipt unavailable')
@@ -447,10 +461,10 @@ export class CanonicalBrushCapabilityResolver {
     })
   }
 
-  private projectRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]},authority:(op:CanonicalStrokeOperation)=>()=>CanonicalRecordedCapability):CanonicalRecordedAttachmentV1 {
+  private projectRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]},authority:(op:CanonicalStrokeOperation)=>()=>CanonicalRecordedCapability):CanonicalRecordedAttachmentV8 {
     const {roomId,boardEpoch,operations}=input
     if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
-    const capabilities:CanonicalRecordedReadCapability[]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[],dictionary=new Map<string,number>()
+    const capabilities:CanonicalRecordedReadCapabilityV8[]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[],dictionary=new Map<string,number>()
     for(const op of operations){
       if(op.type!=='canonical_stroke')continue
       const read=authority(op)
@@ -462,7 +476,7 @@ export class CanonicalBrushCapabilityResolver {
         const c=read()
         const common={layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
           rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets}
-        const snapshot=c.material.version===7?canonicalStrokeSnapshotV7({...common,materialVersion:7,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===6?canonicalStrokeSnapshotV6({...common,materialVersion:6,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===5?canonicalStrokeSnapshotV5({...common,materialVersion:5,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===4?canonicalStrokeSnapshotV4({...common,materialVersion:4,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===3?canonicalStrokeSnapshotV3({...common,materialVersion:3,material:c.material},c.boardEpoch,c.rasterProfile):Object.freeze({...common,materialVersion:2 as const,material:c.material})
+        const snapshot=c.material.version===8?canonicalStandaloneStrokeSnapshotV8({...common,materialVersion:8,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===7?canonicalStrokeSnapshotV7({...common,materialVersion:7,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===6?canonicalStrokeSnapshotV6({...common,materialVersion:6,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===5?canonicalStrokeSnapshotV5({...common,materialVersion:5,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===4?canonicalStrokeSnapshotV4({...common,materialVersion:4,material:c.material},c.boardEpoch,c.rasterProfile):c.material.version===3?canonicalStrokeSnapshotV3({...common,materialVersion:3,material:c.material},c.boardEpoch,c.rasterProfile):Object.freeze({...common,materialVersion:2 as const,material:c.material})
         index=capabilities.length;capabilities.push(Object.freeze({originalUserId:c.originalUserId,snapshot}));dictionary.set(identity,index)
       }
       bindings.push(Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:index}))
@@ -470,7 +484,7 @@ export class CanonicalBrushCapabilityResolver {
     const attachment=Object.freeze({version:1 as const,roomId,boardEpoch,capabilities:Object.freeze(capabilities),bindings:Object.freeze(bindings)})
     // Shared validation checks every frame against its FIRST bound immutable
     // gesture capability, including later identity/resource changes and limits.
-    prepareCanonicalRecordedAttachment(attachment,operations,{roomId,boardEpoch,allowedRasterProfiles:this.recordedProfiles})
+    prepareCanonicalRecordedAttachmentV8(attachment,operations,{roomId,boardEpoch,allowedRasterProfiles:this.recordedProfiles})
     return attachment
   }
 
@@ -483,14 +497,24 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
-    let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup',plainAutoGeometry:'plain-auto-tilt-v1'|undefined
+    let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup',plainAutoGeometry:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'|undefined
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+    if(descriptor.texture?.application?.mode==='multiply'){
+      if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('primary grain source policy disabled')
+      if(!phase||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary grain phase/profile unavailable')
+      const primary=library.assets.find(a=>a.id===descriptor.tip.mask),pattern=library.assets.find(a=>a.id===descriptor.texture?.id)
+      if(!primary||!pattern)fail('primary grain CAS metadata unavailable')
+      const binding=canonicalPrimaryGrainImageSourceBinding(descriptor,descriptorSha256,{primary:{id:primary.id,size:primary.size},pattern:{id:pattern.id,size:pattern.size}},profile)
+      this.storage.asset(primary.id.slice(6),primary.size);this.storage.asset(pattern.id.slice(6),pattern.size)
+      const material=canonicalPrimaryGrainImageMaterialContext(binding,phase,budget)
+      return {material,mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
+    }
     if(phase!==undefined){
       if(!this.texturedAutoPolicies.texturedAutoSource)fail('material7 consumer disabled')
       if(role==='author'&&!this.texturedAutoPolicies.authorTexturedAutoSource)fail('material7 author policy disabled')
@@ -566,15 +590,25 @@ export class CanonicalBrushCapabilityResolver {
       // Historical fixed/plain author behavior is unchanged. This previously
       // client-unsupported geometry frontier now has an explicit server floor.
       const data=descriptor.sourceStamp
+      const dynamic=!!this.plainAutoGeometryPolicies.plainAutoGeometrySource&&!data.flags.textureEnabled&&canonicalStrokeRasterContract(profile).genericSC
+      if(dynamic){
+        if(composition.mode!=='wash')fail('plain dynamic Auto buildup consumer unavailable')
+        if(role==='author'){
+          if(!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
+          const capability=extractCanonicalDynamicAutoGeometryData(descriptor)
+          if(!capability.supported)fail('unsupported dynamic Auto source: '+capability.reasons.join(','))
+        }
+        plainAutoGeometry='dynamic-auto-geometry-v1'
+      }
       const frontier=kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&data.options.some(o=>o.checked&&(['Ratio','Rotation'].includes(o.id)||o.id==='Size'&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure')))
       const recordedPlain=role==='recorded'&&kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&!!this.plainTiltPolicies.plainTiltSource&&canonicalStrokeRasterContract(profile).genericSC
-      if(frontier&&role==='author'){
+      if(!dynamic&&frontier&&role==='author'){
         const capability=extractCanonicalPlainAutoTiltGeometryData(descriptor)
         if(!capability.supported)fail('unsupported plain-tilt geometry: '+capability.reasons.join(','))
         if(!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
         if(!canonicalStrokeRasterContract(profile).genericSC)fail('plain-tilt raster unavailable')
         plainAutoGeometry='plain-auto-tilt-v1'
-      }else if(frontier&&!recordedPlain)fail('plain-tilt recorded policy disabled')
+      }else if(!dynamic&&frontier&&!recordedPlain)fail('plain-tilt recorded policy disabled')
       // Recorded geometry never executes descriptor options. Bind the SAME
       // room-pinned static source/SHA with the existing kernel/cost validators.
       // No known-author-program classifier or compiler is called on this path.
@@ -586,7 +620,7 @@ export class CanonicalBrushCapabilityResolver {
         plainAutoGeometry='plain-auto-tilt-v1'
         return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,...stat,coverageProfile:configured.coverageProfile})
       }
-      const pin=recordedPlain?recordedDefault():kind==='softAuto'
+      const pin=!dynamic&&recordedPlain?recordedDefault():kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
         ? descriptor.sourceStamp.source.density<1
@@ -595,7 +629,7 @@ export class CanonicalBrushCapabilityResolver {
         : this.autoSources.gaussianAuto ? canonicalGaussianAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.gaussianAuto.coverageProfile,profile) : fail('Gaussian execution policy disabled')
       const savedMode=composition.mode
       if(!savedMode)fail('inconsistent-source-painting-mode')
-      if(pin.brushScale!==1)fail('unsupported stored auto scale')
+      if(!dynamic&&pin.brushScale!==1)fail('unsupported stored auto scale')
       mode=savedMode
       material=Object.freeze({version:2,assets:Object.freeze([]),primarySource:pin,budget})
     }else{
@@ -681,8 +715,8 @@ function recordedTexturePhase(frame:CanonicalStrokeOperation['frame']):Canonical
  const phase=Object.getOwnPropertyDescriptor(frame,'texturePhase')
  const packed=Object.getOwnPropertyDescriptor(frame,'materialPacked')
  if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')fail('recorded material selector unavailable')
- if(packed.value.startsWith('7|')){
-  if(!phase||!Object.hasOwn(phase,'value'))fail('recorded material7 phase unavailable')
+ if(packed.value.startsWith('7|')||packed.value.startsWith('8|')){
+  if(!phase||!Object.hasOwn(phase,'value'))fail('recorded texture phase unavailable')
   return captureCanonicalSavedTexturePhase(phase.value)
  }
  if(phase||'texturePhase'in frame)fail('unexpected legacy recorded phase')

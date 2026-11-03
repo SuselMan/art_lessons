@@ -2,7 +2,7 @@ import type {CanonicalHistoryStreamClientEvents,CanonicalIndexedHistoryOfferV1} 
 import type {CanonicalFullHistoryBaseV2} from './canonicalFullHistoryBase.js'
 import type { CanonicalEmptyHistoryBaseV1 } from './canonicalEmptyHistoryBase.js'
 import type { CanonicalStrokeDiscardEmptyRequest,CanonicalStrokeDiscardEmptyResult,CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
-import type { CanonicalRecordedAttachmentV1, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
+import type { CanonicalRecordedAttachmentV8, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
@@ -15,17 +15,17 @@ import type { ToggleableTool } from './toolset.js'
 /** Whole-client renderer revision. This is compatibility DATA, never authorization.
  * Enabling material 3 requires a single backend restart with the frozen policy:
  * old sockets/read grants must not survive that cutover. */
-export const DRAWING_PROTOCOL_VERSION = '9'
+export const DRAWING_PROTOCOL_VERSION = '10'
 export const DRAWING_PROTOCOL_HEADER = 'x-grafetto-drawing-protocol'
 export const CLIENT_UPDATE_REQUIRED = 'client_update_required'
 export function supportsPrimaryTextureProtocol(value: unknown): boolean {
   return supportsDrawingProtocol(value,'3')
 }
 
-export type DrawingProtocolMinimum='3'|'4'|'5'|'6'|'7'|'8'|'9'
+export type DrawingProtocolMinimum='3'|'4'|'5'|'6'|'7'|'8'|'9'|'10'
 /** Closed known compatibility, never a numeric >= comparison or authorization. */
 export function supportsDrawingProtocol(value:unknown,minimum:DrawingProtocolMinimum):boolean {
- const compatible:Readonly<Record<DrawingProtocolMinimum,readonly unknown[]>>={'3':['3','4','5','6','7','8','9'],'4':['4','5','6','7','8','9'],'5':['5','6','7','8','9'],'6':['6','7','8','9'],'7':['7','8','9'],'8':['8','9'],'9':['9']}; return typeof minimum==='string'&&Object.hasOwn(compatible,minimum)&&compatible[minimum].includes(value)
+ const compatible:Readonly<Record<DrawingProtocolMinimum,readonly unknown[]>>={'3':['3','4','5','6','7','8','9','10'],'4':['4','5','6','7','8','9','10'],'5':['5','6','7','8','9','10'],'6':['6','7','8','9','10'],'7':['7','8','9','10'],'8':['8','9','10'],'9':['9','10'],'10':['10']}; return typeof minimum==='string'&&Object.hasOwn(compatible,minimum)&&compatible[minimum].includes(value)
 }
 
 /** (#613) The socket contract: join results, cursors and live strokes,
@@ -295,10 +295,14 @@ export type RoomStateLegacyPayload = {
   canonicalAuthorPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPressureTexturedSource
   canonicalAuthorSoftPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorSoftPressureTexturedSource
   canonicalTexturedAutoSource?:import('./canonicalIndexedHistory.js').CanonicalTexturedAutoReadSource
+  canonicalPlainAutoGeometrySource?:import('./canonicalIndexedHistory.js').CanonicalPlainAutoGeometryReadSource
+  canonicalAuthorPlainAutoGeometrySource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPlainAutoGeometrySource
+  canonicalPrimaryGrainSource?:import('./canonicalIndexedHistory.js').CanonicalPrimaryGrainReadSource
+  canonicalAuthorPrimaryGrainSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPrimaryGrainSource
   canonicalPlainTiltSource?:import('./canonicalIndexedHistory.js').CanonicalPlainTiltReadSource
   canonicalAuthorPlainTiltSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPlainTiltSource
   canonicalAuthorTexturedAutoSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorTexturedAutoSource
-  canonicalCapabilities?:CanonicalRecordedAttachmentV1
+  canonicalCapabilities?:CanonicalRecordedAttachmentV8
   palette: string[]
   // (#254/#255 epic) Room-wide freeze, live in-memory only (never
   // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the
@@ -313,7 +317,7 @@ export type RoomStateLegacyPayload = {
 } & {canonicalIndexedHistory?:never}
 export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
- 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalPlainTiltSource'|'canonicalAuthorPlainTiltSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalPlainTiltSource'|'canonicalAuthorPlainTiltSource'|'canonicalPrimaryGrainSource'|'canonicalAuthorPrimaryGrainSource'|'canonicalPlainAutoGeometrySource'|'canonicalAuthorPlainAutoGeometrySource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
  readonly latestSnapshotSeq:null
  readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
  readonly tailOperations?:never
@@ -326,6 +330,10 @@ export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  readonly canonicalAuthorSoftPressureTexturedSource?:never
  readonly canonicalTexturedAutoSource?:never
  readonly canonicalAuthorTexturedAutoSource?:never
+ readonly canonicalPlainAutoGeometrySource?:never
+ readonly canonicalAuthorPlainAutoGeometrySource?:never
+ readonly canonicalPrimaryGrainSource?:never
+ readonly canonicalAuthorPrimaryGrainSource?:never
  readonly canonicalPlainTiltSource?:never
  readonly canonicalAuthorPlainTiltSource?:never
  readonly canonicalCapabilities?:never
@@ -366,7 +374,7 @@ export type ServerToClientEvents = {
   // client (reliable history spec v0.2, §11). `seq` is carried at the top
   // level (not just inside `operation`, where it's optional until stamped)
   // so logging/replay/gap-detection never has to reach into the union.
-  operation_confirmed: (msg: { seq: number; operation: Operation; canonicalCapabilities?:CanonicalRecordedAttachmentV1 }) => void
+  operation_confirmed: (msg: { seq: number; operation: Operation; canonicalCapabilities?:CanonicalRecordedAttachmentV8 }) => void
   // (#429) A peer's in-progress stroke, relayed as it is drawn — see
   // StrokeLiveData. Sent via `socket.to`, not `io.to`: unlike
   // operation_confirmed, the author gains nothing from receiving their own

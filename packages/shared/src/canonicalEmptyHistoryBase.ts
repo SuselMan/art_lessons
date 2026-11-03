@@ -1,5 +1,5 @@
-import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
-import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadCapability,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
+import {decodeCanonicalRecordedSnapshotFrameV8} from './canonicalRecordedAttachment.js'
+import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperationV8,type CanonicalRecordedReadCapabilityV8,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
 import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState} from './canonicalRecordedPrefix.js'
 
 /** Authenticated room-state metadata only; never an append/execution grant. */
@@ -30,16 +30,16 @@ export function parseCanonicalEmptyHistoryBase(value:unknown):Readonly<Canonical
   ||v.throughSeq>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||v.operationCount!==v.throughSeq)return fail()
  return Object.freeze({kind:'empty-room-prefix-v1',roomId:v.roomId,boardEpoch:v.boardEpoch,throughSeq:v.throughSeq,operationCount:v.operationCount})
 }
-/** DATA check over ONE complete prepareCanonicalRecordedAttachment batch.
+/** DATA check over ONE complete prepareCanonicalRecordedAttachmentV8 batch.
  * That owner already bounds normalized bytes and interns one immutable full
  * capability per gesture. Cross-page concatenations are deliberately refused.
  * The original room-state owner must separately retain delivery/lifetime and
  * actual server range provenance; this helper cannot prove absent DB rows. */
-export function verifyCanonicalEmptyHistoryBase(value:unknown,atoms:readonly CanonicalPreparedRecordedOperation[],scope:CanonicalRecordedReadScope):Readonly<CanonicalEmptyHistoryBaseV1>{
+export function verifyCanonicalEmptyHistoryBase(value:unknown,atoms:readonly CanonicalPreparedRecordedOperationV8[],scope:CanonicalRecordedReadScope):Readonly<CanonicalEmptyHistoryBaseV1>{
  const base=parseCanonicalEmptyHistoryBase(value),profiles=canonicalRecordedRasterProfiles(scope)
  if(base.roomId!==scope.roomId||base.boardEpoch!==scope.boardEpoch||!Array.isArray(atoms)
   ||atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||atoms.length!==base.operationCount)return fail()
- const ids=new Set<string>(),gestures=new Map<string,{capability:CanonicalRecordedReadCapability;state:CanonicalMaterialPrefixState}>()
+ const ids=new Set<string>(),gestures=new Map<string,{capability:CanonicalRecordedReadCapabilityV8;state:CanonicalMaterialPrefixState}>()
  for(let i=0;i<atoms.length;i++){
   const {operation:op,read}=atoms[i]
   if(op.type!=='canonical_stroke'||op.seq!==i+1||!text(op.id)||ids.has(op.id)||!read
@@ -52,7 +52,7 @@ export function verifyCanonicalEmptyHistoryBase(value:unknown,atoms:readonly Can
   const key=JSON.stringify([op.userId,s.strokeId]),previous=gestures.get(key)
   if(previous&&previous.capability!==cap)return fail()
   if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
-  const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
+  const decoded=decodeCanonicalRecordedSnapshotFrameV8(op.frame,s,op.frame.frameOrdinal)
   const state=advanceCanonicalMaterialPrefix(previous?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
   gestures.set(key,{capability:cap,state});ids.add(op.id)
  }

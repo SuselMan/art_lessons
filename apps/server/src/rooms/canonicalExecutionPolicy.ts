@@ -32,6 +32,10 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly plainAutoGeometrySource?:'dynamic-auto-geometry-v1'|false
+ readonly authorPlainAutoGeometrySource?:'dynamic-auto-geometry-v1'|false
+ readonly primaryGrainSource?:'primary-grain-image-v1'|false
+ readonly authorPrimaryGrainSource?:'primary-grain-image-v1'|false
  readonly plainTiltSource?:'plain-auto-tilt-v1'|false
  readonly authorPlainTiltSource?:'plain-auto-tilt-v1'|false
  readonly texturedAutoSource?:'textured-auto-material-v7'|false
@@ -256,4 +260,43 @@ export function freezeCanonicalPlainTiltPolicies(value:CanonicalRoomExecutionPol
   if(authorPlainTiltSource&&(!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile)))throw TypeError('plain-tilt author raster unavailable')
  }
  return Object.freeze({plainTiltSource,authorPlainTiltSource})
+}
+
+/** Source8 is independently negotiated; enabling read does not enable authors. */
+export function freezeCanonicalPrimaryGrainPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'primaryGrainSource'|'authorPrimaryGrainSource'>> {
+ const flag=(key:'primaryGrainSource'|'authorPrimaryGrainSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('inherited primary grain policy');return false}
+  if(!Object.hasOwn(d,'value'))throw TypeError('primary grain policy accessor')
+  if(d.value===undefined||d.value===false)return false
+  if(d.value!=='primary-grain-image-v1')throw TypeError('unknown primary grain policy')
+  return 'primary-grain-image-v1' as const
+ }
+ const primaryGrainSource=flag('primaryGrainSource'),authorPrimaryGrainSource=flag('authorPrimaryGrainSource')
+ if(authorPrimaryGrainSource&&!primaryGrainSource)throw TypeError('primary grain author requires read')
+ if(primaryGrainSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(value.primaryImageSource!=='single-inverse-gray-v2'||!raster.allowedRecordedRasterProfiles.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))throw TypeError('primary grain source/profile unavailable')
+  if(authorPrimaryGrainSource&&raster.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw TypeError('primary grain author profile unavailable')
+ }
+ return Object.freeze({primaryGrainSource,authorPrimaryGrainSource})
+}
+
+export function freezeCanonicalPlainAutoGeometryPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'plainAutoGeometrySource'|'authorPlainAutoGeometrySource'>> {
+ const flag=(key:'plainAutoGeometrySource'|'authorPlainAutoGeometrySource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('inherited Auto geometry policy');return false}
+  if(!Object.hasOwn(d,'value'))throw TypeError('Auto geometry policy accessor')
+  if(d.value===undefined||d.value===false)return false
+  if(d.value!=='dynamic-auto-geometry-v1')throw TypeError('unknown Auto geometry policy')
+  return 'dynamic-auto-geometry-v1' as const
+ }
+ const plainAutoGeometrySource=flag('plainAutoGeometrySource'),authorPlainAutoGeometrySource=flag('authorPlainAutoGeometrySource')
+ if(authorPlainAutoGeometrySource&&!plainAutoGeometrySource)throw TypeError('Auto geometry author requires read')
+ if(plainAutoGeometrySource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('Auto geometry reader profile unavailable')
+  if(authorPlainAutoGeometrySource&&!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC)throw TypeError('Auto geometry author profile unavailable')
+ }
+ return Object.freeze({plainAutoGeometrySource,authorPlainAutoGeometrySource})
 }

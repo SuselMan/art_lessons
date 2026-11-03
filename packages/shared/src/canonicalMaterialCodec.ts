@@ -1,3 +1,4 @@
+import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
@@ -76,6 +77,8 @@ export interface CanonicalMaterialContextV2 {
   readonly assets:readonly CanonicalMaterialAsset[]
   readonly primarySource:CanonicalMaterialImageSource | CanonicalAutoSource | CanonicalSoftAutoSource
   readonly maskSource?:CanonicalMaterialImageSource | CanonicalAutoSource | CanonicalSoftAutoSource
+  /** Original descriptor-bound masking law, never inferred from frame fences. */
+  readonly maskingBlend?:CanonicalMaskingBlendMode
   readonly budget:CanonicalMaterialCost & {readonly drawPixels:number}
   readonly expectedDrawCount?:number
   readonly expectedStrokeEnd?:boolean
@@ -324,11 +327,11 @@ function capturedSoftCurve(value:unknown){
  const p=ownRecord(value,['text','points'])
  return Object.freeze({...p,points:Object.freeze(ownArray(p.points,9,x=>Object.freeze(ownRecord(x,['x','y','corner']))))})
 }
-function capturedSoftAuto(value:unknown):CanonicalSoftAutoSource {
+function capturedSoftAuto(value:unknown,sourceSlot:0|1=0):CanonicalSoftAutoSource {
  const p=ownRecord(value,['kind','sourceSlot','descriptorId','descriptorVersion','descriptorSha256','source','brushScale','brushAngle','coverageProfile','reader','compilerProfile','buildId','radialCurve'])
  const source=ownRecord(p.source,[...autoSourceFields,'softnessCurve']),radial=ownRecord(p.radialCurve,['source','coefficients'])
  const pin=canonicalSoftAutoSourcePin({...p,source:{...source,softnessCurve:capturedSoftCurve(source.softnessCurve)},radialCurve:{source:capturedSoftCurve(radial.source),coefficients:ownArray(radial.coefficients,8,row=>ownArray(row,4,x=>x))}} as unknown as CanonicalSoftAutoSource)
- if(pin.sourceSlot!==0)return fail()
+ if(pin.sourceSlot!==sourceSlot)return fail()
  return pin
 }
 /** Closed, independent parser metadata. No grant, source evaluation or CAS fetch. */
@@ -475,7 +478,8 @@ function context(c:CodecContext):void {
       ||frames[0]!==c.primaryAsset||frames.some(id=>!assetId(id)||!ids.has(id))))fail()
   }
   else {
-    keys(c,['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'])
+    keys(c,['version','assets','primarySource','maskSource','maskingBlend','budget','expectedDrawCount','expectedStrokeEnd'])
+    if(c.maskingBlend!==undefined&&(!c.maskSource||(!isCanonicalMaskingBlendMode(c.maskingBlend)||canonicalMaskingBlendModes.indexOf(c.maskingBlend)>=10)))fail()
     for(const [sourceSlot,source] of [c.primarySource,c.maskSource].entries()) {
       if(source===undefined){if(sourceSlot===0)fail();continue}
       if(source.kind==='image') {
@@ -792,13 +796,16 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
         if(pin?.kind!=='softAuto'||pin.sourceSlot!==sourceSlot)return fail()
         const trusted=canonicalSoftAutoSourcePin(pin)
         return {...values,kind:'softAuto',sourceSlot:trusted.sourceSlot,coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',
-          source:{...trusted.source,...source,kind:'softAuto',generator:'soft',shape:'circle',antialias:false}}
+          source:{...trusted.source,...source,spikes:trusted.source.spikes,kind:'softAuto',generator:'soft',shape:'circle',antialias:false}}
       }
       if(u8(o+1)===4){
         if(!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined)return fail()
         const pin=canonicalDefaultAutoSourcePin(c.primarySource)
         return {...values,kind:'defaultAuto',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect',density:pin.source.density}}
       }
+      // Static spike count is bound by the original single-primary context,
+      // not reconstructed from a descriptor or a packet-selected source.
+      if((isV2(c)||isV7(c))&&!u8(7)&&c.primarySource.kind!=='image')source.spikes=c.primarySource.source.spikes
       return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
         : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
     }
@@ -895,3 +902,23 @@ export function captureCanonicalPrimaryGrainFrame(value:unknown,context:Canonica
 export function packCanonicalPrimaryGrainMaterial(frame:CanonicalMaterialFrameV8,context:CanonicalMaterialContextV8):string{return packMaterialCore(frame,canonicalPrimaryGrainMaterialContext(context))}
 export function unpackCanonicalPrimaryGrainMaterial(text:string,context:CanonicalMaterialContextV8):CanonicalMaterialFrameV8{const f=unpackMaterialCore(text,canonicalPrimaryGrainMaterialContext(context));if(f.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)return fail();return f}
 export function buildCanonicalPrimaryGrainMaterial(input:CanonicalMaterialBuildInputV8,context:CanonicalMaterialContextV8):{packed:string;frame:CanonicalMaterialFrameV8}{const r=buildMaterialCore(input,canonicalPrimaryGrainMaterialContext(context));if(r.frame.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)return fail();return{packed:r.packed,frame:r.frame}}
+
+/** Named closed context for executable dual bindings. Historical geometry-only
+ * V2 remains decodable; absence of this law never implies multiply. */
+export function canonicalMaskedSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 & {readonly maskSource:NonNullable<CanonicalMaterialContextV2['maskSource']>;readonly maskingBlend:CanonicalMaskingBlendMode} {
+ const p=ownRecord(value,['version','assets','primarySource','maskSource','maskingBlend','budget'],['expectedDrawCount','expectedStrokeEnd'])
+ if(p.version!==2||(!isCanonicalMaskingBlendMode(p.maskingBlend)||canonicalMaskingBlendModes.indexOf(p.maskingBlend)>=10))return fail()
+ const readSource=(value:unknown,slot:0|1):CanonicalMaterialContextV2['primarySource']=>{
+  const k=Object.getOwnPropertyDescriptor(value??{},'kind');if(!k||!Object.hasOwn(k,'value'))return fail()
+  if(k.value==='softAuto')return capturedSoftAuto(value,slot)
+  if(k.value==='defaultAuto')return capturedDefaultAuto(value)
+  if(k.value==='gaussianAuto'){const a=ownRecord(value,autoPinFields),source=ownRecord(a.source,autoSourceFields);return canonicalGaussianAutoSourcePin({...a,source} as unknown as Extract<CanonicalAutoSource,{kind:'gaussianAuto'}>)}
+  const a=ownRecord(value,['kind','asset','brushScale','brushAngle']);if(a.kind!=='image'||typeof a.asset!=='string'||typeof a.brushScale!=='number'||typeof a.brushAngle!=='number')return fail()
+  return Object.freeze({kind:'image',asset:a.asset,brushScale:a.brushScale,brushAngle:a.brushAngle})
+ }
+ const assets=ownArray(p.assets,2,a=>Object.freeze(ownRecord(a,['id','size','x','y','width','height']))) as unknown as CanonicalMaterialAsset[]
+ const budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels']) as unknown as CanonicalMaterialContextV2['budget']
+ const captured={...p,version:2 as const,assets:Object.freeze(assets),primarySource:readSource(p.primarySource,0),maskSource:readSource(p.maskSource,1),maskingBlend:p.maskingBlend as CanonicalMaskingBlendMode,budget:Object.freeze(budget)}
+ context(captured)
+ return Object.freeze(captured)
+}

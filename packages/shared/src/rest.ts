@@ -1,4 +1,4 @@
-import type { CanonicalRecordedAttachmentV1 } from './canonicalRecordedAttachment.js'
+import type { CanonicalRecordedAttachmentV8 } from './canonicalRecordedAttachment.js'
 import type { BrushImportJob } from './brushBehavior.js'
 import type { BrushLibrary } from './brushes.js'
 import type {
@@ -15,7 +15,7 @@ import type {
  * continues to use the historical array response. */
 export interface CanonicalRecordedHistoryPage {
   readonly operations: Operation[]
-  readonly canonicalCapabilities: CanonicalRecordedAttachmentV1
+  readonly canonicalCapabilities: CanonicalRecordedAttachmentV8
 }
 export type OperationHistoryResponse = Operation[] | CanonicalRecordedHistoryPage
 

@@ -44,7 +44,7 @@ function curveCopy(c:SourceSoftAutoData['softnessCurve']) {
 }
 export function canonicalSoftAutoStatic(source:SourceSoftAutoData,brushScale:number,brushAngle:number) {
   if(!closed(source,['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density','softnessCurve'])
-    ||source.kind!=='softAuto'||source.generator!=='soft'||source.shape!=='circle'||source.spikes!==2||source.randomness!==0||source.density!==1||source.antialias!==false
+    ||source.kind!=='softAuto'||source.generator!=='soft'||source.shape!=='circle'||(!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64)||source.randomness!==0||source.density!==1||source.antialias!==false
     ||![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
     ||source.diameter<=0||source.ratio<=0||source.ratio>1||brushScale<0||source.horizontalFade<0||source.horizontalFade>1||source.verticalFade<0||source.verticalFade>1
     ||!isSourceStampCurveData(source.softnessCurve)||source.softnessCurve.points.length<2||source.softnessCurve.points.length>9
@@ -74,7 +74,7 @@ export function canonicalSoftAutoCost(recipe:CanonicalSoftAutoRecipe,trusted:Can
     ||!Object.is(actual.brushScale,pin.brushScale)||!Object.is(actual.brushAngle,pin.brushAngle))fail()
   if(![recipe.scale,recipe.ratio,recipe.rotation,recipe.subX,recipe.subY].every(finite)||recipe.scale<=0||recipe.scale>1e6||recipe.ratio<=0||recipe.ratio>100
     ||recipe.subX<0||recipe.subX>=1||recipe.subY<0||recipe.subY>=1||Math.abs(recipe.rotation)>1e6||Math.abs(recipe.brushAngle)>1e6)fail()
-  const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:actual.source.diameter,ratio:actual.source.ratio,spikes:2,scale:actual.brushScale,angle:actual.brushAngle},
+  const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:actual.source.diameter,ratio:actual.source.ratio,spikes:actual.source.spikes,scale:actual.brushScale,angle:actual.brushAngle},
     {scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},recipe.subX,recipe.subY)
   if(geometry.maskSize[0]!==recipe.width||geometry.maskSize[1]!==recipe.height||recipe.width<1||recipe.height<1||recipe.width>4096||recipe.height>4096||recipe.width*recipe.height>1048576)fail()
   return {workUnits:recipe.width*recipe.height,outputBytes:recipe.width*recipe.height*4}
