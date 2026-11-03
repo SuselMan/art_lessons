@@ -675,7 +675,7 @@ export class CanonicalRgba8CompositePass {
             throw new Error('Composite pass is not prepared');
         if(source.kind==='primaryGrainMaskRgb'&&source.pin.law==='hard-multiply-u8-native-v1'&&operation.kind!=='over32FusedScalar')throw new RangeError('Unsupported multiply operation');
         const info = this.workspace.programs.get(source.kind==='imageMaterialRgba'?imageMaterialProgram(operation.kind):source.kind==='primaryGrainMaskRgb'?primaryGrainProgram(source.pin.law,operation.kind):pattern?texturedProgram(operation.kind):operation.kind);
-        if(pattern&&!isTexturedOperation(operation.kind)&&!(operation.kind==='erase32FusedScalar'&&source.kind==='primaryGrainMaskRgb'&&source.pin.law!=='hard-multiply-u8-native-v1'))throw new RangeError('Unsupported textured composite operation');
+        if(pattern&&!isTexturedOperation(operation.kind)&&!(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')&&(operation.kind==='erase32FusedScalar'||operation.kind==='genericSCU8'||operation.kind==='colorHsyBrowser')))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
         if (target.texture === sampled.texture || target.texture === this.workspace.texture || sampled.texture === this.workspace.texture || base.texture === this.workspace.texture)

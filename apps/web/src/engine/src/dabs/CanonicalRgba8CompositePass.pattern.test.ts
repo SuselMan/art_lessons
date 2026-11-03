@@ -264,3 +264,20 @@ it('uses SAME phase/crop uniforms for hardMultiply and rejects accessor program 
   expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),128)
  }finally{s.close()}
 })
+
+import {canonicalPixelPrimaryTexturePin} from '@grafetto/shared'
+import {SOURCE_RGBA8_GENERIC_SC_PROFILE,SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE} from '../presets/sourceColorRgba8'
+it.each(['genericSCU8','colorHsyBrowser'] as const)('executes prepared neutral grain %s while historical multiply and subtract remain closed',kind=>{
+ const s=fixture();try{
+  s.pass.prepare({width:16,height:16,operations:['over32FusedScalar',kind],primaryGrainPrograms:[{operation:kind,law:'pixel-texture-u8-v1'},{operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'}]},s.companions)
+  const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Original pattern fixture required')
+  const pin=canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:s.pattern.asset.id,law:'pixel-texture-u8-v1',mode:'multiply',soft:false,width:s.pin.width,height:s.pin.height,periodX:s.pin.width,periodY:s.pin.height,phase:{kind:'resolved-stroke-phase-v1',x:1,y:1},strength:'recorded-grain-v1'},s.pattern.asset)
+  const operation=kind==='genericSCU8'?{kind,control:{mode:'screen' as const,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.8}}:{kind,control:{mode:'colorHsy' as const,profile:SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE,opacity:.8}}
+  const before=s.snapshot(),draws=s.gl.drawArrays.mock.calls.length
+  expect(s.pass.drawSource({...s.request,source:{...source,kind:'primaryGrainMaskRgb',pin,strengthU8:128},operation})).toBe('painted')
+  expect(s.gl.drawArrays.mock.calls.length).toBe(draws+1);expect(s.snapshot()).toEqual(before)
+  const old=multiplyRequest(s);expect(()=>s.pass.drawSource({...old,operation})).toThrow('Unsupported multiply')
+  expect(()=>s.pass.drawSource({...s.request,operation})).toThrow()
+  expect(s.gl.drawArrays.mock.calls.length).toBe(draws+1)
+ }finally{s.close()}
+})
