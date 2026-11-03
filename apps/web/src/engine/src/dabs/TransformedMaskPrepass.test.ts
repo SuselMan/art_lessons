@@ -6,7 +6,7 @@ import { canonicalAutoMaskRevision } from './TransformedMaskPlan';
 import type { CanonicalGaussianAutoRecipe, CanonicalGaussianAutoSource, CanonicalDefaultAutoRecipe, CanonicalDefaultAutoSource, CanonicalAutoRecipe, CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
-import { runBrushGlBatch,runBrushGlTurn,type BrushGlTurn } from './BrushGlBatch';
+import { runBrushGlBatch,runBrushGlTurn,runBrushGlSequence,type BrushGlTurn } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
 import { BrushTextureCache } from './BrushTextureCache';
 import { BrushMipCache } from './BrushMipCache';
@@ -383,6 +383,46 @@ describe('canonical default-auto incremental slot generation', () => {
       expect(s.service.beginAutoGeneration(r)).toBe(true);expect(s.snapshot()).toEqual(before)
       expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true)
     }finally{s.service.reset()}
+  })
+  it('actual leased final-upload prelude preserves undefined before external cleanup secondary',()=>{
+    const s=setup(),request=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    const lease=s.service.retainPreparedCapacity(),geometry=s.service['assertFinalAutoGeometry'];let caught:unknown,threw=false
+    try{
+      lease.beginAutoGeneration(request);lease.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      const pending=s.service['pendingAuto'],before=s.snapshot(),next=vi.fn();s.gl.texSubImage2D.mockClear()
+      s.service['assertFinalAutoGeometry']=()=>{throw undefined}
+      try{runBrushGlSequence({participants:[lease],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
+        try{sequence.step(turn=>{
+          try{lease.flushFinalAutoGeneration(request,turn)}
+          finally{
+            // oxlint-disable-next-line no-unsafe-finally -- Intentional cleanup fault must not replace the actual prelude failure.
+            throw Error('secondary cleanup')
+          }
+        })}catch{/* Inspect the permanently failed sequence below. */}
+        expect(()=>sequence.step(next)).toThrow();expect(next).not.toHaveBeenCalled()
+      })}catch(error){threw=true;caught=error}
+      expect(threw).toBe(true);expect(caught).toBeUndefined();expect(s.service['pendingAuto']).toBe(pending)
+      expect(s.gl.texSubImage2D).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before)
+    }finally{s.service['assertFinalAutoGeometry']=geometry;lease.release();s.service.reset();expect(s.cpu.reservedBytes).toBe(0)}
+  })
+  it('single-stripe continuation headroom miss leaves optional reclaim until the old outside-turn preparation',()=>{
+    const s=setup(),request=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    const lease=s.service.retainPreparedCapacity();let hold:(()=>void)|undefined,extra:(()=>void)|undefined
+    const reclaim=vi.fn(()=>{expect(s.service['turnDepth']).toBe(0);hold?.();hold=undefined})
+    const unregister=s.cpu.registerOptionalReclaim(reclaim)
+    try{
+      // Parent4096+unpack128 fits; only one byte is left while held.
+      hold=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-4225)
+      const reserve=vi.spyOn(s.cpu,'reserve')
+      runBrushGlSequence({participants:[lease],captureAutoUploadUnpack:true,allowAutoUpload:true},()=>{
+        reserve.mockClear();expect(lease.canContinueSingleStripeAuto(request)).toBe(false)
+        expect(reserve).not.toHaveBeenCalled();expect(reclaim).not.toHaveBeenCalled();expect(s.service['pendingAuto']).toBeUndefined()
+      })
+      extra=s.cpu.reserve(4224)
+      expect(lease.beginAutoGeneration(request)).toBe(false);expect(reclaim).toHaveBeenCalledOnce()
+      while(!lease.advanceAutoGeneration(64).done){}
+      expect(lease.hasReadyAutoGeneration(request)).toBe(true)
+    }finally{unregister();extra?.();hold?.();lease.release();s.service.reset();expect(s.cpu.reservedBytes).toBe(0)}
   })
   it('rejects forged final-upload turn before lease or publication without cancelling its accepted owner',()=>{
     const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])

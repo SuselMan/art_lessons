@@ -210,6 +210,7 @@ interface TurnRecord {
   /** Scoped cleanup evidence only; never GL state/resource authority. */
   cleanupFailure?:{readonly error:unknown}
   readonly sequenceChild?:true
+  readonly sequenceAutoUpload?:true
   stepFailure?:{readonly error:unknown}
   autoUploadBorrowed:boolean
   active: boolean
@@ -287,7 +288,8 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
 
 /** Synchronous warm-only sequence: one entry snapshot, fresh single-use child
  * for each native step. No token or participant lease survives this call. */
-export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0],execute:(sequence:{step(run:(turn:BrushGlTurn)=>void):void})=>void):void {
+export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0]&{readonly allowAutoUpload?:true},execute:(sequence:{step(run:(turn:BrushGlTurn)=>void):void})=>void):void {
+  if(options.allowAutoUpload!==undefined&&(options.allowAutoUpload!==true||options.captureAutoUploadUnpack!==true))throw new Error('Sequence upload requires declared unpack capture')
   runBrushGlTurn(options,parent=>{
     const parentRecord=turns.get(parent)!
     let active=true,busy=false,failed=false,failure:unknown
@@ -299,7 +301,7 @@ export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0],
       try{
         for(const [participant,pinned]of parentRecord.infos)if(!sameParticipantBinding(participant.brushGlBatchInfo(),pinned))throw new Error('Sequence participant changed')
         token=Object.freeze({}) as BrushGlTurn
-        record={sequenceChild:true,infos:parentRecord.infos,restore:parentRecord.restore,restoreGate:parentRecord.restoreGate,restoreAutoUpload:parentRecord.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false}
+        record={sequenceChild:true,...(options.allowAutoUpload?{sequenceAutoUpload:true as const}:{}),infos:parentRecord.infos,restore:parentRecord.restore,restoreGate:parentRecord.restoreGate,restoreAutoUpload:parentRecord.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false}
         turns.set(token,record)
         const result:unknown=run(token)
         if(result&&typeof(result as {then?:unknown}).then==='function')throw new Error('GL sequence step must be synchronous')
@@ -325,13 +327,24 @@ export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0],
  * The cleanup runs before the cache lease release, without another capture. */
 export function borrowBrushGlTurnAutoUploadRestore(turn:BrushGlTurn,participant:BrushGlBatchParticipant):()=>void {
   const record=turns.get(turn)
-  if(record?.sequenceChild)throw new Error('Warm sequence cannot borrow auto upload')
+  if(record?.sequenceChild&&!record.sequenceAutoUpload)throw new Error('Warm sequence cannot borrow auto upload')
   if(!record||!record.active||record.claimed||record.autoUploadBorrowed||!record.restoreAutoUpload||!record.infos.has(participant))
     throw new Error('Unknown, closed or undeclared auto upload turn')
   for(const [service,pinned]of record.infos)if(!sameParticipantBinding(service.brushGlBatchInfo(),pinned))throw new Error('Auto upload turn participant/epoch changed')
   if(record.infos.get(participant)!.gl.isContextLost())throw new Error('Auto upload turn context lost')
   record.autoUploadBorrowed=true
   return record.restoreAutoUpload
+}
+
+/** Upload failures are recorded before caller cleanup can replace the primary. */
+export function withBrushGlTurnAutoUploadRestore<T>(turn:BrushGlTurn,participant:BrushGlBatchParticipant,execute:(borrow:()=>()=>void)=>T):T {
+  const record=turns.get(turn)
+  // Foreign/stale calls do not start an operation or poison somebody else's child.
+  if(!record||!record.active||record.claimed||record.autoUploadBorrowed||!record.restoreAutoUpload
+    ||!record.infos.has(participant)||record.sequenceChild&&!record.sequenceAutoUpload)
+    throw new Error('Unknown, closed or undeclared auto upload turn')
+  try{return execute(()=>borrowBrushGlTurnAutoUploadRestore(turn,participant))}
+  catch(error){if(record.sequenceChild)record.stepFailure??={error};throw error}
 }
 
 export function runBrushGlBatch(options: {

@@ -1,5 +1,5 @@
 import { MAX_SOURCE_DENSITY_GESTURE_ID } from '../presets/sourceDefaultAutoDensitySeed'
-import {assertBrushGlMutationIdle,borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
+import {assertBrushGlMutationIdle,withBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState,restoreBrushAutoUploadState,type BrushGlContextOwner } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
@@ -156,6 +156,7 @@ export interface CanonicalMaskCapacityLease extends BrushGlBatchParticipant {
  preparedResources():readonly {key:string;bytes:number}[]
  resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame):{views:TransformedMaskView[];release:()=>void}
  hasReadyAutoGeneration(request:AnyTransformedMaskRequest):boolean
+ canContinueSingleStripeAuto(request:AnyTransformedMaskRequest):boolean
  beginAutoGeneration(request:AnyTransformedMaskRequest):boolean
  advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}):{done:boolean;consumed:number;uploadedBytes:number;finalUploadPending?:true}
  finalAutoUploadPending(request:AnyTransformedMaskRequest):boolean
@@ -290,10 +291,11 @@ export class TransformedMaskPrepass {
       enterBrushGlBatch(frame:BrushGlBatchFrame){assert(this);return owner.pass.enterRecordBatch(lease,frame)},
       resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame){assert(this);return owner.pass.resolveRecordGroup(captured,lease,requests,frame)},
       hasReadyAutoGeneration(request:AnyTransformedMaskRequest){assert(this);return owner.pass.readyRecordAuto(captured,request)},
+      canContinueSingleStripeAuto(request:AnyTransformedMaskRequest){assert(this);return owner.pass.singleStripeAutoReady(captured,lease,request)},
       beginAutoGeneration(request:AnyTransformedMaskRequest){assert(this);return owner.pass.beginRecordAuto(captured,lease,request)},
       advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.advanceAutoGeneration(maxSamples,options)},
       finalAutoUploadPending(request:AnyTransformedMaskRequest){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.finalAutoUploadPending(request)},
-      flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.flushFinalAutoGeneration(request,turn)},
+      flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn){if(this!==lease||closed)throw new Error('Closed or foreign capacity lease');return owner.pass.flushParticipantFinalAutoGeneration(lease,request,turn)},
       cancelAutoGeneration(){assert(this);owner.pass.assertPendingParticipant(lease);owner.pass.cancelAutoGeneration()},
       releaseOwner(resourceOwner:object){assert(this);owner.pass.releaseRecordOwner(captured,resourceOwner,lease)},
       release(){if(this!==lease)throw new Error('Foreign capacity lease receiver');if(closed)return;if(owner.pass.turnDepth||owner.pass.batch||owner.pass.activeGroup)throw new Error('Cannot release capacity inside GL scope');let failed=false,first:unknown;try{if(owner.pass.pendingAuto?.participant===lease)owner.pass.cancelAutoGeneration()}catch(e){failed=true;first=e}try{releaseMetadata()}catch(e){if(!failed){failed=true;first=e}}try{owner.pass.retireRecord(captured)}catch(e){if(!failed){failed=true;first=e}}if(failed)throw first},
@@ -743,6 +745,22 @@ export class TransformedMaskPrepass {
     const revision=canonicalAutoMaskRevision(material)
     return record.slots.some(slot=>slot?.owner===request.owner&&slot.role===request.role&&slot.revision===revision&&this.cache.get(slot.key)===slot.texture)
   }
+  /** Pure continuation eligibility; a miss leaves reclaim to the old outer path. */
+  canContinueSingleStripeAuto(request:AnyTransformedMaskRequest):boolean{return this.singleStripeAutoReady(this.defaultCapacityRecord(),this,request)}
+  private singleStripeAutoReady(record:CapacityRecord,participant:BrushGlBatchParticipant,request:AnyTransformedMaskRequest):boolean {
+    if(this.capacityCapture||this.batch||this.activeGroup||!this.recordReady(record))return false
+    const material=request.material
+    if(!('kind'in material)||material.kind!=='canonicalAuto'||isCanonicalSoftAutoMaterial(material)
+      ||material.recipe.kind!=='defaultAuto'||material.densityIdentity||request.source||!request.owner||!request.role)return false
+    const {width,height}=material.recipe,pixels=width*height
+    if(!Number.isSafeInteger(pixels)||pixels<1||pixels>16384||width>record.limits.width||height>record.limits.height)return false
+    const revision=canonicalAutoMaskRevision(material),pending=this.pendingAuto
+    if(pending)return pending.record===record&&pending.participant===participant&&pending.owner===request.owner
+      &&pending.role===request.role&&pending.revision===revision&&!pending.flushing&&pending.computedFinal
+      &&pending.epoch===record.workspace&&this.cache.get(pending.slot.key)===pending.slot.texture
+    if(this.readyRecordAuto(record,request))return true
+    return this.cpu.reservedBytes+pixels*5+512<=this.cpu.budgetBytes
+  }
   private beginRecordAuto(record:CapacityRecord,participant:BrushGlBatchParticipant,request:AnyTransformedMaskRequest):boolean{
     if (this.capacityCapture||this.batch || this.activeGroup) throw new Error('Auto generation requires an idle prepass outside GL batch');
     if (!this.recordReady(record) || !record.limits || !record.workspace) throw new Error('Prepass is not prepared');
@@ -829,19 +847,26 @@ export class TransformedMaskPrepass {
     catch(primary){try{this.cancelAutoGeneration()}catch{/* Preserve residency failure. */}throw primary}
   }
   flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn):{done:true;consumed:0;uploadedBytes:number} {
-    if(this.batch||this.activeGroup)throw new Error('Final auto upload requires an idle prepass');
-    const p=this.pendingAuto;if(!p||!p.computedFinal||p.flushing)throw new Error('No final auto upload pending');
-    this.assertAutoRequest(p,request);this.assertFinalAutoGeometry(p);
-    // Invalid foreign admission must not cancel somebody else's accepted work.
-    const restore=borrowBrushGlTurnAutoUploadRestore(turn,p.participant);
-    try{
-      this.assertAutoResidency(p);
-      const uploadedBytes=this.uploadAutoStripe(p,{kind:'owned',restore});
-      this.assertAutoResidency(p);
-      if(this.gl.isContextLost())throw new Error('Auto upload context lost');
-      this.publishAuto(p,true);
-      return {done:true,consumed:0,uploadedBytes};
-    }catch(primary){try{this.cancelAutoGeneration()}catch{/* Preserve upload failure. */}throw primary}
+    return this.flushParticipantFinalAutoGeneration(this.pendingAuto?.participant??this,request,turn)
+  }
+  private flushParticipantFinalAutoGeneration(participant:BrushGlBatchParticipant,request:AnyTransformedMaskRequest,turn:BrushGlTurn):{done:true;consumed:0;uploadedBytes:number} {
+    return withBrushGlTurnAutoUploadRestore(turn,participant,borrow=>{
+      // A recognized real child owns the entire operation, including prelude.
+      // Invalid requests still never cancel another participant's pending mask.
+      if(this.batch||this.activeGroup)throw new Error('Final auto upload requires an idle prepass');
+      const p=this.pendingAuto;if(!p||!p.computedFinal||p.flushing)throw new Error('No final auto upload pending');
+      if(p.participant!==participant)throw new Error('Foreign capacity pending auto owner');
+      this.assertAutoRequest(p,request);this.assertFinalAutoGeometry(p);
+      const restore=borrow();
+      try{
+        this.assertAutoResidency(p);
+        const uploadedBytes=this.uploadAutoStripe(p,{kind:'owned',restore});
+        this.assertAutoResidency(p);
+        if(this.gl.isContextLost())throw new Error('Auto upload context lost');
+        this.publishAuto(p,true);
+        return {done:true,consumed:0,uploadedBytes};
+      }catch(primary){try{this.cancelAutoGeneration()}catch{/* Preserve upload failure. */}throw primary}
+    });
   }
   private assertFinalAutoGeometry(p:NonNullable<TransformedMaskPrepass['pendingAuto']>):void {
     if(!p.computedFinal||p.filled<1||!Number.isSafeInteger(p.filled/p.width)||p.uploadedRows+p.filled/p.width!==p.height)

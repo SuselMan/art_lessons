@@ -737,7 +737,8 @@ export class CanonicalFrameExecutor {
       if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
-      if(warmAtEntry&&this.canSequenceWarm(work))this.paintWarmSequence(work,layer,turnStarted)
+      if(this.canEnterUniqueAutoSequence(work))this.paintUniqueAutoSequence(work,layer,turnStarted)
+      else if(warmAtEntry&&this.canSequenceWarm(work))this.paintWarmSequence(work,layer,turnStarted)
       else this.runPreparedTurn(work,turnStarted,work.draw<work.result.draws.length?'paint':'presentation',turn=>{
         this.paintPrepared(work,layer,turn,turnStarted)
       })
@@ -758,6 +759,49 @@ export class CanonicalFrameExecutor {
     const physical=work.physical,draw=work.result.draws[work.draw],next=work.result.draws[work.draw+1]
     return !!physical&&work.targetCursor===physical.targetCount&&work.scratchCursor===physical.scratchCount
       &&work.washCursor===work.newTiles.length&&!!next&&draw.definition===next.definition&&this.warmAutoReady(work)
+  }
+  private canEnterUniqueAutoSequence(work:Work):boolean {
+    const current=work.result.draws[work.draw],next=work.result.draws[work.draw+1]
+    if(!current||!next||current.definition===next.definition)return false
+    const recipe:AnyCanonicalMaterialRecipe & {readonly kind?:string;readonly coverageProfile?:string}=work.input.frame.definitions[next.definition]
+    // No new generation here: the current final upload may still be pending.
+    // Full participant/residency/headroom is rechecked before actual continuation.
+    return recipe.kind==='defaultAuto'&&recipe.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+      &&recipe.width*recipe.height<=16384&&this.canSequenceUniqueAuto(work)
+  }
+  private canSequenceUniqueAuto(work:Work):boolean {
+    const p=work.physical
+    return !!p&&work.targetCursor===p.targetCount&&work.scratchCursor===p.scratchCount
+      &&work.washCursor===work.newTiles.length&&work.draw<work.result.draws.length
+      &&this.maskParticipant.canContinueSingleStripeAuto(this.maskRequest(work,work.draw))
+  }
+  private paintUniqueAutoSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
+      let first=true
+      while((first||performance.now()-turnStarted<4)&&this.queue[0]===work&&work.draw<work.result.draws.length){
+        this.assertPrepared()
+        if(this.currentLayer(work)!==layer)throw new Error('Unique auto sequence layer changed')
+        if(!this.canSequenceUniqueAuto(work))break
+        if(!first){
+          // One pending evaluator, original CPU64 quantum and original deadline.
+          // The pure headroom probe excludes optional reclaim under held owners.
+          if(!this.prepareAuto(work,turnStarted))break
+        }
+        const request=this.maskRequest(work,work.draw),draw=work.draw,tile=work.tile,part=work.paintPart
+        sequence.step(turn=>{
+          this.assertPrepared()
+          if(this.queue[0]!==work||this.currentLayer(work)!==layer||!this.canSequenceUniqueAuto(work))throw new Error('Unique auto sequence work changed')
+          if(this.maskParticipant.finalAutoUploadPending(request))this.maskParticipant.flushFinalAutoGeneration(request,turn)
+          this.assertPrepared()
+          if(this.currentLayer(work)!==layer||!this.maskParticipant.hasReadyAutoGeneration(request))throw new Error('Unique auto mask changed after upload')
+          this.paint(work,layer,turn,turnStarted)
+        })
+        first=false
+        if(work.draw===draw&&work.tile===tile&&work.paintPart===part)break
+      }
+    })
+    // Terminal/ownership transitions occur only after the parent has restored.
+    if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
   }
   private paintWarmSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
     const definition=work.result.draws[work.draw].definition

@@ -11,7 +11,7 @@ import { compositeSourceOver32Scalar } from '../presets/sourceOver32Scalar'
 import type { Rgba8 } from '../presets/mixWeightedRgba8'
 import { saveBrushGlState } from './BrushGlState'
 import { runBrushGlTurn, runBrushGlBatch } from './BrushGlBatch'
-import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
+import { prepareSourceDefaultAutoDab, sourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
 import { SourceStrokeAuthor, type SourceAuthorPacket } from '../presets/sourceStrokeAuthor'
@@ -2092,4 +2092,70 @@ it('warm native callback owner release stops continuation without starting cold 
   s.executor.advance();expect(draw).toHaveBeenCalledTimes(1);expect(s.gl.texSubImage2D.mock.calls.length).toBe(uploads)
   s.drain();expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2]);expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
  }finally{clock.mockRestore();lease.release();s.close()}
+})
+
+
+function uniqueSingleStripeFixture(){
+ const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
+ const recipes=[0,17,31].map(rotation=>{
+  const shape={scale:.5,ratio:.7,rotation}
+  const oracle=sourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape,subpixelX:0,subpixelY:0,coverageProfile:'neon64-f32-fma-v1',maxPixels:1048576,maxWorkSamples:16*1048576})
+  const [width,height]=oracle.geometry.maskSize
+  const recipe:CanonicalDefaultAutoRecipe={kind:'defaultAuto',source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,...shape,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false}
+  return {recipe,oracle}
+ })
+ const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:16*1048576,outputBytes:4*1048576,drawPixels:1048576}}
+ const frame=unpackCanonicalMaterial(buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:recipes.map(({recipe},x)=>({recipe,role:'primary' as const,x,y:0,opacity:(x+1)/4,flow:.7})),fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:3,group:0},{kind:'segmentEnd',at:3,group:0},{kind:'gestureEnd',at:3}]},context).packed,context)
+ return {pin,frame,recipes}
+}
+it.each(['buildup','deposition-only']as const)('unique single-stripe public advance shares captures and independent coverage in %s',mode=>{
+ const {pin,frame,recipes}=uniqueSingleStripeFixture(),s=setup(mode==='buildup'?'buildup':'wash',64,64,undefined,'reference-scalar-f32-rne-v1',pin,64,mode==='deposition-only'?'deposition-only':undefined),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  expect(frame.definitions).toHaveLength(3)
+  s.executor.enqueue({...s.submit(),frame,assets:[]});s.prepareStorage()
+  const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource'),uploaded:Uint8Array[]=[]
+  s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>{uploaded.push(new Uint8Array(args[8] as Uint8Array))})
+  s.drain()
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2])
+  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  // Physical preparation uploaded the first recipe; these are the two new,
+  // distinct masks, compared against the independent synchronous CPU API.
+  expect(uploaded).toHaveLength(2)
+  for(let index=0;index<2;index++)expect(uploaded[index]).toEqual(Uint8Array.from(Array.from(recipes[index+1].oracle.mask).flatMap(v=>[v,v,v,v])))
+  expect(s.snapshot()).toEqual(before);expect(s.poison).not.toHaveBeenCalled();expect(s.executor.pendingFrameCount).toBe(0)
+  if(mode==='deposition-only'){
+   expect(draw.mock.calls.every(([request])=>request.operation.kind==='alphaDarken32')).toBe(true)
+   expect(s.executor.rawWashSealed).toBe(true);expect(s.executor.checkpointReady).toBe(false)
+   const ownership=s.executor.takeRawWash()
+   try{expect(ownership.tiles).toHaveLength(1);expect(s.prepass['turnDepth']).toBe(0);expect(s.executor.checkpointReady).toBe(true)}
+   finally{ownership.release()}
+   expect(s.scratch.bytes.live).toBe(0);expect(s.releases.every(release=>release.mock.calls.length===1)).toBe(true)
+  }else expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('unique single-stripe next CPU quantum yields on the original deadline without opening a CPU-only turn',()=>{
+ const {pin,frame}=uniqueSingleStripeFixture(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  s.executor.enqueue({...s.submit(),frame,assets:[]});s.prepareStorage()
+  const advance=s.prepass.advanceAutoGeneration.bind(s.prepass),samples:number[]=[]
+  s.prepass.advanceAutoGeneration=(n,options)=>{samples.push(n);const result=advance(n,options);now+=4;return result}
+  const draw=vi.spyOn(s.composite,'drawSource'),queries=vi.spyOn(s.gl,'getParameter')
+  s.executor.advance();expect(draw).toHaveBeenCalledTimes(1);expect(samples).toEqual([64]);expect(s.executor.pending).toBe(true)
+  const pending=s.prepass['pendingAuto'];expect(pending).toBeDefined();expect(pending!.computedFinal).toBe(false)
+  queries.mockClear();s.executor.advance();expect(queries).not.toHaveBeenCalled();expect(s.prepass['pendingAuto']).toBe(pending)
+  s.prepass.advanceAutoGeneration=advance;now=0;s.drain();expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2])
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('unique single-stripe first native paint progresses even when entry capture spends the deadline',()=>{
+ const {pin,frame}=uniqueSingleStripeFixture(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  s.executor.enqueue({...s.submit(),frame,assets:[]});s.prepareStorage()
+  const original=s.gl.getParameter.bind(s.gl),query=vi.spyOn(s.gl,'getParameter').mockImplementation((name:unknown)=>{if(name===s.gl.VIEWPORT)now+=5;return original(name)})
+  const draw=vi.spyOn(s.composite,'drawSource');s.executor.advance()
+  expect(draw).toHaveBeenCalledTimes(1);expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1);expect(s.executor.pending).toBe(true)
+  query.mockRestore();now=0;s.drain();expect(draw.mock.calls.map(([request])=>request.source.view.rect.x)).toEqual([0,1,2]);expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

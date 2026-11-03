@@ -588,3 +588,31 @@ it('warm sequence preserves original undefined batch primary across later native
  })}catch(error){rejected=true;primary=error}
  expect(rejected).toBe(true);expect(primary).toBeUndefined();expect(second).toBe(false);expect(s.cpu.reservedBytes).toBe(0)
 })
+
+
+it('upload sequence latches a recognized child prelude undefined before caller cleanup replaces it',()=>{
+ const s=setup(),next=vi.fn();s.gl.UNPACK_FLIP_Y_WEBGL=9401;s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9402
+ const parameters=s.gl.getParameter.bind(s.gl),store=s.gl.pixelStorei.bind(s.gl),flags=new Map([[9401,true],[9402,true]])
+ s.gl.getParameter=(key:number)=>flags.has(key)?flags.get(key):parameters(key)
+ s.gl.pixelStorei=(key:number,value:number|boolean)=>flags.has(key)?flags.set(key,!!value):store(key,value)
+ const before=s.snapshot();let caught:unknown,threw=false
+ try{
+  uploadTurn.runBrushGlSequence({participants:[s.service],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
+   try{sequence.step(turn=>{
+    try{uploadTurn.withBrushGlTurnAutoUploadRestore(turn,s.service,()=>{throw undefined})}
+    finally{
+     // oxlint-disable-next-line no-unsafe-finally -- Intentional secondary cleanup fault verifies the first undefined failure.
+     throw Error('secondary cleanup')
+    }
+   })}catch{/* The sequence must still remember the actual first failure. */}
+   expect(()=>sequence.step(next)).toThrow();expect(next).not.toHaveBeenCalled()
+  })
+ }catch(error){threw=true;caught=error}
+ expect(threw).toBe(true);expect(caught).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('ordinary warm sequence still denies upload without adding upload-unpack queries',()=>{
+ const s=setup(),query=vi.spyOn(s.gl,'getParameter')
+ runBrushGlTurn({participants:[s.service]},()=>{});const baseline=query.mock.calls.length;query.mockClear()
+ uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>sequence.step(turn=>expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(turn,s.service)).toThrow('Warm sequence')))
+ expect(query.mock.calls).toHaveLength(baseline);expect(s.cpu.reservedBytes).toBe(0)
+})
