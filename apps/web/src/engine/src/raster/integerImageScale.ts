@@ -82,7 +82,14 @@ export function scaleIntegerImageU8(
   channels: 1 | 4 = 1, law: IntegerImageInterpolationLaw = 'simd',
 ): Uint8Array {
   const sourcePixels = checkedPixels(sourceSize), destinationPixels = checkedPixels(destinationSize)
-  if ((channels !== 1 && channels !== 4) || (law !== 'scalar' && law !== 'simd') || source.length !== sourcePixels * channels) throw new RangeError('Invalid integer image byte layout')
+  if(channels===1){
+    if(source.length!==sourcePixels)throw new RangeError('Invalid integer image byte layout')
+    const steps=scaleIntegerImageSampledU8(sourceSize,destinationSize,(x,y)=>source[y*sourceSize.width+x],law)
+    let finished=false
+    try{while(true){const next=steps.next();if(next.done){finished=true;return next.value}}}
+    finally{if(!finished)steps.return(new Uint8Array(0))}
+  }
+  if (channels !== 4 || (law !== 'scalar' && law !== 'simd') || source.length !== sourcePixels * channels) throw new RangeError('Invalid integer image byte layout')
   if (sourceSize.width === destinationSize.width && sourceSize.height === destinationSize.height) return new Uint8Array(source)
   const { xAxis, yAxis } = checkedPlan(sourceSize, destinationSize, channels, law)
   const output = new Uint8Array(destinationPixels * channels)
@@ -132,4 +139,58 @@ export function scaleIntegerImageU8(
     }
   }
   return output
+}
+
+
+/** Same fixed-point kernel over an immutable sampled plane. No source-sized
+ * identity/crop/premultiplication buffer. A step yields every 64 source taps;
+ * callers reserve output+axis storage before creating the iterator. */
+/** Constant-space axis cursor; arithmetic matches sourceImageScaleAxis exactly.
+ * No per-destination arrays or per-tap weight objects are retained. */
+interface SampleAxis {source:number;destination:number;up:boolean;increment:number;origin:number;coverage:number}
+interface SampleCursor {start:number;length:number;first:number;full:number;packed:number;up:boolean}
+function sampledAxis(source:number,destination:number):SampleAxis{
+ const up=destination>=source
+ return {source,destination,up,increment:Math.floor(source*65536/destination),origin:up?Math.floor(32768*source/destination)-32768:0,coverage:Math.floor((destination*16384+source-1)/source)}
+}
+function sampledCursor(axis:SampleAxis,index:number,out:SampleCursor):void{
+ const value=axis.origin+index*axis.increment,position=Math.floor(value/65536)
+ out.start=Math.max(0,position);out.up=axis.up
+ if(axis.up){const fraction=Math.floor(value/256);out.packed=position<0||position>=axis.source-1?0:fraction-Math.floor(fraction/256)*256;out.length=out.packed?2:1;out.first=256-out.packed;out.full=0}
+ else{const fraction=value-Math.floor(value/65536)*65536;out.full=axis.coverage;out.first=Math.floor((65536-fraction)*axis.coverage/65536);out.packed=0;out.length=1+Math.ceil((16384-out.first)/out.full)}
+ if(out.start+out.length>axis.source)throw new RangeError('Integer scaling footprint exceeds its source')
+}
+const sampledWeight=(axis:SampleCursor,index:number)=>axis.up?(index?axis.packed:axis.first):index?Math.min(axis.full,16384-axis.first-(index-1)*axis.full):axis.first
+export function* scaleIntegerImageSampledU8(
+ sourceSize:IntegerImageSize,destinationSize:IntegerImageSize,
+ read:(x:number,y:number)=>number,law:IntegerImageInterpolationLaw='simd',
+ write?:(x:number,y:number,value:number)=>void,
+):Generator<void,Uint8Array,void>{
+ checkedPixels(sourceSize);const destinationPixels=checkedPixels(destinationSize)
+ if(law!=='scalar'&&law!=='simd')throw new RangeError('Invalid integer interpolation law')
+ const xAxis=sampledAxis(sourceSize.width,destinationSize.width),yAxis=sampledAxis(sourceSize.height,destinationSize.height)
+ const horizontal:SampleCursor={start:0,length:0,first:0,full:0,packed:0,up:false},vertical={...horizontal}
+ // Same original MAX64M admission, BEFORE allocating output. Axis scans are
+ // <=8192 fixed-metadata operations, never a pixel-sized allocation.
+ let xTaps=0,yTaps=0
+ for(let x=0;x<destinationSize.width;x++){sampledCursor(xAxis,x,horizontal);xTaps+=horizontal.length}
+ for(let y=0;y<destinationSize.height;y++){sampledCursor(yAxis,y,vertical);yTaps+=vertical.length}
+ if(xTaps*yTaps>MAX_CHANNEL_SAMPLES)throw new RangeError('Integer image scaling work exceeds the budget')
+ const output=new Uint8Array(write?0:destinationPixels);let ticks=0
+ const sample=(x:number,y:number)=>{const value=read(x,y);if(!Number.isInteger(value)||value<0||value>255)throw new RangeError('Invalid sampled image byte');return value}
+ for(let y=0;y<destinationSize.height;y++){
+  sampledCursor(yAxis,y,vertical)
+  for(let x=0;x<destinationSize.width;x++){
+   sampledCursor(xAxis,x,horizontal);let value=0
+   if(xAxis.up&&yAxis.up&&law==='scalar'){
+    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===64){ticks=0;yield}}value+=Math.floor(row/256)*sampledWeight(vertical,iy)}value=Math.floor(value/256)
+   }else if(xAxis.up&&yAxis.up){
+    for(let ix=0;ix<horizontal.length;ix++){let column=0;for(let iy=0;iy<vertical.length;iy++){column+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(vertical,iy);if(++ticks===64){ticks=0;yield}}value+=Math.floor(column/256)*sampledWeight(horizontal,ix)}value=Math.floor(value/256)
+   }else{
+    for(let iy=0;iy<vertical.length;iy++){let row=0;for(let ix=0;ix<horizontal.length;ix++){row+=sample(horizontal.start+ix,vertical.start+iy)*sampledWeight(horizontal,ix);if(++ticks===64){ticks=0;yield}}if(!xAxis.up&&!yAxis.up)row=Math.floor(row/16);value+=row*sampledWeight(vertical,iy)}value=Math.floor(value/(!xAxis.up&&!yAxis.up?16777216:4194304))
+   }
+   if(write)write(x,y,value);else output[y*destinationSize.width+x]=value
+  }
+ }
+ return output
 }

@@ -1,3 +1,4 @@
+import {nativeImageRgbaSteps,nativeImageStreamingTransientBytes} from './NativeImageBank'
 import {canonicalSourceTipGradient,type CanonicalSourceTipGradient} from '@grafetto/shared'
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalPixelColorTexturePin,type CanonicalPixelColorTexturePin,type CanonicalTextureGradientRGBA,canonicalPixelPrimaryTexturePin,type CanonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin, type CanonicalMultiplyPrimaryTexturePin, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
@@ -282,13 +283,6 @@ function rootPlanningBound(inputs:readonly (CanonicalMaskAssetSourceInput|Canoni
  * Reduction has at most S+2D weights; enlargement at most2D. Charge512 bytes per
  * source/destination axis unit, conservatively above their JS object/array slots.
  * This is a budget estimate, not a claim about a particular JS heap allocator. */
-function transientBytes(resource: NativeImageResource): number {
-  const { width, height } = resource.rect
-  const n = width * height, m = resource.nativeWidth * resource.nativeHeight
-  const b = resource.width * resource.height
-  const generation = 2 * n + m + b + 512 * (width + height + resource.nativeWidth + resource.nativeHeight + 8)
-  return Math.max(generation, 5 * b)
-}
 
 type BankInput = CanonicalMaskSourceInput | CanonicalMaskAssetSourceInput | CanonicalPatternSourceInput | CanonicalImageMaterialSourceInput
 type BankReader = Readonly<Pick<CanonicalMaskSourceInput,'assetSide'|'readOriginalCoverage'>> & {readonly material?:CanonicalImageMaterialSourceInput;readonly sourceSlot?:0|1;readonly frameIndex?:number;readonly readPatternAlpha?:()=>Uint8Array} & { rootReferences?:number; rootOwners?:Map<object,()=>void> }
@@ -344,7 +338,7 @@ function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly Canonic
         if(indexes&&!indexes.has(index))continue
         const resource = Object.freeze({ ...originalResource, rect: Object.freeze({ ...originalResource.rect }), bounds: Object.freeze({ ...originalResource.bounds }) })
         const key = `canonical-mask:straight-gray-rgba8:${resource.key}`
-        const job = Object.freeze({ kind:'native-image' as const,...material?{material:material.material}:{}, key, resource, bytes: resource.width * resource.height * 4, transientCpuBytes: transientBytes(resource)*(material?4:1) })
+        const job = Object.freeze({ kind:'native-image' as const,...material?{material:material.material}:{}, key, resource, bytes: resource.width * resource.height * 4, transientCpuBytes: nativeImageStreamingTransientBytes(resource,!!material) })
         const prior=jobs.get(key)
         if(prior&&plannedInputs.get(key)!.assetSide!==assetSide)throw new RangeError('Conflicting canonical source metadata')
         for(const [k,j] of jobs)if(imageJob(j)&&j.resource.id===resource.id&&plannedInputs.get(k)!.assetSide!==assetSide)throw new RangeError('Conflicting canonical source side')
@@ -379,6 +373,7 @@ export interface CanonicalMaskSourceExtension {
   finalizeCleanup():undefined
   readonly jobs: readonly CanonicalMaskSourceJob[]
   prepareJob(index:number):'ready'|'cancelled'
+  prepareJobSteps(index:number):Generator<void,'ready'|'cancelled',void>
   assertCurrent():void
   assertPreparedPublication():void
   preparedResources():readonly TransformedMaskPreparedSource[]
@@ -406,6 +401,7 @@ export interface CanonicalMaskSourceRootPreparation {
   readonly status:'pending'|'committed'|'cancelled'
   readonly jobs:readonly CanonicalMaskSourceJob[]
   prepareJob(index:number):'ready'|'cancelled'
+  prepareJobSteps(index:number):Generator<void,'ready'|'cancelled',void>
   assertCurrent():void
   assertPreparedPublication():void
   preparedResources():readonly TransformedMaskPreparedSource[]
@@ -702,14 +698,15 @@ export class CanonicalMaskSourceBank {
     const preparation:CanonicalMaskSourceRootPreparation=Object.freeze({
       get status(){return state},
       get jobs(){return jobs},
-      prepareJob(index:number){
+      prepareJob(index:number){return drainSourceSteps(this.prepareJobSteps(index))},
+      *prepareJobSteps(index:number){
         assert(this)
         if(state!=='pending'||!integer(index)||index>=jobs.length)throw new RangeError('Invalid root source job')
         if(preparing)throw new Error('Canonical root source job reentered')
         publication=undefined
         const releaseStage=releasePublication;releasePublication=noRelease;releaseStage()
         preparing=true
-        try{return owner.bank.preparePlannedJob(jobs[index],readers.get(jobs[index].key)!,allJobs,companion,
+        try{return yield* owner.bank.preparePlannedJobSteps(jobs[index],readers.get(jobs[index].key)!,allJobs,companion,
           ()=>state==='pending'&&!released&&owner.bank.pending===preparation&&owner.bank.generation===generation,
           noRelease,key=>created.add(key))}finally{preparing=false}
       },
@@ -823,11 +820,12 @@ export class CanonicalMaskSourceBank {
       get status(){return state},
       assertCurrent(){assert(this)},
       assertPreparedPublication(){assert(this);if(!ready())throw new Error('Canonical source extension is not prepared');publicationChecked=true},
-      prepareJob(index:number){
+      prepareJob(index:number){return drainSourceSteps(this.prepareJobSteps(index))},
+      *prepareJobSteps(index:number){
         assert(this)
         if(!integer(index)||index>=newJobs.length)throw new RangeError('Invalid canonical source extension job')
         const job=newJobs[index];publicationChecked=false
-        return owner.bank.preparePlannedJob(job,readers.get(job.key)!,jobs,companion,current,()=>{},key=>created.add(key))
+        return yield* owner.bank.preparePlannedJobSteps(job,readers.get(job.key)!,jobs,companion,current,()=>{},key=>created.add(key))
       },
       preparedResources(){assert(this);extension.assertPreparedPublication();return owner.bank.preparedPlanResources(jobs,readers)},
       publish(){
@@ -917,20 +915,51 @@ export class CanonicalMaskSourceBank {
   }
 
   /** No CPU image bytes retained here: only the existing bounded L8 mip cache. */
-  prepareJob(index: number, signal?: AbortSignal): 'ready' | 'cancelled' {
+  prepareJob(index:number,signal?:AbortSignal):'ready'|'cancelled'{return drainSourceSteps(this.prepareJobSteps(index,signal))}
+  *prepareJobSteps(index: number, signal?: AbortSignal): Generator<void,'ready'|'cancelled',void> {
     if(this.mode!=='full')throw new Error('Root residency bank requires a root preparation')
     if (signal?.aborted) return 'cancelled'
     if (!integer(index) || index >= this.jobs.length) throw new RangeError('Invalid canonical source job')
-    return this.preparePlannedJob(this.jobs[index],this.inputs.get(this.jobs[index].key)!,this.jobs,this.companion,
+    return yield* this.preparePlannedJobSteps(this.jobs[index],this.inputs.get(this.jobs[index].key)!,this.jobs,this.companion,
       ()=>!signal?.aborted,()=>{if(!this.releaseMetadata)this.releaseMetadata=this.cpu.reserve(this.metadataCpuBytes)})
   }
+  private *preparePlannedJobSteps(job:CanonicalMaskSourceJob,input:BankReader,jobs:readonly CanonicalMaskSourceJob[],
+    companion:CanonicalMaskCompanionBudget,current:()=>boolean,ensureMetadata:()=>void,onOwned?:(key:string)=>void):Generator<void,'ready'|'cancelled',void>{
+    if(!current())return 'cancelled'
+    if(!imageJob(job)||this.cache.get(job.key))return this.preparePlannedJob(job,input,jobs,companion,current,ensureMetadata,onOwned)
+    // CPU only. No context storage reservation, GL state, binding or GPU lease
+    // survives a generator yield. Caller closes iterator BEFORE root finalizer.
+    const release=this.cpu.reserve(job.transientCpuBytes+companion.cpuBytes)
+    let failed=false,primary:unknown,result:'ready'|'cancelled'='cancelled'
+    try{
+      const generation=this.generation,original=input.readOriginalCoverage()
+      if(!(original instanceof Uint8Array)||original.length!==input.assetSide*input.assetSide)throw new RangeError('Canonical source asset layout changed')
+      if(!current()||generation!==this.generation)return 'cancelled'
+      const channels=input.material?.readOriginalChannels()
+      if(input.material&&(!Array.isArray(channels)||channels.length!==input.material.channels.length||channels.some(plane=>!(plane instanceof Uint8Array)||plane.length!==original.length)))throw new RangeError('Image material channel layout changed')
+      if(!current()||generation!==this.generation)return 'cancelled'
+      const steps=nativeImageRgbaSteps(job.resource,original,channels)
+      let finished=false
+      try{
+        while(true){
+          if(!current()||generation!==this.generation)return 'cancelled'
+          const next=steps.next()
+          if(next.done){finished=true;result=this.preparePlannedJob(job,input,jobs,companion,current,ensureMetadata,onOwned,next.value,true);break}
+          yield
+        }
+      }finally{if(!finished)steps.return(new Uint8Array(0))}
+    }catch(error){failed=true;primary=error}
+    finally{try{release()}catch(error){if(!failed)throw error}}
+    if(failed)throw primary
+    return result
+  }
   private preparePlannedJob(job:CanonicalMaskSourceJob,input:BankReader,jobs:readonly CanonicalMaskSourceJob[],
-    companion:CanonicalMaskCompanionBudget,current:()=>boolean,ensureMetadata:()=>void,onOwned?:(key:string)=>void):'ready'|'cancelled' {
+    companion:CanonicalMaskCompanionBudget,current:()=>boolean,ensureMetadata:()=>void,onOwned?:(key:string)=>void,preparedRGBA?:Uint8Array,cpuHeld=false):'ready'|'cancelled' {
     if(!current())return 'cancelled'
     const existing = this.cache.get(job.key)
     if (existing && this.cache.resourceBytes(job.key) !== job.bytes) throw new Error('Conflicting canonical source cache entry')
     const extraMetadata = this.releaseMetadata ? 0 : this.metadataCpuBytes
-    if (this.cpu.reservedBytes + extraMetadata + (existing ? 0 : job.transientCpuBytes + companion.cpuBytes) > this.cpu.budgetBytes)
+    if (this.cpu.reservedBytes + extraMetadata + (existing||cpuHeld ? 0 : job.transientCpuBytes + companion.cpuBytes) > this.cpu.budgetBytes)
       throw new RangeError('Canonical source job exceeds the shared CPU budget')
     if(existing){ensureMetadata();return 'ready'}
     const storage=reserveContextStorage(this.gl,job.bytes,'brush-texture-rgba-equivalent')
@@ -939,11 +968,21 @@ export class CanonicalMaskSourceBank {
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}}
     try {
       ensureMetadata()
-      releaseCpu=this.cpu.reserve(job.transientCpuBytes+companion.cpuBytes)
+      if(!cpuHeld)releaseCpu=this.cpu.reserve(job.transientCpuBytes+companion.cpuBytes)
       const resources=jobs.map(({key,bytes})=>({key,bytes}))
       this.cache.protect(resources.map(item=>item.key));releaseGpu=this.cache.lease(resources)
       const generation=this.generation
       result=(()=>{
+      if(preparedRGBA){
+        if(!imageJob(job)||preparedRGBA.length!==job.bytes)throw new Error('Streamed image output layout changed')
+        uploaded=uploadBrushTexture(this.gl,[preparedRGBA],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,{width:job.resource.width,height:job.resource.height},storage)
+        const previous=this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) as WebGLTexture|null
+        restoreSource=()=>this.gl.bindTexture(this.gl.TEXTURE_2D,previous)
+        this.gl.bindTexture(this.gl.TEXTURE_2D,uploaded.texture);this.gl.texParameteri(this.gl.TEXTURE_2D,this.gl.TEXTURE_MIN_FILTER,this.gl.NEAREST);restoreSource();restoreSource=undefined
+        if(!current()||generation!==this.generation)return 'cancelled'
+        this.owned.add(job.key);onOwned?.(job.key);this.cache.putOwned(job.key,uploaded);uploaded=undefined
+        return 'ready'
+      }
       const original = input.readOriginalCoverage()
       if (!(original instanceof Uint8Array) || original.length !== (!imageJob(job)&&job.kind!=='raw-pattern-l8'?1024:input.assetSide * input.assetSide))
         throw new RangeError('Canonical source asset layout changed')
@@ -1055,3 +1094,9 @@ export class CanonicalMaskSourceBank {
 const nativeBankOwnerCheck = CanonicalMaskSourceBank.prototype.assertCurrentOwners
 const nativeCacheGet = BrushTextureCache.prototype.get
 const nativeCacheResourceBytes = BrushTextureCache.prototype.resourceBytes
+
+function drainSourceSteps(steps:Generator<void,'ready'|'cancelled',void>):'ready'|'cancelled'{
+ let finished=false
+ try{while(true){const next=steps.next();if(next.done){finished=true;return next.value}}}
+ finally{if(!finished)steps.return('cancelled')}
+}

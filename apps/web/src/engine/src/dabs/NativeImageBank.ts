@@ -1,6 +1,6 @@
-import {scaleIntegerImageU8} from '../raster/integerImageScale'
+import {scaleIntegerImageSampledU8} from '../raster/integerImageScale'
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
-import { assertNativeImageSourceSize, buildNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
+import { assertNativeImageSourceSize, selectNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
 import { sourcePngPyramid, sourcePngSelectLevel } from '../presets/sourcePngPyramid'
 import type { WorldRect } from '../buffers/tileMath'
 
@@ -59,38 +59,22 @@ export function nativeImageResource(id: TipMaskId, tip: BrushTip, physicalExtent
   return bank[sourcePngSelectLevel({ levels: bank }, requested)]
 }
 
-export function nativeImagePixels(resource: NativeImageResource, original: Uint8Array): Uint8Array {
-  const side = Math.sqrt(original.length), rect = resource.rect
-  if (!Number.isInteger(side) || !Number.isInteger(rect.x) || !Number.isInteger(rect.y) || rect.x < 0 || rect.y < 0 || rect.x + rect.width > side || rect.y + rect.height > side) throw Error('Native image source rectangle exceeds its asset')
-  const cropped = new Uint8Array(rect.width * rect.height)
-  for (let y = 0; y < rect.height; y++) cropped.set(original.subarray((rect.y + y) * side + rect.x, (rect.y + y) * side + rect.x + rect.width), y * rect.width)
-  const plane = buildNativeImageLevel(cropped, rect, Math.max(rect.width, rect.height) * resource.scale)
-  if (plane.width !== resource.width || plane.height !== resource.height) throw Error('Native image resource dimensions changed')
-  return plane.pixels
+export function nativeImagePixels(resource:NativeImageResource,original:Uint8Array):Uint8Array{
+ const side=Math.sqrt(original.length),rect=resource.rect
+ if(!Number.isInteger(side)||!Number.isInteger(rect.x)||!Number.isInteger(rect.y)||rect.x<0||rect.y<0||rect.x+rect.width>side||rect.y+rect.height>side)throw Error('Native image source rectangle exceeds its asset')
+ const selected=selectNativeImageLevel(rect,Math.max(rect.width,rect.height)*resource.scale)
+ if(resource.width!==selected.nativeWidth+2||resource.height!==selected.nativeHeight+2)throw Error('Native image resource dimensions changed')
+ const pixels=new Uint8Array(resource.width*resource.height)
+ drainNativeImageSteps(scaleIntegerImageSampledU8(rect,{width:selected.nativeWidth,height:selected.nativeHeight},(x,y)=>255-original[(rect.y+y)*side+rect.x+x],'simd',(x,y,value)=>{pixels[(y+1)*resource.width+x+1]=255-value}))
+ return pixels
 }
-
-/** Paired material derivative: resize premultiplied channels with the SAME
- * integer scaler, then provide straight RGBA to the existing PM16 transform.
- * Original CAS channels are immutable. Transparent source RGB is discarded. */
-export function nativeImageMaterialPixels(resource:NativeImageResource,alpha:Uint8Array,channels:readonly Uint8Array[]):Uint8Array {
- const side=Math.sqrt(alpha.length),r=resource.rect
- if(!Number.isSafeInteger(side)||channels.length!==1&&channels.length!==3||channels.some(p=>!(p instanceof Uint8Array)||p.length!==alpha.length)||r.x+r.width>side||r.y+r.height>side)throw new RangeError('Image material plane layout changed')
- const croppedAlpha=new Uint8Array(r.width*r.height)
- for(let y=0;y<r.height;y++)croppedAlpha.set(alpha.subarray((r.y+y)*side+r.x,(r.y+y)*side+r.x+r.width),y*r.width)
- const size={width:resource.nativeWidth,height:resource.nativeHeight}
- const a=scaleIntegerImageU8(croppedAlpha,r,size),rgba=new Uint8Array(resource.width*resource.height*4)
- for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++)rgba[((y+1)*resource.width+x+1)*4+3]=a[y*size.width+x]
- for(let c=0;c<channels.length;c++){
-  const original=channels[c],pm=new Uint8Array(croppedAlpha.length)
-  for(let y=0;y<r.height;y++)for(let x=0;x<r.width;x++){const i=y*r.width+x;pm[i]=Math.floor(original[(r.y+y)*side+r.x+x]*croppedAlpha[i]/255+.5)}
-  const level=scaleIntegerImageU8(pm,r,size)
-  for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++){
-   const i=y*size.width+x,byte=a[i]?Math.min(255,Math.floor(level[i]*255/a[i]+.5)):0,offset=((y+1)*resource.width+x+1)*4
-   if(channels.length===1)rgba[offset]=rgba[offset+1]=rgba[offset+2]=byte
-   else rgba[offset+c]=byte
-  }
- }
- return rgba
+export function nativeImageMaterialPixels(resource:NativeImageResource,alpha:Uint8Array,channels:readonly Uint8Array[]):Uint8Array{
+ return drainNativeImageSteps(nativeImageRgbaSteps(resource,alpha,channels))
+}
+function drainNativeImageSteps(steps:Generator<void,Uint8Array,void>):Uint8Array{
+ let finished=false
+ try{while(true){const next=steps.next();if(next.done){finished=true;return next.value}}}
+ finally{if(!finished)steps.return(new Uint8Array(0))}
 }
 
 /** Native mask allocation clips to its outward-aligned transformed original
@@ -131,4 +115,48 @@ export function nativeImageUVShift(resource: NativeImageResource, radiusX: numbe
   const dx = (bx - Math.max(1, bx)) / 2, dy = (by - Math.max(1, by)) / 2
   return [-(c * dx + s * dy) / radiusX * .5 * resource.bounds.width * flipX || 0,
     -(-s * dx + c * dy) / radiusY * .5 * resource.bounds.height * flipY || 0]
+}
+
+
+/** Honest peak for sampled integer generation: two scalar destination planes,
+ * final RGBA destination, and existing conservative axis metadata. Immutable
+ * original CAS storage is retained/charged separately by the root caller. */
+export function nativeImageStreamingTransientBytes(resource:NativeImageResource,paired=false):number{
+ const b=resource.width*resource.height
+ return (paired?6:4)*b+8192
+}
+/** Serial alpha and premultiplied channels; identical old integer arithmetic,
+ * with raw original crop views and no full-size cropped/brightness/PM copies. */
+export function* nativeImageRgbaSteps(resource:NativeImageResource,original:Uint8Array,
+ channels?:readonly Uint8Array[]):Generator<void,Uint8Array,void>{
+ const side=Math.sqrt(original.length),r=resource.rect
+ assertNativeImageSourceSize(r)
+ if(!Number.isSafeInteger(side)||!Number.isSafeInteger(r.x)||!Number.isSafeInteger(r.y)||r.x<0||r.y<0
+  ||r.x+r.width>side||r.y+r.height>side||channels&&(channels.length!==1&&channels.length!==3||channels.some(p=>!(p instanceof Uint8Array)||p.length!==original.length)))throw new RangeError('Streaming image original layout changed')
+ const selected=selectNativeImageLevel(r,Math.max(r.width,r.height)*resource.scale)
+ if(selected.nativeWidth!==resource.nativeWidth||selected.nativeHeight!==resource.nativeHeight||resource.width!==selected.nativeWidth+2||resource.height!==selected.nativeHeight+2)throw new RangeError('Streaming image level metadata changed')
+ const size={width:resource.nativeWidth,height:resource.nativeHeight},read=(x:number,y:number)=>original[(r.y+y)*side+r.x+x]
+ const rgba=new Uint8Array(resource.width*resource.height*4)
+ if(!channels){
+  yield* scaleIntegerImageSampledU8(r,size,(x,y)=>255-read(x,y),'simd',(x,y,value)=>{const at=((y+1)*resource.width+x+1)*4;rgba[at]=rgba[at+1]=rgba[at+2]=value;rgba[at+3]=255})
+  return rgba
+ }
+ const alpha=yield* scaleIntegerImageSampledU8(r,size,read)
+ let ticks=0
+ for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++){
+  const value=alpha[y*size.width+x],at=((y+1)*resource.width+x+1)*4
+  if(channels)rgba[at+3]=value
+  else{rgba[at]=rgba[at+1]=rgba[at+2]=value;rgba[at+3]=255}
+  if(++ticks===64){ticks=0;yield}
+ }
+ if(channels)for(let c=0;c<channels.length;c++){
+  const plane=channels[c]
+  const level=yield* scaleIntegerImageSampledU8(r,size,(x,y)=>Math.floor(plane[(r.y+y)*side+r.x+x]*read(x,y)/255+.5))
+  for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++){
+   const i=y*size.width+x,value=alpha[i]?Math.min(255,Math.floor(level[i]*255/alpha[i]+.5)):0,at=((y+1)*resource.width+x+1)*4
+   if(channels.length===1)rgba[at]=rgba[at+1]=rgba[at+2]=value;else rgba[at+c]=value
+   if(++ticks===64){ticks=0;yield}
+  }
+ }
+ return rgba
 }

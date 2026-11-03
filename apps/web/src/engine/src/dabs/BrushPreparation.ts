@@ -6,6 +6,12 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import type { BrushDescriptor, BrushTip, BrushTextureId, TipMaskId } from '@grafetto/shared'
 
 export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+const preparationSteps=new WeakMap<object,Generator<void,unknown,void>>()
+/** Explicit internal continuation result. Ordinary legacy job return values
+ * remain ignored; only this captured iterator opts into cooperative scheduling. */
+export function brushPreparationSteps(iterator:Generator<void,unknown,void>):object{
+ const token=Object.freeze({});preparationSteps.set(token,iterator);return token
+}
 export interface BrushPreparationOptions { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
 export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'>): string => (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
@@ -209,7 +215,7 @@ export class BrushPreparation {
     } catch (error) { return Promise.reject(error) }
   }
 
-  run(jobs: readonly (() => void)[], options: BrushPreparationOptions, available: () => boolean, key?: string,
+  run(jobs: readonly (() => unknown)[], options: BrushPreparationOptions, available: () => boolean, key?: string,
     finalize?: BrushPreparationFinalizer): Promise<BrushPreparationResult> {
     if (options.signal?.aborted) return Promise.resolve({ status: 'cancelled' })
     const previous = this.active
@@ -223,10 +229,13 @@ export class BrushPreparation {
     // overwrite it and strand its jobs/subscribers; joining adds no cleanup.
     if (this.active) return this.joinReentrant(key, options, available)
     let frame: number | undefined
+    let iterator:Generator<void,unknown,void>|undefined
+    let runningIterator=false,deferredOutcome:BrushPreparationOutcome|undefined
     const run: PreparationRun = {
       key, done: 0, total: jobs.length, finished: false, subscribers: new Set(),
       finish: outcome => {
         if (run.finished) return
+        if(runningIterator){deferredOutcome??=outcome;return}
         this.finishing++
         try {
           run.finished = true
@@ -237,6 +246,7 @@ export class BrushPreparation {
           if (pendingFrame !== undefined) {
             try { cancelAnimationFrame(pendingFrame) } catch (error) { fail(error) }
           }
+          if(iterator){const pending=iterator;iterator=undefined;try{pending.return(undefined)}catch(error){fail(error)}}
           try {
             const view: BrushPreparationOutcome = 'error' in terminal
               ? Object.freeze({ error: terminal.error }) : Object.freeze({ result: Object.freeze({ ...terminal.result }) })
@@ -271,8 +281,25 @@ export class BrushPreparation {
         const ready = available()
         if (run.finished || this.active !== run) return
         if (!ready) { run.finish(cancelledPreparation); return }
-        jobs[run.done]?.()
-        if (run.finished || this.active !== run) return
+        if(!iterator){
+          const value=jobs[run.done]?.()
+          if(value&&typeof value==='object')iterator=preparationSteps.get(value)
+        }
+        if (run.finished || this.active !== run) {iterator?.return(undefined);iterator=undefined;return}
+        if(iterator){
+          const started=performance.now()
+          for(let steps=0;steps<256;steps++){
+            if(!available()){run.finish(cancelledPreparation);return}
+            if(run.finished||this.active!==run)return
+            let next:IteratorResult<void,unknown>
+            runningIterator=true
+            try{next=iterator.next()}catch(error){if(deferredOutcome)deferredOutcome={error};throw error}finally{runningIterator=false;if(deferredOutcome){const outcome=deferredOutcome;deferredOutcome=undefined;run.finish(outcome)}}
+            if(run.finished||this.active!==run)return
+            if(next.done){iterator=undefined;break}
+            if(performance.now()-started>=4)break
+          }
+          if(iterator){frame=requestAnimationFrame(step);return}
+        }
         if (run.done < jobs.length) run.done++
         for (const subscriber of [...run.subscribers]) {
           if (run.finished) break

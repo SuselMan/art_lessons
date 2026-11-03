@@ -1,3 +1,4 @@
+import {brushPreparationSteps} from './src/dabs/BrushPreparation'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient} from '@grafetto/shared'
 import {canonicalPixelDualSourcePreparationContext,canonicalPixelDualSourceMaterialContext,canonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
@@ -1915,7 +1916,7 @@ interface CanonicalEmptyJob {
  previewFailureRevision?:number
  indexedOwner?:CanonicalLayerOwner
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
- bank?:CanonicalMaskSourceBank;sourcePreparation?:CanonicalMaskSourceRootPreparation;fullSource?:CanonicalMaskSourceLease;imageNext:number
+ bank?:CanonicalMaskSourceBank;sourcePreparation?:CanonicalMaskSourceRootPreparation;fullSource?:CanonicalMaskSourceLease;imageNext:number;imageWork?:Generator<void,'ready'|'cancelled',void>
  coordinator?:CanonicalWashLayerCoordinator;publishedOwner?:CanonicalLayerOwner;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
  releaseMetadata?:()=>void
  wake?:number
@@ -7307,6 +7308,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean,keepResources=false):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
     if(c.indexedOwner){const owner=c.indexedOwner;owner.retiring=true;attempt(()=>owner.resourceCandidate?.cancel(lost));const pending=owner.indexedSource;owner.indexedSource=undefined;if(pending)attempt(()=>pending.lease.release(lost));failures.push(...this._retireCanonicalLayerCycle(owner,lost));const release=owner.releaseResources;owner.releaseResources=undefined;if(release)attempt(release);if(!keepResources){const defaults=owner.defaultSourceRoots;owner.defaultSourceRoots=undefined;for(const root of defaults??[]){attempt(()=>root.lease.release(lost));attempt(root.releaseSelectionKey)}const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost))}}
+    const imageWork=c.imageWork;c.imageWork=undefined;if(imageWork)attempt(()=>imageWork.return('cancelled'))
     const preparation=c.sourcePreparation;c.sourcePreparation=undefined;if(preparation)attempt(()=>preparation.cancel(lost))
     const coordinator=c.coordinator;c.coordinator=undefined
     if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical baseline candidate retired'),{lost}));failures.push(...coordinator.cleanupFailures)}
@@ -7362,8 +7364,16 @@ export class PencilEngine implements PencilEngineAPI {
           this._assertCanonicalEmptyCurrent(tx)
         }
         if(c.sourcePreparation&&c.imageNext<c.sourcePreparation.jobs.length){
-          if(c.sourcePreparation.prepareJob(c.imageNext)!=='ready')throw new Error('Canonical baseline image preparation cancelled')
-          c.imageNext++;this._assertCanonicalEmptyCurrent(tx);this._scheduleCanonicalRebuild(job);return
+          c.imageWork??=c.sourcePreparation.prepareJobSteps(c.imageNext)
+          const imageStarted=performance.now()
+          for(let steps=0;steps<256;steps++){
+            this._assertCanonicalEmptyCurrent(tx)
+            const next=c.imageWork.next()
+            this._assertCanonicalEmptyCurrent(tx)
+            if(next.done){c.imageWork=undefined;if(next.value!=='ready')throw new Error('Canonical baseline image preparation cancelled');c.imageNext++;break}
+            if(performance.now()-imageStarted>=4)break
+          }
+          this._scheduleCanonicalRebuild(job);return
         }
       }
       if(c.stage===0){if(c.sourcePreparation){c.sourcePreparation.assertPreparedPublication();c.fullSource=c.sourcePreparation.publish();c.sourcePreparation.finalizeCleanup();c.sourcePreparation=undefined}c.prepass.prepare(plan.mask,c.fullSource?.preparedResources()??[]);c.stage=1}
@@ -7653,7 +7663,11 @@ export class PencilEngine implements PencilEngineAPI {
       if([...union.values()].reduce((n,bytes)=>n+bytes,0)>owner.cache.budgetBytes)throw new RangeError('Canonical resource union exceeds budget')
       releaseUnion=owner.cache.lease([...union].map(([key,bytes])=>({key,bytes})))
       }finally{releaseInventory()}
-    },...Array.from({length:count},(_,i)=>()=>{current();if(extension){if(i<extension.jobs.length&&extension.prepareJob(i)!=='ready')throw new Error('Canonical source preparation cancelled')}else if(bank!.prepareJob(i)!=='ready')throw new Error('Canonical source preparation cancelled')})]
+    },...Array.from({length:count},(_,i)=>()=>brushPreparationSteps((function*(){
+      current()
+      if(extension){if(i>=extension.jobs.length)return;const result=yield* extension.prepareJobSteps(i);current();if(result!=='ready')throw new Error('Canonical source preparation cancelled')}
+      else{const result=yield* bank!.prepareJobSteps(i);current();if(result!=='ready')throw new Error('Canonical source preparation cancelled')}
+    })()))]
     const stage=()=>{
       current();const retained=initializing?[]:owner.prepass.preparedResources(),compositeInventory=initializing?[]:owner.composite.preparedResources()
       const preserveSources=!!growing||!growing&&!initializing&&!this._canonicalWorkspaceIdle(owner)
