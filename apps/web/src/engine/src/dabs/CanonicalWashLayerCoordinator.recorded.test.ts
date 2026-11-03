@@ -45,10 +45,11 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:profile,...masked?{pixelMaskedSource:'pixel-masked-v1' as const}:{}})
  let current=true,replaced=false,layerEpoch=0;let layerObserver:(()=>void)|undefined
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
- const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0,x=0)=>{
+ const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0,x=0,repetitions=1)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
-  const paintedMaterial=painted?buildCanonicalMaterial({masked,entry:{phase:'between'},draws:[{recipe,role:'primary',x,y:0,opacity:.5,flow:.7},...(masked?[{recipe,role:'mask' as const,x,y:0,opacity:.5,flow:.7}]:[])],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:masked?2:1,group},...(ended?[{kind:'gestureEnd' as const,at:masked?2:1}]:[])]},material):undefined
+  const stride=masked?2:1
+  const paintedMaterial=painted?buildCanonicalMaterial({masked,entry:{phase:'between'},draws:Array.from({length:repetitions},()=>[{recipe,role:'primary' as const,x,y:0,opacity:.5,flow:.7},...(masked?[{recipe,role:'mask' as const,x,y:0,opacity:.5,flow:.7}]:[])]).flat(),fences:[...Array.from({length:repetitions},(_,i)=>[{kind:'segmentBegin' as const,at:i*stride,group:group+i},{kind:'primaryEnd' as const,at:i*stride+1,group:group+i},{kind:'segmentEnd' as const,at:(i+1)*stride,group:group+i}]).flat(),...(ended?[{kind:'gestureEnd' as const,at:repetitions*stride}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
   const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{...(masked?{version:2 as const,rasterProfile:browser?B:G}:{version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=(masked?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment)({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
@@ -993,5 +994,33 @@ it('rolls back mixed browser SOURCE2 masked replay staging on CPU headroom and r
   expect(entry.local!.receipts).toHaveLength(receipts+1);expect(entry.local!.state.nextOrdinal).toBe(5);expect(s.coordinator['replay'].size).toBe(replay+1)
   expect(()=>s.coordinator.tryEnqueueLocal(author,next)).toThrow()
  }finally{releasePressure?.();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+})
+
+it('rolls back actual mixed browser masked planning-reserve pressure and drains retained Work before exact retry',()=>{
+ const s=mixedDeferredWashFixture(true,true);let releasePressure:(()=>void)|undefined
+ try{
+  const author=s.localAuthor()
+  for(let i=0;i<4;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1,false,true,i*16,0,16)))).toBe(true)
+  const next=s.local(s.input('author',4,5,false,true,64)),entry=s.coordinator['entries'][0]
+  releasePressure=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-32000)
+  const before=s.cpu.reservedBytes,state=entry.local!.state,receipts=entry.local!.receipts.length,replay=s.coordinator['replay'].size
+  expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(false)
+  expect(s.cpu.reservedBytes).toBe(before);expect(entry.local!.state).toBe(state);expect(entry.local!.receipts).toHaveLength(receipts);expect(s.coordinator['replay'].size).toBe(replay)
+  expect(s.coordinator.queuedFrameCount).toBe(4);expect(s.coordinator.poisoned).toBe(false)
+  // Pressure remains held: only actual queued Work releases its own metadata.
+  for(let i=0;i<1000&&s.coordinator.queuedFrameCount;i++)s.step(true)
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBeLessThan(before)
+  expect(s.coordinator.tryEnqueueLocal(author,next)).toBe(true);expect(entry.local!.state.nextOrdinal).toBe(5);expect(entry.local!.receipts).toHaveLength(receipts+1)
+  expect(()=>s.coordinator.tryEnqueueLocal(author,next)).toThrow()
+ }finally{releasePressure?.();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+})
+it('preserves structured fatal planning pressure when no Work can drain',()=>{
+ const s=mixedDeferredWashFixture(true,true),release=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-32000)
+ try{const before=s.cpu.reservedBytes
+  expect(()=>s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(s.input('author',0,1,false,true)))).toThrow(/reserved=\d+, required=33792, budget=\d+, phase=planning/)
+  expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator.queuedFrameCount).toBe(0)
+ }finally{release();s.close()}
  expect(s.cpu.reservedBytes).toBe(0);expect(s.scratch.bytes.live).toBe(0)
 })

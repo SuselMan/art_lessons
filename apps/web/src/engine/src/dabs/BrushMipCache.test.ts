@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
-import {BrushMipCache} from './BrushMipCache'
+import {BrushMipCache,BrushCpuBudgetExhaustion} from './BrushMipCache'
 import {lightnessMaterialMips} from '../presets/lightnessMaterial'
 describe('bounded paired material derivatives',()=>{
   it('reuses exact immutable mips across GPU evictions and separates alpha/gray keys',()=>{
@@ -66,4 +66,30 @@ it('rechecks the post-reclaim total when callbacks free too little and keeps der
  cache.get('fits',()=>[new Uint8Array(5)]);expect(cache.bytes).toBe(5)
  cache.get('notRetained',()=>[new Uint8Array(6)]);expect(cache.bytes).toBe(5)
  b();expect(cache.reservedBytes).toBe(0);cache.clear();expect(cache.bytes).toBe(0)
+})
+
+it('reports only final allocator exhaustion with exact post-reclaim numbers',()=>{
+ const cache=new BrushMipCache(10),a=cache.reserve(3),b=cache.reserve(5);cache.registerOptionalReclaim(a)
+ let error:unknown;try{cache.reserve(6)}catch(value){error=value}
+ expect(error).toBeInstanceOf(BrushCpuBudgetExhaustion)
+ if(!(error instanceof BrushCpuBudgetExhaustion))throw Error('Allocator exhaustion required')
+ expect([error.reservedBytes,error.requestedBytes,error.budgetBytes]).toEqual([5,6,10]);expect(cache.reservedBytes).toBe(5)
+ b();expect(cache.reservedBytes).toBe(0)
+})
+it('never labels a generic RangeError from optional reclaim as allocator exhaustion',()=>{
+ const cache=new BrushMipCache(10),release=cache.reserve(9),failure=new RangeError('CPU brush workspace exceeds its budget')
+ cache.registerOptionalReclaim(()=>{throw failure})
+ let error:unknown;try{cache.reserve(2)}catch(value){error=value}
+ expect(error).toBe(failure);expect(error).not.toBeInstanceOf(BrushCpuBudgetExhaustion);expect(cache.reservedBytes).toBe(9)
+ release();expect(cache.reservedBytes).toBe(0)
+})
+
+it('keeps a nested typed exhaustion thrown by reclaim separate from this admission result',()=>{
+ const cache=new BrushMipCache(10),release=cache.reserve(9),nested=new BrushMipCache(1)
+ let failure:unknown;try{nested.reserve(2)}catch(error){failure=error}
+ expect(failure).toBeInstanceOf(BrushCpuBudgetExhaustion)
+ cache.registerOptionalReclaim(()=>{throw failure})
+ let actual:unknown;try{cache.reserveAdmission(2)}catch(error){actual=error}
+ expect(actual).toBe(failure);expect(cache.reservedBytes).toBe(9)
+ release();expect(cache.reservedBytes).toBe(0)
 })

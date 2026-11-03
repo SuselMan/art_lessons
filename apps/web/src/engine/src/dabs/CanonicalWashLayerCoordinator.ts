@@ -1,3 +1,4 @@
+import {BrushCpuBudgetExhaustion} from './BrushMipCache'
 import {canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,decodeCanonicalStrokeFrame,CANONICAL_SOURCE_MATERIAL_PROFILE} from '@grafetto/shared'
 import {canonicalStandaloneStrokeSnapshotV8,decodeCanonicalPrimaryGrainStrokeFrame,canonicalPrimaryGrainMaterialContext,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalStandaloneStrokeSnapshotV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
 import {CANONICAL_MATERIAL_LIMITS,decodeCanonicalTexturedAutoStrokeFrame,canonicalTexturedAutoMaterialContext,canonicalStrokeSnapshotV7,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV7,type CanonicalMaterialFrameV7} from '@grafetto/shared'
@@ -803,7 +804,12 @@ export class CanonicalWashLayerCoordinator {
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
     if(!buildup){
-    if(this.options.mixedReplay7)releasePlanning=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+64*512)
+    if(this.options.mixedReplay7){
+      const cpu=this.options.prepass.brushGlBatchInfo().cpu
+      const reservation=cpu.reserveAdmission(1024+64*512)
+      if(reservation instanceof BrushCpuBudgetExhaustion)throw new CanonicalFrameCpuPressure(reservation.reservedBytes,reservation.requestedBytes,reservation.budgetBytes,'planning')
+      releasePlanning=reservation
+    }
     fresh=new Map<string,Position>()
     for (const d of input.frame.draws) {
       const r = input.frame.definitions[d.definition]

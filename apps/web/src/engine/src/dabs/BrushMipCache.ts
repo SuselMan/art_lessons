@@ -1,3 +1,14 @@
+/** Only the allocator's final budget check; callback failures remain untouched. */
+export class BrushCpuBudgetExhaustion extends RangeError {
+  readonly reservedBytes:number
+  readonly requestedBytes:number
+  readonly budgetBytes:number
+  constructor(reservedBytes:number,requestedBytes:number,budgetBytes:number){
+    super(`CPU brush workspace exceeds its budget: reserved=${reservedBytes}, requested=${requestedBytes}, budget=${budgetBytes}`)
+    this.name='BrushCpuBudgetExhaustion';this.reservedBytes=reservedBytes;this.requestedBytes=requestedBytes;this.budgetBytes=budgetBytes
+  }
+}
+
 /** Byte-bounded immutable CPU derivatives, separate from GPU residency.
  * Re-uploading an evicted texture must not rebuild its premultiplied pyramid. */
 export class BrushMipCache {
@@ -20,6 +31,12 @@ export class BrushMipCache {
   get reservedBytes():number{return [...this.reservations.values()].reduce((a,b)=>a+b,0)}
   /** Retained/workspace peak charged before allocation, sharing the old cap. */
   reserve(bytes:number):()=>void {
+    const reservation=this.reserveAdmission(bytes)
+    if(reservation instanceof BrushCpuBudgetExhaustion)throw reservation
+    return reservation
+  }
+  /** A failed final check is data; exceptions from reclaim callbacks still throw. */
+  reserveAdmission(bytes:number):(()=>void)|BrushCpuBudgetExhaustion {
     if(!Number.isSafeInteger(bytes)||bytes<0)throw new RangeError('CPU brush workspace exceeds its budget')
     if(this.reclaiming)throw new Error('Cannot reserve during CPU optional reclaim')
     let reserved=this.reservedBytes
@@ -37,7 +54,7 @@ export class BrushMipCache {
       if(failed)throw primary
       reserved=this.reservedBytes
     }
-    if(reserved+bytes>this.targetBytes)throw new RangeError('CPU brush workspace exceeds its budget')
+    if(reserved+bytes>this.targetBytes)return new BrushCpuBudgetExhaustion(reserved,bytes,this.targetBytes)
     const token=Symbol();this.reservations.set(token,bytes);this.trim(this.targetBytes-(reserved+bytes))
     return ()=>{this.reservations.delete(token)}
   }

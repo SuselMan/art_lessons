@@ -30,9 +30,10 @@ export class CanonicalFrameCpuPressure extends RangeError {
   readonly reservedBytes:number
   readonly requiredHeadroomBytes:number
   readonly budgetBytes:number
-  constructor(reservedBytes:number,requiredHeadroomBytes:number,budgetBytes:number){
-    super(`Canonical queue exceeds shared CPU work headroom: reserved=${reservedBytes}, required=${requiredHeadroomBytes}, budget=${budgetBytes}`)
-    this.name='CanonicalFrameCpuPressure';this.reservedBytes=reservedBytes;this.requiredHeadroomBytes=requiredHeadroomBytes;this.budgetBytes=budgetBytes
+  readonly phase:'work-headroom'|'planning'
+  constructor(reservedBytes:number,requiredHeadroomBytes:number,budgetBytes:number,phase:'work-headroom'|'planning'='work-headroom'){
+    super(`Canonical queue exceeds shared CPU work headroom: reserved=${reservedBytes}, required=${requiredHeadroomBytes}, budget=${budgetBytes}, phase=${phase}`)
+    this.phase=phase;this.name='CanonicalFrameCpuPressure';this.reservedBytes=reservedBytes;this.requiredHeadroomBytes=requiredHeadroomBytes;this.budgetBytes=budgetBytes
   }
 }
 
