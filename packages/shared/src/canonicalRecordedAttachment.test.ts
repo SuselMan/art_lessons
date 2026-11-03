@@ -1,3 +1,6 @@
+import {canonicalPrimaryGrainMaterialContext,buildCanonicalPrimaryGrainMaterial} from './canonicalMaterialCodec.js'
+import {canonicalStandaloneStrokeSnapshotV8} from './canonicalPrimaryGrainStandalone.js'
+import {prepareCanonicalRecordedAttachmentV8,decodeCanonicalRecordedSnapshotFrameV8,decodeCanonicalRecordedSnapshotFrame,type CanonicalRecordedAttachmentV8} from './canonicalRecordedAttachment.js'
 import {verifyCanonicalFullHistoryBase} from './canonicalFullHistoryBase.js'
 import {verifyCanonicalEmptyHistoryBase} from './canonicalEmptyHistoryBase.js'
 import {expect,it,vi} from 'vitest'
@@ -208,4 +211,64 @@ it('rejects explicit3 raster profile accessors before invoking snapshot user cod
  Object.defineProperty(a.capabilities[0].snapshot,'rasterProfile',{get(){calls++;return f.snapshot.rasterProfile}})
  expect(()=>prepareCanonicalRecordedAttachment(a,f.operations,f.scope)).toThrow()
  expect(calls).toBe(0)
+})
+
+function mixedGrain8Fixture(){
+ const legacy=fixture(),G=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ const primary={id:'asset:'+'11'.repeat(32),size:8,x:0,y:0,width:8,height:8},pattern={id:'asset:'+'22'.repeat(32),size:512,x:0,y:0,width:307,height:307}
+ const material=canonicalPrimaryGrainMaterialContext({version:8,assets:[primary,pattern],primarySource:{kind:'image',asset:primary.id,brushScale:1,brushAngle:0,descriptorId:'structural-image',descriptorVersion:1,descriptorSha256:'d'.repeat(64)},primaryTexture:{kind:'canvasTexture',asset:pattern.id,law:'hard-multiply-u8-native-v1',width:307,height:307,periodX:307,periodY:307,phase:{kind:'resolved-stroke-phase-v1',x:306,y:1},strength:'recorded-grain-v1'},budget:{workUnits:64000000,outputBytes:16000000,drawPixels:16000000}})
+ const snapshot=canonicalStandaloneStrokeSnapshotV8({layerId:'L',brush:'brush:structural-image@1',strokeId:'image-stroke',boardEpoch:2,descriptorSha256:'d'.repeat(64),rasterProfile:G,pigmentRgb8:[9,8,7],composition:{mode:'buildup',alphaDarken:'hard',outerResourceOpacity:.375,outerBlend:'over'},assets:[primary,pattern],materialVersion:8,material},2,G)
+ const recipe={kind:'image' as const,asset:primary.id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:8,mirrorH:false,mirrorV:false}
+ const built=buildCanonicalPrimaryGrainMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.75,flow:.7,grainStrengthU8:77}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},material)
+ const op:CanonicalStrokeOperation&{readonly seq:number}={id:'image-op',userId:'image-author',timestamp:1,seq:4,type:'canonical_stroke',layerId:'L',frame:{version:2,rasterProfile:G,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:built.packed,texturePhase:material.primaryTexture.phase}}
+ const attachment:CanonicalRecordedAttachmentV8={...legacy.attachment,capabilities:[...legacy.attachment.capabilities,{originalUserId:op.userId,snapshot}],bindings:[...legacy.attachment.bindings,{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:1}]}
+ return{legacy,attachment,op,snapshot,operations:[legacy.op,op],expected:{roomId:'room',boardEpoch:2,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,G]}}
+}
+it('named8 prepares mixed legacy2 and original image8 within SAME version1 batch, preserving normalized identity and byte S',()=>{
+ const f=mixedGrain8Fixture(),before=JSON.stringify(f.attachment),result=prepareCanonicalRecordedAttachmentV8(f.attachment,f.operations,f.expected)
+ expect(result).toHaveLength(2);expect(result[0].read?.capability.snapshot.materialVersion).toBe(2);const cap=result[1].read?.capability
+ expect(cap?.snapshot.materialVersion).toBe(8);expect(cap?.originalUserId).toBe('image-author');expect(result[1].read?.operationId).toBe('image-op');expect(Object.isFrozen(cap?.snapshot)).toBe(true)
+ const decoded=decodeCanonicalRecordedSnapshotFrameV8(f.op.frame,f.snapshot,0)
+ if(decoded.frame.profile!=='canonical-primary-grain-material-v8')throw Error('wrong frame')
+ expect(decoded.frame.draws[0].grainStrengthU8).toBe(77);expect(decoded.envelope.composition.outerResourceOpacity).toBe(.375)
+ expect(JSON.stringify(f.attachment)).toBe(before);expect(f.attachment.version).toBe(1)
+})
+it('legacy preparation and decoder remain closed to8 while named8 preserves all-legacy output',()=>{
+ const f=mixedGrain8Fixture();expect(()=>prepareCanonicalRecordedAttachment(f.attachment,f.operations,f.expected)).toThrow()
+ expect(()=>Reflect.apply(decodeCanonicalRecordedSnapshotFrame,null,[f.op.frame,f.snapshot,0])).toThrow()
+ expect(prepareCanonicalRecordedAttachmentV8(f.legacy.attachment,[f.legacy.op],f.legacy.expected)).toEqual(prepareCanonicalRecordedAttachment(f.legacy.attachment,[f.legacy.op],f.legacy.expected))
+})
+it.each(['phase','sourceSHA','assetsOrder','crop','user','layer','bindingSeq','duplicateBinding','unused','firstUse','descending','materialBudget']as const)('named8 atomically rejects mixed-batch %s',kind=>{
+ const f=mixedGrain8Fixture(),a=structuredClone(f.attachment),ops=structuredClone(f.operations),s=a.capabilities[1].snapshot
+ if(s.materialVersion!==8)throw Error('fixture')
+ if(kind==='phase')Object.assign(ops[1].frame,{texturePhase:{kind:'resolved-stroke-phase-v1',x:0,y:1}})
+ if(kind==='sourceSHA')Object.assign(s,{descriptorSha256:'e'.repeat(64)})
+ if(kind==='assetsOrder')Object.assign(s,{assets:[s.assets[1],s.assets[0]]})
+ if(kind==='crop')Object.assign(s.assets[1],{width:512})
+ if(kind==='user')Object.assign(a.bindings[1],{originalUserId:'wrong'})
+ if(kind==='layer')Object.assign(ops[1],{layerId:'wrong'})
+ if(kind==='bindingSeq')Object.assign(a.bindings[1],{sequence:99})
+ if(kind==='duplicateBinding')Object.assign(a,{bindings:[...a.bindings,a.bindings[1]]})
+ if(kind==='unused')Object.assign(a,{capabilities:[...a.capabilities,{originalUserId:'unused',snapshot:{...s,strokeId:'unused'}}]})
+ if(kind==='firstUse')Object.assign(a,{capabilities:[a.capabilities[1],a.capabilities[0]],bindings:a.bindings.map((b,i)=>({...b,capability:1-i}))})
+ if(kind==='descending')ops.reverse()
+ if(kind==='materialBudget')Object.assign(s.material,{budget:{...s.material.budget,workUnits:0}})
+ expect(()=>prepareCanonicalRecordedAttachmentV8(a,ops,f.expected)).toThrow()
+})
+it('named8 refuses duplicate gesture capabilities and malformed/accessor source/phase before invoking getters',()=>{
+ const f=mixedGrain8Fixture(),getter=vi.fn(()=>306)
+ const a=structuredClone(f.attachment),s=a.capabilities[1].snapshot;if(s.materialVersion!==8)throw Error('fixture')
+ Object.defineProperty(s.material.primaryTexture.phase,'x',{get:getter})
+ expect(()=>prepareCanonicalRecordedAttachmentV8(a,f.operations,f.expected)).toThrow();expect(getter).not.toHaveBeenCalled()
+ const duplicate={...f.attachment,capabilities:[...f.attachment.capabilities,f.attachment.capabilities[1]]}
+ expect(()=>prepareCanonicalRecordedAttachmentV8(duplicate,f.operations,f.expected)).toThrow()
+ const raw=structuredClone(f.attachment);Object.defineProperty(raw.capabilities[1].snapshot,'materialVersion',{get:getter})
+ expect(()=>prepareCanonicalRecordedAttachmentV8(raw,f.operations,f.expected)).toThrow();expect(getter).not.toHaveBeenCalled()
+})
+it('named8 retains existing receiver profile/count limits without walking unknown oversize data',()=>{
+ const f=mixedGrain8Fixture()
+ expect(()=>prepareCanonicalRecordedAttachmentV8(f.attachment,f.operations,f.legacy.expected)).toThrow()
+ expect(()=>prepareCanonicalRecordedAttachmentV8({...f.attachment,capabilities:Array(CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities+1).fill(null)},f.operations,f.expected)).toThrow()
+ expect(()=>prepareCanonicalRecordedAttachmentV8({...f.attachment,bindings:Array(CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings+1).fill(null)},f.operations,f.expected)).toThrow()
+ expect(()=>prepareCanonicalRecordedAttachmentV8({...f.attachment,extra:[]},f.operations,f.expected)).toThrow()
 })
