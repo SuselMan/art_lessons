@@ -1685,7 +1685,16 @@ function canonicalLayerMaskCapacity(pin:Pick<CanonicalAutoSource|CanonicalSoftAu
  const limits={width:Math.ceil(geometry.characteristicSize[0])+1,height:Math.ceil(geometry.characteristicSize[1])+1,slots:1}
  transformedMaskPrepassBudget(limits);return limits
 }
+/** One already owned finite page; scheduling references only, not a queue. */
+interface CanonicalFollowPresentationBorrow {
+ readonly read:CanonicalIndexedRead;readonly page:CanonicalIndexedPage;readonly cut:CanonicalAcceptedCut
+ readonly generation:number;readonly releaseMetadata:()=>void
+ coordinator?:CanonicalWashLayerCoordinator;baselinePresentationRevision:number
+ previous?:CanonicalRecordedInput;next?:CanonicalRecordedInput;decodedEligible:boolean
+ active:boolean;released:boolean
+}
 interface CanonicalLayerOwner {
+ followPresentation?:CanonicalFollowPresentationBorrow
  /** Internal resource experiment only. No room/source author permission. */
  previewPublication?:true
  previewFailureRevision?:number
@@ -6668,6 +6677,13 @@ export class PencilEngine implements PencilEngineAPI {
     const current=()=>{if(read&&!finished)read.assertCurrent(read);cut.assertCurrent(cut);this._assertCanonicalLayerCurrent(owner);if(this._log.canonicalAcceptedCut!==cut||owner.indexedCut!==cut)throw new Error('Canonical continuation cut changed')}
     let failed=false
     let page:CanonicalIndexedPage|undefined,complete=false,after=cut.throughSeq,carry:Map<string,CanonicalIndexedActiveRoot>|undefined
+    let borrow:CanonicalFollowPresentationBorrow|undefined
+    const clearPair=()=>{if(borrow){borrow.previous=undefined;borrow.next=undefined;borrow.decodedEligible=false}}
+    const clearBorrow=()=>{
+      const held=borrow;borrow=undefined
+      if(held)this._dropCanonicalFollowPresentation(owner,held)
+      if(this._canonicalLayerOwner===owner&&!owner.failed&&!owner.retiring&&owner.coordinator?.pending)this._wakeCanonicalLayer(owner)
+    }
     try{
       current()
       read=typeof source==='function'?await source():source
@@ -6677,7 +6693,21 @@ export class PencilEngine implements PencilEngineAPI {
         page=await read.nextPage();current();page.assertCurrent(page)
         const inputs=page.inputs()
         if(page.afterSeq!==after||page.nextAfterSeq-after!==inputs.length||page.nextAfterSeq>read.throughSeq)throw new Error('Canonical continuation page gap')
+        // Optional scheduling metadata must not reclaim or deny ordinary FOLLOW.
+        // The page is already owned; single-input pages cannot defer anything.
+        if(inputs.length>=2&&this._brushMipCache.reservedBytes+512<=this._brushMipCache.budgetBytes){
+          let releaseBorrow:(()=>void)|undefined=this._brushMipCache.reserve(512)
+          try{
+            current();page.assertCurrent(page)
+            if(owner.followPresentation)throw Error('Canonical FOLLOW page scheduling scope already held')
+            borrow={read,page,cut,generation:owner.generation,releaseMetadata:releaseBorrow,coordinator:owner.coordinator,
+              baselinePresentationRevision:owner.coordinator?.completedPresentationRevision??-1,decodedEligible:false,active:true,released:false}
+            owner.followPresentation=borrow;releaseBorrow=undefined
+          }finally{releaseBorrow?.()}
+        }
+        let previous:CanonicalRecordedInput|undefined
         for(const input of inputs){
+          clearPair()
           input.delivery.assertCurrent(input);current()
           if(input.delivery.lifetime!==cut.lifetime||input.operation.seq!==after+1)throw new Error('Canonical continuation original gap')
           const retained=after-cut.throughSeq
@@ -6688,23 +6718,27 @@ export class PencilEngine implements PencilEngineAPI {
             // Both are genuine original deliveries. This exact prefix was
             // already appended/deposited before the canceled finite cursor.
             // Reverification advances only this cursor, never journal/pixels.
-            after++;continue
+            after++;previous=input;continue
           }
           if(input.operation.type==='operation_undo'||input.operation.type==='operation_redo'){
             const callback=this._onCanonicalIndexedMetadata
             if(!callback)throw new Error('Canonical indexed metadata handoff unavailable')
-            page.release();page=undefined;await read.cancel();input.delivery.assertCurrent(input);cut.assertCurrent(cut);this._assertCanonicalLayerCurrent(owner);if(this._log.canonicalAcceptedCut!==cut||owner.indexedCut!==cut)throw new Error('Canonical metadata handoff cut changed');callback(input);return 'metadata'
+            clearBorrow();page.release();page=undefined;await read.cancel();input.delivery.assertCurrent(input);cut.assertCurrent(cut);this._assertCanonicalLayerCurrent(owner);if(this._log.canonicalAcceptedCut!==cut||owner.indexedCut!==cut)throw new Error('Canonical metadata handoff cut changed');callback(input);return 'metadata'
           }
+          if(borrow&&previous){borrow.previous=previous;borrow.next=input}
           let preparationFailed=false
           try{
             const result=await this.prepareOriginalRecorded(input);current()
             if(result.status!=='ready')throw new Error('Canonical continuation preparation cancelled')
-            this.appendOriginalRecorded(input);after++
+            clearPair() // No hint survives END/close or admission callbacks.
+            this.appendOriginalRecorded(input);after++;previous=input
+            if(borrow&&!borrow.coordinator&&owner.coordinator){borrow.coordinator=owner.coordinator;borrow.baselinePresentationRevision=owner.coordinator.completedPresentationRevision}
           }catch(error){preparationFailed=true;throw error}finally{
             const pending=owner.indexedSource
             if(pending?.input===input){owner.indexedSource=undefined;try{pending.lease.release(this._contextLost||owner.generation!==this._physicalGeneration)}catch(error){if(!preparationFailed)throw error}}
           }
         }
+        clearBorrow() // One ordinary flush before another page/terminal cut.
         if(page.terminal){
           if(inputs.length||after!==read.throughSeq)throw new Error('Canonical continuation terminal incomplete')
           const next=read.finish(page);finished=true;next.assertCurrent(next);current()
@@ -6732,6 +6766,7 @@ export class PencilEngine implements PencilEngineAPI {
     }catch(error){failed=true;throw error}finally{
       let cleanupFailed=false,cleanupError:unknown
       const attempt=(action:()=>void)=>{try{action()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}}
+      attempt(clearBorrow)
       attempt(()=>page?.release())
       try{if(!complete)await read?.cancel()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}
       owner.indexedFollowing=false
@@ -7166,6 +7201,44 @@ export class PencilEngine implements PencilEngineAPI {
    * full original history cut, independently of this author-lifetime guard. */
   hasActiveCanonicalAuthor():boolean {return this.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION&&this._canonicalSourceLifetimeHolds>0}
 
+  private _dropCanonicalFollowPresentation(owner:CanonicalLayerOwner,borrow=owner.followPresentation):void {
+    if(!borrow)return
+    if(owner.followPresentation===borrow)owner.followPresentation=undefined
+    borrow.active=false;borrow.previous=undefined;borrow.next=undefined;borrow.decodedEligible=false
+    if(!borrow.released){borrow.released=true;borrow.releaseMetadata()}
+  }
+  private _followPresentationOwned(owner:CanonicalLayerOwner,borrow:CanonicalFollowPresentationBorrow):boolean {
+    return this._canonicalLayerOwner===owner&&owner.followPresentation===borrow&&borrow.active&&!borrow.released
+      &&owner.indexedFollowing===true&&owner.indexedCut===borrow.cut&&this._log.canonicalAcceptedCut===borrow.cut
+      &&owner.generation===borrow.generation&&owner.generation===this._physicalGeneration&&!owner.failed&&!owner.retiring
+      &&!this._destroyed&&!this._contextLost&&!this._canonicalSourceLifetimeHolds&&!this._authorInput.pending&&!this._authorProducer
+      &&!owner.coordinator?.hasPendingLocal
+  }
+  private _noteCanonicalFollowDecoded(owner:CanonicalLayerOwner,input:CanonicalRecordedInput,decoded:ReturnType<typeof decodeCanonicalRecordedSnapshotFrame>['frame']):void {
+    const borrow=owner.followPresentation
+    if(!borrow||borrow.next!==input||!borrow.previous||!this._followPresentationOwned(owner,borrow))return
+    const previous=borrow.previous
+    borrow.read.assertCurrent(borrow.read);borrow.page.assertCurrent(borrow.page)
+    previous.delivery.assertCurrent(previous);input.delivery.assertCurrent(input)
+    this._assertCanonicalLayerCurrent(owner)
+    if(!this._followPresentationOwned(owner,borrow)||borrow.previous!==previous||borrow.next!==input)return
+    if(decoded.fences.some(fence=>fence.kind==='gestureEnd')){
+      borrow.previous=undefined;borrow.next=undefined;borrow.decodedEligible=false
+    }else borrow.decodedEligible=true
+  }
+  private _deferCanonicalFollowPresentation(owner:CanonicalLayerOwner,coordinator:CanonicalWashLayerCoordinator):CanonicalFollowPresentationBorrow|undefined {
+    const borrow=owner.followPresentation
+    if(!borrow||!borrow.decodedEligible||!borrow.previous||!borrow.next||borrow.coordinator!==coordinator
+      ||coordinator.completedPresentationRevision<=borrow.baselinePresentationRevision||!this._followPresentationOwned(owner,borrow))return
+    const previous=borrow.previous,next=borrow.next
+    borrow.read.assertCurrent(borrow.read);borrow.page.assertCurrent(borrow.page)
+    previous.delivery.assertCurrent(previous);next.delivery.assertCurrent(next)
+    this._assertCanonicalLayerCurrent(owner)
+    if(!this._followPresentationOwned(owner,borrow)||borrow.previous!==previous||borrow.next!==next||!borrow.decodedEligible)return
+    const eligible=coordinator.canDeferRecordedPresentation(previous,next)
+    return eligible&&this._followPresentationOwned(owner,borrow)&&borrow.previous===previous&&borrow.next===next?borrow:undefined
+  }
+
   private _notifyCanonicalRecordedCapacity(owner:CanonicalLayerOwner):void {
     const pending=owner.recordedCapacity;owner.recordedCapacity=undefined
     if(pending)try{pending.release()}finally{pending.resolve()}
@@ -7220,6 +7293,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!capacity)throw new TypeError('Unsupported canonical resource source')
     for(const recipe of decoded.definitions)if(pin){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,pin.primarySource,pin.assets,capacity)}else if(snapshot.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,snapshot.material,capacity)
     else if(source.kind!=='image'){if(snapshot.materialVersion===2&&source.kind==='defaultAuto'&&canonicalPlainTiltReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainTiltSource',owner.plan.profile))assertCanonicalPlainAutoGeometryRecipeCapacity(recipe,source,capacity);else assertCanonicalAutoRecipeCapacity(recipe,source,capacity)}
+    this._noteCanonicalFollowDecoded(owner,input,decoded)
     while(!owner.prepared&&owner.resourceCandidate){
       await this._brushPreparation.whenIdle();current()
       if(options.signal?.aborted)return{status:'cancelled'}
@@ -7747,8 +7821,11 @@ export class PencilEngine implements PencilEngineAPI {
     }
     try{
       if(!current())return
-      const preview=coordinator!.advance();if(!current())return
+      const deferred=this._deferCanonicalFollowPresentation(owner,coordinator)
+      if(!owned())return
+      const preview=coordinator!.advance(deferred?{deferPresentation:true}:undefined);if(!current())return
       if(preview?.kind==='preview-ready'){
+        if(preview.ticket.disposition==='closed-handoff'){this._dropCanonicalFollowPresentation(owner);if(!current())return}
         this._publishCanonicalPreview(owner,preview.ticket)
         if(preview.ticket.disposition==='closed-handoff'){
           // Old coordinator/job are detached. Validate SAME successor owner/P,
@@ -7770,6 +7847,13 @@ export class PencilEngine implements PencilEngineAPI {
         this._invalidateSplitCache();this._displayIfNotSuspended()
         if(!current()||!notify())return
         this._scheduleCanonicalRebuild(job);return
+      }
+      if(preview===undefined&&deferred&&this._followPresentationOwned(owner,deferred)&&!coordinator.executionPending){
+        // Dirty alone must not spin while the ordered input owns this page.
+        // Park BEFORE notification so a genuine callback append preserves wake.
+        owner.orderParked=true
+        if(!current()||!notify())return
+        return
       }
       if(preview?.kind==='preview-failed'||preview?.kind==='preview-idle'){
         owner.orderParked=true
@@ -7829,6 +7913,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(owner.wake!==undefined){const wake=owner.wake;owner.wake=undefined;attempt(()=>this._authorTasks.unschedule(wake))}
     if(owner.job&&this._rebuildJobs.get(INITIAL_LAYER_ID)===owner.job)this._rebuildJobs.delete(INITIAL_LAYER_ID)
     owner.job=undefined
+    attempt(()=>this._dropCanonicalFollowPresentation(owner))
     const resourceCandidate=owner.resourceCandidate;owner.resourceCandidate=undefined;attempt(()=>resourceCandidate?.cancel(lost))
     const releaseResources=owner.releaseResources;owner.releaseResources=undefined;attempt(()=>releaseResources?.())
     errors.push(...this._retireCanonicalLayerCycle(owner,lost))

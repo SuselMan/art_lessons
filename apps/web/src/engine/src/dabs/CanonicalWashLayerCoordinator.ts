@@ -127,6 +127,9 @@ interface RecordedCloseReceipt {
 interface Entry {
   readonly mode:CanonicalStrokeComposition['mode']
   depositedNextOrdinal:number
+  /** Two bounded scalars in the existing Entry1024/group768 metadata model. */
+  firstRawPaintNextOrdinal?:number
+  publishedPaintedNextOrdinal?:number
   washInFlight?:true
   replaySource?:CanonicalReplaySource7
   image?:Readonly<{bank:CanonicalMaskSourceReader;generation:number}>
@@ -361,6 +364,7 @@ export class CanonicalWashLayerCoordinator {
     this.forSeed(grid,(x,y)=>{const k=`${x}:${y}`;if(!positions.has(k))positions.set(k,{x,y,width:this.stable.tileWidth,height:this.stable.tileHeight,presentation:{}})})
   }
   get mixedReplayEnabled():boolean {return this.options.mixedReplay7===true}
+  private publishedNativePaintOrder=-1
   private previewRecapturePending():boolean {
     return !!this.options.mixedReplay7&&!this.closed&&!this.failed
       &&this.entries.length>0&&this.replayCount>0&&this.revision>this.completedPresentation
@@ -415,6 +419,38 @@ export class CanonicalWashLayerCoordinator {
     if(close){if(!entry?.recorded)throw new Error('Recorded close owner missing');return this.options.mixedReplay7||this.queue.includes(entry)||this.queue.length<8}
     if(entry?.local)return true // Original promotion adds no GPU frame.
     return this.queue.length<8&&(!entry||entry.executor.pendingFrameCount<8)
+  }
+
+  /** Scheduling only for a finite original FOLLOW page. No frame admission,
+   * source/ready grant, body decode or retained checkpoint is created. */
+  canDeferRecordedPresentation(previous:CanonicalRecordedInput,next:CanonicalRecordedInput):boolean {
+    this.assertOpen();this.busy=true
+    const generation=this.replayGeneration,order=this.replayOrderRevision,revision=this.revision
+    try{
+      previous.delivery.assertCurrent(previous);next.delivery.assertCurrent(next)
+      this.assertRecordedCurrent();this.assertLayers()
+      if(this.closed||this.failed||!this.busy||generation!==this.replayGeneration||order!==this.replayOrderRevision||revision!==this.revision)return false
+      if(!this.options.mixedReplay7||this.publishedNativePaintOrder!==order||this.hasPendingLocal)return false
+      if(this.entries.some(entry=>!entry.metadataRetired&&!entry.metadataReleased&&entry.firstRawPaintNextOrdinal!==undefined
+        &&(entry.publishedPaintedNextOrdinal===undefined||entry.firstRawPaintNextOrdinal>entry.publishedPaintedNextOrdinal)))return false
+      const a=previous.operation,b=next.operation
+      if(a.type!=='canonical_stroke'||b.type!=='canonical_stroke'||!previous.read||!next.read
+        ||a.userId!==b.userId||a.layerId!==this.options.layerId||a.layerId!==b.layerId
+        ||a.frame.strokeId!==b.frame.strokeId||b.seq!==a.seq!+1||b.frame.frameOrdinal!==a.frame.frameOrdinal+1
+        ||previous.delivery.lifetime!==next.delivery.lifetime)return false
+      const scope=previous.delivery.lifetime.assertCurrent()
+      if(this.closed||this.failed||!this.busy||generation!==this.replayGeneration||order!==this.replayOrderRevision||revision!==this.revision)return false
+      const id=JSON.stringify([scope.roomId,scope.boardEpoch,a.userId,a.frame.strokeId]),entry=this.entries.find(e=>e.id===id),prefix=entry?.recorded
+      if(!entry||entry.mode!=='wash'||!prefix||entry.metadataRetired||entry.metadataReleased||entry.committed||entry.ownership
+        ||prefix.lifetime!==previous.delivery.lifetime||prefix.scope!==scope||prefix.state.ended||prefix.sealed
+        ||prefix.lastOperationId!==a.id||prefix.lastSeq!==a.seq||prefix.state.nextOrdinal!==b.frame.frameOrdinal
+        ||entry.publishedPaintedNextOrdinal===undefined||entry.firstRawPaintNextOrdinal===undefined
+        ||entry.firstRawPaintNextOrdinal>entry.publishedPaintedNextOrdinal
+        ||entry.depositedNextOrdinal-entry.publishedPaintedNextOrdinal>=8
+        ||!samePaintData(prefix.snapshot,previous.read.capability.snapshot)||!samePaintData(prefix.snapshot,next.read.capability.snapshot))return false
+      if(this.previewLane&&this.previewLane!==entry)return false
+      return this.queue.every(slot=>('kind'in slot?slot.entry:slot)===entry)
+    }finally{this.busy=false}
   }
 
   /** Original local delivery, not a log copy or a source selected by a frame. */
@@ -805,7 +841,15 @@ export class CanonicalWashLayerCoordinator {
           if(origin&&origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
         }
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, ...buildup?{replayFrontier:'textured7-buildup-v1' as const}:{washMode:'deposition-only' as const},
-          changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
+          changed: (_id, bounds) => {
+            this.invalidate(bounds)
+            // Existing Executor.changed(bounds) is native deposition, not clear
+            // or visible/nonempty RGBA. Never infer this fact from frame DTOs.
+            if(bounds&&this.options.mixedReplay7&&published&&this.busy&&entry?.mode==='wash'
+              &&entry.executor===executor&&entry.washInFlight&&!entry.metadataRetired&&!entry.metadataReleased
+              &&this.entries.includes(entry)&&entry.firstRawPaintNextOrdinal===undefined)
+              entry.firstRawPaintNextOrdinal=entry.depositedNextOrdinal+1
+          }, // The lane retires ALL storage pins before external poison/undo.
           poison: () => {if(published)this.failed=true} })
         const replaySource=buildup?executor.replaySource7():undefined
         if(replaySource)this.assertReplayOriginal(replaySource,origin?.recorded.snapshot??pair?.originalSnapshot)
@@ -1776,6 +1820,17 @@ export class CanonicalWashLayerCoordinator {
           if(disposition==='closed-handoff'&&!coordinator.closedCandidateOwned(candidate))throw Error('Stale closed preview publication')
           published=true;validated=false;coordinator.derived=candidate.staged.buffer;coordinator.renderedTail=nextCheckpoint
           coordinator.completedPresentation=candidate.revision
+          // Captured group owns an immutable completed deposition prefix. Pure
+          // writes only in the SAME successful publication CAS; no new pins.
+          if(candidate.mixed){
+            for(let index=0;index<candidate.mixed.groups.length;index++){
+              const group=candidate.mixed.groups[index],entry=coordinator.entries[index]
+              if(group.kind==='wash'&&entry?.id===group.id&&entry.firstRawPaintNextOrdinal!==undefined
+                &&entry.firstRawPaintNextOrdinal<=group.depositedNextOrdinal)
+                entry.publishedPaintedNextOrdinal=group.depositedNextOrdinal
+            }
+            coordinator.publishedNativePaintOrder=candidate.order
+          }
           coordinator.candidate=undefined;coordinator.previewFailure=undefined;coordinator.previewBoundaryReady=false
           if(coordinator.revision===candidate.revision)coordinator.dirty.clear()
           if(disposition==='closed-handoff')coordinator.closed=true

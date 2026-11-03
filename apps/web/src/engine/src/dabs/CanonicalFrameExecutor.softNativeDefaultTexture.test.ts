@@ -1,3 +1,4 @@
+import {sourceDefaultAutoDab} from '../presets/sourceDefaultAutoDab'
 import {createBrushGlContextOwner} from './BrushGlState'
 import {runBrushGlBatch,runBrushGlTurn} from './BrushGlBatch'
 import {CanonicalWashLayerCoordinator,type CanonicalWashLayerCoordinatorOptions,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
@@ -1870,4 +1871,98 @@ it('constructor Bank provenance rejects a wrapped receiver before Proxy metadata
   try{prep.jobs.forEach((_,i)=>prep.prepareJob(i));prep.assertPreparedPublication();const root=prep.publish();try{const view=root.patternResource(s.c.primaryTexture,s.c.assets[0],s.composite.brushGlBatchInfo()),life=patternBankModule.canonicalPatternResourceLifetime(view,s.composite.brushGlBatchInfo(),root);trap.mockClear();expect(patternBankModule.isCanonicalOwnedPatternLifetime(s.gl,life)).toBe(false);expect(trap).not.toHaveBeenCalled()}finally{root.release()}}finally{prep.cancel()}
  }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
+})
+
+
+// Structural Default7 root with actual canonical pattern resource, not a vendor
+// artwork or shader-pixel oracle. CPU masks below are generated independently.
+function uniquePatternDefault7(){
+ const c=context7('defaultAuto',G),source=c.primarySource
+ if(source.kind!=='defaultAuto'||source.coverageProfile!=='neon64-f32-fma-v1')throw Error('Native Default7 fixture required')
+ const coverageProfile=source.coverageProfile
+ const recipes=[0,.21,.47].map(rotation=>{
+  const shape={scale:.6,ratio:.7,rotation}
+  const oracle=sourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...source.source,kind:'auto',softness:1,spikes:2,randomness:0,density:1},storedScale:source.brushScale,storedAngle:source.brushAngle,shape,subpixelX:0,subpixelY:0,coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576})
+  const [width,height]=oracle.geometry.maskSize
+  const recipe:CanonicalTexturedAutoRecipe={kind:'defaultAuto',source:source.source,coverageProfile,brushScale:source.brushScale,brushAngle:source.brushAngle,...shape,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false}
+  return {recipe,oracle}
+ })
+ const frame=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:recipes.map(({recipe},index)=>({recipe,role:'primary' as const,x:index*4,y:0,opacity:.75,flow:.7,grainDepth:[0,.5,1][index]})),fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:3,group:0},{kind:'segmentEnd',at:3,group:0},{kind:'gestureEnd',at:3}]},c).frame
+ return {c,frame,recipes}
+}
+function prepareUniquePatternNativeStorage(e:CanonicalFrameExecutor){
+ const physical=e['preparePhysical']
+ e['preparePhysical']=(work,layer)=>physical.call(e,work,layer,performance.now()-4)
+ try{
+  let turns=0
+  while(e.pending){
+   const w=e['queue'][0],p=w.physical
+   if(p&&w.targetCursor===p.targetCount&&w.scratchCursor===p.scratchCount&&w.washCursor===w.newTiles.length)break
+   e.advance();if(++turns>400)throw Error('Native storage preparation stalled')
+  }
+ }finally{e['preparePhysical']=physical}
+}
+function modelUniquePatternUploadFlags(s:ReturnType<typeof fixture>){
+ s.gl.UNPACK_FLIP_Y_WEBGL=9401;s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9402
+ const get=s.gl.getParameter.bind(s.gl),store=s.gl.pixelStorei.bind(s.gl),flags=new Map([[9401,true],[9402,true]])
+ s.gl.getParameter=(key:number)=>flags.has(key)?flags.get(key):get(key)
+ s.gl.pixelStorei=(key:number,value:number|boolean)=>flags.has(key)?flags.set(key,!!value):store(key,value)
+}
+it('Default7 unique masks share one native capture with the same live pattern, recorded phase and exact independent coverage',()=>{
+ const {c,frame,recipes}=uniquePatternDefault7(),s=fixture(true,true,G,false,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ modelUniquePatternUploadFlags(s)
+ try{
+  const rootOwners=()=>[...s.bank['inputs'].values()].reduce((count,row)=>count+(row.rootOwners?.size??0),0)
+  const originalOwners=rootOwners(),e=s.create(),patternView=e['primaryTexture']!.view
+  e.enqueue({...submission7(c),frame});prepareUniquePatternNativeStorage(e)
+  expect(frame.definitions).toHaveLength(3);expect(rootOwners()).toBe(originalOwners+1)
+  const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),uploadPlanes:Uint8Array[]=[]
+  s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>uploadPlanes.push(new Uint8Array(args[8] as Uint8Array)))
+  const native=s.composite.drawSource.bind(s.composite),painted:number[]=[],strengths:number[]=[]
+  const draw=vi.spyOn(s.composite,'drawSource').mockImplementation((request,pass)=>{
+   if(request.source.kind!=='texturedMaskRgb')return native(request,pass) // Existing outer WASH presentation is not another textured dab.
+   expect(request.source.pattern.texture).toBe(patternView.texture);expect(request.source.pattern.key).toBe(patternView.key)
+   expect(request.source.pin).toEqual(c.primaryTexture);expect(s.root.isReady()).toBe(true);expect(rootOwners()).toBe(originalOwners+1)
+   expect(request.operation.kind).toBe('alphaDarken32FusedScalar');painted.push(request.source.view.rect.x);strengths.push(request.source.strengthU8)
+   return native(request,pass)
+  })
+  e.advance()
+  // Only the three unique mask-paint phase shares this native capsule.
+  // The existing outer WASH presentation follows in its own normal turn.
+  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  expect(uploadPlanes).toHaveLength(2)
+  for(let index=0;index<2;index++)expect(uploadPlanes[index]).toEqual(Uint8Array.from(Array.from(recipes[index+1].oracle.mask).flatMap(v=>[v,v,v,v])))
+  expect([...new Set(painted)]).toEqual([0,4,8]);expect([...new Set(strengths)]).toEqual([0,128,255]);expect(draw.mock.calls.length).toBeGreaterThanOrEqual(3)
+  expect(e.pending).toBe(true);s.drain()
+  expect(draw.mock.calls.some(([request])=>request.source.kind!=='texturedMaskRgb')).toBe(true)
+  expect(rootOwners()).toBe(originalOwners);expect(s.root.isReady()).toBe(true);expect(e['primaryTexture']).toBeUndefined()
+  expect(e.pendingFrameCount).toBe(0);expect(e.checkpointReady).toBe(true);expect(s.snapshot()).toEqual(before);expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it.each(['upload-revocation','draw-borrow']as const)('Default7 unique sequence rejects real pattern root transition before another paint (%s)',fault=>{
+ const {c,frame}=uniquePatternDefault7(),s=fixture(true,true,G,false,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ modelUniquePatternUploadFlags(s)
+ try{
+  const e=s.create();e.enqueue({...submission7(c),frame});prepareUniquePatternNativeStorage(e)
+  let attempts=0,resetAttempted=false
+  const native=s.composite.drawSource.bind(s.composite)
+  const draw=vi.spyOn(s.composite,'drawSource').mockImplementation((request,pass)=>{
+   attempts++;const result=native(request,pass)
+   if(fault==='draw-borrow'&&!resetAttempted){resetAttempted=true;s.bank.reset()}
+   return result
+  })
+  s.gl.texSubImage2D.mockClear()
+  s.gl.texSubImage2D.mockImplementation(()=>{
+   if(fault==='upload-revocation'&&!resetAttempted){resetAttempted=true;s.bank.reset()}
+  })
+  let caught:unknown,threw=false
+  try{e.advance()}catch(error){caught=error;threw=true}
+  expect(resetAttempted).toBe(true);expect(threw).toBe(true);expect(attempts).toBeGreaterThan(0)
+  // The first real pattern draw has occurred; no later unique mask may paint.
+  expect(new Set(draw.mock.calls.map(([request])=>request.source.kind==='texturedMaskRgb'?request.source.view.rect.x:-1))).toEqual(new Set([0]))
+  expect(s.poison).toHaveBeenCalledOnce();expect(s.poison.mock.calls[0][1]).toBe(caught)
+  if(fault==='draw-borrow'){expect(String(caught)).toContain('borrowed');expect(s.root.isReady()).toBe(true)}
+  else expect(()=>s.root.isReady()).toThrow() // reset revoked/released the actual handle
+  const count=draw.mock.calls.length;e.cancel();expect(draw).toHaveBeenCalledTimes(count)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

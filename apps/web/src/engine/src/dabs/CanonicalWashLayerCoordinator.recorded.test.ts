@@ -40,12 +40,12 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
  const material={version:2 as const,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
- let current=true,replaced=false,layerEpoch=0
+ let current=true,replaced=false,layerEpoch=0;let layerObserver:(()=>void)|undefined
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
- const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0)=>{
+ const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0,x=0)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
-  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:1,group},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
+  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:1,group},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
   const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
@@ -54,7 +54,7 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   accepted=Object.freeze({...atom,delivery});return accepted
  }
  const source=vi.fn(()=>({autoSource:pin}))
- const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>({buffer:layer,epoch:layerEpoch}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>{layerObserver?.();return {buffer:layer,epoch:layerEpoch}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
   const op=frame.operation;if(op.type!=='canonical_stroke')throw Error('frame')
   let accepted:CanonicalRecordedInput
@@ -67,7 +67,7 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   return author
  }
  const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
- return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},changeLayer:()=>{layerEpoch=1},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,observeLayer:(callback:(()=>void)|undefined)=>{layerObserver=callback},stale:()=>{current=false},replaceScope:()=>{replaced=true},changeLayer:()=>{layerEpoch=1},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -790,7 +790,7 @@ function mixedDeferredWashFixture(){
   const previous=derived,buffer=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8');stagedBuffers.push(buffer);let pending=true
   return {buffer,assertCurrent(){if(!pending||derived!==previous)throw Error('Staged view changed')},cancel(){if(!pending)return;pending=false;buffer.destroy()},finish(old:TiledLayerBuffer,disposition='display'){if(!pending||old!==previous||(disposition==='closed-handoff'?stable!==buffer||derived!==undefined:derived!==buffer))throw Error('Publication pointer mismatch');pending=false;old.destroy()}}
  })
- const coordinator=new CanonicalWashLayerCoordinator({...options,mixedReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stage,layer:id=>({...options.layer(id),buffer:stable}),presentation:()=>({buffer:derived!,epoch:0})})
+ const coordinator=new CanonicalWashLayerCoordinator({...options,pageBounds:{minX:0,minY:0,maxX:4,maxY:4},mixedReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stage,layer:id=>({...options.layer(id),buffer:stable}),presentation:()=>({buffer:derived!,epoch:0})})
  const publish=(ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication)=>{ticket.assertCurrent();ticket.publish();if(ticket.disposition==='closed-handoff'){stable=ticket.buffer;derived=undefined}else derived=ticket.buffer;ticket.finish()}
  const step=(defer=false)=>{const result=coordinator.advance(defer?{deferPresentation:true}:undefined);if(result?.kind==='preview-ready')publish(result.ticket);return result}
  const drain=(defer=false)=>{let turns=0;while(defer?coordinator.executionPending:coordinator.pending){if(++turns>2000)throw Error('Mixed deferred drain stalled');step(defer)}}
@@ -844,5 +844,92 @@ it('mixed indexed empty-queue defer keeps dirty END unallocated until explicit n
   const bytes=s.cpu.reservedBytes,alloc=s.gl.texImage2D.mock.calls.length
   s.step(true);expect(s.stage).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(bytes);expect(s.gl.texImage2D.mock.calls.length).toBe(alloc)
   s.drain();expect(s.stage).toHaveBeenCalledTimes(1);expect(s.pixel()[3]).toBeGreaterThan(0);expect(s.coordinator.queuedFrameCount).toBe(0)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+// FOLLOW scheduling witnesses use actual native deposition and publication.
+// No test writes either published-paint scalar or the coordinator order stamp.
+it('FOLLOW empty and clipped prefixes cannot grant published native paint',()=>{
+ for(const clipped of [false,true]){
+  const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  try{
+   const first=s.input('author',0,1,false,clipped,0,clipped?10000:0),next=s.input('author',1,2,false,true,1)
+   s.coordinator.enqueueRecorded(first);s.drain()
+   expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(false)
+   expect(s.coordinator['entries'][0].firstRawPaintNextOrdinal).toBeUndefined()
+  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+})
+it('FOLLOW native deposition becomes proof only after the actual publication CAS',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=s.input('author',0,1,false,true,0),next=s.input('author',1,2,false,true,1)
+  s.coordinator.enqueueRecorded(first);s.drain(true)
+  expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(false)
+  let ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication|undefined
+  for(let n=0;n<2000&&!ticket;n++){const result=s.coordinator.advance();if(result?.kind==='preview-ready')ticket=result.ticket}
+  if(!ticket)throw Error('No actual publication ticket')
+  ticket.assertCurrent();expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(false)
+  s.publish(ticket);expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('FOLLOW same-entry append survives order identity but eight deposited frames require a new actual P',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  let previous=s.input('author',0,1,false,true,0);s.coordinator.enqueueRecorded(previous);s.drain()
+  for(let ordinal=1;ordinal<=8;ordinal++){
+   const next=s.input('author',ordinal,ordinal+1,false,true,ordinal)
+   expect(s.coordinator.canDeferRecordedPresentation(previous,next)).toBe(true)
+   s.coordinator.enqueueRecorded(next);s.drain(true);previous=next
+  }
+  const ninth=s.input('author',9,10,false,true,9)
+  expect(s.coordinator.canDeferRecordedPresentation(previous,ninth)).toBe(false)
+  s.drain();expect(s.coordinator.canDeferRecordedPresentation(previous,ninth)).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('FOLLOW rejects a different queued original Entry without borrowing its authority',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=s.input('author',0,1,false,true,0),next=s.input('author',1,2,false,true,1)
+  s.coordinator.enqueueRecorded(first);s.drain()
+  const other=s.input('other',0,2,false,true,0);s.coordinator.enqueueRecorded(other)
+  expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(false)
+  s.drain();expect(s.coordinator.poisoned).toBe(false)
+  // Once the foreign queue drained, scheduling may be eligible again. It is
+  // not admission: the genuine global sequence2 was already consumed.
+  expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(true)
+  expect(()=>s.coordinator.enqueueRecorded(next)).toThrow()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('FOLLOW original callback reentry cannot clear the outer work slot or publish stale native proof',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const first=s.input('author',0,1,false,true,0),next=s.input('author',1,2,false,true,1)
+  s.coordinator.enqueueRecorded(first);s.drain()
+  const original=first.delivery.assertCurrent.bind(first.delivery),seen:unknown[]=[]
+  // Existing delivery is frozen; use the actual options.layer callback instead.
+  s.observeLayer(()=>{try{s.coordinator.cancel()}catch(error){seen.push(error)}})
+  expect(s.coordinator.canDeferRecordedPresentation(first,next)).toBe(true)
+  expect(seen.length).toBeGreaterThan(0);original(first)
+  s.observeLayer(undefined);s.stale();expect(()=>s.coordinator.canDeferRecordedPresentation(first,next)).toThrow('stale')
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('FOLLOW A published then B newly painted requires B first actual P before valid A tail continuation can defer',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const a1=s.input('A',0,1,false,true,0),b2=s.input('B',0,2,false,true,0),a3=s.input('A',1,3,false,true,1),a4=s.input('A',2,4,false,true,2)
+  s.coordinator.enqueueRecorded(a1);s.drain();expect(s.stage).toHaveBeenCalledTimes(1)
+  s.coordinator.enqueueRecorded(b2);s.coordinator.enqueueRecorded(a3)
+  const b=s.coordinator['entries'].find(entry=>entry.recorded?.userId==='B')!
+  let turns=0;while(b.depositedNextOrdinal<1){if(++turns>2000)throw Error('B raw did not complete');s.step(true)}
+  expect(b.firstRawPaintNextOrdinal).toBe(1);expect(b.publishedPaintedNextOrdinal).toBeUndefined();expect(s.stage).toHaveBeenCalledTimes(1)
+  expect(s.coordinator.queuedFrameCount).toBe(1)
+  // A3 is the actual global tail, A4 the genuine consecutive next recipe.
+  // A's prior P cannot hide the default first-publication boundary for B.
+  expect(s.coordinator.canDeferRecordedPresentation(a3,a4)).toBe(false)
+  s.drain();expect(b.publishedPaintedNextOrdinal).toBe(1)
+  expect(s.coordinator.canDeferRecordedPresentation(a3,a4)).toBe(true)
+  s.coordinator.enqueueRecorded(a4);s.drain();expect(s.coordinator.poisoned).toBe(false)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

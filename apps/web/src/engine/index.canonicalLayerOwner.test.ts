@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import {CanonicalRgba8CompositePass} from './src/dabs/CanonicalRgba8CompositePass'
 import {OperationLog} from './src/oplog/OperationLog'
 import * as paired7Assets from '../lib/api/brushLibrary'
 import * as paired7Shared from '@grafetto/shared'
@@ -8,7 +9,7 @@ import {installBrushLibrary,installBrushPixels,importedAssetPixels,isBrushAssetR
 import type {CanonicalSourceAuthorService} from './index'
 import type {PointerData} from './src/input/PointerInput'
 import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
-import {indexedSocketFixture,indexedFrame} from './testing/canonicalIndexedReadFixture'
+import {indexedSocketFixture,indexedFrame,indexedSnapshot} from './testing/canonicalIndexedReadFixture'
 import {PencilEngine} from './index'
 import {createHash} from 'node:crypto'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
@@ -1200,3 +1201,125 @@ it('known-clean full-queue preview denial resumes admitted raw work and releases
   await preparation;expect(error).toBeUndefined();expect(settled).toBe(true);expect(owner.recordedCapacity).toBeUndefined();expect(owner.derived).toBe(oldP)
  }finally{abort.abort();engine.destroy();await preparation;clock.mockRestore();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+// Structural native Default WASH frames, issued only through the existing
+// original Offer/OPEN/FOLLOW/page factory. This is not a vendor stroke oracle.
+function finiteFollowPaintFixture(pageSize=64,author=false){
+ const operations:CanonicalStrokeOperation[]=[],issuer=indexedSocketFixture(operations,pageSize)
+ const profile=paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,snapshot={...indexedSnapshot,rasterProfile:profile}
+ const pin=snapshot.material.primarySource;if(pin.kind!=='defaultAuto')throw Error('Expected Default native source')
+ const spikes=pin.source.spikes;if(spikes!==2)throw Error('Expected native fixed two-spike source')
+ Reflect.set(issuer.offer,'authorRasterProfile',profile);Reflect.set(issuer.offer.scope,'allowedRasterProfiles',[profile]);Reflect.set(issuer.offer,'texturedAutoSource',paired7Token);if(author)Reflect.set(issuer.offer,'authorTexturedAutoSource',paired7Token)
+ issuer.offer.roomGeometry.width=512;issuer.offer.roomGeometry.height=512
+ const attachment=(rows:readonly CanonicalStrokeOperation[])=>({version:1 as const,roomId:'room',boardEpoch:2,capabilities:rows.length?[{originalUserId:'actor',snapshot}]:[],bindings:rows.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))})
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){const prior=issuer.handlers[event];issuer.handlers[event]=async body=>{const reply=await prior(body)as{ok:true;value:object};return{...reply,value:{...reply.value,texturedAutoSource:paired7Token,...author?{authorTexturedAutoSource:paired7Token}:{}}}}}
+ const next=issuer.handlers.canonical_history_stream_next
+ issuer.handlers.canonical_history_stream_next=async body=>{const reply=await next(body)as{ok:true;value:{operations:CanonicalStrokeOperation[]}};return{...reply,value:{...reply.value,canonicalCapabilities:attachment(reply.value.operations)}}}
+ issuer.handlers.canonical_history_stream_evidence=body=>{
+  const root=body.root as{firstSequence:number},first=operations[root.firstSequence-1],last=operations.findLast(op=>paired7Shared.decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal).frame.fences.some(f=>f.kind==='gestureEnd')),rows=last&&last!==first?[first,last]:[first]
+  return{ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:body.streamId,throughSeq:operations.length,root:body.root,rows,canonicalCapabilities:attachment(rows),first:0,terminal:last?rows.length-1:null,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}}
+ }
+ const frame=(ordinal:number,ended=false,paint=true):CanonicalStrokeOperation=>{
+  const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes,scale:pin.brushScale,angle:pin.brushAngle},{scale:.01,ratio:1,rotation:0},0,0)
+  const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+  const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:paint?[{recipe,role:'primary',x:2,y:2,opacity:.5,flow:.7}]:[],fences:[...paint?[{kind:'segmentBegin' as const,at:0,group:ordinal},{kind:'primaryEnd' as const,at:1,group:ordinal},{kind:'segmentEnd' as const,at:1,group:ordinal}]:[],...ended?[{kind:'gestureEnd' as const,at:paint?1:0}]:[]]},snapshot.material).packed
+  return{id:'follow-'+(ordinal+1),userId:'actor',timestamp:0,seq:ordinal+1,type:'canonical_stroke',layerId:'layer-1',frame:{version:2,rasterProfile:profile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ }
+ return{...issuer,operations,frame}
+}
+it('finite original FOLLOW64 publishes real first paint then batches bounded native prefixes with identical commands and final cut',async()=>{
+ const run=async(ordinary:boolean)=>{
+  const f=finiteFollowPaintFixture(),read=await f.open(),engine=paired7EngineFor(read),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  const draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+  try{
+   await engine.restoreCanonicalIndexedRoom(read);expect(engine['_canonicalLayerOwner']!.previewPublication).toBe(true)
+   if(ordinary)Reflect.set(engine,'_deferCanonicalFollowPresentation',()=>undefined)
+   const stageNative=engine['_stageCanonicalPreview'].bind(engine),stagedCuts=new Map<ReturnType<typeof stageNative>['buffer'],number>(),publishedCuts:number[]=[],acceptedSequences:number[]=[]
+   const stage=vi.spyOn(engine as unknown as{_stageCanonicalPreview:typeof engine['_stageCanonicalPreview']},'_stageCanonicalPreview').mockImplementation((owner,bytes)=>{const cut=owner.coordinator?.['entries'][0]?.depositedNextOrdinal??0,result=stageNative(owner,bytes);stagedCuts.set(result.buffer,cut);return result})
+   const publish=engine['_publishCanonicalPreview'].bind(engine)
+   vi.spyOn(engine as unknown as{_publishCanonicalPreview:typeof engine['_publishCanonicalPreview']},'_publishCanonicalPreview').mockImplementation((owner,ticket)=>{publish(owner,ticket);publishedCuts.push(stagedCuts.get(ticket.buffer)??-1);expect(owner.stable===ticket.buffer||owner.derived===ticket.buffer).toBe(true)})
+   const append=engine.appendOriginalRecorded.bind(engine)
+   vi.spyOn(engine,'appendOriginalRecorded').mockImplementation(input=>{append(input);acceptedSequences.push(input.operation.seq!)})
+   let capacityWaits=0,maxQueue=0;const prepare=engine.prepareOriginalRecorded.bind(engine)
+   const preparing=vi.spyOn(engine,'prepareOriginalRecorded').mockImplementation((input,options)=>{const owner=engine['_canonicalLayerOwner'];maxQueue=Math.max(maxQueue,owner?.coordinator?.queuedFrameCount??0);const result=prepare(input,options);if(owner?.recordedCapacity)capacityWaits++;return result})
+   for(let ordinal=0;ordinal<64;ordinal++)f.operations.push(f.frame(ordinal,ordinal===63))
+   expect(await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(engine.getCanonicalIndexedCut()!))).toBe('advanced')
+   await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:20000})
+   expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(64);expect(acceptedSequences).toEqual(Array.from({length:64},(_,i)=>i+1));expect(engine['_log'].canonicalRetainedSuffix).toHaveLength(0)
+   expect(engine['_canonicalLayerOwner']!.followPresentation).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0)
+   expect(capacityWaits).toBeGreaterThan(0);expect(maxQueue).toBe(8);expect(preparing).toHaveBeenCalledTimes(64)
+   const commands=draw.mock.calls.filter(([request])=>request.source.kind==='maskRgb').map(([request])=>({operation:request.operation,writeBounds:request.writeBounds}))
+   expect(commands).toHaveLength(64);expect(publishedCuts[0]).toBe(1);expect(publishedCuts.at(-1)).toBe(64);for(let n=1;n<publishedCuts.length;n++)expect(publishedCuts[n]-publishedCuts[n-1]).toBeLessThanOrEqual(8);return{commands,stages:stage.mock.calls.length,publishedCuts}
+  }finally{draw.mockRestore();clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ }
+ const ordinary=await run(true),deferred=await run(false)
+ expect(deferred.commands).toEqual(ordinary.commands);expect(deferred.stages).toBeLessThan(ordinary.stages);expect(deferred.stages).toBeLessThanOrEqual(18);console.info('FOLLOW_METRICS '+JSON.stringify({frames:64,commands:deferred.commands.length,ordinaryStages:ordinary.stages,deferredStages:deferred.stages,ordinaryPublishedCuts:ordinary.publishedCuts,deferredPublishedCuts:deferred.publishedCuts}))
+},60000)
+it('finite FOLLOW skips optional metadata on one-input pages and flushes genuine END before the final cut',async()=>{
+ const f=finiteFollowPaintFixture(1),read=await f.open(),engine=paired7EngineFor(read),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  await engine.restoreCanonicalIndexedRoom(read)
+  const prepare=engine.prepareOriginalRecorded.bind(engine);let preparations=0;vi.spyOn(engine,'prepareOriginalRecorded').mockImplementation((input,options)=>{preparations++;expect(engine['_canonicalLayerOwner']!.followPresentation).toBeUndefined();return prepare(input,options)});for(let n=0;n<3;n++)f.operations.push(f.frame(n,n===2))
+  await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(engine.getCanonicalIndexedCut()!))
+  await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:20000})
+  expect(preparations).toBe(3)
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(3);expect(engine['_canonicalLayerOwner']!.followPresentation).toBeUndefined();expect(engine['_canonicalLayerOwner']!.coordinator).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+it('finite FOLLOW known headroom shortage never reserves or reclaims optional512 and still uses ordinary admission',async()=>{
+ const f=finiteFollowPaintFixture(),read=await f.open(),engine=paired7EngineFor(read),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let held:(()=>void)|undefined,unregister:(()=>void)|undefined
+ try{
+  await engine.restoreCanonicalIndexedRoom(read)
+  const cache=engine['_brushMipCache'],reclaimed=vi.fn(),next=f.handlers.canonical_history_stream_next
+  unregister=cache.registerOptionalReclaim(reclaimed)
+  f.handlers.canonical_history_stream_next=async body=>{const reply=await next(body)as{ok:true;value:{operations:unknown[]}};if(reply.value.operations.length)held=cache.reserve(cache.budgetBytes-cache.reservedBytes-511);return reply}
+  const prepare=engine.prepareOriginalRecorded.bind(engine)
+  vi.spyOn(engine,'prepareOriginalRecorded').mockImplementation((input,options)=>{const release=held;held=undefined;release?.();expect(engine['_canonicalLayerOwner']!.followPresentation).toBeUndefined();return prepare(input,options)})
+  f.operations.push(f.frame(0),f.frame(1,true))
+  await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(engine.getCanonicalIndexedCut()!))
+  await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:20000})
+  unregister();unregister=undefined;expect(reclaimed).not.toHaveBeenCalled();expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(2)
+ }finally{held?.();unregister?.();clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+
+it('finite FOLLOW active borrow retirement releases the exact512 once and original page before preserving undefined cancellation',async()=>{
+ const f=finiteFollowPaintFixture(),read=await f.open(),engine=paired7EngineFor(read),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const charged=new Map<()=>void,{bytes:number;releases:number}>();let captured:NonNullable<NonNullable<typeof engine['_canonicalLayerOwner']>['followPresentation']>|undefined
+ try{
+  await engine.restoreCanonicalIndexedRoom(read)
+  const cache=engine['_brushMipCache'],reserve=cache.reserve.bind(cache)
+  vi.spyOn(cache,'reserve').mockImplementation(bytes=>{const release=reserve(bytes),receipt={bytes,releases:0};const owned=()=>{receipt.releases++;release()};charged.set(owned,receipt);return owned})
+  vi.spyOn(engine,'prepareOriginalRecorded').mockImplementation(async()=>{
+   captured=engine['_canonicalLayerOwner']!.followPresentation;expect(captured).toBeDefined();expect(charged.get(captured!.releaseMetadata)?.bytes).toBe(512)
+   engine.destroy();throw undefined
+  })
+  f.operations.push(f.frame(0),f.frame(1,true))
+  let failed=false,primary:unknown='not-rejected'
+  try{await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(engine.getCanonicalIndexedCut()!))}catch(error){failed=true;primary=error}
+  expect(failed).toBe(true);expect(primary).toBeUndefined();expect(captured).toBeDefined();expect(captured!.active).toBe(false);expect(captured!.released).toBe(true);expect(charged.get(captured!.releaseMetadata)?.releases).toBe(1)
+  expect(()=>captured!.page.inputs()).toThrow();expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0);expect(cache.reservedBytes).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('finite FOLLOW real local START hold disables an otherwise eligible borrowed prefix and releases without local paint',async()=>{
+ const preset=paired7Fixture(false,false),f=finiteFollowPaintFixture(64,true),read=await f.open(),begin=vi.fn(async()=>new Promise<never>(()=>{})),local:paired7Shared.Operation[]=[],engine=paired7EngineFor(read,{texturedAutoSource:paired7Token,begin},local),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let transitioned=false
+ try{
+  await engine.restoreCanonicalIndexedRoom(read);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset.preset);engine.setSize(preset.nativeSize);engine.setLocked(false)
+  expect(await engine.prepareBrush(preset.preset)).toEqual({status:'ready'})
+  const prepare=engine.prepareOriginalRecorded.bind(engine)
+  vi.spyOn(engine,'prepareOriginalRecorded').mockImplementation(async(input,options)=>{
+   const result=await prepare(input,options),owner=engine['_canonicalLayerOwner']!,coordinator=owner.coordinator
+   if(!transitioned&&coordinator&&engine['_deferCanonicalFollowPresentation'](owner,coordinator)){
+    transitioned=true;const borrowed=owner.followPresentation
+    engine['_onStart'](paired7Packet(20,0,.5));expect(engine.hasActiveCanonicalAuthor()).toBe(true)
+    expect(engine['_deferCanonicalFollowPresentation'](owner,coordinator)).toBeUndefined();expect(owner.followPresentation).toBe(borrowed);expect(local).toHaveLength(0)
+    engine.setLocked(true);expect(engine.hasActiveCanonicalAuthor()).toBe(false)
+   }
+   return result
+  })
+  for(let n=0;n<24;n++)f.operations.push(f.frame(n,n===23))
+  await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(engine.getCanonicalIndexedCut()!));expect(transitioned).toBe(true)
+  await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:20000});expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(24);expect(engine['_canonicalLayerOwner']!.followPresentation).toBeUndefined();expect(local).toHaveLength(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
+},30000)
