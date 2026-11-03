@@ -981,7 +981,7 @@ it('keeps historical material2 buildup outside the source7 private inventory pat
  const capability=wire.canonicalCapabilities!.capabilities[0];Reflect.set(capability.snapshot.composition,'mode','buildup')
  // Either ingress rejects the historical composition, or the actual engine
  // constructor must reject its inventory before any private role can exist.
- expect(()=>{const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true});const {engine}=engineFor(p);try{throw Error('Unexpected historical buildup inventory accepted')}finally{engine.destroy()}}).toThrow(/Unsupported|Invalid|unsupported|invalid/)
+ expect(()=>{const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true});const {engine}=engineFor(p);try{throw Error('Unexpected historical buildup inventory accepted')}finally{engine.destroy()}}).toThrow(/composition READ policy missing/)
 })
 it('rejects non-OVER native7 originals at the normal captured snapshot boundary',async()=>{
  const {frames,snapshots}=await paired7AcceptedBuildup(),raw=structuredClone(snapshots.get(frames[0].frame.strokeId)!)

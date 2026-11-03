@@ -1,3 +1,4 @@
+import * as brushLibraryApi from '../lib/api/brushLibrary'
 import {indexedSocketFixture} from './testing/canonicalIndexedReadFixture'
 import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
 import {canonicalImageRequiredSourceLevels} from './src/dabs/canonicalImageCapacity'
@@ -15,7 +16,7 @@ import {sourceStrokeAuthorDescriptor} from './src/presets/sourceStrokeAuthorDesc
 import {SourceStrokeAuthor,type SourceStrokeAuthorState,type SourceStrokeAuthorStep} from './src/presets/sourceStrokeAuthor'
 import {SourceStrokeMaterialAdapter,type SourceStrokeMaterialContextV2} from './src/presets/sourceStrokeMaterialAdapter'
 import {SourceCanonicalFrameEncoder} from './src/presets/sourceCanonicalFrameEncoder'
-import {installBrushPixels,clearImportedBrushPixels,installBrushLibrary} from './src/presets/importedBrushes'
+import {installBrushPixels,clearImportedBrushPixels,installBrushLibrary,importedAssetPixels,isBrushAssetReady} from './src/presets/importedBrushes'
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import {CanonicalMaskSourceBank} from './src/dabs/CanonicalMaskSourceBank'
 import {createTestEngine} from './testing/engineTestUtils'
@@ -47,6 +48,7 @@ const trace=sourceTrace()
 
 const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
 beforeEach(()=>{expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(asset.id);installBrushPixels(asset.id,bytes)})
+beforeEach(()=>{vi.spyOn(brushLibraryApi,'prepareCanonicalImageAssets').mockImplementation(async(room,assets,current)=>{current();expect(room).toBe('room');for(const a of assets){expect(isBrushAssetReady(a.id,a.size)).toBe(true);expect('asset:'+createHash('sha256').update(importedAssetPixels(a.id)).digest('hex')).toBe(a.id)}current()})})
 afterEach(()=>{vi.restoreAllMocks();clearImportedBrushPixels()})
 function original(isCurrent=()=>true,open=false,inputTrace=trace,limit?:number){
  const tail=limit!==undefined?inputTrace.operations.slice(0,limit):open?inputTrace.operations.slice(0,-1):inputTrace.operations
@@ -66,7 +68,7 @@ it('restores actual Basic6 original163 envelopes using one bank and retains ever
   expect(engine['_canonicalLayerOwner']!.bank!.assertRequiredSourceBinding(asset,requiredIndexes,{gl:engine['gl'],cache:engine['_canonicalLayerOwner']!.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number')
   expect(engine['_log'].entries).toHaveLength(163);for(const [i,e]of engine['_log'].entries.entries()){expect(e.canonicalInput).toBe(p.canonicalRead.preparedAtoms[i]);expect(e.serverSeq).toBe(i+1);const original=p.tailOperations[i];expect(e.op.type==='canonical_stroke'&&e.op.frame).toBe(original.type==='canonical_stroke'&&original.frame)}
   expect(trace.operations.map(op=>op.frame.materialPacked)).toEqual(before);expect(upload).toHaveBeenCalled();expect(draw).toHaveBeenCalled();expect(engine['_canonicalExportReady']()).toBe(true)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,first=bank.jobs[0];owner.cache.discard(first.key);expect(bank.prepareJob(0)).toBe('ready');expect(bank.assertRequiredSourceBinding(asset,requiredIndexes,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number')
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,first=bank.jobs[0];owner.cache.discard(first.key);const repair=bank.prepareRoot([{asset,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0},[{asset,indexes:requiredIndexes}]);let repaired:ReturnType<typeof repair.publish>|undefined;try{for(const [i]of repair.jobs.entries())expect(repair.prepareJob(i)).toBe('ready');repair.assertPreparedPublication();repaired=repair.publish();repair.finalizeCleanup()}finally{repair.cancel();repaired?.release()};expect(bank.assertRequiredSourceBinding(asset,requiredIndexes,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number')
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
 it.each(['missingCAS']as const)('rejects %s image baseline before canvas access',kind=>{
@@ -75,8 +77,8 @@ it.each(['missingCAS']as const)('rejects %s image baseline before canvas access'
  expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Canonical baseline image asset unavailable');expect(get).not.toHaveBeenCalled()
 })
 it.each(['stale','upload']as const)('rolls back %s between source jobs without publishing journal or layer map',async kind=>{
- let current=true;const p=original(()=>current),{engine}=engineFor(p),old=engine['_layers'],prepare=CanonicalMaskSourceBank.prototype.prepareJob;let jobs=0
- vi.spyOn(CanonicalMaskSourceBank.prototype,'prepareJob').mockImplementation(function(this:CanonicalMaskSourceBank,index,signal){if(kind==='upload'&&jobs===1)throw Error('source upload fault');const result=prepare.call(this,index,signal);jobs++;if(kind==='stale'&&jobs===1)current=false;return result})
+ let current=true;const p=original(()=>current),{engine}=engineFor(p),old=engine['_layers'],prepare=CanonicalMaskSourceBank.prototype.prepareRoot;let jobs=0
+ vi.spyOn(CanonicalMaskSourceBank.prototype,'prepareRoot').mockImplementation(function(this:CanonicalMaskSourceBank,...args:Parameters<CanonicalMaskSourceBank['prepareRoot']>){const ticket=prepare.apply(this,args);return{get status(){return ticket.status},jobs:ticket.jobs,prepareJob(index:number){if(kind==='upload'&&jobs===1)throw Error('source upload fault');const result=ticket.prepareJob(index);jobs++;if(kind==='stale'&&jobs===1)current=false;return result},assertCurrent:()=>ticket.assertCurrent(),assertPreparedPublication:()=>ticket.assertPreparedPublication(),preparedResources:()=>ticket.preparedResources(),publish:()=>ticket.publish(),finalizeCleanup:()=>ticket.finalizeCleanup(),cancel:(lost?:boolean)=>ticket.cancel(lost)}})
  try{await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toThrow();expect(jobs).toBeGreaterThan(0);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_canonicalEmptyTransaction']).toBeUndefined()}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
 it('retires the image bank on real engine context events and rebuilds the same accepted original journal',async()=>{
@@ -192,8 +194,10 @@ it('adds a hot mixed suffix union while preserving the old bank, journal and che
   expect(upload.mock.calls.filter(call=>uploadedPixels(call)!==null).length).toBeGreaterThan(0);expect(owner.bank).toBe(bank);for(const resource of resources)expect(bank.preparedResources()).toContainEqual(resource);expect(bank.gpuBytes).toBe(5658656+13832);expect(bank.jobs).toHaveLength(86);expect(engine['_log'].entries).toBe(entries);expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(cpu);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalExportReady']()).toBe(true)
   // A real owned CPU reservation still rejects preparation before source pixels,
   // without inventing a larger cache budget or weakening old-owner preservation.
+  const freshOperation={...trace.operations[0],seq:a.operations.length+1},freshAtom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:trace.snapshot}],bindings:[{operationId:freshOperation.id,sequence:freshOperation.seq,originalUserId:'author',capability:0}]},[freshOperation],p.canonicalRead.scope)[0],freshInput=attachCanonicalRecordedDelivery(freshAtom,p.canonicalRead.scope)
+  if(!('delivery'in freshInput))throw Error('Fresh genuine Basic6 original required')
   const reserved=engine['_brushMipCache'].reservedBytes,release=engine['_brushMipCache'].reserve(engine['_brushMipCache'].budgetBytes-reserved-1024),ready=bank.preparedResources();upload.mockClear()
-  try{await expect(engine.prepareOriginalRecorded(input)).rejects.toThrow(/budget/);expect(upload.mock.calls.filter(call=>uploadedPixels(call)!==null)).toHaveLength(0);expect(bank.preparedResources()).toEqual(ready);expect(engine['_log'].entries).toBe(entries);expect(owner.resourceCandidate).toBeUndefined()}finally{release()}
+  try{await expect(engine.prepareOriginalRecorded(freshInput)).rejects.toThrow(/budget/);expect(upload.mock.calls.filter(call=>uploadedPixels(call)!==null)).toHaveLength(0);expect(bank.preparedResources()).toEqual(ready);expect(engine['_log'].entries).toBe(entries);expect(owner.resourceCandidate).toBeUndefined()}finally{release()}
   expect(engine['_brushMipCache'].reservedBytes).toBe(reserved)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)

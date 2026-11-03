@@ -1324,7 +1324,10 @@ def retain_declared_patterns(archive,names,catalog):
     manifest='META-INF/manifest.xml'
     if manifest not in names: return
     namespace='{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}'
-    document=xml(archive.read(manifest))
+    if archive.getinfo(manifest).file_size>MAX_XML:raise ValueError('Krita resource manifest exceeds XML limit')
+    raw_manifest=archive.read(manifest)
+    if len(raw_manifest)>MAX_XML:raise ValueError('Krita resource manifest exceeds XML limit')
+    document=xml(raw_manifest.decode('utf-8',errors='strict'))
     if document.tag!=namespace+'manifest': raise ValueError('Invalid Krita resource manifest namespace')
     declared=[];seen=set()
     for entry in document:

@@ -1,5 +1,7 @@
 """Authored resource regressions; no vendor artwork or installed font dependency."""
 import io
+import hashlib
+import zipfile
 from pathlib import Path
 import struct
 import tempfile
@@ -24,6 +26,24 @@ def abr(name,w=2,h=1,pixels=b'\x00\xff',tail=b''):
 
 
 class PixelSourceClosureTests(unittest.TestCase):
+    def test_declared_bundle_manifest_bytes_preserve_original_rgba_planes(self):
+        from krita_import import retain_declared_patterns
+        pat=struct.pack('>6I',24,1,1,1,4,0x47504154)+bytes([17,83,211,49])
+        manifest=('<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:media-type="patterns" manifest:full-path="patterns/authored.pat" manifest:md5sum="'+hashlib.md5(pat).hexdigest()+'"/></manifest:manifest>').encode()
+        bundle=io.BytesIO()
+        with zipfile.ZipFile(bundle,'w') as z:
+            z.writestr('META-INF/manifest.xml',manifest);z.writestr('patterns/authored.pat',pat)
+        with tempfile.TemporaryDirectory() as tmp,zipfile.ZipFile(io.BytesIO(bundle.getvalue())) as z:
+            c=convert.Catalog(Path(tmp)/'out');retain_declared_patterns(z,z.namelist(),c)
+            self.assertEqual(c.skipped,[]);self.assertEqual(len(c.patterns),1)
+            r=c.patterns[0]['resource']
+            self.assertEqual((r['width'],r['height'],r['periodX'],r['periodY']),(1,1,1,1))
+            for aid,value in zip([*r['channels'],r['alphaAsset']],[17,83,211,49]):
+                self.assertEqual((c.output/c.assets[aid]['file']).read_bytes(),bytes([value,0,0,0]))
+        oversized=Mock();oversized.getinfo.return_value.file_size=2**30
+        with self.assertRaises(ValueError):retain_declared_patterns(oversized,['META-INF/manifest.xml'],Mock())
+        oversized.read.assert_not_called()
+
     def test_unequal_gih_keeps_each_original_grid_and_parent_size(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'authored.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gih" scale="2"/>'))

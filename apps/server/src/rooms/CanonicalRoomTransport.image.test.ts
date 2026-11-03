@@ -638,6 +638,10 @@ it.each([{mode:'direct',buildup:false},{mode:'disconnect',buildup:false},{mode:'
 })
 
 it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMap START table through transport, durable row and cold READ (%s)',async application=>{
+ // Previous close/recovery cases replace this module-level mock implementation.
+ // This authored room starts empty; clearing calls alone does not reset history.
+ vi.mocked(getSoft6Prefix).mockResolvedValue({operations:[],canonicalRows:[]})
+ db.operation.findMany.mockResolvedValue([])
  // Mechanism variant of a real compiled image program, with authored gray CAS;
  // not a claim that this fixture is a stock GradientMap preset or GPU pixels.
  const d:BrushDescriptor=structuredClone(fixture.descriptor)
