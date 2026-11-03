@@ -453,6 +453,11 @@ export class CanonicalRgba8CompositePass {
     supportsTexturedOperations(kinds:readonly CanonicalCompositeOperationKind[]):boolean {
         return this.isReady()&&kinds.every(kind=>isTexturedOperation(kind)&&this.workspace!.programs.has(texturedProgram(kind)));
     }
+    /** Pure prepared-program evidence, never implicit shader compilation. */
+    supportsPrimaryGrainPrograms(programs:readonly CanonicalPrimaryGrainProgram[]):boolean {
+        try{return this.isReady()&&primaryGrainProgramsFor({width:1,height:1,operations:this.limits!.operations,primaryGrainPrograms:programs}).every(()=>this.workspace!.programs.has(multiplyProgram))}
+        catch{return false}
+    }
     preparedResources(): readonly Resource[] {
         if (!this.isReady())
             throw new Error('Composite pass is not prepared');
