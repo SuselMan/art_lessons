@@ -35,3 +35,18 @@ describe('named standalone image grain8 frame/snapshot, no public operation gran
   expect(getter).not.toHaveBeenCalled();const f=fixture();expect(()=>decodeCanonicalPrimaryGrainStrokeFrame(Object.create(f.envelope),f.trusted)).toThrow()
  })
 })
+
+it('allows B only for explicitly new Pixel8 law and keeps the legacy native hardMultiply8 profile closed',()=>{
+ const f=fixture(),phase=f.material.primaryTexture.phase
+ const material=canonicalPrimaryGrainMaterialContext({...f.material,primaryTexture:{...f.material.primaryTexture,law:'pixel-texture-u8-v1',mode:'multiply',soft:false}})
+ const packed=buildCanonicalPrimaryGrainMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material).packed
+ const trusted={...f.trusted,rasterProfile:B,material},envelope={...f.envelope,rasterProfile:B,materialPacked:packed,texturePhase:phase}
+ const decoded=decodeCanonicalPrimaryGrainStrokeFrame(envelope,trusted)
+ expect(decoded.envelope.rasterProfile).toBe(B)
+ expect(canonicalStandaloneStrokeSnapshotV8({...f.snapshot,rasterProfile:B,material},4,B).rasterProfile).toBe(B)
+ expect(()=>decodeCanonicalPrimaryGrainStrokeFrame({...f.envelope,rasterProfile:B},{...f.trusted,rasterProfile:B})).toThrow()
+ expect(()=>canonicalStandaloneStrokeSnapshotV8({...f.snapshot,rasterProfile:B},4,B)).toThrow()
+ // Selected source/profile are immutable: changing only the envelope profile is
+ // not a conversion between native and browser arithmetic.
+ expect(()=>decodeCanonicalPrimaryGrainStrokeFrame({...envelope,rasterProfile:G},trusted)).toThrow()
+})

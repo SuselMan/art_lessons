@@ -116,7 +116,7 @@ def mapped_soft_frontier_retired(data):
     if not isinstance(compiled,dict): return False
     if (set(compiled)!={'version','reader','profile','buildId','curves','radialCurve'}
             or type(compiled['version']) is not int or compiled['version']!=2
-            or compiled['reader']!=data['reader'] or compiled['profile']!='eigen-5.0.1-mapped-arm64-f64-v3'
+            or compiled['reader']!=data['reader'] or compiled['profile'] not in ('eigen-5.0.1-mapped-arm64-f64-v3','eigen-5.0.1-source-functional-f64-v1')
             or not isinstance(compiled['buildId'],str) or not re.fullmatch(r'[0-9a-f]{64}',compiled['buildId'])
             or not isinstance(compiled['curves'],list)): return False
     radial=compiled['radialCurve'];raw=source.get('softnessCurve')

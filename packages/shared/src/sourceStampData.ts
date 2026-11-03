@@ -38,6 +38,9 @@ export interface SourceStampOptionData {
 }
 export const SOURCE_STAMP_COMPILER_PROFILE = 'eigen-3.4.0-sparselu-f64-no-fma-v1'
 export const SOURCE_STAMP_MAPPED_COMPILER_PROFILE = 'eigen-5.0.1-mapped-arm64-f64-v3'
+/** Explicit source-functional coefficient construction; no ISA/vendor identity. */
+export const SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE = 'eigen-5.0.1-source-functional-f64-v1'
+export type SourceStampCoefficientCompilerProfile=typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE|typeof SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE
 export interface SourceStampCompiledCurve {
   readonly source: SourceStampCurveData
   readonly coefficients: readonly (readonly [number,number,number,number])[]
@@ -50,7 +53,7 @@ export type SourceStampCompiledData = {
 } | {
   readonly version: 2
   readonly reader: 'krita-bd6e8d0-v1'
-  readonly profile: typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+  readonly profile: SourceStampCoefficientCompilerProfile
   readonly buildId: string
   readonly curves: readonly SourceStampCompiledCurve[]
   readonly radialCurve?: SourceStampCompiledCurve
@@ -313,7 +316,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   const radial=v.version===2 && record(v.source) && v.source.kind==='softAuto' ? v.source.softnessCurve : undefined
   if(mapped) {
     if(!keys(compiled,nativeDefault?['version','reader','profile','buildId','curves','radialCurve','textureStrength']:material?['version','reader','profile','buildId','curves','textureStrength']:['version','reader','profile','buildId','curves','radialCurve'])
-      || compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE || typeof compiled.buildId!=='string' || !/^[0-9a-f]{64}$/.test(compiled.buildId)
+      || (compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE && !(compiled.version===2&&compiled.profile===SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE)) || typeof compiled.buildId!=='string' || !/^[0-9a-f]{64}$/.test(compiled.buildId)
       || (radial===undefined)!==(compiled.radialCurve===undefined))return false
   } else if(!keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE)return false
   const required=[...sourceStampRequiredCurves(allOptions as unknown as readonly SourceStampOptionData[]),...(mapped && radial!==undefined?[radial]:[]),...(pressureProgram?[pressureProgram.curve.source]:[])]
@@ -324,7 +327,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
     if(!record(entry) || !keys(entry,['source','coefficients']) || !isSourceStampCurveData(entry.source) || !isSourceStampCurveData(required[i]) || entry.source.text!==required[i].text
       || !Array.isArray(entry.coefficients) || entry.coefficients.length!==Math.max(1,entry.source.points.length-1)
       || entry.coefficients.some(c=>!Array.isArray(c) || c.length!==4 || !c.every(finite)))return false
-    if(mapped && (entry.source.points.length<2 || entry.source.points.length>9 || entry.source.points[0].corner || entry.source.points[entry.source.points.length-1].corner))return false
+    if(mapped && (entry.source.points.length<2 || entry.source.points.length>(compiled.profile===SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE?32:9) || entry.source.points[0].corner || entry.source.points[entry.source.points.length-1].corner))return false
     knots+=entry.source.points.length
     return knots<=4096
   })

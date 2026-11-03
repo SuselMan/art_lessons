@@ -186,7 +186,7 @@ export function canonicalDynamicAutoGeometryAuthorAdmission(descriptor:BrushDesc
   const field=Object.getOwnPropertyDescriptor(options,'authorPlainAutoGeometrySource')
   if(!field||!Object.hasOwn(field,'value')||field.value!=='dynamic-auto-geometry-v1'||!canonicalStrokeRasterContract(profile).genericSC)return reject('Unsupported dynamic Auto policy/profile')
   const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
-  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,pattern?{pattern}:undefined)
+  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,pattern?{pattern}:undefined,metadata)
   if(!capability.supported)return reject(capability.reasons.join(','))
   const data=capability.data
   if(data.version!==2||data.source.kind==='image')return reject('Unsupported dynamic Auto source family')

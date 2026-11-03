@@ -1,5 +1,5 @@
 import { SOURCE_SENSOR_ORDER, type SourceOption, type SourceSensor, type SourceSensorId } from './sourceOption'
-import { sourceCurveIsIdentity, sourceCurveTransfer, type SourceCurvePoint, type SourceCurvePolynomial } from './sourceCurve'
+import { sourceCurveIsIdentity, sourceCurveTransfer, isSourceCurveArithmetic, type SourceCurveArithmetic, type SourceCurvePoint, type SourceCurvePolynomial } from './sourceCurve'
 import { sourceSensorValue, type SourceSensorInput, type SourceSensorLaw } from './sourceSensors'
 
 export interface SourceProgramSensor {
@@ -9,7 +9,7 @@ export interface SourceProgramSensor {
   readonly angleOffset?: number
   readonly lockedAngle?: boolean
   /** Already selected native common/per-sensor curve after settings reader. */
-  readonly curve: { readonly points: readonly SourceCurvePoint[]; readonly coefficients?: SourceCurvePolynomial['coefficients']; readonly arithmetic?: 'installed-arm64-fused-v1' }
+  readonly curve: { readonly points: readonly SourceCurvePoint[]; readonly coefficients?: SourceCurvePolynomial['coefficients']; readonly arithmetic?: SourceCurveArithmetic }
 }
 export interface SourceOptionProgramInput {
   readonly id: string
@@ -36,7 +36,7 @@ export function compileSourceOptionProgram(input: SourceOptionProgramInput): Sou
     if (!SOURCE_SENSOR_ORDER.includes(sensor.id) || seen.has(sensor.id)) throw new RangeError('Unknown or duplicate native sensor program')
     seen.add(sensor.id)
     const kind: SourceSensor['kind'] = additive.has(sensor.id) ? 'additive' : sensor.id === 'drawingAngle' ? 'absolute' : 'scaling'
-    if(sensor.curve.arithmetic!==undefined && sensor.curve.arithmetic!=='installed-arm64-fused-v1')throw new RangeError('Unsupported native sensor curve arithmetic')
+    if(sensor.curve.arithmetic!==undefined && !isSourceCurveArithmetic(sensor.curve.arithmetic))throw new RangeError('Unsupported native sensor curve arithmetic')
     const identity=sourceCurveIsIdentity(sensor.curve.points)
     const unavailable=!identity && sensor.curve.coefficients === undefined && (!input.checked || !input.useCurve)
     const transfer=identity || unavailable ? undefined

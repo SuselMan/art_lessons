@@ -1,3 +1,4 @@
+import pixelDefaultStock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.js'
 import {buildCanonicalTexturedAutoMaterial,resolveCanonicalTexturePhase,type CanonicalStrokeSnapshotV7} from '@grafetto/shared'
 import {projectCanonicalIndexedOperation} from './roomPersistence.js'
 import {sourceAutoGeometry,type CanonicalStrokeSnapshotV4} from '@grafetto/shared'
@@ -380,12 +381,20 @@ it('keeps recorded seeded policy DATA-only without leaking the imported raster-c
 /** Genuine nonlinear37 metadata + explicit self-authored pattern CAS mechanism.
  * This exercises server authority, not vendor pattern/pixel equivalence. */
 const actualPressure37=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json',import.meta.url),'utf8'))
-function pressureAuto5Setup(offset?:{x:number;y:number},buildup=false){
+function pressureAuto5Setup(offset?:{x:number;y:number},buildup=false,pixelTexture=false){
  const descriptor=structuredClone(actualPressure37.descriptor) as unknown as BrushDescriptor
  if(buildup){Reflect.set(descriptor.sourceStamp!.flags,'indirectPainting',false);Reflect.set(descriptor.sourceStamp!.settings,'PaintOpAction','1')}
  const bytes=Buffer.from(Array.from({length:256*256},(_,i)=>(i*43+17)%256)),id='asset:'+createHash('sha256').update(bytes).digest('hex')
  descriptor.id='imported-'+createHash('sha256').update('self-authored-pressure5-pattern-authority').digest('hex').slice(0,24)
  if(!descriptor.texture)throw Error('fixture texture');descriptor.texture.id=id as `asset:${string}`;if(offset)descriptor.texture.offset={...descriptor.texture.offset!,...offset}
+ if(pixelTexture){
+  const ordinary=pixelDefaultStock.rows.find(row=>row.index===4)!.descriptor.sourceStamp!
+  Reflect.set(descriptor.sourceStamp!,'compiled',structuredClone(ordinary.compiled))
+  Reflect.set(descriptor.sourceStamp!,'options',structuredClone(ordinary.options))
+  const option=descriptor.sourceStamp!.options.find(o=>o.id==='Opacity')!
+  Reflect.set(descriptor.sourceStamp!,'textureOption',{...option,id:'Texture/Strength/',checkable:true,checked:true,useCurve:true,strength:1,min:0,max:1})
+  const t=descriptor.texture!;descriptor.texture={id:t.id,strength:1,periodPx:t.periodPx,patternSize:t.patternSize!,offset:t.offset!,application:{mode:'multiply',soft:false}}
+ }
  const dir=mkdtempSync(join(tmpdir(),'server-pressure5-'));dirs.push(dir);const storage=new BrushStorage(dir)
  const library={schemaVersion:1,brushes:[{name:'Self-authored pattern authority37',source:'self-authored-test',warnings:[],descriptor}],assets:[{id,size:256,file:id.slice(6)+'.bin'}],skipped:[]}
  if(!isBrushLibrary(library))throw Error('Invalid pressure5 fixture')
@@ -637,7 +646,7 @@ it.each([{mode:'direct',buildup:false},{mode:'disconnect',buildup:false},{mode:'
  }finally{leaveRoom('board','author','auto7-close-seat')}
 })
 
-it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMap START table through transport, durable row and cold READ (%s)',async application=>{
+it.each([{application:'plain-gradient',profile:G},{application:'spatial-mask',profile:G},{application:'plain-gradient',profile:B},{application:'spatial-mask',profile:B}] as const)('retains selected GradientMap START table through transport, durable row and cold READ ($application/$profile)',async({application,profile})=>{
  // Previous close/recovery cases replace this module-level mock implementation.
  // This authored room starts empty; clearing calls alone does not reset history.
  vi.mocked(getSoft6Prefix).mockResolvedValue({operations:[],canonicalRows:[]})
@@ -660,7 +669,7 @@ it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMa
   if(!source.unsupported.includes('source-color-provider-unresolved'))source.unsupported.push('source-color-provider-unresolved')
  }
  const f=setup(d,{id:grayId,size:fixture.asset.size,bytes:grayBytes})
- const config={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'] as const,primaryImageSource:'single-inverse-gray-v2' as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}
+ const config={rasterProfile:profile,allowedRecordedRasterProfiles:[profile],alphaDarkenVariants:['creamy'] as const,primaryImageSource:'single-inverse-gray-v2' as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}
  const transport=new CanonicalRoomTransport(config)
  const fields=application==='spatial-mask'?{primary:{kind:'total-random-rgb8-hash-v1' as const}}:undefined
  const resource={kind:'captured-tip-gradient-rgba8-v1' as const,rgba:Array.from({length:1024},(_,i)=>i%4===3?137:Math.floor(i/4))}
@@ -684,7 +693,7 @@ it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMa
  const shape=sourcePngMaskExtent({width:150,height:150,scale:p.brushScale,angle:p.brushAngle},{scale:.5,ratio:1,rotation:.3},0,0)
  const recipe={kind:'image' as const,asset:p.asset,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.5,ratio:1,rotation:.3,subX:0,subY:0,width:shape[0],height:shape[1],mirrorH:false,mirrorV:false,imageFrameIndex:0,sourceSlot:0 as const}
  const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1,...fields?{sourceColorField:{seed:123,offsetX:0,offsetY:0}}:{}}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
- const frame={version:2 as const,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked,sourceTipGradient:original,...fields?{sourceColorFields:fields}:{}}
+ const frame={version:2 as const,rasterProfile:profile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked,sourceTipGradient:original,...fields?{sourceColorFields:fields}:{}}
  const operation:CanonicalStrokeOperation={id:'gradient-tip-'+application,userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame}
  const wrong:CanonicalStrokeOperation={...operation,frame:{...frame,sourceTipGradient:{...original,rgba:original.rgba.map((v,i)=>i===3?138:v)}}}
  expect((await transport.recorded(identity,wrong,()=>true)).result.ok).toBe(false)
@@ -698,4 +707,64 @@ it.each(['plain-gradient','spatial-mask'] as const)('retains selected GradientMa
  expect(read.material).toEqual(s.material)
  expect(cold.resolve(identity,{strokeId:s.strokeId,brush:s.brush,layerId:'layer'})).toBeUndefined()
  expect(projectCanonicalIndexedOperation('board',row).operation.frame).toMatchObject({sourceTipGradient:original,...fields?{sourceColorFields:fields}:{}})
+})
+
+it.each(['multiply','color'] as const)('persists and cold-reads named dynamic Auto secondary WASH composition without an author grant (%s)',async blend=>{
+ const stock=await import('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.js')
+ const d=structuredClone(stock.default.rows.find(row=>row.index===4)!.descriptor) as unknown as BrushDescriptor
+ if(!d.sourceStamp||!d.behavior?.rendering)throw Error('Original compiled Default required')
+ d.id='imported-'+createHash('sha256').update('dynamic-composition-'+blend).digest('hex').slice(0,24)
+ if(d.sourceStamp.version!==2||d.sourceStamp.source.kind!=='defaultAuto')throw Error('Tagged Default source required')
+ // Explicit derived mechanism case: spikes require the new policy; an old
+ // fixed-plain reader must not be silently upgraded by WASH composition alone.
+ Object.assign(d.sourceStamp.source,{spikes:4})
+ Object.assign(d.behavior.rendering,{blendMode:blend});Object.assign(d.sourceStamp.settings,{PaintOpAction:'2',CompositeOp:blend});Object.assign(d.sourceStamp.flags,{indirectPainting:true})
+ const f=setup(d),config={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'] as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}},plainAutoGeometrySource:'dynamic-auto-geometry-v1' as const,authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1' as const},transport=new CanonicalRoomTransport(config)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),pin=s.material.primarySource
+ expect(s.composition).toMatchObject({mode:'wash',outerBlend:blend==='color'?'colorHsyBrowser':blend})
+ expect(s.material.outerCompositionLaw).toBe(blend==='color'?'browser-hsy-rgba8-functional-v1':undefined)
+ if(pin.kind!=='defaultAuto')throw Error('Expected exact original Auto')
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:pin.source.spikes,scale:pin.brushScale,angle:pin.brushAngle},{scale:.25,ratio:1,rotation:.4})
+ const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.25,ratio:1,rotation:.4,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
+ const frame:CanonicalStrokeFrameEnvelope={version:2,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked},operation:CanonicalStrokeOperation={id:'dynamic-'+blend,userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame}
+ expect(transport.live(identity,{layerId:'layer',frame}).result.ok).toBe(true)
+ const saved=await transport.recorded(identity,operation,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});await flushRoomWrites('board')
+ const row=db.operation.create.mock.calls[0][0].data,accepted=saved.accepted!,reader=new CanonicalBrushCapabilityResolver({...config,authorPlainAutoGeometrySource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const read=reader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:accepted,row})
+ expect(read.material).toEqual(s.material);expect(read.composition).toEqual(s.composition)
+ expect(()=>reader.beginGesture(identity,{...f.input,strokeId:'reader-cannot-author'})).toThrow()
+ const noReader=new CanonicalBrushCapabilityResolver({...config,plainAutoGeometrySource:false,authorPlainAutoGeometrySource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ expect(()=>noReader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:accepted,row})).toThrow()
+ if(blend==='color'){
+  const raw=Uint8Array.from(atob(materialPacked.slice(2)),c=>c.charCodeAt(0)),view=new DataView(raw.buffer);view.setUint16(6,view.getUint16(6,true)^1024,true)
+  const wrong={...accepted,frame:{...accepted.frame,materialPacked:'2|'+btoa(String.fromCharCode(...raw))}}
+  expect(()=>reader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:wrong,row})).toThrow()
+ }
+})
+
+it('authors named SOURCE2 Pixel8 with real browser coverage and cold-reads the same B law without relabelling G',async()=>{
+ const {freezeCanonicalPrimaryGrainPolicies}=await import('./canonicalExecutionPolicy.js')
+ const f=pressureAuto5Setup(undefined,false,true),config={rasterProfile:B,allowedRecordedRasterProfiles:[B,G,CANONICAL_STROKE_RASTER_PROFILE],alphaDarkenVariants:['creamy'] as const,primaryImageSource:'single-inverse-gray-v2' as const,primaryGrainSource:'primary-grain-image-v1' as const,authorPrimaryGrainSource:'primary-grain-image-v1' as const,autoSources:{defaultAuto:{coverageProfile:'browser-number-coverage-v1' as const,storedScale:1 as const}}}
+ expect(f.descriptor.sourceStamp?.version).toBe(2)
+ expect(freezeCanonicalPrimaryGrainPolicies(config)).toEqual({primaryGrainSource:'primary-grain-image-v1',authorPrimaryGrainSource:'primary-grain-image-v1'})
+ const transport=new CanonicalRoomTransport(config),input=input7(f)
+ const begun=await transport.begin(identity,input,()=>true)
+ if(!begun.ok||!('materialVersion'in begun.snapshot)||begun.snapshot.materialVersion!==8)throw Error(JSON.stringify(begun))
+ const s=begun.snapshot,p=s.material.primarySource
+ expect(s.rasterProfile).toBe(B);expect(s.material.primaryTexture.law).toBe('pixel-texture-u8-v1')
+ if(p.kind!=='defaultAuto')throw Error('Original Default Pixel8 source required')
+ expect(p.coverageProfile).toBe('browser-number-coverage-v1')
+ const g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:p.source.diameter,ratio:p.source.ratio,spikes:p.source.spikes,scale:p.brushScale,angle:p.brushAngle},{scale:.25,ratio:1,rotation:.2})
+ const recipe={kind:'defaultAuto' as const,source:p.source,coverageProfile:p.coverageProfile,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.25,ratio:1,rotation:.2,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+ const {buildCanonicalPrimaryGrainMaterial}=await import('@grafetto/shared')
+ const packed=buildCanonicalPrimaryGrainMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.8,flow:1,grainStrengthU8:173}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
+ const frame:CanonicalStrokeFrameEnvelope={version:2,rasterProfile:B,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:packed,texturePhase:s.material.primaryTexture.phase},op:CanonicalStrokeOperation={id:'browser-source2-pixel8',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame}
+ expect(transport.live(identity,{layerId:'layer',frame}).result.ok).toBe(true)
+ const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});await flushRoomWrites('board')
+ const row=db.operation.create.mock.calls[0][0].data,cold=new CanonicalBrushCapabilityResolver({...config,authorPrimaryGrainSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const read=cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row})
+ expect(read.rasterProfile).toBe(B);expect(read.material).toEqual(s.material)
+ expect(()=>cold.beginGesture(identity,{...input,strokeId:'read-only'})).toThrow()
+ expect(()=>new CanonicalRoomTransport({...config,rasterProfile:G,autoSources:config.autoSources})).toThrow('raster/coverage execution policy mismatch')
 })

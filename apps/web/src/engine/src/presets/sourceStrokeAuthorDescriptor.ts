@@ -65,7 +65,9 @@ export function sourcePixelTextureAuthorProgram(descriptor:BrushDescriptor,conte
   const b=context.binding,coverage=b.source.kind==='image'?'browser-number-coverage-v1':b.source.coverageProfile
   const expected=canonicalPixelTextureSourceBinding(descriptor,b.descriptorSha256,b.originalAssets??b.assets,coverage,context.rasterProfile,b.foregroundOpacity,b.sourceScale!==undefined?{sourceScale:b.sourceScale}:undefined)
   if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(b))return{supported:false,reasons:['Pixel texture original binding mismatch']}
-  return compileDescriptor(expected.descriptor,context,{pixelTexture:expected,rasterProfile:context.rasterProfile})
+  if(expected.source.kind!=='image'&&context.coverageProfile!==undefined&&context.coverageProfile!==expected.source.coverageProfile)return{supported:false,reasons:['Pixel texture coverage mismatch']}
+  const capturedContext=expected.source.kind==='image'?context:{...context,coverageProfile:expected.source.coverageProfile}
+  return compileDescriptor(expected.descriptor,capturedContext,{pixelTexture:expected,rasterProfile:context.rasterProfile})
  }catch{return{supported:false,reasons:['Pixel texture original DATA unavailable']}}
 }
 /** Original native GIH source2 uses the same option/author/cache pipeline. */
@@ -212,10 +214,10 @@ function compileDescriptor(descriptor:BrushDescriptor,context:SourceAuthorDescri
         const needed=option.checked && option.useCurve && !sourceCurveIsIdentity(sensor.curve.points)
         // Native apply guards skip unchecked/disabled curve consumers entirely.
         const saved=data.compiled?.curves.find(c=>c.source.text===sensor.curve.text)
-        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:(data.compiled?.version===2||(pressure||generic)&&(data.compiled?.version===3||data.compiled?.version===4))?'mapped-arm64-v3' as const:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
-        if (needed && (!compiled || !['native-sparselu-v1','mapped-arm64-v3'].includes(compiled.version))) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
+        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:data.compiled?.version===2&&data.compiled.profile==='eigen-5.0.1-source-functional-f64-v1'?'source-functional-v1' as const:(data.compiled?.version===2||(pressure||generic)&&(data.compiled?.version===3||data.compiled?.version===4))?'mapped-arm64-v3' as const:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
+        if (needed && (!compiled || !['native-sparselu-v1','mapped-arm64-v3','source-functional-v1'].includes(compiled.version))) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
         return {id:sensor.id,length:sensor.length,periodic:sensor.periodic,angleOffset:sensor.angleOffset,lockedAngle:sensor.lockedAngle,
-          curve:{points:sensor.curve.points,coefficients:compiled?.coefficients,...(compiled?.version==='mapped-arm64-v3'?{arithmetic:'installed-arm64-fused-v1' as const}:{})}}
+          curve:{points:sensor.curve.points,coefficients:compiled?.coefficients,...(compiled?.version==='source-functional-v1'?{arithmetic:'source-functional-fused-f64-v1' as const}:compiled?.version==='mapped-arm64-v3'?{arithmetic:'installed-arm64-fused-v1' as const}:{})}}
       })
       const program={id:option.id,checked:option.checked,useCurve:option.useCurve,curveMode:option.curveMode,strength:option.strength,min:option.min,max:option.max,sensors}
       compileSourceOptionProgram(program)
@@ -311,7 +313,7 @@ export function sourceDynamicAutoAuthorProgram(descriptor:BrushDescriptor,contex
  try{
   assertTexturedAutoOwnData(descriptor);assertTexturedAutoOwnData(context)
   if(!/^[a-f0-9]{64}$/.test(context.descriptorSha256)||context.geometryCapability.kind!=='dynamic-auto-geometry-v1'||context.geometryCapability.data.flags.textureEnabled)return reject('Invalid plain dynamic original binding')
-  const capability=extractCanonicalDynamicAutoGeometryData(descriptor)
+  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,context.geometryCapability.originalAssets)
   if(!capability.supported)return capability
   if(canonicalBrushDescriptorJSON(capability)!==canonicalBrushDescriptorJSON(context.geometryCapability))return reject('Dynamic original capability mismatch')
   const compiled=compileDescriptor(capability.descriptor,context,{dynamicCapability:capability,descriptorSha256:context.descriptorSha256})

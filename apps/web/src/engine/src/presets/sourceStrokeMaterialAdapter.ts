@@ -550,7 +550,10 @@ export function createTexturedAutoMaterialAdapter(program:SourceStrokeAuthorProg
  return {beginInput:core.beginInput.bind(core),accept:core.accept.bind(core),flush:core.flush.bind(core),finish:core.finish.bind(core),checkpoint(){const c=core.checkpoint();if(c.version!==7)invalid();return c}}
 }
 
-export function capturePrimaryGrainMaterialInput(value:unknown):{material:CanonicalMaterialContextV8;targets:Readonly<SourceMaterialTargetGeometry>|undefined}{const split=splitMaterial7(value);return{material:canonicalPrimaryGrainMaterialContext(split.material),targets:targets7(split.targetGeometry)}}
+export function capturePrimaryGrainMaterialInput(value:unknown):{material:CanonicalMaterialContextV8;targets:Readonly<SourceMaterialTargetGeometry>|undefined}{
+ const {targetGeometry,...material}=ownFields7(value,['version','assets','primarySource','primaryTexture','budget'],['targetGeometry','outerCompositionLaw','materialParams','colorParams','sourceColorFields','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
+ return{material:canonicalPrimaryGrainMaterialContext(material),targets:targets7(targetGeometry)}
+}
 export type SourcePrimaryGrainMaterialAdapter=Pick<MaterialAdapterCore<SourceStrokeMaterialContextV8>,'beginInput'|'accept'|'flush'|'finish'>&{checkpoint():SourceStrokeMaterialCheckpointV8}
 export function createPrimaryGrainMaterialAdapter(program:SourceStrokeAuthorProgram,context:SourceStrokeMaterialContextV8,state:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpointV8):SourcePrimaryGrainMaterialAdapter {
  const role=program.roles[0],texture=role?.textureProgram

@@ -10,6 +10,7 @@ import re
 import struct
 from native_curve_compile import _number
 from native_curve_arm_v3 import MappedCurveProvider, PROFILE, compile_curves_arm_v3
+from source_curve_functional import SourceFunctionalCurveProvider, PROFILE as FUNCTIONAL_PROFILE, compile_source_functional_curves
 from source_stamp_data import (MAX_SOURCE_STAMP_BUDGET, required_source_curves,
                                source_stamp_budget, validate_source_stamp_shape, mapped_soft_frontier_retired, texture_pressure_source_curve, gaussian_texture_pressure_source_curve, texture_native_default_source_curve)
 
@@ -49,9 +50,11 @@ def _texture_pressure_family_curve(raw):
 
 
 def compile_mapped_source_stamp(data, provider, *, texture_strength=False, native_default_texture=False):
-    if type(provider) is not MappedCurveProvider:
+    if type(provider) not in (MappedCurveProvider,SourceFunctionalCurveProvider):
         raise ValueError('An explicit trusted mapped provider is required')
     if type(native_default_texture) is not bool or native_default_texture and texture_strength: raise ValueError('Distinct native default option required')
+    if type(provider) is SourceFunctionalCurveProvider and (texture_strength or native_default_texture):
+        raise ValueError('Source-functional provider requires common compiled2, not legacy native material profiles')
     raw = _raw(data)
     sensors, radial = _sources(raw)
     texture = _texture_pressure_family_curve(raw) if texture_strength else None
@@ -64,10 +67,11 @@ def compile_mapped_source_stamp(data, provider, *, texture_strength=False, nativ
         raise ValueError('Mapped source compiler work budget exceeded')
     if source_stamp_budget(raw) + sum(map(_entry_budget, sources)) > MAX_SOURCE_STAMP_BUDGET:
         raise ValueError('Mapped compiled source aggregate budget exceeded')
-    coefficients = compile_curves_arm_v3(
+    compiler=compile_curves_arm_v3 if type(provider) is MappedCurveProvider else compile_source_functional_curves
+    coefficients = compiler(
         [[[point['x'], point['y'], point['corner']] for point in source['points']]
         for source in sources], provider) if sources else []
-    result = {'version': 2, 'reader': raw['reader'], 'profile': PROFILE,
+    result = {'version': 2, 'reader': raw['reader'], 'profile': provider.profile,
               'buildId': provider.expected_build_id,
               'curves': [{'source': source, 'coefficients': pieces}
                          for source, pieces in zip(sensors, coefficients)]}
@@ -106,7 +110,7 @@ def validate_mapped_source_stamp_shape(data, compiled):
             | ({'radialCurve'} if radial is not None else set()) | ({'textureStrength'} if texture is not None else set())):
         raise ValueError('Invalid mapped source dictionary')
     if (type(compiled['version']) is not int or compiled['version'] != (4 if native_default and texture is not None else 3 if texture is not None else 2)
-            or compiled['profile'] != PROFILE
+            or compiled['profile'] not in ((PROFILE,FUNCTIONAL_PROFILE) if compiled.get('version')==2 else (PROFILE,))
             or type(compiled['buildId']) is not str or not re.fullmatch(r'[0-9a-f]{64}',compiled['buildId']) or compiled['reader'] != raw['reader']
             or type(compiled['curves']) is not list or len(compiled['curves']) != len(sensors)):
         raise ValueError('Mapped source profile/build binding differs')
@@ -129,7 +133,7 @@ def validate_mapped_source_stamp_shape(data, compiled):
     if len(sources)>64 or sum(len(source['points']) for source in sources)>4096:
         raise ValueError('Mapped source compiler work budget exceeded')
     for source in sources:
-        if not 2<=len(source['points'])<=9 or source['points'][0]['corner'] or source['points'][-1]['corner']:
+        if not 2<=len(source['points'])<=(32 if compiled['profile']==FUNCTIONAL_PROFILE else 9) or source['points'][0]['corner'] or source['points'][-1]['corner']:
             raise ValueError('Unsupported mapped source curve grammar')
     if source_stamp_budget(raw)+sum(map(_entry_budget,sources))>MAX_SOURCE_STAMP_BUDGET:
         raise ValueError('Mapped compiled source aggregate budget exceeded')
@@ -137,7 +141,7 @@ def validate_mapped_source_stamp_shape(data, compiled):
 
 def verify_mapped_source_stamp(data, compiled, provider):
     validate_mapped_source_stamp_shape(data,compiled)
-    if type(provider) is not MappedCurveProvider or compiled['buildId']!=provider.expected_build_id:
+    if type(provider) not in (MappedCurveProvider,SourceFunctionalCurveProvider) or compiled['profile']!=provider.profile or compiled['buildId']!=provider.expected_build_id:
         raise ValueError('Mapped source profile/build binding differs')
     expected = compile_mapped_source_stamp(data, provider, texture_strength=compiled['version']==3,native_default_texture=compiled['version']==4)
     if not _same(compiled, expected):

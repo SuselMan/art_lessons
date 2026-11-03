@@ -210,3 +210,43 @@ it('plain geometry compiler independently captures the original program and resu
  expect(JSON.stringify(d)).toBe(before);
 
 })
+
+it('keeps functional captured coefficient provenance distinct in the shared source query program',async()=>{
+ const {createHash}=await import('node:crypto')
+ const {canonicalBrushDescriptorJSON,canonicalPixelImageSourceBinding,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE}=await import('@grafetto/shared')
+ const {sourcePixelImageAuthorProgram}=await import('./sourceStrokeAuthorDescriptor')
+ const d=structuredClone(compiledFixture.descriptor) as unknown as Mutable<BrushDescriptor>
+ const retained=d.sourceStamp,curves=retained?.compiled?.curves
+ if(!retained||!curves)throw Error('Explicit original coefficient fixture required')
+ // A mechanism-only fixture reuses known coefficients to isolate provenance
+ // routing; it does not claim that the functional solver emitted native bytes.
+ d.sourceStamp={...retained,version:2,source:{kind:'image'},compiled:{version:2,reader:'krita-bd6e8d0-v1',profile:'eigen-5.0.1-source-functional-f64-v1',buildId:'a'.repeat(64),curves}}
+ expect(isSourceStampData(d.sourceStamp)).toBe(true)
+ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex')
+ const binding=canonicalPixelImageSourceBinding(d,sha,[compiledFixture.asset],CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+ const result=sourcePixelImageAuthorProgram(d,{binding,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-functional-test',lodScale:1})
+ expect(result.supported).toBe(true);if(!result.supported)throw Error(result.reasons.join(','))
+ expect(result.program.roles[0].options.Size.sensors[0].curve.arithmetic).toBe('source-functional-fused-f64-v1')
+ expect(result.program.roles[0].options.Size.sensors[0].curve.arithmetic).not.toBe('installed-arm64-fused-v1')
+ expect(result.program.roles[0].options.Size.sensors[0].curve.coefficients).toEqual(curves[0].coefficients)
+ const {canonicalPixelImageMaterialContext,CANONICAL_MATERIAL_LIMITS}=await import('@grafetto/shared')
+ const {SourceStrokeMaterialAdapter}=await import('./sourceStrokeMaterialAdapter')
+ const budget={workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}
+ const material=canonicalPixelImageMaterialContext(binding,budget)
+ const author=new SourceStrokeAuthor(result.program)
+ let state=author.createState(11,22,0)
+ const adapter=new SourceStrokeMaterialAdapter(result.program,material,state)
+ const chunks=adapter.beginInput(state)
+ let materialSteps=0
+ const stream=author.plan(state,packet(0,10))
+ for(;;){const next=stream.next();if(next.done){state=next.value;break}if(next.value.kind==='material')materialSteps++;chunks.push(...adapter.accept(next.value))}
+ const checkpoint=structuredClone(state)
+ // Restore through the same program's state validator, then close the input.
+ const restored=new SourceStrokeAuthor(result.program),ending=restored.finish(checkpoint)
+ chunks.push(...adapter.beginInput(checkpoint))
+ for(;;){const next=ending.next();if(next.done){state=next.value;break}if(next.value.kind==='material')materialSteps++;chunks.push(...adapter.accept(next.value))}
+ chunks.push(...adapter.finish(state))
+ expect(materialSteps).toBeGreaterThan(0)
+ expect(chunks.some(c=>c.frame.draws.length>0)).toBe(true)
+ expect(chunks.at(-1)?.frame.fences.some(f=>f.kind==='gestureEnd')).toBe(true)
+})

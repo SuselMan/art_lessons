@@ -2159,3 +2159,12 @@ it('unique single-stripe first native paint progresses even when entry capture s
   query.mockRestore();now=0;s.drain();expect(draw.mock.calls.map(([request])=>request.source.view.rect.x)).toEqual([0,1,2]);expect(s.executor.checkpointReady).toBe(true)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })
+
+it('refuses standalone Auto bogus image assets before any paint',()=>{
+ const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
+ const s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin),resolve=vi.spyOn(s.layer,'resolveForPaint')
+ try{
+  expect(()=>s.executor.enqueue({...s.submit(),frame:closedAutoFrame(pin)})).toThrow('Auto-only frame must not supply image assets')
+  expect(resolve).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
+ }finally{s.close()}
+})

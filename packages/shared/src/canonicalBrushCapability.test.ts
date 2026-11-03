@@ -73,6 +73,16 @@ it('uses one saved PaintOpAction law: absent is incremental and inconsistent fla
  }
 })
 
+it('uses the native masking painter wash law without interpreting the child PaintOpAction as an outer composition',()=>{
+ const data=descriptor().sourceStamp!
+ for(const action of [undefined,'1','2']){
+  const settings={...data.settings};if(action===undefined)delete settings.PaintOpAction;else settings.PaintOpAction=action
+  const mask:SourceStampData={...data,role:'mask',settings,flags:{...data.flags,indirectPainting:true}}
+  expect(sourceStampPaintingMode(mask)).toBe('wash')
+  expect(sourceStampPaintingMode({...mask,flags:{...mask.flags,indirectPainting:false}})).toBeUndefined()
+ }
+})
+
 it.each(['multiply','lighten','colorDodge','overlay'] as const)('selects native %s only for explicitly requested V2 wash',blendMode=>{
  const d=descriptor();Object.assign(d,{behavior:{rendering:{blendMode}}})
  expect(canonicalSourceComposition(d)).toBeUndefined()

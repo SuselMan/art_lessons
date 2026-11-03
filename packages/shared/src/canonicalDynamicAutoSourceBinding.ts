@@ -8,9 +8,9 @@ import {CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,canonicalStrokeCoverageMatch
 /** Static source pin for the negotiated Pixel geometry/material consumer.
  * Descriptor SHA and CAS authority remain external. The historical source
  * binders keep their narrower capability contracts. */
-export function canonicalDynamicAutoSourceBinding(descriptor:BrushDescriptor,descriptorSha256:string,coverageProfile:CanonicalAutoCoverageProfile|CanonicalGaussianCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile,options?:CanonicalSourceScaleOptions){
+export function canonicalDynamicAutoSourceBinding(descriptor:BrushDescriptor,descriptorSha256:string,coverageProfile:CanonicalAutoCoverageProfile|CanonicalGaussianCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile,options?:CanonicalSourceScaleOptions,originalAssets?:readonly Readonly<{id:string;size:number}>[]){
   if(!/^[a-f0-9]{64}$/.test(descriptorSha256))throw new TypeError('Invalid dynamic Auto source profile')
-  const result=extractCanonicalDynamicAutoGeometryData(descriptor)
+  const result=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,originalAssets)
   if(!result.supported)throw new TypeError(result.reasons.join(','))
   const data=result.data
   const brushScale=captureCanonicalSourceScaleOptions(options).sourceScale??data.brush.scale

@@ -1,3 +1,4 @@
+import {brushAssetIds} from './brushes.js'
 export type {CanonicalPixelGradientMapTemplate,CanonicalPixelSourceMaterialInputs} from './canonicalPixelImageSourceCapture.js'
 import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
 import {capturePixelSourceMaterialInputs,pixelGradientMapMaterial,pixelPreparationImageAssets,type CanonicalPixelGradientMapTemplate,type CanonicalPixelSourceMaterialInputs,captureOriginalPixelImageSource} from './canonicalPixelImageSourceCapture.js'
@@ -28,7 +29,7 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
   if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile))return fail()
   if(native.kind==='defaultAuto'){if(coverageProfile==='scalar-bionic-f64-fma-v1')return fail();source=canonicalDefaultAutoSourcePin({kind:'defaultAuto',...identity,coverageProfile,...canonicalDefaultAutoStatic(native,brushScale,data.brush.angle,coverageProfile)})}
   else if(native.kind==='gaussianAuto'){if(coverageProfile==='scalar-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1')return fail();source=canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,coverageProfile,...canonicalGaussianAutoStatic(native,brushScale,data.brush.angle,coverageProfile)})}
-  else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile),reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
+  else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile),reader:data.reader,compilerProfile:data.compiled.profile,buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
  }
  const alphaAsset=c.alphaAsset
  for(const a of [...alphaAsset?[alphaAsset]:[],c.patternAsset]){
@@ -40,7 +41,9 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
  const patternIndex=assets.findIndex(a=>a.id===c.patternAsset.id)
  assets.push(...assets.splice(patternIndex,1))
  const textureGeometry=c.textureGeometry
- return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,...c.originalAssets?{originalAssets:c.originalAssets}:{},descriptorSha256,descriptor,data,source,...gradientMapTemplate?{gradientMapTemplate}:{},assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
+ const refs=brushAssetIds(descriptor);if(refs.length>2048)return fail()
+ const originalAssets=Object.freeze(refs.map(id=>{const a=available.find(a=>a.id===id);if(!a)return fail();return Object.freeze({id:a.id,size:a.size})}))
+ return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,originalAssets,descriptorSha256,descriptor,data,source,...gradientMapTemplate?{gradientMapTemplate}:{},assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
 }
 export type CanonicalPixelTextureSourceBinding=ReturnType<typeof canonicalPixelTextureSourceBinding>
 /** Fixed axes are checked; random axes are sampled once by the stroke owner. */

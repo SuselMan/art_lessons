@@ -46,8 +46,9 @@ class FrameEncoderCore<C extends CoreContext> {
       pigmentRgb8:Object.freeze([...context.pigmentRgb8] as [number,number,number]),
       composition:Object.freeze({...context.composition})}
     if('version'in material&&material.version===8){
-      if(!('materialVersion'in context)||context.materialVersion!==8||common.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new RangeError('Explicit material8 GSC context required')
-      this.context={...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material}
+      const profile=common.rasterProfile
+      if(!('materialVersion'in context)||context.materialVersion!==8||(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)||material.primaryTexture.law==='hard-multiply-u8-native-v1'&&profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||material.primarySource.kind!=='image'&&!canonicalStrokeCoverageMatches(profile,material.primarySource.coverageProfile))throw new RangeError('Explicit material8 matching profile required')
+      this.context={...common,rasterProfile:profile,materialVersion:8,material}
     }else if('version'in material&&material.version===7){
       const profile=common.rasterProfile;if(!('materialVersion'in context)||context.materialVersion!==7||(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)||!canonicalStrokeCoverageMatches(profile,material.primarySource.coverageProfile))throw new RangeError('Explicit material7 profile required')
       this.context={...common,rasterProfile:profile,materialVersion:7,material}
@@ -91,9 +92,10 @@ class FrameEncoderCore<C extends CoreContext> {
     if (this.state.ended) throw new Error('Canonical source gesture has ended')
     const accepted = this.decode(materialPacked,this.nextFrameOrdinal)
     assertSourceMaterialTargets(accepted.frame,this.targets)
-    // Primary-only execution capability/order is checked on decoded values.
-    // In particular a structural dual-brush packet cannot enter this profile.
-    const next = advanceSourcePrimaryComposition(this.state, { ordinal: this.nextFrameOrdinal, frame: accepted.frame }).state
+    // Masked ordering is admitted only by the captured SOURCE2 role pairing.
+    const material=this.context.material
+    const masked='version'in material&&material.version===2&&material.maskSource!==undefined
+    const next = advanceSourcePrimaryComposition(this.state, { ordinal: this.nextFrameOrdinal, frame: accepted.frame, masked }).state
     this.state = next
     return accepted as EncodedFor<C>
   }

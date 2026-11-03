@@ -362,7 +362,7 @@ export class CanonicalBrushCapabilityResolver {
         if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
         bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
         const common={rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition}
-        const decoded=bound.material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material:bound.material}):bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
+        const decoded=bound.material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:8,material:bound.material}):bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
         if(decoded.frame.masked&&!(bound.material.version===2&&bound.material.maskSource&&bound.material.maskingBlend))fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
@@ -444,7 +444,7 @@ export class CanonicalBrushCapabilityResolver {
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
-    const decoded=material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material}):material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
+    const decoded=material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:8,material}):material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
     if(decoded.frame.masked&&!(material.version===2&&material.maskSource&&material.maskingBlend))fail('recorded masked material unavailable')
     if(plainAutoGeometry==='dynamic-auto-geometry-v1')assertCanonicalDynamicAutoGeometryFrame(decoded.frame)
     else if(plainAutoGeometry)assertCanonicalPlainAutoGeometryFrame(decoded.frame)
@@ -592,7 +592,7 @@ export class CanonicalBrushCapabilityResolver {
     // saved wire selector chooses history; current AUTHOR policy cannot upgrade7.
     if(phase&&descriptor.sourceStamp.textureOption&&(recordedVersion!==undefined?recordedVersion===8&&!!(recordedFlags&(32|128)):!!this.primaryGrainPolicies.primaryGrainSource&&!!this.primaryGrainPolicies.authorPrimaryGrainSource)){
       if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('Pixel texture source policy disabled')
-      if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('Pixel texture raster unavailable')
+      if(!canonicalStrokeRasterContract(profile).genericSC||descriptor.sourceStamp.version!==2)fail('Pixel texture raster/source unavailable')
       const kind=descriptor.sourceStamp.version===2?descriptor.sourceStamp.source.kind:'image'
       const configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:kind==='softAuto'?this.autoSources.softAuto:undefined
       if(kind!=='image'&&!configured)fail('Pixel texture Auto family unavailable')
@@ -603,7 +603,7 @@ export class CanonicalBrushCapabilityResolver {
       return {material,mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
     }
     if(!descriptor.texture&&!descriptor.behavior?.dual&&(descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&this.imageMaterialPolicies.imageMaterialSource&&(recordedVersion!==undefined?(!descriptor.tip.animation||!!(recordedFlags&8)):!!this.imageMaterialPolicies.authorImageMaterialSource)){
-      if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||phase)fail('Pixel image raster/phase unavailable')
+      if(!canonicalStrokeRasterContract(profile).genericSC||phase)fail('Pixel image raster/phase unavailable')
       const binding=canonicalPixelImageSourceBinding(descriptor,descriptorSha256,library.assets,profile,1,scaleOptions)
       for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
       return {material:canonicalPixelImageMaterialContext(binding,budget,(sourceTipGradient||sourceColorFields)?{...sourceTipGradient?{sourceTipGradient}:{},...sourceColorFields?{sourceColorFields,sourceColorAvailable:library.assets.map(({id,size})=>({id,size}))}:{}}:undefined),mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
@@ -751,7 +751,7 @@ export class CanonicalBrushCapabilityResolver {
         if(!(composition.mode==='wash'||composition.mode==='buildup'&&(composition.outerBlend==='over'||composition.outerBlend==='erase')))fail('plain dynamic Auto composition unavailable')
         if(role==='author'){
           if(!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
-          const capability=extractCanonicalDynamicAutoGeometryData(descriptor)
+          const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,library.assets.map(({id,size})=>({id,size})))
           if(!capability.supported)fail('unsupported dynamic Auto source: '+capability.reasons.join(','))
         }
         plainAutoGeometry='dynamic-auto-geometry-v1'
@@ -777,7 +777,7 @@ export class CanonicalBrushCapabilityResolver {
         return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,...stat,coverageProfile:configured.coverageProfile})
       }
       const dynamicPolicy=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:this.autoSources.softAuto
-      const pin=dynamic?dynamicPolicy?canonicalDynamicAutoSourceBinding(descriptor,descriptorSha256,dynamicPolicy.coverageProfile,profile,scaleOptions):fail('dynamic Auto source family disabled'):recordedPlain?recordedDefault():kind==='softAuto'
+      const pin=dynamic?dynamicPolicy?canonicalDynamicAutoSourceBinding(descriptor,descriptorSha256,dynamicPolicy.coverageProfile,profile,scaleOptions,library.assets.map(({id,size})=>({id,size}))):fail('dynamic Auto source family disabled'):recordedPlain?recordedDefault():kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
         ? descriptor.sourceStamp.source.density<1

@@ -591,7 +591,7 @@ export class CanonicalWashLayerCoordinator {
     if(author.lifetime.assertCurrent()!==scope||!Object.isFrozen(op)||Object.hasOwn(op,'seq')
       ||op.type!=='canonical_stroke'||op.userId!==author.userId||op.layerId!==this.options.layerId
       ||snapshot.layerId!==op.layerId||snapshot.boardEpoch!==scope.boardEpoch||snapshot.rasterProfile!==this.options.rasterProfile
-      ||('maskSource'in snapshot.material&&snapshot.material.maskSource))throw new TypeError('Invalid local source envelope/context')
+      ||('maskSource'in snapshot.material&&snapshot.material.maskSource&&(!('version'in snapshot.material)||snapshot.material.version!==2)))throw new TypeError('Invalid local source envelope/context')
     // Capacity false is NOT material validation/admission. Preserve cheap
     // original owner/namespace/layer proofs, but do not decode the same retained
     // packed body on every full-queue retry. The free path keeps its late guard.

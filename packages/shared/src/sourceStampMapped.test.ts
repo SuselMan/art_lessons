@@ -2,8 +2,10 @@ import {describe,expect,it} from 'vitest'
 import original from './fixtures/sourceSoftAutoData/stock.native.js'
 import stock from './fixtures/sourceDefaultAutoData/stock.native.js'
 import {extractSoftAutoSourceDataCapability,hasCanonicalSourceCurvePrograms} from './canonicalBrushCapability.js'
+import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
+import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE as B} from './canonicalStrokeFrame.js'
 import type {BrushDescriptor} from './brushes.js'
-import {captureSourceTextureNativeDefaultProgram,captureSourceTexturePressureProgram,isSourceStampData,sourceStampDataBudget,sourceStampRequiredCurves,SOURCE_STAMP_MAPPED_COMPILER_PROFILE,type SourceStampCurveData} from './sourceStampData.js'
+import {captureSourceTextureNativeDefaultProgram,captureSourceTexturePressureProgram,isSourceStampData,sourceStampDataBudget,sourceStampRequiredCurves,SOURCE_STAMP_MAPPED_COMPILER_PROFILE,SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE,type SourceStampCurveData} from './sourceStampData.js'
 
 // Schema probes use dummy numeric coefficients; they do not attest a compiler.
 function mappedData() {
@@ -129,4 +131,27 @@ describe('public compiled4 DATA predicate own-data boundary',()=>{
   Object.defineProperty(owner,key,{get(){calls++;return value},enumerable:true,configurable:true})
   expect(isSourceStampData(data)).toBe(false);expect(calls).toBe(0)
  })
+})
+
+// Synthetic coefficients exercise schema/provenance binding only. Actual solver
+// correctness is checked against an independent spline by the importer tests.
+function functionalRadialData(count=10){
+ const base=mappedData(),points=Array.from({length:count},(_,i)=>({x:i/(count-1),y:(i%3)/2,corner:false})),curve={text:points.map(p=>`${p.x},${p.y};`).join(''),points}
+ const source={...base.source,shape:'circle' as const,ratio:1,spikes:2,antialias:false,randomness:0,density:1,softnessCurve:curve}
+ const radialCurve={source:curve,coefficients:Array.from({length:count-1},()=>[0,0,0,0] as const)}
+ return{...base,source,compiled:{...base.compiled,profile:SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE,radialCurve}}
+}
+it('accepts ten-knot common functional coefficients without widening the mapped native grammar',()=>{
+ const data=functionalRadialData();expect(isSourceStampData(data)).toBe(true)
+ expect(isSourceStampData({...data,compiled:{...data.compiled,profile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE}})).toBe(false)
+ for(const version of[3,4])expect(isSourceStampData({...data,compiled:{...data.compiled,version}})).toBe(false)
+ for(const count of[22,32])expect(isSourceStampData(functionalRadialData(count))).toBe(true)
+ expect(isSourceStampData(functionalRadialData(33))).toBe(false)
+})
+it('binds actual functional Soft provenance only to browser coverage and keeps its copied radial data immutable',()=>{
+ const data=functionalRadialData(),pin={kind:'softAuto' as const,sourceSlot:0 as const,descriptorId:'functional-soft',descriptorVersion:1,descriptorSha256:'c'.repeat(64),source:data.source,brushScale:1,brushAngle:0,coverageProfile:B,reader:data.reader,compilerProfile:SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE,buildId:'d'.repeat(64),radialCurve:data.compiled.radialCurve}
+ const actual=canonicalSoftAutoSourcePin(pin);expect(actual.compilerProfile).toBe(SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE);expect(actual.radialCurve.source.points).toHaveLength(10);expect(Object.isFrozen(actual.radialCurve.source.points)).toBe(true)
+ expect(()=>canonicalSoftAutoSourcePin({...pin,coverageProfile:'neon64-f32-fma-v1'})).toThrow()
+ expect(()=>canonicalSoftAutoSourcePin({...pin,compilerProfile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE})).toThrow()
+ data.source.softnessCurve.points[1].y=.91;expect(actual.source.softnessCurve.points[1].y).not.toBe(.91)
 })

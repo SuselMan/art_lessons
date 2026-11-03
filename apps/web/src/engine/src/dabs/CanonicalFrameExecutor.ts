@@ -200,7 +200,7 @@ export interface CanonicalReplayAdmissionTicket {
 export type CanonicalReplaySourceData = Readonly<{materialVersion:2;rasterProfile:CanonicalStrokeRasterProfile;context:CanonicalMaterialContextV2;autoSource?:CanonicalAutoSource|CanonicalSoftAutoSource;autoGeometryMechanism?:CanonicalAutoGeometryMechanism}> | Readonly<{
   materialVersion:7;rasterProfile:CanonicalStrokeRasterProfile;context:CanonicalMaterialContextV7;autoSource:CanonicalAutoSource|CanonicalSoftAutoSource;autoGeometryMechanism?:CanonicalAutoGeometryMechanism
 }> | Readonly<{
-  materialVersion:8;rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE;context:CanonicalMaterialContextV8;autoSource?:CanonicalAutoSource|CanonicalSoftAutoSource;autoGeometryMechanism?:CanonicalAutoGeometryMechanism
+  materialVersion:8;rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE|typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE;context:CanonicalMaterialContextV8;autoSource?:CanonicalAutoSource|CanonicalSoftAutoSource;autoGeometryMechanism?:CanonicalAutoGeometryMechanism
 }>
 export type CanonicalReplaySource = CanonicalReplaySourceData & {assertCurrent():void;retainRoot():CanonicalMaskSourceLease|undefined}
 export type CanonicalReplaySource7 = Extract<CanonicalReplaySource,{readonly materialVersion:7}>
@@ -364,9 +364,9 @@ export class CanonicalFrameExecutor {
 
     let captured8:CanonicalMaterialContextV8|undefined,earlyRelease8:(()=>void)|undefined
     if(version7&&Object.hasOwn(version7,'value')&&version7.value===8){
-      if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.bank!==options.primaryTexture!.root)throw new TypeError('Standalone image8 requires GSC buildup source')
+      if((options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)||options.bank!==options.primaryTexture!.root)throw new TypeError('Standalone image8 requires GenericSC source')
       earlyRelease8=a.cpu.reserve(28672+(options.replayFrontier?512:0))
-      try{captured8=canonicalPrimaryGrainMaterialContext(options.primaryTexture!.context);if(!options.composite.supportsPrimaryGrainPrograms([{operation:'over32FusedScalar',law:captured8.primaryTexture.law}]))throw new Error('Canonical grain OVER was not prepared')}
+      try{captured8=canonicalPrimaryGrainMaterialContext(options.primaryTexture!.context);if(options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE&&captured8.primaryTexture.law==='hard-multiply-u8-native-v1')throw new TypeError('Native hard grain requires installed raster profile');if(!options.composite.supportsPrimaryGrainPrograms([{operation:options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar',law:captured8.primaryTexture.law}]))throw new Error('Canonical grain OVER was not prepared')}
       catch(primary){try{earlyRelease8()}catch{/* Preserve source capture failure. */}throw primary}
     }
     try{
@@ -387,7 +387,7 @@ export class CanonicalFrameExecutor {
       try{
         const context=captured8??captureTextureContext(options.primaryTexture.context)
         if(context.primarySource.kind==='image'){
-          if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.autoSource)throw new TypeError('Material3 requires its existing image GenericSC source')
+          if((options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&(options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE||context.version!==8||context.primaryTexture.law==='hard-multiply-u8-native-v1'))||options.autoSource)throw new TypeError('Image texture requires its matching GenericSC source')
         }else{
           if((options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
             ||this.options.autoSource?.kind!==(context.version===7||context.version===8?context.primarySource.kind:context.version===6?'softAuto':'defaultAuto')||canonicalBrushDescriptorJSON(this.options.autoSource)!==canonicalBrushDescriptorJSON(context.primarySource)
@@ -455,11 +455,11 @@ export class CanonicalFrameExecutor {
       this.softProgram=options.softProgramOwner??new CanonicalSoftCircleProgramOwner(a.cpu,
         {kind:'auto',generator:'soft',shape:s.shape,diameter:s.diameter,ratio:s.ratio,horizontalFade:s.horizontalFade,verticalFade:s.verticalFade,
           spikes:s.spikes,softness:1,randomness:0,density:1,antialias:s.antialias},
-        {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+(s.shape==='rect'?1:2))
+        {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+(s.shape==='rect'?1:2),source.compilerProfile==='eigen-5.0.1-source-functional-f64-v1'?'source-functional-fused-f64-v1':'installed-arm64-fused-v1')
     }
     if(masked?.maskSource?.kind==='softAuto'){
       const pin=masked.maskSource,t=pin.source
-      this.maskSoftProgram=new CanonicalSoftCircleProgramOwner(a.cpu,{kind:'auto',generator:'soft',shape:t.shape,diameter:t.diameter,ratio:t.ratio,horizontalFade:t.horizontalFade,verticalFade:t.verticalFade,spikes:t.spikes,softness:1,randomness:0,density:1,antialias:t.antialias},{points:pin.radialCurve.source.points,coefficients:pin.radialCurve.coefficients},Math.floor(t.diameter*4+.5)+(t.shape==='rect'?1:2))
+      this.maskSoftProgram=new CanonicalSoftCircleProgramOwner(a.cpu,{kind:'auto',generator:'soft',shape:t.shape,diameter:t.diameter,ratio:t.ratio,horizontalFade:t.horizontalFade,verticalFade:t.verticalFade,spikes:t.spikes,softness:1,randomness:0,density:1,antialias:t.antialias},{points:pin.radialCurve.source.points,coefficients:pin.radialCurve.coefficients},Math.floor(t.diameter*4+.5)+(t.shape==='rect'?1:2),pin.compilerProfile==='eigen-5.0.1-source-functional-f64-v1'?'source-functional-fused-f64-v1':'installed-arm64-fused-v1')
     }
     if(options.replayFrontier)this.initializeReplaySource()
     }catch(error){this.cleanup(()=>this.maskSoftProgram?.retire());if(options.replayFrontier)this.retireSoftProgram();this.retirePrimaryTexture();this.retireMaskCapacity();throw error}
@@ -493,7 +493,7 @@ export class CanonicalFrameExecutor {
     let data:CanonicalReplaySourceData
     if(context.version===2){data={materialVersion:2,rasterProfile,context,autoSource,autoGeometryMechanism:this.options.autoGeometryMechanism}}
     else if(context.version===8){
-      if(rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new Error('Image8 replay requires GenericSC')
+      if(context.primaryTexture.law==='hard-multiply-u8-native-v1'&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new Error('Native hard grain replay requires installed raster profile')
       data={materialVersion:8,rasterProfile,context,autoSource,autoGeometryMechanism:this.options.autoGeometryMechanism}
     }else if(context.version===7){
       if(!autoSource)throw new Error('Material7 replay source missing')
@@ -588,11 +588,11 @@ export class CanonicalFrameExecutor {
     const textureRasterProfile=this.options.rasterProfile
     if(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&textureRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Unsupported canonical texture raster profile')
     if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile,source.context.version===8&&source.context.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
-    if(source.context.version===8&&(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||source.context.primaryTexture.law==='hard-multiply-u8-native-v1'&&(input.composition.mode!=='buildup'||input.composition.outerBlend!=='over')))throw new TypeError('Standalone image8 requires buildup OVER')
+    if(source.context.version===8&&source.context.primaryTexture.law==='hard-multiply-u8-native-v1'&&(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||input.composition.mode!=='buildup'||input.composition.outerBlend!=='over'))throw new TypeError('Standalone image8 requires buildup OVER')
     if(input.composition.mode==='buildup'){
       if(this.options.washMode==='deposition-only')throw new TypeError('Deposition-only requires wash')
       const operation=textureRasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar'
-      if(source.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:'over32FusedScalar',law:source.context.primaryTexture.law}]):!this.options.composite.supportsTexturedOperations([operation]))throw new TypeError('Canonical texture OVER variant was not prepared')
+      if(source.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar',law:source.context.primaryTexture.law}]):!this.options.composite.supportsTexturedOperations([operation]))throw new TypeError('Canonical texture OVER variant was not prepared')
     }
     const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
     const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
@@ -666,7 +666,13 @@ export class CanonicalFrameExecutor {
     const initial = this.planned ?? createSourcePrimaryComposition(input.composition).state
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame,masked:!!this.options.maskedSource })
     const hasImageDefinitions = input.frame.definitions.some(r => !autoRecipe(r))
-    const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
+    // A paired SOURCE2 chunk may contain only the Auto mask while retaining
+    // the captured primary image inventory. Its bank and assets stay validated
+    // across chunks, including chunks with no image definitions of their own.
+    const capturedImage = this.options.maskedSource?.primarySource.kind === 'image'
+      || this.options.maskedSource?.maskSource?.kind === 'image'
+      || this.options.sourceMaterial?.primarySource.kind === 'image'
+    const hasImage = capturedImage || hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
     if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
     if (!hasImage && input.assets.length&&!this.primaryTexture) throw new TypeError('Auto-only frame must not supply image assets')
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
@@ -1166,7 +1172,7 @@ export class CanonicalFrameExecutor {
       const source=this.primaryTexture,info=this.options.composite.brushGlBatchInfo()
       assertCanonicalPatternResourceCurrent(source.view,info,source.root)
       if(source.gradient){assertCanonicalPatternResourceCurrent(source.gradient,info,source.root);if(!info.resources.some(r=>r.key===source.gradient!.key&&r.bytes===1024))throw new Error('Canonical gradient group changed')}
-      const variantReady=source.context.version===8?this.options.composite.supportsPrimaryGrainPrograms([{operation:'over32FusedScalar',law:source.context.primaryTexture.law}]):this.options.composite.supportsTexturedOperations([this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar'])
+      const variantReady=source.context.version===8?this.options.composite.supportsPrimaryGrainPrograms([{operation:this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar',law:source.context.primaryTexture.law}]):this.options.composite.supportsTexturedOperations([this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar'])
       if(!variantReady||!info.resources.some(r=>r.key===source.view.key&&r.bytes===source.view.width*source.view.height*4))throw new Error('Canonical texture group/variant changed')
     }
     if(this.roleTextures){const info=this.options.composite.brushGlBatchInfo();for(const role of ['primary','mask']as const){const binding=this.roleTextures.bindings[role];if(!binding)continue;assertCanonicalPatternResourceCurrent(binding.view,info,this.roleTextures.root);if(binding.gradient)assertCanonicalPatternResourceCurrent(binding.gradient,info,this.roleTextures.root);if(!info.resources.some(r=>r.key===binding.view.key&&r.bytes===binding.view.width*binding.view.height*4)||!this.options.composite.supportsPrimaryGrainPrograms([{operation:this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar',law:binding.pin.law}]))throw new Error('Role texture preparation changed')}}

@@ -65,6 +65,10 @@ export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,raste
 /** Saved reader law shared by image/auto capability binding. Undefined action
  * means incremental; conflicting or malformed retained flags fail closed. */
 export function sourceStampPaintingMode(data: SourceStampData): 'wash'|'buildup'|undefined {
+  // KisResourcesSnapshot::setupMaskingBrushPainter always selects
+  // ALPHA_DARKEN, independently of the child preset's PaintOpAction.
+  // The mask's retained indirect flag must still agree with that role.
+  if(data.role==='mask')return data.flags.indirectPainting?'wash':undefined
   const action=data.settings.PaintOpAction
   const indirect=action!==undefined && Number(action)!==1
   if(action!==undefined && (!/^[+-]?\d+$/.test(action)||!Number.isSafeInteger(Number(action)))
@@ -449,15 +453,19 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
   if (data.version !== 2 || data.source.kind !== 'defaultAuto') return reject('source-material-is-not-default-auto')
   if (!seededDensity && data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes,seededMask))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (role??'primary') || descriptor.behavior?.dual&&role===undefined) return reject('mask-master-size-unresolved')
-  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
-    || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
+  const standardTip=descriptor.tip.kind==='procedural'&&descriptor.tip.profile?.kind==='standard'&&!descriptor.tip.mask
+  // Named original-data consumers execute the captured native kernel; a
+  // schema-verified legacy bitmap fallback remains an original resource only.
+  const capturedFallback=extendedSpikes&&capturedData===data&&descriptor.tip.kind==='bitmap'&&typeof descriptor.tip.mask==='string'&&descriptor.tip.profile===undefined
+  if (descriptor.model !== 'stamp' || !standardTip&&!capturedFallback
+    || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
   const source = data.source
   if ((!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || (!seededMask&&source.randomness !== 0)||![source.randomness,source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1)||(!seededMask&&!seededDensity&&source.density!==1) || (!data.flags.materialFixed1&&!(extendedSpikes&&hasCanonicalCapturedMaterialConsumers(data)))
     || (material !== 'plain' ? !data.flags.textureEnabled : data.flags.textureEnabled)
     || (descriptor.behavior?.colorAdjustment&&!(extendedSpikes&&hasCanonicalCapturedColorConsumers(data)))) return reject('unsupported-default-auto-material-consumer')
   const p = descriptor.tip.profile
-  if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade
-    || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias) return reject('inconsistent-default-auto-profile')
+  if (standardTip && (!p || p.kind!=='standard' || p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade
+    || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias)) return reject('inconsistent-default-auto-profile')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !(material==='pressure-curve-data'&&capturedData?.compiled?.version===3 ? true : hasCanonicalSourceCurvePrograms(data))) return reject('native-option-program-unavailable')
   // The historical tag conflates spikes, randomness and density. Only the
@@ -722,13 +730,17 @@ export function extractCanonicalPrimaryGrainImageAuthorData(original:unknown,ass
 }
 
 /** Captured native Pixel Auto mechanism; DATA only, never a policy/BEGIN grant. */
-export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {
+export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?:Readonly<{pattern:Readonly<{id:string;size:number}>}>,originalAssets?:readonly Readonly<{id:string;size:number}>[]) {
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original)
-  const library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:assets?[{id:assets.pattern.id,size:assets.pattern.size,file:assets.pattern.id.slice(6)+'.bin'}]:[],skipped:[]}
+  const metadata=capturePrimaryGrainOriginal(originalAssets??(assets?[assets.pattern]:[]))
+  if(!Array.isArray(metadata)||metadata.length>2048)return reject('invalid dynamic Auto original asset metadata')
+  const available=metadata.map(value=>{const a=textureData(value,['id','size']);if(typeof a.id!=='string'||typeof a.size!=='number')throw new TypeError('Invalid original asset metadata');return{id:a.id,size:a.size,file:a.id.slice(6)+'.bin'}})
+  const library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available,skipped:[]}
   if(!isBrushLibrary(library))return reject('invalid dynamic Auto descriptor')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
+  const refs=new Set<string>(brushAssetIds(descriptor)),capturedAssets=Object.freeze(library.assets.filter(a=>refs.has(a.id)).map(({id,size})=>Object.freeze({id,size})))
   if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,undefined,true,true))||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dynamic Auto source')
   const material=data.flags.textureEnabled?(assets?extractCanonicalTexturedAutoProgramData(descriptor,assets):undefined):data.source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'plain',data,undefined,true,true):data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,false,true):extractSoftAutoDataCore(descriptor,undefined,true,false,true)
   if(!material?.supported)return reject('unsupported dynamic Auto kernel/program')
@@ -741,7 +753,7 @@ export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?
    // The application's flat canvas supplies native default perspective=1.
    for(const sensor of option.sensors)if(option.useCurve&&sensor.id==='drawingAngle'&&sensor.fanCorners&&(!Number.isFinite(sensor.fanStep)||sensor.fanStep!<5||sensor.fanStep!>90))return reject('dynamic Auto fan bound')
   }
-  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'dynamic-auto-geometry-v1' as const,descriptor,data,material,maxScale:1 as const,maxRatio:1 as const,allRotations:true as const})
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,kind:'dynamic-auto-geometry-v1' as const,descriptor,data,material,maxScale:1 as const,maxRatio:1 as const,allRotations:true as const,originalAssets:capturedAssets})
  }catch{return reject('invalid dynamic Auto original DATA')}
 }
 

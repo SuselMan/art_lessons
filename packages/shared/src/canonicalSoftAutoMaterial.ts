@@ -2,7 +2,7 @@ import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFIL
 import type { BrushDescriptor } from './brushes.js'
 import { extractSoftAutoSourceDataCapability, extractCanonicalSoftAutoNativeDefaultTextureProgramData, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceSoftAutoData, SourceStampCompiledCurve } from './sourceStampData.js'
-import { isSourceStampCurveData, SOURCE_STAMP_MAPPED_COMPILER_PROFILE } from './sourceStampData.js'
+import { isSourceStampCurveData, SOURCE_STAMP_MAPPED_COMPILER_PROFILE,SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE,type SourceStampCoefficientCompilerProfile } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 import type { CanonicalDefaultAutoRecipe } from './canonicalDefaultAutoMaterial.js'
 
@@ -15,7 +15,7 @@ export interface CanonicalSoftAutoSource {
   readonly brushScale:number; readonly brushAngle:number
   readonly coverageProfile:'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE|typeof CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE
   readonly reader:'krita-bd6e8d0-v1'
-  readonly compilerProfile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+  readonly compilerProfile:SourceStampCoefficientCompilerProfile
   readonly buildId:string
   readonly radialCurve:SourceStampCompiledCurve
 }
@@ -48,7 +48,7 @@ export function canonicalSoftAutoStatic(source:SourceSoftAutoData,brushScale:num
     ||source.kind!=='softAuto'||source.generator!=='soft'||!(source.shape==='circle'||browserShapes&&source.shape==='rect')||(!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64)||(!seededMask&&(source.randomness!==0||source.density!==1))||![source.randomness,source.density].every(v=>finite(v)&&v>=0&&v<=1)||typeof source.antialias!=='boolean'||!browserShapes&&source.antialias!==false
     ||![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
     ||source.diameter<=0||source.ratio<=0||source.ratio>1||brushScale<0||source.horizontalFade<0||source.horizontalFade>1||source.verticalFade<0||source.verticalFade>1
-    ||!isSourceStampCurveData(source.softnessCurve)||source.softnessCurve.points.length<2||source.softnessCurve.points.length>9
+    ||!isSourceStampCurveData(source.softnessCurve)||source.softnessCurve.points.length<2||source.softnessCurve.points.length>(browserShapes?32:9)
     ||source.softnessCurve.points[0].corner||source.softnessCurve.points[source.softnessCurve.points.length-1].corner)fail()
   const resolution=Math.floor(source.diameter*4+.5)
   if(!Number.isSafeInteger(resolution)||resolution+(source.shape==='rect'?1:2)>16384)fail()
@@ -58,9 +58,11 @@ export function canonicalSoftAutoSourcePin(pin:CanonicalSoftAutoSource):Canonica
   if(!closed(pin,['kind','sourceSlot','descriptorId','descriptorVersion','descriptorSha256','source','brushScale','brushAngle','coverageProfile','reader','compilerProfile','buildId','radialCurve'])
     ||pin.kind!=='softAuto'||![0,1].includes(pin.sourceSlot)||typeof pin.descriptorId!=='string'||!pin.descriptorId||pin.descriptorId.length>256||pin.descriptorId.includes('\0')
     ||!Number.isSafeInteger(pin.descriptorVersion)||pin.descriptorVersion<1||typeof pin.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.descriptorSha256)
-    ||pin.reader!=='krita-bd6e8d0-v1'||pin.compilerProfile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE||typeof pin.buildId!=='string'||!/^[a-f0-9]{64}$/.test(pin.buildId)
+    ||pin.reader!=='krita-bd6e8d0-v1'||(pin.compilerProfile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE&&pin.compilerProfile!==SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE)||typeof pin.buildId!=='string'||!/^[a-f0-9]{64}$/.test(pin.buildId)
     ||!['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE].includes(pin.coverageProfile))fail()
+  if(pin.compilerProfile===SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE&&pin.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE&&pin.coverageProfile!==CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)fail()
   const normalized=canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle,pin.coverageProfile),radial=pin.radialCurve
+  if(normalized.source.softnessCurve.points.length>(pin.compilerProfile===SOURCE_STAMP_FUNCTIONAL_COMPILER_PROFILE?32:9))fail()
   if(!closed(radial,['source','coefficients'])||!isSourceStampCurveData(radial.source)||!canonicalSoftAutoDataEqual(radial.source,pin.source.softnessCurve)
     ||!Array.isArray(radial.coefficients)||radial.coefficients.length!==Math.max(1,radial.source.points.length-1)
     ||radial.coefficients.some(c=>!Array.isArray(c)||c.length!==4||!c.every(finite)))fail()

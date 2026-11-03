@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest'
-import {canonicalPrimaryGrainMaterialContext,buildCanonicalPrimaryGrainMaterial,type CanonicalMaterialContextV8,type CanonicalMaterialFrameV8,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_MATERIAL_LIMITS,buildCanonicalMaterial,canonicalPrimaryTextureMaterialContext,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
+import {canonicalPrimaryGrainMaterialContext,buildCanonicalPrimaryGrainMaterial,type CanonicalMaterialContextV8,type CanonicalMaterialFrameV8,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,CANONICAL_MATERIAL_LIMITS,buildCanonicalMaterial,canonicalPrimaryTextureMaterialContext,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {CanonicalFrameExecutor,canonicalExecutorOperations,type CanonicalFrameSubmissionV8,type CanonicalFrameSubmissionV3,type CanonicalFrameExecutorOptions} from './CanonicalFrameExecutor'
 import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
@@ -15,21 +15,21 @@ const recipe={kind:'image' as const,asset:tip.id,brushScale:1,brushAngle:0,scale
 function decoded(depths=[0,.5,1],ended=true,entry:CanonicalMaterialFrameV3['entry']={phase:'between'}){
  return buildCanonicalMaterial({masked:false,entry,draws:depths.map((grainDepth,i)=>({recipe,role:'primary' as const,x:i*4,y:0,opacity:.75,flow:.7,grainDepth})),fences:[...(entry.phase==='between'&&depths.length?[{kind:'segmentBegin' as const,at:0,group:0}]:[]),...(ended?[{kind:'primaryEnd' as const,at:depths.length,group:0},{kind:'segmentEnd' as const,at:depths.length,group:0},{kind:'gestureEnd' as const,at:depths.length}]:[])]},context()).frame
 }
-function fixture(variant=true,rawCompanion=true,grain=false){
+function fixture(variant=true,rawCompanion=true,grain=false,newContext?:CanonicalMaterialContextV8,profile:typeof G|typeof B=G){
  const{gl,snapshot}=recordingGL(),cache=new BrushTextureCache(gl),cpu=new BrushMipCache()
  gl.LUMINANCE=0x1909;gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
  gl.getShaderPrecisionFormat=()=>({precision:23,rangeMin:127,rangeMax:127});gl.texSubImage2D=vi.fn();gl.copyTexSubImage2D=vi.fn();gl.copyTexImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn()
  const attrib=gl.getAttribLocation;gl.getAttribLocation=(p:unknown,n:string)=>n==='position'?0:attrib(p,n)
  const attachments=new Map(),attach=gl.framebufferTexture2D;gl.framebufferTexture2D=(...args:unknown[])=>{attachments.set(gl.getParameter(gl.FRAMEBUFFER_BINDING),args[3]);attach(...args)};gl.getFramebufferAttachmentParameter=()=>attachments.get(gl.getParameter(gl.FRAMEBUFFER_BINDING))
  const parameters=new Map(),set=gl.texParameteri;gl.texParameteri=(t:number,n:number,v:number)=>{const texture=gl.getParameter(gl.TEXTURE_BINDING_2D);if(!parameters.has(texture))parameters.set(texture,new Map());parameters.get(texture).set(n,v);set(t,n,v)};gl.getTexParameter=(_:number,n:number)=>parameters.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(n)??gl.NEAREST
- const c=grain?grainContext():context(),bank=new CanonicalMaskSourceBank(gl,cache,cpu,[],{gpuBytes:0,cpuBytes:0},undefined,'root-residency'),p=bank.prepareRoot([{asset:tip,readOriginalCoverage:()=>new Uint8Array(64).fill(255)},{kind:'raw-pattern-l8',asset:pattern,pin:c.primaryTexture,readOriginalGray:()=>Uint8Array.from({length:64},(_,i)=>i*3)}],{gpuBytes:0,cpuBytes:0});p.jobs.forEach((_,i)=>p.prepareJob(i));p.assertPreparedPublication();const root=p.publish()
+ const c=newContext??(grain?grainContext():context()),bank=new CanonicalMaskSourceBank(gl,cache,cpu,[],{gpuBytes:0,cpuBytes:0},undefined,'root-residency'),p=bank.prepareRoot([{asset:tip,...newContext?.imageFrameIndices?{sourceSlot:0 as const,frameIndex:0}:{},readOriginalCoverage:()=>new Uint8Array(64).fill(255)},{kind:'raw-pattern-l8',asset:pattern,pin:c.primaryTexture,readOriginalGray:()=>Uint8Array.from({length:64},(_,i)=>i*3)}],{gpuBytes:0,cpuBytes:0});p.jobs.forEach((_,i)=>p.prepareJob(i));p.assertPreparedPublication();const root=p.publish()
  const prepass=new TransformedMaskPrepass(gl,cache,cpu,'exec-texture');prepass.prepare({width:8,height:8,slots:1},root.preparedResources())
  // Existing default capacity-record metadata is lazy and retained until prepass reset.
  const warm=prepass.retainPreparedCapacity();warm.release()
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'exec-texture-composite'),raw=p.jobs.filter(j=>j.kind==='raw-pattern-l8').map(({key,bytes})=>({key,bytes}))
- composite.prepare({width:4,height:4,operations:canonicalExecutorOperations(G),...(variant?grain?{primaryGrainPrograms:[{operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'}]as const}:{texturedOperations:['alphaDarken32FusedScalar']as const}:{})},[...root.preparedResources(),...prepass.preparedResources(),...rawCompanion?raw:[]])
+ composite.prepare({width:4,height:4,operations:canonicalExecutorOperations(profile),...(variant?c.version===8?{primaryGrainPrograms:[{operation:profile===B?'overBrowserFloat':'over32FusedScalar',law:c.primaryTexture.law}]as const}:{texturedOperations:['alphaDarken32FusedScalar']as const}:{})},[...root.preparedResources(),...prepass.preparedResources(),...rawCompanion?raw:[]])
  const scratch=new RibbonScratchPool(gl),layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),reserve=vi.fn(()=>()=>{}),poison=vi.fn(),changed=vi.fn()
- const options:CanonicalFrameExecutorOptions={rasterProfile:G,bank:root,primaryTexture:{context:c,root},prepass,composite,scratch,layer:()=>({buffer:layer,epoch:0}),pageBounds:{minX:0,minY:0,maxX:32,maxY:16},reserveTransient:reserve,changed,poison}
+ const options:CanonicalFrameExecutorOptions={rasterProfile:profile,bank:root,primaryTexture:{context:c,root},prepass,composite,scratch,layer:()=>({buffer:layer,epoch:0}),pageBounds:{minX:0,minY:0,maxX:32,maxY:16},reserveTransient:reserve,changed,poison}
  let executor:CanonicalFrameExecutor|undefined
  const create=(override:Partial<CanonicalFrameExecutorOptions>={})=>(executor=new CanonicalFrameExecutor({...options,...override}))
  const submission=(frame=decoded(),ordinal=0):CanonicalFrameSubmissionV3=>({gestureId:'gesture',layerId:'layer',layerEpoch:0,ordinal,frame,assets:c.assets,rgb:[200,20,50],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:.8,outerBlend:'over'}})
@@ -174,4 +174,23 @@ it('prepared image8 readiness is pure and distinguishes exact law, missing progr
    expect(s.composite.supportsPrimaryGrainPrograms([{operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'}])).toBe(false)
   }finally{s.close()}
  }
+})
+
+// Named Pixel texture laws use the selected browser pipeline. The historical
+// hard-multiply law remains tied to its installed native pipeline.
+it('executes Pixel texture8 with browser OVER and exposes the same accepted replay profile',()=>{
+ const native=grainContext(),c=canonicalPrimaryGrainMaterialContext({...native,imageFrameIndices:'source-image-pipe-frame-v1',primarySource:{...native.primarySource,frameBounds:[{x:0,y:0,width:8,height:8}]},primaryTexture:{...native.primaryTexture,law:'pixel-texture-u8-v1',mode:'multiply',soft:false}})
+ const s=fixture(true,true,true,c,B),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const e=s.create(),draws=vi.spyOn(s.composite,'drawSource')
+  const frame=buildCanonicalPrimaryGrainMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:{...recipe,imageFrameIndex:0,sourceSlot:0},role:'primary',x:0,y:0,opacity:.75,flow:.7,grainStrengthU8:128}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},c).frame
+  e.enqueue({...grainSubmission(frame),assets:c.assets});s.drain()
+  const actual=draws.mock.calls.map(([r])=>r).filter(r=>r.source.kind==='primaryGrainMaskRgb')
+  expect(actual.length).toBeGreaterThan(0);expect(actual.every(r=>r.operation.kind==='overBrowserFloat')).toBe(true);expect(e.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
+  e.cancel();const replay=s.create({replayFrontier:'primary-grain8-buildup-v1'}).replaySource();replay.assertCurrent();expect(replay.materialVersion).toBe(8);expect(replay.rasterProfile).toBe(B);expect(replay.context).toEqual(c)
+ }finally{clock.mockRestore();s.close()}
+})
+it('keeps native hard texture8 closed to the browser pipeline before borrowing capacity',()=>{
+ const s=fixture(false,true,true,grainContext(),B),capacity=vi.spyOn(s.prepass,'retainPreparedCapacity'),before=s.cpu.reservedBytes
+ try{expect(()=>s.create({rasterProfile:B})).toThrow(/Native hard grain/);expect(capacity).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(before);expect(s.root.isReady()).toBe(true)}finally{s.close()}
 })

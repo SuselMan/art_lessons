@@ -825,12 +825,19 @@ def main():
     providers.add_argument('--native-curve-compiler',type=Path,help='Trusted absolute offline native coefficient compiler; never taken from brush data')
     providers.add_argument('--mapped-curve-compiler',type=Path,help='Trusted absolute mapped ARM compiler; requires its expected build ID')
     ap.add_argument('--mapped-curve-build-id',help='Trusted immutable expected mapped compiler build ID')
+    providers.add_argument('--source-functional-curve-compiler',type=Path,help='Explicit source-functional Eigen5 provider; no native ISA identity')
+    ap.add_argument('--source-functional-curve-build-id',help='Trusted immutable source-functional compiler build ID')
     args=ap.parse_args()
     if (args.mapped_curve_compiler is None)!=(args.mapped_curve_build_id is None): ap.error('Mapped compiler and build ID must be supplied together')
+    if (args.source_functional_curve_compiler is None)!=(args.source_functional_curve_build_id is None): ap.error('Source-functional compiler and build ID must be supplied together')
     mapped_provider=None
     if args.mapped_curve_compiler is not None:
         from native_curve_arm_v3 import MappedCurveProvider
         try: mapped_provider=MappedCurveProvider(args.mapped_curve_compiler,args.mapped_curve_build_id)
+        except ValueError as error: ap.error(str(error))
+    if args.source_functional_curve_compiler is not None:
+        from source_curve_functional import SourceFunctionalCurveProvider
+        try: mapped_provider=SourceFunctionalCurveProvider(args.source_functional_curve_compiler,args.source_functional_curve_build_id)
         except ValueError as error: ap.error(str(error))
     if args.native_curve_compiler is not None and not args.native_curve_compiler.is_absolute(): ap.error('--native-curve-compiler must be absolute')
     catalog=Catalog(args.output)

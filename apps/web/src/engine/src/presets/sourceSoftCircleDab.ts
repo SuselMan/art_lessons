@@ -4,7 +4,7 @@ import {sourceSoftnessCurve} from './sourceSoftnessCurve'
 import {sourceAutoSector} from './sourceAutoSector'
 import { sourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
 import { sourceCoverageEvaluator } from './sourceCoverageEvaluator'
-import { prepareSourceCurveTransfer,sourceCurveTransfer, type SourceCurvePolynomial } from './sourceCurve'
+import { prepareSourceCurveTransfer,sourceCurveTransfer, type SourceCurvePolynomial,type SourceCurveArithmetic } from './sourceCurve'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
 import { sourceImageRoundEven } from './sourceImageTransformReciprocal'
@@ -20,11 +20,12 @@ export interface SourceSoftCircleProgram {
   readonly curve: SourceCurvePolynomial
   readonly resolution: number
   readonly table: readonly number[]
+  readonly arithmetic?:SourceCurveArithmetic
 }
 const ownedPrograms = new WeakSet<SourceSoftCircleProgram>()
 /** Compile the original-resolution table ONCE. This is not raw-points admission
  * or a lookup of static stock tables. Caller supplies authoritative coefficients. */
-export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeCurve: SourceCurvePolynomial, maxTableValues: number) {
+export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeCurve: SourceCurvePolynomial, maxTableValues: number, arithmetic:SourceCurveArithmetic='installed-arm64-fused-v1') {
   if (tip.kind !== 'auto' || tip.generator !== 'soft' || !['circle','rect'].includes(tip.shape)
     || (!Number.isSafeInteger(tip.spikes)||tip.spikes<2||tip.spikes>64) || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade].every(Number.isFinite)
@@ -35,7 +36,7 @@ export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeC
   // dominates original height. Physical/request scale never changes this size.
   const resolution = Math.floor(tip.diameter * 4 + .5)
   if (!Number.isSafeInteger(resolution) || resolution + (tip.shape==='rect'?1:2) > maxTableValues) throw new RangeError('Soft-circle table exceeds reserved budget')
-  const transfer=prepareSourceCurveTransfer(nativeCurve,{layout:tip.shape==='rect'?'soft-rectangle-mask':'soft-mask',resolution,arithmetic:'installed-arm64-fused-v1'})
+  const transfer=prepareSourceCurveTransfer(nativeCurve,{layout:tip.shape==='rect'?'soft-rectangle-mask':'soft-mask',resolution,arithmetic})
   const ownedTip=Object.freeze({...tip}),values:number[]=[],staging=new Float64Array(64)
   let cancelled=false,program:SourceSoftCircleProgram|undefined
   return Object.freeze({
@@ -60,7 +61,7 @@ export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeC
       if(cancelled)throw new Error('Soft-circle preparation cancelled')
       if(!transfer.done)throw new Error('Soft-circle preparation incomplete')
       if(!program) {
-        program=Object.freeze({tip:ownedTip,curve:transfer.curve,resolution,table:Object.freeze(values)})
+        program=Object.freeze({tip:ownedTip,curve:transfer.curve,resolution,table:Object.freeze(values),...arithmetic==='source-functional-fused-f64-v1'?{arithmetic}:{}})
         ownedPrograms.add(program)
       }
       return program
@@ -69,8 +70,8 @@ export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeC
   })
 }
 /** Synchronous compatibility API drains the SAME bounded preparation body. */
-export function compileSourceSoftCircleProgram(tip:SourceSoftCircleTip,nativeCurve:SourceCurvePolynomial,maxTableValues:number):SourceSoftCircleProgram {
-  const prepared=prepareSourceSoftCircleProgram(tip,nativeCurve,maxTableValues)
+export function compileSourceSoftCircleProgram(tip:SourceSoftCircleTip,nativeCurve:SourceCurvePolynomial,maxTableValues:number,arithmetic:SourceCurveArithmetic='installed-arm64-fused-v1'):SourceSoftCircleProgram {
+  const prepared=prepareSourceSoftCircleProgram(tip,nativeCurve,maxTableValues,arithmetic)
   prepared.advance(prepared.tableValues)
   return prepared.finish()
 }
@@ -118,7 +119,7 @@ export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) 
     || bound > 2 ** (vector ? 60 : 400) || (vector && ![xcoef, ycoef].every(v => Number.isFinite(f(v))))) throw new RangeError('Soft-circle intermediates outside finite domain')
   const softness=request.softness??1
   if(!Number.isFinite(softness)||softness<0||softness>1)throw new RangeError('Invalid Softness')
-  const resolution=program.resolution,table=softness===1?program.table:sourceCurveTransfer(sourceSoftnessCurve(request.sourceCurvePoints??program.curve.points,softness),{layout:tip.shape==='rect'?'soft-rectangle-mask':'soft-mask',resolution,arithmetic:'installed-arm64-fused-v1'})
+  const resolution=program.resolution,table=softness===1?program.table:sourceCurveTransfer(sourceSoftnessCurve(request.sourceCurvePoints??program.curve.points,softness),{layout:tip.shape==='rect'?'soft-rectangle-mask':'soft-mask',resolution,arithmetic:program.arithmetic??'installed-arm64-fused-v1'})
   const n=sourceAutoSampleGrid(tip.antialias,tip.diameter*generatorScale[0],tip.diameter*tip.ratio*generatorScale[1]),samplesPerPixel=n*n as 1|9|36
   if(pixels*samplesPerPixel>request.maxWorkSamples)throw new RangeError('Soft shape AA exceeds reserved work')
   if(browser&&(tip.shape==='rect'||tip.antialias)){

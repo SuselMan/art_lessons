@@ -42,10 +42,10 @@ export function canonicalPixelDualSourceBinding(original:BrushDescriptor,descrip
  if(context.roleTextures){const expected=captureOriginalRoleTextures(data.primary.textureSource,data.mask.textureSource,sourceRoleTextureInputsFromPins(context.roleTextures));if(canonicalBrushDescriptorJSON(expected.roleTextures)!==canonicalBrushDescriptorJSON(context.roleTextures))return fail();for(const asset of expected.assets){const actual=context.assets.find(a=>a.id===asset.id);if(!actual||actual.size!==asset.size)return fail();imageAssets.set(asset.id,actual)}}
  if(context.sourceColorFields)for(const field of [context.sourceColorFields.primary,context.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset]){const actual=context.assets.find(a=>a.id===id);if(!actual)return fail();imageAssets.set(id,actual)}
  if(imageAssets.size!==context.assets.length)return fail()
- const refs=data.primary.textureSource||data.mask.textureSource||primary.gradientMapTemplate||mask.gradientMapTemplate?brushAssetIds(data.descriptor):undefined
- if(refs&&refs.length>2048)return fail()
- const originalAssets=refs?Object.freeze(refs.map(id=>{const a=(available??context.assets).find(a=>a.id===id);if(!a)return fail();return Object.freeze({id:a.id,size:a.size})})):undefined
- return Object.freeze({kind:'pixel-dual-source-binding-v1' as const,...scaleOptions,...originalAssets?{originalAssets}:{},descriptorSha256,descriptor:data.descriptor,composition,primary,mask,material:context,maskingBlend:context.maskingBlend,masterSizePolicy:data.masterSizePolicy})
+ const refs=brushAssetIds(data.descriptor)
+ if(refs.length>2048)return fail()
+ const originalAssets=Object.freeze(refs.map(id=>{const a=(available??context.assets).find(a=>a.id===id);if(!a)return fail();return Object.freeze({id:a.id,size:a.size})}))
+ return Object.freeze({kind:'pixel-dual-source-binding-v1' as const,...scaleOptions,originalAssets,descriptorSha256,descriptor:data.descriptor,composition,primary,mask,material:context,maskingBlend:context.maskingBlend,masterSizePolicy:data.masterSizePolicy})
 }
 export type CanonicalPixelDualSourceBinding=ReturnType<typeof canonicalPixelDualSourceBinding>
 

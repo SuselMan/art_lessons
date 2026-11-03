@@ -280,8 +280,8 @@ export function freezeCanonicalPrimaryGrainPolicies(value:CanonicalRoomExecution
  if(authorPrimaryGrainSource&&!primaryGrainSource)throw TypeError('primary grain author requires read')
  if(primaryGrainSource){
   const raster=freezeCanonicalRasterPolicy(value)
-  if(value.primaryImageSource!=='single-inverse-gray-v2'||!raster.allowedRecordedRasterProfiles.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))throw TypeError('primary grain source/profile unavailable')
-  if(authorPrimaryGrainSource&&raster.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw TypeError('primary grain author profile unavailable')
+  if(value.primaryImageSource!=='single-inverse-gray-v2'||!raster.allowedRecordedRasterProfiles.some(profile=>canonicalStrokeRasterContract(profile).genericSC))throw TypeError('primary grain source/profile unavailable')
+  if(authorPrimaryGrainSource&&!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC)throw TypeError('primary grain author profile unavailable')
  }
  return Object.freeze({primaryGrainSource,authorPrimaryGrainSource})
 }

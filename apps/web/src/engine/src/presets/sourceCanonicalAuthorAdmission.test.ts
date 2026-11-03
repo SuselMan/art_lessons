@@ -7,7 +7,7 @@ import graphite from './fixtures/sourceImagePipe/pencilRandom.native.json'
 import gaussianStock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
 import softStock from '../../../../../../packages/shared/src/fixtures/sourceSoftAutoData/stock.native'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
-import {canonicalSourceAuthorAdmission} from './sourceCanonicalAuthorAdmission'
+import {canonicalSourceAuthorAdmission,canonicalDynamicAutoGeometryAuthorAdmission} from './sourceCanonicalAuthorAdmission'
 import {canonicalSourceAuthorAdmission as publicAdmission} from '../../brushLibrary'
 type Mutable<T>={-readonly[K in keyof T]:Mutable<T[K]>}
 function brush(index=4){const row=stock.rows.find(r=>r.index===index);if(!row)throw Error('Native descriptor missing');return structuredClone(row.descriptor) as unknown as Mutable<BrushDescriptor>}
@@ -269,4 +269,52 @@ it('plain geometry admits original compiled2 DATA only through named author mech
  const getter=vi.fn(()=> 'plain-auto-tilt-v1');const options=Object.defineProperty({},'authorPlainTiltSource',{get:getter})
  expect(canonicalPlainAutoGeometryAuthorAdmission(d,generic,options as never).supported).toBe(false);expect(getter).not.toHaveBeenCalled()
  for(const patch of[(x:Mutable<BrushDescriptor>)=>{x.sourceStamp!.timing.enabled=true},(x:Mutable<BrushDescriptor>)=>{x.sourceStamp!.options.find(o=>o.id==='Size')!.sensors[0].id='pressure'},(x:Mutable<BrushDescriptor>)=>{Object.assign(source(x),{source:{kind:'softAuto'}})}]){const bad=structuredClone(d)as Mutable<BrushDescriptor>;patch(bad);expect(canonicalPlainAutoGeometryAuthorAdmission(bad,generic,{authorPlainTiltSource:'plain-auto-tilt-v1'}).supported).toBe(false)}
+})
+
+it('binds real fallback CAS metadata through named dynamic admission and the original program compiler',async()=>{
+ const {createHash}=await import('node:crypto')
+ const {canonicalBrushDescriptorJSON,canonicalDynamicAutoSourceBinding,extractCanonicalDynamicAutoGeometryData}=await import('@grafetto/shared')
+ const {sourceDynamicAutoAuthorProgram}=await import('./sourceStrokeAuthorDescriptor')
+ // The SOURCE kernel stays original Default; the descriptor also retains a
+ // legitimate legacy bitmap fallback. Its CAS identity is not a new mask grant.
+ const d=brush(4)
+ const asset:{id:`asset:${string}`;size:number}={id:`asset:${'ab'.repeat(32)}`,size:8}
+ d.tip={...d.tip,kind:'bitmap',mask:asset.id};delete d.tip.profile
+ const before=canonicalBrushDescriptorJSON(d)
+ expect(isBrushLibrary({schemaVersion:1,brushes:[{descriptor:d,name:'authored fallback',source:'synthetic',warnings:[]}],assets:[{...asset,file:asset.id.slice(6)+'.bin'}],skipped:[]})).toBe(true)
+ expect(extractCanonicalDynamicAutoGeometryData(d).supported).toBe(false)
+ expect(canonicalDynamicAutoGeometryAuthorAdmission(d,generic,[{...asset,size:3}],{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'}).supported).toBe(false)
+ const admitted=canonicalDynamicAutoGeometryAuthorAdmission(d,generic,[asset],{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'})
+ expect(admitted.supported).toBe(true);if(!admitted.supported)throw Error(admitted.reason)
+ expect(admitted.geometryCapability.originalAssets).toEqual([asset])
+ const sha=createHash('sha256').update(before).digest('hex')
+ const pin=canonicalDynamicAutoSourceBinding(d,sha,'neon64-f32-fma-v1',generic,undefined,admitted.geometryCapability.originalAssets)
+ expect(pin.descriptorSha256).toBe(sha)
+ const compiled=sourceDynamicAutoAuthorProgram(d,{descriptorSha256:sha,geometryCapability:admitted.geometryCapability,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-test-pigment',lodScale:1,coverageProfile:'neon64-f32-fma-v1'})
+ expect(compiled.supported).toBe(true)
+ expect(canonicalBrushDescriptorJSON(d)).toBe(before)
+ asset.size=4
+ expect(admitted.geometryCapability.originalAssets[0].size).toBe(8)
+})
+
+it.each(['normal','multiply','lighten','colorDodge','overlay','color','erase'] as const)('keeps named dynamic composition on the shared Pixel selector (%s), without widening historical admission',async blend=>{
+ const {canonicalPixelSourceComposition,canonicalDynamicAutoSourceBinding,canonicalBrushDescriptorJSON}=await import('@grafetto/shared')
+ const {sourceDynamicAutoAuthorProgram}=await import('./sourceStrokeAuthorDescriptor')
+ const {createHash}=await import('node:crypto')
+ const d=brush(4)
+ if(!d.sourceStamp||!d.behavior?.rendering)throw Error('Actual compiled Default fixture required')
+ d.behavior.rendering.blendMode=blend==='erase'?'normal':blend
+ d.behavior.erase=blend==='erase'
+ Object.assign(d.sourceStamp.settings,{PaintOpAction:'2',CompositeOp:blend==='normal'?'over':blend})
+ Object.assign(d.sourceStamp.flags,{indirectPainting:true})
+ const policy=canonicalPixelSourceComposition(d,generic)
+ expect(policy).toEqual({mode:'wash',outerBlend:blend==='normal'?'over':blend==='color'?'colorHsyBrowser':blend})
+ const admitted=canonicalDynamicAutoGeometryAuthorAdmission(d,generic,[],{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'})
+ expect(admitted.supported).toBe(true);if(!admitted.supported)throw Error(admitted.reason)
+ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex'),pin=canonicalDynamicAutoSourceBinding(d,sha,'neon64-f32-fma-v1',generic,undefined,[])
+ const program=sourceDynamicAutoAuthorProgram(d,{descriptorSha256:sha,geometryCapability:admitted.geometryCapability,assets:[],coverageProfile:pin.coverageProfile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1})
+ expect(program.supported).toBe(true)
+ if(blend==='erase'||blend==='color')expect(canonicalSourceAuthorAdmission(d,generic).supported).toBe(false)
+ const unknown=structuredClone(d);Object.assign(unknown.behavior!.rendering!,{blendMode:'unknown-pixel-mode'})
+ expect(canonicalDynamicAutoGeometryAuthorAdmission(unknown,generic,[],{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'}).supported).toBe(false)
 })

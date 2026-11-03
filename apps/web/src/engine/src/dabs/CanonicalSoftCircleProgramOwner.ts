@@ -1,6 +1,6 @@
 import { BrushMipCache } from './BrushMipCache'
 import { prepareSourceSoftCircleProgram, type SourceSoftCircleProgram, type SourceSoftCircleTip } from '../presets/sourceSoftCircleDab'
-import type { SourceCurvePolynomial } from '../presets/sourceCurve'
+import type { SourceCurvePolynomial,SourceCurveArithmetic } from '../presets/sourceCurve'
 
 /** One immutable bound source, sharing the existing CPU brush allowance.
  * These charges estimate reachable arrays/metadata, not actual JS heap size or
@@ -14,7 +14,7 @@ export class CanonicalSoftCircleProgramOwner {
   private leases = 0
   private readonly cpu:BrushMipCache
 
-  constructor(cpu: BrushMipCache, tip: SourceSoftCircleTip, curve: SourceCurvePolynomial, maxTableValues: number) {
+  constructor(cpu: BrushMipCache, tip: SourceSoftCircleTip, curve: SourceCurvePolynomial, maxTableValues: number, arithmetic:SourceCurveArithmetic='installed-arm64-fused-v1') {
     this.cpu=cpu
     if (!Number.isSafeInteger(maxTableValues) || maxTableValues < 2 || maxTableValues > 16384
       || !Array.isArray(curve.points) || !Array.isArray(curve.coefficients)
@@ -23,7 +23,7 @@ export class CanonicalSoftCircleProgramOwner {
     this.estimatedCpuBytes = 16 * maxTableValues + 512 + 1024 + 128 * (curve.points.length + curve.coefficients.length)
     // Admission must precede snapshots, staging allocation and table work.
     this.releaseCpu = cpu.reserve(this.estimatedCpuBytes)
-    try { this.preparation = prepareSourceSoftCircleProgram(tip, curve, maxTableValues) }
+    try { this.preparation = prepareSourceSoftCircleProgram(tip, curve, maxTableValues,arithmetic) }
     catch (error) { this.retireAfterFailure(error) }
   }
 

@@ -94,7 +94,7 @@ function primaryGrainField(owner:unknown,key:string,profile:CanonicalStrokeRaste
  if(!owner||typeof owner!=='object'||Array.isArray(owner))return fail()
  const d=Object.getOwnPropertyDescriptor(owner,key)
  if(!d){if(key in owner)return fail();return undefined}
- if(!Object.hasOwn(d,'value')||d.value!=='primary-grain-image-v1'||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return fail()
+ if(!Object.hasOwn(d,'value')||d.value!=='primary-grain-image-v1'||!canonicalStrokeRasterContract(profile).genericSC)return fail()
  return d.value
 }
 export function canonicalPrimaryGrainReadSource(owner:unknown,key:'primaryGrainSource'|'canonicalPrimaryGrainSource',profile:CanonicalStrokeRasterProfile):CanonicalPrimaryGrainReadSource|undefined{return primaryGrainField(owner,key,profile)}
