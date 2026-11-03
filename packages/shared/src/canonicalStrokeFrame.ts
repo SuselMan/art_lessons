@@ -1,3 +1,4 @@
+import {canonicalSourceScale} from './canonicalSourceScale.js'
 import {canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
 import {canonicalTexturedAutoMaterialContext,unpackCanonicalTexturedAutoMaterial,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7} from './canonicalMaterialCodec.js'
 import { canonicalPrimaryTextureMaterialContext, canonicalTexturedSourceMaterialContext, canonicalPressureTexturedSourceMaterialContext,canonicalSoftNativeDefaultTexturedSourceMaterialContext, unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type CanonicalMaterialContextV3, type CanonicalMaterialFrameV3, type CanonicalMaterialContextV4, type CanonicalMaterialFrameV4, type CanonicalMaterialContextV5, type CanonicalMaterialFrameV5,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6 } from './canonicalMaterialCodec.js'
@@ -35,6 +36,7 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
   return canonicalStrokeRasterContract(profile).coverageProfiles.some(value=>value===coverage)
 }
 interface CanonicalStrokeFrameData {
+  readonly sourceScale?:number
   /** Mandatory only for named material7; old decoders reject this field. */
   readonly texturePhase?:CanonicalResolvedTexturePhase
   readonly brush: string
@@ -176,8 +178,12 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(aware3||aware4||aware5||aware6||aware7?(!version||!Object.hasOwn(version,'value')||version.value!==selector):('version'in material&&(!version||!Object.hasOwn(version,'value')||version.value!==2)))
     throw new TypeError('Unsupported canonical stroke material version')
   if(aware3&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||(aware4||aware5||aware6||aware7)&&!contract.genericSC)throw new TypeError('Unsupported explicit texture raster profile')
+  const scaleField=Object.getOwnPropertyDescriptor(material,'scaledSource')
+  if(scaleField&&(!Object.hasOwn(scaleField,'value')||scaleField.value!=='source-scale-v1'||aware3||aware4||aware5||aware6||aware7||!contract.genericSC))throw new TypeError('Invalid scaled source context')
+  const scaleValue=scaleField&&'primarySource'in material?canonicalSourceScale(material.primarySource.brushScale):undefined
+  if(scaleValue!==undefined){const field=Object.getOwnPropertyDescriptor(value??{},'sourceScale');if(!field||!Object.hasOwn(field,'value')||!Object.is(canonicalSourceScale(field.value),scaleValue))throw new TypeError('Source scale envelope differs')}
   if(early7)value=captureEnvelope7(value,early7)
-  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[])])
+  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
@@ -203,7 +209,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked,...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
+    materialPacked,...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })

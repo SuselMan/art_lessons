@@ -14,6 +14,7 @@ export type CanonicalStrokeOperation = OperationBase & {
   frame: CanonicalStrokeFrameEnvelope
 }
 export interface CanonicalStrokeBegin {
+  readonly sourceScale?:number
   /** Ephemeral exact attempt control; excluded from source/snapshot/history. */
   readonly emptyDiscardNonce?:string
   readonly layerId: string

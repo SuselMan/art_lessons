@@ -1,5 +1,9 @@
+import {canonicalPixelSourceEffectReject} from '@grafetto/shared'
+import {canonicalPixelImageSourceBinding,canonicalPixelImageMaterialContext} from '@grafetto/shared'
+import {canonicalSourceScale,captureCanonicalSourceScaleOptions,type CanonicalSourceScaleOptions} from '@grafetto/shared'
+import {CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE} from '@grafetto/shared'
 import {canonicalPixelTextureSourceBinding,canonicalPixelTextureMaterialContext} from '@grafetto/shared'
-import {hasActiveSourceMaterialOptions,hasActiveSourceColorOptions} from '@grafetto/shared'
+import {hasActiveSourceMaterialOptions,sourceColorRecording} from '@grafetto/shared'
 import {canonicalDynamicAutoSourceBinding} from '@grafetto/shared'
 import {canonicalLightnessImageSourceBinding,canonicalLightnessImageMaterialContext,canonicalColorImageSourceBinding,canonicalColorImageMaterialContext} from '@grafetto/shared'
 import {extractCanonicalPixelDualSourceData,canonicalPixelDualSourceBinding,canonicalMaskedSourceMaterialContext,canonicalGaussianAutoStatic,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialAsset} from '@grafetto/shared'
@@ -175,18 +179,18 @@ export class CanonicalBrushCapabilityResolver {
   /** Transport pins the verified brush between prepare and commit, synchronously.
    * A failed pin publishes no grant. No await/reentrant binder call is allowed. */
   captureBeginInput(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin):CanonicalGestureBegin {
-    if(input&&typeof input==='object'&&'texturePhase'in input){
-      const names=['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken','texturePhase']
+    if(input&&typeof input==='object'&&('texturePhase'in input||'sourceScale'in input)){
+      const names=['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken',...'texturePhase'in input?['texturePhase']:[],...'sourceScale'in input?['sourceScale']:[]]
       if(![Object.prototype,null].includes(Object.getPrototypeOf(input))||Reflect.ownKeys(input).length!==names.length)fail('invalid phase gesture fields')
       const own:Record<string,unknown>=Object.create(null)
       for(const name of names){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))fail('invalid phase gesture accessor');own[name]=d.value}
-      const texturePhase=captureCanonicalSavedTexturePhase(own.texturePhase),rgb=own.pigmentRgb8
+      const texturePhase='texturePhase'in own?captureCanonicalSavedTexturePhase(own.texturePhase):undefined,sourceScale='sourceScale'in own?canonicalSourceScale(own.sourceScale):undefined,rgb=own.pigmentRgb8
       if(!Array.isArray(rgb)||Object.getPrototypeOf(rgb)!==Array.prototype||Reflect.ownKeys(rgb).length!==4||Object.getOwnPropertyDescriptor(rgb,'length')?.value!==3)fail('invalid phase pigment')
       const channel=(index:number):number=>{const d=Object.getOwnPropertyDescriptor(rgb,String(index));if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>255)fail('invalid phase pigment');return d.value}
       if(!validIdentity(identity)||!text(own.layerId)||!text(own.brush)||!text(own.strokeId)||typeof own.outerResourceOpacity!=='number'||!Number.isFinite(own.outerResourceOpacity)||own.outerResourceOpacity<0||own.outerResourceOpacity>1||own.alphaDarken!=='creamy'&&own.alphaDarken!=='hard'||!this.variants.has(own.alphaDarken))fail('invalid phase gesture resources')
       const pigmentRgb8=Object.freeze([channel(0),channel(1),channel(2)] as const)
       if(!this.authorizedBoard(identity,own.layerId))fail('board or paint permission unavailable')
-      return Object.freeze({layerId:own.layerId,brush:own.brush,strokeId:own.strokeId,pigmentRgb8,outerResourceOpacity:own.outerResourceOpacity,alphaDarken:own.alphaDarken,texturePhase})
+      return Object.freeze({layerId:own.layerId,brush:own.brush,strokeId:own.strokeId,pigmentRgb8,outerResourceOpacity:own.outerResourceOpacity,alphaDarken:own.alphaDarken,...texturePhase?{texturePhase}:{},...sourceScale!==undefined?{sourceScale}:{}})
     }
     if (!validIdentity(identity) || !input || Object.keys(input).length !== 6
       || !['layerId', 'brush', 'strokeId', 'pigmentRgb8', 'outerResourceOpacity', 'alphaDarken'].every(k => Object.hasOwn(input, k))
@@ -217,12 +221,12 @@ export class CanonicalBrushCapabilityResolver {
       if(op.userId!==identity.userId||op.layerId!==captured.layerId||op.seq!<=lastSeq||op.frame.frameOrdinal!==i
         ||op.frame.brush!==captured.brush||op.frame.strokeId!==captured.strokeId||op.frame.rasterProfile!==profile
         ||op.frame.pigmentRgb8.some((v,j)=>v!==captured.pigmentRgb8[j])||op.frame.composition.alphaDarken!==captured.alphaDarken
-        ||op.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity)fail('stored resume resources changed')
+        ||op.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(op.frame.sourceScale,captured.sourceScale))fail('stored resume resources changed')
       bytes+=Buffer.byteLength(JSON.stringify(op),'utf8')
       if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('stored resume prefix byte budget exceeded')
       lastSeq=op.seq!
     }
-    return this.prepareGesture(identity,captured,profile,true)
+    return this.prepareGesture(identity,captured,profile,true,{version:recordedMaterialVersion(ops[0].frame),flags:recordedMaterialFlags(ops[0].frame)})
   }
 
   /** Streamed resume starts from an ACTUAL first indexed row. The Transport
@@ -235,11 +239,11 @@ export class CanonicalBrushCapabilityResolver {
     if(!this.recordedProfiles.includes(profile)||first.userId!==identity.userId||first.layerId!==captured.layerId||first.frame.frameOrdinal!==0
       ||first.frame.brush!==captured.brush||first.frame.strokeId!==captured.strokeId
       ||first.frame.pigmentRgb8.some((value,index)=>value!==captured.pigmentRgb8[index])
-      ||first.frame.composition.alphaDarken!==captured.alphaDarken||first.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity)fail('stored indexed resume resources changed')
-    return this.prepareGesture(identity,captured,profile,true)
+      ||first.frame.composition.alphaDarken!==captured.alphaDarken||first.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(first.frame.sourceScale,captured.sourceScale))fail('stored indexed resume resources changed')
+    return this.prepareGesture(identity,captured,profile,true,{version:recordedMaterialVersion(first.frame),flags:recordedMaterialFlags(first.frame)})
   }
 
-  private prepareGesture(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin,profile:CanonicalStrokeRasterProfile,roomOnly:boolean):{readonly grant:TrustedCanonicalGesture;readonly commit:()=>void} {
+  private prepareGesture(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin,profile:CanonicalStrokeRasterProfile,roomOnly:boolean,resume?:Readonly<{version:number;flags:number}>):{readonly grant:TrustedCanonicalGesture;readonly commit:()=>void} {
     const current=this.authorizedBoard(identity,input.layerId)
     if(!current)fail('board or paint permission unavailable')
     const identityKey = key(identity, input.strokeId)
@@ -247,6 +251,8 @@ export class CanonicalBrushCapabilityResolver {
     if (previous) {
       if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
+      const savedScale='version'in g.material&&(g.material.version===2||g.material.version===8)&&g.material.scaledSource?g.material.primarySource.brushScale:undefined
+      if(!Object.is(input.sourceScale,savedScale))fail('immutable gesture source scale changed')
       if(g.plainAutoGeometry==='dynamic-auto-geometry-v1'&&!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
       if(g.plainAutoGeometry==='plain-auto-tilt-v1'&&!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
       if('version'in g.material&&g.material.version===7&&(!this.texturedAutoPolicies.authorTexturedAutoSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material7 author/phase changed')
@@ -271,7 +277,7 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     const pipeSource=this.assertImagePipeRole(descriptor,'author')
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase)
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase,resume?.version,input.sourceScale!==undefined?{sourceScale:input.sourceScale}:undefined,resume?.flags)
     const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: profile,
@@ -418,8 +424,8 @@ export class CanonicalBrushCapabilityResolver {
     if(!descriptor.sourceStamp||((descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&!this.primaryImageSource))fail('recorded V1 material delivery unavailable')
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
-    this.assertImagePipeRole(descriptor,'recorded')
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame))
+    this.assertImagePipeRole(descriptor,'recorded',recordedMaterialFlags(op.frame))
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame),recordedSourceScale(op.frame),recordedMaterialFlags(op.frame))
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
@@ -501,18 +507,25 @@ export class CanonicalBrushCapabilityResolver {
     return attachment
   }
 
-  private assertImagePipeRole(descriptor:BrushDescriptor,role:'author'|'recorded'):CanonicalImagePipeSource|undefined {
+  private assertImagePipeRole(descriptor:BrushDescriptor,role:'author'|'recorded',recordedFlags=0):CanonicalImagePipeSource|undefined {
     const animation=descriptor.tip.animation
     if(!animation)return
+    if(animation.mode==='native-dimensions-v1'||descriptor.texture&&descriptor.sourceStamp?.textureOption||(role==='author'?this.imageMaterialPolicies.authorImageMaterialSource:!!(recordedFlags&8)&&this.imageMaterialPolicies.imageMaterialSource)){
+      const allowed=descriptor.texture?(role==='author'?this.primaryGrainPolicies.authorPrimaryGrainSource:this.primaryGrainPolicies.primaryGrainSource):(role==='author'?this.imageMaterialPolicies.authorImageMaterialSource:this.imageMaterialPolicies.imageMaterialSource)
+      if(!allowed)fail('Pixel image pipe '+role+' policy disabled')
+      return
+    }
     const mode=animation.mode==='incremental'?'incremental-inverse-gray-v2':animation.mode==='random'?'random-inverse-gray-v2':undefined
     const allowed=role==='author'?this.imagePipePolicies.authorImagePipeSources:this.imagePipePolicies.allowedRecordedImagePipeSources
     if(!mode||!allowed.includes(mode))fail('image pipe '+role+' policy disabled')
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number,options?:CanonicalSourceScaleOptions,recordedFlags=0):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
+    const scaleOptions=captureCanonicalSourceScaleOptions(options)
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
-    const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
+    const extendedEffects=role==='author'?this.primaryGrainPolicies.authorPrimaryGrainSource||this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource||this.pixelMaskedPolicies.authorPixelMaskedSource||this.imageMaterialPolicies.authorImageMaterialSource:this.primaryGrainPolicies.primaryGrainSource||this.plainAutoGeometryPolicies.plainAutoGeometrySource||this.pixelMaskedPolicies.pixelMaskedSource||this.imageMaterialPolicies.imageMaterialSource
+    const unsupportedOuter = extendedEffects?canonicalPixelSourceEffectReject(descriptor,profile):canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
@@ -526,17 +539,23 @@ export class CanonicalBrushCapabilityResolver {
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
     // New texture8 carries one captured source and a neutral texture law. The
     // saved wire selector chooses history; current AUTHOR policy cannot upgrade7.
-    if(phase&&descriptor.sourceStamp.textureOption&&(role==='recorded'?recordedVersion===8:!!this.primaryGrainPolicies.primaryGrainSource&&!!this.primaryGrainPolicies.authorPrimaryGrainSource)){
+    if(phase&&descriptor.sourceStamp.textureOption&&(recordedVersion!==undefined?recordedVersion===8&&!!(recordedFlags&32):!!this.primaryGrainPolicies.primaryGrainSource&&!!this.primaryGrainPolicies.authorPrimaryGrainSource)){
       if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('Pixel texture source policy disabled')
       if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('Pixel texture raster unavailable')
       const kind=descriptor.sourceStamp.version===2?descriptor.sourceStamp.source.kind:'image'
       const configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:kind==='softAuto'?this.autoSources.softAuto:undefined
       if(kind!=='image'&&!configured)fail('Pixel texture Auto family unavailable')
       if(kind==='image'&&!this.primaryImageSource)fail('Pixel texture image family unavailable')
-      const binding=canonicalPixelTextureSourceBinding(descriptor,descriptorSha256,library.assets,configured?configured.coverageProfile:'browser-number-coverage-v1',profile,1)
+      const binding=canonicalPixelTextureSourceBinding(descriptor,descriptorSha256,library.assets,configured?configured.coverageProfile:'browser-number-coverage-v1',profile,1,scaleOptions)
       for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
       const material=canonicalPixelTextureMaterialContext(binding,phase,budget)
       return {material,mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
+    }
+    if(!descriptor.texture&&!descriptor.behavior?.dual&&(descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&this.imageMaterialPolicies.imageMaterialSource&&(recordedVersion!==undefined?(!descriptor.tip.animation||!!(recordedFlags&8)):!!this.imageMaterialPolicies.authorImageMaterialSource)){
+      if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||phase)fail('Pixel image raster/phase unavailable')
+      const binding=canonicalPixelImageSourceBinding(descriptor,descriptorSha256,library.assets,profile,1,scaleOptions)
+      for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
+      return {material:canonicalPixelImageMaterialContext(binding,budget),mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
     }
     if(descriptor.tip.material){
       if(!this.imageMaterialPolicies.imageMaterialSource||role==='author'&&!this.imageMaterialPolicies.authorImageMaterialSource)fail('image material source policy disabled')
@@ -544,8 +563,8 @@ export class CanonicalBrushCapabilityResolver {
       // Current public input stores RGB; foreground alpha remains one and the
       // independent resource opacity is retained in the BEGIN composition.
       const binding=descriptor.tip.material.kind==='lightness'
-        ?canonicalLightnessImageSourceBinding(descriptor,descriptorSha256,library.assets,1)
-        :canonicalColorImageSourceBinding(descriptor,descriptorSha256,library.assets,1)
+        ?canonicalLightnessImageSourceBinding(descriptor,descriptorSha256,library.assets,1,scaleOptions)
+        :canonicalColorImageSourceBinding(descriptor,descriptorSha256,library.assets,1,scaleOptions)
       for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
       const material=binding.kind==='lightness-image-program-v1'
         ?canonicalLightnessImageMaterialContext(binding,budget):canonicalColorImageMaterialContext(binding,budget)
@@ -554,7 +573,7 @@ export class CanonicalBrushCapabilityResolver {
     if(descriptor.behavior?.dual){
       if(!this.pixelMaskedPolicies.pixelMaskedSource||role==='author'&&!this.pixelMaskedPolicies.authorPixelMaskedSource)fail('Pixel masked source policy disabled')
       if(!canonicalStrokeRasterContract(profile).genericSC||phase)fail('masked Pixel profile/phase unavailable')
-      const data=extractCanonicalPixelDualSourceData(descriptor,library.assets)
+      const data=extractCanonicalPixelDualSourceData(descriptor,library.assets,scaleOptions)
       if(!data.supported)fail('unsupported Pixel masking source: '+data.reasons.join(','))
       const assets=new Map<string,CanonicalMaterialAsset>()
       const pinRole=(r:typeof data.primary|typeof data.mask,slot:0|1):CanonicalMaterialContextV2['primarySource']=>{
@@ -562,31 +581,30 @@ export class CanonicalBrushCapabilityResolver {
         if(d.version===2&&d.source.kind!=='image'){
           const kind=d.source.kind,configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:this.autoSources.softAuto
           if(!configured||!canonicalStrokeCoverageMatches(profile,configured.coverageProfile))fail('masked Auto source profile unavailable')
-          const coverageProfile=configured.coverageProfile
+          const coverageProfile=d.source.randomness!==0||d.source.density!==1?CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE:configured.coverageProfile
           if(d.source.kind==='defaultAuto'){
             if(coverageProfile==='scalar-bionic-f64-fma-v1')fail('Default mask numeric profile mismatch')
             return canonicalDefaultAutoSourcePin({kind:'defaultAuto',...identity,...canonicalDefaultAutoStatic(d.source,r.effectiveBrushScale,d.brush.angle,coverageProfile),coverageProfile})
           }
           if(d.source.kind==='gaussianAuto'){
             if(coverageProfile==='scalar-f64-fma-v1')fail('Gaussian mask numeric profile mismatch')
-            return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,...canonicalGaussianAutoStatic(d.source,r.effectiveBrushScale,d.brush.angle),coverageProfile})
+            return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,...canonicalGaussianAutoStatic(d.source,r.effectiveBrushScale,d.brush.angle,coverageProfile),coverageProfile})
           }
           if(coverageProfile==='scalar-bionic-f64-fma-v1')fail('Soft mask numeric profile mismatch')
           const compiled=d.compiled
           if(compiled?.version!==2||!compiled.radialCurve)fail('masked Soft radial program unavailable')
           return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:slot,...identity,source:d.source,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle,coverageProfile,reader:d.reader,compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
         }
-        if(!this.primaryImageSource||!('capability'in r.material))fail('masked image source unavailable')
-        const a=r.material.capability.asset,previous=assets.get(a.id)
-        if(previous&&!isDeepStrictEqual(previous,a))fail('masked image crop collision')
-        assets.set(a.id,a);this.storage.asset(a.id.slice(6),a.size)
-        return Object.freeze({kind:'image',asset:a.id,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle})
+        if(!this.primaryImageSource||!r.imageSource||!r.imageAssets)fail('masked image source unavailable')
+        for(const asset of r.imageAssets){const previous=assets.get(asset.id);if(previous&&!isDeepStrictEqual(previous,asset))fail('masked image crop collision');assets.set(asset.id,asset);this.storage.asset(asset.id.slice(6),asset.size)}
+        return r.imageSource
       }
       const primarySource=pinRole(data.primary,0),maskSource=pinRole(data.mask,1)
-      const material=canonicalMaskedSourceMaterialContext({version:2,...(hasActiveSourceMaterialOptions(data.primary.data)||hasActiveSourceMaterialOptions(data.mask.data))?{materialParams:'source-material-parameters-v1'}:{},...(hasActiveSourceColorOptions(data.primary.data)||hasActiveSourceColorOptions(data.mask.data))?{colorParams:'source-pigment-rgb8-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
-      canonicalPixelDualSourceBinding(descriptor,descriptorSha256,material)
+      const material=canonicalMaskedSourceMaterialContext({version:2,...(recordedVersion!==undefined?!!(recordedFlags&8):'imageSource'in data.primary||'imageSource'in data.mask)?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},...scaleOptions.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...(hasActiveSourceMaterialOptions(data.primary.data)||hasActiveSourceMaterialOptions(data.mask.data))?{materialParams:'source-material-parameters-v1'}:{},...[data.primary.data,data.mask.data].some(d=>sourceColorRecording(d))?{colorParams:[data.primary.data,data.mask.data].some(d=>sourceColorRecording(d)==='source-pigment-rgba8-v1')?'source-pigment-rgba8-v1':'source-pigment-rgb8-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
+      canonicalPixelDualSourceBinding(descriptor,descriptorSha256,material,scaleOptions)
       return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}
     }
+    if(scaleOptions.sourceScale!==undefined&&phase)fail('scaled source requires neutral Pixel texture')
     if(descriptor.texture?.application?.mode==='multiply'&&(role==='author'||recordedVersion===8)){
       if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('primary grain source policy disabled')
       if(!phase||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary grain phase/profile unavailable')
@@ -704,7 +722,7 @@ export class CanonicalBrushCapabilityResolver {
         return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,...stat,coverageProfile:configured.coverageProfile})
       }
       const dynamicPolicy=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:this.autoSources.softAuto
-      const pin=dynamic?dynamicPolicy?canonicalDynamicAutoSourceBinding(descriptor,descriptorSha256,dynamicPolicy.coverageProfile,profile):fail('dynamic Auto source family disabled'):recordedPlain?recordedDefault():kind==='softAuto'
+      const pin=dynamic?dynamicPolicy?canonicalDynamicAutoSourceBinding(descriptor,descriptorSha256,dynamicPolicy.coverageProfile,profile,scaleOptions):fail('dynamic Auto source family disabled'):recordedPlain?recordedDefault():kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
         ? descriptor.sourceStamp.source.density<1
@@ -713,10 +731,12 @@ export class CanonicalBrushCapabilityResolver {
         : this.autoSources.gaussianAuto ? canonicalGaussianAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.gaussianAuto.coverageProfile,profile) : fail('Gaussian execution policy disabled')
       const savedMode=composition.mode
       if(!savedMode)fail('inconsistent-source-painting-mode')
+      if(scaleOptions.sourceScale!==undefined&&!dynamic)fail('scaled source requires dynamic Pixel policy')
       if(!dynamic&&pin.brushScale!==1)fail('unsupported stored auto scale')
       mode=savedMode
-      material=Object.freeze({version:2,...dynamic&&hasActiveSourceMaterialOptions(data)?{materialParams:'source-material-parameters-v1' as const}:{},...dynamic&&hasActiveSourceColorOptions(data)?{colorParams:'source-pigment-rgb8-v1' as const}:{},assets:Object.freeze([]),primarySource:pin,budget})
+      material=Object.freeze({version:2,...dynamic&&scaleOptions.sourceScale!==undefined?{scaledSource:'source-scale-v1' as const}:{},...dynamic&&hasActiveSourceMaterialOptions(data)?{materialParams:'source-material-parameters-v1' as const}:{},...dynamic&&sourceColorRecording(data)?{colorParams:sourceColorRecording(data)}:{},assets:Object.freeze([]),primarySource:pin,budget})
     }else{
+      if(scaleOptions.sourceScale!==undefined)fail('scaled image requires negotiated Pixel image source')
       // Retained IMAGE data1 is independent of the explicitly selected wire material V2.
       // primaryImageSource is also the shared base-V2 gate required by the pipe-role freezer.
       if(profile!==CANONICAL_STROKE_RASTER_PROFILE&&(!this.primaryImageSource||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))fail(this.primaryImageSource?'image V2 raster profile unavailable':'V1 material requires historical raster profile')
@@ -792,6 +812,22 @@ function material4Raster(profile:CanonicalStrokeRasterProfile){
  const contract=canonicalStrokeRasterContract(profile)
  if(!contract.genericSC)fail('material4 composition profile unavailable')
  return contract.profile
+}
+
+/** Header selector only; full canonical base64/bytes remain codec-validated. */
+function recordedMaterialFlags(frame:CanonicalStrokeOperation['frame']):number {
+ const field=Object.getOwnPropertyDescriptor(frame,'materialPacked')
+ if(!field||!Object.hasOwn(field,'value')||typeof field.value!=='string'||field.value.length>CANONICAL_MATERIAL_LIMITS.textBytes)return fail('recorded material header unavailable')
+ const bytes=Buffer.from(field.value.slice(2,34),'base64')
+ if(bytes.length<24||bytes.toString('ascii',0,4)!=='CMAT')return fail('recorded material header unavailable')
+ return bytes.readUInt16LE(14)
+}
+
+function recordedSourceScale(frame:CanonicalStrokeOperation['frame']):CanonicalSourceScaleOptions|undefined {
+ const field=Object.getOwnPropertyDescriptor(frame,'sourceScale')
+ if(!field){if('sourceScale'in frame)fail('inherited recorded source scale');return}
+ if(!Object.hasOwn(field,'value'))fail('recorded source scale accessor')
+ return Object.freeze({sourceScale:canonicalSourceScale(field.value)})
 }
 
 /** Selector is read only after the original stored row has been verified. */

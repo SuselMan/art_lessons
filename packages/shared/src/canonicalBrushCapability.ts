@@ -1,8 +1,11 @@
+import {captureOriginalPixelImageRole} from './canonicalPixelImageSourceCapture.js'
+import {sourceColorProviderKind} from './sourceStampData.js'
+import {captureCanonicalSourceScaleOptions,type CanonicalSourceScaleOptions} from './canonicalSourceScale.js'
 import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import {canonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin,resolveCanonicalTexturePhase,canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
 import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import {isBrushLibrary,type BrushDescriptor} from './brushes.js'
-import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
+import type { CanonicalMaterialAsset,CanonicalMaterialImageSource } from './canonicalMaterialCodec.js'
 import { captureSourcePlainAutoGeometryData, captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
 
 /** Only the native outer law representable by canonical over32 today.
@@ -73,7 +76,7 @@ export function extractCanonicalSinglePngCapability(
 
 function extractImageFrameCapability(
   descriptor:BrushDescriptor,asset:{readonly id:string;readonly size:number},
-  policy?:Readonly<{animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture';pixelTexture?:true;role?:'primary'|'mask';dual?:true}>,
+  policy?:Readonly<{animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture';pixelTexture?:true;nativeImage?:true;role?:'primary'|'mask';dual?:true}>,
 ):CanonicalSinglePngResult {
   const animation=policy?.animation
   const reject = (reason: string): CanonicalSinglePngResult => ({ supported: false, reasons: [reason] })
@@ -81,18 +84,18 @@ function extractImageFrameCapability(
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
   if (!isSourceStampData(data)) return reject('invalid-source-data')
   if (sourceStampSourceKind(data) !== 'image') return reject('source-material-is-not-image')
-  if (data.unsupported.some(reason=>!(policy?.role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')&&!(policy?.pixelTexture&&reason==='source-image-adjustments-unavailable'))) return { supported: false, reasons: [...data.unsupported] }
+  if (data.unsupported.some(reason=>!(policy?.role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')&&!((policy?.pixelTexture||policy?.nativeImage)&&(reason==='source-image-adjustments-unavailable'||reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient'))))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (policy?.role??'primary') || descriptor.behavior?.dual&&!policy?.dual) return reject('mask-master-size-unresolved')
-  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation !== animation || descriptor.tip.material&&!policy?.pixelTexture) return reject('unsupported-source-material')
+  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation !== animation || descriptor.tip.material&&!policy?.pixelTexture&&!policy?.nativeImage) return reject('unsupported-source-material')
   const sampling = descriptor.tip.imageSampling,bounds=descriptor.tip.maskBounds
-  const pairedMaterial=policy?.pixelTexture&&!!descriptor.tip.material&&!!bounds
+  const pairedMaterial=(policy?.pixelTexture||policy?.nativeImage)&&!!descriptor.tip.material&&!!bounds
   const sourceRect=pairedMaterial?{x:bounds.x*asset.size,y:bounds.y*asset.size,width:bounds.width*asset.size,height:bounds.height*asset.size}:sampling?.sourceRect
   if (!sourceRect || !pairedMaterial&&(!sampling||sampling.kind !== 'integer-pyramid'||sampling.signal !== 'inverse-gray') || descriptor.tip.mask !== (animation?.frames[0] ?? asset.id)
     || !/^asset:[a-f0-9]{64}$/.test(asset.id) || !Number.isInteger(asset.size) || asset.size < 2 || asset.size > 2048
     || !Object.values(sourceRect).every(v => Number.isInteger(v) && v >= 0)
     || sourceRect.width !== data.brush.width || sourceRect.height !== data.brush.height
     || sourceRect.x + data.brush.width > asset.size || sourceRect.y + data.brush.height > asset.size) return reject('native-cas-source-grid-unavailable')
-  if ((!data.flags.materialFixed1&&!(policy?.pixelTexture&&hasCanonicalCapturedMaterialConsumers(data))) || (policy?.material==='verified-primary-texture'?!data.flags.textureEnabled:data.flags.textureEnabled) || descriptor.behavior?.colorAdjustment&&!(policy?.pixelTexture&&hasCanonicalCapturedColorConsumers(data))) return reject('unsupported-material-consumer')
+  if ((!data.flags.materialFixed1&&!((policy?.pixelTexture||policy?.nativeImage)&&hasCanonicalCapturedMaterialConsumers(data))) || (policy?.material==='verified-primary-texture'?!data.flags.textureEnabled:data.flags.textureEnabled) || descriptor.behavior?.colorAdjustment&&!((policy?.pixelTexture||policy?.nativeImage)&&hasCanonicalCapturedColorConsumers(data))) return reject('unsupported-material-consumer')
   if (data.options.length !== 9) return reject('native-option-program-unavailable')
   const rotation = data.options.find(o => o.id === 'Rotation')!
   const fan = rotation.checked && rotation.useCurve ? rotation.sensors.find(s => s.id === 'drawingAngle' && s.fanCorners) : undefined
@@ -351,7 +354,8 @@ export function extractSeededDensityDefaultAutoSourceDataCapability(descriptor: 
 /** Named extended native material consumers; historical extractors remain fixed1. */
 function hasCanonicalCapturedColorConsumers(data:SourceStampData):boolean{
  const options=data.colorOptions,active=(name:string)=>['true','1'].includes((data.settings['Pressure'+name]??'false').toLowerCase())
- if(!options||options.length!==5||!data.compiled||!hasCanonicalSourceCurvePrograms(data)||(data.settings['ColorSource/Type']??'plain')!=='plain')return false
+ if(!['Mix','Darken','h','s','v'].some(active))return (sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient')
+ if(!options||options.length!==5||!data.compiled||!hasCanonicalSourceCurvePrograms(data)||sourceColorProviderKind(data)===undefined)return false
  return ['Mix','Darken','h','s','v'].every((id,i)=>options[i].id===id&&options[i].checked===active(id)&&options[i].min===0&&options[i].max===1&&Math.abs(options[i].strength)<=1)
 }
 function hasCanonicalCapturedMaterialConsumers(data:SourceStampData):boolean {
@@ -362,24 +366,25 @@ function hasCanonicalCapturedMaterialConsumers(data:SourceStampData):boolean {
  if(colors.some(active)&&!hasCanonicalCapturedColorConsumers(data))return false
  return materials.some(active)||colors.some(active)
 }
-function resolvedMaskSourceReason(data:SourceStampData,reason:string,role:'primary'|'mask'|undefined,extendedSpikes:boolean):boolean {
+function resolvedMaskSourceReason(data:SourceStampData,reason:string,role:'primary'|'mask'|undefined,extendedSpikes:boolean,seededMask=false):boolean {
+ if(extendedSpikes&&reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient'))return true
  if(role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')return true
  if(!extendedSpikes||data.version!==2||data.source.kind==='image')return false
- return ['default-auto-mask-parameters-unavailable','gaussian-auto-mask-parameters-unavailable'].includes(reason)&&Number.isSafeInteger(data.source.spikes)&&data.source.spikes>=2&&data.source.spikes<=64&&data.source.randomness===0&&data.source.density===1
+ return ['default-auto-mask-parameters-unavailable','gaussian-auto-mask-parameters-unavailable'].includes(reason)&&Number.isSafeInteger(data.source.spikes)&&data.source.spikes>=2&&data.source.spikes<=64&&(seededMask?[data.source.randomness,data.source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1):data.source.randomness===0&&data.source.density===1)
 }
-function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean, material: 'plain'|'fixed-one-texture'|'pressure-curve-data'|'pixel-texture' = 'plain',capturedData?:SourceStampData,role?:'primary'|'mask',extendedSpikes=false):
+function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean, material: 'plain'|'fixed-one-texture'|'pressure-curve-data'|'pixel-texture' = 'plain',capturedData?:SourceStampData,role?:'primary'|'mask',extendedSpikes=false,seededMask=false):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
   const data = capturedData??descriptor.sourceStamp
   if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
   if (data.version !== 2 || data.source.kind !== 'defaultAuto') return reject('source-material-is-not-default-auto')
-  if (!seededDensity && data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes))) return { supported: false, reasons: [...data.unsupported] }
+  if (!seededDensity && data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes,seededMask))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (role??'primary') || descriptor.behavior?.dual&&role===undefined) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
     || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
   const source = data.source
-  if ((!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.randomness !== 0 || (!seededDensity && source.density !== 1) || (!data.flags.materialFixed1&&!(extendedSpikes&&hasCanonicalCapturedMaterialConsumers(data)))
+  if ((!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || (!seededMask&&source.randomness !== 0)||![source.randomness,source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1)||(!seededMask&&!seededDensity&&source.density!==1) || (!data.flags.materialFixed1&&!(extendedSpikes&&hasCanonicalCapturedMaterialConsumers(data)))
     || (material !== 'plain' ? !data.flags.textureEnabled : data.flags.textureEnabled)
     || (descriptor.behavior?.colorAdjustment&&!(extendedSpikes&&hasCanonicalCapturedColorConsumers(data)))) return reject('unsupported-default-auto-material-consumer')
   const p = descriptor.tip.profile
@@ -390,7 +395,7 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
   // The historical tag conflates spikes, randomness and density. Only the
   // density-only frontier is retired, AFTER every source/material/program check.
   // Retain the original tag/data; never normalize unrelated unsupported reasons.
-  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes)) && !(seededDensity && source.density < 1
+  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes,seededMask)) && !(seededDensity && source.density < 1
     && data.unsupported.length === 1 && data.unsupported[0] === 'default-auto-mask-parameters-unavailable')) {
     return { supported: false, reasons: [...data.unsupported] }
   }
@@ -402,18 +407,18 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
  * tips are legacy approximations; this result grants neither their execution
  * nor a Gaussian author/material/wire path. */
 export function extractGaussianAutoSourceDataCapability(descriptor:BrushDescriptor){return extractGaussianAutoDataCore(descriptor)}
-function extractGaussianAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|'mask',extendedSpikes=false,pixelTexture=false):
+function extractGaussianAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|'mask',extendedSpikes=false,pixelTexture=false,seededMask=false):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceGaussianAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
   const data = descriptor.sourceStamp
   if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
   if (data.version !== 2 || data.source.kind !== 'gaussianAuto') return reject('source-material-is-not-gaussian-auto')
-  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes))) return { supported: false, reasons: [...data.unsupported] }
+  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes,seededMask))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (role??'primary') || descriptor.behavior?.dual&&role===undefined) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp') return reject('inconsistent-gaussian-auto-descriptor')
   const source = data.source
-  if (source.shape !== 'circle' || source.ratio > 1 || (!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.randomness !== 0 || source.density !== 1
+  if (source.shape !== 'circle' || source.ratio > 1 || (!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || (!seededMask&&(source.randomness!==0||source.density!==1))||![source.randomness,source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
     || (!data.flags.materialFixed1&&!(extendedSpikes&&hasCanonicalCapturedMaterialConsumers(data))) || (pixelTexture?!data.flags.textureEnabled:data.flags.textureEnabled) || (descriptor.behavior?.colorAdjustment&&!(extendedSpikes&&hasCanonicalCapturedColorConsumers(data)))) return reject('unsupported-gaussian-auto-material-consumer')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
@@ -424,18 +429,18 @@ function extractGaussianAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|
 /** Soft data readiness only. Schema validation binds the mapped radial entry
  * to the retained raw curve; it does not attest the compiler or admit pixels. */
 export function extractSoftAutoSourceDataCapability(descriptor:BrushDescriptor){return extractSoftAutoDataCore(descriptor)}
-function extractSoftAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|'mask',extendedSpikes=false,pixelTexture=false):
+function extractSoftAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|'mask',extendedSpikes=false,pixelTexture=false,seededMask=false):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceSoftAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
   const data = descriptor.sourceStamp
   if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
   if (data.version !== 2 || data.source.kind !== 'softAuto') return reject('source-material-is-not-soft-auto')
-  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes))) return { supported: false, reasons: [...data.unsupported] }
+  if (data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,role,extendedSpikes,seededMask))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (role??'primary') || descriptor.behavior?.dual&&role===undefined) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp') return reject('inconsistent-soft-auto-descriptor')
   const source = data.source
-  if (source.ratio > 1 || (!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.antialias || source.randomness !== 0 || source.density !== 1
+  if (source.ratio > 1 || (!extendedSpikes?source.spikes!==2:!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.antialias || (!seededMask&&(source.randomness!==0||source.density!==1))||![source.randomness,source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
     || (!data.flags.materialFixed1&&!(extendedSpikes&&hasCanonicalCapturedMaterialConsumers(data))) || (pixelTexture?!data.flags.textureEnabled:data.flags.textureEnabled) || (descriptor.behavior?.colorAdjustment&&!(extendedSpikes&&hasCanonicalCapturedColorConsumers(data)))) return reject('unsupported-soft-auto-material-consumer')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
@@ -446,14 +451,28 @@ function extractSoftAutoDataCore(descriptor:BrushDescriptor,role?:'primary'|'mas
 
 /** Composition belongs to the explicit trusted raster profile. Retaining a
  * source mask or author program cannot grant unsupported destination/effect law. */
-export function canonicalSourceEffectReject(descriptor: BrushDescriptor,profile:CanonicalStrokeRasterProfile): string | undefined {
+export function canonicalSourceEffectReject(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile):string|undefined{return sourceEffectReject(descriptor,profile,false)}
+function sourceEffectReject(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,nativeSharpness:boolean):string|undefined {
   const behavior = descriptor.behavior, rendering = behavior?.rendering
   if (!canonicalSourceComposition(descriptor,profile)) return 'outer-composition'
   if (rendering && (rendering.mode !== 'buildUp' || rendering.opacityCeiling === 'shape' || rendering.accumulation === 'maxAlpha')) return 'stroke-rendering-mode'
   if (rendering?.gammaCorrect || rendering?.luminance) return 'color-effect'
-  if (descriptor.tip.alphaThreshold) return 'mask-threshold'
+  if (descriptor.tip.alphaThreshold&&!nativeSharpness) return 'mask-threshold'
   if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'
   return undefined
+}
+
+/** Native Sharpness is supplied by resolved material parameters on the named
+ * Pixel path. Legacy alphaThreshold entrypoints retain their old rejection. */
+export function canonicalPixelSourceEffectReject(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile):string|undefined{
+ const data=descriptor.sourceStamp,threshold=descriptor.tip.alphaThreshold
+ let nativeSharpness=false
+ if(threshold&&canonicalStrokeRasterContract(profile).genericSC&&isSourceStampData(data)&&hasCanonicalCapturedMaterialConsumers(data)&&['true','1'].includes((data.settings.PressureSharpness??'false').toLowerCase())){
+  const value=Number(data.settings.SharpnessValue??data.settings['Sharpness/factor']??'1')
+  const softness=data.settings.SharpnessValue===undefined&&data.settings['Sharpness/factor']!==undefined?value:Number(data.settings['Sharpness/softness']??'0')/100
+  nativeSharpness=Number.isFinite(value)&&value>=0&&value<=1&&Number.isFinite(softness)&&softness>=0&&softness<=1&&threshold.value===value&&threshold.softness===softness
+ }
+ return sourceEffectReject(descriptor,profile,nativeSharpness)
 }
 
 /** First pressure-curve material DATA boundary. No context5, executable source
@@ -642,8 +661,8 @@ export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?
   const library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:assets?[{id:assets.pattern.id,size:assets.pattern.size,file:assets.pattern.id.slice(6)+'.bin'}]:[],skipped:[]}
   if(!isBrushLibrary(library))return reject('invalid dynamic Auto descriptor')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
-  if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,undefined,true))||canonicalSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dynamic Auto source')
-  const material=data.flags.textureEnabled?(assets?extractCanonicalTexturedAutoProgramData(descriptor,assets):undefined):data.source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'plain',data,undefined,true):data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true):extractSoftAutoDataCore(descriptor,undefined,true)
+  if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,undefined,true,true))||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dynamic Auto source')
+  const material=data.flags.textureEnabled?(assets?extractCanonicalTexturedAutoProgramData(descriptor,assets):undefined):data.source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'plain',data,undefined,true,true):data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,false,true):extractSoftAutoDataCore(descriptor,undefined,true,false,true)
   if(!material?.supported)return reject('unsupported dynamic Auto kernel/program')
   if(data.brush.scale<=0||data.brush.scale>1)return reject('dynamic Auto scale bound')
   const airbrush=data.settings['PaintOpSettings/isAirbrushing']
@@ -660,7 +679,7 @@ export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?
 
 /** Native dual role binding retains the actual master/child and blend law.
  * It never projects a mask into a primary descriptor or grants execution. */
-export function extractCanonicalPixelDualSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[]) {
+export function extractCanonicalPixelDualSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[],options?:CanonicalSourceScaleOptions) {
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original)
@@ -674,8 +693,18 @@ export function extractCanonicalPixelDualSourceData(original:unknown,available:r
   if(!isCanonicalMaskingBlendMode(blendMode)||canonicalMaskingBlendModes.indexOf(blendMode)>=10)return reject('unsupported native masking blend')
   const role=(d:BrushDescriptor,id:'primary'|'mask')=>{
    const data=d.sourceStamp
-   if(!isSourceStampData(data)||data.role!==id||data.flags.textureEnabled||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,id,true))||canonicalSourceEffectReject(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dual role source')
-   const material=data.version===2&&data.source.kind==='defaultAuto'?extractDefaultAutoData(d,false,'plain',data,id,true):data.version===2&&data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(d,id,true):data.version===2&&data.source.kind==='softAuto'?extractSoftAutoDataCore(d,id,true):(()=>{const asset=available.find(a=>a.id===d.tip.mask);return asset?extractImageFrameCapability(d,asset,{role:id,dual:true}):reject('dual image asset unavailable')})()
+   if(!isSourceStampData(data)||data.role!==id||data.flags.textureEnabled||sourceStampSourceKind(data)!=='image'&&data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,id,true,true))||canonicalPixelSourceEffectReject(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dual role source')
+   const material=data.version===2&&data.source.kind==='defaultAuto'?extractDefaultAutoData(d,false,'plain',data,id,true,true):data.version===2&&data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(d,id,true,false,true):data.version===2&&data.source.kind==='softAuto'?extractSoftAutoDataCore(d,id,true,false,true):(()=>{
+    const assets:CanonicalMaterialAsset[]=[]
+    for(const frame of d.tip.animation?.frames??[d.tip.mask!]){
+      const asset=available.find(a=>a.id===frame);if(!asset)return reject('dual image frame asset unavailable')
+      const captured=extractImageFrameCapability(d,asset,{role:id,dual:true,nativeImage:true,animation:d.tip.animation});if(!captured.supported)return captured
+      assets.push(captured.capability.asset)
+    }
+    if(!assets.length||assets.length>256||assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('dual image frame grids differ')
+    const first=extractImageFrameCapability(d,available.find(a=>a.id===d.tip.mask)!,{role:id,dual:true,nativeImage:true,animation:d.tip.animation})
+    return first.supported?Object.freeze({...first,frameAssets:Object.freeze(assets)}):first
+   })()
    if(!material.supported)return material
    return Object.freeze({supported:true as const,descriptor:d,data,material})
   }
@@ -686,11 +715,17 @@ export function extractCanonicalPixelDualSourceData(original:unknown,available:r
   const useMaster=settings['MaskingBrush/UseMasterSize']??'true',coefficient=settings['MaskingBrush/MasterSizeCoeff']??'1'
   if(!['true','false'].includes(useMaster)||!/^[ \t]*[+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t]*$/.test(coefficient))return reject('invalid native master size policy')
   const coeff=Number(coefficient),baseSize=(d:SourceStampData)=>d.version===2&&d.source.kind!=='image'?d.source.diameter:Math.max(d.brush.width,d.brush.height)
-  const requested=coeff*baseSize(primary.data)*primary.data.brush.scale
+  const selectedScale=captureCanonicalSourceScaleOptions(options).sourceScale??primary.data.brush.scale
+  const requested=coeff*baseSize(primary.data)*selectedScale
   if(!Number.isFinite(coeff)||coeff<=0||!Number.isFinite(requested)||requested<=0)return reject('invalid native master size')
   const effectiveMaskScale=useMaster==='true'?Math.min(requested,3000)/baseSize(mask.data):mask.data.brush.scale
   if(!Number.isFinite(effectiveMaskScale)||effectiveMaskScale<=0)return reject('invalid effective mask scale')
-  return Object.freeze({supported:true as const,kind:'pixel-dual-source-v1' as const,descriptor,primary:Object.freeze({...primary,effectiveBrushScale:primary.data.brush.scale}),mask:Object.freeze({...mask,effectiveBrushScale:effectiveMaskScale}),blendMode,sampling:dual.sampling??'independent',masterSizePolicy:Object.freeze({kind:'krita-default-max-mask-size-v1' as const,maxSize:3000 as const,useMasterSize:useMaster==='true',coefficient:coeff,effectiveSize:baseSize(mask.data)*effectiveMaskScale})})
+  const captureImageRole=(role:typeof primary,scale:number):Readonly<typeof primary&{effectiveBrushScale:number;imageSource?:CanonicalMaterialImageSource;imageAssets?:readonly CanonicalMaterialAsset[]} >=>{
+   if(sourceStampSourceKind(role.data)!=='image')return Object.freeze({...role,effectiveBrushScale:scale})
+   const image=captureOriginalPixelImageRole(role.descriptor,role.data,available,1,scale)
+   return Object.freeze({...role,effectiveBrushScale:scale,imageSource:image.source,imageAssets:image.assets})
+  }
+  return Object.freeze({supported:true as const,kind:'pixel-dual-source-v1' as const,descriptor,primary:captureImageRole(primary,selectedScale),mask:captureImageRole(mask,effectiveMaskScale),blendMode,sampling:dual.sampling??'independent',masterSizePolicy:Object.freeze({kind:'krita-default-max-mask-size-v1' as const,maxSize:3000 as const,useMasterSize:useMaster==='true',coefficient:coeff,effectiveSize:baseSize(mask.data)*effectiveMaskScale})})
  }catch{return reject('invalid dual original DATA')}
 }
 
@@ -700,7 +735,7 @@ function captureCanonicalImageMaterialSource(original:unknown,available:readonly
  const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
  if(!isBrushLibrary(library))return reject('invalid image material original descriptor')
  const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,material=descriptor.tip.material
- if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.unsupported.some(reason=>reason!=='source-image-adjustments-unavailable')||!material||descriptor.tip.animation||descriptor.behavior?.dual||data.flags.textureEnabled||canonicalSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported image material source')
+ if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.unsupported.some(reason=>reason!=='source-image-adjustments-unavailable'&&!(reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient')))||!material||descriptor.tip.animation||descriptor.behavior?.dual||data.flags.textureEnabled||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported image material source')
  const settings=data.settings,fixed=(name:string)=>settings['Pressure'+name]===undefined||settings['Pressure'+name]==='false'||settings[name+'UseCurve']==='false'&&Number(settings[name+'Value']??'1')===1
  if(!data.materialOptions&&(!fixed('Softness')||settings.PressureSharpness==='true')||(['h','s','v','Darken','Mix'].some(name=>['true','1'].includes((settings['Pressure'+name]??'false').toLowerCase()))&&!hasCanonicalCapturedColorConsumers(data))||!hasCanonicalSourceCurvePrograms(data))return reject('unsupported image material option program')
  const alpha=available.find(a=>a.id===descriptor.tip.mask),bounds=descriptor.tip.maskBounds
@@ -744,7 +779,7 @@ export function extractCanonicalPixelTextureSourceData(original:unknown,availabl
   const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
   if(!isBrushLibrary(library))return reject('invalid Pixel texture original')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,texture=descriptor.texture
-  if(!isSourceStampData(data)||data.version!==2||data.role!=='primary'||!data.flags.textureEnabled||!texture||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported Pixel texture original')
+  if(!isSourceStampData(data)||data.version!==2||data.role!=='primary'||!data.flags.textureEnabled||!texture||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported Pixel texture original')
   const option=data.textureOption
   if(!option||option.id!=='Texture/Strength/'||option.checked!==['true','1'].includes((data.settings['PressureTexture/Strength/']??'false').toLowerCase())||option.min!==0||option.max!==1||option.strength<0||option.strength>1||!hasCanonicalSourceCurvePrograms(data))return reject('native texture strength option unavailable')
   if(data.timing.enabled!==(data.settings['PaintOpSettings/isAirbrushing']==='true')||!Number.isFinite(data.timing.rate)||data.timing.rate<=0)return reject('inconsistent Pixel timing')
@@ -756,11 +791,46 @@ export function extractCanonicalPixelTextureSourceData(original:unknown,availabl
   const patternAsset=Object.freeze({...pattern,x:0,y:0,width:size.width,height:size.height}),phasePolicy=Object.freeze({width:size.width,height:size.height,offsetX:offset.x,offsetY:offset.y,randomX:offset.randomX,randomY:offset.randomY})
   canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'pixel-texture-u8-v1',mode:application.mode,soft:application.soft,width:size.width,height:size.height,periodX:size.width,periodY:size.height,phase:resolveCanonicalTexturePhase(phasePolicy,()=>0),strength:'recorded-grain-v1'},patternAsset)
   const source=data.source
-  const material=source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'pixel-texture',data,undefined,true):source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,true):source.kind==='softAuto'?extractSoftAutoDataCore(descriptor,undefined,true,true):(()=>{const a=available.find(a=>a.id===descriptor.tip.mask);return a?extractImageFrameCapability(descriptor,a,{material:'verified-primary-texture',pixelTexture:true,...descriptor.tip.animation?{animation:descriptor.tip.animation}:{}}):reject('Pixel primary image unavailable')})()
+  const material=source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'pixel-texture',data,undefined,true,true):source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,true,true):source.kind==='softAuto'?extractSoftAutoDataCore(descriptor,undefined,true,true,true):(()=>{const a=available.find(a=>a.id===descriptor.tip.mask);return a?extractImageFrameCapability(descriptor,a,{material:'verified-primary-texture',pixelTexture:true,...descriptor.tip.animation?{animation:descriptor.tip.animation}:{}}):reject('Pixel primary image unavailable')})()
   if(!material.supported)return material
   // Every option is resolved by the existing native query engine. Resource
   // maxima still reject expansion beyond the bounded mask geometry domain.
   for(const o of [...data.options,...(data.materialOptions??[]),...(data.colorOptions??[]),option])if(o.checked){if(!Number.isFinite(o.strength)||o.sensors.some(s=>s.id==='perspective'))return reject('unavailable Pixel source sensor');if(['Size','Ratio'].includes(o.id)&&(o.min<0||o.max>1||o.strength<0||o.strength>1))return reject('unbounded Pixel geometry option')}
   return Object.freeze({supported:true as const,kind:'pixel-texture-source-v1' as const,descriptor,data,material,patternAsset,phasePolicy,mode:application.mode,soft:application.soft,strengthOption:option,composition})
  }catch{return reject('invalid Pixel texture source DATA')}
+}
+
+/** Named DATA classifier for the new request-local browser mask RNG law.
+ * Historical Default/Gaussian/Soft extractors remain closed. */
+export function extractCanonicalSeededAutoMaskData(original:unknown){
+ const result=extractCanonicalDynamicAutoGeometryData(original)
+ if(!result.supported)return result
+ if(result.data.version!==2||result.data.source.kind==='image'||![result.data.source.randomness,result.data.source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1))return {supported:false as const,reasons:Object.freeze(['unbounded seeded mask source'])}
+ return Object.freeze({...result,coverageProfile:'seeded-auto-mask-browser-v1' as const})
+}
+
+/** Native pipe dimensions are immutable source DATA; replay records only frame IDs. */
+export function extractCanonicalPixelImageSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[]){
+ const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
+ try{
+  const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
+  if(!isBrushLibrary(library))return reject('invalid native image pipe original')
+  const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,animation=descriptor.tip.animation
+  if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.flags.textureEnabled||!hasCanonicalSourceCurvePrograms(data)||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported native image pipe source')
+  const assets:CanonicalMaterialAsset[]=[]
+  for(const id of animation?.frames??[descriptor.tip.mask!]){const a=available.find(a=>a.id===id);if(!a)return reject('native pipe alpha unavailable');const c=extractImageFrameCapability(descriptor,a,{animation,nativeImage:true});if(!c.supported)return c;assets.push(c.capability.asset)}
+  if(assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('native pipe grids differ')
+  const composition=canonicalSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+  if(!composition||!['over','erase'].includes(composition.outerBlend))return reject('native image pipe composition unavailable')
+  return Object.freeze({supported:true as const,kind:'pixel-image-source-v1' as const,descriptor,data,animation,assets:Object.freeze(assets),composition})
+ }catch{return reject('invalid native image pipe original DATA')}
+}
+
+/** Historical named pipe wrapper stays explicit; shared implementation also
+ * serves static source images without widening the old PNG entry. */
+export function extractCanonicalNativeImagePipeSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[]){
+ const result=extractCanonicalPixelImageSourceData(original,available)
+ if(!result.supported)return result
+ if(result.animation?.mode!=='native-dimensions-v1')return {supported:false as const,reasons:Object.freeze(['native image pipe dimensions required'])}
+ return Object.freeze({...result,kind:'native-image-pipe-source-v1' as const,animation:result.animation})
 }

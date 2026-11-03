@@ -179,7 +179,7 @@ export class CanonicalStrokeAdmission {
       || grant.brush !== brush || grant.strokeId !== strokeId || !integer(grant.boardEpoch)
       || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || !CANONICAL_STROKE_RASTER_CONTRACTS.some(contract=>contract.profile===grant.rasterProfile)
       || !/^[0-9a-f]{64}$/.test(grant.descriptorSha256)) fail('trusted board/brush capability unavailable')
-    if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
+    if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>2048)fail('unsupported trusted material capability')
     const m=grant.material
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
     if('version'in m&&m.version===8){
@@ -209,7 +209,7 @@ export class CanonicalStrokeAdmission {
     }else if('version'in m&&m.version===3){
       if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('unsupported trusted material3 profile')
       materialSignature=canonicalPrimaryTextureMaterialContext(m);preflight=undefined
-    }else if('version'in m&&m.version===2&&!m.maskSource&&(m.materialParams||m.colorParams||m.primarySource.kind==='image'&&m.primarySource.imageMaterial)){
+    }else if('version'in m&&m.version===2&&!m.maskSource&&(m.materialParams||m.colorParams||m.imageFrameIndices||m.scaledSource||m.primarySource.kind==='image'&&m.primarySource.imageMaterial)){
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('extended Pixel source raster unavailable')
       materialSignature=canonicalSourceMaterialContext(m);preflight=undefined
     }else if('version'in m&&m.version===2&&m.maskSource){

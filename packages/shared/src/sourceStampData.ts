@@ -459,3 +459,19 @@ export function captureSourcePlainAutoGeometryData(value:unknown):Readonly<{desc
  * evaluate sensors and must not opt a frame into another material layout. */
 export function hasActiveSourceMaterialOptions(data:Pick<SourceStampCommon,'materialOptions'>):boolean{return data.materialOptions?.some(option=>option.checked)??false}
 export function hasActiveSourceColorOptions(data:Pick<SourceStampCommon,'colorOptions'>):boolean{return data.colorOptions?.some(option=>option.checked)??false}
+
+/** Closed implemented ColorSource metadata. This does not grant a renderer. */
+export function sourceColorProviderKind(data:Pick<SourceStampCommon,'settings'>):'plain'|'uniform_random'|'gradient'|undefined {
+ const kind=data.settings['ColorSource/Type']??'plain'
+ return kind==='plain'||kind==='uniform_random'||kind==='gradient'?kind:undefined
+}
+/** A provider can need recorded pigment without any checked color option. */
+export function hasRecordedSourceColor(data:Pick<SourceStampCommon,'settings'|'colorOptions'>):boolean {
+ return sourceColorRecording(data)!==undefined
+}
+
+/** Byte layout required by the implemented ColorSource consumer. */
+export function sourceColorRecording(data:Pick<SourceStampCommon,'settings'|'colorOptions'>):'source-pigment-rgb8-v1'|'source-pigment-rgba8-v1'|undefined {
+ const provider=sourceColorProviderKind(data)
+ return provider==='gradient'?'source-pigment-rgba8-v1':provider==='uniform_random'||hasActiveSourceColorOptions(data)?'source-pigment-rgb8-v1':undefined
+}

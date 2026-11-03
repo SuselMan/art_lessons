@@ -134,3 +134,9 @@ GIH selection/ranks и цветные pipes, mask randomness/density для вс
 color-source/gradient providers, texture LIGHTNESS/GRADIENT, UI source scale
 с записанной неизменяемой идентичностью и оставшиеся composite/color-space laws.
 Число подтверждённых кистей и состояние тестового стенда этим кодом не изменены.
+
+Следующий кодовый checkpoint: production typecheck клиента —611 roots/0 diagnostics,
+сервера —67/0; общий контракт перед ним —66/0. Включены общий image/Auto texture8,
+многомерный GIH и выбранный sourceScale через подготовку, BEGIN, frame и snapshot.
+После этого продолжается реализация ColorSource: uniform random и gradient RGBA.
+Эти результаты компиляции не подтверждают визуальное поведение или отзывчивость.
