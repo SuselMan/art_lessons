@@ -480,7 +480,7 @@ export class CanonicalWashLayerCoordinator {
       capabilities:[read.capability],bindings:[{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}]},[op],scope)[0]
     const snapshot=accepted.read!.capability.snapshot
     if(read.rasterProfile!==snapshot.rasterProfile)throw new TypeError('Recorded source profile mismatch')
-    if(('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==this.options.rasterProfile
+    if(('maskSource'in snapshot.material&&snapshot.material.maskSource&&!(snapshot.materialVersion===2&&snapshot.material.maskingBlend))||snapshot.rasterProfile!==this.options.rasterProfile
       ||snapshot.layerId!==this.options.layerId)throw new TypeError('Unsupported recorded source context')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,snapshot.strokeId])
     const existing=this.entries.find(e=>e.id===id),old=existing?.recorded
