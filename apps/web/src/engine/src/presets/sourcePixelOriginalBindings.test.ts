@@ -1,3 +1,6 @@
+import adjustOriginals from './fixtures/pixelAdjustComposition.native.json'
+import {canonicalDynamicAutoGeometryAuthorAdmission} from './sourceCanonicalAuthorAdmission'
+import {sourceDynamicAutoAuthorProgram} from './sourceStrokeAuthorDescriptor'
 import {createHash} from 'node:crypto'
 import {expect,it} from 'vitest'
 import * as S from '@grafetto/shared'
@@ -71,4 +74,18 @@ it.each(['normal','erase','destination-out'])('preserves the explicit eraser ove
  expect(S.canonicalPixelSourceComposition(d,B)).toEqual({mode:'wash',outerBlend:'erase'})
  d.sourceStamp.settings.CompositeOp='unknown-native-composite-regression'
  expect(S.canonicalPixelSourceComposition(d,B)).toBeUndefined()
+})
+
+it.each(adjustOriginals.rows)('preserves original Adjust composition without a historical raw CompositeOp: $name',row=>{
+ const d=row.descriptor as unknown as S.BrushDescriptor
+ if(!d.sourceStamp)throw Error('Original SOURCE fixture missing')
+ expect(Object.hasOwn(d.sourceStamp.settings,'CompositeOp')).toBe(false)
+ const mode=d.behavior?.rendering?.blendMode,expected=mode==='color'?'colorHsyBrowser':mode
+ expect(S.canonicalPixelSourceComposition(d,B)).toEqual({mode:'wash',outerBlend:expected})
+ const admitted=canonicalDynamicAutoGeometryAuthorAdmission(d,B,row.assets,{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'})
+ expect(admitted.supported).toBe(true);if(!admitted.supported)throw Error(admitted.reason)
+ const pin=S.canonicalDynamicAutoSourceBinding(d,sha(d),'browser-number-coverage-v1',B,undefined,admitted.geometryCapability.originalAssets)
+ const compiled=sourceDynamicAutoAuthorProgram(d,{...context,descriptorSha256:sha(d),geometryCapability:admitted.geometryCapability,coverageProfile:pin.coverageProfile})
+ expect(compiled.supported).toBe(true);if(!compiled.supported)throw Error(compiled.reasons.join(','))
+ expect(()=>new SourceStrokeAuthor(compiled.program)).not.toThrow()
 })

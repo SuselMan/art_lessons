@@ -21,6 +21,15 @@ def data(params=None,definition='<Brush type="png_brush" filename="self.png" Bru
 
 
 class SourceStampDataTests(unittest.TestCase):
+    def test_retains_explicit_composite_op_without_synthesizing_absent_original(self):
+        self.assertNotIn('CompositeOp',data()['settings'])
+        for value in ('normal','multiply','dodge','unknown-original-composite'):
+            with self.subTest(value=value):
+                captured=data({'CompositeOp':value})
+                self.assertEqual(captured['settings']['CompositeOp'],value)
+                self.assertNotIn('blendMode',captured['settings'])
+                self.assertEqual(captured['options'],data()['options'])
+
     def test_texture_strength_raw_program_is_retained_without_flattening_or_new_option(self):
         identity='<!DOCTYPE params> <params id="pressure"> <curve>0,0;1,1;</curve> </params> '
         multiple='<params id="sensorslist"><ChildSensor id="pressure"><curve>0,0;1,1;</curve></ChildSensor><ChildSensor id="fuzzy"><curve>0,1;1,0;</curve></ChildSensor></params>'

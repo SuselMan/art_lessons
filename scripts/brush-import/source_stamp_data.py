@@ -361,7 +361,7 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     # Preserve raw planner/material inputs, not embedded patterns/resources or thumbnail data.
     if not all(isinstance(k,str) and isinstance(v,str) for k,v in params.items()): raise ValueError('Invalid source setting key/value')
     prefixes=OPTIONS+MATERIAL_OPTIONS+COLOR_OPTIONS+('Pressure','Custom','Curve','Scattering/','Sharpness/','PaintOpSettings/','Texture/Pattern/Enabled','Texture/Pattern/AutoInvertOnErase','Texture/Strength/','MaskingBrush/','ColorSource/')
-    keys={'brush_definition','HorizontalMirrorEnabled','VerticalMirrorEnabled','PaintOpAction','PrecisionLevel','AutoPrecisionEnabled'}
+    keys={'brush_definition','HorizontalMirrorEnabled','VerticalMirrorEnabled','PaintOpAction','CompositeOp','PrecisionLevel','AutoPrecisionEnabled'}
     raw={k:v for k,v in params.items() if k in keys or k.startswith(prefixes) or 'precision' in k.lower() or 'Sharpness' in k or 'Softness' in k or 'Lightness' in k}
     # Child data lives in its own descriptor; master relationship is retained, not duplicated.
     raw={k:v for k,v in raw.items() if not k.startswith('MaskingBrush/Preset/')}
