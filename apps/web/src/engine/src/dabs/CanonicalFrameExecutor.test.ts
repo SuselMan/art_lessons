@@ -1,3 +1,4 @@
+import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE} from '@grafetto/shared'
 import {compositeSourceFused32} from '../presets/sourceFused32'
 import {compositeRgba8,SOURCE_RGBA8_GENERIC_SC_PROFILE} from '../presets/sourceColorRgba8'
 import gaussianStock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
@@ -45,7 +46,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalAutoSource|CanonicalSoftAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalAutoSource|CanonicalSoftAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only', sourceMaterial?:CanonicalMaterialContextV2) {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -72,13 +73,13 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: canonicalExecutorOperations(rasterProfile) }, [...bankResources, ...prepass.preparedResources()])
+  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: canonicalExecutorOperations(rasterProfile,{masked:!!sourceMaterial?.maskSource}) }, [...bankResources, ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ washMode, rasterProfile, autoSource, bank, prepass, composite, scratch,
+  const executor = new CanonicalFrameExecutor({ washMode, rasterProfile, autoSource, sourceMaterial, bank, prepass, composite, scratch,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -2167,4 +2168,66 @@ it('refuses standalone Auto bogus image assets before any paint',()=>{
   expect(()=>s.executor.enqueue({...s.submit(),frame:closedAutoFrame(pin)})).toThrow('Auto-only frame must not supply image assets')
   expect(resolve).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
  }finally{s.close()}
+})
+
+
+// RAM masked sequencing regressions: real prepared state / real capture queries.
+function maskedWarmSequenceFixture(primaryCount=3){
+ const native=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
+ const pin:CanonicalDefaultAutoSource={...native,coverageProfile:CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE}
+ const nativeRecipe=closedAutoFrame(native).definitions[0]
+ if(nativeRecipe.kind!=='defaultAuto')throw Error('Auto fixture required')
+ const recipe:CanonicalDefaultAutoRecipe={...nativeRecipe,coverageProfile:CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE}
+ const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,maskSource:pin,maskingBlend:'multiply',budget:{workUnits:16*1048576,outputBytes:4*1048576,drawPixels:1048576}}
+ const s=setup('buildup',64,64,undefined,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,pin,64,undefined,context)
+ const frame=buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[...Array.from({length:primaryCount},(_,x)=>({recipe,role:'primary' as const,x,y:0,opacity:.5,flow:.7})),{recipe,role:'mask',x:0,y:0,opacity:1,flow:1}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:primaryCount,group:0},{kind:'segmentEnd',at:primaryCount+1,group:0},{kind:'gestureEnd',at:primaryCount+1}]},context).frame
+ s.executor.enqueue({...s.submit(),frame,assets:[]})
+ const work=s.executor['queue'][0]
+ s.executor['preparePhysicalPlan'](work,s.layer)
+ let n=0
+ while(!s.executor['preparePhysical'](work,s.layer,performance.now()))expect(++n).toBeLessThan(100)
+ while(!s.executor['prepareDualPlanes'](work,performance.now()))expect(++n).toBeLessThan(100)
+ while(!s.executor['prepareAuto'](work,performance.now()))expect(++n).toBeLessThan(100)
+ // Upload actual computed bytes through the same owned preparation turn.
+ s.executor['runPreparedTurn'](work,performance.now(),'physical',()=>{})
+ expect(s.executor['warmAutoReady'](work)).toBe(true)
+ return {...s,frame,work,primaryCount}
+}
+
+it('masked B resident same-role draws share one real capture and preserve role/fence output order',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=maskedWarmSequenceFixture()
+ try{
+  const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource')
+  s.executor.advance()
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2])
+  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  expect(s.work.draw).toBe(3);expect(s.work.segment??0).toBe(0)
+  expect(s.executor.pending).toBe(true);expect(s.snapshot()).toEqual(before)
+  s.drain()
+  expect(draw.mock.calls.filter(([r])=>r.operation.kind==='maskingAlpha')).toHaveLength(1)
+  expect(draw.mock.calls.slice(0,3).map(([r])=>[r.source.view.rect.x,r.operation.kind])).toEqual([[0,'overBrowserFloat'],[1,'overBrowserFloat'],[2,'overBrowserFloat']])
+  expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+it('masked warm sequence capture exceeding four ms performs only the first indivisible draw',()=>{
+ let now=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),s=maskedWarmSequenceFixture()
+ try{
+  const original=s.gl.getParameter.bind(s.gl),draw=vi.spyOn(s.composite,'drawSource')
+  vi.spyOn(s.gl,'getParameter').mockImplementation(name=>{if(name===s.gl.VIEWPORT)now+=5;return original(name)})
+  s.executor.advance();expect(draw).toHaveBeenCalledTimes(1);expect(s.work.draw).toBe(1)
+  s.drain();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+it('masked warm sequence preserves a thrown undefined primary and performs full failure cleanup',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=maskedWarmSequenceFixture()
+ try{
+  const original=s.composite.drawSource.bind(s.composite);let calls=0
+  vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{const result=original(request,frame);if(++calls===2)throw undefined;return result})
+  let caught=false,value:unknown='not-thrown'
+  try{s.executor.advance()}catch(error){caught=true;value=error}
+  expect(caught).toBe(true);expect(value).toBeUndefined();expect(calls).toBe(2)
+  expect(s.poison).toHaveBeenCalledTimes(1);expect(s.executor.pending).toBe(false)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
 })

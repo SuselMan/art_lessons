@@ -954,7 +954,8 @@ export class CanonicalFrameExecutor {
       if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
-      if(this.canEnterUniqueAutoSequence(work))this.paintUniqueAutoSequence(work,layer,turnStarted)
+      if(this.canEnterMaskedWarmSequence(work))this.paintMaskedWarmSequence(work,layer,turnStarted)
+      else if(this.canEnterUniqueAutoSequence(work))this.paintUniqueAutoSequence(work,layer,turnStarted)
       else if(warmAtEntry&&this.canSequenceWarm(work))this.paintWarmSequence(work,layer,turnStarted)
       else this.runPreparedTurn(work,turnStarted,work.draw<work.result.draws.length?'paint':'presentation',turn=>{
         this.paintPrepared(work,layer,turn,turnStarted)
@@ -964,6 +965,41 @@ export class CanonicalFrameExecutor {
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
+  }
+
+  /** Masked raw deposition only: no segment resolve, presentation or ownership
+   * transition may occur while the parent snapshot is borrowed. */
+  private canEnterMaskedWarmSequence(work:Work):boolean {
+    const p=work.physical,d=work.result.draws[work.draw],next=work.result.draws[work.draw+1]
+    return !!this.options.maskedSource&&!!p&&work.targetCursor===p.targetCount
+      &&work.scratchCursor===p.scratchCount&&work.washCursor===work.newTiles.length
+      &&(work.dualCursor??0)===(work.dualPositions?.length??0)&&!work.dualAcquisition
+      &&!this.maskedSegmentDue(work)&&!!d&&!!next&&d.definition===next.definition&&d.role===next.role
+      &&this.warmAutoReady(work)&&!this.maskParticipant.finalAutoUploadPending(this.maskRequest(work,work.draw))
+  }
+  private paintMaskedWarmSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
+    const firstDraw=work.result.draws[work.draw],definition=firstDraw.definition,role=firstDraw.role
+    const segment=work.segment??0
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},sequence=>{
+      for(let steps=0;steps<32&&(steps===0||performance.now()-turnStarted<4);steps++){
+        this.assertPrepared()
+        if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Masked sequence owner changed')
+        const d=work.result.draws[work.draw]
+        if(!d||d.definition!==definition||d.role!==role||(work.segment??0)!==segment||this.maskedSegmentDue(work)
+          ||!this.warmAutoReady(work)||this.maskParticipant.finalAutoUploadPending(this.maskRequest(work,work.draw)))break
+        const draw=work.draw,tile=work.tile,part=work.paintPart
+        sequence.step(turn=>{
+          this.assertPrepared()
+          const current=work.result.draws[work.draw]
+          if(this.queue[0]!==work||this.currentLayer(work)!==layer||!current||current.definition!==definition
+            ||current.role!==role||(work.segment??0)!==segment||this.maskedSegmentDue(work))throw new Error('Masked sequence boundary changed')
+          if(!this.warmAutoReady(work)||this.maskParticipant.finalAutoUploadPending(this.maskRequest(work,work.draw)))throw new Error('Masked sequence resource changed')
+          this.paint(work,layer,turn,turnStarted)
+        })
+        if(work.draw===draw&&work.tile===tile&&work.paintPart===part)break
+      }
+    })
+    // Segment resolve / END / finish stay in advanceWork after full restoration.
   }
 
   private warmAutoReady(work:Work):boolean {
