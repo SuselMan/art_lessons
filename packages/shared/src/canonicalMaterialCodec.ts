@@ -1027,6 +1027,15 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
     if(version!==1&&!tag)for(let j=indexedImages(c)?80:64;j<96;j++)if(u8(o+j))fail()
     if(parameterized&&u8(o+136)>3)fail();if(seededContext(c)||parameterized){if(!parameterized)for(let j=96;j<=136;j++)if(u8(o+j))fail();for(let j=u8(o+1)===5?141:137;j<144;j++)if(u8(o+j))fail()}
   }
+  if(isV2(c)&&c.roleTextures){
+    // The canonical writer appends each role's pattern after definition assets.
+    // A pattern already referenced by a definition or the other role is shared.
+    const referenced=new Set(Array.from({length:nextAsset},(_,i)=>id(i)))
+    for(const texture of [c.roleTextures.primary,c.roleTextures.mask])if(texture&&!referenced.has(texture.asset)){
+      if(nextAsset>=ac||id(nextAsset)!==texture.asset)return fail()
+      referenced.add(texture.asset);nextAsset++
+    }
+  }
   if(localTexture8(c)&&nextAsset!==ac-1)return fail()
   if(version!==3&&version!==4&&version!==5&&version!==6&&version!==7&&version!==8&&nextAsset!==ac)fail()
   const readDefinition=(i:number):AnyCanonicalMaterialRecipe=>{

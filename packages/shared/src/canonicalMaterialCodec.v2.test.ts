@@ -165,3 +165,16 @@ it('captures a seeded Default Auto SOURCE2 context without losing its density or
   expect(()=>canonicalSourceMaterialContext({...raw,primarySource:{...raw.primarySource,source:accessor}})).toThrow()
   expect(invoked).toBe(0)
 })
+
+it('accounts for ordered role texture assets in an empty paired SOURCE2 probe',()=>{
+ const a='asset:'+'a'.repeat(64),b='asset:'+'b'.repeat(64),extra='asset:'+'c'.repeat(64)
+ const pin=(asset:string)=>({kind:'canvasTexture' as const,asset,law:'pixel-texture-u8-v1' as const,mode:'multiply' as const,width:4,height:4,periodX:4,periodY:4,phase:{kind:'resolved-stroke-phase-v1' as const,x:0,y:0},strength:'recorded-grain-v1' as const,soft:false})
+ const raw=context(),c=canonicalSourceMaterialContext({...raw,assets:[a,b,extra].map(id=>({id,size:4,x:0,y:0,width:4,height:4})),primarySource:{kind:'image',asset:extra,brushScale:1,brushAngle:0},maskSource:raw.primarySource,maskingBlend:'multiply',roleTextures:{primary:pin(a),mask:pin(b)}})
+ const packed=buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[],fences:[]},c).packed
+ expect(unpackCanonicalMaterial(packed,c)).toMatchObject({masked:true,definitions:[],draws:[]})
+ expect(()=>unpackCanonicalMaterial(mutate(packed,(_v,bytes)=>{const first=bytes.slice(24,64);bytes.copyWithin(24,64,104);bytes.set(first,64)}),c)).toThrow()
+ const bytes=Uint8Array.from(atob(packed.slice(2)),x=>x.charCodeAt(0)),enlarged=new Uint8Array(bytes.length+40);enlarged.set(bytes);enlarged[6]=3;enlarged.fill(0xcc,bytes.length,bytes.length+32);const v=new DataView(enlarged.buffer);v.setUint16(bytes.length+32,4,true);v.setUint16(bytes.length+34,4,true)
+ expect(()=>unpackCanonicalMaterial('2|'+btoa(String.fromCharCode(...enlarged)),c)).toThrow()
+ const duplicate=canonicalSourceMaterialContext({...c,assets:c.assets.filter(asset=>asset.id!==b),roleTextures:{primary:pin(a),mask:pin(a)}})
+ expect(unpackCanonicalMaterial(buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[],fences:[]},duplicate).packed,duplicate)).toMatchObject({definitions:[]})
+})
