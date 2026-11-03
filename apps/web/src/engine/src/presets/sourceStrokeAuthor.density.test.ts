@@ -3,7 +3,7 @@ import {isBrushLibrary,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as D,CANONICAL_
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {sourceStrokeAuthorDescriptor} from './sourceStrokeAuthorDescriptor'
 import {SourceStrokeAuthor,type SourceStrokeAuthorState,type SourceStrokeAuthorStep} from './sourceStrokeAuthor'
-import {SourceStrokeMaterialAdapter} from './sourceStrokeMaterialAdapter'
+import {SourceStrokeMaterialAdapter,copySourceMaterialContext} from './sourceStrokeMaterialAdapter'
 import {SourceCanonicalFrameEncoder} from './sourceCanonicalFrameEncoder'
 
 /** Synthetic density variation of validated retained Basic2; not Marker_Dry. */
@@ -46,6 +46,10 @@ describe('explicit default auto seeded density author/material law (not pixel ex
   expect(role.materialPolicy).toBe('default-auto-fixed1-seeded-density-v1')
   expect(role.material.supportsCaching).toBe(false)
   expect(actual.pin.source.density).toBe(.8)
+  const copied=copySourceMaterialContext(actual.material)
+  expect(copied.primarySource).toEqual(actual.pin)
+  expect(copied.budget).toEqual({workUnits:actual.material.budget.workUnits,outputBytes:actual.material.budget.outputBytes,drawPixels:actual.material.budget.drawPixels})
+  expect(Object.keys(copied.budget).sort()).toEqual(['drawPixels','outputBytes','workUnits'])
   const material=actual.steps.filter(s=>s.kind==='material')
   expect(material.length).toBeGreaterThan(2)
   expect(material.every(s=>s.result!.material!.type==='Dab')).toBe(true)

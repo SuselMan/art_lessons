@@ -462,7 +462,7 @@ it.each(['defaultAuto','gaussianAuto','softAuto']as const)('source capture7 borr
   expect(view).toBe(e.replaySource7());expect(view.context).toBe(captured.context);expect(view.autoSource).toBe(e['options'].autoSource);expect(Object.isFrozen(view)).toBe(true);expect(Object.isFrozen(view.context.primaryTexture.phase)).toBe(true);expect(Object.isFrozen(view.autoSource.source)).toBe(true)
   Reflect.set(raw.primaryTexture.phase,'x',1);Reflect.set(raw.primarySource,'brushScale',2);Object.defineProperty(raw.primaryTexture,'phase',{get(){throw Error('raw phase must never be read again')}})
   view.assertCurrent();expect(view.context.primaryTexture.phase).toEqual(c.primaryTexture.phase);expect(view.autoSource.brushScale).toBe(1)
-  expect(()=>Reflect.apply(e.replaySource7,{...e},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.assertCurrent,{...view},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.retainRoot,{...view},[])).toThrow('Foreign')
+  expect(()=>Reflect.apply(e.replaySource7,{...e},[])).toThrow('Foreign');const trap=vi.fn(()=>{throw Error('foreign getter invoked')});const foreign=Object.create(null);for(const key of ['replaySource','replaySourceRead'])Object.defineProperty(foreign,key,{get:trap});expect(()=>Reflect.apply(e.replaySource7,foreign,[])).toThrow('Foreign');expect(trap).not.toHaveBeenCalled();expect(()=>Reflect.apply(view.assertCurrent,{...view},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.retainRoot,{...view},[])).toThrow('Foreign')
   const baseline=s.cpu.reservedBytes,child=view.retainRoot();expect(s.cpu.reservedBytes).toBe(baseline+2048);expect(child).not.toBe(captured.root);expect(child.patternResource(view.context.primaryTexture,view.context.assets[0],s.prepass.brushGlBatchInfo()).asset.id).toBe(c.assets[0].id);child.release();expect(s.cpu.reservedBytes).toBe(baseline)
   const survivor=view.retainRoot();e.cancel();expect(()=>view.assertCurrent()).toThrow();expect(()=>view.retainRoot()).toThrow();expect(()=>e.replaySource7()).toThrow();expect(survivor.isReady()).toBe(true);survivor.release()
  }finally{s.close()}
@@ -721,10 +721,10 @@ it('groups freeze exact accepted source and frame refs, reject forged groups and
   const first=s.recorded(s.operation('group-refs',0,true),1);s.coordinator.enqueueRecorded(first);s.coordinator.advance()
   const owner=s.coordinator['entries'][0],source=owner.replaySource!,sourceCalls=s.source.mock.calls.length,before=s.cpu.reservedBytes
   const snapshot=s.coordinator.retainReplaySnapshot(),values=snapshot.values(),groups=snapshot.groups!(),group=groups[0]
-  if(group.kind!=='buildup7')throw Error('expected buildup source group')
+  if(group.kind!=='buildup'||group.source.materialVersion!==7)throw Error('expected material7 buildup source group')
   expect(Object.isFrozen(groups)&&Object.isFrozen(group)&&Object.isFrozen(group.frames)&&Object.isFrozen(group.source)).toBe(true)
   expect(group.frames[0].value).toBe(values[0]);expect(group.frames[0].frame).toBe(s.coordinator['replay'].values().next().value?.acceptedFrame);expect(group.source.context).toBe(source.context);expect(group.source.autoSource).toBe(source.autoSource)
-  expect(Object.keys(group).sort()).toEqual(['frames','id','kind','source']);expect(Object.keys(group.source).sort()).toEqual(['autoSource','context','rasterProfile'])
+  expect(Object.keys(group).sort()).toEqual(['frames','id','kind','source']);expect(Object.keys(group.source).sort()).toEqual(['autoGeometryMechanism','autoSource','context','materialVersion','rasterProfile'])
   const held=s.cpu.reservedBytes;expect(held).toBeGreaterThan(before)
   expect(()=>snapshot.retainRoot!({...group})).toThrow('Foreign replay group');expect(s.cpu.reservedBytes).toBe(held)
   expect(()=>snapshot.values.call({})).toThrow('receiver');expect(()=>snapshot.groups!.call({})).toThrow('receiver');expect(()=>snapshot.assertCurrent!.call({})).toThrow('receiver');expect(()=>snapshot.retainRoot!.call({},group)).toThrow('receiver');expect(()=>snapshot.release.call({})).toThrow('receiver')

@@ -16,13 +16,13 @@ function setup(){const {gl}=recordingGL(),cache=new BrushTextureCache(gl,16*1048
  return{gl,cache,cpu,bank,prepass,composite,cleanup}}
 it('stages union metadata while old maps stay live, then publishes without GL or cache queries',()=>{
  const s=setup(),old=s.prepass.brushGlBatchInfo().resources,oldComp=s.composite.brushGlBatchInfo().resources
- const ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0});ext.jobs.forEach((_,i)=>ext.prepareJob(i))
+ const beforeStage=s.cpu.reservedBytes,ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0});ext.jobs.forEach((_,i)=>ext.prepareJob(i))
  const sources=ext.preparedResources(),a=s.prepass.prepareSourceUpdate(sources),b=s.composite.prepareCompanionUpdate([...sources,...s.prepass.preparedResources()])
  expect(s.prepass.brushGlBatchInfo().resources).toEqual(old);expect(s.composite.brushGlBatchInfo().resources).toEqual(oldComp);a.assertCurrent();b.assertCurrent()
  ext.assertPreparedPublication()
  const fail=()=>{throw Error('query in pure publication')},query=vi.spyOn(s.gl,'getParameter').mockImplementation(fail),precision=vi.spyOn(s.gl,'getShaderPrecisionFormat').mockImplementation(fail),cache=vi.spyOn(s.cache,'get').mockImplementation(fail),sizes=vi.spyOn(s.cache,'resourceBytes').mockImplementation(fail)
  ext.publish();a.publish();b.publish();expect(query).not.toHaveBeenCalled();expect(precision).not.toHaveBeenCalled();expect(cache).not.toHaveBeenCalled();expect(sizes).not.toHaveBeenCalled();cache.mockRestore();sizes.mockRestore();query.mockRestore();precision.mockRestore()
- const charge=s.cpu.reservedBytes;a.finalizeCleanup();b.finalizeCleanup();ext.finalizeCleanup();expect(s.cpu.reservedBytes).toBe(charge)
+ const charge=s.cpu.reservedBytes;a.finalizeCleanup();b.finalizeCleanup();ext.finalizeCleanup();expect(s.cpu.reservedBytes).toBeLessThan(charge);expect(s.cpu.reservedBytes).toBeGreaterThan(beforeStage);const adopted=s.cpu.reservedBytes;a.finalizeCleanup();b.finalizeCleanup();ext.finalizeCleanup();expect(s.cpu.reservedBytes).toBe(adopted)
  expect(s.prepass.brushGlBatchInfo().resources.length).toBeGreaterThan(old.length);expect(s.composite.brushGlBatchInfo().resources.length).toBeGreaterThan(oldComp.length);s.cleanup()
 })
 it('cancelled and copied updates cannot mutate original maps or keep staged metadata charged',()=>{
@@ -37,22 +37,35 @@ it('superseded metadata retires only after coherent publication and adopted char
  const s=setup(),one=s.prepass.prepareSourceUpdate(s.bank.preparedResources());one.publish();one.finalizeCleanup();const old=s.cpu.reservedBytes
  const two=s.prepass.prepareSourceUpdate(s.bank.preparedResources());expect(s.cpu.reservedBytes).toBeGreaterThan(old);two.publish();expect(s.cpu.reservedBytes).toBeGreaterThan(old);two.finalizeCleanup();expect(s.cpu.reservedBytes).toBe(old);s.cleanup()
 })
-it.each(['prepass','composite']as const)('preserves a newer %s update created by validation reentry',kind=>{
+it.each(['composite']as const)('preserves a newer %s update created by validation reentry',()=>{
  const s=setup(),sources=s.bank.preparedResources(),companions=[...sources,...s.prepass.preparedResources()];let nested:ReturnType<TransformedMaskPrepass['prepareSourceUpdate']>|undefined,entered=false
- const resource=kind==='prepass'?sources[0]:companions[0],bad={...resource}
+ const resource=companions[0],bad={...resource}
  Object.defineProperty(bad,'key',{get:()=>{
   if(!entered){entered=true
-   if(kind==='prepass'){s.prepass.reset();s.prepass.prepare({width:16,height:16,slots:1},sources);nested=s.prepass.prepareSourceUpdate(sources)}
-   else{s.composite.reset();s.composite.prepare({width:16,height:16},companions);nested=s.composite.prepareCompanionUpdate(companions)}
+   s.composite.reset();s.composite.prepare({width:16,height:16},companions);nested=s.composite.prepareCompanionUpdate(companions)
   }return resource.key
  }})
- if(kind==='prepass')expect(()=>s.prepass.prepareSourceUpdate([bad])).toThrow()
- else expect(()=>s.composite.prepareCompanionUpdate([bad])).toThrow()
+ expect(()=>s.composite.prepareCompanionUpdate([bad])).toThrow()
  expect(nested).toBeDefined();nested!.assertCurrent();nested!.publish();nested!.finalizeCleanup();s.cleanup()
 })
+it('retires prepass safely during validation reentry and recovers after capture exits',()=>{
+ const s=setup(),sources=s.bank.preparedResources(),charge=s.cpu.reservedBytes,epoch=s.prepass.preparedCapacity().epoch,old=s.prepass.preparedResources()
+ let entered=false,inlinePrepareBlocked=false
+ const bad={...sources[0]};Object.defineProperty(bad,'key',{get:()=>{
+  if(!entered){entered=true;s.prepass.reset();expect(()=>s.prepass.prepare({width:16,height:16,slots:1},sources)).toThrow('Cannot prepare');inlinePrepareBlocked=true}
+  return sources[0].key
+ }})
+ expect(()=>s.prepass.prepareSourceUpdate([bad])).toThrow();expect(entered).toBe(true);expect(inlinePrepareBlocked).toBe(true)
+ expect(s.prepass.isReady()).toBe(false);expect(()=>s.prepass.preparedCapacity()).toThrow('not prepared');expect(old.every(r=>s.cache.resourceBytes(r.key)===undefined)).toBe(true);expect(s.cpu.reservedBytes).toBeLessThan(charge)
+ expect(()=>s.prepass.prepareSourceUpdate(sources)).toThrow('unavailable')
+ s.prepass.prepare({width:16,height:16,slots:1},sources);expect(s.prepass.preparedCapacity().epoch).not.toBe(epoch)
+ const next=s.prepass.prepareSourceUpdate(sources);next.assertCurrent();next.publish();next.finalizeCleanup();s.cleanup()
+})
 it.each(['prepass','composite']as const)('retains adopted %s metadata after superseded cleanup throws',kind=>{
- const s=setup(),reserve=s.cpu.reserve.bind(s.cpu),error=Error('old metadata cleanup'),spy=vi.spyOn(s.cpu,'reserve').mockImplementationOnce(bytes=>{const release=reserve(bytes);return()=>{release();throw error}})
- const first=kind==='prepass'?s.prepass.prepareSourceUpdate(s.bank.preparedResources()):s.composite.prepareCompanionUpdate(s.prepass.preparedResources());spy.mockRestore();first.publish();first.finalizeCleanup()
+ const s=setup(),reserve=s.cpu.reserve.bind(s.cpu),error=Error('old metadata cleanup');let captured=false
+ // Prepass now has a separate temporary peak charge; target the adopted map owner.
+ const adoptedBytes=s.bank.preparedResources().length*512,spy=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{const release=reserve(bytes);if(!captured&&(kind==='composite'||bytes===adoptedBytes)){captured=true;return()=>{release();throw error}}return release})
+ const first=kind==='prepass'?s.prepass.prepareSourceUpdate(s.bank.preparedResources()):s.composite.prepareCompanionUpdate(s.prepass.preparedResources());spy.mockRestore();expect(captured).toBe(true);first.publish();first.finalizeCleanup()
  const second=kind==='prepass'?s.prepass.prepareSourceUpdate(s.bank.preparedResources()):s.composite.prepareCompanionUpdate(s.prepass.preparedResources());second.publish();expect(()=>second.finalizeCleanup()).toThrow(error)
  expect(s.prepass.isReady()).toBe(true);expect(s.composite.isReady()).toBe(true);second.finalizeCleanup();s.cleanup()
 })

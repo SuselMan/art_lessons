@@ -41,7 +41,7 @@ it('uses the real fused source path and separately keyed/program-accounted varia
   const before=canonicalRgba8CompositeBudget(legacy),after=canonicalRgba8CompositeBudget(limits);expect(after.gpuBytes).toBe(before.gpuBytes);expect(after.cpuBytes-before.cpuBytes).toBe(8192)
   s.pass.prepare(limits,s.companions);expect(s.pass.supportsTexturedOperations(['alphaDarken32FusedScalar'])).toBe(true);expect(s.pass.supportsTexturedOperations(['genericSCU8'])).toBe(false)
   expect(s.shaderSources(s.gl.VERTEX_SHADER)).toEqual(plainVertex);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER);expect(fragments[0]).toBe(plainFragments[0])
-  const textured=fragments[1];expect(textured).toContain('sampled.r-grain-(255.0-patternStrength)');expect(textured.indexOf('highp float coverage')).toBeLessThan(textured.lastIndexOf('gl_FragColor='));expect(textured.slice(textured.indexOf('highp float patternCell'),textured.lastIndexOf('void main(){'))).not.toContain('mod(')
+  const textured=fragments[1];expect(textured).toContain('sourcePigmentCoverage(sampled.r)-grain-(255.0-patternStrength)');expect(textured).toContain('coverage*pigmentAlpha+128.0');expect(textured.indexOf('highp float coverage')).toBeLessThan(textured.lastIndexOf('gl_FragColor='));expect(textured.slice(textured.indexOf('highp float patternCell'),textured.lastIndexOf('void main(){'))).not.toContain('mod(')
   const count=s.gl.texImage2D.mock.calls.length
   for(const strengthU8 of [0,128,255])expect(s.pass.drawSource({...s.request,source:{...s.request.source as Extract<typeof s.request.source,{kind:'texturedMaskRgb'}>,strengthU8}})).toBe('painted')
   expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),0);expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),128);expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),255)
@@ -151,7 +151,7 @@ it.each(['over32FusedScalar','overBrowserFloat']as const)('prepares a separately
   expect(after.gpuBytes).toBe(before.gpuBytes);expect(after.cpuBytes-before.cpuBytes).toBe(8192)
   s.pass.prepare(textured,s.companions)
   expect(s.shaderSources(s.gl.VERTEX_SHADER)).toEqual(oldVertex);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER);expect(fragments[0]).toBe(oldFragments[0])
-  const fragment=fragments[1];expect(fragment).toContain('sampled.r-grain-(255.0-patternStrength)')
+  const fragment=fragments[1];expect(fragment).toContain('sourcePigmentCoverage(sampled.r)-grain-(255.0-patternStrength)');expect(fragment).toContain('coverage*pigmentAlpha+128.0')
   expect(fragment).toContain(kind==='over32FusedScalar'?'sourceCompositeFusedOver32Scalar(source,destination':'sourceCompositeOver32Scalar(source,destination')
   const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Expected original pattern source')
   const operation=kind==='overBrowserFloat'?{kind,control:{profile:B,opacity:.75}}:{kind,control:{profile:'installed-arm64-scalar-fused-fpcr0-v1' as const,opacity:.75}}
@@ -204,7 +204,7 @@ it('precharges an explicit hardMultiply program and preserves shared VERTEX/plai
   expect(g.cpuBytes-b.cpuBytes).toBe(8192);expect(g.gpuBytes).toBe(b.gpuBytes)
   s.pass.prepare(full,s.companions);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER)
   expect(s.shaderSources(s.gl.VERTEX_SHADER)).toHaveLength(1);expect(fragments).toHaveLength(3);expect(fragments.slice(0,2)).toEqual(old)
-  expect(fragments[2]).toContain('sampled.r*grain*patternStrength+32603.0');expect(fragments[2]).toContain('floor((biased+floor(biased/128.0))/65536.0)');expect(fragments[2]).toContain('sourceCompositeFusedOver32Scalar(source,destination')
+  expect(fragments[2]).toContain('sourcePigmentCoverage(sampled.r)*grain*patternStrength+32603.0');expect(fragments[2]).toContain('floor((biased+floor(biased/128.0))/65536.0)');expect(fragments[2]).toContain('sourceCompositeFusedOver32Scalar(source,destination')
   const saved=s.snapshot(),textures=s.gl.createTexture.mock.calls.length
   for(const strength of[0,128,255])expect(s.pass.drawSource(multiplyRequest(s,strength))).toBe('painted')
   expect(s.snapshot()).toEqual(saved);expect(s.gl.createTexture).toHaveBeenCalledTimes(textures)

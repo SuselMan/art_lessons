@@ -32,9 +32,12 @@ describe('sourceDefaultAutoMaskReference', () => {
   })
   it('rejects unsupported source behavior and exhausted work/allocation budgets', () => {
     const r = request()
-    for (const patch of [{ generator: 'gaussian' }, { spikes: 3 }, { softness: .5 }, { randomness: .1 }, { density: .5 }, { antialias: 1 }]) {
+    for (const patch of [{ generator: 'gaussian' }, { spikes: 65 }, { softness: .5 }, { randomness: .1 }, { density: .5 }, { antialias: 1 }]) {
       expect(() => sourceDefaultAutoMaskReference({ ...r, tip: { ...r.tip, ...patch } } as SourceDefaultAutoMaskRequest)).toThrow(RangeError)
     }
+    const sector = sourceDefaultAutoMaskReference({ ...r, tip: { ...r.tip, spikes: 3 }, profile: 'browser-number-coverage-v1' })
+    expect(sector.route).toBe('browser-number')
+    expect(sector.mask).toHaveLength(r.width * r.height)
     expect(() => sourceDefaultAutoMaskReference({ ...r, maxPixels: r.width * r.height - 1 })).toThrow(RangeError)
     expect(() => sourceDefaultAutoMaskReference({ ...request(4), maxWorkSamples: 1 })).toThrow(RangeError)
     expect(() => sourceDefaultAutoMaskReference({ ...r, profile: 'guess' } as unknown as SourceDefaultAutoMaskRequest)).toThrow(RangeError)

@@ -115,7 +115,7 @@ export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):Excl
   if(version3(c)){const {targetGeometry:_target,...material}=c as SourceStrokeMaterialContextV3;return canonicalPrimaryTextureMaterialContext(material)}
   if('version' in c&&c.version===2){
     const {targetGeometry:_target,...material}=c
-    return canonicalSourceMaterialContext(material)
+    return canonicalSourceMaterialContext({...material,budget:{workUnits:material.budget.workUnits,outputBytes:material.budget.outputBytes,drawPixels:material.budget.drawPixels}})
   }
 
   const legacy=c as SourceStrokeMaterialContext

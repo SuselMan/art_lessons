@@ -382,7 +382,7 @@ function capturedDefaultAuto(value:unknown){
   // The existing pure pin owns static-domain normalization. Raw objects never
   // reach it until all fields have been captured without invoking accessors.
   const pin=canonicalDefaultAutoSourcePin({...p,source} as unknown as Extract<CanonicalAutoSource,{kind:'defaultAuto'}>)
-  if(pin.coverageProfile!== 'scalar-f64-fma-v1'&&pin.coverageProfile!=='neon64-f32-fma-v1'&&pin.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE)return fail()
+  if(pin.coverageProfile!== 'scalar-f64-fma-v1'&&pin.coverageProfile!=='neon64-f32-fma-v1'&&pin.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE&&pin.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)return fail()
   return pin
 }
 function capturedSoftCurve(value:unknown){

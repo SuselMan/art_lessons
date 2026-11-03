@@ -882,6 +882,7 @@ export class CanonicalMaskSourceBank {
     this.assertCurrentOwners(generation)
     if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu||!this.isReady())throw new Error('Canonical bank owner/source unavailable')
     const sources=this.preparedResources().filter(s=>s.canonical&&assetKey(s.canonical.asset)===assetKey(asset))
+    if(new Set(sources.map(source=>source.key)).size!==sources.length)throw new Error('Duplicate canonical source resource key')
     for(const index of required){
       const matches=sources.filter(s=>s.canonical!.index===index),level=levels[index]
       if(!matches.length||matches.some(source=>{const m=source.canonical!;return m.baseScale!==level.scale||m.nativeWidth!==level.width||m.nativeHeight!==level.height||source.bytes!==level.storedWidth*level.storedHeight*4}))throw new Error('Canonical required source binding missing or changed')
@@ -898,6 +899,7 @@ export class CanonicalMaskSourceBank {
     if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu||!this.isReady())throw new Error('Canonical bank owner/source unavailable')
     const sources=this.preparedResources().filter(s=>s.canonical&&['id','size','x','y','width','height'].every(k=>s.canonical!.asset[k as keyof CanonicalMaterialAsset]===asset[k as keyof CanonicalMaterialAsset]))
     if(!sources.length)throw new Error('Canonical bank asset binding missing')
+    if(new Set(sources.map(source=>source.key)).size!==sources.length)throw new Error('Duplicate canonical source resource key')
     const levels=sourcePngPyramid(asset.width,asset.height).levels
     if(sources.some(source=>!levels[source.canonical!.index]))throw new Error('Canonical bank level index changed')
     for(const [index,level] of levels.entries()){

@@ -35,7 +35,7 @@ describe('sourceAutoGeometry isolated native profile', () => {
     expect(result.maskSize).toEqual([5, 5])
   })
   it('rejects unsupported shape/profile and invalid source subpixel fractions', () => {
-    for (const bad of [{ kind: 'image' }, { profile: 'unknown' }, { spikes: 3 }, { diameter: NaN }, { diameter: 2147483648 }, { ratio: 0 }, { scale: -1 }]) {
+    for (const bad of [{ kind: 'image' }, { profile: 'unknown' }, { spikes: 65 }, { diameter: NaN }, { diameter: 2147483648 }, { ratio: 0 }, { scale: -1 }]) {
       expect(() => sourceAutoGeometry({ ...tip, ...bad } as SourceAutoGeometryTip, shape)).toThrow(RangeError)
     }
     for (const sub of [-.25, 1, Infinity, NaN]) expect(() => sourceAutoGeometry(tip, shape, sub, 0)).toThrow(RangeError)

@@ -96,7 +96,10 @@ it('refuses raw patterns at legacy full constructor and extension before readers
   full=new CanonicalMaskSourceBank(s.gl,s.cache,s.cpu,[{asset,readOriginalCoverage:()=>new Uint8Array(64)}],companion,[{asset,indexes:[0]}]);full.prepareJob(0)
   const bytes=s.cpu.reservedBytes,again=vi.spyOn(s.cpu,'reserve'),glQuery=vi.spyOn(s.gl,'getParameter'),owned=full.jobs
   expect(()=>full!.beginExtension([a],companion)).toThrow(/root residency/);expect(again).not.toHaveBeenCalled();expect(glQuery).not.toHaveBeenCalled();expect(a.readOriginalGray).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(bytes);expect(full.jobs).toBe(owned)
-  expect(()=>full!.beginExtension(new Array(257),companion)).toThrow(/plan/)
+  // Two 256-frame roles + two role patterns/LUTs/spatial patterns. Reject
+  // the first count outside that inventory before traversing any entry.
+  const maximumInputs=2*256+2+2+2,oversized=new Array(maximumInputs+1),read=vi.fn();Object.defineProperty(oversized,'0',{get:read})
+  expect(()=>full!.beginExtension(oversized,companion)).toThrow(/plan/);expect(read).not.toHaveBeenCalled();expect(again).not.toHaveBeenCalled();expect(glQuery).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(bytes);expect(full.jobs).toBe(owned)
  }finally{full?.reset();cleanup(s)}
 })
 

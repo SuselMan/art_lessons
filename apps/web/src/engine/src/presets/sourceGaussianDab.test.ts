@@ -34,9 +34,12 @@ describe('isolated whole Gaussian dab CPU service', () => {
     expect(first.mask).not.toBe(second.mask)
     first.mask.fill(42)
     expect(second.mask.some(x => x !== 42)).toBe(true)
+    const sector = sourceGaussianDab({ ...r, tip: { ...r.tip, spikes: 9 }, coverageProfile: 'browser-number-coverage-v1' })
+    expect(sector.mask.length).toBeGreaterThan(0)
+    expect(() => sourceGaussianDab({ ...r, tip: { ...r.tip, spikes: 9 }, coverageProfile: 'browser-number-coverage-v1', maxPixels: 1 })).toThrow(RangeError)
     const invalid = [
       { ...r, maxPixels: 1 }, { ...r, maxWorkSamples: 1 }, { ...r, maxPixels: 1024 * 1024 + 1 },
-      { ...r, tip: { ...r.tip, ratio: 0 } }, { ...r, tip: { ...r.tip, spikes: 9 } },
+      { ...r, tip: { ...r.tip, ratio: 0 } }, { ...r, tip: { ...r.tip, spikes: 65 } },
       { ...r, coverageProfile: 'unproven-profile' }, { ...r, subpixelY: 1 },
       { ...r, shape: { ...r.shape, scale: Number.MIN_VALUE } },
     ]

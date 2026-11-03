@@ -117,9 +117,14 @@ describe('compiled original-resolution soft-circle CPU dab', () => {
     expect(input.program).toBe(program); expect(program.table).toHaveLength(2402)
     expect(() => compileSourceSoftCircleProgram(program.tip, program.curve, 2401)).toThrow(RangeError)
   })
-  it('rejects forged programs, unsupported AA/softness and quota/finite failures before A8 allocation', () => {
+  it('captures AA only for browser evaluation and rejects forged programs, softness and quota/finite failures before A8 allocation', () => {
     const r = request(), p = r.program
-    expect(() => compileSourceSoftCircleProgram({ ...p.tip, antialias: true } as never, p.curve, 2402)).toThrow(RangeError)
+    const aa = compileSourceSoftCircleProgram({ ...p.tip, antialias: true }, p.curve, 2402)
+    expect(aa.tip.antialias).toBe(true)
+    expect(() => sourceSoftCircleDab({ ...r, program: aa })).toThrow(RangeError)
+    const browser = sourceSoftCircleDab({ ...r, program: aa, coverageProfile: 'browser-number-coverage-v1' })
+    expect(browser.mask.length).toBeGreaterThan(0)
+    expect(() => sourceSoftCircleDab({ ...r, program: aa, coverageProfile: 'browser-number-coverage-v1', maxWorkSamples: 1 })).toThrow(RangeError)
     expect(() => compileSourceSoftCircleProgram({ ...p.tip, softness: .5 } as never, p.curve, 2402)).toThrow(RangeError)
     const invalid = [{ ...r, program: { ...p } }, { ...r, maxPixels: 1 }, { ...r, maxWorkSamples: 1 },
       { ...r, subpixelX: 1 }, { ...r, storedAngle: Infinity }, { ...r, shape: { ...r.shape, scale: Number.MIN_VALUE } },

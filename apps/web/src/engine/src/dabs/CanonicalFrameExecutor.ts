@@ -259,6 +259,7 @@ interface RenderedPrefixState {
  readonly oldBuffer:TiledLayerBuffer
 }
 interface RenderedPrefixCharge {readonly cpu:BrushMipCache;data?:RenderedPrefixState;releaseMetadata?:()=>void}
+const issuedReplaySourceReads=new WeakMap<CanonicalFrameExecutor,(receiver:CanonicalFrameExecutor)=>CanonicalReplaySource>()
 const renderedPrefixStates7=new WeakMap<CanonicalRenderedPrefixCursor7,RenderedPrefixCharge>()
 /** Optional checkpoint header precharged BEFORE candidate pixels. No source
  * or rendered-state authority exists until the real executor fills this cell. */
@@ -468,12 +469,12 @@ export class CanonicalFrameExecutor {
 
   /** Accepted constructor capture only; never re-read an options.source bag. */
   replaySource():CanonicalReplaySource {
-    const read=this.replaySourceRead
-    if(!read)throw new Error('Accepted replay source unavailable')
+    const read=issuedReplaySourceReads.get(this)
+    if(!read)throw new Error('Foreign or retired replay source unavailable')
     return read(this)
   }
   replaySource7():CanonicalReplaySource7 {
-    const source=this.replaySource()
+    const source=CanonicalFrameExecutor.prototype.replaySource.call(this)
     if(source.materialVersion!==7)throw new Error('Material7 replay source required')
     return source
   }
@@ -512,6 +513,7 @@ export class CanonicalFrameExecutor {
     })
     const read=(receiver:CanonicalFrameExecutor)=>{if(receiver!==executor)throw new Error('Foreign replay source executor');enter();try{check();return view}finally{checking=false}}
     this.replaySourceRead=read
+    issuedReplaySourceReads.set(this,read)
   }
 
   private get maskParticipant():CanonicalMaskCapacityLease {
@@ -1591,7 +1593,7 @@ export class CanonicalFrameExecutor {
   }
   private retirePrimaryTexture(lost=false,retainMetadata=false):void {
     this.retireRoleTextures(lost)
-    const source=this.primaryTexture;this.primaryTexture=undefined;this.replaySourceRead=undefined;this.retireTextureAfterTurn=false
+    const source=this.primaryTexture;this.primaryTexture=undefined;this.replaySourceRead=undefined;issuedReplaySourceReads.delete(this);this.retireTextureAfterTurn=false
     if(!source)return
     this.sourceRetired=true
     this.cleanup(()=>source.root.release(lost));if(!retainMetadata)this.cleanup(source.releaseMetadata)

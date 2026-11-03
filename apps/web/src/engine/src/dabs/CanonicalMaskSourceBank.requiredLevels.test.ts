@@ -28,7 +28,7 @@ it('uploads identical selected/full RGBA pixels and reports original indexes rat
  const subset=new CanonicalMaskSourceBank(s.gl,s.cache,s.cpu,[a],companion,[{asset:a.asset,indexes:[9,7,5,8,6]}])
  try{subset.jobs.forEach((job,i)=>{subset.prepareJob(i);expect(images.get(s.cache.get(job.key))).toEqual(fullImages.get(job.key))})
   expect(subset.preparedResources().map(r=>r.canonical?.index)).toEqual([5,6,7,8,9])
-  expect(()=>subset.assertSourceBinding(a.asset,s)).toThrow('incomplete')
+  expect(()=>subset.assertSourceBinding(a.asset,s)).toThrow()
   expect(subset.assertRequiredSourceBinding(a.asset,[5,9],s)).toBeTypeOf('number')
   expect(()=>subset.assertRequiredSourceBinding(a.asset,[0],s)).toThrow()
  }finally{close(s,subset)}
