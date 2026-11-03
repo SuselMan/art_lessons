@@ -1,6 +1,11 @@
+import {extractCanonicalPixelImageSourceData} from '@grafetto/shared'
+import {extractCanonicalNativeImagePipeSourceData} from '@grafetto/shared'
+import {extractCanonicalPixelTextureSourceData} from '@grafetto/shared'
+import {extractCanonicalDynamicAutoGeometryData} from '@grafetto/shared'
+import {extractCanonicalPrimaryGrainImageAuthorData} from '@grafetto/shared'
 import {extractCanonicalPlainAutoTiltGeometryData} from '@grafetto/shared'
 import {extractCanonicalTexturedAutoProgramData} from '@grafetto/shared'
-import {extractCanonicalSoftAutoNativeDefaultTextureProgramData,extractCanonicalDefaultAutoPressureTextureProgramData,canonicalStrokeRasterContract,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,extractCanonicalDefaultAutoFixedTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type CanonicalDefaultAutoFixedTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {extractCanonicalSoftAutoNativeDefaultTextureProgramData,extractCanonicalDefaultAutoPressureTextureProgramData,canonicalStrokeRasterContract,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalPixelSourceComposition,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,extractCanonicalDefaultAutoFixedTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type CanonicalDefaultAutoFixedTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
 export type CanonicalSourceAuthorAdmission =
@@ -155,4 +160,85 @@ export function canonicalPlainAutoGeometryAuthorAdmission(descriptor:BrushDescri
   if(!capability.supported)return{supported:false,reason:capability.reasons.join(',')}
   return Object.freeze({supported:true,data:capability.data,nativeSizePx:capability.data.source.diameter,material:Object.freeze({kind:'auto'}),geometryCapability:capability})
  }catch{return{supported:false,reason:'Invalid plain Auto geometry input'}}
+}
+
+/** Explicit static SOURCE8 DATA query only: no service/BEGIN/read grant. */
+export function canonicalPrimaryGrainImageAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly{readonly id:string;readonly size:number}[]|undefined){
+ const reject=(reason:string)=>({supported:false as const,reason})
+ if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return reject('Primary-grain image requires GSC')
+ const tip=Object.getOwnPropertyDescriptor(descriptor,'tip'),texture=Object.getOwnPropertyDescriptor(descriptor,'texture')
+ if(!tip||!Object.hasOwn(tip,'value')||!texture||!Object.hasOwn(texture,'value')||!tip.value||!texture.value)return reject('Primary-grain image metadata unavailable')
+ const primaryId=Object.getOwnPropertyDescriptor(tip.value,'mask'),patternId=Object.getOwnPropertyDescriptor(texture.value,'id'),metadata=captureMetadata(available)
+ if(!primaryId||!Object.hasOwn(primaryId,'value')||!patternId||!Object.hasOwn(patternId,'value')||!metadata)return reject('Primary-grain image metadata unavailable')
+ const primary=metadata.find(a=>a.id===primaryId.value),pattern=metadata.find(a=>a.id===patternId.value)
+ if(!primary||!pattern)return reject('Primary-grain image assets unavailable')
+ const capability=extractCanonicalPrimaryGrainImageAuthorData(descriptor,{primary,pattern})
+ if(!capability.supported)return reject(capability.reasons.join(','))
+ const nativeSizePx=Math.max(capability.data.brush.width,capability.data.brush.height)*capability.data.brush.scale
+ if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid primary-grain image size')
+ return{supported:true as const,data:capability.data,nativeSizePx,material:{kind:'primaryGrainImage' as const,capability}}
+}
+
+/** Explicit dynamic geometry policy, independent of historical plainTilt9. */
+export function canonicalDynamicAutoGeometryAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly{readonly id:string;readonly size:number}[]|undefined,options:Readonly<{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1';texturedAutoSource?:'textured-auto-material-v7'}>){
+ const reject=(reason:string)=>({supported:false as const,reason})
+ try{
+  const field=Object.getOwnPropertyDescriptor(options,'authorPlainAutoGeometrySource')
+  if(!field||!Object.hasOwn(field,'value')||field.value!=='dynamic-auto-geometry-v1'||!canonicalStrokeRasterContract(profile).genericSC)return reject('Unsupported dynamic Auto policy/profile')
+  const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
+  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,pattern?{pattern}:undefined)
+  if(!capability.supported)return reject(capability.reasons.join(','))
+  const data=capability.data
+  if(data.version!==2||data.source.kind==='image')return reject('Unsupported dynamic Auto source family')
+  const policy=canonicalPixelSourceComposition(capability.descriptor,profile)
+  if(data.flags.textureEnabled){
+   const token=Object.getOwnPropertyDescriptor(options,'texturedAutoSource')
+   if(!token||!Object.hasOwn(token,'value')||token.value!=='textured-auto-material-v7'||!pattern)return reject('Dynamic textured Auto policy unavailable')
+   const material=extractCanonicalTexturedAutoProgramData(capability.descriptor,{pattern})
+   const legacyPolicy=canonicalSourceComposition(capability.descriptor,profile)
+   if(!material.supported||!(legacyPolicy?.mode==='wash'||legacyPolicy?.mode==='buildup'&&legacyPolicy.outerBlend==='over'))return reject('Unsupported dynamic textured Auto composition')
+   return{supported:true as const,data,nativeSizePx:data.source.diameter*data.brush.scale,material:{kind:'texturedAuto' as const,capability:material},geometryCapability:capability}
+  }
+  if(!policy)return reject('Unsupported dynamic plain Auto composition')
+  return{supported:true as const,data,nativeSizePx:data.source.diameter*data.brush.scale,material:{kind:'auto' as const},geometryCapability:capability}
+ }catch{return reject('Invalid dynamic Auto input')}
+}
+
+/** Named native Pixel texture DATA; policy/BEGIN are checked by the caller. */
+export function canonicalPixelTextureAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly{readonly id:string;readonly size:number}[]|undefined){
+ const reject=(reason:string)=>({supported:false as const,reason})
+ try{
+  if(!canonicalStrokeRasterContract(profile).genericSC)return reject('Pixel texture requires genericSC')
+  const metadata=captureMetadata(available);if(!metadata)return reject('Pixel texture asset metadata unavailable')
+  const capability=extractCanonicalPixelTextureSourceData(descriptor,metadata);if(!capability.supported)return reject(capability.reasons.join(','))
+  const d=capability.data,nativeSizePx=(d.source.kind==='image'?Math.max(d.brush.width,d.brush.height):d.source.diameter)*d.brush.scale
+  if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid Pixel texture size')
+  return{supported:true as const,data:d,nativeSizePx,material:{kind:'pixelTexture' as const,capability}}
+ }catch{return reject('Invalid Pixel texture original DATA')}
+}
+
+/** Native GIH DATA query, with exact original dimensions and per-cell assets. */
+export function canonicalNativeImagePipeAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly{readonly id:string;readonly size:number}[]|undefined){
+ const reject=(reason:string)=>({supported:false as const,reason})
+ try{
+  if(!canonicalStrokeRasterContract(profile).genericSC)return reject('Native image pipe requires genericSC')
+  const metadata=captureMetadata(available);if(!metadata)return reject('Native image pipe assets unavailable')
+  const capability=extractCanonicalNativeImagePipeSourceData(descriptor,metadata);if(!capability.supported)return reject(capability.reasons.join(','))
+  const d=capability.data,nativeSizePx=Math.max(d.brush.width,d.brush.height)*d.brush.scale
+  if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid native image pipe size')
+  return{supported:true as const,data:d,nativeSizePx,material:{kind:'nativeImagePipe' as const,capability}}
+ }catch{return reject('Invalid native image pipe original DATA')}
+}
+
+/** Named full native image consumer; historical PNG admission stays closed. */
+export function canonicalPixelImageAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly{readonly id:string;readonly size:number}[]|undefined){
+ const reject=(reason:string)=>({supported:false as const,reason})
+ try{
+  if(!canonicalStrokeRasterContract(profile).genericSC)return reject('Pixel image requires genericSC')
+  const metadata=captureMetadata(available);if(!metadata)return reject('Pixel image assets unavailable')
+  const capability=extractCanonicalPixelImageSourceData(descriptor,metadata);if(!capability.supported)return reject(capability.reasons.join(','))
+  const d=capability.data,nativeSizePx=Math.max(d.brush.width,d.brush.height)*d.brush.scale
+  if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid Pixel image size')
+  return{supported:true as const,data:d,nativeSizePx,material:{kind:'pixelImage' as const,capability}}
+ }catch{return reject('Invalid Pixel image original DATA')}
 }

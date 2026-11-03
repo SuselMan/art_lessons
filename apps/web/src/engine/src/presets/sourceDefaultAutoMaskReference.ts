@@ -1,3 +1,4 @@
+import {sourceAutoSector} from './sourceAutoSector'
 import { sourceCoverageEvaluator, type SourceCoverageEvaluator } from './sourceCoverageEvaluator'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
@@ -12,12 +13,13 @@ export interface SourceDefaultAutoMaskTip {
   readonly horizontalFade: number
   readonly verticalFade: number
   readonly antialias: boolean
-  readonly spikes: 2
+  readonly spikes: number
   readonly softness: 1
   readonly randomness: 0
   readonly density: 1
 }
 export interface SourceDefaultAutoMaskRequest {
+  readonly softness?:number
   readonly tip: SourceDefaultAutoMaskTip
   readonly profile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
   readonly scaleX: number
@@ -57,8 +59,10 @@ function refinedDivision(numerator: number, denominator: number): number {
 export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskRequest): SourceDefaultAutoMaskEvaluator {
   request = Object.freeze({ ...request, tip: Object.freeze({ ...request.tip }) })
   const { tip, width, height } = request
+  const softness=request.softness??1
+  if(!Number.isFinite(softness)||softness<0||softness>1)throw new RangeError('Invalid Auto softness')
   if (tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
-    || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
+    || (!Number.isSafeInteger(tip.spikes)||tip.spikes<2||tip.spikes>64) || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
     || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.profile)
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade, request.scaleX, request.scaleY,
       request.cos, request.sin, request.centerX, request.centerY].every(Number.isFinite)
@@ -74,10 +78,10 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
   const pixels = width * height
   if (!Number.isSafeInteger(pixels) || pixels > request.maxPixels || pixels * samplesPerPixel > request.maxWorkSamples) throw new RangeError('Auto mask reference exceeds reserved budget')
   const xCoefficient = 2 / effectiveWidth, yCoefficient = 2 / effectiveHeight
-  const xFade = tip.horizontalFade === 0 ? 1 : 2 / (tip.horizontalFade * effectiveWidth)
-  const yFade = tip.verticalFade === 0 ? 1 : 2 / (tip.verticalFade * effectiveHeight)
+  const xFade = (tip.horizontalFade === 0 ? 1 : 2 / (tip.horizontalFade * effectiveWidth))/Math.max(.01,softness)
+  const yFade = (tip.verticalFade === 0 ? 1 : 2 / (tip.verticalFade * effectiveHeight))/Math.max(.01,softness)
   if (![xCoefficient, yCoefficient, xFade, yFade].every(v => Number.isFinite(v) && Number.isFinite(f(v)))) throw new RangeError('Auto mask coefficients exceed finite reference profile')
-  const vector = request.profile === 'neon64-f32-fma-v1' && samples === 1, rectangle = tip.shape === 'rect'
+  const vector = request.profile === 'neon64-f32-fma-v1' && samples === 1 && tip.spikes===2, rectangle = tip.shape === 'rect'
   // Bound every intermediate before allocating. This finite reference does
   // not model overflow/NaN propagation of arbitrary malformed ABI state.
   const bx = Math.abs(request.centerX) + width + 1, by = Math.abs(request.centerY) + height + 1
@@ -90,7 +94,7 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
   const browser=request.profile==='browser-number-coverage-v1'
   const mulAdd=browser?(a:number,b:number,c:number)=>a*b+c:fma64
   function scalarValue(rawX: number, rawY: number): number {
-    const x = rectangle ? Math.abs(rawX) : rawX, y = Math.abs(rawY)
+    const folded=sourceAutoSector(rawX,rawY,tip.spikes), x = rectangle ? Math.abs(folded[0]) : folded[0], y = Math.abs(folded[1])
     const nx = x * xCoefficient, ny = y * yCoefficient
     if (rectangle) {
       if (nx > 1 || ny > 1) return 255

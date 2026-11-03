@@ -4,7 +4,7 @@ import { notifyError } from '../../../stores/noticeStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { translate } from '../../../i18n/core/translate'
 import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
-import { isLayerStateShape, isRasterPixelEncoding, type RasterPixelEncoding, type LayerState, type Operation, type SnapshotIndex, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import { isLayerStateShape, isRasterPixelEncoding, type RasterPixelEncoding, type LayerState, type Operation, type SnapshotIndex, type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../../engine/snapshots'

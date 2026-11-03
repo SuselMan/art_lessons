@@ -1,7 +1,22 @@
+import {canonicalPixelDualSourceBinding,type CanonicalPixelDualSourceBinding} from '@grafetto/shared'
+import {captureSourceSpatialColorInput,sourceSpatialProvider,sourceSpatialRoleProvider,sourceSpatialColorDraw,type SourceSpatialColorInput} from './sourceSpatialColor'
+import type {CanonicalSourceColorFieldDraw} from '@grafetto/shared'
+import {captureSourceGradientResource,assertSourceGradientResource,sourceGradientColor,type SourceGradientResource} from './sourceGradientResource'
+import type {CanonicalSourceColorParameters} from '@grafetto/shared'
+import {canonicalPixelImageSourceBinding,type CanonicalPixelImageSourceBinding} from '@grafetto/shared'
+import {SOURCE_SEEDED_AUTO_MASK_PROFILE,sourceAutoMaskSeed} from './sourceSeededAutoMask'
+import {canonicalNativeImagePipeSourceBinding,type CanonicalNativeImagePipeSourceBinding,type CanonicalMaterialImageSource} from '@grafetto/shared'
+import {captureSourceImagePipeDimensions} from './sourceImagePipeSelection'
+import type {BrushDescriptor} from '@grafetto/shared'
+import {canonicalPixelTextureSourceBinding,canonicalMultiplyTextureStrengthU8,type CanonicalPixelTextureSourceBinding} from '@grafetto/shared'
+import {adjustHsvChromaRgba8,darkenSourceRgba8} from './sourceColorRgba8'
+import {mixWeightedRgba8,type Rgba8} from './mixWeightedRgba8'
+import {isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from '@grafetto/shared'
+import {canonicalPrimaryGrainImageSourceBinding,canonicalPrimaryGrainImagePressureStrengthU8,type CanonicalPrimaryGrainImageBinding,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from '@grafetto/shared'
 import {canonicalBrushDescriptorJSON} from '@grafetto/shared'
 import {type CanonicalTexturedAutoProgramBinding} from '@grafetto/shared'
 import {canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type SourceTextureNativeDefaultProgramData, canonicalPressureTexturedSourceMaterialContext, type CanonicalMaterialContextV5, type SourceTexturePressureProgramData, canonicalTexturedSourceMaterialContext, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
-import { sourceStandardOption } from './sourceOption'
+import { sourceStandardOption,sourceOptionComponents,sourceRotationLike } from './sourceOption'
 import { sourceRotationMixDegrees } from './sourceRotationMix'
 import { SourceDistanceTiming, sourceTimingInterval, type SourceSpacing } from '../dabs/sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, shortestSourceTurn } from '../input/kritaStrokeInput'
@@ -15,6 +30,7 @@ import { SourceStampQueryExecutor, type SourceStampOptionId, type SourceStampOpt
 export interface SourceAuthorPacket {
   readonly x: number; readonly y: number; readonly t: number
   readonly pressure: number; readonly tiltX: number; readonly tiltY: number
+  readonly sourceViewSpeed?:number
   readonly speed: number; readonly rotation: number; readonly tangentialPressure: number; readonly perspective: number
   readonly canvasRotation: number; readonly mirroredH: boolean; readonly mirroredV: boolean
   readonly tiltDirectionOffset: number; readonly hover: boolean
@@ -25,13 +41,21 @@ export interface SourceAuthorRoleProgram {
   readonly brush: SourceDabBrushMetrics
   readonly geometry?: SourceDabGeometry
   /** Ordered common-grid image frames, selected at the addDab boundary. */
-  readonly imagePipe?: {readonly mode:'incremental'|'random';readonly frames:readonly string[]}
+  readonly imageFrameSizes?:readonly Readonly<{width:number;height:number}>[]
+  readonly imagePipe?:NonNullable<BrushDescriptor['tip']['animation']>
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
   readonly materialCpuBytes?:number;readonly materialCpuBudgetBytes?:number
   readonly materialProgram?:SourceTexturePressureProgramData|SourceTextureNativeDefaultProgramData
-  readonly textureProgram?:{readonly strength:'recorded-grain-v1';readonly binding:CanonicalTexturedAutoProgramBinding}|{readonly strength:'source-pressure-curve-v1';readonly context:CanonicalMaterialContextV5|CanonicalMaterialContextV6}|{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
-  readonly materialPolicy: 'textured-auto-program-v1' | 'soft-auto-native-default-texture-v1' | 'default-auto-pressure-texture-v1' | 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
+  readonly textureProgram?:{readonly strength:'pixel-role-grain-u8-v1';readonly binding:CanonicalPixelDualSourceBinding;readonly role:'primary'|'mask';readonly option:SourceOptionProgramInput}|{readonly strength:'pixel-grain-u8-v1';readonly binding:CanonicalPixelTextureSourceBinding;readonly option:SourceOptionProgramInput}|{readonly strength:'recorded-grain-u8-v1';readonly binding:CanonicalPrimaryGrainImageBinding}|{readonly strength:'recorded-grain-v1';readonly binding:CanonicalTexturedAutoProgramBinding}|{readonly strength:'source-pressure-curve-v1';readonly context:CanonicalMaterialContextV5|CanonicalMaterialContextV6}|{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
+  readonly sourcePigmentRGB?:readonly[number,number,number]
+  readonly sourceBackgroundRGB?:readonly[number,number,number]
+  readonly sourceColorProvider?:'plain'|'uniform_random'|'gradient'|'total_random'|'pattern'|'lockedpattern'
+  readonly colorOptions?:Readonly<Record<'Mix'|'Darken'|'h'|'s'|'v',SourceOptionProgramInput>>
+  readonly materialOptions?:Readonly<{Softness:SourceOptionProgramInput;LightnessStrength:SourceOptionProgramInput;Sharpness:SourceOptionProgramInput;sharpnessAlign:boolean;sharpnessSoftness:number}>
+  readonly imageMaterial?:CanonicalMaterialImageSource['imageMaterial']
+  readonly imagePipeBinding?:CanonicalNativeImagePipeSourceBinding|CanonicalPixelImageSourceBinding
+  readonly materialPolicy: 'pixel-texture-v1' | 'auto-source-material-v1' | 'image-color-stamp-v1' | 'image-lightness-map-v1' | 'primary-grain-image-v1' | 'textured-auto-program-v1' | 'soft-auto-native-default-texture-v1' | 'default-auto-pressure-texture-v1' | 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -41,11 +65,16 @@ export interface SourceAuthorRoleProgram {
   readonly spacingRefreshMs: number; readonly timingRefreshMs: number
 }
 export interface SourceStrokeAuthorProgram {
+  readonly imageFrameIndices?:'source-image-pipe-frame-v1'
+  readonly sourceDescriptorSha256?:string
   /** Caller supplies immutable descriptor identity. Not a new wire hash. */
   readonly id: string
   /** Undefined preserves historical explicit paintAt input fixtures. */
   readonly inputProfile?: 'krita-freehand-no-smoothing-v1'
+  readonly colorParams?:CanonicalSourceColorParameters
   readonly roles: readonly SourceAuthorRoleProgram[]
+  /** Original dual mask composition; absent historical fixtures remain DATA-only. */
+  readonly maskingBlend?:CanonicalMaskingBlendMode
 }
 type DistanceState = Pick<SourceDistanceTiming, 'x' | 'y' | 'time' | 'spacingElapsed' | 'timingElapsed'>
 interface Request extends SourceAuthorPacket { readonly drawingAngle: number; readonly angleOverride?: boolean }
@@ -67,7 +96,13 @@ interface Cursor {
   readonly phase: 'distance' | 'paint' | 'spacing' | 'timing' | 'nextRole'
   readonly requests: readonly Request[]
 }
+export interface SourceMaskSeedIdentity {readonly strokeId:string;readonly descriptorSha256:string}
 export interface SourceStrokeAuthorState {
+  readonly sourceSpatialColor?:SourceSpatialColorInput
+  readonly sourceGradient?:SourceGradientResource
+  readonly maskSeedIdentity?:SourceMaskSeedIdentity
+  readonly sourcePigmentRGB?:readonly[number,number,number]
+  readonly sourceBackgroundRGB?:readonly[number,number,number]
   readonly version: 1; readonly programId: string
   readonly inputProfile?: 'krita-freehand-no-smoothing-v1'
   readonly ended?: boolean
@@ -84,6 +119,10 @@ export interface SourceStrokeAuthorStep {
   readonly query?: 'paint' | 'spacing' | 'timing'
   readonly sourceAngle?: number; readonly sourceTime?: number; readonly logicalSequence?: number
   readonly packet?: SourceAuthorPacket
+  readonly maskSeed?:number
+  readonly sourceColorField?:CanonicalSourceColorFieldDraw
+  readonly grainStrengthU8?:number
+  readonly textureColorStrength?:number
   readonly materialStrength?:number
   readonly result?: SourceStampResult
   readonly state: SourceStrokeAuthorState
@@ -97,8 +136,13 @@ function freeze<T>(value: T): T {
   }
   return value
 }
+function assertMaskSeedIdentity(value:SourceMaskSeedIdentity|undefined,sha:string|undefined):void {
+ if(!value||!sha||!Object.hasOwn(value,'strokeId')||!Object.hasOwn(value,'descriptorSha256')||Reflect.ownKeys(value).length!==2)throw new RangeError('Missing seeded mask identity')
+ const stroke=Object.getOwnPropertyDescriptor(value,'strokeId'),descriptor=Object.getOwnPropertyDescriptor(value,'descriptorSha256')
+ if(!stroke||!descriptor||!Object.hasOwn(stroke,'value')||!Object.hasOwn(descriptor,'value')||typeof stroke.value!=='string'||!stroke.value.length||stroke.value.length>8192||stroke.value.includes('\0')||descriptor.value!==sha||!/^[a-f0-9]{64}$/.test(sha))throw new RangeError('Invalid seeded mask original identity')
+}
 function validatePacket(p: SourceAuthorPacket): void {
-  if (!p || ![p.x,p.y,p.t,p.pressure,p.tiltX,p.tiltY,p.speed,p.rotation,p.tangentialPressure,p.perspective,p.canvasRotation,p.tiltDirectionOffset].every(Number.isFinite)
+  if (!p || p.sourceViewSpeed!==undefined&&(!Number.isFinite(p.sourceViewSpeed)||p.sourceViewSpeed<0) || ![p.x,p.y,p.t,p.pressure,p.tiltX,p.tiltY,p.speed,p.rotation,p.tangentialPressure,p.perspective,p.canvasRotation,p.tiltDirectionOffset].every(Number.isFinite)
     || p.t<0 || p.t>Number.MAX_SAFE_INTEGER || p.pressure<0 || p.pressure>1
     || [p.hover,p.mirroredH,p.mirroredV].some(v=>typeof v!=='boolean')) throw new RangeError('Invalid native author packet')
 }
@@ -107,15 +151,15 @@ function mix(a: SourceAuthorPacket,b: SourceAuthorPacket,t: number): SourceAutho
   // rotation follows KisPaintInformation::mixOtherImpl without normalization.
   const scalar=(x:number,y:number)=>(1-t)*x+t*y
   return {...a,rotation:sourceRotationMixDegrees(a.rotation,b.rotation,t),x:scalar(a.x,b.x),y:scalar(a.y,b.y),t:scalar(a.t,b.t),pressure:scalar(a.pressure,b.pressure),
-    tiltX:scalar(a.tiltX,b.tiltX),tiltY:scalar(a.tiltY,b.tiltY),speed:scalar(a.speed,b.speed),
+    ...a.sourceViewSpeed!==undefined||b.sourceViewSpeed!==undefined?{sourceViewSpeed:scalar(a.sourceViewSpeed??0,b.sourceViewSpeed??0)}:{},tiltX:scalar(a.tiltX,b.tiltX),tiltY:scalar(a.tiltY,b.tiltY),speed:scalar(a.speed,b.speed),
     tangentialPressure:scalar(a.tangentialPressure,b.tangentialPressure),perspective:scalar(a.perspective,b.perspective)}
 }
-function spacing(program: SourceAuthorRoleProgram,r: SourceStampResult): SourceSpacing {
+function spacing(program: SourceAuthorRoleProgram,r: SourceStampResult,brush:SourceDabBrushMetrics=program.brush): SourceSpacing {
   if (r.scale===undefined || r.rotation===undefined || r.spacing===undefined || !r.spacingMirror) {
     // Native canPaintFor false uses1; tiny uses default enabled spacing0.
     return {enabled:true,isotropic:true,x:r.scale===undefined?1:0,y:r.scale===undefined?1:0,angle:0}
   }
-  const metric=sourceDabCharacteristicSize(program.brush,{scale:r.scale,ratio:1,rotation:0},program.geometry)
+  const metric=sourceDabCharacteristicSize(brush,{scale:r.scale,ratio:1,rotation:0},program.geometry)
   const auto=(v:number)=>program.spacing.coefficient*(v<1?v:Math.sqrt(v))
   let x:number,y:number
   if(program.spacing.isotropic){
@@ -176,24 +220,50 @@ function materialProgramCpuBytes(program:unknown,kind:'texture-pressure-curve-v1
 export class SourceStrokeAuthor {
   private readonly program: SourceStrokeAuthorProgram
   private readonly options: readonly Readonly<Record<SourceStampOptionId, SourceOptionProgram>>[]
+  private readonly colorOptions:readonly (Readonly<Record<'Mix'|'Darken'|'h'|'s'|'v',SourceOptionProgram>>|undefined)[]
+  private readonly grainOptions:readonly(SourceOptionProgram|undefined)[]
+  private readonly dabMaterialOptions:readonly (Readonly<{Softness:SourceOptionProgram;LightnessStrength:SourceOptionProgram;Sharpness:SourceOptionProgram;sharpnessAlign:boolean;sharpnessSoftness:number}>|undefined)[]
   private readonly materialOptions:readonly (SourceOptionProgram|undefined)[]
   constructor(program: SourceStrokeAuthorProgram) {
     if(!program.id || program.roles.length<1 || program.roles.length>2 || program.roles[0].id!=='primary'
       || program.roles.length===2 && program.roles[1].id!=='mask') throw new RangeError('Invalid author source roles')
-    if(program.inputProfile!==undefined && (program.inputProfile!=='krita-freehand-no-smoothing-v1' || program.roles.length!==1)) {
+    if(program.inputProfile!==undefined && (program.inputProfile!=='krita-freehand-no-smoothing-v1' || program.roles.length===2&&!program.maskingBlend)) {
       throw new RangeError('Unsupported native freehand input profile/roles')
     }
+    if(program.colorParams!==undefined&&program.colorParams!=='source-pigment-rgb8-v1'&&program.colorParams!=='source-pigment-rgba8-v1'||program.roles.some(r=>r.colorOptions)&&!program.colorParams)throw new RangeError('Invalid source color recording policy')
+    if(program.maskingBlend!==undefined&&(program.roles.length!==2||!isCanonicalMaskingBlendMode(program.maskingBlend)))throw new RangeError('Invalid source masking law')
     for(const role of program.roles){if(role.materialPolicy==='textured-auto-program-v1'||role.materialPolicy==='default-auto-pressure-texture-v1'||role.materialPolicy==='soft-auto-native-default-texture-v1'){const field=Object.getOwnPropertyDescriptor(role,'materialProgram'),declared=Object.getOwnPropertyDescriptor(role,'materialCpuBytes'),allowance=Object.getOwnPropertyDescriptor(role,'materialCpuBudgetBytes');if(!field||!Object.hasOwn(field,'value')||!declared||!Object.hasOwn(declared,'value')||!allowance||!Object.hasOwn(allowance,'value'))throw new RangeError('pressure-material-cpu-budget');const bytes=role.materialPolicy==='textured-auto-program-v1'?sourceTexturedAutoProgramCpuBytes(field.value):role.materialPolicy==='soft-auto-native-default-texture-v1'?sourceNativeDefaultMaterialProgramCpuBytes(field.value):sourcePressureMaterialProgramCpuBytes(field.value);if(declared.value!==bytes||!Number.isSafeInteger(allowance.value)||allowance.value<bytes)throw new RangeError('pressure-material-cpu-budget')}else if(role.materialProgram!==undefined||role.materialCpuBytes!==undefined||role.materialCpuBudgetBytes!==undefined)throw new RangeError('Unexpected material program')}
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
+      if(role.sourceColorProvider!==undefined&&role.sourceColorProvider!=='plain'&&role.sourceColorProvider!=='uniform_random'&&role.sourceColorProvider!=='gradient'&&!sourceSpatialProvider(role.sourceColorProvider)||role.sourceColorProvider==='uniform_random'&&!this.program.colorParams||role.sourceColorProvider==='gradient'&&this.program.colorParams!=='source-pigment-rgba8-v1')throw new RangeError('Unsupported source color provider')
       if(role.material.imagePipe!==undefined)throw new RangeError('Pipe selection must belong to the author role')
-      if(role.imagePipe&&(!['incremental','random'].includes(role.imagePipe.mode)||role.imagePipe.frames.length<2||role.imagePipe.frames.length>256
+      if(role.imagePipe&&(!['incremental','random','native-dimensions-v1','text-sequence-v1'].includes(role.imagePipe.mode)||role.imagePipe.frames.length<(role.imagePipe.mode==='native-dimensions-v1'||role.imagePipe.mode==='text-sequence-v1'?1:2)||role.imagePipe.frames.length>256
         ||role.imagePipe.frames[0]!==role.material.brushIdentity||role.imagePipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))
-        ||role.materialPolicy!=='png-fixed1-rng-free'||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
+        ||!['png-fixed1-rng-free','pixel-texture-v1','image-lightness-map-v1','image-color-stamp-v1'].includes(role.materialPolicy)||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
+      if(role.imageFrameSizes&&(!role.imagePipe||role.imageFrameSizes.length!==role.imagePipe.frames.length||role.imageFrameSizes.some(v=>![v.width,v.height].every(n=>Number.isInteger(n)&&n>=1&&n<=2048))))throw new RangeError('Invalid original image frame metrics')
+      if(role.imagePipe?.mode==='text-sequence-v1'&&(role.imagePipe.sequence.length<1||role.imagePipe.sequence.length>4096||role.imagePipe.sequence[0]!==0||role.imagePipe.sequence.some(v=>!Number.isInteger(v)||v<0||v>=role.imagePipe!.frames.length)))throw new RangeError('Invalid original text sequence')
+      if(role.imagePipe?.mode==='native-dimensions-v1')captureSourceImagePipeDimensions(role.imagePipe.dimensions,role.imagePipe.frames.length,role.imagePipe.declaredCells)
+      if(role.imagePipeBinding){const b=role.imagePipeBinding,capture=b.kind==='native-image-pipe-program-v1'?canonicalNativeImagePipeSourceBinding:canonicalPixelImageSourceBinding,expected=capture(b.descriptor,b.descriptorSha256,b.assets,b.rasterProfile,b.foregroundOpacity,b.sourceScale!==undefined?{sourceScale:b.sourceScale}:undefined);if(canonicalBrushDescriptorJSON(b)!==canonicalBrushDescriptorJSON(expected)||canonicalBrushDescriptorJSON(role.imagePipe)!==canonicalBrushDescriptorJSON(b.animation)||canonicalBrushDescriptorJSON(role.imageFrameSizes??null)!==canonicalBrushDescriptorJSON(b.source.frames&&b.source.frameBounds?b.source.frameBounds.map(({width,height})=>({width,height})):null)||canonicalBrushDescriptorJSON(role.imageMaterial??null)!==canonicalBrushDescriptorJSON(b.source.imageMaterial??null)||role.material.brushIdentity!==b.source.asset||role.brush.scale!==b.source.brushScale||role.brush.angle!==b.source.brushAngle)throw new RangeError('Native image pipe original differs')}
+      const parameterAuto=role.materialPolicy==='auto-source-material-v1'&&!!role.materialOptions
+      const pixelTexture=role.materialPolicy==='pixel-texture-v1'
+      const imageGrain=role.materialPolicy==='primary-grain-image-v1'
       const genericTexture=role.materialPolicy==='textured-auto-program-v1'
       const nativeTexture=role.materialPolicy==='soft-auto-native-default-texture-v1',pressureTexture=role.materialPolicy==='default-auto-pressure-texture-v1'
       const fixedTexture=role.materialPolicy==='default-auto-fixed-texture-v1',texture=role.materialPolicy==='png-pressure-texture-v1'
-      if(genericTexture){
+      const roleTexture=role.textureProgram?.strength==='pixel-role-grain-u8-v1'
+      if(roleTexture){const t=role.textureProgram;if(t?.strength!=='pixel-role-grain-u8-v1'||t.role!==role.id||this.program.roles.length!==2||!role.material.textureEnabled)throw new RangeError('Invalid role texture author');const b=t.binding,expected=canonicalPixelDualSourceBinding(b.descriptor,b.descriptorSha256,b.material,b.sourceScale!==undefined?{sourceScale:b.sourceScale}:undefined,b.originalAssets);const source=role.id==='primary'?expected.primary:expected.mask;if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(b)||!source.textureSource||t.option.id!=='Texture/Strength/')throw new RangeError('Original role texture program differs');const option=source.textureSource.strengthOption;if(canonicalBrushDescriptorJSON(t.option)!==canonicalBrushDescriptorJSON({id:option.id,checked:option.checked,useCurve:option.useCurve,curveMode:option.curveMode,strength:option.strength,min:option.min,max:option.max,sensors:t.option.sensors}))throw new RangeError('Original role texture option differs')}
+      if(roleTexture){ /* Underlying image/Auto policy is validated below. */ }else if(pixelTexture){
+        if(role.id!=='primary'||this.program.roles.length!==1||!role.material.textureEnabled||role.materialProgram||role.textureProgram?.strength!=='pixel-grain-u8-v1')throw new RangeError('Invalid Pixel texture program')
+        const b=role.textureProgram.binding,coverage=b.source.kind==='image'?'browser-number-coverage-v1':b.source.coverageProfile
+        const expected=canonicalPixelTextureSourceBinding(b.descriptor,b.descriptorSha256,b.originalAssets??b.assets,coverage,b.rasterProfile,b.foregroundOpacity,b.sourceScale!==undefined?{sourceScale:b.sourceScale}:undefined)
+        if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(b)||role.textureProgram.option.id!=='Texture/Strength/'||canonicalBrushDescriptorJSON(role.textureProgram.option)!==canonicalBrushDescriptorJSON({id:b.strengthOption.id,checked:b.strengthOption.checked,useCurve:b.strengthOption.useCurve,curveMode:b.strengthOption.curveMode,strength:b.strengthOption.strength,min:b.strengthOption.min,max:b.strengthOption.max,sensors:role.textureProgram.option.sensors}))throw new RangeError('Pixel texture original program differs')
+        if(b.source.kind==='image'){if(role.geometry?.kind!=='image'||role.material.brushIdentity!==b.source.asset||role.brush.scale!==b.source.brushScale||role.brush.angle!==b.source.brushAngle)throw new RangeError('Pixel image source differs')}
+        else if(!role.geometry||role.geometry.kind!==b.source.kind||canonicalBrushDescriptorJSON(role.geometry.source)!==canonicalBrushDescriptorJSON(b.source.source)||role.geometry.coverageProfile!==b.source.coverageProfile)throw new RangeError('Pixel Auto source differs')
+      }else if(imageGrain){
+        if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||role.geometry?.kind!=='image'||!role.material.textureEnabled||role.materialProgram||!role.textureProgram||role.textureProgram.strength!=='recorded-grain-u8-v1')throw new RangeError('Invalid primary-grain image program')
+        const b=role.textureProgram.binding,expected=canonicalPrimaryGrainImageSourceBinding(b.descriptor,b.descriptorSha256,{primary:{id:b.assets[0].id,size:b.assets[0].size},pattern:{id:b.assets[1].id,size:b.assets[1].size}},CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+        if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(b)||role.material.brushIdentity!==b.source.asset||role.brush.width!==b.assets[0].width||role.brush.height!==b.assets[0].height||role.brush.scale!==b.source.brushScale||role.brush.angle!==b.source.brushAngle||role.indirectPainting)throw new RangeError('Primary-grain image source differs')
+      }else if(genericTexture){
         if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||!role.geometry||role.geometry.kind==='image'||!role.material.textureEnabled||!role.textureProgram||role.textureProgram.strength!=='recorded-grain-v1'||Object.keys(role.textureProgram).length!==2||!role.materialProgram)throw new RangeError('Invalid textured Auto program')
         const b=role.textureProgram.binding
         if(b.kind!=='textured-auto-program-v1'||b.source.kind!==role.geometry.kind||canonicalBrushDescriptorJSON(b.source.source)!==canonicalBrushDescriptorJSON(role.geometry.source)||b.source.coverageProfile!==role.geometry.coverageProfile||canonicalBrushDescriptorJSON(b.strengthProgram)!==canonicalBrushDescriptorJSON(role.materialProgram)||(role.geometry.kind==='softAuto')!==(role.materialProgram.kind==='texture-pressure-native-default-v1'))throw new RangeError('Textured Auto source/program differs')
@@ -213,9 +283,9 @@ export class SourceStrokeAuthor {
       const seededDensity=role.materialPolicy==='default-auto-fixed1-seeded-density-v1'
       if(seededDensity&&(role.id!=='primary'||this.program.roles.length!==1||role.geometry?.kind!=='defaultAuto'||role.geometry.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1&&role.material.supportsCaching))throw new RangeError('Unsupported density material program')
       if(role.geometry?.kind==='defaultAuto'&&(role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)!==seededDensity)throw new RangeError('Density profile/policy mismatch')
-      if(!['textured-auto-program-v1','soft-auto-native-default-texture-v1','default-auto-pressure-texture-v1','default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
-        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture||pressureTexture||genericTexture&&role.geometry?.kind==='defaultAuto')
-        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free'||genericTexture&&role.geometry?.kind==='gaussianAuto') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free'||nativeTexture||genericTexture&&role.geometry?.kind==='softAuto') || role.material.softness!==1 || role.material.lightness!==1
+      if(!['pixel-texture-v1','auto-source-material-v1','image-color-stamp-v1','image-lightness-map-v1','primary-grain-image-v1','textured-auto-program-v1','soft-auto-native-default-texture-v1','default-auto-pressure-texture-v1','default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
+        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||parameterAuto&&role.geometry?.kind==='defaultAuto'||seededDensity||fixedTexture||pressureTexture||(genericTexture||pixelTexture)&&role.geometry?.kind==='defaultAuto')
+        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free'||parameterAuto&&role.geometry?.kind==='gaussianAuto'||(genericTexture||pixelTexture)&&role.geometry?.kind==='gaussianAuto') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free'||parameterAuto&&role.geometry?.kind==='softAuto'||nativeTexture||(genericTexture||pixelTexture)&&role.geometry?.kind==='softAuto') || role.material.softness!==1 || (role.imageMaterial?.kind==='lightness-map-v1'?role.material.lightness!==role.imageMaterial.strength||role.material.lightness<0||role.material.lightness>1:role.material.lightness!==1)
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
         || !Number.isFinite(role.timing.rate) || role.timing.rate<=0
@@ -225,6 +295,7 @@ export class SourceStrokeAuthor {
           role.timing.enabled,role.timing.ignoreDistance,role.material.autoPrecision,role.material.imprecisePosition,role.material.disableSubpixel,
           role.material.supportsCaching,role.material.solidColor,role.material.textureEnabled].some(v=>typeof v!=='boolean')
         || role.fanStepDegrees!==undefined && (!Number.isInteger(role.fanStepDegrees)||role.fanStepDegrees<5||role.fanStepDegrees>90)) throw new RangeError('Unsupported source material/scheduling program')
+      if(role.imageMaterial?(!pixelTexture&&role.materialPolicy!==(role.imageMaterial.kind==='lightness-map-v1'?'image-lightness-map-v1':'image-color-stamp-v1')||role.material.textureEnabled&&!pixelTexture&&!roleTexture||!!role.geometry&&role.geometry.kind!=='image'||role.imageMaterial.kind==='color-stamp-v1'&&role.material.solidColor):role.materialPolicy==='image-lightness-map-v1'||role.materialPolicy==='image-color-stamp-v1')throw new RangeError('Invalid source image material')
       sourceDabCharacteristicSize(role.brush,{scale:1,ratio:1,rotation:0},role.geometry)
       return Object.fromEntries(IDS.map(id=>{
         const option=role.options[id]
@@ -232,6 +303,9 @@ export class SourceStrokeAuthor {
         return [id,compileSourceOptionProgram(option)]
       })) as unknown as Readonly<Record<SourceStampOptionId, SourceOptionProgram>>
     })
+    this.colorOptions=this.program.roles.map(role=>{const valid=(v:readonly number[]|undefined)=>v!==undefined&&v.length===3&&v.every(n=>Number.isInteger(n)&&n>=0&&n<=255);if(role.sourcePigmentRGB!==undefined&&!valid(role.sourcePigmentRGB)||role.sourceBackgroundRGB!==undefined&&!valid(role.sourceBackgroundRGB))throw new RangeError('Invalid captured source pigment');const c=role.colorOptions;return c?{Mix:compileSourceOptionProgram(c.Mix),Darken:compileSourceOptionProgram(c.Darken),h:compileSourceOptionProgram(c.h),s:compileSourceOptionProgram(c.s),v:compileSourceOptionProgram(c.v)}:undefined})
+    this.grainOptions=this.program.roles.map(role=>role.textureProgram?.strength==='pixel-grain-u8-v1'||role.textureProgram?.strength==='pixel-role-grain-u8-v1'?compileSourceOptionProgram(role.textureProgram.option):undefined)
+    this.dabMaterialOptions=this.program.roles.map(role=>{const o=role.materialOptions;if(!o)return undefined;if(typeof o.sharpnessAlign!=='boolean'||!Number.isInteger(o.sharpnessSoftness)||o.sharpnessSoftness<0||o.sharpnessSoftness>100)throw new RangeError('Invalid native sharpness metadata');return{Softness:compileSourceOptionProgram(o.Softness),LightnessStrength:compileSourceOptionProgram(o.LightnessStrength),Sharpness:compileSourceOptionProgram(o.Sharpness),sharpnessAlign:o.sharpnessAlign,sharpnessSoftness:o.sharpnessSoftness}})
     this.materialOptions=this.program.roles.map(role=>{
       const material=role.materialProgram
       if(!material)return undefined
@@ -241,9 +315,20 @@ export class SourceStrokeAuthor {
         sensors:[{id:'pressure',curve:{points:curve.source.points,coefficients:curve.coefficients,arithmetic:'installed-arm64-fused-v1'}}]})
     })
   }
-  createState(sequentialSeed:number,perStrokeSeed:number,initialAngle:number):SourceStrokeAuthorState {
+  createState(sequentialSeed:number,perStrokeSeed:number,initialAngle:number,colors?:Readonly<{foregroundRGB:readonly[number,number,number];backgroundRGB?:readonly[number,number,number];gradient?:SourceGradientResource;spatialColor?:SourceSpatialColorInput}>,maskSeedIdentity?:SourceMaskSeedIdentity):SourceStrokeAuthorState {
     if(!Number.isFinite(initialAngle))throw new RangeError('Invalid source initial angle')
-    return freeze({version:1,programId:this.program.id,...(this.program.inputProfile?{inputProfile:this.program.inputProfile,ended:false}:{}),random:new KritaRandomSource(sequentialSeed).snapshot(),
+    const seeded=this.program.roles.some(r=>r.geometry&&r.geometry.kind!=='image'&&r.geometry.coverageProfile===SOURCE_SEEDED_AUTO_MASK_PROFILE)
+    if(seeded){assertMaskSeedIdentity(maskSeedIdentity,this.program.sourceDescriptorSha256)}else if(maskSeedIdentity!==undefined)throw new RangeError('Unexpected mask seed identity')
+    const needsGradient=this.program.roles.some(r=>r.sourceColorProvider==='gradient')
+    if(needsGradient&&colors?.gradient===undefined||!needsGradient&&colors?.gradient!==undefined)throw new RangeError('Missing or unexpected selected source gradient')
+    const sourceGradient=needsGradient?captureSourceGradientResource(colors!.gradient):undefined
+    const spatialProviders=this.program.roles.map(sourceSpatialRoleProvider),needsSpatial=spatialProviders.some(sourceSpatialProvider)
+    if(!needsSpatial&&colors?.spatialColor!==undefined)throw new RangeError('Unexpected source spatial input')
+    const sourceSpatialColor=needsSpatial?captureSourceSpatialColorInput(colors?.spatialColor,spatialProviders):undefined
+    const rgb=colors?.foregroundRGB??this.program.roles[0].sourcePigmentRGB,bg=colors?.backgroundRGB??this.program.roles[0].sourceBackgroundRGB
+    const valid=(v:readonly number[]|undefined)=>v!==undefined&&v.length===3&&v.every(n=>Number.isInteger(n)&&n>=0&&n<=255)
+    if(this.program.colorParams&&(!valid(rgb)||this.program.roles.some(r=>(!r.sourceColorProvider||r.sourceColorProvider==='plain')&&r.colorOptions?.Mix.checked)&&!valid(bg))||!this.program.colorParams&&!needsSpatial&&colors!==undefined)throw new RangeError('Missing captured stroke colors')
+    return freeze({version:1,programId:this.program.id,...sourceSpatialColor?{sourceSpatialColor}:{},...sourceGradient?{sourceGradient}:{},...maskSeedIdentity?{maskSeedIdentity:{strokeId:maskSeedIdentity.strokeId,descriptorSha256:maskSeedIdentity.descriptorSha256}}:{},...this.program.colorParams?{sourcePigmentRGB:rgb&&[rgb[0],rgb[1],rgb[2]] as const,...bg?{sourceBackgroundRGB:[bg[0],bg[1],bg[2]] as const}:{}}:{},...(this.program.inputProfile?{inputProfile:this.program.inputProfile,ended:false}:{}),random:new KritaRandomSource(sequentialSeed).snapshot(),
       perStroke:new KritaPerStrokeRandomSource(perStrokeSeed).snapshot(),roles:[],initialAngle,inputOrdinal:0,eventOrdinal:0})
   }
   /** Validation precedes any restored RNG draw or mutation; input state is never modified. */
@@ -292,6 +377,11 @@ export class SourceStrokeAuthor {
     const count=(v:number)=>Number.isSafeInteger(v)&&v>=0
     if(!state || state.version!==1 || state.programId!==this.program.id || !Array.isArray(state.roles)
       || !count(state.inputOrdinal) || !count(state.eventOrdinal) || !Number.isFinite(state.initialAngle))bad()
+    const seeded=this.program.roles.some(r=>r.geometry&&r.geometry.kind!=='image'&&r.geometry.coverageProfile===SOURCE_SEEDED_AUTO_MASK_PROFILE)
+    if(seeded){assertMaskSeedIdentity(state.maskSeedIdentity,this.program.sourceDescriptorSha256)}else if(state.maskSeedIdentity!==undefined)bad()
+    if(this.program.roles.some(r=>sourceSpatialRoleProvider(r)!==undefined)){captureSourceSpatialColorInput(state.sourceSpatialColor,this.program.roles.map(sourceSpatialRoleProvider))}else if(state.sourceSpatialColor!==undefined)bad()
+    if(this.program.roles.some(r=>r.sourceColorProvider==='gradient'))assertSourceGradientResource(state.sourceGradient);else if(state.sourceGradient!==undefined)bad()
+    if(!!this.program.colorParams!==!!state.sourcePigmentRGB||state.sourcePigmentRGB&&(state.sourcePigmentRGB.length!==3||state.sourcePigmentRGB.some(n=>!Number.isInteger(n)||n<0||n>255))||state.sourceBackgroundRGB&&(state.sourceBackgroundRGB.length!==3||state.sourceBackgroundRGB.some(n=>!Number.isInteger(n)||n<0||n>255)))bad()
     if(state.inputProfile!==this.program.inputProfile || (this.program.inputProfile?typeof state.ended!=='boolean':state.ended!==undefined)
       || state.ended && (!state.lastInput || state.cursor))bad()
     const started=state.lastInput!==undefined||state.cursor!==undefined
@@ -307,6 +397,10 @@ export class SourceStrokeAuthor {
         || ![role.lastPosition.x,role.lastPosition.y,role.lastAngle].every(Number.isFinite)
         || role.lockedAngle!==undefined && !Number.isFinite(role.lockedAngle)
         || !count(role.cache.nextSequence) || role.cache.nextSequence>role.sequence)bad()
+      const pipe=this.program.roles[index].imagePipe,indices=role.cache.pipeIndices
+      if(pipe?.mode==='native-dimensions-v1'){
+        if(role.cache.nextSequence===0?indices!==undefined:!indices||indices.length!==pipe.dimensions.length||indices.some((n,i)=>!Number.isInteger(n)||n<0||n>=pipe.dimensions[i].rank))bad()
+      }else if(indices!==undefined)bad()
       // Native effectiveTiming may store positive Infinity; DistanceTiming clamps
       // it to LONG_TIME when consumed. NaN/negative intervals are never valid.
       if(role.interval!==undefined && (typeof role.interval!=='number'||Number.isNaN(role.interval)||role.interval<0))bad()
@@ -325,6 +419,11 @@ export class SourceStrokeAuthor {
           || ![saved.shape.rotation,saved.position.x,saved.position.y,key.angle,key.softness,key.lightness,key.ratio].every(Number.isFinite)
           || !count(key.index) || typeof key.color!=='string'
           || ![saved.mirror.horizontal,saved.mirror.vertical,saved.mirror.coordinateSystemFlipped,key.mirrorH,key.mirrorV].every(v=>typeof v==='boolean'))bad()
+        if(saved.geometry&&saved.geometry.kind!=='image'&&saved.geometry.coverageProfile===SOURCE_SEEDED_AUTO_MASK_PROFILE){if(!Number.isInteger(key.maskSeed)||key.maskSeed!<0||key.maskSeed!>0xffffffff||key.sourceSlot!==(this.program.roles[index].id==='primary'?0:1))bad()}else if((!saved.geometry||saved.geometry.kind==='image')&&this.program.imageFrameIndices){if(key.maskSeed!==undefined||key.sourceSlot!==(this.program.roles[index].id==='primary'?0:1))bad()}else if(key.maskSeed!==undefined||key.sourceSlot!==undefined)bad()
+        const selected=this.program.roles[index].imageFrameSizes?.[key.index]
+        if(selected&&(['width','height'].some(k=>Reflect.get(saved.brush,k)!==Reflect.get(selected,k))||saved.brush.scale!==this.program.roles[index].brush.scale||saved.brush.angle!==this.program.roles[index].brush.angle))bad()
+        const sequence=this.program.roles[index].imagePipe
+        if(sequence?.mode==='text-sequence-v1'&&key.index!==sequence.sequence[saved.sequence%sequence.sequence.length])bad()
         if(!sourceDabGeometryEqual(saved.geometry,this.program.roles[index].geometry))bad()
         sourceDabCharacteristicSize(saved.brush,saved.shape,saved.geometry)
         if(saved.geometry?.kind==='defaultAuto'||saved.geometry?.kind==='gaussianAuto'||saved.geometry?.kind==='softAuto'){
@@ -332,7 +431,7 @@ export class SourceStrokeAuthor {
           if(!['width','height','scale','angle'].every(k=>Object.is(saved.brush[k as keyof SourceDabBrushMetrics],expected.brush[k as keyof SourceDabBrushMetrics]))
             || saved.width!==extent[0] || saved.height!==extent[1] || key.width!==saved.width || key.height!==saved.height
             || !Object.is(key.angle,saved.shape.rotation) || !Object.is(key.ratio,saved.shape.ratio) || key.index!==0
-            || key.color!==expected.material.color || key.softness!==1 || key.lightness!==1
+            || (this.program.colorParams==='source-pigment-rgba8-v1'?!/^rgba8:(?:[0-9]{1,3},){3}[0-9]{1,3}$/.test(key.color)||key.color.slice(6).split(',').some(n=>Number(n)>255):this.program.colorParams?!/^rgb8:(?:[0-9]{1,3},){2}[0-9]{1,3}$/.test(key.color)||key.color.slice(5).split(',').some(n=>Number(n)>255):key.color!==expected.material.color) || (expected.materialOptions?key.softness<0||key.softness>1:key.softness!==1) || (expected.materialOptions?key.lightness<0||key.lightness>1:key.lightness!==expected.material.lightness)
             || key.mirrorH!==saved.mirror.horizontal || key.mirrorV!==saved.mirror.vertical)bad()
         }
       }else if(role.cache.nextSequence!==0)bad()
@@ -354,9 +453,9 @@ export class SourceStrokeAuthor {
     }
     // These restores validate bounded snapshots; no authoritative sequential
     // draw is made. Keyed cache verification recomputes its deterministic values.
-    if(!state.perStroke || !Array.isArray(state.perStroke.cache) || state.perStroke.cache.length>IDS.length)bad()
+    if(!state.perStroke || !Array.isArray(state.perStroke.cache) || state.perStroke.cache.length>IDS.length+8+Number(this.program.roles.some(r=>(r.textureProgram?.strength==='pixel-grain-u8-v1'||r.textureProgram?.strength==='pixel-role-grain-u8-v1'))))bad()
     for(const entry of state.perStroke.cache){
-      if(!Array.isArray(entry) || entry.length!==2 || !IDS.some(id=>entry[0]===id+'FuzzyStroke'))bad()
+      if(!Array.isArray(entry) || entry.length!==2 || ![...IDS,'Softness','LightnessStrength','Sharpness','Mix','Darken','h','s','v',...this.program.roles.some(r=>(r.textureProgram?.strength==='pixel-grain-u8-v1'||r.textureProgram?.strength==='pixel-role-grain-u8-v1'))?['Texture/Strength/']:[]].some(id=>entry[0]===id+'FuzzyStroke'))bad()
     }
     KritaRandomSource.restore(state.random)
     KritaPerStrokeRandomSource.restore(state.perStroke)
@@ -371,9 +470,12 @@ export class SourceStrokeAuthor {
             ...(cursor.kind==='finish'?{ended:true}:{})})
           yield freeze({kind:'inputComplete',state});break
         }
-        const next=state.roles[index+1]
+        const next=state.roles[index+1],nextProgram=this.program.roles[index+1]
+        const paintStart=cursor.kind==='start'&&(!this.program.inputProfile||nextProgram.timing.enabled)
+        const paintTap=cursor.kind==='finish'&&state.inputOrdinal===1&&next.lastPaint===undefined
+        const paint=paintStart||paintTap
         state=freeze({...state,cursor:{...cursor,roleIndex:index+1,current:state.lastInput??cursor.endpoint,
-          phase:cursor.kind==='start'?'paint':'distance',requests:cursor.kind==='start'?[{...cursor.endpoint,drawingAngle:next.lastAngle}]:[]}})
+          phase:paint?'paint':cursor.kind==='segment'?'distance':'nextRole',requests:paint?[{...cursor.endpoint,drawingAngle:next.lastAngle}]:[]}})
         continue
       }
       const distance=Object.assign(new SourceDistanceTiming(),distanceState(role.distance))
@@ -412,23 +514,60 @@ export class SourceStrokeAuthor {
         tiltDirectionOffset:packet.tiltDirectionOffset,perspective:packet.perspective,time:packet.t,dabSequence:role.sequence,distance:role.totalDistance,hover:packet.hover}
       if(state.eventOrdinal===Number.MAX_SAFE_INTEGER || kind==='paint' && role.sequence===0x7fffffff)throw new RangeError('Source author counter exhausted')
       const context={random:KritaRandomSource.restore(state.random),perStroke:KritaPerStrokeRandomSource.restore(state.perStroke),hover:packet.hover}
+      const imageSlot=this.program.imageFrameIndices&&(!program.geometry||program.geometry.kind==='image')?program.id==='primary'?0 as const:1 as const:undefined
       const bound=Object.fromEntries(IDS.map(id=>[id,this.options[index][id].bind(sensor)])) as unknown as SourceStampOptions
-      const result=new SourceStampQueryExecutor(bound,context).execute(kind,{x:packet.x,y:packet.y,drawingAngle,canvasRotation:packet.canvasRotation,
+      const colorPrograms=this.colorOptions[index]
+      const spatialProvider=sourceSpatialProvider(program.sourceColorProvider)
+      const sourceColor=this.program.colorParams||spatialProvider?()=>{
+       if(spatialProvider&&!this.program.colorParams){if(colorPrograms){const options={Mix:colorPrograms.Mix.bind(sensor),Darken:colorPrograms.Darken.bind(sensor),h:colorPrograms.h.bind(sensor),s:colorPrograms.s.bind(sensor),v:colorPrograms.v.bind(sensor)};if(options.Mix.checked)sourceStandardOption(options.Mix,context);if(options.Darken.checked)sourceStandardOption(options.Darken,context);if(options.h.checked)sourceRotationLike(sourceOptionComponents(options.h,context),0,false,1,context.hover);if(options.s.checked)sourceStandardOption(options.s,context);if(options.v.checked)sourceStandardOption(options.v,context)}return undefined}
+       const fg=state.sourcePigmentRGB!,bg=state.sourceBackgroundRGB
+       let color:Rgba8=[fg[0],fg[1],fg[2],255]
+       if(colorPrograms){
+        const bound={Mix:colorPrograms.Mix.bind(sensor),Darken:colorPrograms.Darken.bind(sensor),h:colorPrograms.h.bind(sensor),s:colorPrograms.s.bind(sensor),v:colorPrograms.v.bind(sensor)}
+        const mix=bound.Mix.checked?sourceStandardOption(bound.Mix,context):1
+        if(program.sourceColorProvider==='gradient'){if(!state.sourceGradient)throw new RangeError('Missing selected gradient');color=sourceGradientColor(state.sourceGradient,mix)}
+        else if(program.sourceColorProvider==='uniform_random')color=[context.random.generate(0,255),context.random.generate(0,255),context.random.generate(0,255),255]
+        else if(bound.Mix.checked&&!spatialProvider){if(!bg)throw new RangeError('Missing captured Mix background');const weight=mix===1?255:Math.trunc(mix*256);color=mixWeightedRgba8([[bg[0],bg[1],bg[2],255],color],[255-weight,weight],255)}
+        if(bound.Darken.checked)color=darkenSourceRgba8(color,sourceStandardOption(bound.Darken,context))
+        const hue=bound.h.checked?sourceRotationLike(sourceOptionComponents(bound.h,context),0,false,1,context.hover):0
+        const signed=(option:typeof bound.s)=>option.checked?2*(sourceStandardOption(option,context)*option.strength+.5-option.strength/2)-1:0
+        const saturation=signed(bound.s),value=signed(bound.v)
+        if(bound.h.checked||bound.s.checked||bound.v.checked)color=adjustHsvChromaRgba8(color,hue,saturation,value)
+       }
+       if(!colorPrograms&&program.sourceColorProvider==='gradient'){if(!state.sourceGradient)throw new RangeError('Missing selected gradient');color=sourceGradientColor(state.sourceGradient,1)}
+       if(!colorPrograms&&program.sourceColorProvider==='uniform_random')color=[context.random.generate(0,255),context.random.generate(0,255),context.random.generate(0,255),255]
+       if(spatialProvider){if(!this.program.colorParams)return undefined;color=[fg[0],fg[1],fg[2],255]}
+       return this.program.colorParams==='source-pigment-rgba8-v1'?[color[0],color[1],color[2],color[3]] as const:[color[0],color[1],color[2]] as const
+      }:undefined
+      const materialPrograms=this.dabMaterialOptions[index]
+      const materialOptions=materialPrograms?{Softness:materialPrograms.Softness.bind(sensor),LightnessStrength:materialPrograms.LightnessStrength.bind(sensor),Sharpness:materialPrograms.Sharpness.bind(sensor),sharpnessAlign:materialPrograms.sharpnessAlign,sharpnessSoftness:materialPrograms.sharpnessSoftness}:undefined
+      const pendingMaskSeed=kind==='paint'&&program.geometry&&program.geometry.kind!=='image'&&program.geometry.coverageProfile===SOURCE_SEEDED_AUTO_MASK_PROFILE?sourceAutoMaskSeed({...state.maskSeedIdentity!,role:program.id,drawOrdinal:role.sequence}):undefined
+      let result=new SourceStampQueryExecutor(bound,context).execute(kind,{x:packet.x,y:packet.y,drawingAngle,canvasRotation:packet.canvasRotation,
         mirroredH:packet.mirroredH,mirroredV:packet.mirroredV},{canPaint:true,lodScale:program.lodScale,scatterX:program.scatterX,scatterY:program.scatterY,
         mirrorX:program.mirrorX,mirrorY:program.mirrorY,indirectPainting:program.indirectPainting,
-        sourceCache:{brush:program.brush,...(program.geometry?{geometry:program.geometry}:{}),state:role.cache,request:program.imagePipe?{...program.material,imagePipe:program.imagePipe}:program.material}})
+        sourceCache:{sourceColor,materialOptions,brush:program.brush,...(program.geometry?{geometry:program.geometry}:{}),state:role.cache,request:imageSlot!==undefined&&!program.imagePipe?{...program.material,sourceSlot:imageSlot}:pendingMaskSeed!==undefined?{...program.material,maskSeed:pendingMaskSeed,sourceSlot:program.id==='primary'?0:1}:program.imagePipe?{...program.material,imagePipe:program.imagePipe,...program.imageFrameSizes?{imageFrameSizes:program.imageFrameSizes}:{},...imageSlot!==undefined?{sourceSlot:imageSlot}:{},...program.imagePipe.mode==='native-dimensions-v1'?{imagePipeQuery:{pressure:packet.pressure,drawingAngleRadians:drawingAngle,xTilt:packet.tiltX,yTilt:packet.tiltY,drawingSpeed:packet.sourceViewSpeed??0}}:{}}:program.material}})
+      if(result.painted&&!result.materialParams&&this.program.roles.some(r=>!!r.materialOptions))result={...result,materialParams:{softness:result.material?.resolvedSource.key.softness??1,lightnessStrength:result.material?.resolvedSource.key.lightness??1,sharpnessAlignValue:0,sharpnessThreshold:0,sharpnessSoftness:0,sharpnessChecked:false,sharpnessAlign:false}}
+      const maskSeed=result.painted?pendingMaskSeed:undefined
+      const sourceColorField=result.painted&&state.sourceSpatialColor?sourceSpatialColorDraw(sourceSpatialRoleProvider(program),state.sourceSpatialColor,program.id==='primary'?0:1,role.sequence,packet.x,packet.y):undefined
+      const grainOption=this.grainOptions[index]
+      const resolvedTextureStrength=result.painted&&grainOption?sourceStandardOption(grainOption.bind(sensor),context):undefined
+      if(resolvedTextureStrength!==undefined&&(!Number.isFinite(resolvedTextureStrength)||resolvedTextureStrength<0||resolvedTextureStrength>1))throw new RangeError('Invalid source texture strength')
+      const textureGeometry=program.textureProgram?.strength==='pixel-role-grain-u8-v1'?(program.textureProgram.role==='primary'?program.textureProgram.binding.primary:program.textureProgram.binding.mask).textureSource?.textureGeometry:program.textureProgram?.strength==='pixel-grain-u8-v1'?program.textureProgram.binding.textureGeometry:undefined
+      const colorTexture=textureGeometry?.law==='pixel-color-texture-v1'?textureGeometry:undefined
+      const textureColorStrength=resolvedTextureStrength!==undefined&&colorTexture?(colorTexture.mode==='lightness'?(resolvedTextureStrength||0):canonicalMultiplyTextureStrengthU8(resolvedTextureStrength)):undefined
+      const pixelGrain=resolvedTextureStrength!==undefined&&!colorTexture?canonicalMultiplyTextureStrengthU8(resolvedTextureStrength):undefined
       let nextRole:SourceAuthorRoleState={...role}
       let nextCursor:Cursor
       if(kind==='paint'){
         const dx=packet.x-role.lastPosition.x,dy=packet.y-role.lastPosition.y
-        nextRole={...role,spacing:spacing(program,result),interval:program.timing.enabled?sourceTimingInterval(program.timing.rate,result.rate):undefined,
+        nextRole={...role,spacing:spacing(program,result,result.material?.resolvedSource.brush??role.cache.saved?.brush??program.brush),interval:program.timing.enabled?sourceTimingInterval(program.timing.rate,result.rate):undefined,
           cache:result.material?.state??role.cache,sequence:role.sequence+1,totalDistance:role.totalDistance+Math.sqrt(dx*dx+dy*dy)/program.lodScale,
           maxPressure:Math.max(role.maxPressure,packet.pressure),lastPosition:{x:packet.x,y:packet.y},lastAngle:drawingAngle,
           lockedAngle:packet.hover?role.lockedAngle:role.lockedAngle??drawingAngle,lastPaint:{...packet,drawingAngle}}
         const requests=cursor.requests.slice(1)
         nextCursor={...cursor,requests,phase:requests.length?'paint':cursor.kind==='segment'?'distance':'nextRole'}
       }else if(kind==='spacing'){
-        distance.updateSpacing();nextRole={...role,spacing:spacing(program,result),distance:distanceState(distance)}
+        distance.updateSpacing();nextRole={...role,spacing:spacing(program,result,result.material?.resolvedSource.brush??role.cache.saved?.brush??program.brush),distance:distanceState(distance)}
         nextCursor={...cursor,phase:'timing'}
       }else{
         distance.updateTiming();nextRole={...role,interval:program.timing.enabled?sourceTimingInterval(program.timing.rate,result.rate):undefined,distance:distanceState(distance)}
@@ -439,7 +578,9 @@ export class SourceStrokeAuthor {
       const materialOption=this.materialOptions[index]
       const materialStrength=result.painted&&materialOption?sourceStandardOption(materialOption.bind(sensor),context):undefined
       if(materialStrength!==undefined&&(!Number.isFinite(materialStrength)||materialStrength<0||materialStrength>1))throw new RangeError('Invalid pressure material strength')
-      yield freeze({...materialStrength!==undefined?{materialStrength}:{},kind:result.painted?'material':'query',role:program.id,query:kind,packet:{...packet},sourceAngle:drawingAngle,sourceTime:packet.t,logicalSequence:role.sequence,result,state})
+      const inactiveRoleGrain=result.painted&&this.program.roles.some(r=>r.textureProgram?.strength==='pixel-role-grain-u8-v1')&&program.textureProgram?.strength!=='pixel-role-grain-u8-v1'?0:undefined
+      const grainStrengthU8=pixelGrain??inactiveRoleGrain??(result.painted&&program.textureProgram?.strength==='recorded-grain-u8-v1'?canonicalPrimaryGrainImagePressureStrengthU8(program.textureProgram.binding,packet.pressure):undefined)
+      yield freeze({...sourceColorField?{sourceColorField}:{},...maskSeed!==undefined?{maskSeed}:{},...grainStrengthU8!==undefined?{grainStrengthU8}:{},...textureColorStrength!==undefined?{textureColorStrength}:{},...materialStrength!==undefined?{materialStrength}:{},kind:result.painted?'material':'query',role:program.id,query:kind,packet:{...packet},sourceAngle:drawingAngle,sourceTime:packet.t,logicalSequence:role.sequence,result,state})
     }
     return state
   }

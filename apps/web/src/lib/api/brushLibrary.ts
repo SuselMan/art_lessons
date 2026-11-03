@@ -1,3 +1,4 @@
+import {canonicalSourcePatternResource,type BrushPattern,type CanonicalSourcePatternResource} from '@grafetto/shared'
 import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, isBrushLibrary, type CanonicalMaterialAsset, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
@@ -12,6 +13,36 @@ const listeners = new Set<() => void>()
 const scopedLibraries = new Map<string | undefined, BrushLibrary>()
 const engines = new Map<string, number>()
 export function subscribeBrushLibrary(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener) } }
+
+/** Declared current-room paint patterns; no implicit selection or paint grant. */
+export function brushPatterns():readonly BrushPattern[]{return library?.patterns??[]}
+async function captureCatalogPatterns(data:BrushLibrary):Promise<readonly BrushPattern[]>{
+ const patterns=data.patterns??[],result:BrushPattern[]=[]
+ for(const pattern of patterns){
+  const resource=canonicalSourcePatternResource(pattern.resource)
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(resource,Object.keys(resource).sort())))
+  const id='pattern:'+Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')
+  if(id!==pattern.id)throw new Error('Brush pattern catalog identity differs')
+  result.push(Object.freeze({id,name:pattern.name,resource}))
+ }
+ return Object.freeze(result)
+}
+
+/** App selection seam. The caller owns its selection/engine lifetime and must
+ * install the returned resource explicitly; this never chooses a default. */
+export async function prepareBrushPattern(roomId:string,id:string,assertCurrent:()=>void):Promise<Readonly<CanonicalSourcePatternResource>>{
+ if(typeof id!=='string'||!/^pattern:[a-f0-9]{64}$/.test(id)||typeof assertCurrent!=='function')throw new TypeError('Invalid selected brush pattern')
+ const current=()=>{if(roomScope!==roomId)throw new DOMException('Pattern room changed','AbortError');assertCurrent();if(roomScope!==roomId)throw new DOMException('Pattern room changed','AbortError')}
+ current();if(!scopedLibraries.has(roomId)){await (metadataWork.get(roomId)??loadBrushLibrary());current()}
+ const pattern=scopedLibraries.get(roomId)?.patterns?.find(pattern=>pattern.id===id)
+ if(!pattern)throw new Error('Selected brush pattern unavailable')
+ const resource=canonicalSourcePatternResource(pattern.resource)
+ const assets=[...new Set([...resource.channels,resource.alphaAsset])].map(id=>({id,size:resource.size}))
+ await prepareCanonicalImageAssets(roomId,assets,current);current()
+ const now=scopedLibraries.get(roomId)?.patterns?.find(pattern=>pattern.id===id)
+ if(!now||JSON.stringify(now.resource,Object.keys(now.resource).sort())!==JSON.stringify(resource,Object.keys(resource).sort()))throw new Error('Selected brush pattern changed')
+ return resource
+}
 
 function pruneResources(): void {
   for (const scope of scopedLibraries.keys()) {
@@ -69,11 +100,13 @@ async function loadMetadata(scope: string | undefined): Promise<void> {
     if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw error
   }
   if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw new Error('Invalid brush library')
+  const patterns=await captureCatalogPatterns(data)
+  const captured:BrushLibrary=data.patterns===undefined?data:{...data,patterns}
   if (scope !== roomScope) return
-  try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch { /* quota/private mode */ }
-  installBrushLibrary(data)
-  library = data
-  scopedLibraries.set(scope, data)
+  try { localStorage.setItem(cacheKey, JSON.stringify(captured)) } catch { /* quota/private mode */ }
+  installBrushLibrary(captured)
+  library = captured
+  scopedLibraries.set(scope, captured)
   pruneResources()
   for (const listener of listeners) listener()
 }

@@ -9,7 +9,7 @@ export interface SourceCurveDenseLayout {
   /** Native radial-mask resolution is chosen once from ORIGINAL generator
    * dimensions. The table has resolution+2 entries, sampled at i/(size-1).
    * This is not a resampling of the256-entry option/sensor table. */
-  readonly layout: 'soft-mask'
+  readonly layout: 'soft-mask'|'soft-rectangle-mask'
   readonly resolution: number
   readonly arithmetic: 'installed-arm64-fused-v1'
 }
@@ -24,12 +24,12 @@ function curveEvaluation(input: SourceCurvePolynomial, dense: SourceCurveDenseLa
   if (points.length < 1 || points.length > 256 || coefficients.length !== Math.max(1, points.length - 1)
     || points.some((p, i) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1 || (i > 0 && p.x <= points[i - 1].x))
     || coefficients.some(c => c.length !== 4 || !c.every(Number.isFinite))) throw new RangeError('Invalid native spline program')
-  if (dense !== undefined && (dense.arithmetic !== 'installed-arm64-fused-v1' || !['soft-mask','sensor'].includes(dense.layout)
-    || dense.layout === 'soft-mask' && (!Number.isSafeInteger(dense.resolution) || dense.resolution < 0 || dense.resolution > 16382))) throw new RangeError('Invalid native radial curve layout')
+  if (dense !== undefined && (dense.arithmetic !== 'installed-arm64-fused-v1' || !['soft-mask','soft-rectangle-mask','sensor'].includes(dense.layout)
+    || (dense.layout === 'soft-mask'||dense.layout==='soft-rectangle-mask') && (!Number.isSafeInteger(dense.resolution) || dense.resolution < 0 || dense.resolution > (dense.layout==='soft-rectangle-mask'?16383:16382)))) throw new RangeError('Invalid native radial curve layout')
   const curve:SourceCurvePolynomial=snapshot?Object.freeze({points:Object.freeze(points.map(p=>Object.freeze({x:p.x,y:p.y}))),
     coefficients:Object.freeze(coefficients.map(c=>Object.freeze([c[0],c[1],c[2],c[3]] as const)))}):input
   points=curve.points;coefficients=curve.coefficients
-  const size = dense === undefined || dense.layout === 'sensor' ? 256 : dense.resolution + 2
+  const size = dense === undefined || dense.layout === 'sensor' ? 256 : dense.resolution + (dense.layout==='soft-rectangle-mask'?1:2)
   const end = 1 / (size - 1)
   const fused=dense!==undefined
   const evaluate=(i:number) => {

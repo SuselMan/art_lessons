@@ -90,6 +90,11 @@ export function importedBrushAssets(preset: string | undefined): string[] {
   return brushAssetIds(b).filter(id => id.startsWith('asset:'))
 }
 
+/** Exact installed catalog metadata; pixel installation alone never supplies it. */
+export function importedAssetMetadata(id:string):InstalledAssetMetadata|undefined {
+  return assets.get(id)?.metadata
+}
+
 /** Declared manifest data only: neither pixel readiness nor source permission. */
 export function importedBrushAssetMetadata(preset:string|undefined):readonly InstalledAssetMetadata[]|undefined {
   let brush:BrushDescriptor|undefined

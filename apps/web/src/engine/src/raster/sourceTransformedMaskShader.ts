@@ -27,7 +27,8 @@ void main() {
 export function sourceTransformedMaskFragment(proof = false): string {
   return `precision highp float;
 precision highp sampler2D;
-${SOURCE_AFFINE_GRAY16_GLSL}
+float imageMaterialChannel=0.0;
+${SOURCE_AFFINE_GRAY16_GLSL.replace('return floor(texture2D(image,(texel+0.5)/size).ra*255.0+0.5);','vec4 material=texture2D(image,(texel+0.5)/size);return floor(vec2(imageMaterialChannel<0.5?material.r:imageMaterialChannel<1.5?material.g:material.b,material.a)*255.0+0.5);')}
 ${SOURCE_RGBA64_STRAIGHT_GLSL}
 uniform sampler2D u_source;
 uniform sampler2D u_factorLow;
@@ -36,6 +37,7 @@ uniform vec2 u_sourceSize;
 uniform float u_decode;
 uniform float u_summed;
 uniform float u_directCopy;
+uniform float u_materialMode;
 varying highp vec4 v_origin;
 varying highp vec4 v_step;
 varying highp vec2 v_span;
@@ -50,7 +52,16 @@ void main() {
   vec4 pm=sourceAffineGray16Packed(u_source,u_sourceSize,origin,step,span.y,floor(gl_FragCoord.x)-span.x,u_decode,u_summed);
   result=sourceRgba64StraightGrayPacked(u_factorLow,u_factorHigh,pm);
  }
- ${proof ? 'gl_FragColor=result;' : 'gl_FragColor=vec4(result.b);'}
+ if(u_materialMode>0.5){
+  if(u_directCopy>0.5)gl_FragColor=texture2D(u_source,(floor(gl_FragCoord.xy)+1.5)/u_sourceSize);
+  else if(u_materialMode<1.5)gl_FragColor=vec4(vec3(result.r),result.g);
+  else {
+   vec4 origin=floor(v_origin+0.5),step=floor(v_step+0.5);vec2 span=floor(v_span+0.5);
+   imageMaterialChannel=1.0;vec4 green=sourceRgba64StraightGrayPacked(u_factorLow,u_factorHigh,sourceAffineGray16Packed(u_source,u_sourceSize,origin,step,span.y,floor(gl_FragCoord.x)-span.x,u_decode,u_summed));
+   imageMaterialChannel=2.0;vec4 blue=sourceRgba64StraightGrayPacked(u_factorLow,u_factorHigh,sourceAffineGray16Packed(u_source,u_sourceSize,origin,step,span.y,floor(gl_FragCoord.x)-span.x,u_decode,u_summed));
+   gl_FragColor=vec4(result.r,green.r,blue.r,result.g);
+  }
+ }else {${proof ? 'gl_FragColor=result;' : 'gl_FragColor=vec4(result.b);'}}
 }
 `
 }

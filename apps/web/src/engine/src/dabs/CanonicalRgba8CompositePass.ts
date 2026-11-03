@@ -1,11 +1,15 @@
+import {CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL} from './canonicalTextureColorMaterial';
+import { CANONICAL_MASKING_BLEND_GLSL } from './canonicalMaskingBlendShader';
+import {BRUSH_ALPHA_THRESHOLD_GLSL} from '../presets/brushAlphaThreshold'
+import {BRUSH_LIGHTNESS_GLSL} from '../raster/brushBehaviorShaders'
 import {assertBrushGlMutationIdle} from './BrushGlBatch';
-import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
+import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalGradientResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
-import {canonicalMultiplyPrimaryTexturePin,type CanonicalMultiplyPrimaryTexturePin,canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
+import {canonicalPixelColorTexturePin,type CanonicalPixelColorTexturePin,canonicalMaskingBlendModes,canonicalPixelPrimaryTexturePin,type CanonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin,type CanonicalMultiplyPrimaryTexturePin,canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
-import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
-import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
-import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
+import { SOURCE_RGBA8_BROWSER_HSY_WEBGL1_GLSL, SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
+import { canonicalizeSourceBrowserHsyControl, canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
+import { SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE, SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
 import type { BrushGlBatchFrame, BrushGlBatchInfo, BrushGlBatchLifetime } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
@@ -60,7 +64,7 @@ export interface CanonicalRgba8SourceView {
     readonly rowOrder: 'topAtV0' | 'bottomAtV0';
     readonly residency: CanonicalSourceResidency;
 }
-export type CanonicalCompositeSource = {
+export type CanonicalCompositeSource = ({readonly kind:'imageMaterialRgba';readonly material:'lightness-map-v1'|'color-stamp-v1';readonly view:TransformedMaskView;readonly rgb:readonly[number,number,number];readonly strength:number;readonly foregroundAlpha:number} | {
     readonly kind: 'maskRgb';
     readonly view: TransformedMaskView;
     readonly rgb: readonly [
@@ -81,18 +85,26 @@ export type CanonicalCompositeSource = {
     readonly view:TransformedMaskView;
     readonly rgb:readonly [number,number,number];
     readonly pattern:CanonicalPatternResource;
-    readonly pin:CanonicalMultiplyPrimaryTexturePin;
-    readonly strengthU8:number;
+    readonly pin:CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin;
+    readonly gradient?:CanonicalGradientResource;
+    readonly textureColorStrength?:number;
+    readonly imageMaterial?:Readonly<{kind:'lightness-map-v1'|'color-stamp-v1';strength:number;foregroundAlpha:number}>;
+    readonly strengthU8?:number;
 } | {
     readonly kind: 'straightRgba8';
     readonly view: CanonicalRgba8SourceView;
-};
-export type CanonicalCompositeOperation = {
+}) & {readonly pigmentAlphaU8?:number};
+export const CANONICAL_DUAL_MASKING_MODES=['multiply','darken','overlay','colorDodge','colorBurn','linearBurn','add','hardMix','hardMixSofter','subtract'] as const;
+export type CanonicalDualMaskingMode=typeof CANONICAL_DUAL_MASKING_MODES[number];
+export type CanonicalCompositeOperation = {readonly kind:'erase32FusedScalar';readonly control:Omit<SourceOver32ScalarControl,'profile'>&{readonly profile:'installed-arm64-scalar-fused-fpcr0-v1'}} | {readonly kind:'maskingAlpha';readonly control:{readonly mode:CanonicalDualMaskingMode}} | {
     readonly kind:'alphaDarkenBrowserFloat';
     readonly control:Omit<SourceAlphaDarken32Control,'profile'> & {readonly profile:typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE};
 } | {
     readonly kind:'overBrowserFloat';
     readonly control:Omit<SourceOver32ScalarControl,'profile'> & {readonly profile:typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE};
+} | {
+    readonly kind:'colorHsyBrowser';
+    readonly control:Extract<Rgba8CompositeControl,{readonly mode:'colorHsy'}>&{readonly profile:typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE};
 } | {
     /** Installed HSY float kernel; distinct from integer GenericSC admission. */
     readonly kind: 'colorHsyInstalled';
@@ -131,6 +143,7 @@ export interface CanonicalCompositeLimits {
     /** Explicit additional source-law variant; never an implicit plain-mask fallback. */
     readonly texturedOperations?:readonly CanonicalTexturedCompositeOperation[];
     readonly primaryGrainPrograms?:readonly CanonicalPrimaryGrainProgram[];
+    readonly imageMaterialOperations?:readonly CanonicalCompositeOperationKind[];
 }
 interface Resource {
     readonly key: string;
@@ -148,34 +161,41 @@ const VBO_BYTES = 48, PROGRAM_CPU_BYTES = 8192;
 const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
-    if (!Array.isArray(operations) || !operations.length || operations.length > 3
-        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'].includes(kind)))
+    if (!Array.isArray(operations) || !operations.length || operations.length > 3+Number(operations.includes('colorHsyBrowser'))+Number(operations.includes('maskingAlpha'))+Number(operations.includes('erase32FusedScalar'))
+        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'colorHsyBrowser', 'alphaDarkenBrowserFloat', 'overBrowserFloat','maskingAlpha','erase32FusedScalar'].includes(kind)))
         throw new RangeError('Invalid composite operations');
-    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'] as const).filter(kind => operations.includes(kind));
+    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'colorHsyBrowser', 'alphaDarkenBrowserFloat', 'overBrowserFloat','maskingAlpha','erase32FusedScalar'] as const).filter(kind => operations.includes(kind));
 }
 const TEXTURED_OPERATIONS=['alphaDarken32FusedScalar','alphaDarkenBrowserFloat','over32FusedScalar','overBrowserFloat'] as const;
 type CanonicalTexturedCompositeOperation=typeof TEXTURED_OPERATIONS[number];
 const isTexturedOperation=(kind:CanonicalCompositeOperationKind):kind is CanonicalTexturedCompositeOperation=>TEXTURED_OPERATIONS.some(value=>value===kind);
 const texturedProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:subtract-u8-v1` as const;
 export interface CanonicalPrimaryGrainProgram {
-    readonly operation:'over32FusedScalar';
-    readonly law:'hard-multiply-u8-native-v1';
+    readonly operation:CanonicalTexturedCompositeOperation|'erase32FusedScalar';
+    readonly law:'hard-multiply-u8-native-v1'|'pixel-texture-u8-v1'|'pixel-color-texture-v1';
 }
 const multiplyProgram='over32FusedScalar:hard-multiply-u8-native-v1' as const;
+const pixelTextureProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:pixel-texture-u8-v1` as const;
+const colorTextureProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:pixel-color-texture-v1` as const;
+const primaryGrainProgram=(law:CanonicalPrimaryGrainProgram['law'],kind:CanonicalCompositeOperationKind)=>law==='pixel-color-texture-v1'?colorTextureProgram(kind):law==='pixel-texture-u8-v1'?pixelTextureProgram(kind):multiplyProgram;
 function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly CanonicalPrimaryGrainProgram[] {
     const selected=limits.primaryGrainPrograms??[];
-    if(!Array.isArray(selected)||selected.length>1)throw new RangeError('Invalid primary grain programs');
+    if(!Array.isArray(selected)||selected.length>11)throw new RangeError('Invalid primary grain programs');
     for(let i=0;i<selected.length;i++){
         const item=Object.getOwnPropertyDescriptor(selected,String(i));
         if(!item||!Object.hasOwn(item,'value'))throw new RangeError('Invalid primary grain program item');
         const entry:unknown=item.value;
         if(!entry||typeof entry!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(entry))||Reflect.ownKeys(entry).length!==2)throw new RangeError('Invalid primary grain program');
         const operation=Object.getOwnPropertyDescriptor(entry,'operation'),law=Object.getOwnPropertyDescriptor(entry,'law');
-        if(!operation||!Object.hasOwn(operation,'value')||operation.value!=='over32FusedScalar'||!law||!Object.hasOwn(law,'value')||law.value!=='hard-multiply-u8-native-v1'||!operationsFor(limits).includes(operation.value))throw new RangeError('Invalid primary grain program');
+        if(!operation||!Object.hasOwn(operation,'value')||!['alphaDarken32FusedScalar','alphaDarkenBrowserFloat','over32FusedScalar','overBrowserFloat','erase32FusedScalar'].includes(operation.value)||!law||!Object.hasOwn(law,'value')||!['hard-multiply-u8-native-v1','pixel-texture-u8-v1','pixel-color-texture-v1'].includes(law.value)||!operationsFor(limits).includes(operation.value))throw new RangeError('Invalid primary grain program');
     }
-    return selected.length?[Object.freeze({operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'})]:[];
+    if(selected.some(p=>p.law==='hard-multiply-u8-native-v1'&&p.operation!=='over32FusedScalar'))throw new RangeError('Historical multiply only supports OVER');
+    if(new Set(selected.map(p=>primaryGrainProgram(p.law,p.operation))).size!==selected.length)throw new RangeError('Duplicate primary grain program');
+    return Object.freeze(selected.map(p=>Object.freeze({operation:p.operation,law:p.law})));
 }
-type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram;
+const imageMaterialProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:image-material` as const;
+function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>4||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
+type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
@@ -201,14 +221,23 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
     if (!whole(limits.width, 1) || !whole(limits.height, 1) || limits.width > 4096 || limits.height > 4096
         || limits.width * limits.height > 1048576)
         throw new RangeError('Invalid canonical composite capacity');
-    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length+primaryGrainProgramsFor(limits).length) };
+    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length+primaryGrainProgramsFor(limits).length+imageMaterialOperationsFor(limits).length) };
 }
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
 function fragmentFor(kind: CanonicalCompositeOperationKind): string {
-    const kernel = kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? SOURCE_ALPHA_DARKEN32_GLSL : (kind === 'over32'||kind==='overBrowserFloat') ? SOURCE_OVER32_SCALAR_GLSL
+    if(kind==='erase32FusedScalar')return fragmentFor('over32FusedScalar').replace(
+      'gl_FragColor=sourceCompositeFusedOver32Scalar(source,destination,controls.xw,policy.y,opacityParts)/255.0;',
+      'highp float eraseAlpha=source.a*controls.x*(policy.y!=0.0?controls.w*0.003921568859368563:1.0);gl_FragColor=vec4(destination.rgb,sourceOver32RoundEven(clamp(sourceFmaFiniteNumbers(-eraseAlpha,destination.a*0.003921568859368563,destination.a),0.0,255.0)))/255.0;');
+
+    if(kind==='maskingAlpha')return fragmentFor('over32FusedScalar')
+      .replace('void main(){',`${CANONICAL_MASKING_BLEND_GLSL}\nvoid main(){`)
+      .replace('gl_FragColor=sourceCompositeFusedOver32Scalar(source,destination,controls.xw,policy.y,opacityParts)/255.0;',
+        'gl_FragColor=vec4(destination.rgb,canonicalMaskingBlend(controls.x,source.a,destination.a,-1.0,0.0))/255.0;');
+
+    const kernel = kind === 'colorHsyBrowser' ? SOURCE_RGBA8_BROWSER_HSY_WEBGL1_GLSL : kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? SOURCE_ALPHA_DARKEN32_GLSL : (kind === 'over32'||kind==='overBrowserFloat') ? SOURCE_OVER32_SCALAR_GLSL
         : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
-    const apply = kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
+    const apply = kind === 'colorHsyBrowser' ? 'sourceCompositeBrowserHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
         : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
         : (kind === 'over32'||kind==='overBrowserFloat') ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
         : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
@@ -223,10 +252,15 @@ uniform highp vec2 mirrorFlags;
 uniform highp vec2 sourcePolicy;
 uniform highp vec2 scratchSize;
 uniform highp vec3 pigment;
+uniform highp float pigmentAlpha;
+uniform highp float sourceAlphaChannel;
 uniform highp vec4 controls;
 uniform highp vec2 policy;
 uniform highp vec3 opacityParts;
 uniform highp vec3 flowParts;
+uniform highp vec3 sharpness;
+${BRUSH_ALPHA_THRESHOLD_GLSL}
+highp float sourcePigmentCoverage(highp float coverage){highp float n=coverage*pigmentAlpha+128.0;return floor((n+floor(n/256.0))/256.0);}
 ${kernel}
 void main(){
   highp vec2 local=gl_FragCoord.xy-clipRect.xy;
@@ -236,17 +270,27 @@ void main(){
   if(sourcePolicy.y!=0.0)pixel.y=sourceGeometry.w-1.0-pixel.y;
   highp vec2 sourceUV=sourceBounds.xy+(pixel+0.5)/sourceGeometry.zw*sourceBounds.zw;
   highp vec4 sampled=floor(texture2D(sourceTexture,sourceUV)*255.0+0.5);
-  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;
+  if(sourceAlphaChannel<0.5)sampled.r=brushAlphaThreshold(sampled.r/255.0,sharpness)*255.0;
+  else sampled.a=brushAlphaThreshold(sampled.a/255.0,sharpness)*255.0;
+  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sourcePigmentCoverage(sampled.r)):sampled;
+  if(pigmentAlpha==0.0)source.a=0.0;
   highp vec4 destination=floor(texture2D(destinationTexture,local/scratchSize)*255.0+0.5);
   gl_FragColor=${apply}/255.0;
 }`;
 }
-/** The old fragment remains byte-identical; this explicit variant fuses the
- * versioned U8 coverage law before the existing composition kernel. */
+/** Explicit material variant shares the sampling/coverage pipeline and the
+ * existing composition kernel; bitmap RGB is not replaced by foreground RGB. */
+function imageMaterialFragmentFor(kind:CanonicalCompositeOperationKind):string {
+ return fragmentFor(kind).replace('void main(){',`uniform highp vec3 lightnessMaterial;
+${BRUSH_LIGHTNESS_GLSL}
+void main(){`)
+  .replace('highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sourcePigmentCoverage(sampled.r)):sampled;',
+    'highp vec4 source=vec4(lightnessMaterial.x<1.5?brushMaterialColor(pigment/255.0,sampled.r/255.0,lightnessMaterial.y)*255.0:sampled.rgb,lightnessMaterial.x<1.5?min(sampled.a,lightnessMaterial.z*255.0):sampled.a*lightnessMaterial.z);');
+}
 function texturedFragmentFor(kind:CanonicalCompositeOperationKind):string {
     const reduce=[2048,1024,512,256,128,64,32,16,8,4,2,1].map(n=>`if(value>=period*${n}.0)value-=period*${n}.0;`).join('\n');
     const base=fragmentFor(kind);
-    for(const required of ['uniform highp vec4 clipRect;','void main(){','  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;'])if(!base.includes(required))throw new Error('Composite texture template changed');
+    for(const required of ['uniform highp vec4 clipRect;','void main(){','  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sourcePigmentCoverage(sampled.r)):sampled;'])if(!base.includes(required))throw new Error('Composite texture template changed');
     return base
         .replace('uniform highp vec4 clipRect;',`uniform highp sampler2D patternTexture;
 uniform highp vec2 patternPhase;
@@ -259,19 +303,41 @@ ${reduce}
 return value;
 }
 void main(){`)
-        .replace('  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;',`  highp vec2 patternPixel=patternPhase+floor(vec2(local.x,clipRect.w-local.y));
+        .replace('  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sourcePigmentCoverage(sampled.r)):sampled;',`  highp vec2 patternPixel=patternPhase+floor(vec2(local.x,clipRect.w-local.y));
   highp vec2 cell=vec2(patternCell(patternPixel.x,patternPeriod.x),patternCell(patternPixel.y,patternPeriod.y));
   highp float grain=floor(texture2D(patternTexture,(cell+0.5)/patternSide).r*255.0+0.5);
-  highp float coverage=max(0.0,sampled.r-grain-(255.0-patternStrength));
+  highp float coverage=max(0.0,sourcePigmentCoverage(sampled.r)-grain-(255.0-patternStrength));
   highp vec4 source=vec4(pigment,coverage);`);
 }
 function multiplyFragmentFor():string {
     const base=texturedFragmentFor('over32FusedScalar');
-    const old='highp float coverage=max(0.0,sampled.r-grain-(255.0-patternStrength));';
+    const old='highp float coverage=max(0.0,sourcePigmentCoverage(sampled.r)-grain-(255.0-patternStrength));';
     if(!base.includes(old))throw new Error('Multiply texture template changed');
     // max triple255^3 + bias + floor(biased/128) <2^24, exact highp integers.
-    return base.replace(old,`highp float biased=sampled.r*grain*patternStrength+32603.0;
+    return base.replace(old,`highp float biased=sourcePigmentCoverage(sampled.r)*grain*patternStrength+32603.0;
   highp float coverage=floor((biased+floor(biased/128.0))/65536.0);`);
+}
+/** One common sampled-alpha program for all closed Pixel texture modes. */
+function pixelTextureFragmentFor(kind:CanonicalCompositeOperationKind):string {
+ return texturedFragmentFor(kind)
+  .replace('void main(){',`uniform highp vec2 patternLaw;
+uniform highp vec3 lightnessMaterial;
+${BRUSH_LIGHTNESS_GLSL}
+${CANONICAL_MASKING_BLEND_GLSL}
+void main(){`)
+  .replace('highp float coverage=max(0.0,sourcePigmentCoverage(sampled.r)-grain-(255.0-patternStrength));',`highp float baseAlpha=lightnessMaterial.x<0.5?sourcePigmentCoverage(sampled.r):lightnessMaterial.x<1.5?min(sampled.a,lightnessMaterial.z*255.0):sampled.a*lightnessMaterial.z;
+  highp float coverage=canonicalMaskingBlend(patternLaw.x,grain,floor(clamp(baseAlpha,0.0,255.0)+0.5),patternStrength,patternLaw.y);`)
+  .replace('highp vec4 source=vec4(pigment,coverage);','highp vec3 materialRgb=lightnessMaterial.x<0.5?pigment:lightnessMaterial.x<1.5?brushMaterialColor(pigment/255.0,sampled.r/255.0,lightnessMaterial.y)*255.0:sampled.rgb;highp vec4 source=vec4(materialRgb,coverage);');
+}
+/** Color textures preserve the paired pattern alpha and use an explicitly
+ * captured LUT. The source material stage precedes this SAME composition pass. */
+function colorTextureFragmentFor(kind:CanonicalCompositeOperationKind):string {
+ return pixelTextureFragmentFor(kind)
+  .replace(BRUSH_LIGHTNESS_GLSL,CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL)
+  .replace('uniform highp vec2 patternLaw;','uniform highp float textureColorMode;\nuniform highp float textureColorStrength;\nuniform highp sampler2D gradientTexture;')
+  .replace('highp float grain=floor(texture2D(patternTexture,(cell+0.5)/patternSide).r*255.0+0.5);','highp vec4 patternSample=floor(texture2D(patternTexture,(cell+0.5)/patternSide)*255.0+0.5);highp float grain=patternSample.r;')
+  .replace('highp float coverage=canonicalMaskingBlend(patternLaw.x,grain,floor(clamp(baseAlpha,0.0,255.0)+0.5),patternStrength,patternLaw.y);','highp float coverage=floor(clamp(baseAlpha,0.0,255.0)+0.5);')
+  .replace('highp vec4 source=vec4(materialRgb,coverage);','highp float row=floor(grain/16.0);highp vec2 gradientUV=(vec2(grain-row*16.0,row)+0.5)/16.0;highp vec4 source=textureColorMode<1.5?canonicalTextureLightness(vec4(materialRgb,coverage),patternSample.ra,textureColorStrength):canonicalTextureGradient(vec4(materialRgb,coverage),patternSample.ra,floor(texture2D(gradientTexture,gradientUV)*255.0+0.5),textureColorStrength);');
 }
 interface ProgramInfo {
     program: WebGLProgram;
@@ -287,6 +353,7 @@ interface Workspace {
 /** Internal opt-in numerical composition. Target is explicit straight RGBA8,
  * never the existing PM layer. Source view is already rasterized: no tip transform
  * or native-domain correction is repeated. Caller presents/outer-composites later. */
+const NO_PRIMARY_GRAIN_PROGRAMS:readonly CanonicalPrimaryGrainProgram[]=Object.freeze([]);
 export class CanonicalRgba8CompositePass {
     readonly key: string;
     private readonly gl: WebGLRenderingContext;
@@ -324,6 +391,77 @@ export class CanonicalRgba8CompositePass {
         }
         return group
     }
+    /** Add only requested native programs to the SAME scratch owner. Nothing is
+     * visible until checked publication; companions and GL turns share the
+     * existing update mutex. No program is compiled from a draw call. */
+    preparedOperations():readonly CanonicalCompositeOperationKind[]{
+        if(!this.workspace||!this.limits)throw new Error('Composite operation inventory unavailable');
+        return Object.freeze([...operationsFor(this.limits)]);
+    }
+    /** Add only explicitly selected browser HSY. Existing operations are DATA;
+     * no arbitrary operation compiler or permission flag is exposed. */
+    prepareOperationProgramUpdate(requested:readonly CanonicalCompositeOperationKind[]):CanonicalPreparedResourceUpdate {
+        return this.prepareProgramUpdate({kind:'operations',requested});
+    }
+    preparePrimaryGrainProgramUpdate(requested:readonly CanonicalPrimaryGrainProgram[]):CanonicalPreparedResourceUpdate {
+        return this.prepareProgramUpdate({kind:'grain',requested});
+    }
+    private prepareProgramUpdate(request:{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
+        this.assertMutationIdle();
+        if(!this.workspace||!this.limits)throw new Error('Composite program owner unavailable');
+        const owner=this,epoch=this.workspace,limits=this.limits,oldPrograms=epoch.programs;
+        let releaseStage:()=>void=noMetadataRelease,releasePrograms:()=>void=noMetadataRelease,releaseLease:()=>void=noMetadataRelease;
+        let state:'pending'|'published'|'cancelled'='pending',checking=false,checked=false,cleaned=false,update:CanonicalPreparedResourceUpdate|undefined;
+        let nextPrograms:Map<CompositeProgramKey,ProgramInfo>|undefined,nextLimits:CanonicalCompositeLimits|undefined;
+        const created:ProgramInfo[]=[];
+        let transferred=false,vertex:WebGLShader|null=null,restore:()=>void=noMetadataRelease,failed=false,primary:unknown;
+        const attempt=(f:()=>void)=>{try{f()}catch(error){if(!failed){failed=true;primary=error}}};
+        const owned=()=>{if(owner.workspace!==epoch||owner.limits!==limits||epoch.programs!==oldPrograms||owner.batch||!owner.busy||owner.companionUpdate!==update)throw new Error('Composite program preparation changed')};
+        const pure=()=>{if(state!=='pending'||owner.companionUpdate!==update||owner.workspace!==epoch||owner.limits!==limits||epoch.programs!==oldPrograms||owner.batch||owner.busy)throw new Error('Composite program update changed')};
+        this.busy=true;
+        try{
+            releaseStage=this.cpu.reserve(4096);owned();
+            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law']}>[];
+            let updatedLimits:CanonicalCompositeLimits;
+            if(request.kind==='grain'){
+                const wanted=primaryGrainProgramsFor({...limits,primaryGrainPrograms:request.requested}),inventory=new Map(primaryGrainProgramsFor(limits).map(p=>[primaryGrainProgram(p.law,p.operation),p]));
+                for(const item of wanted)inventory.set(primaryGrainProgram(item.law,item.operation),item);
+                const all=primaryGrainProgramsFor({...limits,primaryGrainPrograms:[...inventory.values()]});
+                additions=all.map(p=>({key:primaryGrainProgram(p.law,p.operation),operation:p.operation,law:p.law}));updatedLimits={...limits,primaryGrainPrograms:all};
+            }else{
+                if(!Array.isArray(request.requested)||request.requested.length>12||request.requested.some(k=>k!=='colorHsyBrowser'&&!operationsFor(limits).includes(k)))throw new RangeError('Unsupported operation addition');
+                const operations=operationsFor({...limits,operations:[...new Set([...operationsFor(limits),...request.requested])]});
+                additions=operations.map(operation=>({key:operation,operation}));updatedLimits={...limits,operations};
+            }
+            const missing=additions.filter(p=>!oldPrograms.has(p.key));
+            releaseLease=this.cache.leaseRequired([...this.preparedResources(),...this.companions]);owned();
+            if(missing.length)releasePrograms=this.cpu.reserve(missing.length*PROGRAM_CPU_BYTES);owned();
+            nextPrograms=new Map(oldPrograms);nextLimits=Object.freeze(updatedLimits);
+            if(missing.length){
+                restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,3);
+                vertex=this.gl.createShader(this.gl.VERTEX_SHADER);if(!vertex)throw new Error('Composite update vertex allocation failed');
+                this.gl.shaderSource(vertex,VERTEX);this.gl.compileShader(vertex);if(!this.gl.getShaderParameter(vertex,this.gl.COMPILE_STATUS))throw new Error('Composite update vertex compile failed: '+this.gl.getShaderInfoLog(vertex));owned();
+                for(const item of missing){const info=this.compile(item.operation,vertex,item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply');created.push(info);owned();nextPrograms.set(item.key,info)}
+            }
+            owned();
+        }catch(error){failed=true;primary=error}
+        finally{
+            if(vertex){const shader=vertex;vertex=null;attempt(()=>this.gl.deleteShader(shader))}
+            attempt(restore);attempt(releaseLease);this.busy=false;
+        }
+        const disposeUnpublished=()=>{if(transferred)return;transferred=true;let bad=false,error:unknown;for(const info of created)try{if(!this.gl.isContextLost())this.gl.deleteProgram(info.program)}catch(e){if(!bad){bad=true;error=e}}const release=releasePrograms;releasePrograms=noMetadataRelease;try{release()}catch(e){if(!bad){bad=true;error=e}}if(bad)throw error};
+        if(failed){attempt(disposeUnpublished);attempt(releaseStage);throw primary}
+        const ticket:CanonicalPreparedResourceUpdate=Object.freeze({
+            get status(){return state},
+            assertCurrent(){if(this!==ticket||checking)throw new Error('Composite program assertion reentry');pure();checking=true;checked=false;try{if(!owner.isReady())throw new Error('Composite workspace retired');for(const r of [...owner.preparedResources(),...owner.companions])if(owner.cache.resourceBytes(r.key)!==r.bytes||!owner.cache.get(r.key))throw new Error('Composite source group retired');pure();checked=true}finally{checking=false}},
+            publish(){if(this!==ticket||checking||!checked||!nextPrograms||!nextLimits)throw new Error('Composite program publication not checked');pure();if(created.length){const releaseOld=owner.releaseCpu,releaseNew=releasePrograms;releasePrograms=noMetadataRelease;owner.releaseCpu=()=>{let bad=false,error:unknown;try{releaseOld?.()}catch(e){bad=true;error=e}try{releaseNew()}catch(e){if(!bad){bad=true;error=e}}if(bad)throw error};owner.reservedCpuBytes+=created.length*PROGRAM_CPU_BYTES;}epoch.programs=nextPrograms;owner.limits=nextLimits;nextPrograms=undefined;nextLimits=undefined;transferred=true;state='published';return undefined},
+            finalizeCleanup(){if(this!==ticket||checking||state==='pending')throw new Error('Composite program cleanup unavailable');if(cleaned)return undefined;cleaned=true;if(owner.companionUpdate===ticket)owner.companionUpdate=undefined;const release=releaseStage;releaseStage=noMetadataRelease;release();return undefined},
+            cancel(){if(this!==ticket||checking||owner.busy)throw new Error('Composite program cancel unavailable');if(state!=='pending')return undefined;state='cancelled';if(owner.companionUpdate===ticket)owner.companionUpdate=undefined;nextPrograms=undefined;nextLimits=undefined;let bad=false,error:unknown;try{disposeUnpublished()}catch(e){bad=true;error=e}const release=releaseStage;releaseStage=noMetadataRelease;try{release()}catch(e){if(!bad){bad=true;error=e}}if(bad)throw error;return undefined},
+        });
+        update=ticket;
+        try{if(this.companionUpdate||this.workspace!==epoch||this.limits!==limits||epoch.programs!==oldPrograms||this.batch||this.busy)throw new Error('Composite program owner changed');this.companionUpdate=ticket;ticket.assertCurrent();return ticket}catch(primary){try{ticket.cancel()}catch{}throw primary}
+    }
+
     /** Stage ready-workspace companion metadata without changing live draws. */
     prepareCompanionUpdate(companions:readonly Resource[],companionCpuBytes=0):CanonicalPreparedResourceUpdate {
         if(this.companionUpdate||!this.workspace||!this.limits||this.batch||this.busy)throw new Error('Composite companion update unavailable')
@@ -360,9 +498,9 @@ export class CanonicalRgba8CompositePass {
         if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
         if (signal?.aborted)
             return 'cancelled';
-        const operations = operationsFor(limits),texturedOperations=texturedOperationsFor(limits),primaryGrainPrograms=primaryGrainProgramsFor(limits);
+        const operations = operationsFor(limits),texturedOperations=texturedOperationsFor(limits),primaryGrainPrograms=primaryGrainProgramsFor(limits),imageMaterialOperations=imageMaterialOperationsFor(limits);
         if(this.limits){
-            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||texturedOperations.join(',')!==texturedOperationsFor(this.limits).join(',')||primaryGrainPrograms.length!==primaryGrainProgramsFor(this.limits).length||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
+            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||texturedOperations.join(',')!==texturedOperationsFor(this.limits).join(',')||primaryGrainPrograms.map(p=>primaryGrainProgram(p.law,p.operation)).join()!==primaryGrainProgramsFor(this.limits).map(p=>primaryGrainProgram(p.law,p.operation)).join()||imageMaterialOperations.join(',')!==imageMaterialOperationsFor(this.limits).join(',')||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
             const update=this.prepareCompanionUpdate(companions,companionCpuBytes);update.publish();update.finalizeCleanup();return 'ready'
         }
         const budget = canonicalRgba8CompositeBudget(limits), group = new Map<string, number>();
@@ -407,7 +545,8 @@ export class CanonicalRgba8CompositePass {
             if(!gl.getShaderParameter(vertex,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(vertex));
             for(const kind of operations)programs.set(kind,this.compile(kind,vertex));
             for(const kind of texturedOperations)programs.set(texturedProgram(kind),this.compile(kind,vertex,true));
-            if(primaryGrainPrograms.length)programs.set(multiplyProgram,this.compile('over32FusedScalar',vertex,'multiply'));
+            for(const p of primaryGrainPrograms)programs.set(primaryGrainProgram(p.law,p.operation),this.compile(p.operation,vertex,p.law==='pixel-color-texture-v1'?'color':p.law==='pixel-texture-u8-v1'?'pixel':'multiply'));
+            for(const kind of imageMaterialOperations)programs.set(imageMaterialProgram(kind),this.compile(kind,vertex,'lightness'));
             // Cleanup failure is fatal BEFORE workspace/program publication.
             const completedVertex=vertex;vertex=null;gl.deleteShader(completedVertex);
             const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
@@ -422,7 +561,7 @@ export class CanonicalRgba8CompositePass {
                 if(bad)throw first;
             });loose.push(bundle);auxTransferred=true;
             this.workspace=owned;this.cache.putOwned(this.key,bundle);
-            this.limits={...limits,operations,texturedOperations,primaryGrainPrograms};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
+            this.limits={...limits,operations,texturedOperations,primaryGrainPrograms,imageMaterialOperations};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
             this.releaseCpu=releaseCpu;this.reservedCpuBytes=budget.cpuBytes;retainedCpu=true;cancelled=!!signal?.aborted;
         }catch(error){failed=true;failure=error}
         finally{
@@ -454,8 +593,16 @@ export class CanonicalRgba8CompositePass {
         return this.isReady()&&kinds.every(kind=>isTexturedOperation(kind)&&this.workspace!.programs.has(texturedProgram(kind)));
     }
     /** Pure prepared-program evidence, never implicit shader compilation. */
+    supportsImageMaterialOperations(operations:readonly CanonicalCompositeOperationKind[]):boolean {
+        try{return this.isReady()&&operations.every(kind=>this.workspace!.programs.has(imageMaterialProgram(kind)))}catch{return false}
+    }
+    /** Captured inventory DATA only; residency/authority must still be checked. */
+    preparedPrimaryGrainPrograms():readonly CanonicalPrimaryGrainProgram[]{
+        if(!this.workspace||!this.limits)throw new Error('Composite program inventory unavailable');
+        return this.limits.primaryGrainPrograms??NO_PRIMARY_GRAIN_PROGRAMS;
+    }
     supportsPrimaryGrainPrograms(programs:readonly CanonicalPrimaryGrainProgram[]):boolean {
-        try{return this.isReady()&&primaryGrainProgramsFor({width:1,height:1,operations:this.limits!.operations,primaryGrainPrograms:programs}).every(()=>this.workspace!.programs.has(multiplyProgram))}
+        try{return this.isReady()&&primaryGrainProgramsFor({width:1,height:1,operations:this.limits!.operations,primaryGrainPrograms:programs}).every(p=>this.workspace!.programs.has(primaryGrainProgram(p.law,p.operation)))}
         catch{return false}
     }
     preparedResources(): readonly Resource[] {
@@ -483,6 +630,7 @@ export class CanonicalRgba8CompositePass {
         if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
         return { gl: this.gl, cache: this.cache, cpu: this.cpu, contextOwner:this.contextOwner, epoch: this.workspace,
             attributes: [...this.workspace.programs.values()].map(info => info.attribute), instancing: this.instancing, vertexArrays: this.vertexArrays,
+            textureUnits:[...this.workspace.programs.keys()].some(k=>k.includes('pixel-color-texture-v1'))?4:3,
             resources: [...this.companions, ...this.preparedResources()] };
     }
     enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
@@ -511,15 +659,17 @@ export class CanonicalRgba8CompositePass {
             throw new RangeError('Immutable destination geometry must match the output target');
         if (!this.isReady() || !this.workspace || !this.limits)
             throw new Error('Composite pass is not prepared');
-        if(source.kind==='primaryGrainMaskRgb'&&operation.kind!=='over32FusedScalar')throw new RangeError('Unsupported multiply operation');
-        const info = this.workspace.programs.get(source.kind==='primaryGrainMaskRgb'?multiplyProgram:pattern?texturedProgram(operation.kind):operation.kind);
-        if(pattern&&!isTexturedOperation(operation.kind))throw new RangeError('Unsupported textured composite operation');
+        if(source.kind==='primaryGrainMaskRgb'&&source.pin.law==='hard-multiply-u8-native-v1'&&operation.kind!=='over32FusedScalar')throw new RangeError('Unsupported multiply operation');
+        const info = this.workspace.programs.get(source.kind==='imageMaterialRgba'?imageMaterialProgram(operation.kind):source.kind==='primaryGrainMaskRgb'?primaryGrainProgram(source.pin.law,operation.kind):pattern?texturedProgram(operation.kind):operation.kind);
+        if(pattern&&!isTexturedOperation(operation.kind)&&!(operation.kind==='erase32FusedScalar'&&source.kind==='primaryGrainMaskRgb'&&source.pin.law!=='hard-multiply-u8-native-v1'))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
         if (target.texture === sampled.texture || target.texture === this.workspace.texture || sampled.texture === this.workspace.texture || base.texture === this.workspace.texture)
             throw new RangeError('Composite framebuffer feedback alias');
         if(pattern&&(pattern.view.texture===target.texture||pattern.view.texture===base.texture||pattern.view.texture===this.workspace.texture||pattern.view.texture===sampled.texture))throw new RangeError('Composite pattern feedback alias');
-        const resources = [...this.companions, ...this.preparedResources(),...pattern?[{key:pattern.view.key,bytes:pattern.view.width*pattern.view.height*4}]:[]];
+        const gradient=source.kind==='primaryGrainMaskRgb'?source.gradient:undefined;
+        if(gradient&&(gradient.texture===target.texture||gradient.texture===base.texture||gradient.texture===sampled.texture||gradient.texture===this.workspace.texture))throw new RangeError('Composite gradient feedback alias');
+        const resources = [...gradient?[{key:gradient.key,bytes:1024}]:[],...this.companions, ...this.preparedResources(),...pattern?[{key:pattern.view.key,bytes:pattern.view.width*pattern.view.height*4}]:[]];
         for (const r of this.companions)
             if (this.cache.resourceBytes(r.key) !== r.bytes || !this.cache.get(r.key))
                 throw new Error('Composite companion residency changed');
@@ -532,7 +682,7 @@ export class CanonicalRgba8CompositePass {
         const unique = new Map(resources.map(r => [r.key, r.bytes]));
         if ([...unique.values()].reduce((a, b) => a + b, 0) > this.cache.budgetBytes)
             throw new RangeError('Composite draw exceeds GPU budget');
-        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : [], ...frame&&pattern ? [canonicalPatternResourceLifetime(pattern.view,{gl:this.gl,cache:this.cache,cpu:this.cpu})] : []];
+        const declaredOwners = [...frame&&gradient?[canonicalPatternResourceLifetime(gradient,{gl:this.gl,cache:this.cache,cpu:this.cpu})]:[],target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : [], ...frame&&pattern ? [canonicalPatternResourceLifetime(pattern.view,{gl:this.gl,cache:this.cache,cpu:this.cpu})] : []];
         const clip = this.clip(sampled.rect, target, bounds);
         if (!clip) {
             frame?.assert(this, resources, declaredOwners);
@@ -545,7 +695,7 @@ export class CanonicalRgba8CompositePass {
         frame?.beginDraw();
         this.cache.protect([...unique.keys()]);
         const release = frame ? () => {} : this.cache.lease([...unique].map(([key, bytes]) => ({ key, bytes })));
-        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, pattern?3:2), releases: (() => void)[] = [];
+        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, source.kind==='primaryGrainMaskRgb'&&source.gradient?4:pattern?3:2), releases: (() => void)[] = [];
         this.busy = true;
         const restoreSamplings:(()=>void)[]=[];
         let failure: unknown, failed = false;
@@ -583,7 +733,15 @@ export class CanonicalRgba8CompositePass {
                 gl.activeTexture(gl.TEXTURE0+2);gl.bindTexture(gl.TEXTURE_2D,pattern.view.texture);
                 restoreSamplings.push(frame?frame.pointSampling(pattern.view.texture):this.pointSampling(pattern.view.texture,gl.TEXTURE0+2));
             }
+            if(source.kind==='primaryGrainMaskRgb'&&source.gradient){gl.activeTexture(gl.TEXTURE0+3);gl.bindTexture(gl.TEXTURE_2D,source.gradient.texture);restoreSamplings.push(frame?frame.pointSampling(source.gradient.texture):this.pointSampling(source.gradient.texture,gl.TEXTURE0+3));}
             const u = info.uniforms;
+            const spatialRGBA=source.kind!=='straightRgba8'&&source.view.spatialRGBA;
+            const bitmapColor=spatialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
+            gl.uniform1f(u.pigmentAlpha,source.kind==='straightRgba8'||bitmapColor?255:source.pigmentAlphaU8??255);
+            gl.uniform1f(u.sourceAlphaChannel,spatialRGBA||source.kind==='straightRgba8'||source.kind==='imageMaterialRgba'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?1:0);
+            const parameters=source.kind==='straightRgba8'?undefined:source.view.materialParams;gl.uniform3f(u.sharpness,parameters?.sharpnessThreshold??0,(parameters?.sharpnessSoftness??0)/100,parameters?.sharpnessChecked?1:0);
+            if(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')){const m=source.imageMaterial;gl.uniform3f(u.lightnessMaterial,spatialRGBA?2:m?(m.kind==='lightness-map-v1'?1:2):0,m?.strength??0,m?.foregroundAlpha??1);}
+            if(source.kind==='imageMaterialRgba')gl.uniform3f(u.lightnessMaterial,source.material==='lightness-map-v1'?1:2,source.strength,source.foregroundAlpha);
             gl.uniform1i(u.sourceTexture, 0);
             gl.uniform1i(u.destinationTexture, 1);
             if(pattern){
@@ -592,20 +750,26 @@ export class CanonicalRgba8CompositePass {
                 gl.uniform1i(u.patternTexture,2);gl.uniform2f(u.patternPhase,phaseX,phaseY);
                 gl.uniform2f(u.patternPeriod,pattern.pin.periodX,pattern.pin.periodY);
                 gl.uniform1f(u.patternSide,pattern.view.width);gl.uniform1f(u.patternStrength,pattern.strengthU8);
+                if(pattern.pin.law==='pixel-color-texture-v1'&&source.kind==='primaryGrainMaskRgb'){gl.uniform1f(u.textureColorMode,pattern.pin.mode==='lightness'?1:2);gl.uniform1f(u.textureColorStrength,source.textureColorStrength!);gl.uniform1i(u.gradientTexture,3);}
+                if(pattern.pin.law==='pixel-texture-u8-v1')gl.uniform2f(u.patternLaw,canonicalMaskingBlendModes.indexOf(pattern.pin.mode),pattern.pin.soft?1:0);
             }
             gl.uniform4f(u.clipRect, clip.x, clip.y, clip.width, clip.height);
             gl.uniform4f(u.sourceGeometry, clip.maskX, clip.maskY, sampled.rect.width, sampled.rect.height);
             gl.uniform4f(u.sourceBounds, sampled.bounds.x, sampled.bounds.y, sampled.bounds.width, sampled.bounds.height);
             gl.uniform2f(u.mirrorFlags, +sampled.mirror.horizontal, +sampled.mirror.vertical);
-            gl.uniform2f(u.sourcePolicy, source.kind === 'straightRgba8' ? 1 : 0, sampled.rowOrder === 'bottomAtV0' ? 1 : 0);
+            gl.uniform2f(u.sourcePolicy, source.kind === 'straightRgba8'||spatialRGBA ? 1 : 0, sampled.rowOrder === 'bottomAtV0' ? 1 : 0);
             gl.uniform2f(u.scratchSize, this.limits.width, this.limits.height);
             gl.uniform3f(u.pigment, ...source.kind !== 'straightRgba8' ? source.rgb : [0, 0, 0] as [
                 number,
                 number,
                 number
             ]);
-            const c = operation.control;
-            if (operation.kind === 'colorHsyInstalled') {
+            const c = operation.kind==='maskingAlpha'?{opacity:1,mask:undefined}:operation.control;
+            if(operation.kind==='maskingAlpha'){gl.uniform4f(u.controls,CANONICAL_DUAL_MASKING_MODES.indexOf(operation.control.mode),0,0,0);}
+            else if(operation.kind==='colorHsyBrowser'){
+                const prepared=canonicalizeSourceBrowserHsyControl(operation.control);
+                gl.uniform4f(u.controls,prepared.opacity,prepared.average,prepared.flow,prepared.mask);gl.uniform2f(u.policy,prepared.mode,+prepared.hasMask);
+            } else if (operation.kind === 'colorHsyInstalled') {
                 const prepared = canonicalizeSourceInstalledHsyControl(operation.control);
                 gl.uniform4f(u.controls, prepared.opacity, prepared.average, prepared.flow, prepared.mask);
                 gl.uniform2f(u.policy, prepared.mode, +prepared.hasMask);
@@ -620,7 +784,7 @@ export class CanonicalRgba8CompositePass {
                 gl.uniform2f(u.policy, ...prepared.selection);
                 gl.uniform3f(u.opacityParts, ...prepared.opacityParts);
                 gl.uniform3f(u.flowParts, ...prepared.flowParts);
-            } else if (operation.kind === 'over32FusedScalar') {
+            } else if (operation.kind === 'over32FusedScalar'||operation.kind==='erase32FusedScalar') {
                 const prepared = prepareSourceFusedOver32ScalarControls(c.opacity, c.mask);
                 gl.uniform4f(u.controls, prepared.values[0], 0, 0, prepared.values[1]);
                 gl.uniform2f(u.policy, 0, prepared.hasMask);
@@ -693,12 +857,14 @@ export class CanonicalRgba8CompositePass {
         if(failed)throw primary;
     }
 
-    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'|'primaryGrainMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin|CanonicalMultiplyPrimaryTexturePin;strengthU8:number;phaseX:number;phaseY:number} {
+    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'|'primaryGrainMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin|CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin;strengthU8:number;phaseX:number;phaseY:number} {
         const view=source.pattern;
         assertCanonicalPatternResourceCurrent(view,{gl:this.gl,cache:this.cache,cpu:this.cpu});
         const strength=Object.getOwnPropertyDescriptor(source.pin,'strength');
         if(!strength||!Object.hasOwn(strength,'value'))throw new TypeError('Invalid textured strength pin');
-        const pin=source.kind==='primaryGrainMaskRgb'?canonicalMultiplyPrimaryTexturePin(source.pin,view.asset):strength.value==='recorded-grain-v1'?canonicalRecordedPrimaryTexturePin(source.pin,view.asset):strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
+        const law=Object.getOwnPropertyDescriptor(source.pin,'law');
+        const pin=source.kind==='primaryGrainMaskRgb'?(law&&Object.hasOwn(law,'value')&&law.value==='pixel-color-texture-v1'?(view.alphaAsset?canonicalPixelColorTexturePin(source.pin,view.asset,view.alphaAsset):(()=>{throw new TypeError('Color pattern alpha missing')})()):law&&Object.hasOwn(law,'value')&&law.value==='pixel-texture-u8-v1'?canonicalPixelPrimaryTexturePin(source.pin,view.asset):canonicalMultiplyPrimaryTexturePin(source.pin,view.asset)):strength.value==='recorded-grain-v1'?canonicalRecordedPrimaryTexturePin(source.pin,view.asset):strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8??0;
+        if(pin.law==='pixel-color-texture-v1'){if(source.kind!=='primaryGrainMaskRgb'||source.strengthU8!==undefined||!Number.isFinite(source.textureColorStrength)||source.textureColorStrength!<0||(pin.mode==='lightness'?source.textureColorStrength!>1:!whole(source.textureColorStrength!)||source.textureColorStrength!>255))throw new TypeError('Invalid recorded color texture strength');if(pin.mode==='gradient'){if(!source.gradient||!pin.gradient)throw new TypeError('Captured gradient resource required');assertCanonicalPatternResourceCurrent(source.gradient,{gl:this.gl,cache:this.cache,cpu:this.cpu});if(JSON.stringify(source.gradient.gradient)!==JSON.stringify(pin.gradient))throw new TypeError('Gradient original resource changed')}else if(source.gradient)throw new TypeError('Unexpected gradient resource')}else if(source.kind==='primaryGrainMaskRgb'&&(!whole(source.strengthU8!)||source.strengthU8!<0||source.strengthU8!>255||source.textureColorStrength!==undefined||source.gradient))throw new TypeError('Unexpected color texture controls');
         if(pin.strength==='fixed-one-v1'&&strengthU8!==255)throw new RangeError('Fixed texture requires S255');
         if(!whole(side,1)||side>4096||(side&(side-1))!==0||view.height!==side||!whole(strengthU8)||Object.is(strengthU8,-0)||strengthU8>255)throw new RangeError('Invalid textured composite source');
         return {view,pin,strengthU8,phaseX:pin.strength==='recorded-grain-v1'?pin.phase.x:pin.offsetX,phaseY:pin.strength==='recorded-grain-v1'?pin.phase.y:pin.offsetY};
@@ -711,14 +877,17 @@ export class CanonicalRgba8CompositePass {
         rowOrder: 'topAtV0' | 'bottomAtV0';
         residency: CanonicalSourceResidency;
     } {
+        if(source.pigmentAlphaU8!==undefined&&(!whole(source.pigmentAlphaU8)||Object.is(source.pigmentAlphaU8,-0)||source.pigmentAlphaU8>255||source.kind==='straightRgba8'))throw new RangeError('Invalid source pigment alpha');
         const view = source.view;
         if (!view || !rectValid(view.rect) || view.rect.width > 4096 || view.rect.height > 4096 || !view.texture
             || !view.bounds || ![view.bounds.x, view.bounds.y, view.bounds.width, view.bounds.height].every(Number.isFinite)
             || view.bounds.x < 0 || view.bounds.y < 0 || view.bounds.width <= 0 || view.bounds.height <= 0 || view.bounds.x + view.bounds.width > 1 || view.bounds.y + view.bounds.height > 1
             || !view.mirror || typeof view.mirror.horizontal !== 'boolean' || typeof view.mirror.vertical !== 'boolean')
             throw new RangeError('Invalid composite source view');
-        if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb'||source.kind==='primaryGrainMaskRgb') {
+        if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb'||source.kind==='primaryGrainMaskRgb'||source.kind==='imageMaterialRgba') {
             const mask = source.view;
+            if(source.kind==='primaryGrainMaskRgb'&&source.imageMaterial){const m=source.imageMaterial;if((source.pin.law!=='pixel-texture-u8-v1'&&source.pin.law!=='pixel-color-texture-v1')||!mask.spatialRGBA&&mask.imageMaterial!==m.kind||!Number.isFinite(m.strength)||m.strength<0||m.strength>1||!Number.isFinite(m.foregroundAlpha)||m.foregroundAlpha<0||m.foregroundAlpha>1)throw new RangeError('Invalid grain image material');}
+            if(source.kind==='imageMaterialRgba'&&(mask.imageMaterial!==source.material||!Number.isFinite(source.strength)||source.strength<0||source.strength>1||!Number.isFinite(source.foregroundAlpha)||source.foregroundAlpha<0||source.foregroundAlpha>1))throw new RangeError('Invalid lightness material source');
             if (mask.channel !== 'r' || !mask.key || !Array.isArray(source.rgb) || source.rgb.length !== 3 || !source.rgb.every(v => whole(v) && v <= 255))
                 throw new RangeError('Invalid mask source/pigment bytes');
             const bytes = this.cache.resourceBytes(mask.key);
@@ -755,10 +924,12 @@ export class CanonicalRgba8CompositePass {
         this.validateLifetime(target.lifetime);
     }
     private validateOperation(operation: CanonicalCompositeOperation): void {
+        if(operation.kind==='maskingAlpha'){if(!CANONICAL_DUAL_MASKING_MODES.includes(operation.control.mode))throw new RangeError('Unsupported masking blend');return;}
         const c = operation.control;
         if (!c || !Number.isFinite(c.opacity) || c.opacity < 0 || c.opacity > 1 || c.mask !== undefined && (!whole(c.mask) || c.mask > 255))
             throw new RangeError('Invalid composite controls');
-        if (operation.kind === 'colorHsyInstalled') {
+        if(operation.kind==='colorHsyBrowser'){canonicalizeSourceBrowserHsyControl(operation.control);}
+        else if (operation.kind === 'colorHsyInstalled') {
             canonicalizeSourceInstalledHsyControl(operation.control);
         } else if (operation.kind === 'genericSCU8') {
             if (operation.control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE
@@ -771,7 +942,7 @@ export class CanonicalRgba8CompositePass {
                 || ![a.averageOpacity, a.flow].every(v => Number.isFinite(v) && v >= 0 && v <= 1))
                 throw new RangeError('Invalid local alphaDarken32 controls');
         }
-        else if (operation.kind==='overBrowserFloat'?operation.control.profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE:operation.kind === 'over32FusedScalar' ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
+        else if (operation.kind==='overBrowserFloat'?operation.control.profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE:(operation.kind === 'over32FusedScalar'||operation.kind==='erase32FusedScalar') ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
             throw new RangeError('Invalid Over32 profile');
     }
     private clip(rect: TransformedMaskView['rect'], target: CanonicalStraightRgba8Target, bounds?: Readonly<WorldRect>): Clip | undefined {
@@ -787,7 +958,7 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'=false): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false): ProgramInfo {
         const gl=this.gl;
         let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
         let failed=false,failure:unknown;
@@ -795,7 +966,7 @@ export class CanonicalRgba8CompositePass {
         try {
             fragment=gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragment)throw new Error('Composite shader allocation failed');
-            gl.shaderSource(fragment,textured==='multiply'?multiplyFragmentFor():textured?texturedFragmentFor(kind):fragmentFor(kind));
+            gl.shaderSource(fragment,textured==='color'?colorTextureFragmentFor(kind):textured==='pixel'?pixelTextureFragmentFor(kind):textured==='multiply'?multiplyFragmentFor():textured==='lightness'?imageMaterialFragmentFor(kind):textured?texturedFragmentFor(kind):fragmentFor(kind));
             gl.compileShader(fragment);
             if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
             program=gl.createProgram();
@@ -806,7 +977,7 @@ export class CanonicalRgba8CompositePass {
             const attribute=gl.getAttribLocation(program,'position');
             if(attribute<0)throw new Error('Composite attribute unavailable');
             const uniforms:Record<string,WebGLUniformLocation|null>={};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength']:[]])
+            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
                 uniforms[name]=gl.getUniformLocation(program,name);
             info={program,attribute,uniforms};
         }catch(error){failed=true;failure=error}

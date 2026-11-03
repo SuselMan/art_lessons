@@ -26,14 +26,15 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
     radialCurveTextureSide(importedAssetPixels(tip.profile.lookup),tip.profile.resolution)
     return {id:tip.profile.lookup,grain:false,lookup32:true}
   }
-  if (!gray || !tip?.material || !tip.animation) return {id,grain:false,...(gray ? {gray} : {})}
+  if (!gray || tip?.material?.kind !== 'lightness' || !tip.animation) return {id,grain:false,...(gray ? {gray} : {})}
+  const material=tip.material
   let plan=materialPlans.get(tip)
   if(!plan){
-    const frames=tip.animation.frames.map((alpha,index)=>({alpha,gray:tip.material!.grayFrames?.[index] ?? tip.material!.gray}))
+    const frames=tip.animation.frames.map((alpha,index)=>({alpha,gray:material.grayFrames?.[index] ?? material.gray}))
     plan=materialPackingPlan(frames,Math.sqrt(importedAssetPixels(frames[0].alpha).length))
     materialPlans.set(tip,plan)
   }
-  const index=tip.animation.frames.findIndex((alpha,index)=>alpha===id && (tip.material!.grayFrames?.[index] ?? tip.material!.gray)===gray)
+  const index=tip.animation.frames.findIndex((alpha,index)=>alpha===id && (material.grayFrames?.[index] ?? material.gray)===gray)
   if(index<0)throw Error('Material frame is absent from its tip plan')
   const view=plan.frames[index]
   return {id,gray,grain:false,materialGroup:view.group,materialChannels:view.channels}

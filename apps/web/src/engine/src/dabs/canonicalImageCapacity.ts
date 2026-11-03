@@ -1,4 +1,4 @@
-import { canonicalImageMaterialPin, sourceImageTransformMetadata, sourcePngRasterShape, sourcePngPyramid, sourcePngSelectLevel,
+import { canonicalImageFrameAsset,canonicalSourceMaterialContext,CANONICAL_MATERIAL_LIMITS,canonicalImageMaterialPin, sourceImageTransformMetadata, sourcePngRasterShape, sourcePngPyramid, sourcePngSelectLevel,
   type CanonicalMaterialAsset, type CanonicalMaterialImageSource, type CanonicalMaterialRecipe } from '@grafetto/shared'
 import type { CanonicalMaskSourceLevelRequirement } from './CanonicalMaskSourceBank'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
@@ -6,7 +6,13 @@ import { transformedMaskPrepassBudget, type TransformedMaskLimits } from './Tran
 
 type ImageAssets=CanonicalMaterialAsset|readonly CanonicalMaterialAsset[]
 function capture(source:CanonicalMaterialImageSource,assets:ImageAssets){
-  return canonicalImageMaterialPin(source,'id' in assets?[assets]:assets)
+  const inventory='id' in assets?[assets]:assets
+  if(Object.hasOwn(source,'frameBounds')){
+    const context=canonicalSourceMaterialContext({version:2,primarySource:source,assets:inventory,imageFrameIndices:'source-image-pipe-frame-v1',budget:CANONICAL_MATERIAL_LIMITS})
+    if(context.primarySource.kind!=='image')throw new TypeError('Expected original image geometry')
+    return {primarySource:context.primarySource,assets:context.assets}
+  }
+  return canonicalImageMaterialPin(source,inventory)
 }
 
 /** Covers every CURRENT engine-admitted image recipe (0<scale<=1), not the
@@ -14,7 +20,9 @@ function capture(source:CanonicalMaterialImageSource,assets:ImageAssets){
  * No reader/GL/source permission. Callers own retained metadata reservations. */
 export function canonicalImageRequiredSourceLevels(source:CanonicalMaterialImageSource,assets:ImageAssets):readonly CanonicalMaskSourceLevelRequirement[] {
   const pin=capture(source,assets)
-  return Object.freeze(pin.assets.map(asset=>{
+  const selected=pin.primarySource.frameBounds?(pin.primarySource.frames??[pin.primarySource.asset]).map((_,i)=>canonicalImageFrameAsset(pin.primarySource,pin.assets,i)):pin.assets
+  const unique=new Map(selected.map(asset=>[JSON.stringify(asset),asset]))
+  return Object.freeze([...unique.values()].map(asset=>{
     const pyramid=sourcePngPyramid(asset.width,asset.height),first=sourcePngSelectLevel(pyramid,pin.primarySource.brushScale)
     return Object.freeze({asset,indexes:Object.freeze(Array.from({length:pyramid.levels.length-first},(_,i)=>first+i))})
   }))
@@ -25,7 +33,7 @@ export function canonicalImageRequiredSourceLevels(source:CanonicalMaterialImage
 export function canonicalImageMaskCapacity(source: CanonicalMaterialImageSource, assets: ImageAssets): TransformedMaskLimits {
   const pin=capture(source,assets),s=pin.primarySource
   let extent=0
-  for(const a of pin.assets){
+  for(const a of s.frameBounds?(s.frames??[s.asset]).map((_,i)=>canonicalImageFrameAsset(s,pin.assets,i)):pin.assets){
     const m=sourceImageTransformMetadata(a.width,a.height,
       sourcePngRasterShape({width:a.width,height:a.height,scale:s.brushScale,angle:s.brushAngle},
         {scale:1,ratio:1,rotation:0}),0,0)
@@ -44,8 +52,8 @@ export function assertCanonicalImageRecipeCapacity(recipe: CanonicalMaterialReci
     || !Object.is(recipe.brushAngle, s.brushAngle) || !Number.isFinite(recipe.scale) || recipe.scale <= 0 || recipe.scale > 1
     || recipe.ratio !== 1 || recipe.mirrorH !== false || recipe.mirrorV !== false)
     throw new RangeError('Canonical image recipe differs from admitted source')
-  const selected=pin.assets.find(asset=>asset.id===recipe.asset)
-  if(!selected)throw new RangeError('Canonical image recipe asset is not pinned')
+  const selected=s.frameBounds?(recipe.imageFrameIndex===undefined?undefined:canonicalImageFrameAsset(s,pin.assets,recipe.imageFrameIndex)):pin.assets.find(asset=>asset.id===recipe.asset)
+  if(!selected||selected.id!==recipe.asset)throw new RangeError('Canonical image recipe asset is not pinned')
   const m=canonicalTransformedMaskMetadata(recipe,selected)
   if (m.width > capacity.width || m.height > capacity.height)
     throw new RangeError('Canonical image recipe exceeds admitted workspace')

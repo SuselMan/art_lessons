@@ -62,7 +62,7 @@ export function canonicalSourceColorFieldAssets(fields:CanonicalSourceColorField
   const r=provider.resource
   for(const id of [...r.channels,r.alphaAsset]){let matched=false;for(let i=0;i<available.length;i++){const entry=Object.getOwnPropertyDescriptor(available,String(i));if(!entry||!Object.hasOwn(entry,'value'))return fail();const a=record(entry.value,['id','size']);if(!asset(a.id)||!integer(a.size,1,4096))return fail();if(a.id===id){if(a.size!==r.size||matched)return fail();matched=true}}if(!matched)return fail()
    const captured=Object.freeze({id,size:r.size,x:r.x,y:r.y,width:r.width,height:r.height}),prior=result.get(id)
-   if(prior&&(prior.size!==captured.size||prior.x!==captured.x||prior.y!==captured.y||prior.width!==captured.width||prior.height!==captured.height))return fail();result.set(id,captured)
+   if(prior&&prior.size!==captured.size)return fail();if(!prior)result.set(id,captured)
   }
  }
  return Object.freeze([...result.values()])

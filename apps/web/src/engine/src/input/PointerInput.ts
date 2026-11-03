@@ -1,3 +1,4 @@
+import {CanonicalPointerSpeed} from './CanonicalSourceInput'
 /** (#650) An on-device diagnostic line — lib/observability/diagLog's shape.
  *  The engine is handed one rather than importing it: engine code knows
  *  nothing of the app around it. */
@@ -78,6 +79,12 @@ export interface PointerData {
   tiltX: number
   tiltY: number
   speed: number
+  /** Resolved native view-coordinate source sensor, separate from legacy speed. */
+  sourceSpeed?:number
+  /** Unclipped native VIEW pixels/ms for GIH velocity selection. */
+  sourceViewSpeed?:number
+  twist?:number
+  tangentialPressure?:number
   /** CSS/widget view-coordinate units/ms, independent of canvas zoom/DPR. */
   viewSpeed?: number
   /** Explicit normalized fixture/input override; zero is meaningful. */
@@ -138,6 +145,7 @@ export interface CursorObservation { x: number; y: number; pointerType: string }
 type CursorObserver = (point: CursorObservation) => void
 
 export class PointerInput {
+  private readonly _canonicalSpeed=new CanonicalPointerSpeed()
   private canvas: HTMLCanvasElement
   private _handlers: Partial<Record<PointerEventName, PointerHandler>>
   private _predictHandler?: PredictHandler
@@ -332,11 +340,12 @@ export class PointerInput {
     // would apply a correction measured for a stylus to an input that never
     // produced the problem.
     else if (e.pointerType === 'pen' && this._pressureMap) pressure = this._pressureMap(pressure)
-    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
+    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed,sourceSpeed:this._canonicalSpeed.normalized,sourceViewSpeed:this._canonicalSpeed.nativeViewSpeed,twist:e.twist,tangentialPressure:e.tangentialPressure, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 
   private _extract(e: PointerEvent): PointerData {
     const { x, y } = this._toCanvasCoords(e)
+    this._canonicalSpeed.sample(e.clientX,e.clientY,e.timeStamp)
     const dt = e.timeStamp - this._lastT
     // `dt <= 0` deliberately advances nothing at all — not the average, not
     // the reference point. See this file's Speed section: holding the
@@ -477,6 +486,7 @@ export class PointerInput {
     // wherever the *previous* stroke ended, i.e. from across the canvas.
     const down = this._toCanvasCoords(e)
     if (this._destroyed) return
+    this._canonicalSpeed.reset(e.clientX,e.clientY,e.timeStamp)
     this._lastT = e.timeStamp
     this._lastX = down.x
     this._lastY = down.y

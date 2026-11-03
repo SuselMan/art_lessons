@@ -43,6 +43,7 @@ class Catalog:
     def __init__(self, output):
         self.output = output; output.mkdir(parents=True,exist_ok=True)
         self.brushes, self.assets, self.skipped = [],{},[]
+        self.patterns = []
     def asset(self, image, warnings, invert=False, grain=False):
         if image.width*image.height > MAX_PIXELS: raise ValueError('Raster exceeds pixel limit')
         image.load()
@@ -70,7 +71,9 @@ class Catalog:
     def write(self):
         if sum(a['size']**2 for a in self.assets.values()) > 256*1024*1024:
             raise ValueError('Catalog raw assets exceed 256 MiB; convert a smaller selection')
+        if len(self.patterns)>128: raise ValueError('Catalog pattern count exceeds128')
         result={'schemaVersion':1,'brushes':self.brushes,'assets':list(self.assets.values()),'skipped':self.skipped}
+        if self.patterns: result['patterns']=self.patterns
         (self.output/'manifest.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
         return result
 

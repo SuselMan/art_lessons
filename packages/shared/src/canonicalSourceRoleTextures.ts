@@ -1,5 +1,5 @@
 import {isCanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
-import {canonicalTextureGradientRGBA,canonicalPixelPrimaryTexturePin,canonicalPixelColorTexturePin,type CanonicalPixelPrimaryTexturePin,type CanonicalPixelColorTexturePin,type CanonicalResolvedTexturePhase,type CanonicalTextureGradientRGBA} from './canonicalPrimaryTexture.js'
+import {canonicalPixelTextureAsset,canonicalTextureGradientRGBA,canonicalPixelPrimaryTexturePin,canonicalPixelColorTexturePin,type CanonicalPixelPrimaryTexturePin,type CanonicalPixelColorTexturePin,type CanonicalResolvedTexturePhase,type CanonicalTextureGradientRGBA} from './canonicalPrimaryTexture.js'
 import type {CanonicalMaterialAsset} from './canonicalMaterialCodec.js'
 export type CanonicalSourceRoleTexturePin=CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin
 export interface CanonicalSourceRoleTextures {readonly primary:CanonicalSourceRoleTexturePin|null;readonly mask?:CanonicalSourceRoleTexturePin|null}
@@ -12,7 +12,7 @@ function data(value:unknown,required:readonly string[],optional:readonly string[
 /** Strict capture only; immutable original-role binding remains mandatory. */
 export function canonicalSourceRoleTextures(value:unknown,assets:readonly CanonicalMaterialAsset[],hasMask:boolean):Readonly<CanonicalSourceRoleTextures>{
  const fields=canonicalSourceRoleTexturesData(value);if(fields.mask!==undefined&&!hasMask)return fail()
- const pin=(value:unknown):CanonicalSourceRoleTexturePin|null=>{if(value===null)return null;if(!value||typeof value!=='object')return fail();const id=Object.getOwnPropertyDescriptor(value,'asset'),law=Object.getOwnPropertyDescriptor(value,'law');if(!id||!Object.hasOwn(id,'value')||!law||!Object.hasOwn(law,'value'))return fail();const gray=assets.find(a=>a.id===id.value);if(!gray)return fail();if(law.value==='pixel-texture-u8-v1')return canonicalPixelPrimaryTexturePin(value,gray);if(law.value!=='pixel-color-texture-v1')return fail();const alpha=Object.getOwnPropertyDescriptor(value,'alphaAsset');if(!alpha||!Object.hasOwn(alpha,'value'))return fail();const asset=assets.find(a=>a.id===alpha.value);if(!asset)return fail();return canonicalPixelColorTexturePin(value,gray,asset)}
+ const pin=(value:unknown):CanonicalSourceRoleTexturePin|null=>{if(value===null)return null;if(!value||typeof value!=='object')return fail();const id=Object.getOwnPropertyDescriptor(value,'asset'),law=Object.getOwnPropertyDescriptor(value,'law');if(!id||!Object.hasOwn(id,'value')||!law||!Object.hasOwn(law,'value'))return fail();const gray=canonicalPixelTextureAsset(value,assets);if(law.value==='pixel-texture-u8-v1')return canonicalPixelPrimaryTexturePin(value,gray);if(law.value!=='pixel-color-texture-v1')return fail();const alpha=Object.getOwnPropertyDescriptor(value,'alphaAsset');if(!alpha||!Object.hasOwn(alpha,'value'))return fail();const asset=canonicalPixelTextureAsset(value,assets,'alpha');return canonicalPixelColorTexturePin(value,gray,asset)}
  const primary=pin(fields.primary),mask=fields.mask===undefined?undefined:pin(fields.mask);if(!primary&&!mask)return fail();return Object.freeze({primary,...mask!==undefined?{mask}:{}})
 }
 

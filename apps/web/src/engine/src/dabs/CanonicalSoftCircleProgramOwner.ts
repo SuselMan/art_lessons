@@ -40,12 +40,14 @@ export class CanonicalSoftCircleProgramOwner {
   /** Retain until the consuming evaluator completes or is cancelled. Immutable
    * program references are trusted borrows: JS cannot revoke an escaped reference.
    * The caller must stop using it before release, including after owner retirement. */
-  acquire(): { readonly program: SourceSoftCircleProgram; release(): void } {
+  acquire(softness=1): { readonly program: SourceSoftCircleProgram; release(): void } {
     if (this.retired || !this.preparation) throw new Error('Bound soft-circle source retired')
     if (!this.preparation.done) throw new Error('Bound soft-circle source incomplete')
     let program: SourceSoftCircleProgram
     try { program = this.preparation.finish() }
     catch (error) { return this.retireAfterFailure(error) }
+    if(!Number.isFinite(softness)||softness<0||softness>1)throw new RangeError('Invalid Softness lease')
+    const releaseDynamic=softness===1?undefined:this.cpu.reserve(16*(program.resolution+2)+8192)
     this.leases++
     let released = false
     return Object.freeze({
@@ -54,7 +56,9 @@ export class CanonicalSoftCircleProgramOwner {
         if (released) return
         released = true
         this.leases--
-        if (this.retired && this.leases === 0) this.releaseStorage()
+        let failed=false,primary:unknown
+        for(const release of [releaseDynamic,()=>{if(this.retired&&this.leases===0)this.releaseStorage()}])try{release?.()}catch(error){if(!failed){failed=true;primary=error}}
+        if(failed)throw primary
       },
     })
   }

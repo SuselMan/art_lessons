@@ -4,10 +4,17 @@ import {transformedMaskPrepassBudget,type TransformedMaskLimits} from './Transfo
 
 type AutoPin=CanonicalAutoSource|CanonicalSoftAutoSource
 type AutoCapacitySource=Pick<AutoPin,'kind'|'source'|'brushScale'|'brushAngle'|'coverageProfile'>
+/** Executable recipe mechanism, not a read/author/source grant. Scatter/fan
+ * remain recorded draw positions/rotations; no RNG or sensor evaluation here. */
+export type CanonicalAutoGeometryMechanism='dynamic-auto-geometry-v1'
+function dynamic(mechanism:CanonicalAutoGeometryMechanism|undefined):boolean {
+ if(mechanism!==undefined&&mechanism!=='dynamic-auto-geometry-v1')throw new TypeError('Unknown Auto geometry mechanism')
+ return mechanism!==undefined
+}
 const rotating=(pin:AutoCapacitySource)=>pin.kind==='defaultAuto'&&pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
 /** Storage bound only. Original pin/profile authorization belongs to the caller's
  * existing shared decoder; this helper neither binds a source nor grants paint. */
-export function canonicalAutoMaskCapacity(pin:AutoCapacitySource):TransformedMaskLimits {return maskCapacity(pin,rotating(pin))}
+export function canonicalAutoMaskCapacity(pin:AutoCapacitySource,mechanism?:CanonicalAutoGeometryMechanism):TransformedMaskLimits {const enabled=dynamic(mechanism);return maskCapacity(pin,enabled||rotating(pin),enabled)}
 /** Version7 storage-only envelope after successful original generic7 extraction.
  * Geometry DATA is allowed before descriptor digest/program reservation; it is
  * not a source/profile/BEGIN grant. Recorded callers supply captured source7. */
@@ -15,10 +22,10 @@ export function canonicalTexturedAuto7MaskCapacity(pin:AutoCapacitySource):Trans
  if(pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Textured Auto7 density unsupported')
  return maskCapacity(pin,true)
 }
-function maskCapacity(pin:AutoCapacitySource,allRotations:boolean):TransformedMaskLimits {
- if(pin.brushScale!==1||pin.source.spikes!==2||pin.kind!==pin.source.kind)throw new TypeError('Unsupported fixed canonical layer source')
- const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0})
- // L1 bounds the two rotated side projections for scale<=1 and ratio1. +2
+function maskCapacity(pin:AutoCapacitySource,allRotations:boolean,dynamicGeometry=false):TransformedMaskLimits {
+ if((dynamicGeometry?(!Number.isFinite(pin.brushScale)||pin.brushScale<=0):pin.brushScale!==1)||(dynamicGeometry?(!Number.isSafeInteger(pin.source.spikes)||pin.source.spikes<2||pin.source.spikes>64):pin.source.spikes!==2)||pin.kind!==pin.source.kind)throw new TypeError('Unsupported fixed canonical layer source')
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.spikes>2?1:pin.source.ratio,spikes:pin.source.spikes,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0})
+ // L1 bounds the two rotated side projections for scale<=1 and ratio<=1. +2
  // covers subpixel translation and corner rounding; it changes storage only.
  const extent=Math.ceil((geometry.brushSize[0]+geometry.brushSize[1])*pin.brushScale)+2
  const limits=Object.freeze(allRotations?{width:extent,height:extent,slots:1}:
@@ -28,13 +35,14 @@ function maskCapacity(pin:AutoCapacitySource,allRotations:boolean):TransformedMa
 }
 /** Called after original-snapshot decoding. Repeat the existing shared cost law
  * so standalone use cannot turn a larger workspace into static/geometry authority. */
-export function assertCanonicalAutoRecipeCapacity(recipe:AnyCanonicalMaterialRecipe,pin:AutoPin,capacity:TransformedMaskLimits):void {
+export function assertCanonicalAutoRecipeCapacity(recipe:AnyCanonicalMaterialRecipe,pin:AutoPin,capacity:TransformedMaskLimits,mechanism?:CanonicalAutoGeometryMechanism,coverageScaleFactor?:number):void {
+ const enabled=dynamic(mechanism)
  transformedMaskPrepassBudget(capacity)
  if(!('kind'in recipe)||recipe.kind!==pin.kind||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1
-  ||recipe.ratio!==1||!Number.isFinite(recipe.rotation)||(!rotating(pin)&&recipe.rotation!==0)
-  ||recipe.mirrorH!==false||recipe.mirrorV!==false)throw new RangeError('Unsupported fixed canonical layer transform')
- if(pin.kind==='softAuto'&&recipe.kind==='softAuto')canonicalSoftAutoCost(recipe,pin)
- else if(pin.kind!=='softAuto'&&(recipe.kind==='defaultAuto'||recipe.kind==='gaussianAuto'))canonicalAutoCost(recipe,pin)
+  ||!Number.isFinite(recipe.ratio)||recipe.ratio<=0||recipe.ratio>1||(!enabled&&recipe.ratio!==1)||!Number.isFinite(recipe.rotation)||(enabled&&Math.abs(recipe.rotation)>1e6)||(!enabled&&!rotating(pin)&&recipe.rotation!==0)
+  ||(enabled?(typeof recipe.mirrorH!=='boolean'||typeof recipe.mirrorV!=='boolean'):(recipe.mirrorH!==false||recipe.mirrorV!==false)))throw new RangeError('Unsupported fixed canonical layer transform')
+ if(pin.kind==='softAuto'&&recipe.kind==='softAuto')canonicalSoftAutoCost(recipe,pin,coverageScaleFactor)
+ else if(pin.kind!=='softAuto'&&(recipe.kind==='defaultAuto'||recipe.kind==='gaussianAuto'))canonicalAutoCost(recipe,pin,coverageScaleFactor)
  else throw new TypeError('Canonical auto source kind mismatch')
  if(recipe.width>capacity.width||recipe.height>capacity.height)throw new RangeError('Canonical auto recipe exceeds admitted workspace')
 }

@@ -28,10 +28,15 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
   else if(native.kind==='gaussianAuto'){if(coverageProfile==='scalar-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1')return fail();source=canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,coverageProfile,...canonicalGaussianAutoStatic(native,brushScale,data.brush.angle,coverageProfile)})}
   else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile),reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
  }
- if(assets.some(a=>a.id===c.patternAsset.id))return fail()
  const alphaAsset=c.alphaAsset
- if(alphaAsset&&!assets.some(a=>a.id===alphaAsset.id)&&alphaAsset.id!==c.patternAsset.id)assets.push(alphaAsset)
- assets.push(c.patternAsset)
+ for(const a of [...alphaAsset?[alphaAsset]:[],c.patternAsset]){
+  const prior=assets.find(p=>p.id===a.id)
+  if(prior){if(prior.size!==a.size)return fail()}else assets.push(a)
+ }
+ // Wire inventory keeps its pattern-last invariant even when the pattern CAS
+ // also occurs as an image/side plane. Crops live in their original pins.
+ const patternIndex=assets.findIndex(a=>a.id===c.patternAsset.id)
+ assets.push(...assets.splice(patternIndex,1))
  const textureGeometry=c.textureGeometry
  return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,...c.originalAssets?{originalAssets:c.originalAssets}:{},descriptorSha256,descriptor,data,source,assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
 }
@@ -55,10 +60,10 @@ export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextu
   if(f){sourceColorFields=canonicalSourceColorFieldsForDescriptor(expected.descriptor,f.value);if(!sourceColorFields)throw new TypeError('Unexpected source field');spatialAssets=canonicalSourceColorFieldAssets(sourceColorFields,available?.value??[])}else if(available)throw new TypeError('Unbound source color assets')
  }
  const assets=[...expected.assets]
- for(const a of spatialAssets){const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size||prior.x!==a.x||prior.y!==a.y||prior.width!==a.width||prior.height!==a.height)throw new TypeError('Source pattern asset crop differs')}else assets.splice(Math.max(0,assets.length-1),0,a)}
+ for(const a of spatialAssets){const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size)throw new TypeError('Source pattern asset storage differs')}else assets.splice(Math.max(0,assets.length-1),0,a)}
  if(gradientMode&&!textureGradient)throw new TypeError('Missing selected texture gradient')
  const colorParams=sourceColorRecording(expected.data)
- return canonicalPrimaryGrainMaterialContext({version:8,...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalPrimaryGrainMaterialContext({version:8,...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.source.kind==='image'&&expected.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 /** Named source2 pipe binding; old image/texture families remain unchanged. */
@@ -77,7 +82,7 @@ function pixelImageMaterialContext(binding:CanonicalPixelImageSourceBinding|Cano
  // Descriptor identity belongs to the binding; source2 captures original image planes.
  const s=b.source
  const colorParams=sourceColorRecording(b.data)
- return canonicalSourceMaterialContext({version:2,...b.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets:b.assets,...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalSourceMaterialContext({version:2,...b.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.frameBounds?{frameBounds:s.frameBounds}:{},...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets:b.assets,...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 export function canonicalNativeImagePipeSourceBinding(original:unknown,descriptorSha256:string,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile,foregroundOpacity=1,options?:CanonicalSourceScaleOptions){

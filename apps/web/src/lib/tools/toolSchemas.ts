@@ -1,3 +1,4 @@
+import {brushPatterns} from '../api/brushLibrary'
 import { importedBrushes } from '../../engine/brushLibrary'
 
 import {
@@ -451,6 +452,13 @@ const digitalBrushSchema = (): ToolSchema => ({
     uiControls: ['select'],
     quickAccess: true,
     default: DEFAULT_DIGITAL_BRUSH,
+  },
+  pattern: {
+    nameKey:'tool.field.pattern',
+    get valueType(){return {kind:'enumOptions' as const,options:['none',...brushPatterns().map(pattern=>pattern.id)]}},
+    get optionLabels(){return Object.fromEntries(brushPatterns().map(pattern=>[pattern.id,pattern.name]))},
+    optionLabelKeys:{none:'tool.pattern.none'},
+    uiControls:['select'],default:'none',
   },
   size: {
     nameKey: 'tool.field.size',
@@ -1760,7 +1768,7 @@ function coerceSettingValue(descriptor: SettingDescriptor, value: unknown): Sett
     return typeof value === 'boolean' ? value : descriptor.default
   }
   if (valueType.kind === 'enumOptions') {
-    return typeof value === 'string' && (valueType.options as readonly string[]).includes(value)
+    return typeof value === 'string' && ((valueType.options as readonly string[]).includes(value)||descriptor.nameKey==='tool.field.pattern'&&/^pattern:[a-f0-9]{64}$/.test(value))
       ? value : descriptor.default
   }
   // color — [0,1] floats (WebGL convention, see lib/browser/color.ts), clamped same

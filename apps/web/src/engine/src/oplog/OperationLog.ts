@@ -14,7 +14,7 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { transitionCanonicalHistoryGesture, captureCanonicalFullHistoryMetadata, parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import { transitionCanonicalHistoryGesture, captureCanonicalFullHistoryMetadata, parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment,prepareCanonicalRecordedAttachmentV8, type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 /** Restore only the authoritative sequence, preserving every own descriptor so
  * the shared closed parser still rejects hidden extras and accessors. */
@@ -288,7 +288,8 @@ export class OperationLog {
     if (!read) return undefined
     if (op.type !== 'canonical_stroke' || serverSeq !== read.sequence || read.operationId !== op.id)
       throw new TypeError('Canonical history read does not match authoritative placement')
-    const prepared = prepareCanonicalRecordedAttachment({ version: 1, roomId: read.roomId, boardEpoch: read.boardEpoch,
+    const prepare=(read.capability.snapshot.materialVersion===8||read.capability.snapshot.materialVersion===2)?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment
+    const prepared = prepare({ version: 1, roomId: read.roomId, boardEpoch: read.boardEpoch,
       capabilities: [read.capability], bindings: [{ operationId: op.id, sequence: serverSeq,
         originalUserId: op.userId, capability: 0 }] }, [{ ...op, seq: serverSeq }],
       { roomId: read.roomId, boardEpoch: read.boardEpoch, rasterProfile: read.rasterProfile })[0].read!
@@ -313,7 +314,8 @@ export class OperationLog {
       if(original.type==='canonical_stroke'){
         const read=candidate.read
         if(!read||read.operationId!==original.id||read.sequence!==serverSeq)throw new TypeError('Canonical delivery read missing')
-        const normalize=(operation:Operation)=>prepareCanonicalRecordedAttachment({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
+        const prepare=(read.capability.snapshot.materialVersion===8||read.capability.snapshot.materialVersion===2)?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment
+        const normalize=(operation:Operation)=>prepare({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
           capabilities:[read.capability],bindings:[{operationId:original.id,sequence:serverSeq!,originalUserId:original.userId,capability:0}]},[{...operation,seq:serverSeq}],scope)[0]
         const normalized=normalize(original)
         if(read.rasterProfile!==normalized.read!.rasterProfile||JSON.stringify(normalized.operation)!==JSON.stringify(normalize(op).operation))throw new TypeError('Canonical delivery body changed')

@@ -217,3 +217,27 @@ vec4 sourceCompositeInstalledHsyRgba8(vec4 source,vec4 destination,SourceRgba8Co
     return vec4(sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.r),alpha)),sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.g),alpha)),sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.b),alpha)),alpha);
 }
 `;
+
+/** Functional browser HSY graph. Ordinary highp arithmetic deliberately does
+ * not claim installed ARM64 contraction or source CPU byte equality. */
+export const SOURCE_RGBA8_BROWSER_HSY_WEBGL1_GLSL = SOURCE_RGBA8_BYTE_CONTROLS_GLSL + SOURCE_RGBA8_BYTE_WRAP_GLSL + /* glsl */ `
+float sourceBrowserHsyLum(vec3 c){return dot(c,vec3(0.299,0.587,0.114));}
+vec3 sourceBrowserHsyColor(vec3 source,vec3 destination){
+ vec3 s=source/255.0;float dl=sourceBrowserHsyLum(destination/255.0);
+ vec3 c=s+vec3(dl-sourceBrowserHsyLum(s));
+ float l=sourceBrowserHsyLum(c),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0){float stretch=l-n;if(l<=0.00001||stretch<0.00000011920928955078125)c=vec3(0.0);else c=vec3(l)+(c-vec3(l))*l/stretch;}
+ if(x>1.0){float stretch=x-l;if(l>1.0||stretch<0.00000011920928955078125)c=vec3(1.0);else c=vec3(l)+(c-vec3(l))*(1.0-l)/stretch;}
+ return floor(clamp(c,0.0,1.0)*255.0+0.5);
+}
+vec4 sourceCompositeBrowserHsyRgba8(vec4 source,vec4 destination,SourceRgba8CompositeControl control){
+ float da=destination.a,sa=sourceRgba8Multiply3(source.a,control.mask,control.opacity);
+ float alpha=sa+da-sourceRgba8Multiply(sa,da);
+ if(alpha==0.0)return vec4(destination.rgb,0.0);
+ vec3 cf=sourceBrowserHsyColor(source.rgb,destination.rgb);
+ vec3 p=vec3(sourceRgba8Multiply3(255.0-sa,da,destination.r)+sourceRgba8Multiply3(255.0-da,sa,source.r)+sourceRgba8Multiply3(da,sa,cf.r),
+ sourceRgba8Multiply3(255.0-sa,da,destination.g)+sourceRgba8Multiply3(255.0-da,sa,source.g)+sourceRgba8Multiply3(da,sa,cf.g),
+ sourceRgba8Multiply3(255.0-sa,da,destination.b)+sourceRgba8Multiply3(255.0-da,sa,source.b)+sourceRgba8Multiply3(da,sa,cf.b));
+ return vec4(sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.r),alpha)),sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.g),alpha)),sourceRgba8Wrap(sourceRgba8Divide(sourceRgba8Wrap(p.b),alpha)),alpha);
+}
+`;

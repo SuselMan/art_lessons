@@ -88,7 +88,7 @@ export function extractCanonicalSinglePngCapability(
 
 function extractImageFrameCapability(
   descriptor:BrushDescriptor,asset:{readonly id:string;readonly size:number},
-  policy?:Readonly<{animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture';pixelTexture?:true;nativeImage?:true;role?:'primary'|'mask';dual?:true}>,
+  policy?:Readonly<{frameIndex?:number;animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture';pixelTexture?:true;nativeImage?:true;role?:'primary'|'mask';dual?:true}>,
 ):CanonicalSinglePngResult {
   const animation=policy?.animation
   const reject = (reason: string): CanonicalSinglePngResult => ({ supported: false, reasons: [reason] })
@@ -102,12 +102,12 @@ function extractImageFrameCapability(
   const sampling = descriptor.tip.imageSampling
   const namedImage=!!(policy?.pixelTexture||policy?.nativeImage)
   let sourceRect=sampling?.sourceRect
-  if(namedImage){try{sourceRect=captureOriginalPixelImageGrid(descriptor,data,asset)}catch{return reject('native-cas-source-grid-unavailable')}}
+  if(namedImage){try{sourceRect=captureOriginalPixelImageGrid(descriptor,data,asset,policy?.frameIndex??0)}catch{return reject('native-cas-source-grid-unavailable')}}
   if (!sourceRect || !namedImage&&(!sampling||sampling.kind !== 'integer-pyramid'||sampling.signal !== 'inverse-gray') || descriptor.tip.mask !== (animation?.frames[0] ?? asset.id)
     || !/^asset:[a-f0-9]{64}$/.test(asset.id) || !Number.isInteger(asset.size) || asset.size < 2 || asset.size > 2048
     || !Object.values(sourceRect).every(v => Number.isInteger(v) && v >= 0)
-    || sourceRect.width !== data.brush.width || sourceRect.height !== data.brush.height
-    || sourceRect.x + data.brush.width > asset.size || sourceRect.y + data.brush.height > asset.size) return reject('native-cas-source-grid-unavailable')
+    || (!namedImage||!animation?.frameBounds)&&(sourceRect.width !== data.brush.width || sourceRect.height !== data.brush.height)
+    || sourceRect.x + sourceRect.width > asset.size || sourceRect.y + sourceRect.height > asset.size) return reject('native-cas-source-grid-unavailable')
   if ((!data.flags.materialFixed1&&!((policy?.pixelTexture||policy?.nativeImage)&&hasCanonicalCapturedMaterialConsumers(data))) || (policy?.material==='verified-primary-texture'?!data.flags.textureEnabled:data.flags.textureEnabled) || descriptor.behavior?.colorAdjustment&&!((policy?.pixelTexture||policy?.nativeImage)&&hasCanonicalCapturedColorConsumers(data))) return reject('unsupported-material-consumer')
   if (data.options.length !== 9) return reject('native-option-program-unavailable')
   const rotation = data.options.find(o => o.id === 'Rotation')!
@@ -712,12 +712,12 @@ export function extractCanonicalPixelDualSourceData(original:unknown,available:r
    if(!isSourceStampData(data)||data.role!==id||sourceStampSourceKind(data)!=='image'&&data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,id,true,true))||canonicalPixelSourceEffectReject(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dual role source')
    const material=data.version===2&&data.source.kind==='defaultAuto'?extractDefaultAutoData(d,false,data.flags.textureEnabled?'pixel-texture':'plain',data,id,true,true):data.version===2&&data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(d,id,true,data.flags.textureEnabled,true):data.version===2&&data.source.kind==='softAuto'?extractSoftAutoDataCore(d,id,true,data.flags.textureEnabled,true):(()=>{
     const assets:CanonicalMaterialAsset[]=[]
-    for(const frame of d.tip.animation?.frames??[d.tip.mask!]){
+    for(const [frameIndex,frame] of (d.tip.animation?.frames??[d.tip.mask!]).entries()){
       const asset=available.find(a=>a.id===frame);if(!asset)return reject('dual image frame asset unavailable')
-      const captured=extractImageFrameCapability(d,asset,{role:id,dual:true,nativeImage:true,...data.flags.textureEnabled?{material:'verified-primary-texture' as const,pixelTexture:true}:{},animation:d.tip.animation});if(!captured.supported)return captured
+      const captured=extractImageFrameCapability(d,asset,{frameIndex,role:id,dual:true,nativeImage:true,...data.flags.textureEnabled?{material:'verified-primary-texture' as const,pixelTexture:true}:{},animation:d.tip.animation});if(!captured.supported)return captured
       assets.push(captured.capability.asset)
     }
-    if(!assets.length||assets.length>256||assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('dual image frame grids differ')
+    if(!assets.length||assets.length>256||!d.tip.animation?.frameBounds&&assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('dual image frame grids differ')
     const first=extractImageFrameCapability(d,available.find(a=>a.id===d.tip.mask)!,{role:id,dual:true,nativeImage:true,...data.flags.textureEnabled?{material:'verified-primary-texture' as const,pixelTexture:true}:{},animation:d.tip.animation})
     return first.supported?Object.freeze({...first,frameAssets:Object.freeze(assets)}):first
    })()
@@ -861,8 +861,8 @@ export function extractCanonicalPixelImageSourceData(original:unknown,available:
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,animation=descriptor.tip.animation
   if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.flags.textureEnabled||!hasCanonicalSourceCurvePrograms(data)||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported native image pipe source')
   const assets:CanonicalMaterialAsset[]=[]
-  for(const id of animation?.frames??[descriptor.tip.mask!]){const a=available.find(a=>a.id===id);if(!a)return reject('native pipe alpha unavailable');const c=extractImageFrameCapability(descriptor,a,{animation,nativeImage:true});if(!c.supported)return c;assets.push(c.capability.asset)}
-  if(assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('native pipe grids differ')
+  for(const [frameIndex,id] of (animation?.frames??[descriptor.tip.mask!]).entries()){const a=available.find(a=>a.id===id);if(!a)return reject('native pipe alpha unavailable');const c=extractImageFrameCapability(descriptor,a,{frameIndex,animation,nativeImage:true});if(!c.supported)return c;assets.push(c.capability.asset)}
+  if(!animation?.frameBounds&&assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('native pipe grids differ')
   const composition=canonicalPixelSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
   if(!composition)return reject('native image pipe composition unavailable')
   return Object.freeze({supported:true as const,kind:'pixel-image-source-v1' as const,descriptor,data,animation,assets:Object.freeze(assets),composition})

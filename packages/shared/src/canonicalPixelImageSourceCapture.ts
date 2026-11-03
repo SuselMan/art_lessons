@@ -3,14 +3,18 @@ import type {SourceStampData} from './sourceStampData.js'
 import type {CanonicalMaterialAsset,CanonicalMaterialImageSource} from './canonicalMaterialCodec.js'
 /** Original image pixels occupy their actual rectangle, not the square
  * drawing crop. Named consumers share this check; legacy PNG stays separate. */
-export function captureOriginalPixelImageGrid(descriptor:BrushDescriptor,data:SourceStampData,asset:Readonly<{id:string;size:number}>){
+export function captureOriginalPixelImageGrid(descriptor:BrushDescriptor,data:SourceStampData,asset:Readonly<{id:string;size:number}>,frameIndex=0){
  const fail=():never=>{throw new TypeError('Invalid original image pixel grid')}
- const width=data.brush.width,height=data.brush.height,size=asset.size,bounds=descriptor.tip.maskBounds,sampling=descriptor.tip.imageSampling
+ const size=asset.size,bounds=descriptor.tip.maskBounds,sampling=descriptor.tip.imageSampling,animation=descriptor.tip.animation
+ const frame=animation?.frameBounds?.[frameIndex]
+ if(!Number.isInteger(frameIndex)||frameIndex<0||frameIndex>=(animation?.frames.length??1)||asset.id!==(animation?.frames[frameIndex]??descriptor.tip.mask))return fail()
+ const width=frame?frame.width*size:data.brush.width,height=frame?frame.height*size:data.brush.height
  if(!Number.isInteger(size)||size<2||size>2048||(size&(size-1))!==0||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>size||height>size||!bounds)return fail()
- const rect=sampling?.sourceRect??{x:Math.floor((size-width)/2),y:Math.floor((size-height)/2),width,height}
- if(sampling&&(sampling.kind!=='integer-pyramid'||sampling.signal!=='inverse-gray')||!Object.values(rect).every(Number.isSafeInteger)||rect.x<0||rect.y<0||rect.width!==width||rect.height!==height||rect.x+width>size||rect.y+height>size)return fail()
+ const rect=frame?{x:frame.x*size,y:frame.y*size,width,height}:sampling?.sourceRect??{x:Math.floor((size-width)/2),y:Math.floor((size-height)/2),width,height}
+ if(!frame&&sampling&&(sampling.kind!=='integer-pyramid'||sampling.signal!=='inverse-gray')||!Object.values(rect).every(Number.isSafeInteger)||rect.x<0||rect.y<0||rect.width!==width||rect.height!==height||rect.x+width>size||rect.y+height>size)return fail()
  const longest=Math.max(width,height)
- if(bounds.x!==(rect.x+(width-longest)/2)/size||bounds.y!==(rect.y+(height-longest)/2)/size||bounds.width!==longest/size||bounds.height!==longest/size)return fail()
+ if(frameIndex===0&&(width!==data.brush.width||height!==data.brush.height))return fail()
+ if(frameIndex===0&&(bounds.x!==(rect.x+(width-longest)/2)/size||bounds.y!==(rect.y+(height-longest)/2)/size||bounds.width!==longest/size||bounds.height!==longest/size))return fail()
  return Object.freeze({x:rect.x,y:rect.y,width,height})
 }
 /** Internal shared capture for already original-bound image roles. Not exported
@@ -22,22 +26,23 @@ export function captureOriginalPixelImageRole(descriptor:BrushDescriptor,data:So
  let source:CanonicalMaterialImageSource
   const ids=descriptor.tip.animation?.frames??[descriptor.tip.mask!],bounds=descriptor.tip.maskBounds
   if(!bounds||!ids.length)return fail()
-  for(const id of ids){const a=available.find(a=>a.id===id);if(!a)return fail();const rect=captureOriginalPixelImageGrid(descriptor,data,a);if(!assets.some(a=>a.id===id))assets.push(Object.freeze({id:a.id,size:a.size,...rect}))}
+  const frameAssets=ids.map((id,index)=>{const a=available.find(a=>a.id===id);if(!a)return fail();return Object.freeze({id:a.id,size:a.size,...captureOriginalPixelImageGrid(descriptor,data,a,index)})})
+  for(const a of frameAssets)if(!assets.some(p=>p.id===a.id))assets.push(a)
   const alpha=assets[0],material=descriptor.tip.material
   let imageMaterial:CanonicalMaterialImageSource['imageMaterial']
-  const plane=(id:string)=>{const a=available.find(a=>a.id===id);if(!a||a.size!==alpha.size)return fail();const p=Object.freeze({...alpha,id});if(!assets.some(a=>a.id===id))assets.push(p);return id}
+  const plane=(id:string,index=0)=>{const selected=frameAssets[index],a=available.find(a=>a.id===id);if(!selected||!a||a.size!==selected.size)return fail();const p=Object.freeze({...selected,id});if(!assets.some(a=>a.id===id))assets.push(p);return id}
   if(material?.kind==='lightness'){
 
    const enabled=data.settings.PressureLightnessStrength==='true',strength=enabled?Math.max(0,Math.min(1,Number(data.settings.LightnessStrengthValue??'1'))):1
    if(!Number.isFinite(strength)||material.strength!==strength)return fail()
    const grayFrames=material.grayFrames;if(grayFrames&&(grayFrames.length!==ids.length||grayFrames[0]!==material.gray))return fail()
-   imageMaterial=Object.freeze({kind:'lightness-map-v1',grayAsset:plane(material.gray),...grayFrames?{grayFrames:Object.freeze(grayFrames.map(plane))}:{},strength,foregroundAlpha:foregroundOpacity})
+   imageMaterial=Object.freeze({kind:'lightness-map-v1',grayAsset:plane(material.gray),...grayFrames?{grayFrames:Object.freeze(grayFrames.map((id,index)=>plane(id,index)))}:{},strength,foregroundAlpha:foregroundOpacity})
   }else if(material?.kind==='color'){
 
    const frames=material.frames;if(frames&&(frames.length!==ids.length||frames[0].some((id,i)=>id!==material.channels[i])))return fail()
-   imageMaterial=Object.freeze({kind:'color-stamp-v1',channels:Object.freeze([plane(material.channels[0]),plane(material.channels[1]),plane(material.channels[2])] as const),...frames?{frames:Object.freeze(frames.map(f=>Object.freeze([plane(f[0]),plane(f[1]),plane(f[2])] as const)))}:{},foregroundOpacity})
+   imageMaterial=Object.freeze({kind:'color-stamp-v1',channels:Object.freeze([plane(material.channels[0]),plane(material.channels[1]),plane(material.channels[2])] as const),...frames?{frames:Object.freeze(frames.map((f,index)=>Object.freeze([plane(f[0],index),plane(f[1],index),plane(f[2],index)] as const)))}:{},foregroundOpacity})
   }
-  source=Object.freeze({kind:'image',asset:alpha.id,brushScale,brushAngle:data.brush.angle,...descriptor.tip.animation?{frames:Object.freeze([...ids])}:{},...imageMaterial?{imageMaterial}:{}})
+  source=Object.freeze({kind:'image',asset:alpha.id,brushScale,brushAngle:data.brush.angle,...descriptor.tip.animation?{frames:Object.freeze([...ids])}:{},frameBounds:Object.freeze(frameAssets.map(({x,y,width,height})=>Object.freeze({x,y,width,height}))),...imageMaterial?{imageMaterial}:{}})
 
  return Object.freeze({source,assets:Object.freeze(assets)})
 }

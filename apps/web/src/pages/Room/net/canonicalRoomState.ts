@@ -1,8 +1,12 @@
+import {canonicalImageMaterialReadSource,canonicalAuthorImageMaterialSource,type CanonicalImageMaterialReadSource,type CanonicalAuthorImageMaterialSource} from '@grafetto/shared'
+import {canonicalPixelMaskedReadSource,canonicalAuthorPixelMaskedSource,type CanonicalPixelMaskedReadSource,type CanonicalAuthorPixelMaskedSource} from '@grafetto/shared'
+import {canonicalPlainAutoGeometryReadSource,canonicalAuthorPlainAutoGeometrySource,type CanonicalPlainAutoGeometryReadSource,type CanonicalAuthorPlainAutoGeometrySource} from '@grafetto/shared'
+import {canonicalPrimaryGrainReadSource,canonicalAuthorPrimaryGrainSource,type CanonicalPrimaryGrainReadSource,type CanonicalAuthorPrimaryGrainSource} from '@grafetto/shared'
 import {canonicalPlainTiltReadSource,canonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import type {CanonicalPlainTiltReadSource,CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
 import type {CanonicalRecordedLifetime} from '../../../engine'
-import {canonicalTexturedAutoReadSource,type CanonicalTexturedAutoReadSource,canonicalAuthorTexturedAutoSource,canonicalAuthorSoftPressureTexturedSource,canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorTexturedAutoSource,type CanonicalAuthorSoftPressureTexturedSource,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalAuthorPrimaryTextureSource,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalTexturedAutoReadSource,type CanonicalTexturedAutoReadSource,canonicalAuthorTexturedAutoSource,canonicalAuthorSoftPressureTexturedSource,canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorTexturedAutoSource,type CanonicalAuthorSoftPressureTexturedSource,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalAuthorPrimaryTextureSource,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,prepareCanonicalRecordedAttachmentV8,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {type CanonicalHistoryScope} from './canonicalHistoryPage'
 
 type WireState=import('@grafetto/shared').RoomStateLegacyPayload
@@ -12,6 +16,14 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
  readonly roomGeometry:Readonly<{width:number|undefined;height:number|undefined;infinite:boolean}>
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
  readonly plainTiltSource?:CanonicalPlainTiltReadSource
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -29,7 +41,7 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly [authority]:(candidate:unknown,operations:readonly Operation[],boardId:string)=>void
 }
 /** Original connection metadata shared by both finite-history readers. */
-export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'plainTiltSource'|'authorPlainTiltSource'|'texturedAutoSource'|'authorRasterProfile'|'authorPrimaryTextureSource'|'authorTexturedSource'|'authorPressureTexturedSource'|'authorTexturedAutoSource'|'authorSoftPressureTexturedSource'|'assertCurrent'>
+export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'imageMaterialSource'|'authorImageMaterialSource'|'pixelMaskedSource'|'authorPixelMaskedSource'|'plainAutoGeometrySource'|'authorPlainAutoGeometrySource'|'primaryGrainSource'|'authorPrimaryGrainSource'|'plainTiltSource'|'authorPlainTiltSource'|'texturedAutoSource'|'authorRasterProfile'|'authorPrimaryTextureSource'|'authorTexturedSource'|'authorPressureTexturedSource'|'authorTexturedAutoSource'|'authorSoftPressureTexturedSource'|'assertCurrent'>
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
 export type IndexedRoomStateDelivery=import('@grafetto/shared').RoomStateIndexedPayload&{readonly canonicalRead?:never;readonly canonicalIndexedRead:import('./canonicalIndexedRead').CanonicalIndexedSocketRead}
 export type RoomStateDelivery=(WireState&{readonly canonicalRead?:CanonicalRoomStateRead;readonly canonicalIndexedRead?:never})|IndexedRoomStateDelivery
@@ -53,6 +65,15 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const authorRasterProfile=state.canonicalAuthorRasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:state.canonicalAuthorRasterProfile
  if(!profiles.includes(authorRasterProfile))throw Error('Invalid canonical room state author profile')
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(state,'canonicalAuthorPrimaryTextureSource',authorRasterProfile)
+ const plainAutoGeometrySource=canonicalPlainAutoGeometryReadSource(state,'canonicalPlainAutoGeometrySource',authorRasterProfile),authorPlainAutoGeometrySource=canonicalAuthorPlainAutoGeometrySource(state,'canonicalAuthorPlainAutoGeometrySource',authorRasterProfile)
+ if(authorPlainAutoGeometrySource&&!plainAutoGeometrySource)throw Error('Dynamic Auto author requires original read policy')
+ const imageMaterialSource=canonicalImageMaterialReadSource(state,'canonicalImageMaterialSource',authorRasterProfile),authorImageMaterialSource=canonicalAuthorImageMaterialSource(state,'canonicalAuthorImageMaterialSource',authorRasterProfile)
+ if(authorImageMaterialSource&&!imageMaterialSource)throw Error('Image material author requires original read policy')
+ const pixelMaskedSource=canonicalPixelMaskedReadSource(state,'canonicalPixelMaskedSource',authorRasterProfile),authorPixelMaskedSource=canonicalAuthorPixelMaskedSource(state,'canonicalAuthorPixelMaskedSource',authorRasterProfile)
+ if(authorPixelMaskedSource&&!pixelMaskedSource)throw Error('Masked Pixel author requires original read policy')
+ const primaryGrainSource=canonicalPrimaryGrainReadSource(state,'canonicalPrimaryGrainSource',authorRasterProfile)
+ const authorPrimaryGrainSource=canonicalAuthorPrimaryGrainSource(state,'canonicalAuthorPrimaryGrainSource',authorRasterProfile)
+ if(authorPrimaryGrainSource&&!primaryGrainSource)throw Error('Primary grain author requires original read policy')
  const plainTiltSource=canonicalPlainTiltReadSource(state,'canonicalPlainTiltSource',authorRasterProfile)
  const authorPlainTiltSource=canonicalAuthorPlainTiltSource(state,'canonicalAuthorPlainTiltSource',authorRasterProfile)
  if(authorPlainTiltSource&&!plainTiltSource)throw Error('Plain tilt author requires original read policy')
@@ -80,13 +101,13 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  if(!fullKind&&tail.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')
  const hasCanonical=tail.some(op=>op.type==='canonical_stroke')
  const baseAtoms=hasCanonical||state.canonicalCapabilities!==undefined
-  ?prepareCanonicalRecordedAttachment(state.canonicalCapabilities,tail,scope)
+  ?(primaryGrainSource||pixelMaskedSource||plainAutoGeometrySource||imageMaterialSource?prepareCanonicalRecordedAttachmentV8(state.canonicalCapabilities,tail,scope):prepareCanonicalRecordedAttachment(state.canonicalCapabilities,tail,scope))
   :Object.freeze(tail.map(operation=>Object.freeze({operation})))
  const fullHistory=fullKind?verifyCanonicalFullHistoryBase(rawBase,baseAtoms,scope):undefined
  const emptyHistoryBase=rawBase===undefined||fullKind?undefined:verifyCanonicalEmptyHistoryBase(rawBase,baseAtoms,scope)
  const preparedAtoms:CanonicalPreparedRecordedOperation[]=[]
  const operations=baseAtoms.map(atom=>atom.operation);Object.freeze(operations)
- read=Object.freeze({scope,roomGeometry,authorRasterProfile,...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
+ read=Object.freeze({scope,roomGeometry,authorRasterProfile,...(imageMaterialSource?{imageMaterialSource}:{}),...(authorImageMaterialSource?{authorImageMaterialSource}:{}),...(pixelMaskedSource?{pixelMaskedSource}:{}),...(authorPixelMaskedSource?{authorPixelMaskedSource}:{}),...(plainAutoGeometrySource?{plainAutoGeometrySource}:{}),...(authorPlainAutoGeometrySource?{authorPlainAutoGeometrySource}:{}),...(primaryGrainSource?{primaryGrainSource}:{}),...(authorPrimaryGrainSource?{authorPrimaryGrainSource}:{}),...(plainTiltSource?{plainTiltSource}:{}),...(authorPlainTiltSource?{authorPlainTiltSource}:{}),...(texturedAutoSource?{texturedAutoSource}:{}),...(authorTexturedAutoSource?{authorTexturedAutoSource}:{}),...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
   if(this!==read)throw Error('Foreign canonical full history receiver')
   assertCanonicalRoomStateRead(read,candidateTail,expectedBoardId);return fullHistory
  }}:{}),

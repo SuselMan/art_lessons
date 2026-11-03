@@ -1,3 +1,4 @@
+import type {CanonicalMaterialParameters} from '@grafetto/shared'
 import { planSourceDab, sourceDabMaskExtent, sourceMirror, type SourceDabGeometry, type SourceDabBrushMetrics, type SourceDabCacheRequest, type SourceDabCacheResult, type SourceDabCacheState, type SourceMirrorBits } from './sourceDabCache'
 import { sourceScatter } from './sourceScatter'
 import { sourceOptionComponents, sourceRotationLike, sourceSizeLike, sourceStandardOption, type SourceOption, type SourceOptionContext } from './sourceOption'
@@ -14,7 +15,7 @@ export interface SourceStampInfo {
 /** Internal CPU query stream only. No new persisted/wire event format. */
 export interface SourceStampEvent {
   readonly stage?: 'material' | 'spacing'
-  readonly option: SourceStampOptionId
+  readonly option: SourceStampOptionId|'Softness'|'LightnessStrength'|'Sharpness'
   readonly value: number
   readonly drawsBefore: number
   readonly drawsAfter: number
@@ -47,11 +48,16 @@ export interface SourceStampBoundary {
     readonly brush: SourceDabBrushMetrics
     readonly geometry?: SourceDabGeometry
     readonly state: SourceDabCacheState
+    readonly sourceColor?:()=>readonly[number,number,number]|readonly[number,number,number,number]|undefined
+    readonly materialOptions?:Readonly<{Softness:SourceOption;LightnessStrength:SourceOption;Sharpness:SourceOption;sharpnessAlign:boolean;sharpnessSoftness:number}>
     readonly request: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   }
   material?(context: SourceOptionContext): void
 }
 export interface SourceStampResult {
+  readonly sourcePigmentRGBA?:readonly[number,number,number,number]
+  readonly sourcePigmentRGB?:readonly[number,number,number]
+  readonly materialParams?:CanonicalMaterialParameters
   readonly painted: boolean
   readonly events: readonly SourceStampEvent[]
   readonly scale?: number
@@ -132,15 +138,26 @@ export class SourceStampQueryExecutor {
     const opacity = evaluate('Opacity', () => this.options.Opacity.checked
       ? sourceSizeLike(sourceOptionComponents(this.options.Opacity, this.context, !boundary.indirectPainting)) : 1)
     const flow = evaluate('Flow')
+    let sourcePigmentRGB:readonly[number,number,number]|undefined
+    let sourcePigmentRGBA:readonly[number,number,number,number]|undefined
+    let materialParams:CanonicalMaterialParameters|undefined
     if (boundary.sourceCache) {
+      const options=boundary.sourceCache.materialOptions
+      const apply=(id:'Softness'|'LightnessStrength'|'Sharpness')=>{if(!options)throw new RangeError('Missing material option');const before=this.context.random.snapshot().draws,value=sourceStandardOption(options[id],this.context);events.push({option:id,stage:'material',value,drawsBefore:before,drawsAfter:this.context.random.snapshot().draws});return value}
+      const softness=options?apply('Softness'):boundary.sourceCache.request.softness
+      const lightness=options?apply('LightnessStrength'):boundary.sourceCache.request.lightness
+      const pigment=boundary.sourceCache.sourceColor?.()
+      if(pigment?.length===4)sourcePigmentRGBA=pigment;else sourcePigmentRGB=pigment
+      let sharpnessAlignValue=0
       const before = this.context.random.snapshot().draws
       material = planSourceDab(boundary.sourceCache.brush,
-        { ...boundary.sourceCache.request, x, y, shape: { scale, ratio, rotation } }, boundary.sourceCache.state,
-        this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY }, boundary.sourceCache.geometry)
+        { ...boundary.sourceCache.request,...sourcePigmentRGBA?{color:'rgba8:'+sourcePigmentRGBA.join(',')}:sourcePigmentRGB?{color:'rgb8:'+sourcePigmentRGB.join(',')}:{},softness,lightness,...options?{sharpnessChecked:options.Sharpness.checked,sharpness:0,sharpnessAlign:options.sharpnessAlign,sharpnessStrength:options.Sharpness.strength}:{}, x, y, shape: { scale, ratio, rotation } }, boundary.sourceCache.state,
+        this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY }, boundary.sourceCache.geometry,options?{sharpnessAlign:()=>sharpnessAlignValue=apply('Sharpness')}:undefined)
       if (material.mirrorValue !== undefined) events.push({ option: 'Mirror', stage: 'material', value: material.mirrorValue,
         drawsBefore: material.mirrorDrawsBefore ?? before, drawsAfter: this.context.random.snapshot().draws })
+      if(options)materialParams={softness:material.resolvedSource.key.softness,lightnessStrength:material.resolvedSource.key.lightness,sharpnessAlignValue,sharpnessThreshold:options.Sharpness.checked?apply('Sharpness'):0,sharpnessSoftness:options.sharpnessSoftness,sharpnessChecked:options.Sharpness.checked,sharpnessAlign:options.sharpnessAlign}
     } else boundary.material?.(this.context)
     const spacingValue = spacing()
-    return { painted: true, events, scale, rotation, ratio, x, y, opacity, flow, spacing: spacingValue, rate: rate(), spacingMirror, ...(material ? { material } : {}) }
+    return { painted: true,...sourcePigmentRGBA?{sourcePigmentRGBA}:{},...sourcePigmentRGB?{sourcePigmentRGB}:{},...materialParams?{materialParams}:{}, events, scale, rotation, ratio, x, y, opacity, flow, spacing: spacingValue, rate: rate(), spacingMirror, ...(material ? { material } : {}) }
   }
 }

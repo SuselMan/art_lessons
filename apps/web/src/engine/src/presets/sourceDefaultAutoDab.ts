@@ -1,3 +1,4 @@
+import {sourceAutoCoverageScale} from './sourceAutoCoverageScale'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import { createSourceDefaultAutoDensityRandom, type SourceDefaultAutoDensityIdentity } from './sourceDefaultAutoDensitySeed'
 import type { SourceCoverageEvaluator } from './sourceCoverageEvaluator'
@@ -6,7 +7,9 @@ import { prepareSourceDefaultAutoMask, type SourceDefaultAutoMaskRequest, type S
 
 /** Closed default-auto profile, independent of image/CAS materials and PNG. */
 export interface SourceDefaultAutoDabRequest {
+  readonly coverageScaleFactor?:number
   readonly dialect: 'krita-default-auto-qt5-arm64-v1'
+  readonly softness?:number
   readonly tip: SourceDefaultAutoMaskTip
   readonly storedScale: number
   readonly storedAngle: number
@@ -38,7 +41,7 @@ export function prepareSourceDefaultAutoDab(request: SourceDefaultAutoDabRequest
   const { tip, shape } = request
   if (request.dialect !== 'krita-default-auto-qt5-arm64-v1'
     || tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
-    || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
+    || (!Number.isSafeInteger(tip.spikes)||tip.spikes<2||tip.spikes>64) || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
     || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.coverageProfile)
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade, request.storedScale, request.storedAngle,
       shape.scale, shape.ratio, shape.rotation, request.subpixelX, request.subpixelY].every(Number.isFinite)
@@ -50,16 +53,17 @@ export function prepareSourceDefaultAutoDab(request: SourceDefaultAutoDabRequest
     throw new RangeError('Unsupported source default auto dab')
   }
   const geometry = sourceAutoGeometry({ kind: 'auto', profile: 'default-auto-qt5-arm64-f64-v1',
-    diameter: tip.diameter, ratio: tip.ratio, spikes: 2, scale: request.storedScale, angle: request.storedAngle },
+    diameter: tip.diameter, ratio: tip.ratio, spikes: tip.spikes, scale: request.storedScale, angle: request.storedAngle },
   shape, request.subpixelX, request.subpixelY)
   const [width, height] = geometry.maskSize
   // Geometry is allocation-free. Reject both fixed bounds and caller reservation
   // before the mask evaluator can construct its Uint8Array.
   if (width > 4096 || height > 4096 || width * height > request.maxPixels) throw new RangeError('Default auto dab exceeds reserved window')
   const center = [geometry.hotSpot[0] - .5 + request.subpixelX, geometry.hotSpot[1] - .5 + request.subpixelY] as const
-  const generatorScale = [shape.scale, shape.scale * shape.ratio] as const
+  const coverageScaleFactor=sourceAutoCoverageScale(request.coverageScaleFactor,request.coverageProfile)
+  const generatorScale = [shape.scale*coverageScaleFactor, shape.scale * shape.ratio*coverageScaleFactor] as const
   const coverageAngle = shape.rotation + request.storedAngle
-  const evaluator = prepareSourceDefaultAutoMask({ tip, profile: request.coverageProfile,
+  const evaluator = prepareSourceDefaultAutoMask({ tip,softness:request.softness, profile: request.coverageProfile,
     scaleX: generatorScale[0], scaleY: generatorScale[1], cos: Math.cos(coverageAngle), sin: Math.sin(coverageAngle),
     centerX: center[0], centerY: center[1], width, height,
     maxPixels: request.maxPixels, maxWorkSamples: request.maxWorkSamples })

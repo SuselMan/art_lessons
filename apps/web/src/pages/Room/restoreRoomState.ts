@@ -2,7 +2,7 @@ import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/ca
 import type { RefObject } from 'react'
 import * as Sentry from '@sentry/react'
 
-import type { Operation, Participant,CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import type { Operation, Participant,CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/observability/reportInvariant'

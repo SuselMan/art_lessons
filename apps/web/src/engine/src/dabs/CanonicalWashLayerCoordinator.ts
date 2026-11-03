@@ -1,8 +1,10 @@
+import {canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,decodeCanonicalStrokeFrame,CANONICAL_SOURCE_MATERIAL_PROFILE} from '@grafetto/shared'
+import {canonicalStandaloneStrokeSnapshotV8,decodeCanonicalPrimaryGrainStrokeFrame,canonicalPrimaryGrainMaterialContext,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalStandaloneStrokeSnapshotV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
 import {CANONICAL_MATERIAL_LIMITS,decodeCanonicalTexturedAutoStrokeFrame,canonicalTexturedAutoMaterialContext,canonicalStrokeSnapshotV7,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV7,type CanonicalMaterialFrameV7} from '@grafetto/shared'
-import {canonicalSoftAutoDataEqual,canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalStrokeSnapshotV6,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV4,type CanonicalMaterialFrameV4,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialFrameV3,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
+import {canonicalSoftAutoDataEqual,canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalStrokeSnapshotV6,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalStrokeSnapshotV4,type CanonicalMaterialFrameV4,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrameV8,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialFrameV3,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {CanonicalMaskCapacityLease} from './TransformedMaskPrepass'
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
-import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
+import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalSourceStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,prepareCanonicalRecordedAttachmentV8,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalMaskSourceReader,CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
@@ -12,7 +14,7 @@ import type { TiledLayerBuffer,PreparedLayerTargets } from '../buffers/TiledLaye
 import type { WorldRect } from '../buffers/tileMath'
 import { runBrushGlBatch, runBrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
-import {prepareRenderedPrefixCursor7,type CanonicalRenderedPrefixCursor7, CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalReplaySource7, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
+import {prepareRenderedPrefixCursor7,type CanonicalRenderedPrefixCursor7, CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalReplaySource,type CanonicalReplaySourceData, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
@@ -20,7 +22,7 @@ import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
  * receiver/candidate; received frame fields never confer this authority. */
 export interface CanonicalLocalWashAuthor {
  readonly lifetime:CanonicalRecordedLifetime
- readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7|CanonicalStandaloneStrokeSnapshotV8
  readonly userId:string
  assertCurrent(candidate:CanonicalLocalWashAuthor):Readonly<CanonicalRecordedReadScope>
 }
@@ -65,7 +67,7 @@ interface PreviewSnapshotEntry {
   readonly tiles:readonly CanonicalWashLocalTile[]
 }
 interface PreviewCandidateWork {
-  checkpoint?:RenderedTailCheckpoint7
+  checkpoint?:RenderedTailCheckpoint
   mixed?:MixedCandidateWork
   executionStarted?:true
   executionFailed?:true
@@ -82,13 +84,13 @@ interface PreviewCandidateWork {
   cleanupFailed?:true
   ticket?:CanonicalPreviewPublication
 }
-export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison' | 'replayFrontier' | 'candidateReplay7'> {
+export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'sourceMaterial' | 'maskedSource' | 'sourceLease' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison' | 'replayFrontier' | 'candidateReplay7'> {
   readonly layerId: string
   readonly layerEpoch: number
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture'> & {readonly sourceLease?:CanonicalMaskSourceLease}
+  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'autoGeometryMechanism' | 'sourceMaterial' | 'maskedSource' | 'bank' | 'softProgramOwner' | 'primaryTexture'> & {readonly sourceLease?:CanonicalMaskSourceLease}
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
@@ -104,7 +106,7 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
 interface RecordedPrefix {
  readonly lifetime:CanonicalRecordedLifetime
  readonly scope:Readonly<CanonicalRecordedReadScope>
- readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6|CanonicalStrokeSnapshotV7|CanonicalStandaloneStrokeSnapshotV8
  readonly userId:string
  readonly strokeId:string
  readonly firstOperationId:string
@@ -131,7 +133,7 @@ interface Entry {
   firstRawPaintNextOrdinal?:number
   publishedPaintedNextOrdinal?:number
   washInFlight?:true
-  replaySource?:CanonicalReplaySource7
+  replaySource?:CanonicalReplaySource
   image?:Readonly<{bank:CanonicalMaskSourceReader;generation:number}>
   sourceLease?:CanonicalMaskSourceLease
   recorded?:RecordedPrefix
@@ -163,7 +165,7 @@ type ReplayValue = Readonly<{
     operation: CanonicalStrokeOperation;
 }>;
 interface ReplayEntry {
-    /** Buildup7 only: SAME normalized envelope, covered by existing512 index charge. */
+    /** Buildup7/8: SAME normalized envelope, covered by existing512 index charge. */
     acceptedFrame?:CanonicalStrokeOperation['frame'];
     readonly id: string;
     readonly gestureId: string;
@@ -173,34 +175,34 @@ interface ReplayEntry {
     pins: number;
     retired: boolean;
 }
-interface ReplayGroupFrame7 {
+interface ReplayGroupFrame {
     /** Original identity/provenance only; never replay its raw operation.frame. */
     readonly value:ReplayValue
     readonly frame:CanonicalStrokeOperation['frame']
 }
-interface ReplayGroup7 {
-    readonly kind:'buildup7'
+interface ReplayBuildupGroup {
+    readonly kind:'buildup'
     readonly id:string
-    readonly frames:readonly ReplayGroupFrame7[]
-    readonly source:Readonly<Pick<CanonicalReplaySource7,'rasterProfile'|'context'|'autoSource'>>
+    readonly frames:readonly ReplayGroupFrame[]
+    readonly source:CanonicalReplaySourceData
     readonly close?:Readonly<Pick<RecordedCloseReceipt,'input'|'seal'>>
 }
 interface ReplayWashGroup {
     readonly kind:'wash'
     readonly id:string
     readonly depositedNextOrdinal:number
-    readonly frames:readonly ReplayGroupFrame7[]
+    readonly frames:readonly ReplayGroupFrame[]
     readonly presentation:PreviewSnapshotEntry
     readonly close?:Readonly<Pick<RecordedCloseReceipt,'input'|'seal'>>
 }
-type ReplayCapturedGroup=ReplayGroup7|ReplayWashGroup
-interface RenderedTailCheckpoint7 {
+type ReplayCapturedGroup=ReplayBuildupGroup|ReplayWashGroup
+interface RenderedTailCheckpoint {
  readonly generation:number
  readonly order:number
  readonly stable:TiledLayerBuffer
  readonly buffer:TiledLayerBuffer
  readonly grid:Readonly<{x0:number;y0:number;x1:number;y1:number;count:number}>
- readonly groups:readonly Readonly<{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource7;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}>[]
+ readonly groups:readonly Readonly<{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}>[]
  readonly root:CanonicalMaskSourceLease
  readonly cursor:CanonicalRenderedPrefixCursor7
  ready:boolean
@@ -230,13 +232,13 @@ interface ReplayGroupsWork {
     readonly closedOwned:()=>boolean
     readonly valuesOwned:()=>readonly ReplayValue[]
     readonly groupsOwned:()=>readonly ReplayCapturedGroup[]
-    readonly retainRootOwned:(group:ReplayCapturedGroup)=>CanonicalMaskSourceLease
+    readonly retainRootOwned:(group:ReplayCapturedGroup)=>CanonicalMaskSourceLease|undefined
 }
 interface ReplaySnapshot {
     values(): readonly ReplayValue[];
     groups?():readonly ReplayCapturedGroup[];
     assertCurrent?():void;
-    retainRoot?(group:ReplayCapturedGroup):CanonicalMaskSourceLease;
+    retainRoot?(group:ReplayCapturedGroup):CanonicalMaskSourceLease|undefined;
     release(): void;
 }
 interface Position {
@@ -300,7 +302,7 @@ export class CanonicalWashLayerCoordinator {
   private replayGeneration = 0
   private replayOrderRevision = 0
   private replayWork?:ReplaySnapshot|ReplayGroupsWork
-  private renderedTail?:RenderedTailCheckpoint7
+  private renderedTail?:RenderedTailCheckpoint
 
   constructor(options: CanonicalWashLayerCoordinatorOptions) {
     if (!options.layerId || !Number.isSafeInteger(options.layerEpoch) || options.layerEpoch < 0
@@ -474,7 +476,7 @@ export class CanonicalWashLayerCoordinator {
     input.delivery.assertCurrent(input)
     const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation,read=input.read
     if(op.type!=='canonical_stroke'||!read||op.seq!==read.sequence||read.operationId!==op.id)throw new TypeError('Recorded source input required')
-    const accepted=prepareCanonicalRecordedAttachment({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
+    const accepted=prepareCanonicalRecordedAttachmentV8({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
       capabilities:[read.capability],bindings:[{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}]},[op],scope)[0]
     const snapshot=accepted.read!.capability.snapshot
     if(read.rasterProfile!==snapshot.rasterProfile)throw new TypeError('Recorded source profile mismatch')
@@ -485,7 +487,7 @@ export class CanonicalWashLayerCoordinator {
     if(existing&&!old&&!existing.local)throw new Error('Recorded namespace already occupied')
     if(old&&(old.lifetime!==lifetime||old.scope!==scope||old.sealed||old.lastSeq>=op.seq!
       ||JSON.stringify(old.snapshot)!==JSON.stringify(snapshot)))throw new Error('Recorded source lifetime/context changed')
-    const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal)
+    const decoded=decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal)
     if(this.options.mixedReplay7)stage?.bindAcceptedFrame(decoded.envelope)
     const state=advanceCanonicalMaterialPrefix(old?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
     const recorded:RecordedPrefix={lifetime,scope,snapshot:old?.snapshot??snapshot,userId:op.userId,strokeId:snapshot.strokeId,
@@ -555,9 +557,13 @@ export class CanonicalWashLayerCoordinator {
       frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition,...(snapshot.material.primarySource.kind==='defaultAuto'&&snapshot.material.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?{densityStrokeIdentity:{strokeId:snapshot.strokeId}}:{})},op.seq!,{input,recorded,stage})
   }
 
-  private assertReplayOriginal(source:CanonicalReplaySource7,snapshot:CanonicalLocalWashAuthor['snapshot']|undefined):void {
-    if(!snapshot||snapshot.materialVersion!==7||source.rasterProfile!==snapshot.rasterProfile
-      ||!canonicalSoftAutoDataEqual(source.context,snapshot.material)||!canonicalSoftAutoDataEqual(source.autoSource,snapshot.material.primarySource))throw new TypeError('Accepted replay source differs from original snapshot')
+  private assertReplayOriginal(source:CanonicalReplaySource,snapshot:CanonicalLocalWashAuthor['snapshot']|undefined):void {
+    if(!snapshot||source.materialVersion!==snapshot.materialVersion||source.rasterProfile!==snapshot.rasterProfile||!canonicalSoftAutoDataEqual(source.context,snapshot.material))throw new TypeError('Accepted replay source differs from original snapshot')
+    if(source.materialVersion===7){
+      if(snapshot.materialVersion!==7||!canonicalSoftAutoDataEqual(source.autoSource,snapshot.material.primarySource))throw new TypeError('Accepted Auto replay source differs from original snapshot')
+    }else if(source.materialVersion===2){
+      if(snapshot.materialVersion!==2||!canonicalSoftAutoDataEqual(canonicalSourceMaterialContext(source.context),canonicalSourceMaterialContext(snapshot.material)))throw new TypeError('Accepted masked replay source differs from original snapshot')
+    }else if(snapshot.materialVersion!==8||source.autoSource!==undefined)throw new TypeError('Accepted image replay source differs from original snapshot')
   }
   private sameLocalOperation(a:CanonicalStrokeOperation,b:CanonicalStrokeOperation,frame:CanonicalStrokeOperation['frame']):boolean {
     return a.id===b.id&&a.userId===b.userId&&a.layerId===b.layerId&&a.timestamp===b.timestamp&&samePaintData(a.frame,frame)
@@ -596,7 +602,7 @@ export class CanonicalWashLayerCoordinator {
       this.assertLayers()
       return false
     }
-    const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal)
+    const decoded=decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal)
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)
     if(entry&&(!entry.local||entry.local.author!==author))throw new Error('Local source namespace occupied')
     const previous=entry?.local
@@ -693,7 +699,7 @@ export class CanonicalWashLayerCoordinator {
       if(op.type!=='canonical_stroke_close'||input.read)throw new TypeError('Original close input required')
       const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.targetUserId,op.strokeId])
       const entry=this.entries.find(e=>e.id===id),prefix=entry?.recorded
-      if(!entry||!prefix||prefix.snapshot.composition.mode!==entry.mode||entry.mode==='buildup'&&prefix.snapshot.materialVersion!==7
+      if(!entry||!prefix||prefix.snapshot.composition.mode!==entry.mode||entry.mode==='buildup'&&prefix.snapshot.materialVersion!==7&&prefix.snapshot.materialVersion!==8&&prefix.snapshot.materialVersion!==2
         ||entry.committed||entry.metadataReleased||entry.metadataRetired
         ||prefix.lifetime!==lifetime||prefix.scope!==scope||prefix.sealed||entry.closeReceipt
         ||entry.local?.receipts.length)throw new Error('Recorded close owner missing or stale')
@@ -761,13 +767,17 @@ export class CanonicalWashLayerCoordinator {
     this.enqueueInternal(input,recordedSequence)
   }
 
-  private enqueueInternal(input:Omit<CanonicalFrameSubmission,'frame'>&{readonly frame:CanonicalFrameSubmission['frame']|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7},recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix;stage?:ReplayStage},local?:LocalPrefix,pair?:{stage?:ReplayStage;originalSnapshot:CanonicalLocalWashAuthor['snapshot'];publish():void}):void {
+  private enqueueInternal(input:Omit<CanonicalFrameSubmission,'frame'>&{readonly frame:CanonicalFrameSubmission['frame']|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7|CanonicalMaterialFrameV8},recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix;stage?:ReplayStage},local?:LocalPrefix,pair?:{stage?:ReplayStage;originalSnapshot:CanonicalLocalWashAuthor['snapshot'];publish():void}):void {
     if(!local&&!origin)this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
     if ((!local&&(!Number.isSafeInteger(recordedSequence)||recordedSequence!<=this.lastSequence)) || input.layerId !== this.options.layerId
       || input.layerEpoch !== this.options.layerEpoch || (!this.options.mixedReplay7&&input.composition.mode!=='wash')
-      ||this.options.mixedReplay7&&(!origin&&!local||input.composition.mode==='buildup'&&input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)) throw new Error('Invalid recorded wash lane order/context')
-    if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
+      ||this.options.mixedReplay7&&(!origin&&!local||input.composition.mode==='buildup'&&input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE&&input.frame.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE&&!(input.frame.profile===CANONICAL_SOURCE_MATERIAL_PROFILE&&(origin?.recorded.snapshot.materialVersion===2||local?.author.snapshot.materialVersion===2)))) throw new Error('Invalid recorded wash lane order/context')
+    const original=origin?.recorded.snapshot??local?.author.snapshot??pair?.originalSnapshot
+    const browserHsy=!!original&&(original.materialVersion===2||original.materialVersion===8)&&original.material.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
+    if((input.composition.outerBlend==='colorHsyBrowser')!==browserHsy)throw new TypeError('Recorded outer composition law differs from original source')
+    if(browserHsy&&!this.options.composite.supportsOperations(['colorHsyBrowser']))throw new TypeError('Recorded browser HSY program was not prepared')
+    if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile,browserHsy)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical wash lane queue is full')
     this.assertLayers()
     let entry = this.entries.find(e => e.id === input.gestureId)
@@ -811,8 +821,14 @@ export class CanonicalWashLayerCoordinator {
         sourceLease=source.sourceLease
         if(sourceLease&&source.bank!==sourceLease)throw new Error('Canonical source lease reader changed')
         if(origin||local){
-          const snapshot=origin?.recorded.snapshot??(local!.author.snapshot.materialVersion===7?canonicalStrokeSnapshotV7(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===6?canonicalStrokeSnapshotV6(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===5?canonicalStrokeSnapshotV5(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===4?canonicalStrokeSnapshotV4(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===3?canonicalStrokeSnapshotV3(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile)),expected=snapshot.material.primarySource,actual=source.autoSource
-          if(snapshot.materialVersion===7){
+          const snapshot=origin?.recorded.snapshot??(local!.author.snapshot.materialVersion===8?canonicalStandaloneStrokeSnapshotV8(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===7?canonicalStrokeSnapshotV7(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===6?canonicalStrokeSnapshotV6(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===5?canonicalStrokeSnapshotV5(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===4?canonicalStrokeSnapshotV4(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):local!.author.snapshot.materialVersion===3?canonicalStrokeSnapshotV3(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):canonicalSourceStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile)),expected=snapshot.material.primarySource,actual=source.autoSource
+          if(snapshot.materialVersion===2&&source.sourceMaterial&&!canonicalSoftAutoDataEqual(canonicalSourceMaterialContext(source.sourceMaterial),canonicalSourceMaterialContext(snapshot.material)))throw new TypeError('Original source2 context changed')
+          if(snapshot.materialVersion===2&&snapshot.material.maskingBlend!==undefined){
+            if(!(source.sourceMaterial??source.maskedSource)||!canonicalSoftAutoDataEqual(canonicalMaskedSourceMaterialContext(source.sourceMaterial??source.maskedSource),canonicalMaskedSourceMaterialContext(snapshot.material)))throw new TypeError('Original masked source binding missing or changed')
+          }else if(source.maskedSource)throw new TypeError('Unexpected masked source binding')
+          if(snapshot.materialVersion===8){
+            if(snapshot.composition.mode!==input.composition.mode||!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||(expected.kind==='image'?!!actual:!actual||!canonicalSoftAutoDataEqual(actual,expected))||!canonicalSoftAutoDataEqual(canonicalPrimaryGrainMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded primary grain image source binding missing or changed')
+          }else if(snapshot.materialVersion===7){
             if(snapshot.composition.mode!==input.composition.mode||!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!actual||!canonicalSoftAutoDataEqual(actual,expected)||!canonicalSoftAutoDataEqual(canonicalTexturedAutoMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded textured Auto source binding missing or changed')
           }else if(snapshot.materialVersion===6){
             if(!source.sourceLease||source.bank!==source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!actual||!canonicalSoftAutoDataEqual(actual,expected)||!canonicalSoftAutoDataEqual(canonicalSoftNativeDefaultTexturedSourceMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded native-default Soft texture source binding missing or changed')
@@ -826,9 +842,11 @@ export class CanonicalWashLayerCoordinator {
           if(snapshot.rasterProfile!==this.options.rasterProfile)throw new TypeError('Recorded source profile mismatch')
           if(expected.kind==='image'){
             if(!source.bank||actual||source.softProgramOwner)throw new TypeError('Recorded image bank binding missing')
-            const image=canonicalImageMaterialPin(expected,snapshot.materialVersion===3?[snapshot.material.assets[0]]:snapshot.material.assets)
+            const imageSource={kind:'image' as const,asset:expected.asset,brushScale:expected.brushScale,brushAngle:expected.brushAngle,...'frames'in expected&&expected.frames?{frames:expected.frames}:{}}
+            const tipAssets=snapshot.material.assets.filter(asset=>asset.id===expected.asset||('frames'in expected&&expected.frames?.includes(asset.id)))
+            const image=canonicalImageMaterialPin(imageSource,tipAssets)
             const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(16384+image.assets.length*1536);let failed=false,failure:unknown
-            try{const requirement=canonicalImageRequiredSourceLevels(expected,image.assets)[0];imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertRequiredSourceBinding(requirement.asset,requirement.indexes,info)})}
+            try{const requirement=canonicalImageRequiredSourceLevels(image.primarySource,image.assets)[0];imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertRequiredSourceBinding(requirement.asset,requirement.indexes,info)})}
             catch(error){failed=true;failure=error}finally{try{release()}catch(error){if(!failed){failed=true;failure=error}}}
             if(failed)throw failure
           }else{
@@ -840,7 +858,7 @@ export class CanonicalWashLayerCoordinator {
           origin?.input.delivery.assertCurrent(origin.input)
           if(origin&&origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
         }
-        const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, ...buildup?{replayFrontier:'textured7-buildup-v1' as const}:{washMode:'deposition-only' as const},
+        const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source,sourceMaterial:source.sourceMaterial,maskedSource:source.maskedSource, autoGeometryMechanism:source.autoSource||source.sourceMaterial||source.maskedSource?source.autoGeometryMechanism??this.options.autoGeometryMechanism:undefined, ...buildup?{replayFrontier:input.frame.profile===CANONICAL_SOURCE_MATERIAL_PROFILE?'source2-buildup-v1' as const:input.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE?'primary-grain8-buildup-v1' as const:'textured7-buildup-v1' as const}:{washMode:'deposition-only' as const},
           changed: (_id, bounds) => {
             this.invalidate(bounds)
             // Existing Executor.changed(bounds) is native deposition, not clear
@@ -851,14 +869,15 @@ export class CanonicalWashLayerCoordinator {
               entry.firstRawPaintNextOrdinal=entry.depositedNextOrdinal+1
           }, // The lane retires ALL storage pins before external poison/undo.
           poison: () => {if(published)this.failed=true} })
-        const replaySource=buildup?executor.replaySource7():undefined
+        const replaySource=buildup?executor.replaySource():undefined
         if(replaySource)this.assertReplayOriginal(replaySource,origin?.recorded.snapshot??pair?.originalSnapshot)
         entry = { mode:input.composition.mode,depositedNextOrdinal:0,...replaySource?{replaySource}:{},image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       if(buildup){
-        if(input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)throw new Error('Replay frontier requires material7')
-        ticket=entry.executor.prepareReplayFrontier({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+        if(input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE&&input.frame.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE&&!(input.frame.profile===CANONICAL_SOURCE_MATERIAL_PROFILE&&entry.executor.replaySource().materialVersion===2))throw new Error('Replay frontier requires matching material7/8')
+        const frontierInput={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,assets:input.assets,rgb:input.rgb,composition:input.composition}
+        ticket=input.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE?entry.executor.prepareReplayFrontier({...frontierInput,frame:input.frame}):input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE?entry.executor.prepareReplayFrontier({...frontierInput,frame:input.frame}):entry.executor.prepareReplayFrontier({...frontierInput,frame:input.frame})
         // Exact existing executor geometry, never replanned from DTO bounds.
         // Count first: no persistent Position/Map allocation before SAME CPU.
         const targets=ticket.targets(),previousCount=previousPositionCount
@@ -875,7 +894,8 @@ export class CanonicalWashLayerCoordinator {
           for(const target of targets)if(!this.positions.has(key(target)))fresh.set(key(target),Object.freeze({x:target.x,y:target.y,width:target.width,height:target.height,...target.writeBounds?{writeBounds:target.writeBounds}:{},presentation:{}}))
         }
 
-      }else if(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+      }else if(input.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+      else if(input.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
       else if(input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
@@ -1175,7 +1195,7 @@ export class CanonicalWashLayerCoordinator {
     const rawBound=washCount*this.positions.size
     if(!Number.isSafeInteger(rawBound)||this.positions.size>64)throw Error('Mixed raw views exceed bounded union')
     const releaseMetadata=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+count*128+groupCount*768+closeCount*256+rawBound*1024)
-    const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source?:CanonicalReplaySource7;root?:CanonicalMaskSourceLease;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;group:ReplayCapturedGroup;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;capturedPrefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
+    const entries:ReplayEntry[]=[],values:ReplayValue[]=[],proofs:{owner:Entry;source?:CanonicalReplaySource;root?:CanonicalMaskSourceLease;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;group:ReplayCapturedGroup;close?:RecordedCloseReceipt;prefix?:RecordedPrefix;capturedPrefix?:RecordedPrefix;witness?:Readonly<Record<string,unknown>>}[]=[]
     let released=false,checking=false,pinned=false,work:ReplayGroupsWork|undefined
     // One synchronous busy+checking window: public mutation is fenced before
     // entry/prefix changes. Full membership remains checked at both boundaries.
@@ -1242,7 +1262,7 @@ export class CanonicalWashLayerCoordinator {
         if(!has)continue
         const source=owner.replaySource
         if(owner.mode==='buildup'&&!source)throw Error('Accepted replay source unavailable')
-        const frames:ReplayGroupFrame7[]=[]
+        const frames:ReplayGroupFrame[]=[]
         for(const entry of this.replay.values())if(entry.gestureId===owner.id){
           const frame=entry.acceptedFrame
           if(!frame||!Object.isFrozen(frame))throw Error('Replay accepted immutable frame missing')
@@ -1259,7 +1279,7 @@ export class CanonicalWashLayerCoordinator {
           proofs.push({owner,sourceLease:owner.sourceLease,ownership:owner.ownership,group,close,prefix,capturedPrefix:owner.recorded,witness})
         }else{
           if(!source)throw Error('Accepted replay source unavailable')
-          group=Object.freeze({kind:'buildup7',id:owner.id,frames:Object.freeze(frames),source:Object.freeze({rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
+          group=Object.freeze({kind:'buildup',id:owner.id,frames:Object.freeze(frames),source:Object.freeze(source.materialVersion===2?{materialVersion:2 as const,rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource,autoGeometryMechanism:source.autoGeometryMechanism}:source.materialVersion===8?{materialVersion:8 as const,rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource,autoGeometryMechanism:source.autoGeometryMechanism}:{materialVersion:7 as const,rasterProfile:source.rasterProfile,context:source.context,autoSource:source.autoSource,autoGeometryMechanism:source.autoGeometryMechanism}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
           source.assertCurrent();pure()
           const root=source.retainRoot()
           proofs.push({owner,source,root,sourceLease:owner.sourceLease,group,close,prefix,capturedPrefix:owner.recorded,witness})
@@ -1286,8 +1306,8 @@ export class CanonicalWashLayerCoordinator {
         let child:CanonicalMaskSourceLease|undefined
         try{
           assertBodyOwned();const proof=proofs.find(p=>p.group===group)
-          if(!proof?.root||group.kind!=='buildup7')throw Error('Foreign replay group')
-          child=proof.root.retain();assertBodyOwned()
+          if(!proof||group.kind!=='buildup'||!proof.root&&group.source.materialVersion!==2)throw Error('Foreign replay group')
+          child=proof.root?.retain();assertBodyOwned()
           const accepted=child;child=undefined;return accepted
         }catch(primary){if(child)this.cleanFrontier(()=>child!.release(this.cleanupContextLost()));throw primary}
         finally{checking=false}
@@ -1653,7 +1673,7 @@ export class CanonicalWashLayerCoordinator {
       if(group.kind==='wash'&&(entry.mode!=='wash'
         ||group.depositedNextOrdinal!==prefix.state.nextOrdinal
         ||entry.depositedNextOrdinal!==group.depositedNextOrdinal))return false
-      if(group.kind==='buildup7'&&entry.mode!=='buildup')return false
+      if(group.kind==='buildup'&&entry.mode!=='buildup')return false
       // A receipt is the captured original verifier result, not a sealed flag.
       // Snapshot assertions revalidate its source/lifetime and exact prefix.
       if(!prefix.state.ended&&(!group.close||entry.closeReceipt?.input!==group.close.input
@@ -1662,10 +1682,14 @@ export class CanonicalWashLayerCoordinator {
     return true
   }
 
-  private createMixedChildOwned(candidate:PreviewCandidateWork,mixed:MixedCandidateWork,group:Extract<ReplayCapturedGroup,{kind:'buildup7'}>,current:()=>void):CanonicalFrameExecutor {
+  private createMixedChildOwned(candidate:PreviewCandidateWork,mixed:MixedCandidateWork,group:Extract<ReplayCapturedGroup,{kind:'buildup'}>,current:()=>void):CanonicalFrameExecutor {
     const root=mixed.root=mixed.snapshot.retainRootOwned(group)
-    mixed.child=new CanonicalFrameExecutor({...this.options,bank:root,primaryTexture:{context:group.source.context,root},autoSource:group.source.autoSource,
-      washMode:undefined,replayFrontier:undefined,candidateReplay7:'textured7-buildup-v1',
+    const source=group.source
+    if(source.materialVersion!==2&&!root)throw Error('Textured replay source root missing')
+    const binding=source.materialVersion===2?{sourceMaterial:source.context,maskedSource:undefined,sourceLease:root,bank:root,autoSource:source.autoSource,autoGeometryMechanism:source.autoGeometryMechanism}:
+      {sourceMaterial:undefined,maskedSource:undefined,sourceLease:undefined,bank:root,primaryTexture:root?{context:source.context,root}:undefined,autoSource:source.autoSource,autoGeometryMechanism:source.autoGeometryMechanism}
+    mixed.child=new CanonicalFrameExecutor({...this.options,...binding,
+      washMode:undefined,replayFrontier:undefined,candidateReplay7:source.materialVersion===2?'source2-buildup-v1':source.materialVersion===8?'primary-grain8-buildup-v1':'textured7-buildup-v1',
       layer:id=>{
         current();if(id!==this.options.layerId||this.closed||this.failed)throw Error('Mixed child target retired')
         return {buffer:candidate.staged.buffer,epoch:this.options.layerEpoch}
@@ -1718,20 +1742,27 @@ export class CanonicalWashLayerCoordinator {
       }
       if(mixed.frame>=group.frames.length)break
       const captured=group.frames[mixed.frame],accepted=captured.frame
-      if(group.source.rasterProfile===CANONICAL_STROKE_RASTER_PROFILE)throw Error('Mixed material7 requires GenericSC composition')
-      const decoded=decodeCanonicalTexturedAutoStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:7,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
+      if(group.source.rasterProfile===CANONICAL_STROKE_RASTER_PROFILE)throw Error('Mixed buildup requires GenericSC composition')
+      const decoded=group.source.materialVersion===2
+        ?decodeCanonicalStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:2,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
+        :group.source.materialVersion===8
+        ?decodeCanonicalPrimaryGrainStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:8,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
+        :decodeCanonicalTexturedAutoStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:7,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
       mixed.pendingEnded=decoded.frame.fences.some(f=>f.kind==='gestureEnd')
-      child.enqueue({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,ordinal:mixed.frame,frame:decoded.frame,assets:group.source.context.assets,rgb:accepted.pigmentRgb8,composition:accepted.composition})
+      const submission={gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,ordinal:mixed.frame,assets:group.source.context.assets,rgb:accepted.pigmentRgb8,composition:accepted.composition}
+      if(decoded.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)child.enqueue({...submission,frame:decoded.frame})
+      else if(decoded.frame.profile===CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE)child.enqueue({...submission,frame:decoded.frame})
+      else child.enqueue({...submission,frame:decoded.frame})
       child.advanceWithinTurn(turnStarted);mixed.snapshot.assertOwned()
       if(child.pending)return
       mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++
     }
     if(mixed.frame<group.frames.length)return
     if(mixed.lastEnded)child.cancel()
-    else if(mixed.group===mixed.groups.length-1&&candidate.checkpoint&&!candidate.checkpoint.retired){child.takeRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame},candidate.checkpoint.cursor);candidate.checkpoint.ready=true}
+    else if(group.source.materialVersion!==2&&mixed.group===mixed.groups.length-1&&candidate.checkpoint&&!candidate.checkpoint.retired){child.takeRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame},candidate.checkpoint.cursor);candidate.checkpoint.ready=true}
     else child.retireRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame})
     mixed.child=undefined
-    const root=mixed.root;mixed.root=undefined;root!.release(this.cleanupContextLost())
+    const root=mixed.root;mixed.root=undefined;root?.release(this.cleanupContextLost())
     mixed.snapshot.assertOwned();mixed.group++;mixed.frame=0
   }
   private advancePreview(turnStarted:number):CanonicalPreviewOutcome|undefined {
@@ -1881,7 +1912,8 @@ export class CanonicalWashLayerCoordinator {
       if(owner.mode!=='buildup')continue
       const source=owner.replaySource?.context.primarySource
       if(!source)throw Error('Mixed accepted decode source missing')
-      const contextBytes=16384+(source.kind==='softAuto'?4*(source.source.softnessCurve.text.length+source.radialCurve.source.text.length):0)
+      const masked=owner.replaySource?.materialVersion===2?owner.replaySource.context.maskSource:undefined
+      const contextBytes=16384+(source.kind==='softAuto'?4*(source.source.softnessCurve.text.length+source.radialCurve.source.text.length):0)+(masked?.kind==='softAuto'?4*(masked.source.softnessCurve.text.length+masked.radialCurve.source.text.length):0)
       for(const retained of this.replay.values()){
         if(retained.gestureId!==owner.id)continue
         const text=retained.acceptedFrame?.materialPacked
@@ -1896,9 +1928,9 @@ export class CanonicalWashLayerCoordinator {
     }
     return maximum
   }
-  private prepareRenderedTailOwned(mixed:MixedCandidateWork,buffer:TiledLayerBuffer):RenderedTailCheckpoint7|undefined {
+  private prepareRenderedTailOwned(mixed:MixedCandidateWork,buffer:TiledLayerBuffer):RenderedTailCheckpoint|undefined {
     const tail=mixed.groups.at(-1)
-    if(!tail||tail.kind!=='buildup7'||tail.close)return
+    if(!tail||tail.kind!=='buildup'||tail.source.materialVersion===2||tail.close)return
     const count=mixed.groups.reduce((n,g)=>n+g.frames.length,0),bytes=1024+count*128+mixed.groups.length*512
     const cpu=this.maskParticipant.brushGlBatchInfo().cpu
     // Exact current retain() child header2048 + cursor precharge1024. No new cap.
@@ -1906,8 +1938,8 @@ export class CanonicalWashLayerCoordinator {
     if(cpu.budgetBytes-cpu.reservedBytes<bytes+3072)return
     let releaseMetadata:()=>void
     try{releaseMetadata=cpu.reserve(bytes)}catch(error){this.failed=true;throw error}
-    let cursor:CanonicalRenderedPrefixCursor7|undefined,root:CanonicalMaskSourceLease|undefined,pinned=false,checkpoint:RenderedTailCheckpoint7|undefined,unregister:(()=>void)|undefined
-    const groups:{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource7;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}[]=[]
+    let cursor:CanonicalRenderedPrefixCursor7|undefined,root:CanonicalMaskSourceLease|undefined,pinned=false,checkpoint:RenderedTailCheckpoint|undefined,unregister:(()=>void)|undefined
+    const groups:{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}[]=[]
     const release=()=>{
       if(checkpoint?.retired)return
       if(checkpoint)checkpoint.retired=true
@@ -1930,7 +1962,7 @@ export class CanonicalWashLayerCoordinator {
         const frames=group.frames.map(frame=>{const value=frame.value,id=value.kind==='recorded'?value.input.operation.id:value.operation.id,entry=this.replay.get(id);if(!entry||entry.gestureId!==group.id||entry.acceptedFrame!==frame.frame)throw Error('Rendered checkpoint prefix changed');return entry})
         groups.push({owner,frames:Object.freeze(frames),source:owner.replaySource,sourceLease:owner.sourceLease,ownership:owner.ownership,deposited:owner.depositedNextOrdinal,opacity:owner.opacity,blend:owner.blend})
       }
-      root=mixed.snapshot.retainRootOwned(tail);mixed.snapshot.assertOwned()
+      root=mixed.snapshot.retainRootOwned(tail);if(!root)throw Error('Rendered checkpoint root missing');mixed.snapshot.assertOwned()
       const grid=this.seedGrid()
       checkpoint={generation:this.replayGeneration,order:this.replayOrderRevision,stable:this.stable,buffer,grid,groups:Object.freeze(groups.map(g=>Object.freeze(g))),root,cursor,ready:false,retired:false,preempted:false,release}
       for(const group of groups){group.owner.replayPins=(group.owner.replayPins??0)+1;for(const frame of group.frames)frame.pins++}pinned=true
@@ -1938,9 +1970,9 @@ export class CanonicalWashLayerCoordinator {
       return checkpoint
     }catch(primary){this.failed=true;try{release()}catch(error){this.errors.push(error)}throw primary}
   }
-  private incrementalTailOwned(groups:readonly ReplayCapturedGroup[],positions:ReadonlyMap<string,Position>):Readonly<{checkpoint:RenderedTailCheckpoint7;plan:PreparedLayerTargets}>|undefined {
+  private incrementalTailOwned(groups:readonly ReplayCapturedGroup[],positions:ReadonlyMap<string,Position>):Readonly<{checkpoint:RenderedTailCheckpoint;plan:PreparedLayerTargets}>|undefined {
     const checkpoint=this.renderedTail,tail=groups.at(-1)
-    if(!checkpoint||checkpoint.retired||!checkpoint.ready||!tail||tail.kind!=='buildup7'||tail.close||checkpoint.generation!==this.replayGeneration||checkpoint.order!==this.replayOrderRevision||checkpoint.stable!==this.stable||checkpoint.buffer!==this.derived||checkpoint.groups.length!==groups.length||groups.length!==this.entries.length)return
+    if(!checkpoint||checkpoint.retired||!checkpoint.ready||!tail||tail.kind!=='buildup'||tail.close||checkpoint.generation!==this.replayGeneration||checkpoint.order!==this.replayOrderRevision||checkpoint.stable!==this.stable||checkpoint.buffer!==this.derived||checkpoint.groups.length!==groups.length||groups.length!==this.entries.length)return
     const grid=this.seedGrid(),previous=checkpoint.grid
     if(grid.x0!==previous.x0||grid.y0!==previous.y0||grid.x1!==previous.x1||grid.y1!==previous.y1||grid.count!==previous.count||positions.size>64||this.derived.evictedTileCount||this.derived.tileCount!==positions.size)return
     for(let index=0;index<groups.length;index++){
@@ -1948,7 +1980,7 @@ export class CanonicalWashLayerCoordinator {
       if(owner!==old.owner||group.id!==owner.id||owner.metadataRetired||owner.metadataReleased||owner.replaySource!==old.source||owner.sourceLease!==old.sourceLease||owner.opacity!==old.opacity||owner.blend!==old.blend||owner.washInFlight)return
       if(index===groups.length-1?group.frames.length<=old.frames.length:group.frames.length!==old.frames.length)return
       if(group.kind==='wash'&&(owner.mode!=='wash'||owner.depositedNextOrdinal!==old.deposited||owner.ownership!==old.ownership))return
-      if(group.kind==='buildup7'&&owner.mode!=='buildup')return
+      if(group.kind==='buildup'&&owner.mode!=='buildup')return
       for(let ordinal=0;ordinal<old.frames.length;ordinal++){
         const value=group.frames[ordinal].value,id=value.kind==='recorded'?value.input.operation.id:value.operation.id
         if(old.frames[ordinal].retired||this.replay.get(id)!==old.frames[ordinal])return
@@ -1973,7 +2005,7 @@ export class CanonicalWashLayerCoordinator {
     // Reserve BEFORE allocating any captured raw-view arrays or candidate.
     const releaseMetadata=this.maskParticipant.brushGlBatchInfo().cpu.reserve(bytes)
     const seedCurrent=()=>{const now=this.seedGrid();return now.x0===seed.x0&&now.y0===seed.y0&&now.x1===seed.x1&&now.y1===seed.y1&&now.count===seed.count}
-    let staged:CanonicalPreviewCandidate|undefined,snapshot:ReplayGroupsWork|undefined,preparedMixed:MixedCandidateWork|undefined,preparedCheckpoint:RenderedTailCheckpoint7|undefined
+    let staged:CanonicalPreviewCandidate|undefined,snapshot:ReplayGroupsWork|undefined,preparedMixed:MixedCandidateWork|undefined,preparedCheckpoint:RenderedTailCheckpoint|undefined
     try{
       const gpu=count*this.stable.tileWidth*this.stable.tileHeight*4
       if(!Number.isSafeInteger(gpu))throw new RangeError('Preview target bound')
@@ -2000,7 +2032,7 @@ export class CanonicalWashLayerCoordinator {
       if(this.candidate||this.previewLane||this.revision!==revision||this.fullSeedCount()!==count||!seedCurrent())throw Error('Candidate publication owner changed')
       const mixed:MixedCandidateWork|undefined=snapshot?{snapshot,groups:groups!,group:0,frame:0,seeded:false,activeEntries:[]}:undefined
       preparedMixed=mixed
-      let checkpoint:RenderedTailCheckpoint7|undefined,selected:RenderedTailCheckpoint7|undefined
+      let checkpoint:RenderedTailCheckpoint|undefined,selected:RenderedTailCheckpoint|undefined
       if(mixed){
         checkpoint=this.prepareRenderedTailOwned(mixed,staged.buffer);preparedCheckpoint=checkpoint
         try{
@@ -2014,7 +2046,7 @@ export class CanonicalWashLayerCoordinator {
       let attached=false
       if(mixed?.resumeCursor&&selected){
         const tail=mixed.groups.at(-1)!
-        if(tail.kind!=='buildup7')throw Error('Incremental tail source changed')
+        if(tail.kind!=='buildup')throw Error('Incremental tail source changed')
         this.createMixedChildOwned(next,mixed,tail,()=>{
           if(attached?this.candidate!==next:this.candidate!==undefined||this.previewLane!==undefined||this.revision!==revision||next.generation!==this.replayGeneration||next.order!==this.replayOrderRevision)throw Error('Incremental prepared child changed')
         })
@@ -2022,7 +2054,7 @@ export class CanonicalWashLayerCoordinator {
         // checkpoint. No pixels exist yet; normal full replay is still valid.
         if(selected.preempted){
           mixed.child!.cancel();mixed.child=undefined
-          const root=mixed.root;mixed.root=undefined;root!.release(this.cleanupContextLost())
+          const root=mixed.root;mixed.root=undefined;root?.release(this.cleanupContextLost())
           const plan=mixed.seedPlan;mixed.seedPlan=undefined;plan!.close()
           mixed.seedBase=undefined;mixed.resumeCursor=undefined;mixed.group=0;mixed.frame=0
         }else{

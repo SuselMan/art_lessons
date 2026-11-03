@@ -1,4 +1,4 @@
-import type {CanonicalPreparedRecordedOperation} from '@grafetto/shared'
+import type {CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation} from '@grafetto/shared'
 import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useCallback, useRef, type RefObject } from 'react'
 

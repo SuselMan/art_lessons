@@ -118,6 +118,8 @@ export function adjustHsvChromaRgba8(source: Rgba8, hue: number, saturation: num
 
 /** Generic SC integer source law, separate from optimized F32 Over/AlphaDarken. */
 export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-generic-hsy-u8-fused-fpcr0-v1' as const
+/** Functional browser arithmetic; no installed/FMA pixel identity. */
+export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
 export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
@@ -130,7 +132,7 @@ interface Rgba8CompositeParameters {
 export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: 'over' | 'add' | 'alphaDarken'; readonly profile?: never } |
   { readonly mode: SourceRgba8SeparableMode; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
-  { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE }
+  { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
 export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
@@ -188,9 +190,9 @@ function colorHsyChannels(source: Rgba8, destination: Rgba8, fused = false): [nu
   // possiblyFixNegativeValuesNearZeroPoint<quint8> is deliberately a no-op.
   return [r, g, b]
 }
-export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8, profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = SOURCE_RGBA8_COLOR_HSY_PROFILE): readonly [number, number, number] {
+export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8, profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE = SOURCE_RGBA8_COLOR_HSY_PROFILE): readonly [number, number, number] {
   validateRgba8Pixel(source); validateRgba8Pixel(destination)
-  if (profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE) throw new RangeError('Unknown HSY profile')
+  if (profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE) throw new RangeError('Unknown HSY profile')
   return colorHsyChannels(source, destination, profile === SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE)
 }
 /** Same generic-SC branch/narrowing body used by addition and separable ops. */
@@ -205,7 +207,7 @@ function genericScChannel(source: number, destination: number, sa: number, da: n
 export function validateRgba8CompositeControl(control: Rgba8CompositeControl): void {
   if (!control || !['over', 'add', 'alphaDarken', 'colorHsy', ...separableModes].includes(control.mode)) throw new RangeError('Unknown composite mode')
   if (separableModes.includes(control.mode) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
-  if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE) throw new RangeError('Missing explicit HSY profile')
+  if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE) throw new RangeError('Missing explicit HSY profile')
   unit(control.opacity)
   if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
   unit(control.flow ?? 1)
@@ -273,4 +275,12 @@ export function compositeRgba8Group(destination: Rgba8, particles: readonly Rgba
   let group: Rgba8 = [0, 0, 0, 0]
   for (const p of particles) group = compositeRgba8(p.color, group, { mode: 'over', opacity: p.opacity, mask: p.mask })
   return { group, output: compositeRgba8(group, destination, outer) }
+}
+
+/** Native Darken's actual QColor RGB stage, using the explicit sRGB functional
+ * profile. Native ICC/Lab roundtrip rounding is deliberately not reproduced. */
+export function darkenSourceRgba8(source:Rgba8,sizeLike:number):Rgba8{
+ validateRgba8Pixel(source);unit(sizeLike)
+ const shade=Math.trunc(255-255*sizeLike)
+ return[Math.trunc(source[0]*shade/255),Math.trunc(source[1]*shade/255),Math.trunc(source[2]*shade/255),source[3]]
 }

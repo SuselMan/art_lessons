@@ -33,7 +33,7 @@ def _sources(raw):
     sensors = required_source_curves(raw)
     source = raw.get('source', {})
     radial = source['softnessCurve'] if source.get('kind') == 'softAuto' else None
-    # Radial identity has an R+2 table and must NOT use the sensor identity bypass.
+    # Coverage curve identity still needs a dense table (circle R+2, rectangle R+1); never use the sensor identity bypass.
     return sensors, radial
 
 

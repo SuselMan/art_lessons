@@ -667,10 +667,31 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)!={'mode','frames'} or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
-            frames=animation['frames']
-            if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
-            if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
+            if not isinstance(animation,dict) or animation.get('mode') not in ('random','incremental','native-dimensions-v1','text-sequence-v1'): raise ValueError('Invalid portable tip animation')
+            mode=animation['mode'];allowed={'mode','frames','frameBounds'}|({'sequence'} if mode=='text-sequence-v1' else {'dimensions','declaredCells'} if mode=='native-dimensions-v1' else set())
+            if set(animation)-allowed:raise ValueError('Unknown portable pipe metadata')
+            frames=animation.get('frames')
+            if not isinstance(frames,list) or not (1 if mode in ('native-dimensions-v1','text-sequence-v1') else 2)<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames):raise ValueError('Missing portable animation asset')
+            if mode=='text-sequence-v1':
+                sequence=animation.get('sequence')
+                if not isinstance(sequence,list) or not 1<=len(sequence)<=4096 or sequence[0]!=0 or any(type(i)is not int or not 0<=i<len(frames) for i in sequence) or 'frameBounds' not in animation:raise ValueError('Invalid captured UTF16 pipe sequence')
+            if mode=='native-dimensions-v1':
+                dimensions=animation.get('dimensions');cells=animation.get('declaredCells');stride=cells;product=1
+                if type(cells)is not int or not 1<=cells<=256 or not isinstance(dimensions,list) or not 1<=len(dimensions)<=4:raise ValueError('Invalid native pipe dimensions')
+                for dim in dimensions:
+                    if not isinstance(dim,dict) or set(dim)!={'mode','rank','stride'} or dim['mode'] not in ('constant','incremental','random','pressure','angular','xtilt','ytilt','velocity') or type(dim['rank'])is not int or not 1<=dim['rank']<=256:raise ValueError('Invalid native pipe dimension')
+                    product*=dim['rank'];stride//=dim['rank']
+                    if product>256 or dim['stride']!=stride:raise ValueError('Invalid native pipe stride')
+            if 'frameBounds' in animation:
+                bounds=animation['frameBounds']
+                if not isinstance(bounds,list) or len(bounds)!=len(frames):raise ValueError('Invalid original frame bounds')
+                for i,r in enumerate(bounds):
+                    side=asset_sizes[frames[i]]
+                    if not isinstance(r,dict) or set(r)!={'x','y','width','height'} or any(type(v)not in(int,float) or not math.isfinite(v) or v<0 or v>1 or int(v*side)!=v*side for v in r.values()) or r['width']<=0 or r['height']<=0 or r['x']+r['width']>1 or r['y']+r['height']>1:raise ValueError('Invalid per-frame pixel rectangle')
+                    if i==0:
+                        longest=max(r['width'],r['height']);square={'x':r['x']+(r['width']-longest)/2,'y':r['y']+(r['height']-longest)/2,'width':longest,'height':longest}
+                        if square!=tip.get('maskBounds'):raise ValueError('Original first-frame metric differs')
+            elif len({asset_sizes[frame] for frame in frames})!=1:raise ValueError('Portable animation assets differ in size')
         if 'material' in tip:
             material=tip['material']
             if d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict):
@@ -701,6 +722,23 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
             bounds=tip['maskBounds']
             if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')
             if bounds['x']<0 or bounds['y']<0 or bounds['width']<=0 or bounds['width']!=bounds['height'] or bounds['x']+bounds['width']>1 or bounds['y']+bounds['height']>1: raise ValueError('Portable mask bounds outside asset')
+        if 'svgRasterization' in tip:
+            p=tip['svgRasterization']
+            if (tip.get('kind')!='bitmap' or not isinstance(p,dict) or set(p)!={'kind','originalFilename','originalSha256','sanitizedSha256','rasterSha256','helperSha256','width','height','sharpVersion','rsvgVersion'}
+                    or p['kind']!='librsvg-gray-vector-subset-v1' or not isinstance(p['originalFilename'],str) or not 1<=len(p['originalFilename'])<=1024
+                    or any(not isinstance(p[k],str) or not re.fullmatch('[a-f0-9]{64}',p[k]) for k in ('originalSha256','sanitizedSha256','rasterSha256','helperSha256'))
+                    or p['width']!=1000 or type(p['height']) is not int or not 1<=p['height']<=1000
+                    or any(not isinstance(p[k],str) or not 1<=len(p[k])<=128 for k in ('sharpVersion','rsvgVersion'))):
+                raise ValueError('Invalid captured SVG provenance')
+        if 'textRasterization' in tip:
+            p=tip['textRasterization']
+            if (tip.get('kind')!='bitmap' or not isinstance(p,dict) or set(p)!={'kind','originalFont','fontSha256','faceIndex','pixelSize','dpi','family','style','layout','substituted'}
+                    or p['kind']!='fontconfig-pillow-text-mask-v1' or not isinstance(p['originalFont'],str) or len(p['originalFont'])>4096
+                    or not isinstance(p['fontSha256'],str) or not re.fullmatch('[a-f0-9]{64}',p['fontSha256'])
+                    or type(p['faceIndex']) is not int or not 0<=p['faceIndex']<=65535 or type(p['pixelSize']) is not int or not 1<=p['pixelSize']<=2048
+                    or p['dpi']!=96 or any(not isinstance(p[k],str) or len(p[k])>1024 for k in ('family','style'))
+                    or p['layout'] not in ('basic','raqm') or type(p['substituted']) is not bool):
+                raise ValueError('Invalid captured text raster provenance')
         if 'imageSampling' in tip:
             sampling=tip['imageSampling']
             if (tip.get('kind')!='bitmap' or 'material' in tip or not isinstance(sampling,dict)
@@ -743,10 +781,25 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
         bid=brush['descriptor']['id']
         if bid in seen: raise ValueError('Duplicate portable brush ID')
         seen.add(bid)
+    patterns=library.get('patterns',[])
+    if not isinstance(patterns,list) or len(patterns)>128: raise ValueError('Portable pattern count exceeds128')
+    pattern_ids=set();new_patterns=[];existing_patterns={p['id'] for p in catalog.patterns}
+    for pattern in patterns:
+        if not isinstance(pattern,dict) or set(pattern)!={'id','name','resource'} or not isinstance(pattern['name'],str) or len(pattern['name'].encode('utf-16-le'))>256 or '\0' in pattern['name']: raise ValueError('Invalid portable pattern entry')
+        r=pattern['resource']
+        if not isinstance(r,dict) or set(r)!={'kind','channels','alphaAsset','size','x','y','width','height','periodX','periodY'} or r['kind']!='source-pattern-rgba8-v1': raise ValueError('Invalid portable pattern resource')
+        channels=r['channels']
+        if not isinstance(channels,list) or len(channels)!=3 or any(not isinstance(a,str) or a not in asset_sizes for a in channels) or not isinstance(r['alphaAsset'],str) or r['alphaAsset'] not in asset_sizes: raise ValueError('Missing portable original pattern planes')
+        if any(type(r[k]) is not int for k in ('size','x','y','width','height','periodX','periodY')) or not 2<=r['size']<=2048 or r['size']&(r['size']-1) or not 1<=r['width']<=r['size'] or not 1<=r['height']<=r['size'] or r['width']*r['height']>1048576 or not 0<=r['x']<=r['size']-r['width'] or not 0<=r['y']<=r['size']-r['height'] or r['periodX']!=r['width'] or r['periodY']!=r['height'] or any(asset_sizes[a]!=r['size'] for a in channels+[r['alphaAsset']]): raise ValueError('Portable pattern plane geometry mismatch')
+        expected='pattern:'+hashlib.sha256(json.dumps(r,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+        if pattern['id']!=expected or expected in pattern_ids: raise ValueError('Portable pattern identity mismatch')
+        pattern_ids.add(expected)
+        if expected not in existing_patterns:new_patterns.append(pattern)
+    if len(existing_patterns)+len(new_patterns)>128: raise ValueError('Merged portable pattern count exceeds128')
     # Validate everything before writing any raster or mutating the catalog.
     for asset,raw in validated:
         (catalog.output/asset['file']).write_bytes(raw);catalog.assets[asset['id']]=asset
-    catalog.brushes.extend(brushes);catalog.skipped.extend(skipped)
+    catalog.brushes.extend(brushes);catalog.skipped.extend(skipped);catalog.patterns.extend(new_patterns)
 
 
 def main():

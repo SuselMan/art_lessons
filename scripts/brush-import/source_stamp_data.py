@@ -11,6 +11,8 @@ from curve_transfer import native_curve_is_identity
 from native_curve_compile import compile_curves, PROFILE, MAX_CURVES, MAX_KNOTS
 
 OPTIONS=('Size','Rotation','Ratio','Scatter','Opacity','Flow','Mirror','Spacing','Rate')
+MATERIAL_OPTIONS=('Softness','LightnessStrength','Sharpness')
+COLOR_OPTIONS=('Mix','Darken','h','s','v')
 SOURCE_IDS=('pressure','pressurein','tangentialpressure','drawingangle','xtilt','ytilt','ascension','declination','rotation','fuzzy','fuzzystroke','speed','fade','distance','time','perspective')
 SENSORS=('pressure','pressureIn','tangentialPressure','drawingAngle','xTilt','yTilt','tiltDirection','tiltElevation','rotation','fuzzyPerDab','fuzzyPerStroke','speed','fade','distance','time','perspective')
 IDENTITY='0,0;1,1;'
@@ -21,8 +23,10 @@ DECIMAL=re.compile(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?')
 
 def source_stamp_budget(data):
     if not isinstance(data.get('settings'),dict) or len(data['settings'])>256 or not isinstance(data.get('options'),list) or len(data['options'])>9 or not isinstance(data.get('unsupported'),list) or len(data['unsupported'])>32: raise ValueError('Invalid source stamp budget structure')
+    if not isinstance(data.get('colorOptions',[]),list) or len(data.get('colorOptions',[]))>5: raise ValueError('Invalid source color option budget')
+    if not isinstance(data.get('materialOptions',[]),list) or len(data.get('materialOptions',[]))>3: raise ValueError('Invalid source material option budget')
     if any(not isinstance(k,str) or not isinstance(v,str) or len(k)>128 or len(v)>65536 for k,v in data['settings'].items()): raise ValueError('Source settings budget exceeded')
-    for option in data['options']:
+    for option in data['options']+data.get('materialOptions',[])+data.get('colorOptions',[])+([data['textureOption']] if 'textureOption' in data else []):
         if not isinstance(option,dict) or not isinstance(option.get('sensors'),list) or len(option['sensors'])>16: raise ValueError('Invalid source stamp sensor budget')
         for curve in [option.get('commonCurve')]+[s.get('curve') for s in option['sensors']]:
             if not isinstance(curve,dict) or not isinstance(curve.get('text'),str) or len(curve['text'])>65536 or not isinstance(curve.get('points'),list) or len(curve['points'])>256: raise ValueError('Invalid source stamp curve budget')
@@ -31,7 +35,7 @@ def source_stamp_budget(data):
         if not isinstance(radial,dict) or not isinstance(radial.get('text'),str) or len(radial['text'])>65536 or not isinstance(radial.get('points'),list) or not 1<=len(radial['points'])<=256: raise ValueError('Invalid soft source curve budget')
     total=2048+sum(len((k+v).encode('utf-8')) for k,v in data['settings'].items())+sum(len(s.encode('utf-8')) for s in data['unsupported'])
     if radial is not None: total+=len(radial['text'].encode('utf-8'))+32*len(radial['points'])
-    for option in data['options']:
+    for option in data['options']+data.get('materialOptions',[])+data.get('colorOptions',[])+([data['textureOption']] if 'textureOption' in data else []):
         total+=64
         for curve in [option['commonCurve']]+[s['curve'] for s in option['sensors']]:
             total+=len(curve['text'].encode('utf-8'))+32*len(curve['points'])
@@ -190,7 +194,7 @@ def texture_native_default_source_curve(data):
 
 def required_source_curves(data):
     curves={}
-    for option in data['options']:
+    for option in data['options']+data.get('materialOptions',[])+data.get('colorOptions',[])+([data['textureOption']] if 'textureOption' in data else []):
         if not option['checked'] or not option['useCurve']: continue
         for sensor in option['sensors']:
             curve=sensor['curve']
@@ -314,6 +318,7 @@ def option_data(params,name,xml,charge=None):
         records.append(sensor)
     maximum=5 if name=='Scatter' else 1
     strength=finite(params.get(name+'Value',params.get('Scattering/Amount',maximum) if name=='Scatter' else maximum))
+    if name=='Sharpness' and 'SharpnessValue' not in params and 'Sharpness/factor' in params: strength=finite(params['Sharpness/factor'])
     checkable=name not in ('Opacity','Flow')
     return {'id':name,'checkable':checkable,'checked':not checkable or flag(params.get('Pressure'+name,'false')),
             'useCurve':flag(params.get(name+'UseCurve','true')),'useSameCurve':same,'commonCurve':selected_curve(common),
@@ -329,7 +334,9 @@ def material_option_is_fixed_one(params,name):
 
 def source_identity(definition):
     kind=definition.get('type')
-    if kind in ('png_brush','gbr_brush'): return {'kind':'image'}
+    # SVG enters SOURCE only after the importer verified its prepared mask.
+    # Retain the original svg_brush XML; legacy v1 remains PNG/GBR-only.
+    if kind in ('png_brush','gbr_brush','svg_brush','kis_text_brush'): return {'kind':'image'}
     if kind!='auto_brush': raise ValueError('Unsupported raw source brush')
     generator=definition.find('MaskGenerator')
     if generator is None or generator.get('id','default') not in ('default','gauss','soft'): raise ValueError('Unsupported native auto source generator')
@@ -344,7 +351,6 @@ def source_identity(definition):
             'horizontalFade':number(generator.get('hfade',0)), 'verticalFade':number(generator.get('vfade',0)),
             'antialias':integer(generator.get('antialiasEdges',0))!=0,'spikes':integer(generator.get('spikes',2)),
             'randomness':number(definition.get('randomness',0)), 'density':number(definition.get('density',1))}
-    if generator_id in ('gauss','soft') and result['shape']!='circle': raise ValueError('Unsupported native '+('Gaussian' if generator_id=='gauss' else 'soft')+' auto shape')
     if result['diameter']<=0 or result['ratio']<=0 or not 1<=result['spikes']<=2147483647 or any(not 0<=result[k]<=1 for k in ('horizontalFade','verticalFade','randomness','density')): raise ValueError('Invalid native auto source parameters')
     if generator_id=='soft':
         result['softnessCurve']=curve_data(generator.get('softness_curve') or '0,1;1,0')
@@ -354,7 +360,7 @@ def source_identity(definition):
 def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     # Preserve raw planner/material inputs, not embedded patterns/resources or thumbnail data.
     if not all(isinstance(k,str) and isinstance(v,str) for k,v in params.items()): raise ValueError('Invalid source setting key/value')
-    prefixes=OPTIONS+('Pressure','Custom','Curve','Scattering/','PaintOpSettings/','Texture/Pattern/Enabled','Texture/Strength/','MaskingBrush/','ColorSource/')
+    prefixes=OPTIONS+MATERIAL_OPTIONS+COLOR_OPTIONS+('Pressure','Custom','Curve','Scattering/','Sharpness/','PaintOpSettings/','Texture/Pattern/Enabled','Texture/Pattern/AutoInvertOnErase','Texture/Strength/','MaskingBrush/','ColorSource/')
     keys={'brush_definition','HorizontalMirrorEnabled','VerticalMirrorEnabled','PaintOpAction','PrecisionLevel','AutoPrecisionEnabled'}
     raw={k:v for k,v in params.items() if k in keys or k.startswith(prefixes) or 'precision' in k.lower() or 'Sharpness' in k or 'Softness' in k or 'Lightness' in k}
     # Child data lives in its own descriptor; master relationship is retained, not duplicated.
@@ -379,17 +385,26 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     if params.get('ColorSource/Type','plain')!='plain': reasons.append('source-color-provider-unresolved')
     if any(finite(definition.get(k,default))!=default for k,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or flag(definition.get('AutoAdjustMidPoint','false')):
         reasons.append('source-image-adjustments-unavailable')
-    try: options=[option_data(params,name,xml,charge) for name in OPTIONS]
+    material_options=[];color_options=[];texture_option=None
+    try:
+        options=[option_data(params,name,xml,charge) for name in OPTIONS]
+        if any(flag(params.get('Pressure'+name,'false')) for name in MATERIAL_OPTIONS):
+            material_options=[option_data(params,name,xml,charge) for name in MATERIAL_OPTIONS]
+        if flag(params.get('Texture/Pattern/Enabled','false')):
+            texture_option=option_data(params,'Texture/Strength/',xml,charge)
+        if any(flag(params.get('Pressure'+name,'false')) for name in COLOR_OPTIONS):
+            color_options=[option_data(params,name,xml,charge) for name in COLOR_OPTIONS]
     except (ValueError,OverflowError) as error: reasons.append(str(error)[:256])
-    scale=1 if auto else finite(definition.get('scale',1))*(2 if definition.get('BrushVersion','1')=='1' else 1)
-    angle=finite(definition.get('angle',0))
-    spacing_default=1 if auto else .25
+    text=definition.get('type')=='kis_text_brush'
+    scale=1 if auto or text else finite(definition.get('scale',1))*(2 if definition.get('BrushVersion','1')=='1' else 1)
+    angle=0 if text else finite(definition.get('angle',0))
+    spacing_default=1 if auto or text else .25
     if scale<=0: raise ValueError('Nonpositive native source scale')
     level=integer(params.get('KisPrecisionOption/precisionLevel',5))
     if not 1<=level<=5 or finite(definition.get('spacing',spacing_default))<0 or finite(definition.get('autoSpacingCoeff',1))<0 or finite(params.get('PaintOpSettings/rate',20))<=0: raise ValueError('Invalid native source spacing/precision/rate')
     result={'version':2,'source':source,'reader':'krita-bd6e8d0-v1','role':'mask' if depth else 'primary','settings':raw,
             'brush':{'width':width,'height':height,'scale':scale,'angle':angle},
-            'spacing':{'value':finite(definition.get('spacing',spacing_default)),'automatic':flag(definition.get('useAutoSpacing','false')),'coefficient':finite(definition.get('autoSpacingCoeff',1)),'isotropic':flag(params.get('Spacing/Isotropic','false'))},
+            'spacing':{'value':finite(definition.get('spacing',spacing_default)),'automatic':False if text else flag(definition.get('useAutoSpacing','false')),'coefficient':1 if text else finite(definition.get('autoSpacingCoeff',1)),'isotropic':flag(params.get('Spacing/Isotropic','false'))},
             'timing':{'enabled':flag(params.get('PaintOpSettings/isAirbrushing','false')),'rate':finite(params.get('PaintOpSettings/rate',20)),'ignoreDistance':flag(params.get('PaintOpSettings/ignoreSpacing','false'))},
             'precision':{'level':integer(params.get('KisPrecisionOption/precisionLevel',5)),'automatic':flag(params.get('KisPrecisionOption/AutoPrecisionEnabled','false'))},
             'flags':{'scatterX':flag(params.get('Scattering/AxisX','true')),'scatterY':flag(params.get('Scattering/AxisY','true')),'mirrorX':flag(params.get('HorizontalMirrorEnabled','false')),'mirrorY':flag(params.get('VerticalMirrorEnabled','false')),
@@ -397,6 +412,9 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
                      'materialFixed1':material_option_is_fixed_one(params,'Softness') and material_option_is_fixed_one(params,'LightnessStrength')
                      and not any(flag(params.get('Pressure'+key,'false')) for key in ('Sharpness','h','s','v','Darken','Mix'))},
             'options':options,'unsupported':reasons}
+    if material_options: result['materialOptions']=material_options
+    if color_options: result['colorOptions']=color_options
+    if texture_option is not None: result['textureOption']=texture_option
     if source_stamp_budget(result)>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Source stamp aggregate budget exceeded')
     return result
 
@@ -419,6 +437,9 @@ def validate_source_stamp_shape(descriptor):
         expected.pop('source');expected['version']=1
     if mapped_soft_frontier_retired(data):
         expected['unsupported']=[reason for reason in expected['unsupported'] if reason!='soft-auto-raster-author-unavailable']
+    if 'materialOptions' not in data: expected.pop('materialOptions',None)
+    if 'colorOptions' not in data: expected.pop('colorOptions',None)
+    if 'textureOption' not in data: expected.pop('textureOption',None)
     if not same_source_data({k:v for k,v in data.items() if k!='compiled'},expected): raise ValueError('Portable source stamp differs from raw native settings')
     if not 1<=data['precision']['level']<=5 or data['spacing']['value']<0 or data['spacing']['coefficient']<0 or data['timing']['rate']<=0: raise ValueError('Invalid native source spacing/precision/rate')
 

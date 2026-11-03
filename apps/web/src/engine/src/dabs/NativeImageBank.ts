@@ -1,3 +1,4 @@
+import {scaleIntegerImageU8} from '../raster/integerImageScale'
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
 import { assertNativeImageSourceSize, buildNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
 import { sourcePngPyramid, sourcePngSelectLevel } from '../presets/sourcePngPyramid'
@@ -66,6 +67,30 @@ export function nativeImagePixels(resource: NativeImageResource, original: Uint8
   const plane = buildNativeImageLevel(cropped, rect, Math.max(rect.width, rect.height) * resource.scale)
   if (plane.width !== resource.width || plane.height !== resource.height) throw Error('Native image resource dimensions changed')
   return plane.pixels
+}
+
+/** Paired material derivative: resize premultiplied channels with the SAME
+ * integer scaler, then provide straight RGBA to the existing PM16 transform.
+ * Original CAS channels are immutable. Transparent source RGB is discarded. */
+export function nativeImageMaterialPixels(resource:NativeImageResource,alpha:Uint8Array,channels:readonly Uint8Array[]):Uint8Array {
+ const side=Math.sqrt(alpha.length),r=resource.rect
+ if(!Number.isSafeInteger(side)||channels.length!==1&&channels.length!==3||channels.some(p=>!(p instanceof Uint8Array)||p.length!==alpha.length)||r.x+r.width>side||r.y+r.height>side)throw new RangeError('Image material plane layout changed')
+ const croppedAlpha=new Uint8Array(r.width*r.height)
+ for(let y=0;y<r.height;y++)croppedAlpha.set(alpha.subarray((r.y+y)*side+r.x,(r.y+y)*side+r.x+r.width),y*r.width)
+ const size={width:resource.nativeWidth,height:resource.nativeHeight}
+ const a=scaleIntegerImageU8(croppedAlpha,r,size),rgba=new Uint8Array(resource.width*resource.height*4)
+ for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++)rgba[((y+1)*resource.width+x+1)*4+3]=a[y*size.width+x]
+ for(let c=0;c<channels.length;c++){
+  const original=channels[c],pm=new Uint8Array(croppedAlpha.length)
+  for(let y=0;y<r.height;y++)for(let x=0;x<r.width;x++){const i=y*r.width+x;pm[i]=Math.floor(original[(r.y+y)*side+r.x+x]*croppedAlpha[i]/255+.5)}
+  const level=scaleIntegerImageU8(pm,r,size)
+  for(let y=0;y<size.height;y++)for(let x=0;x<size.width;x++){
+   const i=y*size.width+x,byte=a[i]?Math.min(255,Math.floor(level[i]*255/a[i]+.5)):0,offset=((y+1)*resource.width+x+1)*4
+   if(channels.length===1)rgba[offset]=rgba[offset+1]=rgba[offset+2]=byte
+   else rgba[offset+c]=byte
+  }
+ }
+ return rgba
 }
 
 /** Native mask allocation clips to its outward-aligned transformed original

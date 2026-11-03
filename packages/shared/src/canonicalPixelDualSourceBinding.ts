@@ -31,14 +31,14 @@ export function canonicalPixelDualSourceBinding(original:BrushDescriptor,descrip
    const image=captureOriginalPixelImageSource(role.descriptor,source,descriptorSha256,context.assets,foreground,role.effectiveBrushScale)
    const {descriptorId:_id,descriptorVersion:_version,descriptorSha256:_sha,...expected}=image.source
    if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(pin))return fail()
-   for(const asset of image.assets){const actual=context.assets.find(a=>a.id===asset.id);if(!actual||canonicalBrushDescriptorJSON(actual)!==canonicalBrushDescriptorJSON(asset))return fail();const prior=imageAssets.get(asset.id);if(prior&&canonicalBrushDescriptorJSON(prior)!==canonicalBrushDescriptorJSON(asset))return fail();imageAssets.set(asset.id,asset)}
+   for(const asset of image.assets){const actual=context.assets.find(a=>a.id===asset.id);if(!actual||actual.size!==asset.size||!pin.frameBounds&&canonicalBrushDescriptorJSON(actual)!==canonicalBrushDescriptorJSON(asset))return fail();const prior=imageAssets.get(asset.id);if(prior&&prior.size!==asset.size)return fail();imageAssets.set(asset.id,actual)}
    return Object.freeze({...role,imageSource:pin,imageAssets:Object.freeze(image.assets)})
   }
   if(source.version!==2||source.source.kind!==pin.kind||pin.descriptorId!==role.descriptor.id||pin.descriptorVersion!==role.descriptor.version||pin.descriptorSha256!==descriptorSha256||canonicalBrushDescriptorJSON(pin.source)!==canonicalBrushDescriptorJSON(source.source))return fail()
   return role
  }
  const primary=bindRole(data.primary,context.primarySource),mask=bindRole(data.mask,context.maskSource)
- if(context.roleTextures){const expected=captureOriginalRoleTextures(data.primary.textureSource,data.mask.textureSource,sourceRoleTextureInputsFromPins(context.roleTextures));if(canonicalBrushDescriptorJSON(expected.roleTextures)!==canonicalBrushDescriptorJSON(context.roleTextures))return fail();for(const asset of expected.assets){const actual=context.assets.find(a=>a.id===asset.id);if(!actual||canonicalBrushDescriptorJSON(actual)!==canonicalBrushDescriptorJSON(asset))return fail();imageAssets.set(asset.id,asset)}}
+ if(context.roleTextures){const expected=captureOriginalRoleTextures(data.primary.textureSource,data.mask.textureSource,sourceRoleTextureInputsFromPins(context.roleTextures));if(canonicalBrushDescriptorJSON(expected.roleTextures)!==canonicalBrushDescriptorJSON(context.roleTextures))return fail();for(const asset of expected.assets){const actual=context.assets.find(a=>a.id===asset.id);if(!actual||actual.size!==asset.size)return fail();imageAssets.set(asset.id,actual)}}
  if(context.sourceColorFields)for(const field of [context.sourceColorFields.primary,context.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset]){const actual=context.assets.find(a=>a.id===id);if(!actual)return fail();imageAssets.set(id,actual)}
  if(imageAssets.size!==context.assets.length)return fail()
  const refs=data.primary.textureSource||data.mask.textureSource?brushAssetIds(data.descriptor):undefined
@@ -71,6 +71,6 @@ export function canonicalPixelDualSourceMaterialContext(binding:CanonicalPixelDu
  const material=canonicalSourceMaterialContext({...expected.material,...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{}})
  if(!expected.primary.textureSource&&!expected.mask.textureSource){if(inputs!==undefined)throw new TypeError('Unexpected dual texture START inputs');return material}
  const captured=captureOriginalRoleTextures(expected.primary.textureSource,expected.mask.textureSource,inputs),assets=[...material.assets]
- for(const a of captured.assets){const old=assets.find(p=>p.id===a.id);if(old){if(canonicalBrushDescriptorJSON(old)!==canonicalBrushDescriptorJSON(a))throw new TypeError('Original role texture crop collision')}else assets.push(a)}
+ for(const a of captured.assets){const old=assets.find(p=>p.id===a.id);if(old){if(old.size!==a.size)throw new TypeError('Original role texture storage collision')}else assets.push(a)}
  return canonicalSourceMaterialContext({...material,assets,roleTextures:captured.roleTextures})
 }

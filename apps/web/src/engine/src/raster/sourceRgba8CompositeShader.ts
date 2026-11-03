@@ -1,5 +1,5 @@
 import { SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from './sourceRgba8CompositeWebGL1';
-import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
+import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE, sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 
 /** Host-resolved bytes; no shader float quantization or implicit mask collapse. */
 export interface SourceRgba8CompositeBytes {
@@ -170,3 +170,10 @@ export function canonicalizeSourceInstalledHsyControl(control: Extract<Rgba8Comp
 /** GLSL300-compatible float-byte specialization: exact integers stay <2^24.
  * Its float control is deliberately separate from generic WebGL2 uint0..6. */
 export const SOURCE_RGBA8_INSTALLED_HSY_WEBGL2_GLSL = SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL.replace('for(int stage=0;stage<12;stage++)', 'for(int stage=0;stage<sourceHsyStageLimit;stage++)');
+
+/** Browser law has explicit controls and no installed stage-limit contract. */
+export function canonicalizeSourceBrowserHsyControl(control:Extract<Rgba8CompositeControl,{mode:'colorHsy'}>&{readonly profile:typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE}):SourceRgba8CompositeBytes {
+ validateRgba8CompositeControl(control);
+ if(control.mode!=='colorHsy'||control.profile!==SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE)throw new RangeError('Expected functional browser HSY profile');
+ return canonicalizeSourceRgba8Control({mode:'add',opacity:control.opacity,mask:control.mask,flow:control.flow,averageOpacity:control.averageOpacity});
+}

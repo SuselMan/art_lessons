@@ -1,3 +1,6 @@
+import type {CanonicalPrimaryGrainReadSource,CanonicalAuthorPrimaryGrainSource,CanonicalPlainAutoGeometryReadSource,CanonicalAuthorPlainAutoGeometrySource,CanonicalPixelMaskedReadSource,CanonicalAuthorPixelMaskedSource,CanonicalImageMaterialReadSource,CanonicalAuthorImageMaterialSource} from '@grafetto/shared'
+import {extractCanonicalPixelDualSourceData,extractCanonicalPixelImageSourceData,canonicalStrokeRasterContract} from '@grafetto/shared'
+import {canonicalDynamicAutoGeometryAuthorAdmission,canonicalPixelTextureAuthorAdmission} from '../../engine/src/presets/sourceCanonicalAuthorAdmission'
 import type {CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
 import type {CanonicalStrokeRasterProfile,CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource,ImportedBrush} from '@grafetto/shared'
 import type {CanonicalRecordedLifetime} from '../../engine'
@@ -6,6 +9,14 @@ import {TOOL_SCHEMAS,type ToolSchema} from './toolSchemas'
 
 /** Current eligibility metadata only; preparation and BEGIN retain their own authority. */
 export interface CanonicalToolRead extends Pick<CanonicalRecordedLifetime,'assertCurrent'> {
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
  readonly authorRasterProfile:CanonicalStrokeRasterProfile
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
@@ -14,7 +25,7 @@ export interface CanonicalToolRead extends Pick<CanonicalRecordedLifetime,'asser
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly authorTexturedAutoSource?:CanonicalAuthorTexturedAutoSource
 }
-export interface CanonicalToolOption {readonly id:string;readonly sizePx:number}
+export interface CanonicalToolOption {readonly id:string;readonly sizePx:number;readonly scalable?:true}
 export interface CanonicalToolAvailability {
  readonly status:'restoring'|'empty'|'ready'
  readonly options:readonly CanonicalToolOption[]
@@ -40,18 +51,40 @@ export function canonicalToolAvailability(canonical:boolean,contentReady:boolean
    :texturedSource==='fixed-default-auto-texture-v4'
    ?canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource,texturedSource})
    :canonicalSourceAuthorAdmission(brush.descriptor,profile,metadata,{primaryTextureSource})
+  // These are menu metadata only. Actual prepare/BEGIN bind the original
+  // descriptor, selected scale, negotiated lifetime and resource budgets again.
+  let scalable=false,newSize:number|undefined
+  if(read&&canonicalStrokeRasterContract(profile).genericSC){
+   const descriptor=brush.descriptor,data=descriptor.sourceStamp
+   if(data){
+    const nativeSize=(data.version===2&&data.source.kind!=='image'?data.source.diameter:Math.max(data.brush.width,data.brush.height))*data.brush.scale
+    if(read.primaryGrainSource==='primary-grain-image-v1'&&read.authorPrimaryGrainSource==='primary-grain-image-v1'&&data.flags.textureEnabled){
+     const c=canonicalPixelTextureAuthorAdmission(descriptor,profile,metadata);if(c.supported){scalable=true;newSize=c.nativeSizePx}
+    }else if(descriptor.behavior?.dual&&read.pixelMaskedSource==='pixel-masked-v1'&&read.authorPixelMaskedSource==='pixel-masked-v1'){
+     const c=extractCanonicalPixelDualSourceData(descriptor,metadata??[]);if(c.supported){scalable=true;newSize=nativeSize}
+    }else if(read.imageMaterialSource==='pixel-image-material-v1'&&read.authorImageMaterialSource==='pixel-image-material-v1'&&descriptor.tip.kind==='bitmap'){
+     const c=extractCanonicalPixelImageSourceData(descriptor,metadata??[])
+     if(c.supported){scalable=true;newSize=nativeSize}
+    }else if(!data.flags.textureEnabled&&read.plainAutoGeometrySource==='dynamic-auto-geometry-v1'&&read.authorPlainAutoGeometrySource==='dynamic-auto-geometry-v1'){
+     const c=canonicalDynamicAutoGeometryAuthorAdmission(descriptor,profile,metadata,{authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1'})
+     if(c.supported){scalable=true;newSize=c.nativeSizePx}
+    }
+   }
+  }
   // Preserve historically admitted tools; only an unsupported old branch
   // may enter the separately authorized plain geometry mechanism.
   const admission=historicalAdmission.supported||authorPlainTiltSource!=='plain-auto-tilt-v1'
    ?historicalAdmission
    :canonicalPlainAutoGeometryAuthorAdmission(brush.descriptor,profile,{authorPlainTiltSource})
-  if(!admission.supported)continue
-  options.push({id:brush.descriptor.id,sizePx:admission.nativeSizePx})
+  if(!admission.supported&&!scalable)continue
+  const sizePx=newSize??(admission.supported?admission.nativeSizePx:undefined)
+  if(sizePx===undefined||!Number.isFinite(sizePx)||sizePx<=0)continue
+  options.push({id:brush.descriptor.id,sizePx,...scalable?{scalable:true as const}:{}})
   labels[brush.descriptor.id]=brush.name;descriptions[brush.descriptor.id]=brush.warnings.join(' · ')
  }
  // Both surfaces receive this same object; the global legacy schema is untouched.
  const base=TOOL_SCHEMAS.digitalBrush
- const schema:ToolSchema={brush:{...base.brush,default:options[0]?.id??'',valueType:{kind:'enumOptions',options:options.map(o=>o.id)},optionLabels:labels,optionDescriptions:descriptions},color:base.color,opacity:base.opacity}
+ const schema:ToolSchema={brush:{...base.brush,default:options[0]?.id??'',valueType:{kind:'enumOptions',options:options.map(o=>o.id)},optionLabels:labels,optionDescriptions:descriptions},...options.some(option=>option.scalable)?{size:base.size}:{},pattern:base.pattern,color:base.color,opacity:base.opacity}
  return{status:!contentReady||!profile?'restoring':options.length?'ready':'empty',options,schema}
 }
 export function canonicalToolOffered(availability:CanonicalToolAvailability|undefined,tool:string):boolean {

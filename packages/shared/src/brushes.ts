@@ -52,6 +52,7 @@ export interface BrushTip {
     sourceRect: { x: number; y: number; width: number; height: number }
   }
   /** Offline selected-font provenance; playback consumes captured mask bytes. */
+  svgRasterization?: {kind:'librsvg-gray-vector-subset-v1';originalFilename:string;originalSha256:string;sanitizedSha256:string;rasterSha256:string;helperSha256:string;width:1000;height:number;sharpVersion:string;rsvgVersion:string}
   textRasterization?: {kind:'fontconfig-pillow-text-mask-v1';originalFont:string;fontSha256:string;faceIndex:number;pixelSize:number;dpi:96;family:string;style:string;layout:'basic'|'raqm';substituted:boolean}
   /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
    * Absence preserves legacy round/bitmap sampling. */
@@ -64,8 +65,9 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental'; frames: AssetId[]; dimensions?:never; declaredCells?:never }
+  animation?: ({ mode: 'random' | 'incremental'; frames: AssetId[]; dimensions?:never; declaredCells?:never }
     | {mode:'native-dimensions-v1';frames:AssetId[];declaredCells:number;dimensions:readonly {mode:'constant'|'incremental'|'random'|'pressure'|'angular'|'xtilt'|'ytilt'|'velocity';rank:number;stride:number}[]}
+    | {mode:'text-sequence-v1';frames:AssetId[];sequence:readonly number[];dimensions?:never;declaredCells?:never}) & {frameBounds?:readonly Readonly<{x:number;y:number;width:number;height:number}>[]}
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number; channels?:never; frames?:never }
     | {kind:'color';channels:readonly [AssetId,AssetId,AssetId];frames?:readonly (readonly [AssetId,AssetId,AssetId])[];gray?:never;grayFrames?:never;strength?:never}
@@ -436,6 +438,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const threshold=d.tip.alphaThreshold
       if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false
     }
+    if(d.tip.svgRasterization!==undefined){
+      const p=d.tip.svgRasterization
+      if(d.tip.kind!=='bitmap'||!record(p)||Object.keys(p).length!==10||Object.keys(p).some(k=>!['kind','originalFilename','originalSha256','sanitizedSha256','rasterSha256','helperSha256','width','height','sharpVersion','rsvgVersion'].includes(k))
+        ||p.kind!=='librsvg-gray-vector-subset-v1'||typeof p.originalFilename!=='string'||p.originalFilename.length<1||p.originalFilename.length>1024
+        ||['originalSha256','sanitizedSha256','rasterSha256','helperSha256'].some(k=>typeof p[k]!=='string'||!/^[a-f0-9]{64}$/.test(p[k] as string))
+        ||p.width!==1000||!Number.isInteger(p.height)||!numberIn(p.height,1,1000)
+        ||['sharpVersion','rsvgVersion'].some(k=>typeof p[k]!=='string'||(p[k] as string).length<1||(p[k] as string).length>128))return false
+    }
     if (d.tip.maskBounds !== undefined) {
       const bounds = d.tip.maskBounds
       if (d.tip.kind !== 'bitmap' || !record(bounds)
@@ -471,10 +481,31 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !(animation.mode==='native-dimensions-v1'?['mode','frames','dimensions','declaredCells']:['mode','frames']).includes(key))
-        || !['random','incremental','native-dimensions-v1'].includes(String(animation.mode))
-        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='native-dimensions-v1'?1:2) || animation.frames.length > 256
+        || Object.keys(animation).some(key => !(animation.mode==='native-dimensions-v1'?['mode','frames','dimensions','declaredCells','frameBounds']:animation.mode==='text-sequence-v1'?['mode','frames','sequence','frameBounds']:['mode','frames','frameBounds']).includes(key))
+        || !['random','incremental','native-dimensions-v1','text-sequence-v1'].includes(String(animation.mode))
+        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='native-dimensions-v1'||animation.mode==='text-sequence-v1'?1:2) || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
+      const own=Object.getOwnPropertyDescriptors(animation)
+      if(![Object.prototype,null].includes(Object.getPrototypeOf(animation))||Object.keys(own).some(k=>!('value'in own[k]))||!own.mode||!own.frames)return false
+      if(animation.mode==='text-sequence-v1'){
+        if(!Array.isArray(animation.sequence)||animation.sequence.length<1||animation.sequence.length>4096||animation.sequence[0]!==0)return false
+        const fields=Object.getOwnPropertyDescriptors(animation.sequence),frameCount=animation.frames.length
+        if(Object.keys(fields).length!==animation.sequence.length+1||animation.sequence.some((v,i)=>!fields[i]||!('value'in fields[i])||!Number.isInteger(v)||v<0||v>=frameCount||Object.is(v,-0)))return false
+        if(animation.frameBounds===undefined)return false
+      }
+      if(animation.frameBounds!==undefined){
+        const bounds=animation.frameBounds
+        if(!Array.isArray(bounds)||bounds.length!==animation.frames.length)return false
+        const fields=Object.getOwnPropertyDescriptors(bounds)
+        if(Object.keys(fields).length!==bounds.length+1)return false
+        for(let i=0;i<bounds.length;i++){
+          if(!fields[i]||!('value'in fields[i]))return false
+          const r=bounds[i],size=assetSizes.get(animation.frames[i])
+          if(!record(r)||![Object.prototype,null].includes(Object.getPrototypeOf(r))||Object.keys(r).length!==4||Object.keys(r).some(k=>!['x','y','width','height'].includes(k))||['x','y','width','height'].some(k=>!Object.hasOwn(r,k)||!('value'in Object.getOwnPropertyDescriptor(r,k)!))||size===undefined)return false
+          if(!numberIn(r.x,0,1)||!numberIn(r.y,0,1)||!numberIn(r.width,Number.MIN_VALUE,1)||!numberIn(r.height,Number.MIN_VALUE,1)||r.x+r.width>1||r.y+r.height>1||[r.x,r.y,r.width,r.height].some(v=>Object.is(v,-0)||!Number.isInteger(v*size)))return false
+          if(i===0){const square=d.tip.maskBounds,longest=Math.max(r.width,r.height);if(!record(square)||square.x!==r.x+(r.width-longest)/2||square.y!==r.y+(r.height-longest)/2||square.width!==longest||square.height!==longest)return false}
+        }
+      }
       if(animation.mode==='native-dimensions-v1'){
         if(!Number.isSafeInteger(animation.declaredCells)||Number(animation.declaredCells)<1||Number(animation.declaredCells)>256||!Array.isArray(animation.dimensions)||animation.dimensions.length<1||animation.dimensions.length>4)return false
         let stride=Number(animation.declaredCells),product=1
@@ -490,7 +521,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       }
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
-      if (sizes.size !== 1) return false
+      if (animation.frameBounds===undefined && sizes.size !== 1) return false
     }
     if (d.tip.material !== undefined) {
       const material=d.tip.material
@@ -510,7 +541,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         planes=Array.isArray(frames)?frames.flat():channels
       }else return false
       const paired=[...alphaFrames,...planes]
-      if(new Set(value.assets.filter(asset=>paired.includes(asset.id)).map(asset=>asset.size)).size!==1)return false
+      if(record(d.tip.animation)&&d.tip.animation.frameBounds!==undefined){
+        for(let i=0;i<alphaFrames.length;i++){
+          const alpha=assetSizes.get(String(alphaFrames[i])),count=material.kind==='color'?3:1,row=planes.slice(i*count,(i+1)*count)
+          if(!Array.isArray(row)||row.some(id=>assetSizes.get(String(id))!==alpha))return false
+        }
+      }else if(new Set(value.assets.filter(asset=>paired.includes(asset.id)).map(asset=>asset.size)).size!==1)return false
     }
     const key = `${d.id}@${d.version}`
     if (keys.has(key)) return false

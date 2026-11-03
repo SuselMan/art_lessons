@@ -1,3 +1,4 @@
+import {canonicalSourceAssetStorageCompatible} from '@grafetto/shared'
 import {canonicalPixelSourceComposition} from '@grafetto/shared'
 import {canonicalSourceRoleTexturesInput,sourceRoleTextureInputsFromPins,canonicalSourceRoleTexturesData,canonicalPixelDualSourceMaterialContext,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
 import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,canonicalSourceMaterialContext,canonicalPrimaryGrainMaterialContext} from '@grafetto/shared'
@@ -550,7 +551,7 @@ export class CanonicalBrushCapabilityResolver {
     const assets=[...base.assets]
     for(const asset of canonicalSourceColorFieldAssets(fields,library.assets.map(({id,size})=>({id,size})))){
       const previous=assets.find(a=>a.id===asset.id)
-      if(previous&&!isDeepStrictEqual(previous,asset))fail('spatial paint resource crop collision')
+      if(previous&&!canonicalSourceAssetStorageCompatible([base.primarySource,...base.version===2&&base.maskSource?[base.maskSource]:[]],previous,asset))fail('spatial paint resource crop collision')
       if(!previous)assets.push(asset)
       this.storage.asset(asset.id.slice(6),asset.size)
     }
@@ -621,6 +622,7 @@ export class CanonicalBrushCapabilityResolver {
       const data=extractCanonicalPixelDualSourceData(descriptor,library.assets,scaleOptions)
       if(!data.supported)fail('unsupported Pixel masking source: '+data.reasons.join(','))
       const assets=new Map<string,CanonicalMaterialAsset>()
+      const imageSources:CanonicalMaterialContextV2['primarySource'][]=[]
       const pinRole=(r:typeof data.primary|typeof data.mask,slot:0|1):CanonicalMaterialContextV2['primarySource']=>{
         const d=r.data,identity={descriptorId:r.descriptor.id,descriptorVersion:r.descriptor.version,descriptorSha256}
         if(d.version===2&&d.source.kind!=='image'){
@@ -641,7 +643,8 @@ export class CanonicalBrushCapabilityResolver {
           return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:slot,...identity,source:d.source,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle,coverageProfile,reader:d.reader,compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
         }
         if(!this.primaryImageSource||!r.imageSource||!r.imageAssets)fail('masked image source unavailable')
-        for(const asset of r.imageAssets){const previous=assets.get(asset.id);if(previous&&!isDeepStrictEqual(previous,asset))fail('masked image crop collision');assets.set(asset.id,asset);this.storage.asset(asset.id.slice(6),asset.size)}
+        for(const asset of r.imageAssets){const previous=assets.get(asset.id);if(previous&&!canonicalSourceAssetStorageCompatible([...imageSources,r.imageSource],previous,asset))fail('masked image crop collision');if(!previous)assets.set(asset.id,asset);this.storage.asset(asset.id.slice(6),asset.size)}
+        imageSources.push(r.imageSource)
         return r.imageSource
       }
       const primarySource=pinRole(data.primary,0),maskSource=pinRole(data.mask,1)

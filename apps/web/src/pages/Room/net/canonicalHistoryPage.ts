@@ -1,5 +1,5 @@
-import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
-import { prepareCanonicalRecordedAttachment, type CanonicalRecordedReadScope, type CanonicalPreparedRecordedOperation, type Operation } from '@grafetto/shared'
+import {prepareCanonicalOriginalAttachment,captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
+import {  type CanonicalRecordedReadScope, type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation, type Operation } from '@grafetto/shared'
 
 export interface CanonicalHistoryScope extends CanonicalRecordedReadScope { readonly isCurrent: () => boolean }
 export interface PreparedCanonicalHistoryPage {
@@ -31,7 +31,7 @@ export function prepareCanonicalHistoryPage(value: unknown, roomId: string, scop
       || Reflect.ownKeys(value).length !== 2 || !Object.hasOwn(value, 'operations') || !Object.hasOwn(value, 'canonicalCapabilities')) throw new CanonicalHistoryReadError()
     const page = value as { operations: Operation[]; canonicalCapabilities: unknown }
     if (Array.isArray(page.operations) && page.operations.some(op => (op.type as string) === 'canonical_stroke_close')) throw new CanonicalHistoryReadError()
-    const prepared = Object.freeze(prepareCanonicalRecordedAttachment(page.canonicalCapabilities, page.operations, scope).map(atom=>attachCanonicalRecordedDelivery(atom,scope)))
+    const prepared = Object.freeze(prepareCanonicalOriginalAttachment(page.canonicalCapabilities, page.operations, scope).map(atom=>attachCanonicalRecordedDelivery(atom,scope)))
     assertCanonicalHistoryCurrent(scope)
     return Object.freeze({ operations: Object.freeze(prepared.map(atom => atom.operation)), prepared })
   } catch (error) { if (error instanceof CanonicalHistoryReadError) throw error; throw new CanonicalHistoryReadError(error) }

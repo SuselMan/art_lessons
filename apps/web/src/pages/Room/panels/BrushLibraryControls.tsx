@@ -1,8 +1,9 @@
+import {sourcePatternRequired} from '../../../lib/tools/sourcePatternRequirement'
 import { useEffect, useRef, useState } from 'react'
 import { importedBrushes } from '../../../engine/brushLibrary'
 import { useT } from '../../../i18n'
 import { apiPath } from '../../../lib/api/api'
-import { importBrushFile, loadBrushLibrary, publishBrushPresets } from '../../../lib/api/brushLibrary'
+import { importBrushFile, loadBrushLibrary, publishBrushPresets,brushPatterns } from '../../../lib/api/brushLibrary'
 import { useRoomStore } from '../../../stores/roomStore'
 import styles from './BrushLibraryControls.module.css'
 
@@ -11,6 +12,7 @@ export function BrushLibraryControls(): React.JSX.Element {
   const t = useT()
   const roomId = useRoomStore(s => s.boardId)
   const selected = useRoomStore(s => s.toolSettings.digitalBrush.brush)
+  const selectedPattern=useRoomStore(s=>s.toolSettings.digitalBrush.pattern)
   useRoomStore(s => s.brushLibraryRevision)
   const input = useRef<HTMLInputElement>(null)
   const controller = useRef<AbortController | null>(null)
@@ -21,6 +23,8 @@ export function BrushLibraryControls(): React.JSX.Element {
   const [skipped, setSkipped] = useState<{ name: string; reasons: string[] }[]>([])
   useEffect(() => () => controller.current?.abort(), [])
   const brush = importedBrushes().find(b => b.descriptor.id === selected)
+  const needsPattern=sourcePatternRequired(brush?.descriptor)
+  const patternMissing=needsPattern&&(selectedPattern==='none'||!brushPatterns().some(pattern=>pattern.id===selectedPattern))
   const upload = async (file: File) => {
     const abort = new AbortController()
     controller.current = abort
@@ -52,6 +56,7 @@ export function BrushLibraryControls(): React.JSX.Element {
       {roomId && <a className={styles.button} href={apiPath('GET /api/rooms/:id/brush-library/export', { params: { id: roomId } })} download="project.grafetto-brushes.json">{t('brushLibrary.export')}</a>}
     </div>
     <p className={styles.hint}>{t('brushLibrary.importHint')}</p>
+    {patternMissing&&<p className={styles.hint} role="status">{t(brushPatterns().length?'brushLibrary.selectPattern':'brushLibrary.importPatterns')}</p>}
     {phase !== 'idle' && <div role="status">
       <p>{phase === 'uploading' ? `${t('brushLibrary.uploading')} ${Math.round(progress * 100)}%` : t('brushLibrary.converting')}</p>
       {phase === 'uploading' && <progress max={1} value={progress} />}

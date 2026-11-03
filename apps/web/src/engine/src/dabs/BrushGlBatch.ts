@@ -54,6 +54,7 @@ export interface BrushGlBatchInfo {
   readonly instancing: ANGLE_instanced_arrays | null
   readonly vertexArrays: OES_vertex_array_object | null
   readonly resources: readonly BrushGlBatchResource[]
+  readonly textureUnits?:3|4
   readonly ownedPointSamplers?: readonly BrushGlBatchOwnedSampler[]
 }
 /** Internal services expose metadata, never a raw draw bypass. */
@@ -232,6 +233,7 @@ function participantInfos(participants: readonly BrushGlBatchParticipant[]): Map
       throw new Error('Brush GL batch context/cache mismatch')
     if(!Array.isArray(info.attributes)||info.attributes.length>32||info.attributes.some(a=>!Number.isSafeInteger(a)||a<0||a>31))
       throw new RangeError('Invalid brush GL batch attributes')
+    if(info.textureUnits!==undefined&&info.textureUnits!==3&&info.textureUnits!==4)throw new RangeError('Invalid brush GL texture unit declaration')
     infos.set(p,{...info,attributes:Object.freeze([...info.attributes])})
   }
   return infos
@@ -241,7 +243,7 @@ function sameAttributes(a:readonly number[],b:readonly number[]):boolean {
 }
 function sameParticipantBinding(current:BrushGlBatchInfo,pinned:BrushGlBatchInfo):boolean {
   return pinned.gl===current.gl&&pinned.cache===current.cache&&pinned.cpu===current.cpu&&pinned.epoch===current.epoch
-    &&pinned.contextOwner===current.contextOwner&&pinned.instancing===current.instancing&&pinned.vertexArrays===current.vertexArrays&&sameAttributes(pinned.attributes,current.attributes)
+    &&(pinned.textureUnits??3)===(current.textureUnits??3)&&pinned.contextOwner===current.contextOwner&&pinned.instancing===current.instancing&&pinned.vertexArrays===current.vertexArrays&&sameAttributes(pinned.attributes,current.attributes)
 }
 /** One full capture BEFORE direct target allocation/copy and owner callbacks.
  * One inner batch may borrow it. The SAME snapshot is restored inside that
@@ -264,7 +266,7 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
     const attributes=[...new Set([...infos.values()].flatMap(i=>[...i.attributes]))]
     const owner=[...infos.values()].every(info=>info.contextOwner===first.contextOwner)?first.contextOwner:undefined
     restoreGate=openBrushGlRestoreGate(options.callbackScope,first.gl,owner)
-    restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,3,autoUpload,restoreGate)
+    restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,Math.max(...[...infos.values()].map(i=>i.textureUnits??3)),autoUpload,restoreGate)
     token=Object.freeze({}) as BrushGlTurn
     record={infos,restore,restoreGate,restoreAutoUpload:restore.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false};turns.set(token,record)
     const value:unknown=execute(token)
@@ -434,7 +436,7 @@ export function runBrushGlBatch(options: {
     first.cache.protect([...resources.keys()])
     releases.push(first.cache.lease([...resources].map(([key, bytes]) => ({ key, bytes }))))
     const attributes = [...new Set([...infos.values()].flatMap(info => [...info.attributes]))]
-    if(!borrowed)restore = saveBrushGlState(first.gl, attributes, first.instancing, first.vertexArrays, 3)
+    if(!borrowed)restore = saveBrushGlState(first.gl, attributes, first.instancing, first.vertexArrays, Math.max(...[...infos.values()].map(i=>i.textureUnits??3)))
     for (const owner of owners) {
       const release = owner.lease()
       if (typeof release !== 'function') throw new Error('Invalid batch owner release')

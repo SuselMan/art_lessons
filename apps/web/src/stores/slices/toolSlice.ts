@@ -191,7 +191,7 @@ export interface ToolSlice {
     key: string,
     value: SettingDescriptor['default'] | ((prev: SettingDescriptor['default']) => SettingDescriptor['default']),
   ) => void
-  normalizeCanonicalTool: (options: readonly {readonly id:string;readonly sizePx:number}[], activate?:boolean) => void
+  normalizeCanonicalTool: (options: readonly {readonly id:string;readonly sizePx:number;readonly scalable?:true}[], activate?:boolean) => void
   setAllToolSettings: (settings: ToolSettingsMap) => void
 }
 
@@ -250,8 +250,10 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     const current=options.find(o=>o.id===state.toolSettings.digitalBrush.brush),selected=current??options[0]
     const tool=state.tool==='hand'&&!activate?'hand':selected?'digitalBrush':'hand'
     if(!selected)return state.tool===tool?state:{tool}
-    const settings=brushSetting(state.toolSettings,'digitalBrush','brush',selected.id,selected.sizePx)
-    if(state.tool===tool&&state.drawingTool==='digitalBrush'&&state.toolSettings.digitalBrush.brush===selected.id&&state.toolSettings.digitalBrush.size===selected.sizePx)return state
+    const currentSize=state.toolSettings.digitalBrush.size
+    const selectedSize=current&&selected.scalable&&typeof currentSize==='number'&&Number.isFinite(currentSize)&&currentSize>0?currentSize:selected.sizePx
+    const settings=brushSetting(state.toolSettings,'digitalBrush','brush',selected.id,selectedSize)
+    if(state.tool===tool&&state.drawingTool==='digitalBrush'&&state.toolSettings.digitalBrush.brush===selected.id&&state.toolSettings.digitalBrush.size===selectedSize)return state
     const recentDrawingTools=moveToFront(state.recentDrawingTools,'digitalBrush')
     return {tool,drawingTool:'digitalBrush',lastDrawingTool:recentDrawingTools[0],recentDrawingTools,toolSettings:settings}
   }),

@@ -1,5 +1,5 @@
 import {prepareCanonicalImageAssets} from '../../../lib/api/brushLibrary'
-import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalMaterialAsset,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import {canonicalImageMaterialReadSource,canonicalPlainAutoGeometryReadSource,canonicalPixelMaskedReadSource,prepareCanonicalRecordedAttachment,prepareCanonicalRecordedAttachmentV8,canonicalPrimaryGrainReadSource,type Operation,CANONICAL_RECORDED_ATTACHMENT_LIMITS,captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalMaterialAsset,type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
 import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine'
 
 type LocalScope=CanonicalRecordedReadScope&{readonly isCurrent:()=>boolean}
@@ -34,6 +34,17 @@ export function canonicalRecordedLifetimeOf(scope:LocalScope):CanonicalRecordedL
  if(current.roomId!==scope.roomId||current.boardEpoch!==scope.boardEpoch||a.length!==b.length||a.some((p,i)=>p!==b[i]))return fail()
  return lifetime
 }
+/** Select the named format8 decoder only from the SAME original READ owner. */
+export function prepareCanonicalOriginalAttachment(capabilities:unknown,operations:readonly Operation[],scope:LocalScope):readonly CanonicalPreparedRecordedOperation[] {
+ const lifetime=canonicalRecordedLifetimeOf(scope)
+ const profile=lifetime&&Object.getOwnPropertyDescriptor(lifetime,'authorRasterProfile')
+ if(profile&&!Object.hasOwn(profile,'value'))return fail()
+ const enabled=!!lifetime&&!!profile&&(canonicalPrimaryGrainReadSource(lifetime,'primaryGrainSource',profile.value)==='primary-grain-image-v1'||canonicalPlainAutoGeometryReadSource(lifetime,'plainAutoGeometrySource',profile.value)==='dynamic-auto-geometry-v1'||canonicalPixelMaskedReadSource(lifetime,'pixelMaskedSource',profile.value)==='pixel-masked-v1'||canonicalImageMaterialReadSource(lifetime,'imageMaterialSource',profile.value)==='pixel-image-material-v1')
+ const prepared=enabled?prepareCanonicalRecordedAttachmentV8(capabilities,operations,scope):prepareCanonicalRecordedAttachment(capabilities,operations,scope)
+ if(prepared.some(a=>a.read?.capability.snapshot.materialVersion===2&&a.read.capability.snapshot.material.maskingBlend!==undefined)&&(!lifetime||!profile||canonicalPixelMaskedReadSource(lifetime,'pixelMaskedSource',profile.value)!=='pixel-masked-v1'))return fail()
+ if(lifetime&&canonicalRecordedLifetimeOf(scope)!==lifetime)return fail()
+ return prepared
+}
 /** Immutable per-delivery lexical resource. A data-only scope, a copied atom
  * or copied method receiver cannot manufacture the original input lifetime. */
 export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOperation,scope:LocalScope):CanonicalPreparedRecordedOperation|CanonicalRecordedInput {
@@ -42,6 +53,9 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return atom
  const originalScope=lifetime.assertCurrent()
+ if(atom.read?.capability.snapshot.materialVersion===2&&(atom.read.capability.snapshot.material.materialParams||atom.read.capability.snapshot.material.colorParams||atom.read.capability.snapshot.material.scaledSource||atom.read.capability.snapshot.material.imageFrameIndices||atom.read.capability.snapshot.material.sourceColorFields||atom.read.capability.snapshot.material.roleTextures||atom.read.capability.snapshot.material.outerCompositionLaw)&&!atom.read.capability.snapshot.material.maskSource){const profile=Object.getOwnPropertyDescriptor(lifetime,'authorRasterProfile');if(!profile||!Object.hasOwn(profile,'value'))return fail();if(atom.read.capability.snapshot.material.primarySource.kind==='image'?canonicalImageMaterialReadSource(lifetime,'imageMaterialSource',profile.value)!=='pixel-image-material-v1':canonicalPlainAutoGeometryReadSource(lifetime,'plainAutoGeometrySource',profile.value)!=='dynamic-auto-geometry-v1')return fail()}
+ if(atom.read?.capability.snapshot.materialVersion===2&&atom.read.capability.snapshot.material.primarySource.kind==='image'&&atom.read.capability.snapshot.material.primarySource.imageMaterial){const profile=Object.getOwnPropertyDescriptor(lifetime,'authorRasterProfile');if(!profile||!Object.hasOwn(profile,'value')||canonicalImageMaterialReadSource(lifetime,'imageMaterialSource',profile.value)!=='pixel-image-material-v1')return fail()}
+ if(atom.read?.capability.snapshot.materialVersion===2&&atom.read.capability.snapshot.material.maskingBlend!==undefined){const profile=Object.getOwnPropertyDescriptor(lifetime,'authorRasterProfile');if(!profile||!Object.hasOwn(profile,'value')||canonicalPixelMaskedReadSource(lifetime,'pixelMaskedSource',profile.value)!=='pixel-masked-v1')return fail()}
  const operation=atom.operation
  if(metadata){
   // Only the original full-history owner may lend metadata delivery authority.
@@ -72,7 +86,7 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  * Native-only items retain their synchronous path. No source owner is minted. */
 export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope,assertFiniteCurrent?:()=>void):Promise<void>|null {
  if(atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new RangeError('Canonical resource atom limit')
- if(!atoms.some(atom=>{const s=atom.read?.capability.snapshot;return s&&(s.materialVersion===2||s.materialVersion===3||s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7)&&(s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7||s.material.primarySource.kind==='image')}))return null
+ if(!atoms.some(atom=>{const s=atom.read?.capability.snapshot;return s&&(s.materialVersion===2||s.materialVersion===3||s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7||s.materialVersion===8)&&(s.materialVersion===4||s.materialVersion===5||s.materialVersion===6||s.materialVersion===7||s.materialVersion===8||s.material.primarySource.kind==='image')}))return null
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return fail()
  let hasTexture=false
@@ -88,8 +102,8 @@ export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalP
   contexts.add(input.read.capability)
   if(contexts.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical resource capability limit')
   const snapshot=input.read.capability.snapshot
-  if((snapshot.materialVersion!==2&&snapshot.materialVersion!==3&&snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7)||(snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7&&snapshot.material.primarySource.kind!=='image'))continue
-  if(snapshot.materialVersion===3||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7)hasTexture=true
+  if((snapshot.materialVersion!==2&&snapshot.materialVersion!==3&&snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7&&snapshot.materialVersion!==8)||(snapshot.materialVersion!==4&&snapshot.materialVersion!==5&&snapshot.materialVersion!==6&&snapshot.materialVersion!==7&&snapshot.materialVersion!==8&&snapshot.material.primarySource.kind!=='image'))continue
+  if(snapshot.materialVersion===3||snapshot.materialVersion===4||snapshot.materialVersion===5||snapshot.materialVersion===6||snapshot.materialVersion===7||snapshot.materialVersion===8)hasTexture=true
   for(const asset of snapshot.material.assets){
    if(snapshot.materialVersion===2)legacyAssets.add(asset.id)
    const previous=assets.get(asset.id)

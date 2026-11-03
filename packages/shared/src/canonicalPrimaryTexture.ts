@@ -237,3 +237,17 @@ export function canonicalPrimaryTextureMultiplyU8(mask:number,texture:number,str
  const biased=mask*texture*strengthU8+32603
  return Math.floor((biased+Math.floor(biased/128))/65536)
 }
+
+/** Named Pixel pins own their native origin-zero crop. A context asset row is
+ * unique CAS storage DATA and may also serve a different image/spatial crop.
+ * This projection validates storage bounds, never grants source authority. */
+export function canonicalPixelTextureAsset(input:unknown,assets:readonly CanonicalMaterialAsset[],plane:'gray'|'alpha'='gray'):Readonly<CanonicalMaterialAsset>{
+ if(plane!=='gray'&&plane!=='alpha'||!Array.isArray(assets)||assets.length>2048)return fail();
+ const field=(key:string):unknown=>{const d=Object.getOwnPropertyDescriptor(input??{},key);if(!d||!Object.hasOwn(d,'value'))return fail();return d.value};
+ const law=field('law'),id=field(plane==='alpha'?'alphaAsset':'asset'),width=field('width'),height=field('height');
+ if(law!=='pixel-texture-u8-v1'&&law!=='pixel-color-texture-v1'||plane==='alpha'&&law!=='pixel-color-texture-v1'||!cas(id)||!dimension(width)||!dimension(height)||width*height>1048576)return fail();
+ let found:Record<string,unknown>|undefined;
+ for(let i=0;i<assets.length;i++){const d=Object.getOwnPropertyDescriptor(assets,String(i));if(!d||!Object.hasOwn(d,'value'))return fail();const a=capture(d.value,assetFields);if(a.id===id){if(found)return fail();found=a}}
+ if(!found||!dimension(found.size)||width>found.size||height>found.size)return fail();
+ return Object.freeze({id,size:found.size,x:0,y:0,width,height});
+}

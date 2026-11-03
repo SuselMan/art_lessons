@@ -4,7 +4,7 @@ import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode,type CanonicalMas
 import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
-import {canonicalPixelColorTexturePin,type CanonicalPixelColorTexturePin, canonicalPixelPrimaryTexturePin, type CanonicalPixelPrimaryTexturePin, canonicalMultiplyPrimaryTexturePin, type CanonicalMultiplyPrimaryTexturePin, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from './canonicalPrimaryTexture.js'
+import {canonicalPixelTextureAsset,canonicalPixelColorTexturePin,type CanonicalPixelColorTexturePin, canonicalPixelPrimaryTexturePin, type CanonicalPixelPrimaryTexturePin, canonicalMultiplyPrimaryTexturePin, type CanonicalMultiplyPrimaryTexturePin, canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from './canonicalPrimaryTexture.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 /** Pure, opt-in source-material transport. Not imported by the operation/wire API.
  * Fences are source INPUT framing, never native composite/reset commands.
@@ -104,6 +104,7 @@ export interface CanonicalMaterialContextV2 {
 export interface CanonicalMaterialImageSource {
   readonly kind:'image'; readonly asset:string
   readonly frames?:readonly string[]
+  readonly frameBounds?:readonly Readonly<{x:number;y:number;width:number;height:number}>[]
   /** Static original lightness-map parameters; never inferred from alpha CAS. */
   readonly imageMaterial?:Readonly<{kind:'lightness-map-v1';grayAsset:string;grayFrames?:readonly string[];strength:number;foregroundAlpha:number}>|Readonly<{kind:'color-stamp-v1';channels:readonly[string,string,string];frames?:readonly (readonly[string,string,string])[];foregroundOpacity:number}>
   readonly brushScale:number; readonly brushAngle:number
@@ -449,13 +450,13 @@ export function canonicalPrimaryGrainMaterialContext(value:unknown):CanonicalMat
  const kind=Object.getOwnPropertyDescriptor(p.primarySource??{},'kind');if(!kind||!Object.hasOwn(kind,'value'))return fail()
  let primarySource:CanonicalMaterialContextV8['primarySource']
  if(kind.value==='image'){
-  const source=ownRecord(p.primarySource,['kind','asset','brushScale','brushAngle','descriptorId','descriptorVersion','descriptorSha256'],['frames','imageMaterial'])
-  const image=captureSourceSlot({kind:source.kind,asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames!==undefined?{frames:source.frames}:{},...source.imageMaterial!==undefined?{imageMaterial:source.imageMaterial}:{}},0)
+  const source=ownRecord(p.primarySource,['kind','asset','brushScale','brushAngle','descriptorId','descriptorVersion','descriptorSha256'],['frames','frameBounds','imageMaterial'])
+  const image=captureSourceSlot({kind:source.kind,asset:source.asset,brushScale:source.brushScale,brushAngle:source.brushAngle,...source.frames!==undefined?{frames:source.frames}:{},...source.frameBounds!==undefined?{frameBounds:source.frameBounds}:{},...source.imageMaterial!==undefined?{imageMaterial:source.imageMaterial}:{}},0)
   if(image.kind!=='image')return fail()
   primarySource=Object.freeze({...image,descriptorId:source.descriptorId,descriptorVersion:source.descriptorVersion,descriptorSha256:source.descriptorSha256}) as CanonicalPrimaryGrainImageSource
  }else primarySource=capturedTexturedAuto(p.primarySource)
  const law=Object.getOwnPropertyDescriptor(p.primaryTexture??{},'law');if(!law||!Object.hasOwn(law,'value'))return fail()
- const primaryTexture=law.value==='pixel-color-texture-v1'?canonicalPixelColorTexturePin(p.primaryTexture,assets.find(a=>a.id===Object.getOwnPropertyDescriptor(p.primaryTexture,'asset')?.value)??fail(),assets.find(a=>a.id===Object.getOwnPropertyDescriptor(p.primaryTexture,'alphaAsset')?.value)??fail()):law.value==='pixel-texture-u8-v1'?canonicalPixelPrimaryTexturePin(p.primaryTexture,assets[assets.length-1]):canonicalMultiplyPrimaryTexturePin(p.primaryTexture,assets[assets.length-1])
+ const primaryTexture=law.value==='pixel-color-texture-v1'?canonicalPixelColorTexturePin(p.primaryTexture,canonicalPixelTextureAsset(p.primaryTexture,assets),canonicalPixelTextureAsset(p.primaryTexture,assets,'alpha')):law.value==='pixel-texture-u8-v1'?canonicalPixelPrimaryTexturePin(p.primaryTexture,canonicalPixelTextureAsset(p.primaryTexture,assets)):canonicalMultiplyPrimaryTexturePin(p.primaryTexture,assets[assets.length-1])
  const budget=Object.freeze(ownRecord(p.budget,['workUnits','outputBytes','drawPixels'])) as unknown as CanonicalMaterialContextV8['budget']
  for(const a of assets)if([a.size,a.x,a.y,a.width,a.height].some(v=>Object.is(v,-0)))return fail()
  if(primarySource.kind==='image'&&[primarySource.brushScale,primarySource.brushAngle,primarySource.descriptorVersion].some(v=>Object.is(v,-0)))return fail()
@@ -512,13 +513,70 @@ export function canonicalImageFrameIds(value:unknown,primary:string,ids:Readonly
   if(result[0]!==primary||new Set(result).size!==ids.size)fail()
   return Object.freeze(result)
 }
+/** Collision compatibility only. Original role/pattern bindings still validate
+ * exact pins; this never authorizes a CAS or a crop. Legacy image consumers
+ * without an explicit frame crop retain full asset-row equality. */
+export function canonicalSourceAssetStorageCompatible(sources:readonly CanonicalMaterialContextV2['primarySource'][],previous:CanonicalMaterialAsset,next:CanonicalMaterialAsset):boolean{
+ try{
+  const a=ownRecord(previous,['id','size','x','y','width','height']),b=ownRecord(next,['id','size','x','y','width','height']);
+  for(const p of [a,b])if(!assetId(p.id)||!integer(p.size,1,4096)||!integer(p.x,0,p.size-1)||Object.is(p.x,-0)||!integer(p.y,0,p.size-1)||Object.is(p.y,-0)||!integer(p.width,1,p.size-p.x)||!integer(p.height,1,p.size-p.y)||p.width*p.height>1048576)return false;
+  if(a.id!==b.id||a.size!==b.size)return false;
+  if(['x','y','width','height'].every(k=>a[k]===b[k]))return true;
+  if(!Array.isArray(sources)||sources.length>2)return false;
+  for(const source of sources){
+   const kind=Object.getOwnPropertyDescriptor(source??{},'kind');if(!kind||!Object.hasOwn(kind,'value'))return false;
+   if(kind.value!=='image')continue;
+   const p=ownRecord(source,['kind','asset','brushScale','brushAngle'],['frames','frameBounds','imageMaterial','descriptorId','descriptorVersion','descriptorSha256']);
+   const image=captureSourceSlot({kind:p.kind,asset:p.asset,brushScale:p.brushScale,brushAngle:p.brushAngle,...p.frames!==undefined?{frames:p.frames}:{},...p.frameBounds!==undefined?{frameBounds:p.frameBounds}:{},...p.imageMaterial!==undefined?{imageMaterial:p.imageMaterial}:{}},0);
+   if(image.kind!=='image')return false;
+   const ids=new Set(image.frames??[image.asset]),m=image.imageMaterial;
+   if(m?.kind==='lightness-map-v1'){ids.add(m.grayAsset);for(const id of m.grayFrames??[])ids.add(id)}
+   else if(m){for(const id of m.channels)ids.add(id);for(const row of m.frames??[])for(const id of row)ids.add(id)}
+   if(ids.has(previous.id)&&(!image.frameBounds||image.frameBounds.length!==(image.frames?.length??1)))return false;
+  }
+  return true;
+ }catch{return false}
+}
+/** Original indexed crop DATA; CAS remains unique storage identity. */
+function canonicalImageFrameBounds(value:unknown):NonNullable<CanonicalMaterialImageSource['frameBounds']>{
+ const rows=ownArray(value,256,v=>v).map(value=>{
+  const r=ownRecord(value,['x','y','width','height']);
+  if(!integer(r.x,0,4095)||Object.is(r.x,-0)||!integer(r.y,0,4095)||Object.is(r.y,-0)||!integer(r.width,1,4096)||!integer(r.height,1,4096)||r.width*r.height>1048576)return fail();
+  return Object.freeze({x:r.x,y:r.y,width:r.width,height:r.height});
+ });
+ if(!rows.length)return fail();return Object.freeze(rows);
+}
+/** Select original frame/role crop without renormalizing its parent's brush
+ * scale. This is DATA validation, never an origin or pixel ownership grant. */
+export function canonicalImageFrameAsset(source:CanonicalMaterialImageSource,assets:readonly CanonicalMaterialAsset[],index:number):Readonly<CanonicalMaterialAsset>{
+ if(!integer(index,0,255)||Object.is(index,-0))return fail();
+ const p=ownRecord(source,['kind','asset','brushScale','brushAngle'],['frames','frameBounds','imageMaterial','descriptorId','descriptorVersion','descriptorSha256']);
+ if(p.kind!=='image'||!assetId(p.asset))return fail();
+ const frames=p.frames===undefined?[p.asset]:ownArray(p.frames,256,id=>{if(!assetId(id))return fail();return id});
+ if(!frames.length||frames[0]!==p.asset||index>=frames.length)return fail();
+ const id=frames[index];const a=assets.find(a=>a.id===id);if(!a)return fail();
+ if(!integer(a.size,1,4096))return fail();
+ const bounds=p.frameBounds===undefined?undefined:canonicalImageFrameBounds(p.frameBounds);
+ if(bounds&&bounds.length!==frames.length)return fail();
+ const rect=bounds?.[index]??a;
+ if(!integer(rect.x,0,a.size-1)||!integer(rect.y,0,a.size-1)||!integer(rect.width,1,a.size-rect.x)||!integer(rect.height,1,a.size-rect.y)||rect.width*rect.height>1048576)return fail();
+ return Object.freeze({id:a.id,size:a.size,x:rect.x,y:rect.y,width:rect.width,height:rect.height});
+}
+function selectedImageRecipeAsset(r:CanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialAsset {
+ if(indexedImages(c)){
+  const source=isV2(c)?r.sourceSlot===0?c.primarySource:c.maskSource:isV8(c)?c.primarySource:undefined;
+  if(source?.kind!=='image'||r.imageFrameIndex===undefined)return fail();
+  return canonicalImageFrameAsset(source,c.assets,r.imageFrameIndex);
+ }
+ return asset(c,r.asset);
+}
 function validateImageMaterialFrames(source:CanonicalMaterialImageSource,c:CodecContext):readonly string[]{
  const m=captureCanonicalImageMaterial(source.imageMaterial),frames=source.frames??[source.asset]
  const rows=m.kind==='lightness-map-v1'?(m.grayFrames??[m.grayAsset]).map(id=>[id]):m.frames??[m.channels]
  if(rows.length!==1&&!indexedImages(c)||rows.length!==(m.kind==='lightness-map-v1'&&m.grayFrames||m.kind==='color-stamp-v1'&&m.frames?frames.length:1))return fail()
  if(m.kind==='lightness-map-v1'&&rows[0]?.[0]!==m.grayAsset||m.kind==='color-stamp-v1'&&rows[0]?.some((id,i)=>id!==m.channels[i]))return fail()
  const ids:string[]=[]
- for(let i=0;i<rows.length;i++){const alpha=asset(c,frames[rows.length===1?0:i]);for(const id of rows[i]){const plane=asset(c,id);if(['size','x','y','width','height'].some(k=>Reflect.get(alpha,k)!==Reflect.get(plane,k)))return fail();ids.push(id)}}
+ for(let i=0;i<rows.length;i++){const frameIndex=rows.length===1?0:i,alpha=canonicalImageFrameAsset(source,c.assets,frameIndex);for(const id of rows[i]){const plane=asset(c,id);if(plane.size!==alpha.size||!source.frameBounds&&['x','y','width','height'].some(k=>Reflect.get(alpha,k)!==Reflect.get(plane,k)))return fail();ids.push(id)}}
  return ids
 }
 const browserHsyContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
@@ -531,7 +589,7 @@ function context(c:CodecContext):void {
    if(isV8(c)&&c.primaryTexture.law==='hard-multiply-u8-native-v1'||fields.mask!==undefined&&(!isV2(c)||!c.maskSource))return fail()
    for(const provider of [fields.primary,fields.mask])if(provider&&provider.kind!=='total-random-rgb8-hash-v1'){
     const r=provider.resource
-    for(const id of [...r.channels,r.alphaAsset]){const a=c.assets.find(a=>a.id===id);if(!a||a.size!==r.size||a.x!==r.x||a.y!==r.y||a.width!==r.width||a.height!==r.height)return fail()}
+    for(const id of [...r.channels,r.alphaAsset]){const a=c.assets.find(a=>a.id===id);if(!a||a.size!==r.size||!integer(r.x,0,a.size-1)||!integer(r.y,0,a.size-1)||!integer(r.width,1,a.size-r.x)||!integer(r.height,1,a.size-r.y))return fail()}
    }
   }
   if(!c||!Array.isArray(c.assets)||c.assets.length>2048||(!versioned(c)&&(!assetId(c.primaryAsset)||c.maskAsset!==undefined&&!assetId(c.maskAsset)||typeof c.preflightDefinition!=='function'))
@@ -539,20 +597,33 @@ function context(c:CodecContext):void {
     ||c.expectedDrawCount!==undefined&&!integer(c.expectedDrawCount,0,800)||c.expectedStrokeEnd!==undefined&&typeof c.expectedStrokeEnd!=='boolean')fail()
   if((isV2(c)||isV8(c))&&c.imageFrameIndices!==undefined&&c.imageFrameIndices!=='source-image-pipe-frame-v1')return fail()
   if((isV2(c)||isV8(c))&&c.scaledSource!==undefined&&c.scaledSource!=='source-scale-v1')return fail()
+  if(spatialContext(c)){
+   if(!isV2(c)&&!isV8(c))return fail();
+   const sources=isV2(c)?[c.primarySource,c.maskSource]:isV8(c)?[c.primarySource]:[];
+   for(const field of [c.sourceColorFields?.primary,c.sourceColorFields?.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset]){
+    const previous=c.assets.find(a=>a.id===id);if(!previous||!canonicalSourceAssetStorageCompatible(sources.filter((s):s is CanonicalMaterialContextV2['primarySource']=>s!==undefined),previous,{id,size:field.resource.size,x:field.resource.x,y:field.resource.y,width:field.resource.width,height:field.resource.height}))return fail();
+   }
+  }
   const ids=new Set<string>()
   for(const a of c.assets){keys(a,['id','size','x','y','width','height']);if(!assetId(a.id)||!integer(a.size,1,4096)||!integer(a.width,1,4096)||!integer(a.height,1,4096)||a.width*a.height>1048576||!integer(a.x,0,a.size-a.width)||!integer(a.y,0,a.size-a.height)||ids.has(a.id))fail();ids.add(a.id)}
+  if(isV2(c)||isV8(c)){
+   const sources=isV2(c)?[c.primarySource,...c.maskSource?[c.maskSource]:[]]:[c.primarySource];
+   const textures=isV2(c)?[c.roleTextures?.primary,c.roleTextures?.mask]:c.primaryTexture.law==='hard-multiply-u8-native-v1'?[]:[c.primaryTexture];
+   for(const pin of textures)if(pin)for(const plane of pin.law==='pixel-color-texture-v1'?['gray','alpha'] as const:['gray'] as const){const selected=canonicalPixelTextureAsset(pin,c.assets,plane),prior=c.assets.find(a=>a.id===selected.id);if(!prior||!canonicalSourceAssetStorageCompatible(sources,prior,selected))return fail();}
+  }
   if(isV8(c)){
     const p=c.primarySource
     if(c.primaryTexture.asset!==c.assets[c.assets.length-1]?.id||c.materialParams!==undefined&&c.materialParams!=='source-material-parameters-v1'||c.colorParams!==undefined&&c.colorParams!=='source-pigment-rgb8-v1'&&c.colorParams!=='source-pigment-rgba8-v1')return fail()
     if(p.kind!=='image'){if((!spatialContext(c)&&c.assets.length!==(colorTexture8(c)&&c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.alphaAsset!==c.primaryTexture.asset?2:1))||!localTexture8(c))return fail();const texture=c.primaryTexture;if(texture.law==='pixel-color-texture-v1'&&!c.assets.some(a=>a.id===texture.alphaAsset))return fail();if(c.sourceColorFields){const required=new Set([texture.asset]);if(texture.law==='pixel-color-texture-v1')required.add(texture.alphaAsset);for(const field of [c.sourceColorFields.primary,c.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset])required.add(id);if(required.size!==ids.size||[...required].some(id=>!ids.has(id)))return fail()}capturedTexturedAuto(p);return}
-    if(p.asset!==c.assets[0]?.id||!number(p.brushScale,Number.MIN_VALUE,1e6)||!number(p.brushAngle,-1e6,1e6)
+    if(p.frameBounds!==undefined){if(!indexedImages(c))return fail();for(let i=0;i<(p.frames??[p.asset]).length;i++)canonicalImageFrameAsset(p,c.assets,i)}
+    if((c.primaryTexture.law==='hard-multiply-u8-native-v1'?p.asset!==c.assets[0]?.id:!ids.has(p.asset))||!number(p.brushScale,Number.MIN_VALUE,1e6)||!number(p.brushAngle,-1e6,1e6)
       ||typeof p.descriptorId!=='string'||!p.descriptorId.length||p.descriptorId.length>256||p.descriptorId.includes('\0')
       ||!integer(p.descriptorVersion,1,Number.MAX_SAFE_INTEGER)||typeof p.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.descriptorSha256))return fail()
     const required=new Set([p.asset,c.primaryTexture.asset]);if(c.sourceColorFields)for(const field of [c.sourceColorFields.primary,c.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset])required.add(id);if(c.primaryTexture.law==='pixel-color-texture-v1')required.add(c.primaryTexture.alphaAsset)
     for(const id of p.frames??[])required.add(id)
     if(p.imageMaterial)for(const id of validateImageMaterialFrames(p,c)){required.add(id)}
     if(required.size!==ids.size||[...required].some(id=>!ids.has(id)))return fail()
-    if(c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(c.assets.length!==2||p.imageMaterial||p.frames||c.materialParams||c.colorParams||c.imageFrameIndices||c.scaledSource))return fail()
+    if(c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(c.assets.length!==2||p.imageMaterial||p.frames||p.frameBounds||c.materialParams||c.colorParams||c.imageFrameIndices||c.scaledSource))return fail()
     return
   }
   if(isV7(c)){
@@ -588,7 +659,8 @@ function context(c:CodecContext):void {
     for(const [sourceSlot,source] of [c.primarySource,c.maskSource].entries()) {
       if(source===undefined){if(sourceSlot===0)fail();continue}
       if(source.kind==='image') {
-        keys(source,['kind','asset','brushScale','brushAngle','frames','imageMaterial'])
+        keys(source,['kind','asset','brushScale','brushAngle','frames','frameBounds','imageMaterial'])
+        if(source.frameBounds!==undefined){if(!indexedImages(c))return fail();for(let i=0;i<(source.frames??[source.asset]).length;i++)canonicalImageFrameAsset(source,c.assets,i)}
         if(source.imageMaterial!==undefined)validateImageMaterialFrames(source,c)
         const frameField=Object.getOwnPropertyDescriptor(source,'frames')
         if('frames' in source&&!frameField)fail()
@@ -630,7 +702,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
     if(pin.kind==='image'){
       if(auto(r)||!('kind'in r)||r.kind!=='image'||!(pin.frames??[pin.asset]).includes(r.asset)||!Object.is(r.brushScale,pin.brushScale)||!Object.is(r.brushAngle,pin.brushAngle))return fail()
       if(c.primaryTexture.law==='hard-multiply-u8-native-v1'&&(r.scale>1||r.ratio!==1||r.mirrorH||r.mirrorV))return fail()
-      cost=canonicalMaterialGeometryCost(r,asset(c,r.asset))
+      cost=canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c))
       if(pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}
     }else{
       if(!auto(r)||r.kind!==pin.kind)return fail()
@@ -668,8 +740,8 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
     }
   } else {
     if(!assetId(r.asset)||!number(r.brushScale,Number.MIN_VALUE,1e6)||versioned(c)&&(!('kind' in r)||r.kind!=='image'))fail()
-    cost=versioned(c)?canonicalMaterialGeometryCost(r,asset(c,r.asset)):c.preflightDefinition(r,asset(c,r.asset))
-    if(isV2(c)){const pin=[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&source.asset===r.asset);if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
+    cost=versioned(c)?canonicalMaterialGeometryCost(r,selectedImageRecipeAsset(r,c)):c.preflightDefinition(r,asset(c,r.asset))
+    if(isV2(c)){const pin=indexedImages(c)?r.sourceSlot===0?c.primarySource:c.maskSource:[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&(source.frames??[source.asset]).includes(r.asset));if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
   }
   if(((isV2(c)||isV8(c))&&c.materialParams)||seededContext(c))cost={...cost,outputBytes:cost.outputBytes+48}
   if(!cost||!integer(cost.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(cost.outputBytes,r.width*r.height,CANONICAL_MATERIAL_LIMITS.outputBytes))fail()
@@ -1068,11 +1140,12 @@ function captureSourceSlot(value:unknown,slot:0|1):CanonicalMaterialContextV2['p
   if(k.value==='softAuto')return capturedSoftAuto(value,slot)
   if(k.value==='defaultAuto')return capturedDefaultAuto(value)
   if(k.value==='gaussianAuto'){const a=ownRecord(value,autoPinFields),source=ownRecord(a.source,autoSourceFields);return canonicalGaussianAutoSourcePin({...a,source} as unknown as Extract<CanonicalAutoSource,{kind:'gaussianAuto'}>)}
-  const a=ownRecord(value,['kind','asset','brushScale','brushAngle'],['frames','imageMaterial']);if(a.kind!=='image'||typeof a.asset!=='string'||typeof a.brushScale!=='number'||typeof a.brushAngle!=='number')return fail()
+  const a=ownRecord(value,['kind','asset','brushScale','brushAngle'],['frames','frameBounds','imageMaterial']);if(a.kind!=='image'||typeof a.asset!=='string'||typeof a.brushScale!=='number'||typeof a.brushAngle!=='number')return fail()
+  const frameBounds=a.frameBounds===undefined?undefined:canonicalImageFrameBounds(a.frameBounds)
   const frames=a.frames===undefined?undefined:Object.freeze(ownArray(a.frames,256,v=>v).map(v=>{if(typeof v!=='string')return fail();return v}))
   let imageMaterial:CanonicalMaterialImageSource['imageMaterial']
   if(a.imageMaterial!==undefined)imageMaterial=captureCanonicalImageMaterial(a.imageMaterial)
-  return Object.freeze({kind:'image',asset:a.asset,brushScale:a.brushScale,brushAngle:a.brushAngle,...frames?{frames}:{},...imageMaterial?{imageMaterial}:{}})
+  return Object.freeze({kind:'image',asset:a.asset,brushScale:a.brushScale,brushAngle:a.brushAngle,...frames?{frames}:{},...frameBounds?{frameBounds}:{},...imageMaterial?{imageMaterial}:{}})
  }
 /** Own-DATA capture for the shared source2 executor, including optional mask.
  * It does not attest an original descriptor, room or execution permission. */

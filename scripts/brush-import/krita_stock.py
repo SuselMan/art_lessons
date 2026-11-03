@@ -9,7 +9,7 @@ import zipfile
 import subprocess
 from contextlib import ExitStack
 from brush_contract import Catalog
-from krita_import import convert_krita
+from krita_import import convert_krita, VerifiedStockSvgMask
 
 LOCK = Path(__file__).with_name('krita-stock-sources.json')
 
@@ -20,7 +20,7 @@ def stock_svg(data):
                           input=data,capture_output=True,timeout=20,check=True)
     if len(result.stdout)>4_000_000:
         raise ValueError('Stock SVG raster exceeds limit')
-    return result.stdout
+    return VerifiedStockSvgMask(result.stdout,data)
 
 
 def verified_source(entry, commit, cache):

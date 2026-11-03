@@ -1,5 +1,5 @@
-import type {CanonicalPlainTiltReadSource,CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
-import type { CanonicalPreparedRecordedOperation, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource,CanonicalTexturedAutoReadSource } from '@grafetto/shared'
+import type {CanonicalImageMaterialReadSource,CanonicalAuthorImageMaterialSource,CanonicalPixelMaskedReadSource,CanonicalAuthorPixelMaskedSource,CanonicalPlainAutoGeometryReadSource,CanonicalAuthorPlainAutoGeometrySource,CanonicalPrimaryGrainReadSource,CanonicalAuthorPrimaryGrainSource,CanonicalPlainTiltReadSource,CanonicalAuthorPlainTiltSource} from '@grafetto/shared'
+import type { CanonicalPreparedRecordedOperationV8, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource,CanonicalAuthorPressureTexturedSource,CanonicalAuthorSoftPressureTexturedSource,CanonicalAuthorTexturedAutoSource,CanonicalTexturedAutoReadSource } from '@grafetto/shared'
 
 /** Local captured read lifetime. Wire data and immutable log copies cannot mint it. */
 export interface CanonicalRecordedLifetime {
@@ -12,7 +12,7 @@ export interface CanonicalRecordedDelivery {
   assertCurrent(this: CanonicalRecordedDelivery, candidate: CanonicalRecordedInput): void
 }
 
-export interface CanonicalRecordedInput extends CanonicalPreparedRecordedOperation {
+export interface CanonicalRecordedInput extends CanonicalPreparedRecordedOperationV8 {
   readonly delivery: CanonicalRecordedDelivery
 }
 
@@ -23,6 +23,14 @@ export interface CanonicalRecordedEmptyRoomRead extends CanonicalRecordedLifetim
  readonly scope:Readonly<CanonicalRecordedReadScope>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
  readonly plainTiltSource?:CanonicalPlainTiltReadSource
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -31,7 +39,7 @@ export interface CanonicalRecordedEmptyRoomRead extends CanonicalRecordedLifetim
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
  readonly tailOperations:readonly import('@grafetto/shared').Operation[]
- readonly preparedAtoms:readonly CanonicalPreparedRecordedOperation[]
+ readonly preparedAtoms:readonly CanonicalPreparedRecordedOperationV8[]
  readonly assertFullHistoryBase?: (candidateTail:readonly import('@grafetto/shared').Operation[])=>ReturnType<typeof import('@grafetto/shared').verifyCanonicalFullHistoryBase>
  assertEmptyHistoryBase(candidateTail:readonly import('@grafetto/shared').Operation[]):Readonly<import('@grafetto/shared').CanonicalEmptyHistoryBaseV1>
 }
@@ -66,6 +74,14 @@ export interface CanonicalAcceptedCut {
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
  readonly plainTiltSource?:CanonicalPlainTiltReadSource
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -85,6 +101,14 @@ export interface CanonicalIndexedHistoryCandidate {
 export interface CanonicalIndexedOrigin extends CanonicalRecordedLifetime {
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
  readonly plainTiltSource?:CanonicalPlainTiltReadSource
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource
@@ -105,6 +129,14 @@ export interface CanonicalIndexedRead {
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ readonly imageMaterialSource?:CanonicalImageMaterialReadSource
+ readonly authorImageMaterialSource?:CanonicalAuthorImageMaterialSource
+ readonly pixelMaskedSource?:CanonicalPixelMaskedReadSource
+ readonly authorPixelMaskedSource?:CanonicalAuthorPixelMaskedSource
+ readonly plainAutoGeometrySource?:CanonicalPlainAutoGeometryReadSource
+ readonly authorPlainAutoGeometrySource?:CanonicalAuthorPlainAutoGeometrySource
+ readonly primaryGrainSource?:CanonicalPrimaryGrainReadSource
+ readonly authorPrimaryGrainSource?:CanonicalAuthorPrimaryGrainSource
  readonly plainTiltSource?:CanonicalPlainTiltReadSource
  readonly authorPlainTiltSource?:CanonicalAuthorPlainTiltSource
  readonly texturedAutoSource?:CanonicalTexturedAutoReadSource

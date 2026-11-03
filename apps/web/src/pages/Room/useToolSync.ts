@@ -1,6 +1,8 @@
+import {sourcePatternRequired} from '../../lib/tools/sourcePatternRequirement'
 import type {CanonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import {STRAIGHT_ROOM_RASTER_VERSION} from '@grafetto/shared'
-import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
+import {importedBrushFromPreset} from '../../engine/src/presets/importedBrushes'
+import { prepareBrushPresets, publishBrushPresets,prepareBrushPattern } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
@@ -69,6 +71,9 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   // hand-off.
   const libraryRevision=useRoomStore(s => s.brushLibraryRevision)
   const digitalBrushId = toolSettings.digitalBrush.brush as string
+  const sourcePatternId=typeof toolSettings.digitalBrush.pattern==='string'?toolSettings.digitalBrush.pattern:'none'
+  const boardId=useRoomStore(s=>s.boardId)
+  const patternRequired=sourcePatternRequired(importedBrushFromPreset(digitalBrushId))
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
   // stroke has their own switches in whatever position they left them.
@@ -96,35 +101,50 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
       canvas?.removeEventListener('webglcontextrestored', invalidate)
     }
   }, [canvasRef, engineEpoch])
-  const eligibleSource=!availability||(availability.status==='ready'&&availability.options.some(o=>o.id===digitalBrushId&&o.sizePx===toolSettings.digitalBrush.size))
-  const preparationReady=eligibleSource&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
-  const preparationKey = `${engineEpoch}:${preparationEpoch}:${availability?libraryRevision:0}:${digitalBrushPresetName ?? digitalBrushId}${preparationReady?'':':restoring'}`
+  const selectedSource=availability?.options.find(option=>option.id===digitalBrushId)
+  const selectedSourceSize=toolSettings.digitalBrush.size as number
+  const eligibleSource=!availability||(availability.status==='ready'&&!!selectedSource&&(selectedSource.scalable?Number.isFinite(selectedSourceSize)&&selectedSourceSize>0:selectedSource.sizePx===selectedSourceSize))
+  const preparationReady=eligibleSource&&(!patternRequired||sourcePatternId!=='none')&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${boardId??''}:${sourcePatternId}:${availability?libraryRevision:0}:${digitalBrushPresetName ?? digitalBrushId}${selectedSource?.scalable?`:${selectedSourceSize}`:''}${preparationReady?'':':restoring'}`
   const brushResourcesReady = eligibleSource&&(drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(id=>isBrushAssetReady(id))))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
     const engine = engineRef.current
     if (!engine) return
+    setPreparedKey('')
+    engine.setSourcePattern(undefined)
     if(!preparationReady){setPreparedKey('');return}
     const controller = new AbortController()
     const roomId = useRoomStore.getState().boardId
     const preset = digitalBrushPresetName ?? digitalBrushId
+    const current=()=>{if(controller.signal.aborted||engineRef.current!==engine||useRoomStore.getState().boardId!==roomId||useRoomStore.getState().toolSettings.digitalBrush.pattern!==sourcePatternId&&!(sourcePatternId==='none'&&useRoomStore.getState().toolSettings.digitalBrush.pattern===undefined))throw new DOMException('Pattern selection changed','AbortError')}
     const pending = (async () => {
       const resources = prepareBrushPresets([preset])
       if (resources) await resources
       if (controller.signal.aborted) return
       if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [preset])
       if (controller.signal.aborted) return
+      current()
+      if(sourcePatternId!=='none'){
+        if(!roomId)throw new Error('Pattern selection requires a room')
+        const resource=await prepareBrushPattern(roomId,sourcePatternId,current)
+        current();engine.setSourcePattern(resource);current()
+      }
+      // Preparation captures the same size that the UI readiness key owns.
+      // This effect precedes the general option-sync effect below.
+      engine.setSize(selectedSourceSize)
       const result = await engine.prepareBrush(preset, { signal: controller.signal })
-      if (!controller.signal.aborted && result.status !== 'cancelled') setPreparedKey(preparationKey)
+      if (!controller.signal.aborted && result.status !== 'cancelled'){current();setPreparedKey(preparationKey)}
     })()
     pending.catch(error => {
       if (!controller.signal.aborted) {
+        if(engineRef.current===engine){try{engine.setSourcePattern(undefined)}catch(cleanupError){console.error('Selected pattern cleanup failed',cleanupError)}}
         console.error('Selected brush unavailable', error)
         notifyError(t('brushLibrary.error'))
       }
     })
-    return () => controller.abort()
-  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey,preparationReady, engineEpoch, engineRef, t])
+    return () => {controller.abort();if(engineRef.current===engine){try{engine.setSourcePattern(undefined)}catch(error){console.error('Selected pattern cleanup failed',error)}}}
+  }, [sourcePatternId,boardId,drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey,preparationReady,selectedSourceSize, engineEpoch, engineRef, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink

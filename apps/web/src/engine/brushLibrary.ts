@@ -5,3 +5,9 @@ export { installBrushLibrary, installBrushPixels, clearImportedBrushPixels, reta
 export {canonicalSourceAuthorAdmission,type CanonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 
 export {canonicalPlainAutoGeometryAuthorAdmission,type CanonicalPlainAutoGeometryCapability,type CanonicalPlainAutoGeometryAuthorOptions,type CanonicalPlainAutoGeometryAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
+
+export {canonicalPixelTextureAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
+
+export {canonicalNativeImagePipeAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
+
+export {canonicalPixelImageAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'

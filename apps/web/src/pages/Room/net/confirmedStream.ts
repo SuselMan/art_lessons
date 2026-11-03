@@ -1,9 +1,9 @@
-import {attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
+import {prepareCanonicalOriginalAttachment,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
 import type {CanonicalRecordedInput} from '../../../engine'
 import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 
-import { captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryMetadata,parseCanonicalStrokeCloseOperation,canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryMetadata,parseCanonicalStrokeCloseOperation,canonicalRecordedRasterProfiles,  type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -135,7 +135,7 @@ export function createConfirmedStreamHandler({
         if (!canonicalReadScope || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
         if(close&&payload.canonicalCapabilities!==undefined)throw new TypeError('Close cannot carry frame capability')
         if(!close&&op.type!=='canonical_stroke')throw new TypeError('Unsupported recorded operation')
-        const prepared:CanonicalPreparedRecordedOperation=close?{operation:parseCanonicalStrokeCloseOperation(op)}:prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
+        const prepared:CanonicalPreparedRecordedOperation=close?{operation:parseCanonicalStrokeCloseOperation(op)}:prepareCanonicalOriginalAttachment(payload.canonicalCapabilities, [op], readScope!)[0]
         const local=attachCanonicalRecordedDelivery(prepared,readScope!)
         if('delivery' in local)recorded=local
         read = prepared.read

@@ -6,6 +6,7 @@ paint operations fail explicitly rather than changing the meaning of a preset.
 import base64
 import hashlib
 import io
+import json
 import math
 import re
 from pathlib import PurePosixPath
@@ -22,6 +23,50 @@ from krita_texture import preprocess_texture
 from krita_lightness import compile_lightness_planes
 
 MAX_XML = 32 * 1024 * 1024
+
+
+class VerifiedStockSvgMask(bytes):
+    """Prepared opaque-gray raster of the single audited stock SVG.
+
+    Provenance travels with the in-memory resource, not its filename. This is
+    deliberately not a general SVG decoder or a new SOURCE paint authority.
+    """
+    def __new__(cls, png, original_svg):
+        if (len(original_svg)!=20404 or hashlib.sha256(original_svg).hexdigest()!=
+                '9ccd89dfbbd74096b858374700629b94413855276c8075db3f8cbef72e9baa5a'):
+            raise ValueError('Unverified stock SVG source')
+        if len(png)>4_000_000:
+            raise ValueError('Prepared stock SVG raster exceeds limit')
+        with Image.open(io.BytesIO(png)) as image:
+            if image.format!='PNG' or image.size!=(1000,1000):
+                raise ValueError('Prepared stock SVG grid differs')
+            image.load()
+            if has_color(image) or image.convert('RGBA').getchannel('A').getextrema()!=(255,255):
+                raise ValueError('Prepared stock SVG is not opaque grayscale')
+        return bytes.__new__(cls,png)
+
+
+class CapturedGeneralSvgMask(bytes):
+    """Only this constructor accepts original SVG and invokes the closed renderer."""
+    def __new__(cls, original_svg, filename):
+        from general_svg import rasterize_svg
+        if not isinstance(filename,str) or not 1<=len(filename)<=1024 or '\x00' in filename:
+            raise ValueError('Invalid original SVG filename')
+        png, proof = rasterize_svg(original_svg)
+        with Image.open(io.BytesIO(png)) as image:
+            if image.format!='PNG' or image.mode!='L' or image.size!=(proof['width'],proof['height']):
+                raise ValueError('General SVG raster/provenance mismatch')
+            image.load()
+        versions=proof['rendererVersions']
+        provenance={'kind':'librsvg-gray-vector-subset-v1','originalFilename':filename,
+            'originalSha256':proof['originalSha256'],'sanitizedSha256':proof['sanitizedSha256'],
+            'rasterSha256':proof['rasterSha256'],'helperSha256':proof['helperSha256'],
+            'width':proof['width'],'height':proof['height'],
+            'sharpVersion':versions.get('sharp'),'rsvgVersion':versions.get('rsvg')}
+        if any(not isinstance(provenance[k],str) or not 1<=len(provenance[k])<=128 for k in ('sharpVersion','rsvgVersion')):
+            raise ValueError('Missing actual SVG renderer version')
+        result=bytes.__new__(cls,png);result.provenance=provenance
+        return result
 
 
 def xml(data):
@@ -236,14 +281,14 @@ def has_color(image):
     return ImageChops.difference(red,green).getbbox() is not None or ImageChops.difference(red,blue).getbbox() is not None
 
 
-def integer_image_sampling(image, application, asset_size):
+def integer_image_sampling(image, application, asset_size, *, max_side=512):
     """Only an unchanged opaque gray source can be recovered from coverage.
 
     A bounded source domain admits a complete native level bank before a stroke;
     colored/transparent/material and rescaled sources retain their old policy.
     The renderer performs the final whole-brush residency admission separately.
     """
-    if application != 0 or max(image.size) > 512 or has_color(image):
+    if application != 0 or max(image.size) > max_side or has_color(image):
         return None
     if image.convert('RGBA').getchannel('A').getextrema() != (255, 255):
         return None
@@ -312,9 +357,9 @@ def raster(data, name, brush=False):
     if name.lower().endswith('.pat'):
         if len(data)<24: raise ValueError('Truncated PAT header')
         header, version, w, h, channels, magic = struct.unpack('>6I',data[:24])
-        if version!=1 or magic!=0x47504154 or header<24 or header>len(data) or w*h>MAX_PIXELS or min(w,h)<1 or channels not in (1,3,4) or len(data)!=header+w*h*channels:
+        if version!=1 or magic!=0x47504154 or header<24 or header>len(data) or w*h>MAX_PIXELS or min(w,h)<1 or channels not in (1,2,3,4) or len(data)!=header+w*h*channels:
             raise ValueError('Unsupported PAT pattern')
-        return Image.frombytes({1:'L',3:'RGB',4:'RGBA'}[channels],(w,h),data[header:])
+        return Image.frombytes({1:'L',2:'LA',3:'RGB',4:'RGBA'}[channels],(w,h),data[header:])
     image = Image.open(io.BytesIO(data))
     if image.width*image.height > MAX_PIXELS:
         raise ValueError('Krita resource exceeds pixel limit')
@@ -600,6 +645,26 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
+    elif kind=='kis_text_brush':
+        if engine!='paintbrush':raise ValueError('Text SOURCE requires Pixel paintbrush')
+        from krita_text import render_text_source
+        images,provenance,sequence=render_text_source(definition)
+        # All original glyph rasters finish under cumulative bounds BEFORE CAS writes.
+        frames=[image_coverage(image,0) for image in images]
+        assets=[tip_asset(frame,catalog,warnings) for frame in frames]
+        image,mask=images[0],frames[0]
+        d['tip']['mask'],d['tip']['maskBounds']=assets[0]
+        d['tip']['textRasterization']=provenance
+        d['tip']['imageSampling']=integer_image_sampling(image,0,catalog.assets[d['tip']['mask']]['size'],max_side=2048)
+        if sequence is not None:
+            frame_bounds=[]
+            for frame,(aid,_) in zip(frames,assets):
+                side=catalog.assets[aid]['size'];width,height=frame.size
+                frame_bounds.append({'x':((side-width)//2)/side,'y':((side-height)//2)/side,'width':width/side,'height':height/side})
+            d['tip']['animation']={'mode':'text-sequence-v1','frames':[aid for aid,_ in assets],'sequence':sequence,'frameBounds':frame_bounds}
+            notes.append(compatibility('textPipe','Original UTF16 sequence selects captured per-glyph rectangles; isolated surrogate units use a captured replacement glyph in this functional raster profile.'))
+        source_static_image=True;source_metric=mask.size;source_size=max(mask.size)
+        notes.append(compatibility('textRasterization','Actual resolver-selected font bytes/face and functional Pillow mask retained; native Qt/font identity is not claimed.'+(' Requested family was substituted.' if provenance['substituted'] else '')))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = source_tip_filename
         material_gray=[]
@@ -636,10 +701,20 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['coloured'] and application!=0 and not material_gray and not material_color:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
-            image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
-            source_static_image = kind in ('png_brush','gbr_brush')
+            payload=resource(filename)
+            if kind=='svg_brush' and not isinstance(payload,(VerifiedStockSvgMask,CapturedGeneralSvgMask)):
+                payload=CapturedGeneralSvgMask(payload,filename)
+            general_svg=kind=='svg_brush' and isinstance(payload,CapturedGeneralSvgMask)
+            verified_svg=kind=='svg_brush' and isinstance(payload,(VerifiedStockSvgMask,CapturedGeneralSvgMask))
+            if general_svg:d['tip']['svgRasterization']=dict(payload.provenance)
+            if kind=='svg_brush' and not verified_svg:
+                raise ValueError('SVG requires verified stock raster preparation; general SVG is unsupported')
+            image=gbr(payload,preserve_color=True) if filename.lower().endswith('.gbr') else raster(payload,filename)
+            source_static_image = kind in ('png_brush','gbr_brush') or verified_svg
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
+            if verified_svg and application!=0:
+                raise ValueError('Prepared SVG SOURCE supports native grayscale mask application only')
             if application==0 and adjustment_active:
                 image=adjusted_mask_image(image,definition)
             if application==1 and engine=='paintbrush': material_color=[image.convert('RGBA')]
@@ -649,13 +724,13 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
-            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray:
-                sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'])
+            if (verified_svg or kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr'))) and not material_gray:
+                sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'],max_side=2048 if verified_svg else 512)
                 if sampling:
                     d['tip']['imageSampling']=sampling
                     notes.append(compatibility('integerImagePyramid','Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.'))
             if kind=='svg_brush':
-                notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
+                notes.append(compatibility('svgRasterizer','Bounded vector subset rasterized at native1000px width on white using captured sharp/librsvg versions; functional grayscale profile, not Qt pixel identity.' if general_svg else 'Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         source_metric=mask.size
@@ -689,10 +764,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('alphaMaskAdjustments','Native midpoint migration and brightness/contrast gray transfer are baked once into alpha coverage before pyramid preparation; source alpha is retained.'))
     else:
         raise ValueError('Unsupported Krita brush definition: '+str(kind))
-    d['spacing']=clamp(numeric(definition.get('spacing'),0.1),0.000001,2)
+    d['spacing']=clamp(numeric(definition.get('spacing'),1 if kind=='kis_text_brush' else 0.1),0.000001,2)
     # Native brush angles are counterclockwise: pyramid negates the sum,
     # and auto brushes rotate destination coordinates back into the mask.
-    d['tip']['angle']=math.remainder(-numeric(definition.get('angle')),2*math.pi)
+    d['tip']['angle']=0 if kind=='kis_text_brush' else math.remainder(-numeric(definition.get('angle')),2*math.pi)
     sharpness_controls=[]
     if enabled(params.get('PressureSharpness')):
         value=numeric(params.get('SharpnessValue',params.get('Sharpness/factor',1)),1)
@@ -930,7 +1005,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if target!=mask.size:
                 mask=mask.resize(target,Image.Resampling.BILINEAR)
                 notes.append(compatibility('textureResampling','Native Qt SmoothTransformation approximated offline with PIL bilinear at rounded integer grid.'))
-            mask=preprocess_texture(mask,
+            texture_input=mask
+            adjustment=dict(
                 brightness=numeric(params.get(prefix+'Brightness'),0),
                 contrast=numeric(params.get(prefix+'Contrast'),1),
                 neutral_point=numeric(params.get(prefix+'NeutralPoint'),.5),
@@ -939,35 +1015,45 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 cutoff_left=int(numeric(params.get(prefix+'CutoffLeft'),0)),
                 cutoff_right=int(numeric(params.get(prefix+'CutoffRight'),255)),
                 preserve_alpha=texture_mode in (2,3))
+            mask=preprocess_texture(texture_input,**adjustment)
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
-            # Native preserveAlpha keeps the adjusted gray AND cutoff-adjusted
-            # source alpha. Do not pass RGBA to Catalog.asset: that would multiply
-            # gray by alpha a second time and destroy the independent planes.
-            color_source=None
-            if texture_mode in (2,3):
-                gray=mask.getchannel('R') if mask.mode=='RGBA' else mask.convert('L')
-                alpha=mask.getchannel('A') if mask.mode=='RGBA' else Image.new('L',mask.size,255)
-                padded=Image.new('L',(pot,pot));padded.paste(gray,(0,0))
-                alpha_padded=Image.new('L',(pot,pot));alpha_padded.paste(alpha,(0,0))
-                aid=catalog.asset(padded,warnings,grain=True)
-                alpha_id=catalog.asset(alpha_padded,warnings,grain=True)
-                color_source={'gray':aid,'alpha':alpha_id}
-            else:
-                padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
-                aid=catalog.asset(padded,warnings,grain=True)
+            def retain_texture_variant(prepared):
+                if prepared.size!=(width,height): raise ValueError('Texture variant grid differs')
+                if texture_mode in (2,3):
+                    gray=prepared.getchannel('R') if prepared.mode=='RGBA' else prepared.convert('L')
+                    # L output here means an originally opaque source, not a
+                    # missing pattern/alpha resource substituted at runtime.
+                    alpha=prepared.getchannel('A') if prepared.mode=='RGBA' else Image.new('L',prepared.size,255)
+                    padded=Image.new('L',(pot,pot));padded.paste(gray,(0,0))
+                    alpha_padded=Image.new('L',(pot,pot));alpha_padded.paste(alpha,(0,0))
+                    asset_id=catalog.asset(padded,warnings,grain=True)
+                    alpha_id=catalog.asset(alpha_padded,warnings,grain=True)
+                    return asset_id,{'gray':asset_id,'alpha':alpha_id}
+                padded=Image.new('L',(pot,pot));padded.paste(prepared,(0,0))
+                return catalog.asset(padded,warnings,grain=True),None
+            aid,color_source=retain_texture_variant(mask)
+            erase_variant=None
+            if enabled(params.get(prefix+'AutoInvertOnErase')):
+                # XOR inversion must precede neutral-point/cutoff mapping.
+                # Reprocessing the SAME resized original is not255-finalGray.
+                erased=preprocess_texture(texture_input,**{**adjustment,'invert':not adjustment['invert']})
+                erase_id,erase_color=retain_texture_variant(erased)
+                erase_variant={'id':erase_id}
+                if erase_color is not None: erase_variant['colorSource']=erase_color
             offset={axis:clamp(numeric(params.get(prefix+'Offset'+axis.upper()),0),-8192,8192) for axis in ('x','y')}
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
                           'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
             if color_source is not None: d['texture']['colorSource']=color_source
+            if erase_variant is not None: d['texture']['eraseVariant']=erase_variant
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
                 notes.append(compatibility('textureOffset','Native offset exceeds bounded8192 and was clamped.','unsupported'))
             if offset['randomX'] or offset['randomY']:
                 notes.append(compatibility('textureRandomOffset','Per-stroke pattern phase uses deterministic Grafetto RNG rather than Krita RNG.'))
             if enabled(params.get(prefix+'AutoInvertOnErase')):
-                notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
+                notes.append(compatibility('textureEraseInvert','Both original and XOR-inverted-before-neutral/cutoff variants retained; named Pixel source selects the captured effective composition. UI eraser override is separate.'))
             controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
             notes.append(compatibility('texture','Native adjusted-gray and preserved-alpha planes retained for color texture; selected gradient is captured by the application at stroke START.' if color_source is not None else 'Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
@@ -1201,6 +1287,60 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     return result
 
 
+def retain_declared_patterns(archive,names,catalog):
+    """Only manifest-declared original PAT resources, never arbitrary PNG/tips.
+
+    Pinned KoResourceBundleManifest and KoXmlNS use the ODF manifest namespace.
+    The four stored L8 planes preserve straight original RGBA independently.
+    """
+    manifest='META-INF/manifest.xml'
+    if manifest not in names: return
+    namespace='{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}'
+    document=xml(archive.read(manifest))
+    if document.tag!=namespace+'manifest': raise ValueError('Invalid Krita resource manifest namespace')
+    declared=[];seen=set()
+    for entry in document:
+        if entry.tag!=namespace+'file-entry' or entry.get(namespace+'media-type')!='patterns': continue
+        name=entry.get(namespace+'full-path')
+        if not isinstance(name,str) or not name.startswith('patterns/') or not name.lower().endswith('.pat'): continue
+        if name not in names or name in seen: raise ValueError('Missing or duplicate declared Krita pattern')
+        digest=entry.get(namespace+'md5sum')
+        if not isinstance(digest,str) or not re.fullmatch(r'[a-fA-F0-9]{32}',digest): raise ValueError('Invalid declared Krita pattern checksum')
+        seen.add(name);declared.append((name,digest.lower()))
+    if len(declared)>128: raise ValueError('Declared Krita pattern count exceeds128')
+    existing={p['id']:p for p in catalog.patterns}
+    for name,expected_md5 in declared:
+        try:
+            payload=archive.read(name)
+            if hashlib.md5(payload).hexdigest()!=expected_md5: raise ValueError('Declared Krita pattern checksum differs')
+            original=raster(payload,name)
+            if original.width>2048 or original.height>2048 or original.width*original.height>1048576: raise ValueError('Original pattern exceeds bounded2048/1M domain')
+            width,height=original.size;size=max(2,1<<(max(width,height)-1).bit_length())
+            rgba=original.convert('RGBA')
+            planes=[];pending={}
+            for channel in ('R','G','B','A'):
+                plane=Image.new('L',(size,size));plane.paste(rgba.getchannel(channel),(0,0))
+                raw=plane.tobytes();digest=hashlib.sha256(raw).hexdigest();aid='asset:'+digest
+                planes.append((aid,plane));pending[aid]=size*size
+            additional=sum(length for aid,length in pending.items() if aid not in catalog.assets)
+            if sum(a['size']**2 for a in catalog.assets.values())+additional>256*1024*1024: raise ValueError('Catalog patterns exceed existing256MiB asset budget')
+            resource={'kind':'source-pattern-rgba8-v1','channels':[p[0] for p in planes[:3]],'alphaAsset':planes[3][0],
+                      'size':size,'x':0,'y':0,'width':width,'height':height,'periodX':width,'periodY':height}
+            pattern_id='pattern:'+hashlib.sha256(json.dumps(resource,sort_keys=True,separators=(',',':')).encode('utf-8')).hexdigest()
+            if pattern_id in existing: continue
+            if len(existing)>=128: raise ValueError('Catalog pattern count exceeds128')
+            # L/POT input makes Catalog.asset an identity CAS writer: no RGB
+            # luminance conversion, alpha multiplication, resizing or inversion.
+            for aid,plane in planes:
+                if aid not in catalog.assets and catalog.asset(plane,[],grain=True)!=aid: raise ValueError('Original pattern plane changed during CAS storage')
+            label=''.join(c for c in PurePosixPath(name).stem if ord(c)>=32 and ord(c)!=127)
+            label=label.encode('utf-16-le')[:256].decode('utf-16-le',errors='ignore') or 'Pattern'
+            entry={'id':pattern_id,'name':label,'resource':resource}
+            existing[pattern_id]=entry;catalog.patterns.append(entry)
+        except (ValueError,OSError) as error:
+            catalog.skipped.append({'name':PurePosixPath(name).stem[:128],'reasons':['Pattern: '+str(error)]})
+
+
 def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None, source_material_profile=None, native_default_texture=False):
     if type(native_default_texture) is not bool or native_default_texture and mapped_curve_provider is None: raise ValueError('Native default texture requires explicit mapped provider')
     if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
@@ -1222,6 +1362,7 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         names=[e.filename for e in entries]
         if len(set(names))!=len(names) or any(n.startswith('/') or '\\' in n or '..' in PurePosixPath(n).parts for n in names):
             raise ValueError('Unsafe or duplicate Krita bundle member')
+        retain_declared_patterns(archive,names,catalog)
         resources=dict(external or {})
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):

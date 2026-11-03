@@ -1,3 +1,4 @@
+import {sourceAutoSector} from './sourceAutoSector'
 import { sourceCoverageEvaluator, type SourceCoverageEvaluator } from './sourceCoverageEvaluator'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
@@ -13,6 +14,7 @@ export interface SourceGaussianResolvedMaskRequest {
   readonly profile: 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
   /** Explicit native-derived coefficient input; this API does not assert
    * that arbitrary client coefficients came from a valid KPP/native query. */
+  readonly spikes?:number
   readonly coefficients: SourceGaussianResolvedCoefficients
   readonly effectiveWidth: number; readonly effectiveHeight: number; readonly antialias: boolean
   readonly centerX: number; readonly centerY: number; readonly cos: number; readonly sin: number
@@ -37,7 +39,7 @@ export function prepareSourceGaussianResolvedMask(r: SourceGaussianResolvedMaskR
     ? Math.min(r.effectiveWidth, r.effectiveHeight) < 1 ? 6 : 3 : 1
   const samplesPerPixel = n * n as 1 | 9 | 36, pixels = r.width * r.height
   if (pixels > r.maxPixels || pixels * samplesPerPixel > r.maxWorkSamples) throw new RangeError('Resolved Gaussian reference exceeds reserved budget')
-  const vector = r.profile === 'neon64-f32-fma-v1' && n === 1
+  const vector = r.profile === 'neon64-f32-fma-v1' && n === 1 && (r.spikes??2)===2
   const bound = (Math.abs(r.centerX) + r.width + Math.abs(r.centerY) + r.height + 1) * Math.max(1, c.ycoef)
   if (!Number.isFinite(bound) || bound > 2 ** (vector ? 50 : 400) || bound * c.distfactor + Math.abs(c.center) > 2 ** (vector ? 120 : 500)
     || (vector && !Object.values(c).every(x => Number.isFinite(f(x))))) throw new RangeError('Resolved Gaussian intermediates exceed finite reference domain')
@@ -56,7 +58,8 @@ export function prepareSourceGaussianResolvedMask(r: SourceGaussianResolvedMaskR
         let sum = 0
         for (let sy = 0; sy < n; sy++) for (let sx = 0; sx < n; sx++) {
           const px = mulAdd(sx, 1 / n, x) - r.centerX, py = mulAdd(sy, 1 / n, y) - r.centerY
-          const rx = mulAdd(r.cos, px, -(r.sin * py)), ry = mulAdd(r.sin, px, r.cos * py) * c.ycoef
+          const folded=sourceAutoSector(mulAdd(r.cos, px, -(r.sin * py)),mulAdd(r.sin, px, r.cos * py),r.spikes??2)
+          const rx=folded[0],ry=folded[1]*c.ycoef
           sum += scalarTransparency(Math.sqrt(mulAdd(rx, rx, ry * ry)))
           yield sy === n - 1 && sx === n - 1 ? 255 - Math.trunc(sum / samplesPerPixel) : null
         }
