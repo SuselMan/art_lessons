@@ -1,3 +1,4 @@
+import {canonicalSourceColorFields,type CanonicalSourceSpatialColor} from '@grafetto/shared'
 import {canonicalTextureGradientRGBA} from '@grafetto/shared'
 import {canonicalSourceScale} from '@grafetto/shared'
 import { createHash } from 'node:crypto'
@@ -55,9 +56,13 @@ export function persistPalette(roomId: string, colors: string[]): void {
 
 /** Explicit JSON data projection preserves the shared DTO's closed interface
  * without giving it a Prisma index signature or weakening JSON type checking. */
+function spatialColorRow(provider:CanonicalSourceSpatialColor|null){
+ if(!provider)return null
+ return provider.kind==='total-random-rgb8-hash-v1'?{kind:provider.kind}:{kind:provider.kind,resource:{...provider.resource,channels:[...provider.resource.channels]}}
+}
 function canonicalFrameRow(frame:CanonicalStrokeOperation['frame']){
- const {texturePhase,textureGradient,...base}=frame
- return {...base,composition:{...frame.composition},...textureGradient?{textureGradient:{kind:textureGradient.kind,rgba:[...textureGradient.rgba]}}:{},...texturePhase?{texturePhase:{kind:texturePhase.kind,x:texturePhase.x,y:texturePhase.y}}:{}}
+ const {texturePhase,textureGradient,sourceColorFields,...base}=frame
+ return {...base,composition:{...frame.composition},...sourceColorFields?{sourceColorFields:{primary:spatialColorRow(sourceColorFields.primary),...sourceColorFields.mask!==undefined?{mask:spatialColorRow(sourceColorFields.mask)}:{}}}:{},...textureGradient?{textureGradient:{kind:textureGradient.kind,rgba:[...textureGradient.rgba]}}:{},...texturePhase?{texturePhase:{kind:texturePhase.kind,x:texturePhase.x,y:texturePhase.y}}:{}}
 }
 
 /** One immutable row projection shared by original insert and explicit repair. */
@@ -172,6 +177,9 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
  const gradientField=frame&&Object.getOwnPropertyDescriptor(frame,'textureGradient')
  const textureGradient=gradientField?(()=>{if(!Object.hasOwn(gradientField,'value')||!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string'||!packed.value.startsWith('8|'))return fail();return canonicalTextureGradientRGBA(gradientField.value)})():undefined
  if(frame&&!gradientField&&'textureGradient'in frame)return fail()
+ const colorFieldsDescriptor=frame&&Object.getOwnPropertyDescriptor(frame,'sourceColorFields')
+ const sourceColorFields=colorFieldsDescriptor?(()=>{if(!Object.hasOwn(colorFieldsDescriptor,'value')||!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string'||!(/^[28]\|/).test(packed.value))return fail();return canonicalSourceColorFields(colorFieldsDescriptor.value)})():undefined
+ if(frame&&!colorFieldsDescriptor&&'sourceColorFields'in frame)return fail()
 
 
  verifyCanonicalOperationRow(roomId,op,row)
@@ -181,9 +189,9 @@ export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStor
     ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
     ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
    if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
-    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...hasSavedPhase?['texturePhase']:[],...sourceScale!==undefined?['sourceScale']:[],...textureGradient?['textureGradient']:[]].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...hasSavedPhase?['texturePhase']:[],...sourceScale!==undefined?['sourceScale']:[],...textureGradient?['textureGradient']:[],...sourceColorFields?['sourceColorFields']:[]].includes(k))
     ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
-   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...texturePhase?{texturePhase}:{},
+   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,...sourceColorFields?{sourceColorFields}:{},...textureGradient?{textureGradient}:{},...sourceScale!==undefined?{sourceScale}:{},...texturePhase?{texturePhase}:{},
     pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
  const bytes=Buffer.byteLength(JSON.stringify(projected),'utf8')
  if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()

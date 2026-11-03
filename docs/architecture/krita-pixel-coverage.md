@@ -44,7 +44,7 @@
 | Texture preparation | Импорт сохраняет period/crop/offset/POT padding; weighted gray + alpha-to-white + brightness/contrast/neutral/invert/cutoff preparation. Bank raw L8/root leases есть | **Частично:** PIL resampling не тождествен native Qt; downsample/clamped offsets помечаются unsupported. AutoInvertOnErase отсутствует. Проверять provenance preprocessing; texture alpha не primary inverse-gray, двойная инверсия запрещена |
 | Texture hard Subtract | Закрытые material3–7, fixed/pressure/curve/native-default strength, saved phase и program/source bindings | **Интеграция:** новые комбинации источника/сенсоров через существующие законы; old ties-even неизменен. Не расширять old entrypoints неявно |
 | Texture hard Multiply | Новый scalar half-up/mul3, material8 codec, standalone snapshot, lower Composite и named Executor8 committed | **Интеграция:** source8 binding/compiler role/adapter/encoder; named mixed recorded attachment, original read/author/server/frontend/cutover. Genuine Pencil5 ещё не допущена. Byte strength вычисляется один раз author и записывается, replay не вычисляет давление |
-| Texture soft modes / прочие texture operators | Pinned native masking factory/texture source описывают отдельные soft laws и операции; current canonical paths их не реализуют | **Реализация:** explicit law+quantizer union для soft Multiply/Subtract и требуемых других native texture modes, потом source/resource/codec/author closure. Не заменять soft hard-операцией, strength0 не означает универсальный bypass |
+| Texture soft modes / прочие texture operators | Pinned native masking factory/texture source описывают отдельные soft laws и операции; новый Pixel texture8 имеет все 14 alpha laws, hard/soft, recorded strength | **Компилируется:** law/quantizer/author/codec/executor замкнуты; поведение ещё не проверено. Lightness/Gradient подключены отдельно, auto-invert ещё отсутствует |
 | Wash / buildup / opacity / flow | `sourcePainterOpacity`, `sourcePrimaryComposition`, OVER/alphaDarken CPU laws; canonical target/composite, mixed coordinator, frozen snapshots/prefix replay | **Интеграция:** material8 в SAME lane/owner/candidate/handoff. **Частично:** не весь native composite registry/цветовые пространства; unsupported outer blends нельзя переименовать normal/OVER. Замена стабильного результата требует полного baseline и exact close |
 | Masking brush / dual | Author умеет две roles, независимые distance/cache/options/fan state, SAME RNG pair; adapter/fences и legacy dual metadata есть | **Реализация coherent canonical closure:** master-size ownership, абсолютный/relative child size, independently timed/input child, source bundle/context, mask+primary pairing, supported mask composite law, budgets и cancellation. Shared extractors намеренно отказывают dual; legacy approximation не готовый native путь |
 | Color sources / dynamic HSV/HSY | `sourceColorRgba8` и color native arithmetic helpers; importer/legacy behavior сохраняют часть modulations | **Реализация/интеграция:** native plain/gradient/pattern/random/color-source provider, foreground/background and color-space semantics, per-DRAW captured pigment/material color, recorded deterministic result. `source-color-provider-unresolved` нельзя убрать без provider. Цветовой kernel отдельно не является producer |
@@ -56,10 +56,10 @@
 `OVERLAY`, `COLOR_DODGE`, `COLOR_BURN`, `LINEAR_DODGE`, `LINEAR_BURN`,
 `HARD_MIX_PHOTOSHOP`, `HARD_MIX_SOFTER_PHOTOSHOP`, `HEIGHT`, `LINEAR_HEIGHT`,
 `HEIGHT_PHOTOSHOP`, `LINEAR_HEIGHT_PHOTOSHOP`; `LIGHTNESS` и `GRADIENT` идут
-отдельными ветками с сохранением alpha/цветовым ресурсом. На canonical пути
-реализованы hard Subtract и новая hard Multiply, остальные требуют своих законов
-и ресурсных consumers; общий masking factory не означает готовность всех texture
-режимов. Gradient требует настоящего captured gradient/color source, не alpha LUT.
+отдельными ветками с сохранением alpha/цветовым ресурсом. В новом Pixel texture8 кодом подключены все 14 alpha modes (hard/soft),
+Lightness и Gradient; этот блок компилируется, но ещё не проверен в приложении.
+Исторические material3–7 и hard Multiply8 сохраняют закрытые прежние законы.
+Gradient использует captured RGBA resource, gray/alpha pattern и START metadata.
 
 ## Опорные native источники и текущие границы
 
@@ -154,3 +154,15 @@ RGBA LUT; BEGIN, кадры и сохранение истории несут т
 Frontend compile11 завершён: 613 production roots, 0 diagnostics.
 Текущий блок ColorTexture компилируется во всех трёх пакетах; поведение ещё
 не проверялось.
+
+### Pixel CODE FIRST: spatial ColorSource
+
+В новый source2/source8 добавлены versioned total_random и pattern/lockedpattern:
+role provider, исходные четыре CAS-плоскости, записанные seed/phase каждого DRAW.
+Shared compile16: 68 roots без диагностик; server compile14: 67 без диагностик.
+Frontend compile12 обнаружил синтаксическую ошибку вставки метода и две ошибки
+типов/стиля; исправлены, compile13 в процессе. Приложение и тесты не запускались.
+Шум формируется точным CPU uint32 hash; pattern использует существующий RGBA Bank.
+Дополнительный prepass program/slots готовится атомарно только при необходимости,
+с прежними пределами памяти; source RGBA поступает в Composite до текстуры.
+Ресурсы авторизуются каталогом владельца/комнаты/оператора и удерживаются в комнате.

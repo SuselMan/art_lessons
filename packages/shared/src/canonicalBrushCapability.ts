@@ -84,7 +84,7 @@ function extractImageFrameCapability(
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
   if (!isSourceStampData(data)) return reject('invalid-source-data')
   if (sourceStampSourceKind(data) !== 'image') return reject('source-material-is-not-image')
-  if (data.unsupported.some(reason=>!(policy?.role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')&&!((policy?.pixelTexture||policy?.nativeImage)&&(reason==='source-image-adjustments-unavailable'||reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient'))))) return { supported: false, reasons: [...data.unsupported] }
+  if (data.unsupported.some(reason=>!(policy?.role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')&&!((policy?.pixelTexture||policy?.nativeImage)&&(reason==='source-image-adjustments-unavailable'||reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)!==undefined&&sourceColorProviderKind(data)!=='plain'))))) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== (policy?.role??'primary') || descriptor.behavior?.dual&&!policy?.dual) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation !== animation || descriptor.tip.material&&!policy?.pixelTexture&&!policy?.nativeImage) return reject('unsupported-source-material')
   const sampling = descriptor.tip.imageSampling,bounds=descriptor.tip.maskBounds
@@ -354,7 +354,7 @@ export function extractSeededDensityDefaultAutoSourceDataCapability(descriptor: 
 /** Named extended native material consumers; historical extractors remain fixed1. */
 function hasCanonicalCapturedColorConsumers(data:SourceStampData):boolean{
  const options=data.colorOptions,active=(name:string)=>['true','1'].includes((data.settings['Pressure'+name]??'false').toLowerCase())
- if(!['Mix','Darken','h','s','v'].some(active))return (sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient')
+ if(!['Mix','Darken','h','s','v'].some(active))return (sourceColorProviderKind(data)!==undefined&&sourceColorProviderKind(data)!=='plain')
  if(!options||options.length!==5||!data.compiled||!hasCanonicalSourceCurvePrograms(data)||sourceColorProviderKind(data)===undefined)return false
  return ['Mix','Darken','h','s','v'].every((id,i)=>options[i].id===id&&options[i].checked===active(id)&&options[i].min===0&&options[i].max===1&&Math.abs(options[i].strength)<=1)
 }
@@ -367,7 +367,7 @@ function hasCanonicalCapturedMaterialConsumers(data:SourceStampData):boolean {
  return materials.some(active)||colors.some(active)
 }
 function resolvedMaskSourceReason(data:SourceStampData,reason:string,role:'primary'|'mask'|undefined,extendedSpikes:boolean,seededMask=false):boolean {
- if(extendedSpikes&&reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient'))return true
+ if(extendedSpikes&&reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)!==undefined&&sourceColorProviderKind(data)!=='plain'))return true
  if(role==='mask'&&reason==='mask-prefix-and-master-size-unresolved')return true
  if(!extendedSpikes||data.version!==2||data.source.kind==='image')return false
  return ['default-auto-mask-parameters-unavailable','gaussian-auto-mask-parameters-unavailable'].includes(reason)&&Number.isSafeInteger(data.source.spikes)&&data.source.spikes>=2&&data.source.spikes<=64&&(seededMask?[data.source.randomness,data.source.density].every(v=>Number.isFinite(v)&&v>=0&&v<=1):data.source.randomness===0&&data.source.density===1)
@@ -735,7 +735,7 @@ function captureCanonicalImageMaterialSource(original:unknown,available:readonly
  const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
  if(!isBrushLibrary(library))return reject('invalid image material original descriptor')
  const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,material=descriptor.tip.material
- if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.unsupported.some(reason=>reason!=='source-image-adjustments-unavailable'&&!(reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)==='uniform_random'||sourceColorProviderKind(data)==='gradient')))||!material||descriptor.tip.animation||descriptor.behavior?.dual||data.flags.textureEnabled||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported image material source')
+ if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.unsupported.some(reason=>reason!=='source-image-adjustments-unavailable'&&!(reason==='source-color-provider-unresolved'&&(sourceColorProviderKind(data)!==undefined&&sourceColorProviderKind(data)!=='plain')))||!material||descriptor.tip.animation||descriptor.behavior?.dual||data.flags.textureEnabled||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported image material source')
  const settings=data.settings,fixed=(name:string)=>settings['Pressure'+name]===undefined||settings['Pressure'+name]==='false'||settings[name+'UseCurve']==='false'&&Number(settings[name+'Value']??'1')===1
  if(!data.materialOptions&&(!fixed('Softness')||settings.PressureSharpness==='true')||(['h','s','v','Darken','Mix'].some(name=>['true','1'].includes((settings['Pressure'+name]??'false').toLowerCase()))&&!hasCanonicalCapturedColorConsumers(data))||!hasCanonicalSourceCurvePrograms(data))return reject('unsupported image material option program')
  const alpha=available.find(a=>a.id===descriptor.tip.mask),bounds=descriptor.tip.maskBounds

@@ -461,9 +461,9 @@ export function hasActiveSourceMaterialOptions(data:Pick<SourceStampCommon,'mate
 export function hasActiveSourceColorOptions(data:Pick<SourceStampCommon,'colorOptions'>):boolean{return data.colorOptions?.some(option=>option.checked)??false}
 
 /** Closed implemented ColorSource metadata. This does not grant a renderer. */
-export function sourceColorProviderKind(data:Pick<SourceStampCommon,'settings'>):'plain'|'uniform_random'|'gradient'|undefined {
+export function sourceColorProviderKind(data:Pick<SourceStampCommon,'settings'>):'plain'|'uniform_random'|'gradient'|'total_random'|'pattern'|'lockedpattern'|undefined {
  const kind=data.settings['ColorSource/Type']??'plain'
- return kind==='plain'||kind==='uniform_random'||kind==='gradient'?kind:undefined
+ return kind==='plain'||kind==='uniform_random'||kind==='gradient'||kind==='total_random'||kind==='pattern'||kind==='lockedpattern'?kind:undefined
 }
 /** A provider can need recorded pigment without any checked color option. */
 export function hasRecordedSourceColor(data:Pick<SourceStampCommon,'settings'|'colorOptions'>):boolean {
@@ -473,5 +473,6 @@ export function hasRecordedSourceColor(data:Pick<SourceStampCommon,'settings'|'c
 /** Byte layout required by the implemented ColorSource consumer. */
 export function sourceColorRecording(data:Pick<SourceStampCommon,'settings'|'colorOptions'>):'source-pigment-rgb8-v1'|'source-pigment-rgba8-v1'|undefined {
  const provider=sourceColorProviderKind(data)
+ if(provider==='total_random'||provider==='pattern'||provider==='lockedpattern')return undefined
  return provider==='gradient'?'source-pigment-rgba8-v1':provider==='uniform_random'||hasActiveSourceColorOptions(data)?'source-pigment-rgb8-v1':undefined
 }

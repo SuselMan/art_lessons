@@ -1,3 +1,4 @@
+import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
 import {captureOriginalPixelImageSource} from './canonicalPixelImageSourceCapture.js'
 import {captureCanonicalSourceScaleOptions,type CanonicalSourceScaleOptions} from './canonicalSourceScale.js'
 import {canonicalBrushDescriptorJSON} from './canonicalBrushDescriptor.js'
@@ -37,7 +38,7 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
 }
 export type CanonicalPixelTextureSourceBinding=ReturnType<typeof canonicalPixelTextureSourceBinding>
 /** Fixed axes are checked; random axes are sampled once by the stroke owner. */
-export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,savedPhase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget'],inputs?:{readonly textureGradient?:CanonicalTextureGradientRGBA}):CanonicalMaterialContextV8{
+export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,savedPhase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget'],inputs?:{readonly textureGradient?:CanonicalTextureGradientRGBA;readonly sourceColorFields?:CanonicalSourceColorFields;readonly sourceColorAvailable?:readonly Readonly<{id:string;size:number}>[]}):CanonicalMaterialContextV8{
  const coverage=binding.source.kind==='image'?'browser-number-coverage-v1':binding.source.coverageProfile
  const expected=canonicalPixelTextureSourceBinding(binding.descriptor,binding.descriptorSha256,binding.assets,coverage,binding.rasterProfile,binding.foregroundOpacity,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Pixel texture original binding differs')
@@ -45,10 +46,20 @@ export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextu
  if(!p.randomX&&phase.x!==fixed.x||!p.randomY&&phase.y!==fixed.y)throw new TypeError('Pixel texture fixed phase differs')
  const gradientMode=expected.textureGeometry.law==='pixel-color-texture-v1'&&expected.textureGeometry.mode==='gradient'
  let textureGradient:CanonicalTextureGradientRGBA|undefined
- if(inputs!==undefined){if(!inputs||typeof inputs!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(inputs))||Reflect.ownKeys(inputs).length!==1)return (()=>{throw new TypeError('Invalid texture START inputs')})();const d=Object.getOwnPropertyDescriptor(inputs,'textureGradient');if(!d||!Object.hasOwn(d,'value')||!gradientMode)throw new TypeError('Invalid texture START gradient');textureGradient=canonicalTextureGradientRGBA(d.value)}
+ let sourceColorFields:CanonicalSourceColorFields|undefined
+ let spatialAssets:ReturnType<typeof canonicalSourceColorFieldAssets>=[]
+ if(inputs!==undefined){
+  if(!inputs||typeof inputs!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(inputs))||Reflect.ownKeys(inputs).some(k=>k!=='textureGradient'&&k!=='sourceColorFields'&&k!=='sourceColorAvailable'))throw new TypeError('Invalid texture START inputs')
+  const field=(key:string)=>{const d=Object.getOwnPropertyDescriptor(inputs,key);if(d&&!Object.hasOwn(d,'value'))throw new TypeError('Texture START accessor');return d}
+  const g=field('textureGradient'),f=field('sourceColorFields'),available=field('sourceColorAvailable')
+  if(g){if(!gradientMode)throw new TypeError('Unexpected texture START gradient');textureGradient=canonicalTextureGradientRGBA(g.value)}
+  if(f){sourceColorFields=canonicalSourceColorFieldsForDescriptor(expected.descriptor,f.value);if(!sourceColorFields)throw new TypeError('Unexpected source field');spatialAssets=canonicalSourceColorFieldAssets(sourceColorFields,available?.value??[])}else if(available)throw new TypeError('Unbound source color assets')
+ }
+ const assets=[...expected.assets]
+ for(const a of spatialAssets){const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size||prior.x!==a.x||prior.y!==a.y||prior.width!==a.width||prior.height!==a.height)throw new TypeError('Source pattern asset crop differs')}else assets.splice(Math.max(0,assets.length-1),0,a)}
  if(gradientMode&&!textureGradient)throw new TypeError('Missing selected texture gradient')
  const colorParams=sourceColorRecording(expected.data)
- return canonicalPrimaryGrainMaterialContext({version:8,...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets:expected.assets,primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalPrimaryGrainMaterialContext({version:8,...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 /** Named source2 pipe binding; old image/texture families remain unchanged. */

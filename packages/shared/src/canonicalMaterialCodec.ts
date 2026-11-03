@@ -1,3 +1,4 @@
+import {canonicalSourceColorFields,canonicalSourceColorFieldDraw,type CanonicalSourceColorFields,type CanonicalSourceColorFieldDraw} from './canonicalSourceSpatialColor.js'
 import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
@@ -33,6 +34,7 @@ export interface CanonicalMaterialRecipe {
 export type CanonicalSourceColorParameters='source-pigment-rgb8-v1'|'source-pigment-rgba8-v1'
 export interface CanonicalMaterialDraw {
   readonly sourcePigmentRGBA?:readonly[number,number,number,number]
+  readonly sourceColorField?:CanonicalSourceColorFieldDraw
   readonly sourcePigmentRGB?:readonly[number,number,number]
   readonly definition:number; readonly role:'primary'|'mask'
   readonly x:number; readonly y:number; readonly opacity:number; readonly flow:number
@@ -82,7 +84,7 @@ export type CanonicalSourceMaterialRecipe = ((CanonicalMaterialRecipe & { readon
 export interface CanonicalMaterialContextV2 {
   readonly version:2
   readonly materialParams?:'source-material-parameters-v1'
-  readonly colorParams?:CanonicalSourceColorParameters
+  readonly sourceColorFields?:CanonicalSourceColorFields;readonly colorParams?:CanonicalSourceColorParameters
   readonly imageFrameIndices?:'source-image-pipe-frame-v1'
   readonly scaledSource?:'source-scale-v1'
   readonly assets:readonly CanonicalMaterialAsset[]
@@ -227,7 +229,7 @@ export interface CanonicalPrimaryGrainImageSource extends CanonicalMaterialImage
 export interface CanonicalMaterialContextV8 {
  readonly version:8;readonly assets:readonly CanonicalMaterialAsset[]
  readonly primarySource:CanonicalPrimaryGrainImageSource|CanonicalTexturedAutoSource;readonly primaryTexture:CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin
- readonly materialParams?:'source-material-parameters-v1';readonly colorParams?:CanonicalSourceColorParameters;readonly imageFrameIndices?:'source-image-pipe-frame-v1'
+ readonly materialParams?:'source-material-parameters-v1';readonly sourceColorFields?:CanonicalSourceColorFields;readonly colorParams?:CanonicalSourceColorParameters;readonly imageFrameIndices?:'source-image-pipe-frame-v1'
   readonly scaledSource?:'source-scale-v1'
  readonly budget:CanonicalMaterialCost&{readonly drawPixels:number}
  readonly expectedDrawCount?:number;readonly expectedStrokeEnd?:boolean
@@ -275,8 +277,11 @@ function recordedTextureStrength(d:object,c:CodecContext):number{const field=Obj
 function validTextureStrength(d:object,c:CodecContext):boolean{const field=Object.getOwnPropertyDescriptor(d,colorTexture8(c)?'textureColorStrength':'grainStrengthU8');if(!field||!Object.hasOwn(field,'value'))return false;const n=field.value;return !Object.is(n,-0)&&(isV8(c)&&c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.mode==='lightness'?number(n,0,1):integer(n,0,255))}
 const rgbaColor=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.colorParams==='source-pigment-rgba8-v1'
 const colorField=(c:CodecContext):'sourcePigmentRGB'|'sourcePigmentRGBA'|undefined=>(isV2(c)||isV8(c))&&c.colorParams?(rgbaColor(c)?'sourcePigmentRGBA':'sourcePigmentRGB'):undefined
-const colorFields=(c:CodecContext):readonly string[]=>{const field=colorField(c);return field?[field]:[]}
-function recordedColor(d:Pick<CanonicalMaterialDraw,'sourcePigmentRGB'|'sourcePigmentRGBA'>,c:CodecContext):Pick<CanonicalMaterialDraw,'sourcePigmentRGB'|'sourcePigmentRGBA'>{return rgbaColor(c)?{sourcePigmentRGBA:d.sourcePigmentRGBA}:colorField(c)?{sourcePigmentRGB:d.sourcePigmentRGB}:{}}
+const spatialContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.sourceColorFields!==undefined
+const colorFields=(c:CodecContext):readonly string[]=>{const field=colorField(c);return [...field?[field]:[],...spatialContext(c)?['sourceColorField']:[]]}
+function spatialProvider(c:CodecContext,role:'primary'|'mask'){if(!isV2(c)&&!isV8(c)||!c.sourceColorFields)return null;return role==='primary'?c.sourceColorFields.primary:c.sourceColorFields.mask??null}
+function spatialDraw(d:object,c:CodecContext,role:'primary'|'mask'):CanonicalSourceColorFieldDraw{const field=Object.getOwnPropertyDescriptor(d,'sourceColorField');if(!field||!Object.hasOwn(field,'value'))return fail();return canonicalSourceColorFieldDraw(field.value,spatialProvider(c,role))}
+function recordedColor(d:Pick<CanonicalMaterialDraw,'sourcePigmentRGB'|'sourcePigmentRGBA'|'sourceColorField'|'role'>,c:CodecContext):Pick<CanonicalMaterialDraw,'sourcePigmentRGB'|'sourcePigmentRGBA'|'sourceColorField'>{return{...rgbaColor(c)?{sourcePigmentRGBA:d.sourcePigmentRGBA}:colorField(c)?{sourcePigmentRGB:d.sourcePigmentRGB}:{},...spatialContext(c)?{sourceColorField:spatialDraw(d,c,d.role)}:{}}}
 const scaledContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.scaledSource==='source-scale-v1'
 const indexedImages=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.imageFrameIndices==='source-image-pipe-frame-v1'
 const seededContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&((c.primarySource.kind!=='image'&&c.primarySource.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)||(isV2(c)&&!!c.maskSource&&c.maskSource.kind!=='image'&&c.maskSource.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE))
@@ -427,7 +432,7 @@ export function canonicalTexturedAutoMaterialContext(value:unknown):CanonicalMat
  return Object.freeze(captured)
 }
 export function canonicalPrimaryGrainMaterialContext(value:unknown):CanonicalMaterialContextV8 {
- const p=ownRecord(value,['version','assets','primarySource','primaryTexture','budget'],['materialParams','colorParams','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
+ const p=ownRecord(value,['version','assets','primarySource','primaryTexture','budget'],['materialParams','colorParams','sourceColorFields','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
  if(p.version!==8||p.materialParams!==undefined&&p.materialParams!=='source-material-parameters-v1'||p.colorParams!==undefined&&p.colorParams!=='source-pigment-rgb8-v1'&&p.colorParams!=='source-pigment-rgba8-v1')return fail()
  const assets=ownArray(p.assets,2048,a=>Object.freeze(ownRecord(a,['id','size','x','y','width','height']))) as unknown as CanonicalMaterialAsset[]
  if(!assets.length)return fail()
@@ -444,7 +449,7 @@ export function canonicalPrimaryGrainMaterialContext(value:unknown):CanonicalMat
  const budget=Object.freeze(ownRecord(p.budget,['workUnits','outputBytes','drawPixels'])) as unknown as CanonicalMaterialContextV8['budget']
  for(const a of assets)if([a.size,a.x,a.y,a.width,a.height].some(v=>Object.is(v,-0)))return fail()
  if(primarySource.kind==='image'&&[primarySource.brushScale,primarySource.brushAngle,primarySource.descriptorVersion].some(v=>Object.is(v,-0)))return fail()
- const captured={...p,version:8 as const,assets:Object.freeze(assets),primarySource,primaryTexture,budget} as CanonicalMaterialContextV8
+ const captured={...p,...p.sourceColorFields!==undefined?{sourceColorFields:canonicalSourceColorFields(p.sourceColorFields)}:{},version:8 as const,assets:Object.freeze(assets),primarySource,primaryTexture,budget} as CanonicalMaterialContextV8
  context(captured);return Object.freeze(captured)
 }
 function captureTexturedAutoRecipe(value:unknown):Record<string,unknown>{
@@ -460,6 +465,7 @@ function captureTextureInput(value:unknown,framed:boolean,version:3|4|5|6|7|8=3,
   const draws=ownArray(p.draws,800,d=>{
     const a=ownRecord(d,framed?['definition','role','x','y','opacity','flow',...(version===8?[...c?textureStrengthFields(c):['grainStrengthU8'],...c?colorFields(c):[]]:['grainDepth'])]:['recipe','role','x','y','opacity','flow',...(version===8?[...c?textureStrengthFields(c):['grainStrengthU8'],...c?colorFields(c):[]]:['grainDepth'])])
     if(version===8?!(c?validTextureStrength(a,c):integer(a.grainStrengthU8,0,255)&&!Object.is(a.grainStrengthU8,-0)):version===4?a.grainDepth!==1:!number(a.grainDepth,0,1))return fail()
+    if(version===8&&c&&spatialContext(c)){if(a.role!=='primary')return fail();a.sourceColorField=canonicalSourceColorFieldDraw(a.sourceColorField,spatialProvider(c,a.role))}
     if(version===8&&c&&colorField(c)){const field=colorField(c)!,n=rgbaColor(c)?4:3,rgb=ownArray(a[field],n,v=>v);if(rgb.length!==n)return fail();a[field]=Object.freeze(rgb)}
     return framed?a:{...a,recipe:version===8?capturePixelRecipe(a.recipe,c):version===7?captureTexturedAutoRecipe(a.recipe):version>=4?captureAutoRecipe(a.recipe,version===6):ownRecord(a.recipe,imageFields)}
   })
@@ -506,6 +512,15 @@ function validateImageMaterialFrames(source:CanonicalMaterialImageSource,c:Codec
  return ids
 }
 function context(c:CodecContext):void {
+  if(spatialContext(c)){
+   if(!isV2(c)&&!isV8(c))return fail()
+   const fields=canonicalSourceColorFields(c.sourceColorFields)
+   if(isV8(c)&&c.primaryTexture.law==='hard-multiply-u8-native-v1'||fields.mask!==undefined&&(!isV2(c)||!c.maskSource))return fail()
+   for(const provider of [fields.primary,fields.mask])if(provider&&provider.kind!=='total-random-rgb8-hash-v1'){
+    const r=provider.resource
+    for(const id of [...r.channels,r.alphaAsset]){const a=c.assets.find(a=>a.id===id);if(!a||a.size!==r.size||a.x!==r.x||a.y!==r.y||a.width!==r.width||a.height!==r.height)return fail()}
+   }
+  }
   if(!c||!Array.isArray(c.assets)||c.assets.length>2048||(!versioned(c)&&(!assetId(c.primaryAsset)||c.maskAsset!==undefined&&!assetId(c.maskAsset)||typeof c.preflightDefinition!=='function'))
     ||!c.budget||!integer(c.budget.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(c.budget.outputBytes,0,CANONICAL_MATERIAL_LIMITS.outputBytes)||!integer(c.budget.drawPixels,0,CANONICAL_MATERIAL_LIMITS.drawPixels)
     ||c.expectedDrawCount!==undefined&&!integer(c.expectedDrawCount,0,800)||c.expectedStrokeEnd!==undefined&&typeof c.expectedStrokeEnd!=='boolean')fail()
@@ -516,11 +531,11 @@ function context(c:CodecContext):void {
   if(isV8(c)){
     const p=c.primarySource
     if(c.primaryTexture.asset!==c.assets[c.assets.length-1]?.id||c.materialParams!==undefined&&c.materialParams!=='source-material-parameters-v1'||c.colorParams!==undefined&&c.colorParams!=='source-pigment-rgb8-v1'&&c.colorParams!=='source-pigment-rgba8-v1')return fail()
-    if(p.kind!=='image'){if(c.assets.length!==(colorTexture8(c)&&c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.alphaAsset!==c.primaryTexture.asset?2:1)||!localTexture8(c))return fail();const texture=c.primaryTexture;if(texture.law==='pixel-color-texture-v1'&&!c.assets.some(a=>a.id===texture.alphaAsset))return fail();capturedTexturedAuto(p);return}
+    if(p.kind!=='image'){if((!spatialContext(c)&&c.assets.length!==(colorTexture8(c)&&c.primaryTexture.law==='pixel-color-texture-v1'&&c.primaryTexture.alphaAsset!==c.primaryTexture.asset?2:1))||!localTexture8(c))return fail();const texture=c.primaryTexture;if(texture.law==='pixel-color-texture-v1'&&!c.assets.some(a=>a.id===texture.alphaAsset))return fail();if(c.sourceColorFields){const required=new Set([texture.asset]);if(texture.law==='pixel-color-texture-v1')required.add(texture.alphaAsset);for(const field of [c.sourceColorFields.primary,c.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset])required.add(id);if(required.size!==ids.size||[...required].some(id=>!ids.has(id)))return fail()}capturedTexturedAuto(p);return}
     if(p.asset!==c.assets[0]?.id||!number(p.brushScale,Number.MIN_VALUE,1e6)||!number(p.brushAngle,-1e6,1e6)
       ||typeof p.descriptorId!=='string'||!p.descriptorId.length||p.descriptorId.length>256||p.descriptorId.includes('\0')
       ||!integer(p.descriptorVersion,1,Number.MAX_SAFE_INTEGER)||typeof p.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(p.descriptorSha256))return fail()
-    const required=new Set([p.asset,c.primaryTexture.asset]);if(c.primaryTexture.law==='pixel-color-texture-v1')required.add(c.primaryTexture.alphaAsset)
+    const required=new Set([p.asset,c.primaryTexture.asset]);if(c.sourceColorFields)for(const field of [c.sourceColorFields.primary,c.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset])required.add(id);if(c.primaryTexture.law==='pixel-color-texture-v1')required.add(c.primaryTexture.alphaAsset)
     for(const id of p.frames??[])required.add(id)
     if(p.imageMaterial)for(const id of validateImageMaterialFrames(p,c)){required.add(id)}
     if(required.size!==ids.size||[...required].some(id=>!ids.has(id)))return fail()
@@ -552,7 +567,7 @@ function context(c:CodecContext):void {
       ||frames[0]!==c.primaryAsset||frames.some(id=>!assetId(id)||!ids.has(id))))fail()
   }
   else {
-    keys(c,['version','assets','primarySource','maskSource','maskingBlend','materialParams','colorParams','imageFrameIndices','scaledSource','budget','expectedDrawCount','expectedStrokeEnd'])
+    keys(c,['version','assets','primarySource','maskSource','maskingBlend','materialParams','colorParams','sourceColorFields','imageFrameIndices','scaledSource','budget','expectedDrawCount','expectedStrokeEnd'])
     if(c.colorParams!==undefined&&c.colorParams!=='source-pigment-rgb8-v1'&&c.colorParams!=='source-pigment-rgba8-v1')fail()
     if(c.materialParams!==undefined&&c.materialParams!=='source-material-parameters-v1')fail()
     if(c.maskingBlend!==undefined&&(!c.maskSource||(!isCanonicalMaskingBlendMode(c.maskingBlend)||canonicalMaskingBlendModes.indexOf(c.maskingBlend)>=10)))fail()
@@ -575,6 +590,12 @@ function context(c:CodecContext):void {
         if(source.sourceSlot!==sourceSlot)fail()
       } else fail()
     }
+  }
+  if(isV2(c)&&c.sourceColorFields){
+   const required=new Set<string>()
+   for(const source of [c.primarySource,c.maskSource])if(source?.kind==='image'){required.add(source.asset);for(const id of source.frames??[])required.add(id);if(source.imageMaterial)for(const id of validateImageMaterialFrames(source,c))required.add(id)}
+   for(const field of [c.sourceColorFields.primary,c.sourceColorFields.mask])if(field&&field.kind!=='total-random-rgb8-hash-v1')for(const id of [...field.resource.channels,field.resource.alphaAsset])required.add(id)
+   if(required.size!==ids.size||[...required].some(id=>!ids.has(id)))return fail()
   }
 }
 function asset(c:CodecContext,id:string):CanonicalMaterialAsset {const a=c.assets.find(a=>a.id===id);if(!a)return fail();return a}
@@ -721,6 +742,7 @@ function preflight(r:FrameReader,c:CodecContext):void {
     if(at===r.draws)break
     const d=r.draw(at);keys(d,['definition','role','x','y','opacity','flow',...colorFields(c),...r.version===8?textureStrengthFields(c):r.version>=3?['grainDepth']:[]])
     if(colorField(c)){const n=rgbaColor(c)?4:3,rgb=ownArray(d[colorField(c)!],n,v=>{if(!integer(v,0,255)||Object.is(v,-0))return fail();return v});if(rgb.length!==n)fail()}else if(d.sourcePigmentRGB!==undefined||d.sourcePigmentRGBA!==undefined)fail()
+    if(spatialContext(c)){spatialDraw(d,c,d.role)}
     if(r.version===8&&(d.role!=='primary'||!validTextureStrength(d,c)))fail()
     if(r.version>=3&&r.version!==8&&(d.role!=='primary'||!('grainDepth'in d)||(r.version===4?d.grainDepth!==1:!number(d.grainDepth,0,1))))fail()
     if(densityContext&&d.role!=='primary')fail()
@@ -736,6 +758,7 @@ function preflight(r:FrameReader,c:CodecContext):void {
     // Per-occurrence grain sample/coverage pixel work, including copy hits.
     // A bounded pixel scheduling weight, not arithmetic instructions or GPU timing.
     if(r.version>=3){work+=canonicalPrimaryTextureDrawWork(def.width,def.height);if(!Number.isSafeInteger(work)||work>c.budget.workUnits)fail()}
+    const provider=spatialProvider(c,d.role);if(provider){work+=def.width*def.height*(provider.kind==='total-random-rgb8-hash-v1'?3:1);output+=def.width*def.height*4;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||work>c.budget.workUnits||output>c.budget.outputBytes)fail()}
     drawPixels+=def.width*def.height
     if(!Number.isSafeInteger(drawPixels)||drawPixels>c.budget.drawPixels)fail()
   }
@@ -799,13 +822,13 @@ function packMaterialCore(f:CodecFrame,c:CodecContext):string {
   for(const d of f.definitions)if(!auto(d)&&!ids.includes(d.asset))ids.push(d.asset)
   if(localTexture8(c)&&isV8(c))ids.push(c.primaryTexture.asset)
   if(ids.length>(isV2(c)&&indexedImages(c)||localTexture8(c)?255:2))fail()
-  const parameterized=(isV2(c)||isV8(c))&&c.materialParams!==undefined,definitionBytes=r.version===1?DEFINITION:(parameterized||seededContext(c))?144:DEFINITION2,drawBytes=r.version>=3?DRAW3:DRAW
+  const parameterized=(isV2(c)||isV8(c))&&c.materialParams!==undefined,definitionBytes=r.version===1?DEFINITION:(parameterized||seededContext(c))?144:DEFINITION2,drawBytes=(r.version>=3?DRAW3:DRAW)+(spatialContext(c)?16:0)
   const length=HEADER+ids.length*ASSET+r.definitions*definitionBytes+r.draws*drawBytes+r.fences*FENCE
   if(length>CANONICAL_MATERIAL_LIMITS.rawBytes)fail()
   const bytes=new Uint8Array(length),v=new DataView(bytes.buffer)
   bytes.set([67,77,65,84,r.version,f.entry.phase==='between'?0:f.entry.phase==='primary'?1:2,ids.length,Number(f.masked)])
   v.setUint16(8,r.definitions,true);v.setUint16(10,r.draws,true);v.setUint16(12,r.fences,true);v.setFloat64(16,f.entry.phase==='between'?0:f.entry.group===0?0:f.entry.group,true)
-  v.setUint16(14,Number(parameterized)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0),true)
+  v.setUint16(14,Number(parameterized)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0),true)
   let offset=HEADER
   for(const id of ids){const a=asset(c,id);for(let j=0;j<32;j++)bytes[offset+j]=parseInt(id.slice(6+j*2,8+j*2),16);v.setUint16(offset+32,a.width,true);v.setUint16(offset+34,a.height,true);v.setUint16(offset+36,a.x,true);v.setUint16(offset+38,a.y,true);offset+=ASSET}
   for(const d of f.definitions){
@@ -827,7 +850,7 @@ function packMaterialCore(f:CodecFrame,c:CodecContext):string {
     if(auto(d)&&d.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)v.setUint32(offset+137,d.maskSeed!,true)
     offset+=definitionBytes
   }
-  for(const d of f.draws){v.setUint16(offset,d.definition,true);bytes[offset+2]=Number(d.role==='mask');v.setInt32(offset+4,d.x,true);v.setInt32(offset+8,d.y,true);v.setFloat64(offset+12,d.opacity,true);v.setFloat64(offset+20,d.flow,true);if(colorField(c)){const rgb=rgbaColor(c)?d.sourcePigmentRGBA:d.sourcePigmentRGB;if(!rgb)return fail();bytes[offset+28]=rgb[0];bytes[offset+29]=rgb[1];bytes[offset+30]=rgb[2];if(rgbaColor(c))bytes[offset+31]=rgb[3]!}if(r.version===8){if(!validTextureStrength(d,c))return fail();v.setFloat64(offset+32,recordedTextureStrength(d,c),true)}else if(r.version>=3){if(!('grainDepth'in d))return fail();v.setFloat64(offset+32,d.grainDepth,true)}offset+=drawBytes}
+  for(const d of f.draws){v.setUint16(offset,d.definition,true);bytes[offset+2]=Number(d.role==='mask');v.setInt32(offset+4,d.x,true);v.setInt32(offset+8,d.y,true);v.setFloat64(offset+12,d.opacity,true);v.setFloat64(offset+20,d.flow,true);if(colorField(c)){const rgb=rgbaColor(c)?d.sourcePigmentRGBA:d.sourcePigmentRGB;if(!rgb)return fail();bytes[offset+28]=rgb[0];bytes[offset+29]=rgb[1];bytes[offset+30]=rgb[2];if(rgbaColor(c))bytes[offset+31]=rgb[3]!}if(r.version===8){if(!validTextureStrength(d,c))return fail();v.setFloat64(offset+32,recordedTextureStrength(d,c),true)}else if(r.version>=3){if(!('grainDepth'in d))return fail();v.setFloat64(offset+32,d.grainDepth,true)}if(spatialContext(c)){const field=spatialDraw(d,c,d.role),o=offset+(r.version>=3?DRAW3:DRAW);v.setUint32(o,field.seed,true);v.setInt32(o+4,field.offsetX,true);v.setInt32(o+8,field.offsetY,true);v.setUint32(o+12,0,true)}offset+=drawBytes}
   for(const fence of f.fences){v.setUint16(offset,fence.at,true);bytes[offset+2]=KINDS.indexOf(fence.kind);v.setFloat64(offset+4,fence.kind==='gestureEnd'?0:fence.group===0?0:fence.group,true);offset+=FENCE}
   return r.version+'|'+base64(bytes)
 }
@@ -851,8 +874,8 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
   const raw=atob(b64)
   if(raw.length<HEADER||raw.length>CANONICAL_MATERIAL_LIMITS.rawBytes||btoa(raw)!==b64)fail()
   const u8=(i:number)=>raw.charCodeAt(i),u16=(i:number)=>u8(i)+u8(i+1)*256
-  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>(isV2(c)&&indexedImages(c)||localTexture8(c)?255:2)||u8(7)>1||u16(14)!==(((isV2(c)||isV8(c))&&c.materialParams?1:0)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)))fail()
-  const parameterized=(isV2(c)||isV8(c))&&c.materialParams!==undefined,version=u8(4) as 1|2|3|4|5|6|7|8,definitionBytes=version===1?DEFINITION:(parameterized||seededContext(c))?144:DEFINITION2,drawBytes=version>=3?DRAW3:DRAW
+  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>(isV2(c)&&indexedImages(c)||localTexture8(c)?255:2)||u8(7)>1||u16(14)!==(((isV2(c)||isV8(c))&&c.materialParams?1:0)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0)))fail()
+  const parameterized=(isV2(c)||isV8(c))&&c.materialParams!==undefined,version=u8(4) as 1|2|3|4|5|6|7|8,definitionBytes=version===1?DEFINITION:(parameterized||seededContext(c))?144:DEFINITION2,drawBytes=(version>=3?DRAW3:DRAW)+(spatialContext(c)?16:0)
   if(version!==contextVersion(c)||version===3&&(u8(6)!==2||u8(7)!==0)||version===8&&(!localTexture8(c)&&u8(6)!==c.assets.length||u8(7)!==0)||(version===4||version===5||version===6||version===7)&&(u8(6)!==1||u8(7)!==0))fail()
   const ac=u8(6),dc=u16(8),rc=u16(10),fc=u16(12)
   checkedCounts(dc,rc,fc)
@@ -932,7 +955,7 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
     return version===1?image:{...image,kind:'image'}
   }
 
-  const readDraw=(i:number):CodecDraw=>{const o=drawOffset+i*drawBytes;if(u8(o+2)>1||u8(o+3)||(rgbaColor(c)?0:colorField(c)?u8(o+31):v.getUint32(o+28,true)))fail();return{definition:u16(o),role:u8(o+2)?'mask':'primary',x:v.getInt32(o+4,true),y:v.getInt32(o+8,true),opacity:v.getFloat64(o+12,true),flow:v.getFloat64(o+20,true),...rgbaColor(c)?{sourcePigmentRGBA:Object.freeze([u8(o+28),u8(o+29),u8(o+30),u8(o+31)] as const)}:colorField(c)?{sourcePigmentRGB:Object.freeze([u8(o+28),u8(o+29),u8(o+30)] as const)}:{},...version===8?colorTexture8(c)?{textureColorStrength:v.getFloat64(o+32,true)}:{grainStrengthU8:v.getFloat64(o+32,true)}:version>=3?{grainDepth:v.getFloat64(o+32,true)}:{}}}
+  const readDraw=(i:number):CodecDraw=>{const o=drawOffset+i*drawBytes,fieldOffset=o+(version>=3?DRAW3:DRAW);if(spatialContext(c)&&v.getUint32(fieldOffset+12,true))return fail();if(u8(o+2)>1||u8(o+3)||(rgbaColor(c)?0:colorField(c)?u8(o+31):v.getUint32(o+28,true)))fail();return{definition:u16(o),role:u8(o+2)?'mask':'primary',x:v.getInt32(o+4,true),y:v.getInt32(o+8,true),opacity:v.getFloat64(o+12,true),flow:v.getFloat64(o+20,true),...rgbaColor(c)?{sourcePigmentRGBA:Object.freeze([u8(o+28),u8(o+29),u8(o+30),u8(o+31)] as const)}:colorField(c)?{sourcePigmentRGB:Object.freeze([u8(o+28),u8(o+29),u8(o+30)] as const)}:{},...spatialContext(c)?{sourceColorField:Object.freeze({seed:v.getUint32(fieldOffset,true),offsetX:v.getInt32(fieldOffset+4,true),offsetY:v.getInt32(fieldOffset+8,true)})}:{},...version===8?colorTexture8(c)?{textureColorStrength:v.getFloat64(o+32,true)}:{grainStrengthU8:v.getFloat64(o+32,true)}:version>=3?{grainDepth:v.getFloat64(o+32,true)}:{}}}
   const readFence=(i:number):CanonicalMaterialFence=>{const o=fenceOffset+i*FENCE,tag=u8(o+2),group=v.getFloat64(o+4,true);if(tag>3||u8(o+3)||v.getUint32(o+12,true)||Object.is(group,-0))fail();if(tag===3){if(group!==0)fail();return{at:u16(o),kind:'gestureEnd'}}return{at:u16(o),kind:KINDS[tag] as 'segmentBegin'|'primaryEnd'|'segmentEnd',group}}
   preflight({version,masked:!!u8(7),entry:e,definitions:dc,draws:rc,fences:fc,definition:readDefinition,draw:readDraw,fence:readFence},c)
   return{profile:frameProfile(version),masked:!!u8(7),entry:e,definitions:Array.from({length:dc},(_,i)=>readDefinition(i)),draws:Array.from({length:rc},(_,i)=>readDraw(i)),fences:Array.from({length:fc},(_,i)=>readFence(i))} as CodecFrame
@@ -966,7 +989,7 @@ function buildMaterialCore(input:CodecInput,c:CodecContext):{packed:string;frame
   // Validate every input recipe and costs BEFORE allocating dictionary/record arrays.
   let work=0,output=0,drawPixels=0
   const known=new Set<string>()
-  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...colorFields(c),...isV8(c)?textureStrengthFields(c):textured(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(textured(c))work+=canonicalPrimaryTextureDrawWork(saved.width,saved.height);drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
+  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...colorFields(c),...isV8(c)?textureStrengthFields(c):textured(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(textured(c))work+=canonicalPrimaryTextureDrawWork(saved.width,saved.height);const provider=spatialProvider(c,d.role);if(provider){work+=d.recipe.width*d.recipe.height*(provider.kind==='total-random-rgb8-hash-v1'?3:1);output+=d.recipe.width*d.recipe.height*4}drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
   const definitions:AnyCanonicalMaterialRecipe[]=[],draws:CodecDraw[]=[],index=new Map<string,number>()
   for(const d of input.draws){const saved=normalized(d.recipe),key=recipeKey(saved);let i=index.get(key);if(i===undefined){i=definitions.length;index.set(key,i);definitions.push({...saved})}draws.push({definition:i,role:d.role,x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,...recordedColor(d,c),...isV8(c)&&colorTexture8(c)&&'textureColorStrength'in d?{textureColorStrength:d.textureColorStrength}:isV8(c)&&'grainStrengthU8'in d?{grainStrengthU8:d.grainStrengthU8}:textured(c)&&'grainDepth'in d?{grainDepth:d.grainDepth}:{}})}
   const frame={profile:frameProfile(contextVersion(c)),masked:input.masked,entry:input.entry,definitions,draws,fences:input.fences} as CodecFrame
@@ -1036,14 +1059,14 @@ function captureSourceSlot(value:unknown,slot:0|1):CanonicalMaterialContextV2['p
 /** Own-DATA capture for the shared source2 executor, including optional mask.
  * It does not attest an original descriptor, room or execution permission. */
 export function canonicalSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 {
- const p=ownRecord(value,['version','assets','primarySource','budget'],['maskSource','maskingBlend','materialParams','colorParams','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
+ const p=ownRecord(value,['version','assets','primarySource','budget'],['maskSource','maskingBlend','materialParams','colorParams','sourceColorFields','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
  if(p.version!==2||p.materialParams!==undefined&&p.materialParams!=='source-material-parameters-v1'||p.colorParams!==undefined&&p.colorParams!=='source-pigment-rgb8-v1'&&p.colorParams!=='source-pigment-rgba8-v1')return fail()
  let maskingBlend:CanonicalMaskingBlendMode|undefined
  if(p.maskingBlend!==undefined){if(!isCanonicalMaskingBlendMode(p.maskingBlend)||canonicalMaskingBlendModes.indexOf(p.maskingBlend)>=10||p.maskSource===undefined)return fail();maskingBlend=p.maskingBlend}
 
  const assets=ownArray(p.assets,2048,a=>Object.freeze(ownRecord(a,['id','size','x','y','width','height']))) as unknown as CanonicalMaterialAsset[]
  const budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels']) as unknown as CanonicalMaterialContextV2['budget']
- const captured={...p,...p.materialParams!==undefined?{materialParams:'source-material-parameters-v1' as const}:{},...p.colorParams==='source-pigment-rgba8-v1'?{colorParams:'source-pigment-rgba8-v1' as const}:p.colorParams==='source-pigment-rgb8-v1'?{colorParams:'source-pigment-rgb8-v1' as const}:{},version:2 as const,assets:Object.freeze(assets),primarySource:captureSourceSlot(p.primarySource,0),...p.maskSource!==undefined?{maskSource:captureSourceSlot(p.maskSource,1)}:{},...maskingBlend?{maskingBlend}:{},budget:Object.freeze(budget)}
+ const captured={...p,...p.sourceColorFields!==undefined?{sourceColorFields:canonicalSourceColorFields(p.sourceColorFields)}:{},...p.materialParams!==undefined?{materialParams:'source-material-parameters-v1' as const}:{},...p.colorParams==='source-pigment-rgba8-v1'?{colorParams:'source-pigment-rgba8-v1' as const}:p.colorParams==='source-pigment-rgb8-v1'?{colorParams:'source-pigment-rgb8-v1' as const}:{},version:2 as const,assets:Object.freeze(assets),primarySource:captureSourceSlot(p.primarySource,0),...p.maskSource!==undefined?{maskSource:captureSourceSlot(p.maskSource,1)}:{},...maskingBlend?{maskingBlend}:{},budget:Object.freeze(budget)}
  context(captured)
  return Object.freeze(captured)
 }

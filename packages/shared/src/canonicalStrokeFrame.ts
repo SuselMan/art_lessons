@@ -1,3 +1,4 @@
+import {canonicalSourceColorFields,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
 import {canonicalSourceScale} from './canonicalSourceScale.js'
 import {canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
 import {canonicalTexturedAutoMaterialContext,unpackCanonicalTexturedAutoMaterial,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7} from './canonicalMaterialCodec.js'
@@ -37,6 +38,7 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
 }
 interface CanonicalStrokeFrameData {
   readonly textureGradient?:import('./canonicalPrimaryTexture.js').CanonicalTextureGradientRGBA
+  readonly sourceColorFields?:CanonicalSourceColorFields
   readonly sourceScale?:number
   /** Mandatory only for named material7; old decoders reject this field. */
   readonly texturePhase?:CanonicalResolvedTexturePhase
@@ -183,8 +185,12 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(scaleField&&(!Object.hasOwn(scaleField,'value')||scaleField.value!=='source-scale-v1'||aware3||aware4||aware5||aware6||aware7||!contract.genericSC))throw new TypeError('Invalid scaled source context')
   const scaleValue=scaleField&&'primarySource'in material?canonicalSourceScale(material.primarySource.brushScale):undefined
   if(scaleValue!==undefined){const field=Object.getOwnPropertyDescriptor(value??{},'sourceScale');if(!field||!Object.hasOwn(field,'value')||!Object.is(canonicalSourceScale(field.value),scaleValue))throw new TypeError('Source scale envelope differs')}
+  const spatial=Object.getOwnPropertyDescriptor(material,'sourceColorFields')
+  if(spatial&&(!Object.hasOwn(spatial,'value')||aware3||aware4||aware5||aware6||aware7||!contract.genericSC))throw new TypeError('Unsupported spatial color context')
+  const sourceColorFields=spatial?canonicalSourceColorFields(spatial.value):undefined
+  if(sourceColorFields){const d=Object.getOwnPropertyDescriptor(value??{},'sourceColorFields');if(!d||!Object.hasOwn(d,'value')||JSON.stringify(canonicalSourceColorFields(d.value))!==JSON.stringify(sourceColorFields))throw new TypeError('Spatial color envelope differs')}
   if(early7)value=captureEnvelope7(value,early7)
-  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[])])
+  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
@@ -210,7 +216,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked,...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
+    materialPacked,...sourceColorFields?{sourceColorFields}:{},...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })

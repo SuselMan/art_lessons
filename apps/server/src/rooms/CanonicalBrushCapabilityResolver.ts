@@ -1,3 +1,5 @@
+import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,canonicalSourceMaterialContext,canonicalPrimaryGrainMaterialContext} from '@grafetto/shared'
+import {canonicalSourceColorFields,type CanonicalSourceColorFields} from '@grafetto/shared'
 import {canonicalTextureGradientRGBA,type CanonicalTextureGradientRGBA} from '@grafetto/shared'
 import {canonicalPixelSourceEffectReject} from '@grafetto/shared'
 import {canonicalPixelImageSourceBinding,canonicalPixelImageMaterialContext} from '@grafetto/shared'
@@ -180,18 +182,18 @@ export class CanonicalBrushCapabilityResolver {
   /** Transport pins the verified brush between prepare and commit, synchronously.
    * A failed pin publishes no grant. No await/reentrant binder call is allowed. */
   captureBeginInput(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin):CanonicalGestureBegin {
-    if(input&&typeof input==='object'&&('texturePhase'in input||'sourceScale'in input||'textureGradient'in input)){
-      const names=['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken',...'texturePhase'in input?['texturePhase']:[],...'sourceScale'in input?['sourceScale']:[],...'textureGradient'in input?['textureGradient']:[]]
+    if(input&&typeof input==='object'&&('texturePhase'in input||'sourceScale'in input||'textureGradient'in input||'sourceColorFields'in input)){
+      const names=['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken',...'texturePhase'in input?['texturePhase']:[],...'sourceScale'in input?['sourceScale']:[],...'textureGradient'in input?['textureGradient']:[],...'sourceColorFields'in input?['sourceColorFields']:[]]
       if(![Object.prototype,null].includes(Object.getPrototypeOf(input))||Reflect.ownKeys(input).length!==names.length)fail('invalid phase gesture fields')
       const own:Record<string,unknown>=Object.create(null)
       for(const name of names){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))fail('invalid phase gesture accessor');own[name]=d.value}
-      const texturePhase='texturePhase'in own?captureCanonicalSavedTexturePhase(own.texturePhase):undefined,sourceScale='sourceScale'in own?canonicalSourceScale(own.sourceScale):undefined,textureGradient='textureGradient'in own?canonicalTextureGradientRGBA(own.textureGradient):undefined,rgb=own.pigmentRgb8
+      const texturePhase='texturePhase'in own?captureCanonicalSavedTexturePhase(own.texturePhase):undefined,sourceScale='sourceScale'in own?canonicalSourceScale(own.sourceScale):undefined,textureGradient='textureGradient'in own?canonicalTextureGradientRGBA(own.textureGradient):undefined,sourceColorFields='sourceColorFields'in own?canonicalSourceColorFields(own.sourceColorFields):undefined,rgb=own.pigmentRgb8
       if(!Array.isArray(rgb)||Object.getPrototypeOf(rgb)!==Array.prototype||Reflect.ownKeys(rgb).length!==4||Object.getOwnPropertyDescriptor(rgb,'length')?.value!==3)fail('invalid phase pigment')
       const channel=(index:number):number=>{const d=Object.getOwnPropertyDescriptor(rgb,String(index));if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>255)fail('invalid phase pigment');return d.value}
       if(!validIdentity(identity)||!text(own.layerId)||!text(own.brush)||!text(own.strokeId)||typeof own.outerResourceOpacity!=='number'||!Number.isFinite(own.outerResourceOpacity)||own.outerResourceOpacity<0||own.outerResourceOpacity>1||own.alphaDarken!=='creamy'&&own.alphaDarken!=='hard'||!this.variants.has(own.alphaDarken))fail('invalid phase gesture resources')
       const pigmentRgb8=Object.freeze([channel(0),channel(1),channel(2)] as const)
       if(!this.authorizedBoard(identity,own.layerId))fail('board or paint permission unavailable')
-      return Object.freeze({layerId:own.layerId,brush:own.brush,strokeId:own.strokeId,pigmentRgb8,outerResourceOpacity:own.outerResourceOpacity,alphaDarken:own.alphaDarken,...texturePhase?{texturePhase}:{},...sourceScale!==undefined?{sourceScale}:{},...textureGradient?{textureGradient}:{}})
+      return Object.freeze({layerId:own.layerId,brush:own.brush,strokeId:own.strokeId,pigmentRgb8,outerResourceOpacity:own.outerResourceOpacity,alphaDarken:own.alphaDarken,...texturePhase?{texturePhase}:{},...sourceScale!==undefined?{sourceScale}:{},...textureGradient?{textureGradient}:{},...sourceColorFields?{sourceColorFields}:{}})
     }
     if (!validIdentity(identity) || !input || Object.keys(input).length !== 6
       || !['layerId', 'brush', 'strokeId', 'pigmentRgb8', 'outerResourceOpacity', 'alphaDarken'].every(k => Object.hasOwn(input, k))
@@ -222,7 +224,7 @@ export class CanonicalBrushCapabilityResolver {
       if(op.userId!==identity.userId||op.layerId!==captured.layerId||op.seq!<=lastSeq||op.frame.frameOrdinal!==i
         ||op.frame.brush!==captured.brush||op.frame.strokeId!==captured.strokeId||op.frame.rasterProfile!==profile
         ||op.frame.pigmentRgb8.some((v,j)=>v!==captured.pigmentRgb8[j])||op.frame.composition.alphaDarken!==captured.alphaDarken
-        ||op.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(op.frame.sourceScale,captured.sourceScale)||!isDeepStrictEqual(op.frame.textureGradient,captured.textureGradient))fail('stored resume resources changed')
+        ||op.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(op.frame.sourceScale,captured.sourceScale)||!isDeepStrictEqual(op.frame.textureGradient,captured.textureGradient)||!isDeepStrictEqual(op.frame.sourceColorFields,captured.sourceColorFields))fail('stored resume resources changed')
       bytes+=Buffer.byteLength(JSON.stringify(op),'utf8')
       if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('stored resume prefix byte budget exceeded')
       lastSeq=op.seq!
@@ -240,7 +242,7 @@ export class CanonicalBrushCapabilityResolver {
     if(!this.recordedProfiles.includes(profile)||first.userId!==identity.userId||first.layerId!==captured.layerId||first.frame.frameOrdinal!==0
       ||first.frame.brush!==captured.brush||first.frame.strokeId!==captured.strokeId
       ||first.frame.pigmentRgb8.some((value,index)=>value!==captured.pigmentRgb8[index])
-      ||first.frame.composition.alphaDarken!==captured.alphaDarken||first.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(first.frame.sourceScale,captured.sourceScale)||!isDeepStrictEqual(first.frame.textureGradient,captured.textureGradient))fail('stored indexed resume resources changed')
+      ||first.frame.composition.alphaDarken!==captured.alphaDarken||first.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity||!Object.is(first.frame.sourceScale,captured.sourceScale)||!isDeepStrictEqual(first.frame.textureGradient,captured.textureGradient)||!isDeepStrictEqual(first.frame.sourceColorFields,captured.sourceColorFields))fail('stored indexed resume resources changed')
     return this.prepareGesture(identity,captured,profile,true,{version:recordedMaterialVersion(first.frame),flags:recordedMaterialFlags(first.frame)})
   }
 
@@ -256,6 +258,8 @@ export class CanonicalBrushCapabilityResolver {
       if(!Object.is(input.sourceScale,savedScale))fail('immutable gesture source scale changed')
       const savedGradient='version'in g.material&&g.material.version===8&&g.material.primaryTexture.law==='pixel-color-texture-v1'&&g.material.primaryTexture.mode==='gradient'?g.material.primaryTexture.gradient:undefined
       if(!isDeepStrictEqual(input.textureGradient,savedGradient))fail('immutable gesture texture gradient changed')
+      const savedColorFields='version'in g.material&&(g.material.version===2||g.material.version===8)?g.material.sourceColorFields:undefined
+      if(!isDeepStrictEqual(input.sourceColorFields,savedColorFields))fail('immutable gesture spatial color changed')
       if(g.plainAutoGeometry==='dynamic-auto-geometry-v1'&&!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
       if(g.plainAutoGeometry==='plain-auto-tilt-v1'&&!this.plainTiltPolicies.authorPlainTiltSource)fail('plain-tilt author policy disabled')
       if('version'in g.material&&g.material.version===7&&(!this.texturedAutoPolicies.authorTexturedAutoSource||!isDeepStrictEqual(input.texturePhase,g.material.primaryTexture.phase)))fail('material7 author/phase changed')
@@ -280,7 +284,7 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     const pipeSource=this.assertImagePipeRole(descriptor,'author')
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase,resume?.version,input.sourceScale!==undefined?{sourceScale:input.sourceScale}:undefined,resume?.flags,input.textureGradient)
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'author',input.texturePhase,resume?.version,input.sourceScale!==undefined?{sourceScale:input.sourceScale}:undefined,resume?.flags,input.textureGradient,input.sourceColorFields)
     const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: profile,
@@ -428,7 +432,7 @@ export class CanonicalBrushCapabilityResolver {
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
     this.assertImagePipeRole(descriptor,'recorded',recordedMaterialFlags(op.frame))
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame),recordedSourceScale(op.frame),recordedMaterialFlags(op.frame),recordedTextureGradient(op.frame))
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame),recordedSourceScale(op.frame),recordedMaterialFlags(op.frame),recordedTextureGradient(op.frame),recordedSourceColorFields(op.frame))
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
@@ -524,7 +528,32 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number,options?:CanonicalSourceScaleOptions,recordedFlags=0,textureGradient?:CanonicalTextureGradientRGBA):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number,options?:CanonicalSourceScaleOptions,recordedFlags=0,textureGradient?:CanonicalTextureGradientRGBA,sourceColorFields?:CanonicalSourceColorFields):ReturnType<CanonicalBrushCapabilityResolver['bindOriginalDescriptor']> {
+    const fields=canonicalSourceColorFieldsForDescriptor(descriptor,sourceColorFields)
+    if(recordedVersion!==undefined&&!!fields!==!!(recordedFlags&256))fail('spatial color recorded law changed')
+    const bound=this.bindOriginalDescriptor(descriptor,library,profile,role,phase,recordedVersion,options,recordedFlags,textureGradient)
+    if(!fields)return bound
+    const base=bound.material
+    if(!('version'in base)||(base.version!==2&&base.version!==8))fail('spatial color requires Pixel source material')
+    const assets=[...base.assets]
+    for(const asset of canonicalSourceColorFieldAssets(fields,library.assets.map(({id,size})=>({id,size})))){
+      const previous=assets.find(a=>a.id===asset.id)
+      if(previous&&!isDeepStrictEqual(previous,asset))fail('spatial paint resource crop collision')
+      if(!previous)assets.push(asset)
+      this.storage.asset(asset.id.slice(6),asset.size)
+    }
+    if(base.version===8){
+      const index=assets.findIndex(a=>a.id===base.primaryTexture.asset)
+      if(index<0)fail('spatial texture pattern missing')
+      const [pattern]=assets.splice(index,1)
+      if(!pattern)fail('spatial texture pattern missing')
+      assets.push(pattern)
+    }
+    const material=base.version===2?canonicalSourceMaterialContext({...base,sourceColorFields:fields,assets}):canonicalPrimaryGrainMaterialContext({...base,sourceColorFields:fields,assets})
+    return {...bound,material}
+  }
+
+  private bindOriginalDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number,options?:CanonicalSourceScaleOptions,recordedFlags=0,textureGradient?:CanonicalTextureGradientRGBA):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
     if(textureGradient!==undefined&&(!phase||descriptor.texture?.application?.mode!=='gradient'))fail('unexpected texture gradient input')
     const scaleOptions=captureCanonicalSourceScaleOptions(options)
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
@@ -816,6 +845,13 @@ function material4Raster(profile:CanonicalStrokeRasterProfile){
  const contract=canonicalStrokeRasterContract(profile)
  if(!contract.genericSC)fail('material4 composition profile unavailable')
  return contract.profile
+}
+
+function recordedSourceColorFields(frame:CanonicalStrokeOperation['frame']):CanonicalSourceColorFields|undefined {
+ const field=Object.getOwnPropertyDescriptor(frame,'sourceColorFields')
+ if(!field){if('sourceColorFields'in frame)fail('inherited spatial color');return}
+ if(!Object.hasOwn(field,'value'))fail('spatial color accessor')
+ return canonicalSourceColorFields(field.value)
 }
 
 function recordedTextureGradient(frame:CanonicalStrokeOperation['frame']):CanonicalTextureGradientRGBA|undefined {

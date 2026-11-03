@@ -101,3 +101,5 @@ export * from './canonicalImageColorSourceBinding.js'
 export * from './canonicalPixelTextureSourceBinding.js'
 
 export * from './canonicalSourceScale.js'
+
+export * from './canonicalSourceSpatialColor.js'
