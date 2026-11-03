@@ -1,4 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest'
+import {SourceStrokeAuthor} from './src/presets/sourceStrokeAuthor'
+import {SourceStrokeMaterialAdapter,createPixelTextureMaterialAdapter} from './src/presets/sourceStrokeMaterialAdapter'
+import {SourceCanonicalFrameEncoder,createPixelTextureFrameEncoder} from './src/presets/sourceCanonicalFrameEncoder'
 import {createHash} from 'node:crypto'
 import {inflateSync} from 'node:zlib'
 import originals from './src/presets/fixtures/pixelBrowserBindings.native.json'
@@ -10,9 +13,10 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture'|'bitmap-auto',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true){
+async function setup(kind:'dual'|'texture'|'bitmap-auto',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
  const row=originals.rows[kind==='dual'?0:kind==='texture'?1:2],descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
- if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?'c1':'c2').repeat(16)
+ if(recordedColor){if(!descriptor.sourceStamp)throw Error('Original source required');Object.assign(descriptor.sourceStamp.settings,{'ColorSource/Type':'uniform_random'});const mask=descriptor.behavior?.dual?.brush.sourceStamp;if(mask)Object.assign(mask.settings,{'ColorSource/Type':'uniform_random'})}
+ if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?(recordedColor?'c3':'c1'):'c2').repeat(16)
  let assets=row.assets.map(a=>{if(!a.id.startsWith('asset:'))throw Error('Original CAS asset required');return{...a,id:a.id as `asset:${string}`}})
  if('coverage'in row&&row.coverage)installBrushPixels(row.coverage.id,new Uint8Array(inflateSync(Buffer.from(row.coverage.deflateBase64,'base64'))))
  if(kind==='texture'){
@@ -59,7 +63,7 @@ it.each([{kind:'dual',modifiers:false},{kind:'dual',modifiers:true},{kind:'textu
   await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
   const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Actual source operation required');expect(op.frame.rasterProfile).toBe(B);return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
   expect(frames.reduce((n,f)=>n+f.draws.length,0)).toBeGreaterThan(0);expect(frames.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
-  if(kind==='bitmap-auto')for(const recipe of frames.flatMap(f=>Array.from(f.definitions))){if(!('kind'in recipe)||recipe.kind!=='defaultAuto')throw Error('Actual default Auto recipe required');expect(recipe.coverageProfile).toBe('seeded-auto-mask-browser-v1');expect(Number.isInteger(recipe.maskSeed)).toBe(true);expect(recipe.sourceSlot).toBe(0)}
+  if(kind==='bitmap-auto')for(const recipe of frames.flatMap(f=>[...f.definitions])){if(!('kind'in recipe)||recipe.kind!=='defaultAuto')throw Error('Actual default Auto recipe required');expect(recipe.coverageProfile).toBe('seeded-auto-mask-browser-v1');expect(Number.isInteger(recipe.maskSeed)).toBe(true);expect(recipe.sourceSlot).toBe(0)}
   if(kind==='dual')expect(new Set(frames.flatMap(f=>f.draws).map(d=>d.role))).toEqual(new Set(['primary','mask']))
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 },15000)
@@ -87,3 +91,43 @@ it('does not use the image author grant as a fallback for a bitmap dual when mas
  const begin=vi.fn(),h=await setup('dual',begin,false,false),{engine}=h
  try{await expect(engine.prepareBrush(h.preset)).rejects.toThrow('Masked author original policy missing');expect(begin).not.toHaveBeenCalled();expect(h.operations).toHaveLength(0)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+
+it.each(['dual','texture','bitmap-auto'] as const)('coalesces only named Pixel %s remainders and preserves independently decoded source DRAW/fence/pigment/RNG order',async kind=>{
+ let snapshot!:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV8
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedSourceMaterialContext2??lifetime.expectedMaterialContext8
+  if(!material)throw Error('Actual named START context required')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Captured composition required')
+  const raw={layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:material.version,material}
+  snapshot=material.version===8?canonicalStandaloneStrokeSnapshotV8(raw,2,B):canonicalSourceStrokeSnapshotV2(raw,2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup(kind,begin,false,true,kind==='dual'),{engine}=h
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),inputs=[packet(1,100),{...packet(100,110),pressure:.85}]
+ try{
+  await engine.prepareBrush(h.preset)
+  const prepared=engine['_canonicalPreparedAuthor']!
+  engine['_onStart'](inputs[0]);const session=engine['_authorProducer']!;engine['_onMove'](inputs[1]);engine['_onEnd']({...inputs[1],timeStamp:120})
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  const operations=h.operations.filter((op):op is Extract<Operation,{type:'canonical_stroke'}>=>op.type==='canonical_stroke'),decoded=operations.map(op=>decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame)
+  expect(decoded.reduce((n,f)=>n+f.draws.length,0)).toBeGreaterThan(12)
+  expect(decoded.find(f=>f.draws.length)!.draws).toHaveLength(1) // First material is never delayed for a larger cut.
+  expect(decoded.some(f=>f.draws.length>=3)).toBe(true) // RED: old pump cuts cannot batch this remainder.
+  expect(operations.map(o=>o.frame.frameOrdinal)).toEqual(operations.map((_,i)=>i))
+  const source=session.source!,author=new SourceStrokeAuthor(prepared.program),seeded=prepared.program.roles.some(role=>role.geometry&&role.geometry.kind!=='image'&&role.geometry.coverageProfile==='seeded-auto-mask-browser-v1')
+  let state=author.createState(source.seeds.sequentialSeed,source.seeds.strokeSeed,source.state!.initialAngle,source.authorColors,seeded?{strokeId:snapshot.strokeId,descriptorSha256:prepared.sha}:undefined)
+  const adapter=snapshot.materialVersion===8?createPixelTextureMaterialAdapter(prepared.program,snapshot.material,state):new SourceStrokeMaterialAdapter(prepared.program,snapshot.material,state)
+  const encoder=snapshot.materialVersion===8?createPixelTextureFrameEncoder({brush:snapshot.brush,strokeId:snapshot.strokeId,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,rasterProfile:snapshot.rasterProfile,materialVersion:8,material:snapshot.material}):new SourceCanonicalFrameEncoder(snapshot)
+  const baseline:typeof decoded=[]
+  const capture=(chunks:ReadonlyArray<ReturnType<typeof adapter.finish>[number]>)=>{for(const chunk of chunks)baseline.push(decodeCanonicalRecordedSnapshotFrameV8(encoder.encode(chunk.packed).envelope,snapshot,encoder.nextFrameOrdinal-1).frame)}
+  const consume=(iterator:ReturnType<typeof author.plan>)=>{for(;;){const step=iterator.next();if(step.done){state=step.value;return}state=step.value.state;capture(adapter.accept(step.value));const cut=adapter.flush();if(cut)capture([cut])}}
+  for(const input of inputs){capture(adapter.beginInput(state));consume(author.plan(state,{x:input.x,y:input.y,t:input.timeStamp-source.timestamp,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}
+  capture(adapter.beginInput(state));consume(author.finish(state));capture(adapter.finish(state))
+  const events=(frames:typeof decoded)=>frames.flatMap(frame=>Array.from({length:frame.draws.length+1},(_,at)=>[...frame.fences.filter(f=>f.at===at).map(({at:_offset,...fence})=>({fence})),...at<frame.draws.length?[{draw:{...frame.draws[at],definition:undefined,recipe:frame.definitions[frame.draws[at].definition]}}]:[]]).flat())
+  expect(events(decoded)).toEqual(events(baseline));expect(source.state).toEqual(state);expect(decoded.length).toBeLessThan(baseline.length)
+  expect(decoded.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  if(kind==='dual'){expect(new Set(decoded.flatMap(f=>f.draws).map(d=>d.role))).toEqual(new Set(['primary','mask']));expect(new Set(decoded.flatMap(f=>f.draws).map(d=>JSON.stringify(d.sourcePigmentRGB))).size).toBeGreaterThan(1);expect(snapshot.material.colorParams).toBe('source-pigment-rgb8-v1')}
+  expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)

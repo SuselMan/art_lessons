@@ -9096,7 +9096,14 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<AuthorInputYield,void,void> {
     const source=session.source!,owner=this
-    const coalesced=source.prepared.material.kind==='texturedAuto'
+    const material=source.prepared.material
+    // Only bodies created by the named Pixel START factories opt in. A browser
+    // profile, legacy image/Auto body, or historical hardMultiply8 is not proof.
+    const namedSource2=source.context2?.version===2&&(material.kind==='imageMaterial'||material.kind==='masked'
+      ||material.kind==='auto'&&source.prepared.geometryCapability?.kind==='dynamic-auto-geometry-v1')
+    const neutralTexture8=material.kind==='pixelTexture'&&source.context8?.version===8
+      &&(source.context8.primaryTexture.law==='pixel-texture-u8-v1'||source.context8.primaryTexture.law==='pixel-color-texture-v1')
+    const coalesced=material.kind==='texturedAuto'||namedSource2||neutralTexture8
     let firstMaterial=true,pendingMaterials=0,remainderDeadline:number|undefined
     // The existing adapter remains the only pending material owner. A lazy cut
     // captures packed bytes only when this SAME FIFO job can hand them off.
