@@ -209,6 +209,8 @@ interface TurnRecord {
   readonly restoreGate?:BrushGlRestoreGate
   /** Scoped cleanup evidence only; never GL state/resource authority. */
   cleanupFailure?:{readonly error:unknown}
+  readonly sequenceChild?:true
+  stepFailure?:{readonly error:unknown}
   autoUploadBorrowed:boolean
   active: boolean
   claimed: boolean
@@ -283,10 +285,47 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
   if(failed)throw failure
 }
 
+/** Synchronous warm-only sequence: one entry snapshot, fresh single-use child
+ * for each native step. No token or participant lease survives this call. */
+export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0],execute:(sequence:{step(run:(turn:BrushGlTurn)=>void):void})=>void):void {
+  runBrushGlTurn(options,parent=>{
+    const parentRecord=turns.get(parent)!
+    let active=true,busy=false,failed=false,failure:unknown
+    const sequence=Object.freeze({step(run:(turn:BrushGlTurn)=>void):void {
+      if(this!==sequence||!active||busy||failed)throw new Error('Closed, failed or reentered GL sequence')
+      busy=true
+      let token:BrushGlTurn|undefined,record:TurnRecord|undefined
+      const latch=(error:unknown)=>{if(!failed){failed=true;failure=error}}
+      try{
+        for(const [participant,pinned]of parentRecord.infos)if(!sameParticipantBinding(participant.brushGlBatchInfo(),pinned))throw new Error('Sequence participant changed')
+        token=Object.freeze({}) as BrushGlTurn
+        record={sequenceChild:true,infos:parentRecord.infos,restore:parentRecord.restore,restoreGate:parentRecord.restoreGate,restoreAutoUpload:parentRecord.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false}
+        turns.set(token,record)
+        const result:unknown=run(token)
+        if(result&&typeof(result as {then?:unknown}).then==='function')throw new Error('GL sequence step must be synchronous')
+      }catch(error){latch(record?.stepFailure?record.stepFailure.error:error)}
+      finally{
+        if(record){record.active=false;if(record.stepFailure)latch(record.stepFailure.error);if(record.cleanupFailure){parentRecord.cleanupFailure??=record.cleanupFailure;latch(record.cleanupFailure.error)}}
+        if(token)turns.delete(token)
+        try{if(!parentRecord.infos.values().next().value!.gl.isContextLost())parentRecord.restore()}catch(error){parentRecord.cleanupFailure??={error};latch(error)}
+        busy=false
+      }
+      if(failed)throw failure
+    }})
+    try{
+      const value:unknown=execute(sequence)
+      if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('GL sequence must be synchronous')
+    }catch(error){if(!failed){failed=true;failure=error}}
+    finally{active=false}
+    if(failed)throw failure
+  })
+}
+
 /** One synchronous final upload may borrow ONLY its genuinely captured state.
  * The cleanup runs before the cache lease release, without another capture. */
 export function borrowBrushGlTurnAutoUploadRestore(turn:BrushGlTurn,participant:BrushGlBatchParticipant):()=>void {
   const record=turns.get(turn)
+  if(record?.sequenceChild)throw new Error('Warm sequence cannot borrow auto upload')
   if(!record||!record.active||record.claimed||record.autoUploadBorrowed||!record.restoreAutoUpload||!record.infos.has(participant))
     throw new Error('Unknown, closed or undeclared auto upload turn')
   for(const [service,pinned]of record.infos)if(!sameParticipantBinding(service.brushGlBatchInfo(),pinned))throw new Error('Auto upload turn participant/epoch changed')
@@ -315,6 +354,7 @@ export function runBrushGlBatch(options: {
     }
     borrowed.claimed=true
   }else if(turnContexts.has(first.gl))throw new Error('Nested brush GL batch requires its owned turn')
+  try{
   if(first.gl.isContextLost())throw new Error('Brush GL batch context lost')
   const resources = new Map<string, number>(), owners = [...new Set(options.owners ?? [])]
   // Downgrade BEFORE reading any untrusted owner metadata or invoking its lease.
@@ -397,7 +437,7 @@ export function runBrushGlBatch(options: {
     frame.open(authority)
     const value: unknown = execute(frame)
     if (value && typeof (value as { then?: unknown }).then === 'function') throw new Error('Brush GL batch callback must be synchronous')
-  } catch (error) { failed = true; failure = error }
+  } catch (error) { if(borrowed?.sequenceChild)borrowed.stepFailure??={error}; failed = true; failure = error }
   finally {
     cleanup(() => frame.close(authority))
     if (restore) cleanup(() => { if (!first.gl.isContextLost()) restore!() })
@@ -406,4 +446,5 @@ export function runBrushGlBatch(options: {
   }
   if(cleanupFailure&&options.onCleanupFailure)try{options.onCleanupFailure(cleanupFailure.error)}catch(error){if(!failed){failed=true;failure=error}}
   if (failed) throw failure
+  }catch(error){if(borrowed?.sequenceChild)borrowed.stepFailure??={error};throw error}
 }

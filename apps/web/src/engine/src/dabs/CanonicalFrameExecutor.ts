@@ -12,7 +12,7 @@ import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
-import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
+import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
@@ -687,10 +687,16 @@ export class CanonicalFrameExecutor {
 
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
-  advance(): { pending: boolean; checkpointReady: boolean } {
+  advance(): { pending: boolean; checkpointReady: boolean } {return this.advanceAt()}
+  /** Existing hidden replay cursor shares its caller's soft turn deadline. */
+  advanceWithinTurn(turnStarted:number): { pending: boolean; checkpointReady: boolean } {
+    if(!this.candidateReplay7||!Number.isFinite(turnStarted)||turnStarted>performance.now())throw new Error('Invalid replay turn budget')
+    return this.advanceAt(turnStarted)
+  }
+  private advanceAt(turnStarted?:number): { pending: boolean; checkpointReady: boolean } {
     if(this.candidateReplay7&&(this.candidateTerminal||this.sourceRetired))throw new Error('Candidate replay cursor retired')
     if(this.options.replayFrontier)throw new Error('Replay frontier cannot execute pixels')
-    const result=this.advanceWork()
+    const result=this.advanceWork(turnStarted)
     this.retireFinishedMask()
     return result
   }
@@ -701,13 +707,13 @@ export class CanonicalFrameExecutor {
     if(this.retireTextureAfterTurn)this.retirePrimaryTexture()
     if(!this.failed&&this.cleanupErrors.length>before){const error=this.cleanupErrors[before];this.fail(error);throw error}
   }
-  private advanceWork(): { pending: boolean; checkpointReady: boolean } {
+  private advanceWork(started?:number): { pending: boolean; checkpointReady: boolean } {
     if (this.failed || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     const work = this.queue[0]
     if (!work) return { pending: false, checkpointReady: this.checkpointReady }
     this.advancing = true
     try {
-      const turnStarted = performance.now();
+      const turnStarted = started??performance.now();
       this.assertPrepared();
       const layer = this.currentLayer(work)
       // Logical composition was already advanced once at admission; clipping
@@ -726,11 +732,13 @@ export class CanonicalFrameExecutor {
         return { pending:this.pending, checkpointReady:this.checkpointReady };
       }
       this.preparePhysicalPlan(work,layer)
+      const warmAtEntry=this.warmAutoReady(work);
       if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
       if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
-      this.runPreparedTurn(work,turnStarted,work.draw<work.result.draws.length?'paint':'presentation',turn=>{
+      if(warmAtEntry&&this.canSequenceWarm(work))this.paintWarmSequence(work,layer,turnStarted)
+      else this.runPreparedTurn(work,turnStarted,work.draw<work.result.draws.length?'paint':'presentation',turn=>{
         this.paintPrepared(work,layer,turn,turnStarted)
       })
     } catch (error) {
@@ -738,6 +746,41 @@ export class CanonicalFrameExecutor {
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
+  }
+
+  private warmAutoReady(work:Work):boolean {
+    if(work.draw>=work.result.draws.length)return false
+    const recipe=work.input.frame.definitions[work.result.draws[work.draw].definition]
+    return autoRecipe(recipe)&&(!this.softProgram||this.softProgram.done)
+      &&this.maskParticipant.hasReadyAutoGeneration(this.maskRequest(work,work.draw))
+  }
+  private canSequenceWarm(work:Work):boolean {
+    const physical=work.physical,draw=work.result.draws[work.draw],next=work.result.draws[work.draw+1]
+    return !!physical&&work.targetCursor===physical.targetCount&&work.scratchCursor===physical.scratchCount
+      &&work.washCursor===work.newTiles.length&&!!next&&draw.definition===next.definition&&this.warmAutoReady(work)
+  }
+  private paintWarmSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
+    const definition=work.result.draws[work.draw].definition
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},sequence=>{
+      let first=true
+      while((first||performance.now()-turnStarted<4)&&this.queue[0]===work&&work.draw<work.result.draws.length
+        &&work.result.draws[work.draw].definition===definition){
+        this.assertPrepared()
+        if(this.currentLayer(work)!==layer)throw new Error('Warm sequence layer changed')
+        if(!this.warmAutoReady(work))break
+        const draw=work.draw,tile=work.tile,part=work.paintPart
+        sequence.step(turn=>{
+          this.assertPrepared()
+          if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Warm sequence work changed')
+          if(!this.warmAutoReady(work))return
+          this.paint(work,layer,turn,turnStarted)
+        })
+        first=false
+        if(work.draw===draw&&work.tile===tile&&work.paintPart===part)break
+      }
+    })
+    // No END, source lease retirement or physical transition inside the sequence.
+    if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
   }
 
   /** A computed final stripe borrows the NEXT actual GL turn, never a new

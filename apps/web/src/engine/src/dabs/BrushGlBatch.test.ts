@@ -543,3 +543,48 @@ it('native accumulation texture destruction between restores re-enables outer va
  }finally{buffer.destroy()}
  expect(s.cpu.reservedBytes).toBe(0)
 })
+
+it('warm sequence restores one entry snapshot between fresh child tokens and final cleanup',()=>{
+ const s=setup(),before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter');let old:BrushGlTurn|undefined
+ uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>{
+  for(let i=0;i<3;i++)sequence.step(turn=>{
+   if(old)expect(()=>runBrushGlBatch({turn:old,participants:[s.service]},()=>{})).toThrow()
+   expect(s.snapshot()).toEqual(before)
+   runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>()=>s.gl.viewport(1,2,3,4)}]},frame=>{frame.beginDraw();s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer())})
+   old=turn
+  })
+ })
+ expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+ expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+ expect(()=>runBrushGlBatch({turn:old,participants:[s.service]},()=>{})).toThrow()
+})
+it('warm sequence latches a caught valid child throw undefined and attempts all cleanup',()=>{
+ const s=setup(),before=s.snapshot();let rejected=false,primary:unknown='unset',second=false
+ try{uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>{
+  try{sequence.step(turn=>{try{runBrushGlBatch({turn,participants:[s.service]},()=>{throw undefined})}catch{}})}catch{}
+  try{sequence.step(()=>{second=true})}catch{}
+ })}catch(error){rejected=true;primary=error}
+ expect(rejected).toBe(true);expect(primary).toBeUndefined();expect(second).toBe(false)
+ expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('warm sequence latches actual CPU reserve failure before batch frame creation',()=>{
+ const s=setup();let second=false,rejected=false,primary:unknown='unset'
+ try{uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>{
+  const reserve=vi.spyOn(s.cpu,'reserve').mockImplementationOnce(()=>{throw undefined})
+  try{sequence.step(turn=>{try{runBrushGlBatch({turn,participants:[s.service]},()=>{})}catch{}})}catch{}
+  reserve.mockRestore()
+  try{sequence.step(()=>{second=true})}catch{}
+ })}catch(error){rejected=true;primary=error}
+ expect(rejected).toBe(true);expect(primary).toBeUndefined();expect(second).toBe(false);expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('warm sequence preserves original undefined batch primary across later native-step cleanup failure',()=>{
+ const s=setup();let second=false,rejected=false,primary:unknown='unset'
+ try{uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>{
+  // oxlint-disable-next-line no-unsafe-finally -- Intentional cleanup fault verifies preservation of the original undefined failure.
+  try{sequence.step(turn=>{try{runBrushGlBatch({turn,participants:[s.service]},()=>{throw undefined})}finally{throw new Error('secondary native cleanup')}})}catch{}
+  try{sequence.step(()=>{second=true})}catch{}
+ })}catch(error){rejected=true;primary=error}
+ expect(rejected).toBe(true);expect(primary).toBeUndefined();expect(second).toBe(false);expect(s.cpu.reservedBytes).toBe(0)
+})

@@ -155,6 +155,7 @@ export interface CanonicalMaskCapacityLease extends BrushGlBatchParticipant {
  preparedCapacity():Readonly<{width:number;height:number;epoch:object}>
  preparedResources():readonly {key:string;bytes:number}[]
  resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame):{views:TransformedMaskView[];release:()=>void}
+ hasReadyAutoGeneration(request:AnyTransformedMaskRequest):boolean
  beginAutoGeneration(request:AnyTransformedMaskRequest):boolean
  advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}):{done:boolean;consumed:number;uploadedBytes:number;finalUploadPending?:true}
  finalAutoUploadPending(request:AnyTransformedMaskRequest):boolean
@@ -288,6 +289,7 @@ export class TransformedMaskPrepass {
       enterBrushGlTurn(){assert(this);return owner.pass.enterRecordTurn(captured)},
       enterBrushGlBatch(frame:BrushGlBatchFrame){assert(this);return owner.pass.enterRecordBatch(lease,frame)},
       resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame){assert(this);return owner.pass.resolveRecordGroup(captured,lease,requests,frame)},
+      hasReadyAutoGeneration(request:AnyTransformedMaskRequest){assert(this);return owner.pass.readyRecordAuto(captured,request)},
       beginAutoGeneration(request:AnyTransformedMaskRequest){assert(this);return owner.pass.beginRecordAuto(captured,lease,request)},
       advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.advanceAutoGeneration(maxSamples,options)},
       finalAutoUploadPending(request:AnyTransformedMaskRequest){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.finalAutoUploadPending(request)},
@@ -731,6 +733,16 @@ export class TransformedMaskPrepass {
   }
   /** No pixels/GL on a hit. One continuation belongs to the existing executor cursor. */
   beginAutoGeneration(request: AnyTransformedMaskRequest): boolean {return this.beginRecordAuto(this.defaultCapacityRecord(),this,request)}
+  /** Pure resident hit only: never starts generation, allocates, reclaims or uploads. */
+  private readyRecordAuto(record:CapacityRecord,request:AnyTransformedMaskRequest):boolean{
+    if(this.capacityCapture||this.batch||this.activeGroup||this.pendingAuto||!this.recordReady(record))return false
+    const material=request.material
+    if(!('kind'in material)||material.kind!=='canonicalAuto'||request.source||!request.owner||typeof request.owner!=='object'||!request.role)return false
+    if(!isCanonicalSoftAutoMaterial(material)&&material.densityIdentity&&request.role!=='primary')return false
+    if(material.recipe.width>record.limits.width||material.recipe.height>record.limits.height)return false
+    const revision=canonicalAutoMaskRevision(material)
+    return record.slots.some(slot=>slot?.owner===request.owner&&slot.role===request.role&&slot.revision===revision&&this.cache.get(slot.key)===slot.texture)
+  }
   private beginRecordAuto(record:CapacityRecord,participant:BrushGlBatchParticipant,request:AnyTransformedMaskRequest):boolean{
     if (this.capacityCapture||this.batch || this.activeGroup) throw new Error('Auto generation requires an idle prepass outside GL batch');
     if (!this.recordReady(record) || !record.limits || !record.workspace) throw new Error('Prepass is not prepared');
@@ -745,7 +757,7 @@ export class TransformedMaskPrepass {
         throw new Error('Another auto generation is pending');
       return false;
     }
-    if (record.slots.some(s => s?.owner === request.owner && s.role === request.role && s.revision === revision)) return true;
+    if (this.readyRecordAuto(record,request)) return true;
     const prepared = prepareCanonicalAutoMask(material);
     let releaseStripe: (() => void) | undefined;
     let released = false;

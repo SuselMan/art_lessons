@@ -1666,7 +1666,7 @@ export class CanonicalWashLayerCoordinator {
     // child step can cross its soft boundary, but no new frame starts after it.
     while(performance.now()-turnStarted<4){
       if(child.pending){
-        child.advance();mixed.snapshot.assertOwned()
+        child.advanceWithinTurn(turnStarted);mixed.snapshot.assertOwned()
         if(child.pending)return
         mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++
         continue
@@ -1677,7 +1677,7 @@ export class CanonicalWashLayerCoordinator {
       const decoded=decodeCanonicalTexturedAutoStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:7,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
       mixed.pendingEnded=decoded.frame.fences.some(f=>f.kind==='gestureEnd')
       child.enqueue({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,ordinal:mixed.frame,frame:decoded.frame,assets:group.source.context.assets,rgb:accepted.pigmentRgb8,composition:accepted.composition})
-      child.advance();mixed.snapshot.assertOwned()
+      child.advanceWithinTurn(turnStarted);mixed.snapshot.assertOwned()
       if(child.pending)return
       mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++
     }
