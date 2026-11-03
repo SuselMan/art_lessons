@@ -4,12 +4,12 @@ import {captureCanonicalFullHistoryMetadata} from './canonicalFullHistoryBase.js
 import {CANONICAL_INDEXED_HISTORY_LIMITS,parseCanonicalIndexedRoot,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedRootV1,type CanonicalIndexedOperation} from './canonicalIndexedHistory.js'
 
 const fail=():never=>{throw new TypeError('Invalid canonical indexed original page')}
-function fields(value:unknown,keys:readonly string[]):Record<string,unknown>{
+function fields(value:unknown,keys:readonly string[],optional:readonly string[]=[]):Record<string,unknown>{
  if(!value||typeof value!=='object'||Array.isArray(value))return fail()
  const own=Reflect.ownKeys(value)
- if(own.length!==keys.length||own.some(key=>typeof key!=='string'||!keys.includes(key)))return fail()
+ if(own.length<keys.length||own.length>keys.length+optional.length||own.some(key=>typeof key!=='string'||!keys.includes(key)&&!optional.includes(key)))return fail()
  const result:Record<string,unknown>=Object.create(null)
- for(const key of keys){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))return fail();result[key]=d.value}
+ for(const key of [...keys,...optional]){const d=Object.getOwnPropertyDescriptor(value,key);if(!d){if(keys.includes(key))return fail();continue}if(!Object.hasOwn(d,'value'))return fail();result[key]=d.value}
  return result
 }
 const seq=(v:unknown):v is number=>typeof v==='number'&&Number.isInteger(v)&&v>=0&&v<=CANONICAL_INDEXED_HISTORY_LIMITS.sequence
@@ -24,7 +24,7 @@ function captureRows(value:unknown,limit:number):readonly CanonicalIndexedOperat
   const op=fields(d.value,['id','userId','timestamp','seq','type','layerId','frame'])
   const packed=op.frame&&typeof op.frame==='object'?Object.getOwnPropertyDescriptor(op.frame,'materialPacked'):undefined
   if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')return fail()
-  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...((packed.value.startsWith('7|')||packed.value.startsWith('8|'))?['texturePhase']:[])])
+  const frame=fields(op.frame,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked',...((packed.value.startsWith('7|')||packed.value.startsWith('8|'))?['texturePhase']:[])],['sourceScale','sourceColorFields','sourceRoleTextures','sourceTipGradient','textureGradient'])
   if(typeof frame.materialPacked!=='string')return fail()
   // Bound packed input BEFORE material decode or any full payload allocation.
   packedBytes+=frame.materialPacked.length

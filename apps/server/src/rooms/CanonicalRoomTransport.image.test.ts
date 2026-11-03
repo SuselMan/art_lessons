@@ -15,8 +15,10 @@ import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomParticipant:{upsert:vi.fn()}}))
+const db=vi.hoisted(()=>({$transaction:vi.fn(),$queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn(),operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn(),findUnique:vi.fn()},roomParticipant:{upsert:vi.fn()}}))
+db.$transaction.mockImplementation(async(run:(connection:typeof db)=>Promise<unknown>)=>run(db))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
+vi.mock('../db/canonicalIndexedReader.js',()=>({withCanonicalIndexedValidation:async(run:(client:unknown)=>Promise<unknown>)=>run(db)}))
 vi.mock('./snapshotStore.js',async original=>({...await original<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:[],canonicalRows:[]}))}))
 const dirs:string[]=[]
 beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({})})
@@ -767,4 +769,50 @@ it('authors named SOURCE2 Pixel8 with real browser coverage and cold-reads the s
  expect(read.rasterProfile).toBe(B);expect(read.material).toEqual(s.material)
  expect(()=>cold.beginGesture(identity,{...input,strokeId:'read-only'})).toThrow()
  expect(()=>new CanonicalRoomTransport({...config,rasterProfile:G,autoSources:config.autoSources})).toThrow('raster/coverage execution policy mismatch')
+})
+
+
+it('carries accepted browser scaled SOURCE2 DRAW through actual indexed FOLLOW page and client normalizer',async()=>{
+ const {joinRoom,captureCurrentRoomSeat,leaveRoom}=await import('./rooms.js')
+ const {prepareCanonicalIndexedHistoryPage}=await import('@grafetto/shared')
+ const d:BrushDescriptor=structuredClone(fixture.descriptor)
+ if(!d.sourceStamp)throw Error('Original SOURCE fixture required')
+ d.sourceStamp={...d.sourceStamp,version:2,source:{kind:'image'}}
+ const f=setup(d),config={rasterProfile:B,allowedRecordedRasterProfiles:[B],alphaDarkenVariants:['creamy'] as const,primaryImageSource:'single-inverse-gray-v2' as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const,fullHistoryFormat:'mixed-indexed-v1' as const}
+ const transport=new CanonicalRoomTransport(config),persisted:import('./roomPersistence.js').CanonicalStoredOperationRow[]=[]
+ f.board.canonicalHistoryResidency='indexed-v1'
+ db.room.findUnique.mockResolvedValue({...f.board.room,lessonId:null,boardOwnerId:null,passwordHash:null,classVisibility:'all',spotlightBoardId:null})
+ // Only the database is a stub. Seat, transport BEGIN/DRAW/FOLLOW, durable
+ // projection, attachment binding and the browser page normalizer are real.
+ db.operation.create.mockImplementation(async({data})=>{persisted.push(data);return data})
+ db.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>where.id?where.id.in.includes(row.id):row.seq>where.seq.gt&&row.seq<=where.seq.lte))
+ db.operation.findUnique.mockImplementation(async({where})=>persisted.find(row=>row.id===where.id)??null)
+ db.$executeRawUnsafe.mockResolvedValue(0)
+ db.$queryRawUnsafe.mockImplementation(async(sql:string,...args:unknown[])=>{
+  if(sql.startsWith('FETCH '))return [] // The initial original cut is exactly0.
+  if(sql.startsWith('SELECT id,seq,type,octet_length'))return persisted.filter(row=>row.seq<=(args[1] as number)&&row.seq>(args[2] as number)).map(row=>({id:row.id,seq:row.seq,type:row.type,bytes:Buffer.byteLength(JSON.stringify(row.data),'utf8')}))
+  return []
+ })
+ expect(joinRoom('board','author','Owner','indexed-browser-scale-seat',true).ok).toBe(true)
+ const seat=captureCurrentRoomSeat('board','author','indexed-browser-scale-seat');if(!seat)throw Error('Actual source seat required')
+ let read:Awaited<ReturnType<CanonicalRoomTransport['openIndexedHistory']>>|undefined
+ try{
+  read=await transport.openIndexedHistory(identity,transport.createIndexedHistoryOffer('board'),seat,()=>true)
+  expect((await read.next(0)).terminal).toBe(true)
+  const scale=.375,s=snapshot(await transport.begin(identity,{...f.input,sourceScale:scale},()=>true)),pin=s.material.primarySource
+  if(pin.kind!=='image')throw Error('Original image SOURCE2 required')
+  expect(s.rasterProfile).toBe(B);expect(s.material.scaledSource).toBe('source-scale-v1');expect(pin.brushScale).toBe(scale)
+  const bounds=sourcePngMaskExtent({width:pin.frameBounds![0].width,height:pin.frameBounds![0].height,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0},0,0)
+  const recipe={kind:'image' as const,asset:pin.asset,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:bounds[0],height:bounds[1],mirrorH:false,mirrorV:false,imageFrameIndex:0,sourceSlot:0 as const}
+  const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1}],fences:[{kind:'segmentBegin',group:0,at:0},{kind:'primaryEnd',group:0,at:1},{kind:'segmentEnd',group:0,at:1},{kind:'gestureEnd',at:1}]},s.material).packed
+  const op:CanonicalStrokeOperation={id:'indexed-browser-scale',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:B,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,sourceScale:scale,materialPacked}}
+  const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});await flushRoomWrites('board');expect(persisted).toHaveLength(1)
+  const follow=await read.follow(0);expect(follow).toMatchObject({floor:0,throughSeq:1,operationCount:1,authorRasterProfile:B})
+  const wire=await read.next(0);expect(wire.operations).toHaveLength(1)
+  expect(wire.operations[0]).toEqual(saved.accepted)
+  const prepared=prepareCanonicalIndexedHistoryPage(JSON.parse(JSON.stringify(wire)),follow,0)
+  expect(prepared.page.operations[0]).toEqual(saved.accepted)
+  expect(prepared.atoms[0].read?.capability.snapshot).toMatchObject({rasterProfile:B,materialVersion:2,material:{scaledSource:'source-scale-v1',primarySource:{brushScale:scale}}})
+  expect((await read.next(1)).terminal).toBe(true)
+ }finally{read?.cancel();leaveRoom('board','author','indexed-browser-scale-seat')}
 })

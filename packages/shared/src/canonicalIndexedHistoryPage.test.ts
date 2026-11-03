@@ -96,3 +96,22 @@ it('normalizes actual3 page and ended root evidence with explicit snapshot dispa
  const noEnd={...op,frame:{...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},s.material).packed}}
  expect(()=>prepareCanonicalIndexedRootEvidence({...evidence([noEnd]),canonicalCapabilities:cap},current,root)).toThrow()
 })
+
+it('roundtrips actual browser scaled SOURCE2 originals through page and root evidence before validating exact envelope metadata',()=>{
+ const B='browser-highp-rgba8-v1' as const
+ const source={...pin,coverageProfile:'browser-number-coverage-v1' as const}
+ const context={...material,primarySource:source,scaledSource:'source-scale-v1' as const}
+ const original={...snapshot,rasterProfile:B,material:context,composition:{...snapshot.composition,mode:'buildup' as const}}
+ const op={...frame(),frame:{...frame().frame,version:2 as const,rasterProfile:B,composition:original.composition,sourceScale:source.brushScale,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{kind:'gestureEnd',at:0}]},context).packed}}
+ const start=parseCanonicalIndexedHistoryBegin({kind:'canonical-indexed-history-begin-v1',streamId:'read',offerId:'offer',scope:{...scope,allowedRasterProfiles:[B]},roomGeometry:{width:512,height:512,infinite:false},authorRasterProfile:B,plainAutoGeometrySource:'dynamic-auto-geometry-v1',floor:0,throughSeq:1,operationCount:1})
+ const capabilities={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'actor',snapshot:original}],bindings:[{operationId:op.id,sequence:1,originalUserId:'actor',capability:0}]}
+ const wire={...page([op],0,false,1),canonicalCapabilities:capabilities}
+ expect(prepareCanonicalIndexedHistoryPage(wire,start,0).page.operations[0]).toEqual(op)
+ const witness={...evidence([op]),throughSeq:1,canonicalCapabilities:capabilities}
+ expect(prepareCanonicalIndexedRootEvidence(witness,start,root).evidence.rows[0]).toEqual(op)
+ const {sourceScale:_,...missing}=op.frame
+ for(const f of [missing,{...op.frame,sourceScale:source.brushScale+1},{...op.frame,sourceTipGradient:{kind:'captured-tip-gradient-rgba8-v1',rgba:Array(1024).fill(0)}},{...op.frame,unknown:true}])expect(()=>prepareCanonicalIndexedHistoryPage({...wire,operations:[{...op,frame:f}]},start,0)).toThrow()
+ const get=vi.fn(()=>source.brushScale),accessor={...op.frame};Object.defineProperty(accessor,'sourceScale',{get})
+ expect(()=>prepareCanonicalIndexedHistoryPage({...wire,operations:[{...op,frame:accessor}]},start,0)).toThrow()
+ expect(get).not.toHaveBeenCalled()
+})
