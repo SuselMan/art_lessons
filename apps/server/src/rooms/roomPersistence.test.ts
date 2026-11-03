@@ -7,6 +7,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomParticipant: { upsert: vi.fn() },
   roomPalette: { upsert: vi.fn() },
   operation: { create: vi.fn(), findUnique: vi.fn() },
+  $executeRaw:vi.fn(),
 }))
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
@@ -20,7 +21,13 @@ const { captureCanonicalMetadata, verifyCanonicalMetadataRow, persistOperation, 
  *  snapshot can ever exclude from a cold load. */
 
 beforeEach(() => {
-  for (const group of Object.values(mockPrisma)) for (const fn of Object.values(group)) fn.mockReset()
+  for (const group of [mockPrisma.room,mockPrisma.roomParticipant,mockPrisma.roomPalette,mockPrisma.operation]) for (const fn of Object.values(group)) fn.mockReset()
+  mockPrisma.$executeRaw.mockReset().mockImplementation(async(_sql:TemplateStringsArray,...values:unknown[])=>{
+    const [id,seq,type,roomId,userId,layerId,tool,body]=values
+    if(typeof body!=='string')throw Error('Canonical JSON must reach database as text')
+    await mockPrisma.operation.create({data:{id,seq,type,roomId,userId,layerId,tool,data:JSON.parse(body)}})
+    return 1
+  })
 })
 
 describe('persistOperation', () => {
@@ -201,4 +208,22 @@ it('persists/indexes closed saved phase ONLY on material7; missing/accessor/lega
   const r={...row,data:bad};expect(()=>projectCanonicalIndexedOperation('r',r)).toThrow()
  }
  expect(getters).toBe(0)
+})
+
+
+it.each([24/220,24/7])('keeps exact F64 canonical JSON at the SQL text boundary (%s)',async sourceScale=>{
+ const op:Operation={id:'lossless',seq:1,type:'canonical_stroke',userId:'u',timestamp:1,layerId:'L',frame:{version:2,rasterProfile:'browser-highp-rgba8-v1',brush:'brush:fixture@1',strokeId:'stroke',frameOrdinal:0,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:sourceScale/4,outerBlend:'over'},sourceScale,materialPacked:'m:fixture'}}
+ expect(await persistOperation('r',op)).toEqual({ok:true,value:undefined})
+ const call=mockPrisma.$executeRaw.mock.calls.at(-1)!,body=call.at(-1)
+ expect(typeof body).toBe('string');const parsed=JSON.parse(body as string)
+ expect(Object.is(parsed.frame.sourceScale,sourceScale)).toBe(true)
+ expect(Object.is(parsed.frame.composition.outerResourceOpacity,sourceScale/4)).toBe(true)
+ expect(call[0].join('?')).toContain('::jsonb')
+ const row=mockPrisma.operation.create.mock.calls.at(-1)![0].data
+ mockPrisma.operation.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(row)
+ mockPrisma.operation.create.mockRejectedValueOnce({code:'P2010',meta:{code:'23505'}})
+ expect(await retryCanonicalOperationWrite('r',op)).toEqual({ok:true,value:undefined})
+ const wrong=structuredClone(row);wrong.data.frame.sourceScale=sourceScale===24/220?0.1090909090909091:3.428571428571428
+ mockPrisma.operation.findUnique.mockResolvedValueOnce(wrong)
+ expect(await retryCanonicalOperationWrite('r',op)).toMatchObject({ok:false})
 })

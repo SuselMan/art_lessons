@@ -62,7 +62,7 @@ export function canonicalToolAvailability(canonical:boolean,contentReady:boolean
      const c=canonicalPixelTextureAuthorAdmission(descriptor,profile,metadata);if(c.supported){scalable=true;newSize=c.nativeSizePx}
     }else if(descriptor.behavior?.dual&&read.pixelMaskedSource==='pixel-masked-v1'&&read.authorPixelMaskedSource==='pixel-masked-v1'){
      const c=extractCanonicalPixelDualSourceData(descriptor,metadata??[],undefined,profile);if(c.supported){scalable=true;newSize=nativeSize}
-    }else if(read.imageMaterialSource==='pixel-image-material-v1'&&read.authorImageMaterialSource==='pixel-image-material-v1'&&descriptor.tip.kind==='bitmap'){
+    }else if(read.imageMaterialSource==='pixel-image-material-v1'&&read.authorImageMaterialSource==='pixel-image-material-v1'&&(data.version===1||data.source.kind==='image')&&descriptor.tip.kind==='bitmap'){
      const c=extractCanonicalPixelImageSourceData(descriptor,metadata??[],profile)
      if(c.supported){scalable=true;newSize=nativeSize}
     }else if(!data.flags.textureEnabled&&read.plainAutoGeometrySource==='dynamic-auto-geometry-v1'&&read.authorPlainAutoGeometrySource==='dynamic-auto-geometry-v1'){

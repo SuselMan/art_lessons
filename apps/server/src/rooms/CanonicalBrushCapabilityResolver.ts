@@ -760,7 +760,7 @@ export class CanonicalBrushCapabilityResolver {
         }
         plainAutoGeometry='dynamic-auto-geometry-v1'
       }
-      const frontier=kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&data.options.some(o=>o.checked&&(['Ratio','Rotation'].includes(o.id)||o.id==='Size'&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure')))
+      const frontier=data.compiled?.version===2&&kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&data.options.some(o=>o.checked&&(['Ratio','Rotation'].includes(o.id)||o.id==='Size'&&o.useCurve&&(o.sensors.length!==1||o.sensors[0].id!=='pressure')))
       const recordedPlain=role==='recorded'&&kind==='defaultAuto'&&data.source.kind==='defaultAuto'&&data.source.density===1&&!data.flags.textureEnabled&&!!this.plainTiltPolicies.plainTiltSource&&canonicalStrokeRasterContract(profile).genericSC
       if(!dynamic&&frontier&&role==='author'){
         const capability=extractCanonicalPlainAutoTiltGeometryData(descriptor)

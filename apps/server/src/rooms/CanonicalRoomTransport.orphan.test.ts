@@ -1,3 +1,4 @@
+import {canonicalOperationSqlMockRow} from './testing/canonicalOperationSqlMock.js'
 import {mkdtempSync,rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -12,11 +13,11 @@ import {prepareAuthorizedJoin} from './roomAccess.js'
 import {recordOperation,adoptLoadedCanonicalWrites} from './operationLog.js'
 import type {CanonicalStoredOperationRow} from './roomPersistence.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn(),deleteMany:vi.fn()},roomParticipant:{upsert:vi.fn()},room:{update:vi.fn()}}))
+const db=vi.hoisted(()=>({$executeRaw:vi.fn(),operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn(),deleteMany:vi.fn()},roomParticipant:{upsert:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const dirs:string[]=[]
 const rows:CanonicalStoredOperationRow[]=[]
-beforeEach(()=>{
+beforeEach(()=>{db.$executeRaw.mockImplementation(async(sql:TemplateStringsArray,...values:unknown[])=>{await db.operation.create({data:canonicalOperationSqlMockRow(sql,values)});return 1});
  rows.length=0;db.roomParticipant.upsert.mockResolvedValue({});db.operation.count.mockResolvedValue(0)
  db.operation.findUnique.mockImplementation(async({where})=>rows.find(row=>row.id===where.id)??null)
  db.operation.create.mockImplementation(async({data})=>{rows.push(data)})

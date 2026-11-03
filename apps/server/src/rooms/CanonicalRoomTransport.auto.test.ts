@@ -1,3 +1,4 @@
+import {canonicalOperationSqlMockRow} from './testing/canonicalOperationSqlMock.js'
 import {mkdtempSync,rmSync,readFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -17,12 +18,12 @@ import {getCanonicalGesturePrefixWithRows} from './snapshotStore.js'
 import {recordOperation} from './operationLog.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn(),findUnique:vi.fn()}}))
+const db=vi.hoisted(()=>({$executeRaw:vi.fn(),operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn(),findUnique:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
 vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows})),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const dirs:string[]=[]
-beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
+beforeEach(()=>{db.$executeRaw.mockImplementation(async(sql:TemplateStringsArray,...values:unknown[])=>{await db.operation.create({data:canonicalOperationSqlMockRow(sql,values)});return 1});db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}

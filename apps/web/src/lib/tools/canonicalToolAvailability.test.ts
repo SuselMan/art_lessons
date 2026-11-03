@@ -1,3 +1,5 @@
+import browserOriginals from '../../engine/src/presets/fixtures/pixelBrowserBindings.native.json'
+import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
 import texturedAutoMetadata from '../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with {type:'json'}
 import softNativeMetadata from '../../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json' with {type:'json'}
 import{pressureTextureFixture}from'../../pages/Room/net/canonicalPressureTexture.testFixture'
@@ -165,4 +167,36 @@ it('genuine plainTilt Marker needs original AUTHOR while historical Basic tools 
  expect(withNew?.options).toEqual(without?.options)
  const stale={...readOnly,authorPlainTiltSource:'plain-auto-tilt-v1' as const,assertCurrent:()=>{throw Error('revoked')}}
  expect(canonicalToolAvailability(true,true,stale,marker)?.options).toHaveLength(0)
+})
+
+
+// Whole actual ad17 Marker Dry original; no altered tip/source/profile metadata.
+function actualMarkerDryLibrary(){
+ const row=browserOriginals.rows[2],value:unknown={schemaVersion:1,brushes:[{descriptor:row.descriptor,name:row.name,source:'actual original metadata',warnings:[]}],assets:row.assets,skipped:[]}
+ if(!isBrushLibrary(value))throw Error("Invalid actual Marker Dry original library");return value
+}
+
+function pixelBrowserRead(){return {authorRasterProfile:B,assertCurrent:()=>({roomId:'test',boardEpoch:0,rasterProfile:B}),plainAutoGeometrySource:'dynamic-auto-geometry-v1' as const,authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1' as const,imageMaterialSource:'pixel-image-material-v1' as const,authorImageMaterialSource:'pixel-image-material-v1' as const}}
+it('routes actual Marker Dry bitmap preview by original defaultAuto source and keeps selected size24 scalable',()=>{
+ const actual=actualMarkerDryLibrary(),brush=actual.brushes[0],source=brush.descriptor.sourceStamp
+ expect(brush.descriptor.tip.kind).toBe('bitmap');expect(source?.version).toBe(2)
+ if(source?.version!==2||source.source.kind!=='defaultAuto')throw Error('Genuine source family changed')
+ expect(source.source.density).toBe(.8);expect(source.source.shape).toBe('rect')
+ const ready=canonicalToolAvailability(true,true,pixelBrowserRead(),actual.brushes,()=>actual.assets)
+ expect(ready?.status).toBe('ready');expect(ready?.options).toEqual([{id:brush.descriptor.id,sizePx:35,scalable:true}])
+ const state=useRoomStore.getState();state.setToolSetting('digitalBrush','brush',brush.descriptor.id);state.setToolSetting('digitalBrush','size',24)
+ useRoomStore.getState().normalizeCanonicalTool(ready!.options)
+ expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(24)
+})
+it('does not use the image policy to grant a bitmap-preview Auto original without its dynamic AUTHOR',()=>{
+ const actual=actualMarkerDryLibrary(),read={...pixelBrowserRead(),authorPlainAutoGeometrySource:undefined}
+ expect(canonicalToolAvailability(true,true,read,actual.brushes,()=>actual.assets)?.options).toEqual([])
+})
+it('keeps actual bitmap image originals scalable only with image AUTHOR and preserves native fallback',()=>{
+ const {brushes,assets}=imageLibrary(),brush=brushes[0],stamp=brush.descriptor.sourceStamp
+ expect(brush.descriptor.tip.kind).toBe('bitmap');if(!stamp)throw Error('Actual image original required');expect(stamp.version===1?'image':stamp.source.kind).toBe('image')
+ const ready=canonicalToolAvailability(true,true,pixelBrowserRead(),[brush],()=>assets)
+ expect(ready?.options).toEqual([{id:brush.descriptor.id,sizePx:7.5,scalable:true}])
+ const dynamicOnly={...pixelBrowserRead(),authorImageMaterialSource:undefined}
+ expect(canonicalToolAvailability(true,true,dynamicOnly,[brush],()=>assets)?.options).toEqual([{id:brush.descriptor.id,sizePx:7.5}])
 })

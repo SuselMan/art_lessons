@@ -1,3 +1,4 @@
+import {canonicalOperationSqlMockRow} from './testing/canonicalOperationSqlMock.js'
 import {mkdtempSync,rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -19,7 +20,7 @@ import {prepareSnapshotReplay} from './snapshotReplayLoader.js'
 import {getCanonicalGesturePrefixWithRows,visitCanonicalGesturePrefixRows,type CanonicalGesturePrefixVisit} from './snapshotStore.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({$transaction:vi.fn(),$queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn(),roomBlock:{findUnique:vi.fn()},roomParticipant:{upsert:vi.fn()},operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomLayerState:{findUnique:vi.fn()},roomLayerSnapshot:{findMany:vi.fn()}}))
+const db=vi.hoisted(()=>({$executeRaw:vi.fn(),$transaction:vi.fn(),$queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn(),roomBlock:{findUnique:vi.fn()},roomParticipant:{upsert:vi.fn()},operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomLayerState:{findUnique:vi.fn()},roomLayerSnapshot:{findMany:vi.fn()}}))
 db.$transaction=vi.fn(async(run:(connection:typeof db)=>Promise<unknown>)=>run(db))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 vi.mock('../db/canonicalIndexedReader.js',()=>({withCanonicalIndexedValidation:async(run:(client:unknown)=>Promise<unknown>)=>run(db)}))
@@ -37,7 +38,7 @@ async function boundedPrefixVisitor(roomId:string,selector:{userId:string;stroke
  return{lastOperation:prefix.operations.at(-1),lastRow:prefix.canonicalRows.at(-1),...prefix.close?{close:prefix.close}:{}}
 }
 const dirs:string[]=[]
-beforeEach(()=>{db.roomBlock.findUnique.mockResolvedValue(null);vi.mocked(getCanonicalGesturePrefixWithRows).mockReset();vi.mocked(visitCanonicalGesturePrefixRows).mockImplementation(boundedPrefixVisitor);db.roomLayerState.findUnique.mockResolvedValue(null);db.roomLayerSnapshot.findMany.mockResolvedValue([]);readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
+beforeEach(()=>{db.$executeRaw.mockImplementation(async(sql:TemplateStringsArray,...values:unknown[])=>{await db.operation.create({data:canonicalOperationSqlMockRow(sql,values)});return 1});db.roomBlock.findUnique.mockResolvedValue(null);vi.mocked(getCanonicalGesturePrefixWithRows).mockReset();vi.mocked(visitCanonicalGesturePrefixRows).mockImplementation(boundedPrefixVisitor);db.roomLayerState.findUnique.mockResolvedValue(null);db.roomLayerSnapshot.findMany.mockResolvedValue([]);readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}

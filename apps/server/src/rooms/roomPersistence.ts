@@ -130,9 +130,26 @@ export function verifyCanonicalMetadataRow(roomId:string,op:CanonicalMetadataOpe
  verifyIndexedOperationRow(roomId,op,row)
 }
 
+/** Canonical binary bodies and their JSON metadata must retain the SAME F64
+ * values. Passing JSON numbers through the ORM engine can shift one ULP before
+ * PostgreSQL receives them. Text is parameterized; PostgreSQL parses Node's
+ * round-trip JSON directly. No interpolation of values into SQL source. */
+async function insertCanonicalOperationRow(row:ReturnType<typeof operationRow>):Promise<void>{
+  const body=JSON.stringify(row.data)
+  await prisma.$executeRaw`INSERT INTO "Operation" ("id","seq","type","roomId","userId","layerId","tool","data")
+    VALUES (${row.id},${row.seq},${row.type},${row.roomId},${row.userId},${row.layerId},${row.tool},${body}::jsonb)`
+}
+function canonicalInsertConflict(error:unknown):boolean{
+  if(!error||typeof error!=='object'||!('code'in error))return false
+  if(error.code==='P2002')return true
+  return error.code==='P2010'&&'meta'in error&&!!error.meta&&typeof error.meta==='object'
+    &&'code'in error.meta&&error.meta.code==='23505'
+}
+
 export function persistOperation(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
   return enqueueWrite(roomId, async () => {
-    await prisma.operation.create({ data: operationRow(roomId, op) })
+    if(op.type==='canonical_stroke'||op.type==='canonical_stroke_close'||op.type==='operation_undo'||op.type==='operation_redo')await insertCanonicalOperationRow(operationRow(roomId,op))
+    else await prisma.operation.create({ data: operationRow(roomId, op) })
     // Deliberately do NOT return/retain the ORM's full operation JSON row.
   })
 }
@@ -150,9 +167,9 @@ export function retryCanonicalOperationWrite(roomId: string, op: Operation): Pro
     const verify = (row: Awaited<ReturnType<typeof read>>) => op.type==='canonical_stroke'?verifyCanonicalOperationRow(roomId,op,row):verifyCanonicalMetadataRow(roomId,op as CanonicalMetadataOperation|CanonicalStrokeCloseOperation,row)
     const row = await read()
     if (row) { verify(row); return }
-    try { await prisma.operation.create({ data: expected }) }
+    try { await insertCanonicalOperationRow(expected) }
     catch (error) {
-      if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2002') throw error
+      if (!canonicalInsertConflict(error)) throw error
       // A concurrent insert (or uncertain first response) is success ONLY when
       // the complete indexed identity and immutable payload really match.
       verify(await read())
