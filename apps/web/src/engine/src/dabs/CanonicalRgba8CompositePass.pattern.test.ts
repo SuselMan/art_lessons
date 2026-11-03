@@ -1,4 +1,4 @@
-import {canonicalRecordedPrimaryTexturePin} from '@grafetto/shared'
+import {canonicalMultiplyPrimaryTexturePin,canonicalPrimaryTextureMultiplyU8,canonicalRecordedPrimaryTexturePin} from '@grafetto/shared'
 import {compositeSourceFused32} from '../presets/sourceFused32'
 import {compositeSourceOver32Scalar} from '../presets/sourceOver32Scalar'
 import {canonicalFixedPrimaryTexturePin,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
@@ -187,5 +187,80 @@ it('maps captured recorded7 phase to SAME uniforms with independent minus-offset
   let getters=0;const bad=structuredClone(pin);Object.defineProperty(bad.phase,'x',{get(){getters++;return 0}})
   const lease=vi.fn(()=>()=>{}),before=s.gl.copyTexSubImage2D.mock.calls.length
   expect(()=>s.pass.drawSource({...s.request,target:{...s.target,lifetime:{kind:'external',owner:{},lease}},source:{...source,pin:bad}})).toThrow();expect(getters).toBe(0);expect(lease).not.toHaveBeenCalled();expect(s.gl.copyTexSubImage2D).toHaveBeenCalledTimes(before)
+ }finally{s.close()}
+})
+
+const grainLimits={width:16,height:16,operations:['over32FusedScalar']as const,primaryGrainPrograms:[{operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'}]as const}
+function multiplyRequest(s:ReturnType<typeof fixture>,strengthU8=128):CanonicalCompositeRequest {
+ const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Expected original source')
+ const pin=canonicalMultiplyPrimaryTexturePin({kind:'canvasTexture',asset:s.pattern.asset.id,law:'hard-multiply-u8-native-v1',width:s.pin.width,height:s.pin.height,periodX:s.pin.width,periodY:s.pin.height,phase:{kind:'resolved-stroke-phase-v1',x:1,y:1},strength:'recorded-grain-v1'},s.pattern.asset)
+ return {...s.request,operation:{kind:'over32FusedScalar',control:{profile:'installed-arm64-scalar-fused-fpcr0-v1',opacity:1}},source:{...source,kind:'primaryGrainMaskRgb',pin,strengthU8}}
+}
+it('precharges an explicit hardMultiply program and preserves shared VERTEX/plain/subtract source bytes',()=>{
+ const s=fixture();try{
+  const plain={width:16,height:16,operations:['over32FusedScalar']as const,texturedOperations:['over32FusedScalar']as const};s.pass.prepare(plain,s.companions)
+  const old=s.shaderSources(s.gl.FRAGMENT_SHADER);s.pass.reset();s.gl.shaderSource.mockClear()
+  const full={...grainLimits,texturedOperations:plain.texturedOperations},b=canonicalRgba8CompositeBudget(plain),g=canonicalRgba8CompositeBudget(full)
+  expect(g.cpuBytes-b.cpuBytes).toBe(8192);expect(g.gpuBytes).toBe(b.gpuBytes)
+  s.pass.prepare(full,s.companions);const fragments=s.shaderSources(s.gl.FRAGMENT_SHADER)
+  expect(s.shaderSources(s.gl.VERTEX_SHADER)).toHaveLength(1);expect(fragments).toHaveLength(3);expect(fragments.slice(0,2)).toEqual(old)
+  expect(fragments[2]).toContain('sampled.r*grain*patternStrength+32603.0');expect(fragments[2]).toContain('floor((biased+floor(biased/128.0))/65536.0)');expect(fragments[2]).toContain('sourceCompositeFusedOver32Scalar(source,destination')
+  const saved=s.snapshot(),textures=s.gl.createTexture.mock.calls.length
+  for(const strength of[0,128,255])expect(s.pass.drawSource(multiplyRequest(s,strength))).toBe('painted')
+  expect(s.snapshot()).toEqual(saved);expect(s.gl.createTexture).toHaveBeenCalledTimes(textures)
+  const compileCount=s.gl.compileShader.mock.calls.length,update=s.pass.prepareCompanionUpdate(s.companions);update.assertCurrent();update.publish();update.finalizeCleanup();expect(s.gl.compileShader).toHaveBeenCalledTimes(compileCount)
+ }finally{s.close()}
+})
+it('requires explicit new grain law/program/OVER, rejecting malformed pins before target lease or copy',()=>{
+ const s=fixture();try{
+  s.pass.prepare({width:16,height:16,operations:['over32FusedScalar']},s.companions)
+  expect(()=>s.pass.drawSource(multiplyRequest(s))).toThrow('not prepared');s.pass.reset();s.pass.prepare(grainLimits,s.companions)
+  const request=multiplyRequest(s),source=request.source;if(source.kind!=='primaryGrainMaskRgb')throw Error('Expected grain')
+  const lease=vi.fn(()=>()=>{}),target={...s.target,lifetime:{kind:'external' as const,owner:{},lease}},copies=s.gl.copyTexSubImage2D.mock.calls.length
+  let getters=0;const phase=Object.defineProperty({},'x',{get(){getters++;return 1}})
+  for(const bad of[{...source,pin:{...source.pin,law:'subtract-u8-v1'}},{...source,pin:{...source.pin,phase}},{...source,strengthU8:256},{...source,pin:{...source.pin,width:2}}]){
+   expect(()=>s.pass.drawSource({...request,target,source:bad} as CanonicalCompositeRequest)).toThrow()
+  }
+  expect(getters).toBe(0);expect(lease).not.toHaveBeenCalled();expect(s.gl.copyTexSubImage2D).toHaveBeenCalledTimes(copies)
+  expect(()=>s.pass.drawSource({...request,operation})).toThrow('Unsupported multiply')
+  const legacy=s.request.source;if(legacy.kind!=='texturedMaskRgb')throw Error('Expected legacy')
+  expect(()=>s.pass.drawSource({...request,source:{...legacy,pin:source.pin} as unknown as CanonicalCompositeRequest['source']})).toThrow()
+ }finally{s.close()}
+})
+it('keeps native hardMultiply triple rounding distinct from nested rounded pairs with independent boundary vectors',()=>{
+ // These fixed values come from the native biased integer law, not GPU readback.
+ expect(canonicalPrimaryTextureMultiplyU8(255,255,255)).toBe(255)
+ expect(canonicalPrimaryTextureMultiplyU8(255,255,0)).toBe(0)
+ expect(canonicalPrimaryTextureMultiplyU8(1,128,255)).toBe(1)
+ expect(canonicalPrimaryTextureMultiplyU8(128,128,128)).toBe(32)
+ expect(canonicalPrimaryTextureMultiplyU8(1,128,128)).toBe(0) // nested pair-rounding gives1
+})
+
+it('denies uncharged multiply compilation and cleans a failed new fragment including primary undefined before retry',()=>{
+ const s=fixture();try{
+  const plain=canonicalRgba8CompositeBudget({width:16,height:16,operations:['over32FusedScalar']})
+  const release=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-plain.cpuBytes),created=s.gl.createShader.mock.calls.length
+  try{expect(()=>s.pass.prepare(grainLimits,s.companions)).toThrow('budgets');expect(s.gl.createShader).toHaveBeenCalledTimes(created)}finally{release()}
+  const baseline=s.cpu.reservedBytes,gpu=s.cache.bytes,saved=s.snapshot(),status=s.gl.getShaderParameter
+  let fragments=0
+  s.gl.getShaderParameter=(shader:unknown,key:number)=>{
+   if(s.shaderTypes.get(shader as object)===s.gl.FRAGMENT_SHADER&&++fragments===2)throw undefined
+   return status(shader,key)
+  }
+  let thrown=false,primary:unknown;try{s.pass.prepare(grainLimits,s.companions)}catch(error){thrown=true;primary=error}
+  expect(thrown).toBe(true);expect(primary).toBeUndefined();expect(s.pass.isReady()).toBe(false);expect(s.cpu.reservedBytes).toBe(baseline);expect(s.cache.bytes).toBe(gpu);expect(s.snapshot()).toEqual(saved)
+  expect(s.gl.deleteShader).toHaveBeenCalledTimes(3);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(1)
+  s.gl.getShaderParameter=status;expect(s.pass.prepare(grainLimits,s.companions)).toBe('ready')
+ }finally{s.close()}
+})
+it('uses SAME phase/crop uniforms for hardMultiply and rejects accessor program declarations without callbacks',()=>{
+ const s=fixture();try{
+  let getters=0;const entry={operation:'over32FusedScalar',get law(){getters++;return 'hard-multiply-u8-native-v1'}}
+  expect(()=>canonicalRgba8CompositeBudget({...grainLimits,primaryGrainPrograms:[entry]} as unknown as Parameters<typeof canonicalRgba8CompositeBudget>[0])).toThrow();expect(getters).toBe(0)
+  s.pass.prepare(grainLimits,s.companions);const req=multiplyRequest(s),saved=s.snapshot()
+  expect(s.pass.drawSource({...req,writeBounds:{minX:11,minY:21,maxX:13,maxY:24}})).toBe('painted');expect(s.snapshot()).toEqual(saved)
+  expect(s.gl.uniform2f).toHaveBeenCalledWith(expect.objectContaining({name:'patternPeriod'}),3,2)
+  expect(s.gl.uniform2f).toHaveBeenCalledWith(expect.objectContaining({name:'patternPhase'}),0,0)
+  expect(s.gl.uniform1f).toHaveBeenCalledWith(expect.objectContaining({name:'patternStrength'}),128)
  }finally{s.close()}
 })

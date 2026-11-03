@@ -1,7 +1,7 @@
 import {assertBrushGlMutationIdle} from './BrushGlBatch';
 import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
-import {canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
+import {canonicalMultiplyPrimaryTexturePin,type CanonicalMultiplyPrimaryTexturePin,canonicalRecordedPrimaryTexturePin, type CanonicalRecordedPrimaryTexturePin, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, canonicalPressureCurvePrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, type CanonicalPressureCurvePrimaryTexturePin, type CanonicalFixedPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
 import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
@@ -76,6 +76,14 @@ export type CanonicalCompositeSource = {
     readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin;
     readonly strengthU8:number;
 } | {
+    /** Explicit new grain law; historical texturedMaskRgb stays subtract-only. */
+    readonly kind:'primaryGrainMaskRgb';
+    readonly view:TransformedMaskView;
+    readonly rgb:readonly [number,number,number];
+    readonly pattern:CanonicalPatternResource;
+    readonly pin:CanonicalMultiplyPrimaryTexturePin;
+    readonly strengthU8:number;
+} | {
     readonly kind: 'straightRgba8';
     readonly view: CanonicalRgba8SourceView;
 };
@@ -122,6 +130,7 @@ export interface CanonicalCompositeLimits {
     readonly operations?: readonly CanonicalCompositeOperationKind[];
     /** Explicit additional source-law variant; never an implicit plain-mask fallback. */
     readonly texturedOperations?:readonly CanonicalTexturedCompositeOperation[];
+    readonly primaryGrainPrograms?:readonly CanonicalPrimaryGrainProgram[];
 }
 interface Resource {
     readonly key: string;
@@ -148,7 +157,25 @@ const TEXTURED_OPERATIONS=['alphaDarken32FusedScalar','alphaDarkenBrowserFloat',
 type CanonicalTexturedCompositeOperation=typeof TEXTURED_OPERATIONS[number];
 const isTexturedOperation=(kind:CanonicalCompositeOperationKind):kind is CanonicalTexturedCompositeOperation=>TEXTURED_OPERATIONS.some(value=>value===kind);
 const texturedProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:subtract-u8-v1` as const;
-type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>;
+export interface CanonicalPrimaryGrainProgram {
+    readonly operation:'over32FusedScalar';
+    readonly law:'hard-multiply-u8-native-v1';
+}
+const multiplyProgram='over32FusedScalar:hard-multiply-u8-native-v1' as const;
+function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly CanonicalPrimaryGrainProgram[] {
+    const selected=limits.primaryGrainPrograms??[];
+    if(!Array.isArray(selected)||selected.length>1)throw new RangeError('Invalid primary grain programs');
+    for(let i=0;i<selected.length;i++){
+        const item=Object.getOwnPropertyDescriptor(selected,String(i));
+        if(!item||!Object.hasOwn(item,'value'))throw new RangeError('Invalid primary grain program item');
+        const entry:unknown=item.value;
+        if(!entry||typeof entry!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(entry))||Reflect.ownKeys(entry).length!==2)throw new RangeError('Invalid primary grain program');
+        const operation=Object.getOwnPropertyDescriptor(entry,'operation'),law=Object.getOwnPropertyDescriptor(entry,'law');
+        if(!operation||!Object.hasOwn(operation,'value')||operation.value!=='over32FusedScalar'||!law||!Object.hasOwn(law,'value')||law.value!=='hard-multiply-u8-native-v1'||!operationsFor(limits).includes(operation.value))throw new RangeError('Invalid primary grain program');
+    }
+    return selected.length?[Object.freeze({operation:'over32FusedScalar',law:'hard-multiply-u8-native-v1'})]:[];
+}
+type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
@@ -174,7 +201,7 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
     if (!whole(limits.width, 1) || !whole(limits.height, 1) || limits.width > 4096 || limits.height > 4096
         || limits.width * limits.height > 1048576)
         throw new RangeError('Invalid canonical composite capacity');
-    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length) };
+    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length+primaryGrainProgramsFor(limits).length) };
 }
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
@@ -237,6 +264,14 @@ void main(){`)
   highp float grain=floor(texture2D(patternTexture,(cell+0.5)/patternSide).r*255.0+0.5);
   highp float coverage=max(0.0,sampled.r-grain-(255.0-patternStrength));
   highp vec4 source=vec4(pigment,coverage);`);
+}
+function multiplyFragmentFor():string {
+    const base=texturedFragmentFor('over32FusedScalar');
+    const old='highp float coverage=max(0.0,sampled.r-grain-(255.0-patternStrength));';
+    if(!base.includes(old))throw new Error('Multiply texture template changed');
+    // max triple255^3 + bias + floor(biased/128) <2^24, exact highp integers.
+    return base.replace(old,`highp float biased=sampled.r*grain*patternStrength+32603.0;
+  highp float coverage=floor((biased+floor(biased/128.0))/65536.0);`);
 }
 interface ProgramInfo {
     program: WebGLProgram;
@@ -301,7 +336,7 @@ export class CanonicalRgba8CompositePass {
             if([...group.values()].reduce((a,b)=>a+b,0)+budget.gpuBytes>this.cache.budgetBytes||Math.max(this.cpu.reservedBytes-this.reservedCpuBytes,companionCpuBytes)+budget.cpuBytes>this.cpu.budgetBytes)throw new RangeError('Composite working set exceeds brush budgets')
             const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
             if(!precision||precision.precision<23||Math.max(limits.width,limits.height)>maximum)throw new RangeError('Unverified composite GPU capability')
-            if(texturedOperationsFor(limits).length&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range')
+            if((texturedOperationsFor(limits).length||primaryGrainProgramsFor(limits).length)&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range')
             let next:readonly Resource[]|undefined=Object.freeze([...group].map(([key,bytes])=>Object.freeze({key,bytes})))
             const scalar=()=>state==='pending'&&owner.pass.companionUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.companions===oldCompanions&&!owner.pass.batch&&!owner.pass.busy
             const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Composite companion update changed')}
@@ -325,9 +360,9 @@ export class CanonicalRgba8CompositePass {
         if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
         if (signal?.aborted)
             return 'cancelled';
-        const operations = operationsFor(limits),texturedOperations=texturedOperationsFor(limits);
+        const operations = operationsFor(limits),texturedOperations=texturedOperationsFor(limits),primaryGrainPrograms=primaryGrainProgramsFor(limits);
         if(this.limits){
-            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||texturedOperations.join(',')!==texturedOperationsFor(this.limits).join(',')||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
+            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||texturedOperations.join(',')!==texturedOperationsFor(this.limits).join(',')||primaryGrainPrograms.length!==primaryGrainProgramsFor(this.limits).length||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
             const update=this.prepareCompanionUpdate(companions,companionCpuBytes);update.publish();update.finalizeCleanup();return 'ready'
         }
         const budget = canonicalRgba8CompositeBudget(limits), group = new Map<string, number>();
@@ -342,7 +377,7 @@ export class CanonicalRgba8CompositePass {
         const precision = this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER, this.gl.HIGH_FLOAT);
         if (!precision || precision.precision < 23 || Math.max(limits.width, limits.height) > maximum)
             throw new RangeError('Unverified composite GPU capability');
-        if(texturedOperations.length&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range');
+        if((texturedOperations.length||primaryGrainPrograms.length)&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range');
         if (this.cache.resourceBytes(this.key) !== undefined)
             throw new Error('Canonical composite resource scope is already owned');
         const textureStorage=reserveContextStorage(this.gl,limits.width*limits.height*4,'brush-texture-rgba-equivalent');
@@ -372,6 +407,7 @@ export class CanonicalRgba8CompositePass {
             if(!gl.getShaderParameter(vertex,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(vertex));
             for(const kind of operations)programs.set(kind,this.compile(kind,vertex));
             for(const kind of texturedOperations)programs.set(texturedProgram(kind),this.compile(kind,vertex,true));
+            if(primaryGrainPrograms.length)programs.set(multiplyProgram,this.compile('over32FusedScalar',vertex,'multiply'));
             // Cleanup failure is fatal BEFORE workspace/program publication.
             const completedVertex=vertex;vertex=null;gl.deleteShader(completedVertex);
             const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
@@ -386,7 +422,7 @@ export class CanonicalRgba8CompositePass {
                 if(bad)throw first;
             });loose.push(bundle);auxTransferred=true;
             this.workspace=owned;this.cache.putOwned(this.key,bundle);
-            this.limits={...limits,operations,texturedOperations};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
+            this.limits={...limits,operations,texturedOperations,primaryGrainPrograms};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
             this.releaseCpu=releaseCpu;this.reservedCpuBytes=budget.cpuBytes;retainedCpu=true;cancelled=!!signal?.aborted;
         }catch(error){failed=true;failure=error}
         finally{
@@ -461,7 +497,7 @@ export class CanonicalRgba8CompositePass {
         if (bounds !== undefined && (!bounds || ![bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].every(Number.isSafeInteger)
             || bounds.maxX < bounds.minX || bounds.maxY < bounds.minY))
             throw new RangeError('Invalid composite write bounds');
-        const pattern=source.kind==='texturedMaskRgb'?this.validatePattern(source):undefined;
+        const pattern=source.kind==='texturedMaskRgb'||source.kind==='primaryGrainMaskRgb'?this.validatePattern(source):undefined;
         const sampled = this.validateSource(source);
         this.validateTarget(target);
         if (base !== target) this.validateTarget(base);
@@ -470,7 +506,8 @@ export class CanonicalRgba8CompositePass {
             throw new RangeError('Immutable destination geometry must match the output target');
         if (!this.isReady() || !this.workspace || !this.limits)
             throw new Error('Composite pass is not prepared');
-        const info = this.workspace.programs.get(pattern?texturedProgram(operation.kind):operation.kind);
+        if(source.kind==='primaryGrainMaskRgb'&&operation.kind!=='over32FusedScalar')throw new RangeError('Unsupported multiply operation');
+        const info = this.workspace.programs.get(source.kind==='primaryGrainMaskRgb'?multiplyProgram:pattern?texturedProgram(operation.kind):operation.kind);
         if(pattern&&!isTexturedOperation(operation.kind))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
@@ -651,12 +688,12 @@ export class CanonicalRgba8CompositePass {
         if(failed)throw primary;
     }
 
-    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin;strengthU8:number;phaseX:number;phaseY:number} {
+    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'|'primaryGrainMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin|CanonicalPressureCurvePrimaryTexturePin|CanonicalRecordedPrimaryTexturePin|CanonicalMultiplyPrimaryTexturePin;strengthU8:number;phaseX:number;phaseY:number} {
         const view=source.pattern;
         assertCanonicalPatternResourceCurrent(view,{gl:this.gl,cache:this.cache,cpu:this.cpu});
         const strength=Object.getOwnPropertyDescriptor(source.pin,'strength');
         if(!strength||!Object.hasOwn(strength,'value'))throw new TypeError('Invalid textured strength pin');
-        const pin=strength.value==='recorded-grain-v1'?canonicalRecordedPrimaryTexturePin(source.pin,view.asset):strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
+        const pin=source.kind==='primaryGrainMaskRgb'?canonicalMultiplyPrimaryTexturePin(source.pin,view.asset):strength.value==='recorded-grain-v1'?canonicalRecordedPrimaryTexturePin(source.pin,view.asset):strength.value==='source-pressure-curve-v1'?canonicalPressureCurvePrimaryTexturePin(source.pin,[view.asset]):strength.value==='fixed-one-v1'?canonicalFixedPrimaryTexturePin(source.pin,view.asset):canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
         if(pin.strength==='fixed-one-v1'&&strengthU8!==255)throw new RangeError('Fixed texture requires S255');
         if(!whole(side,1)||side>4096||(side&(side-1))!==0||view.height!==side||!whole(strengthU8)||Object.is(strengthU8,-0)||strengthU8>255)throw new RangeError('Invalid textured composite source');
         return {view,pin,strengthU8,phaseX:pin.strength==='recorded-grain-v1'?pin.phase.x:pin.offsetX,phaseY:pin.strength==='recorded-grain-v1'?pin.phase.y:pin.offsetY};
@@ -675,7 +712,7 @@ export class CanonicalRgba8CompositePass {
             || view.bounds.x < 0 || view.bounds.y < 0 || view.bounds.width <= 0 || view.bounds.height <= 0 || view.bounds.x + view.bounds.width > 1 || view.bounds.y + view.bounds.height > 1
             || !view.mirror || typeof view.mirror.horizontal !== 'boolean' || typeof view.mirror.vertical !== 'boolean')
             throw new RangeError('Invalid composite source view');
-        if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb') {
+        if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb'||source.kind==='primaryGrainMaskRgb') {
             const mask = source.view;
             if (mask.channel !== 'r' || !mask.key || !Array.isArray(source.rgb) || source.rgb.length !== 3 || !source.rgb.every(v => whole(v) && v <= 255))
                 throw new RangeError('Invalid mask source/pigment bytes');
@@ -745,7 +782,7 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured=false): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'=false): ProgramInfo {
         const gl=this.gl;
         let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
         let failed=false,failure:unknown;
@@ -753,7 +790,7 @@ export class CanonicalRgba8CompositePass {
         try {
             fragment=gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragment)throw new Error('Composite shader allocation failed');
-            gl.shaderSource(fragment,textured?texturedFragmentFor(kind):fragmentFor(kind));
+            gl.shaderSource(fragment,textured==='multiply'?multiplyFragmentFor():textured?texturedFragmentFor(kind):fragmentFor(kind));
             gl.compileShader(fragment);
             if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
             program=gl.createProgram();
