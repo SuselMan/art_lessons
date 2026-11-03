@@ -1292,7 +1292,7 @@ export class CanonicalWashLayerCoordinator {
     try {
       const turnStarted = performance.now()
       this.assertLayers()
-      if(this.options.mixedReplay7){this.assertMixedSourcesCurrent();return this.advanceMixed(turnStarted)}
+      if(this.options.mixedReplay7){this.assertMixedSourcesCurrent();return this.advanceMixed(turnStarted,options.deferPresentation===true)}
       if(this.options.previewCandidate)return this.advancePreview(turnStarted)
       const frontier = this.commitFrontier()
       const preparing=this.queue.findIndex(entry=>!('kind'in entry)&&entry.executor.hasPendingLayerTargetPreparation)
@@ -1554,14 +1554,14 @@ export class CanonicalWashLayerCoordinator {
     this.assertRecordedCurrent();this.assertLayers();if(mixed)this.assertMixedSourcesCurrent()
     this.previewFailure=undefined;this.previewBoundaryReady=false
   }
-  private advanceMixed(turnStarted:number):CanonicalPreviewOutcome|undefined {
+  private advanceMixed(turnStarted:number,deferPresentation=false):CanonicalPreviewOutcome|undefined {
     if(!this.options.previewCandidate)throw Error('Mixed candidate staging owner missing')
     if(!this.candidate){
       // External retained snapshots freeze raw too. Admission can continue;
       // consumption waits for that SAME owner to release the view.
       if(this.replayWork)return
       const head=this.queue[0]
-      if(head&&'kind'in head&&(!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
+      if(head&&'kind'in head&&(deferPresentation||!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
         this.queue.shift();head.ticket.release();this.previewBoundaryReady=true
         this.assertRecordedCurrent();this.assertLayers()
         if(this.closed||this.failed||!this.busy)throw Error('Mixed frontier retired during release')
@@ -1578,11 +1578,12 @@ export class CanonicalWashLayerCoordinator {
         if(this.advanceEntry(this.previewLane,index)){this.previewLane=undefined;this.previewBoundaryReady=true}
         return
       }
-      if(head&&!('kind'in head)&&(!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
+      if(head&&!('kind'in head)&&(deferPresentation||!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
         this.previewLane=head
         if(this.advanceEntry(head,0)){this.previewLane=undefined;this.previewBoundaryReady=true}
         return
       }
+      if(deferPresentation)return
     }
     return this.advancePreview(turnStarted)
   }

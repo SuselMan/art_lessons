@@ -1,3 +1,4 @@
+import {compositeSourceFused32} from '../presets/sourceFused32'
 import {prepareCanonicalRoomState} from '../../../pages/Room/net/canonicalRoomState'
 import {describe,it,expect,vi} from 'vitest'
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalDefaultAutoSourceBinding,buildCanonicalMaterial,prepareCanonicalRecordedAttachment,type BrushDescriptor,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type Operation,type CanonicalStrokeCloseOperation,type ServerToClientEvents} from '@grafetto/shared'
@@ -765,3 +766,83 @@ describe('owner-scoped active replay retention', () => {
         expect(s.coordinator['replayBytes']).toBe(0);
     });
 });
+
+// Real material2 recorded delivery and native execution. The scalar shadow is
+// one fully covered sample with installed fused CPU math, not recordingGL pixels.
+function mixedDeferredWashFixture(){
+ const s=fixture(),options=s.coordinator['options'];s.coordinator.cancel()
+ let stable=s.layer,derived:TiledLayerBuffer|undefined=s.derived
+ const stagedBuffers:TiledLayerBuffer[]=[],stagedCuts:number[][]=[],pixels=new Map<WebGLTexture,Uint8Array>()
+ const clear=AccumulationBuffer.prototype.clear,copy=AccumulationBuffer.prototype.copyTo
+ const clearSpy=vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){clear.call(this);pixels.set(this.texture,new Uint8Array(4))})
+ const copySpy=vi.spyOn(AccumulationBuffer.prototype,'copyTo').mockImplementation(function(this:AccumulationBuffer,target:AccumulationBuffer){copy.call(this,target);pixels.set(target.texture,(pixels.get(this.texture)??new Uint8Array(4)).slice())})
+ const native=s.composite.drawSource.bind(s.composite),draw=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{
+  const result=native(request,frame);if(result==='empty')return result
+  const operation=request.operation
+  if(operation.kind!=='alphaDarken32FusedScalar'&&operation.kind!=='over32FusedScalar')throw Error('Fixture requires installed fused law')
+  const control=operation.control,source=request.source.kind==='maskRgb'?Uint8Array.from([...request.source.rgb,255]):pixels.get(request.source.view.texture)??new Uint8Array(4)
+  const destination=pixels.get((request.readDestination??request.target).texture)??new Uint8Array(4)
+  pixels.set(request.target.texture,compositeSourceFused32({profile:'installed-arm64-vector32-fused-fpcr0-v1',operator:operation.kind==='over32FusedScalar'?'over':'variant'in control&&control.variant==='hard'?'alphaDarkenHard':'alphaDarkenCreamy',source,destination,cols:1,rows:1,sourceStride:4,destinationStride:4,maskStride:0,sourceAlignment:0,destinationAlignment:0,opacity:control.opacity,averageOpacity:'averageOpacity'in control?control.averageOpacity:control.opacity,flow:'flow'in control?control.flow:1}).pixels)
+  return result
+ })
+ const stage=vi.fn(()=>{
+  stagedCuts.push(coordinator['entries'].map(entry=>entry.depositedNextOrdinal))
+  const previous=derived,buffer=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8');stagedBuffers.push(buffer);let pending=true
+  return {buffer,assertCurrent(){if(!pending||derived!==previous)throw Error('Staged view changed')},cancel(){if(!pending)return;pending=false;buffer.destroy()},finish(old:TiledLayerBuffer,disposition='display'){if(!pending||old!==previous||(disposition==='closed-handoff'?stable!==buffer||derived!==undefined:derived!==buffer))throw Error('Publication pointer mismatch');pending=false;old.destroy()}}
+ })
+ const coordinator=new CanonicalWashLayerCoordinator({...options,mixedReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stage,layer:id=>({...options.layer(id),buffer:stable}),presentation:()=>({buffer:derived!,epoch:0})})
+ const publish=(ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication)=>{ticket.assertCurrent();ticket.publish();if(ticket.disposition==='closed-handoff'){stable=ticket.buffer;derived=undefined}else derived=ticket.buffer;ticket.finish()}
+ const step=(defer=false)=>{const result=coordinator.advance(defer?{deferPresentation:true}:undefined);if(result?.kind==='preview-ready')publish(result.ticket);return result}
+ const drain=(defer=false)=>{let turns=0;while(defer?coordinator.executionPending:coordinator.pending){if(++turns>2000)throw Error('Mixed deferred drain stalled');step(defer)}}
+ return {...s,coordinator,stage,stagedCuts,draw,step,drain,publish,stable:()=>stable,pixel:()=>{const texture=stable.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0].buffer.texture;return [...(pixels.get(texture)??new Uint8Array(4))]},close(){try{coordinator.cancel();for(const buffer of stagedBuffers)buffer.destroy()}finally{draw.mockRestore();copySpy.mockRestore();clearSpy.mockRestore();s.close()}}}
+}
+it('mixed indexed adjacent material2 WASH defers new candidates, preserves commands and final fused sample',()=>{
+ const run=(defer:boolean)=>{
+  const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0),log:string[]=[]
+  try{
+   for(let ordinal=0;ordinal<4;ordinal++){
+    const input=s.input('author',ordinal,ordinal+1,ordinal===3,true,ordinal);log.push(input.operation.id);s.coordinator.enqueueRecorded(input)
+    s.drain(defer&&ordinal<3)
+    if(defer&&ordinal<3){expect(s.stage).not.toHaveBeenCalled();expect(s.coordinator.presentationReady).toBe(false);expect(s.coordinator.checkpointReady).toBe(false)}
+   }
+   const commands=s.draw.mock.calls.filter(([r])=>r.source.kind==='maskRgb').map(([r])=>({operation:r.operation,writeBounds:r.writeBounds}))
+   const outer=s.draw.mock.calls.filter(([r])=>r.source.kind==='straightRgba8').at(-1)?.[0].operation
+   const pixel=s.pixel();expect(pixel[3]).toBeGreaterThan(0);expect(s.coordinator.queuedFrameCount).toBe(0)
+   return {commands,outer,pixel,log,stages:s.stage.mock.calls.length,cuts:s.stagedCuts}
+  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+ const ordinary=run(false),deferred=run(true)
+ expect(deferred.commands).toEqual(ordinary.commands);expect(deferred.commands).toHaveLength(4)
+ expect(deferred.outer).toEqual(ordinary.outer);expect(deferred.pixel).toEqual(ordinary.pixel);expect(deferred.log).toEqual(ordinary.log)
+ // Nondeferred final boundary first presents the already deposited3, then real END4.
+ expect(deferred.cuts).toEqual([[3],[4]]);expect(deferred.stages).toBeLessThan(ordinary.stages)
+})
+it('mixed indexed defer completes an already active candidate without advancing its frozen WASH raw',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,false,true,0));let turns=0
+  while(!s.coordinator['candidate']){if(++turns>1000)throw Error('No candidate');s.step()}
+  const candidate=s.coordinator['candidate'],entry=s.coordinator['entries'][0],deposited=entry.depositedNextOrdinal
+  s.coordinator.enqueueRecorded(s.input('author',1,2,false,true,1));let published=false
+  while(!published){if(++turns>2000)throw Error('Candidate stalled');expect(s.coordinator['candidate']).toBe(candidate);const result=s.step(true);published=result?.kind==='preview-ready';expect(entry.depositedNextOrdinal).toBe(deposited)}
+  s.drain(true);expect(entry.depositedNextOrdinal).toBe(deposited+1);s.drain();expect(s.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('mixed indexed deferred dirty WASH still validates original lifetime before staging and cancels all ownership',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,false,true));s.drain(true);expect(s.stage).not.toHaveBeenCalled()
+  s.stale();expect(()=>s.step(true)).toThrow('stale');expect(s.stage).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('mixed indexed empty-queue defer keeps dirty END unallocated until explicit normal final flush',()=>{
+ const s=mixedDeferredWashFixture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,true,true));s.drain(true)
+  expect(s.coordinator.executionPending).toBe(false);expect(s.coordinator.pending).toBe(true)
+  const bytes=s.cpu.reservedBytes,alloc=s.gl.texImage2D.mock.calls.length
+  s.step(true);expect(s.stage).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(bytes);expect(s.gl.texImage2D.mock.calls.length).toBe(alloc)
+  s.drain();expect(s.stage).toHaveBeenCalledTimes(1);expect(s.pixel()[3]).toBeGreaterThan(0);expect(s.coordinator.queuedFrameCount).toBe(0)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})

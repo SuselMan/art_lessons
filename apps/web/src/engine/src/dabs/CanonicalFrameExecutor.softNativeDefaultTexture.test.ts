@@ -1036,15 +1036,16 @@ it('mixed genuine FIRST reorder cancels healthy active OPEN child once and resta
  try{
   const local=s.author('local-L');expect(s.coordinator.tryEnqueueLocal(local,mixedOpenOperation(s,'local-L'))).toBe(true);s.publish(mixedReady(s))
   const old=s.currentPresentation();expect(s.coordinator.tryEnqueueLocal(local,tailSuffixOperation(s,'local-L',1))).toBe(true)
-  let now=0;clock.mockImplementation(()=>++now)
-  const draw=vi.spyOn(s.composite,'drawSource');let active=false
-  for(let i=0;i<500;i++){s.coordinator.advance();const child=s.coordinator['candidate']?.mixed?.child;if(child&&child.pending&&draw.mock.calls.length){active=true;break}}
+  let now=0;clock.mockImplementation(()=>now)
+  const nativeDraw=s.composite.drawSource.bind(s.composite)
+  const draw=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{const result=nativeDraw(request,frame);if(request.source.kind==='texturedMaskRgb')now+=4;return result});let active=false
+  for(let i=0;i<500;i++){now=0;s.coordinator.advance();const child=s.coordinator['candidate']?.mixed?.child;if(child&&child.pending&&draw.mock.calls.length){active=true;break}}
   expect(active).toBe(true)
   const abandoned=s.coordinator['candidate']!,stage=abandoned.staged,cancel=vi.spyOn(stage,'cancel'),entries=s.coordinator['entries'].slice(),journal=s.coordinator['replay'].size
   s.coordinator.enqueueRecorded(s.recorded(s.operation('recorded-Q'),1))
   expect(()=>s.coordinator.advance()).not.toThrow();expect(cancel).toHaveBeenCalledTimes(1);expect(s.currentPresentation()).toBe(old);expect(s.coordinator.poisoned).toBe(false)
   expect(s.coordinator['entries']).toContain(entries[0]);expect(s.coordinator['replay'].size).toBe(journal+1);expect(s.coordinator['candidate']).toBeUndefined()
-  clock.mockReturnValue(0);const next=mixedReady(s),work=s.coordinator['replayWork'];if(!work||!('snapshot'in work))throw Error('Mixed work required')
+  draw.mockRestore();clock.mockReturnValue(0);const next=mixedReady(s),work=s.coordinator['replayWork'];if(!work||!('snapshot'in work))throw Error('Mixed work required')
   const groups=work.snapshot.groups!();expect(groups[0].frames[0].frame.strokeId).toBe('recorded-Q');expect(groups[1].frames[0].frame.strokeId).toBe('local-L')
   expect(s.currentPresentation()).toBe(old);s.publish(next);expect(s.coordinator.poisoned).toBe(false);expect(cancel).toHaveBeenCalledTimes(1)
  }finally{clock.mockRestore();s.close()}
@@ -1381,8 +1382,8 @@ it('mixed frame-turn reuses SAME child for multiple completed cheap captured fra
 })
 it('mixed frame-turn never spins a pending child and never starts another frame after outer budget',()=>{
  const s=frameTurnCohort();let now=0,steps=0,sawPending=false
- const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),advance=CanonicalFrameExecutor.prototype.advance,enqueue=CanonicalFrameExecutor.prototype.enqueue
- const calls=vi.spyOn(CanonicalFrameExecutor.prototype,'advance').mockImplementation(function(this:CanonicalFrameExecutor){steps++;return advance.call(this)})
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),advance=CanonicalFrameExecutor.prototype.advanceWithinTurn,enqueue=CanonicalFrameExecutor.prototype.enqueue
+ const calls=vi.spyOn(CanonicalFrameExecutor.prototype,'advanceWithinTurn').mockImplementation(function(this:CanonicalFrameExecutor,turnStarted){steps++;return advance.call(this,turnStarted)})
  const starts:{ordinal:number;at:number}[]=[]
  const enqueues=vi.spyOn(CanonicalFrameExecutor.prototype,'enqueue').mockImplementation(function(this:CanonicalFrameExecutor,input){starts.push({ordinal:input.ordinal,at:now});return enqueue.call(this,input)})
  const draw=s.composite.drawSource.bind(s.composite),draws=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{const result=draw(request,frame);if(request.source.kind==='texturedMaskRgb')now+=4;return result})
