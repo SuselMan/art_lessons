@@ -41,3 +41,34 @@ it('retains the original Soft lookup across a dual image/Soft PREP rebind withou
  expect(()=>new SourceStrokeAuthor(program.program)).not.toThrow()
  expect(S.canonicalBrushDescriptorJSON(d)).toBe(before)
 })
+
+it('rejects an unknown original CompositeOp before Pixel author admission instead of inheriting the importer normal approximation',()=>{
+ const row=originals.rows[1],d=structuredClone(row.descriptor) as unknown as S.BrushDescriptor
+ if(!d.sourceStamp)throw Error('Original SOURCE fixture missing')
+ d.sourceStamp.settings.CompositeOp='unknown-native-composite-regression'
+ // Importer compatibility warnings belong to the catalog row, not the
+ // descriptor. The retained original setting must close admission itself.
+ expect(S.isSourceStampData(d.sourceStamp)).toBe(true)
+ expect(S.canonicalPixelSourceComposition(d,B)).toBeUndefined()
+ expect(()=>S.canonicalPixelTextureSourceBinding(d,sha(d),row.assets,'browser-number-coverage-v1',B)).toThrow()
+})
+
+it.each([['normal','normal','over'],['multiply','multiply','multiply'],['lighten','lighten','lighten'],['dodge','colorDodge','colorDodge'],['overlay','overlay','overlay'],['color','color','colorHsyBrowser']] as const)('preserves the original native %s alias and rejects a different mapped outer law', (raw,mapped,outer)=>{
+ const d=structuredClone(originals.rows[1].descriptor) as unknown as S.BrushDescriptor
+ if(!d.sourceStamp)throw Error('Original SOURCE fixture missing')
+ d.sourceStamp.settings.CompositeOp=raw
+ Object.assign(d.behavior!.rendering!,{blendMode:mapped})
+ expect(S.canonicalPixelSourceComposition(d,B)).toEqual({mode:'wash',outerBlend:outer})
+ d.sourceStamp.settings.CompositeOp='normal'
+ if(raw!=='normal')expect(S.canonicalPixelSourceComposition(d,B)).toBeUndefined()
+})
+
+it.each(['normal','erase','destination-out'])('preserves the explicit eraser override with recognized raw %s',raw=>{
+ const d=structuredClone(originals.rows[1].descriptor) as unknown as S.BrushDescriptor
+ if(!d.sourceStamp)throw Error('Original SOURCE fixture missing')
+ d.sourceStamp.settings.CompositeOp=raw
+ Object.assign(d.behavior!,{erase:true})
+ expect(S.canonicalPixelSourceComposition(d,B)).toEqual({mode:'wash',outerBlend:'erase'})
+ d.sourceStamp.settings.CompositeOp='unknown-native-composite-regression'
+ expect(S.canonicalPixelSourceComposition(d,B)).toBeUndefined()
+})

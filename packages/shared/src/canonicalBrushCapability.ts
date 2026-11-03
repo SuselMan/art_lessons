@@ -45,6 +45,9 @@ export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProf
 /** Named Pixel composition extension. The browser HSY law is explicit and
  * never admitted by the historical native composition selector. */
 export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):ReturnType<typeof canonicalSourceComposition>{
+ const raw=descriptor.sourceStamp?.settings.CompositeOp??'normal'
+ const aliases:Readonly<Record<string,string>>={normal:'normal',multiply:'multiply',screen:'screen',overlay:'overlay',darken:'darken',lighten:'lighten',burn:'colorBurn',dodge:'colorDodge',linear_burn:'linearBurn',linear_dodge:'add',add:'add',subtract:'subtract',diff:'difference',exclusion:'exclusion',soft_light:'softLight',hard_light:'hardLight',divide:'divide',hue:'hue',saturation:'saturation',color:'color',luminosity:'luminosity','linear light':'linearLight',vivid_light:'vividLight',pin_light:'pinLight','hard mix':'hardMix',hard_mix_photoshop:'hardMix','darker color':'darkerColor','lighter color':'lighterColor',erase:'erase','destination-out':'erase'}
+ if(!Object.hasOwn(aliases,raw)||!descriptor.behavior?.erase&&aliases[raw]!== (descriptor.behavior?.rendering?.blendMode??'normal'))return
  if(descriptor.behavior?.erase){
   let contract:ReturnType<typeof canonicalStrokeRasterContract>
   try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return}
