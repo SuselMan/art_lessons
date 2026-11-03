@@ -104,3 +104,31 @@ it('plain geometry original READ preserves historical seeded DefaultAuto storage
  expect(capacity).toEqual(canonicalAutoMaskCapacity(source))
  for(const rotation of[-1,0,1])expect(()=>assertCanonicalPlainAutoGeometryRecipeCapacity(recipe(source,1,rotation),source,capacity)).not.toThrow()
 })
+
+import{canonicalGaussianAutoSourcePin,type CanonicalGaussianAutoRecipe,type CanonicalGaussianAutoSource}from'@grafetto/shared'
+import{canonicalRotatingGaussianMaskCapacity,assertCanonicalRotatingGaussianRecipeCapacity}from'./canonicalAutoCapacity'
+// Original Pencil1/2 source geometry only; structural pin is NOT a descriptor/BEGIN grant.
+function rotatingGaussianPin():CanonicalGaussianAutoSource{return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:'capacity-structural-gaussian',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'gaussianAuto',generator:'gauss',shape:'circle',diameter:10,ratio:1,horizontalFade:.15,verticalFade:.15,antialias:false,spikes:2,randomness:0,density:1},brushScale:1,brushAngle:0,coverageProfile:'scalar-bionic-f64-fma-v1'})}
+function rotatingGaussianRecipe(pin:CanonicalGaussianAutoSource,scale:number,rotation:number,phase=0):CanonicalGaussianAutoRecipe{
+ const g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:1,spikes:2,scale:1,angle:pin.brushAngle},{scale,ratio:1,rotation},phase,phase)
+ return{kind:'gaussianAuto',source:pin.source,coverageProfile:pin.coverageProfile,brushScale:1,brushAngle:pin.brushAngle,scale,ratio:1,rotation,subX:phase,subY:phase,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+}
+it('rotating Gaussian storage bounds actual geometry across scales angles and subpixel phases while legacy stays closed',()=>{
+ const pin=rotatingGaussianPin(),capacity=canonicalRotatingGaussianMaskCapacity(pin)
+ expect(capacity).toEqual({width:22,height:22,slots:1})
+ for(const scale of[Number.MIN_VALUE,.1,.5,1])for(const rotation of[-Math.PI,-Math.PI/4,0,Math.PI/4,Math.PI/2,Number.MAX_VALUE])for(const phase of[0,.5,1-Number.EPSILON]){
+  const recipe=rotatingGaussianRecipe(pin,scale,rotation,phase)
+  expect(()=>assertCanonicalRotatingGaussianRecipeCapacity(recipe,pin,capacity)).not.toThrow()
+  if(rotation!==0)expect(()=>assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)).toThrow()
+ }
+})
+it('rotating Gaussian keeps source family density randomness ratio and existing mask budget closed',()=>{
+ const pin=rotatingGaussianPin()
+ for(const bad of[{...pin,brushScale:2},{...pin,source:{...pin.source,density:.5}},{...pin,source:{...pin.source,randomness:.1}},{...pin,source:{...pin.source,ratio:.5}},{...pin,source:{...pin.source,diameter:Infinity}},{...pin,source:{...pin.source,diameter:512}}])expect(()=>canonicalRotatingGaussianMaskCapacity(bad)).toThrow()
+ expect(()=>canonicalRotatingGaussianMaskCapacity({kind:'defaultAuto',source:{...pin.source,kind:'defaultAuto',generator:'default'},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1'})).toThrow()
+})
+it('rotating Gaussian repeats source-bound cost and transform guards before future execution',()=>{
+ const pin=rotatingGaussianPin(),capacity=canonicalRotatingGaussianMaskCapacity(pin),recipe=rotatingGaussianRecipe(pin,1,.7)
+ for(const bad of[{...recipe,scale:0},{...recipe,scale:1.01},{...recipe,ratio:.5},{...recipe,rotation:NaN},{...recipe,rotation:Infinity},{...recipe,mirrorH:true},{...recipe,mirrorV:true},{...recipe,width:recipe.width+1},{...recipe,brushAngle:.2},{...recipe,source:{...recipe.source,diameter:11}},{...recipe,coverageProfile:'browser-number-coverage-v1' as const}])expect(()=>assertCanonicalRotatingGaussianRecipeCapacity(bad,pin,capacity)).toThrow()
+ expect(()=>assertCanonicalRotatingGaussianRecipeCapacity(recipe,pin,{...capacity,width:1})).toThrow()
+})

@@ -1,4 +1,4 @@
-import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,sourceAutoGeometry,canonicalAutoCost,canonicalSoftAutoCost,
+import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,sourceAutoGeometry,canonicalAutoCost,canonicalSoftAutoCost,canonicalGaussianAutoStatic,
  type CanonicalAutoSource,type CanonicalSoftAutoSource,type AnyCanonicalMaterialRecipe,type CanonicalMaterialContextV7} from '@grafetto/shared'
 import {transformedMaskPrepassBudget,type TransformedMaskLimits} from './TransformedMaskPrepass'
 
@@ -63,4 +63,21 @@ export function assertCanonicalPlainAutoGeometryRecipeCapacity(recipe:AnyCanonic
  if(pin.kind!=='defaultAuto'||!('kind'in recipe)||recipe.kind!=='defaultAuto'||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||!Number.isFinite(recipe.ratio)||recipe.ratio<=0||recipe.ratio>1||!Number.isFinite(recipe.rotation)||recipe.mirrorH!==false||recipe.mirrorV!==false)throw new RangeError('Unsupported plain geometry transform')
  canonicalAutoCost(recipe,pin)
  if(recipe.width>capacity.width||recipe.height>capacity.height)throw new RangeError('Plain geometry recipe exceeds admitted workspace')
+}
+
+/** Storage-only rotating Gaussian envelope. Caller must already own its source
+ * pin/context; this helper supplies neither READ nor author permission. */
+export function canonicalRotatingGaussianMaskCapacity(pin:AutoCapacitySource):TransformedMaskLimits {
+ if(pin.kind!=='gaussianAuto'||pin.source.kind!=='gaussianAuto'||pin.source.shape!=='circle'||pin.source.ratio!==1||pin.source.density!==1||pin.source.randomness!==0||pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Unsupported rotating Gaussian source')
+ canonicalGaussianAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
+ return maskCapacity(pin,true)
+}
+/** Repeat SAME source/cost checks before any later caller may allocate/enqueue.
+ * Resolved scatter positions retain the normal independent target/work budgets. */
+export function assertCanonicalRotatingGaussianRecipeCapacity(recipe:AnyCanonicalMaterialRecipe,pin:AutoPin,capacity:TransformedMaskLimits):void {
+ canonicalRotatingGaussianMaskCapacity(pin)
+ transformedMaskPrepassBudget(capacity)
+ if(pin.kind!=='gaussianAuto'||!('kind'in recipe)||recipe.kind!=='gaussianAuto'||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||!Number.isFinite(recipe.rotation)||recipe.mirrorH!==false||recipe.mirrorV!==false)throw new RangeError('Unsupported rotating Gaussian transform')
+ canonicalAutoCost(recipe,pin)
+ if(recipe.width>capacity.width||recipe.height>capacity.height)throw new RangeError('Rotating Gaussian recipe exceeds admitted workspace')
 }
