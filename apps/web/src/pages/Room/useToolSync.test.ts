@@ -2,6 +2,8 @@ import {expect,it,vi,beforeEach,afterEach} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
 import {isBrushLibrary} from '@grafetto/shared'
+import coldEraser from '../../engine/src/presets/fixtures/coldRegistryEraser.native.json'
+import {importedBrushFromPreset} from '../../engine/src/presets/importedBrushes'
 import mountains from '../../engine/src/presets/fixtures/sourceImagePipe/mountains.native.json'
 import {installBrushLibrary,installBrushPixels,clearImportedBrushPixels,importedBrushAssets,isBrushAssetReady} from '../../engine/brushLibrary'
 import {useLayerStateSync} from './useLayerStateSync'
@@ -25,7 +27,7 @@ beforeEach(()=>{hooks.cursor=0;hooks.slots=[];hooks.effects=[];resetRoomStore();
 afterEach(()=>clearImportedBrushPixels())
 function setup(rasterVersion:'straight-rgba8-v1'|'legacy-premul-v1'){
  const prepare=vi.fn(async(_preset:string,_options?:unknown)=>({status:'ready'})),noop=vi.fn(),lock=vi.fn()
- const engine={rasterVersion,prepareBrush:prepare,setNibAngle:noop,setTiltResponse:noop,setPressureMap:noop,setPencil:noop,setTool:noop,setSize:noop,setOpacity:noop,setActiveLayer:noop,setLocked:lock,setCompositeOrder:noop,setDisplayFilter:noop}as unknown as PencilEngineAPI
+ const engine={rasterVersion,prepareBrush:prepare,setSourcePattern:noop,setNibAngle:noop,setTiltResponse:noop,setPressureMap:noop,setPencil:noop,setTool:noop,setSize:noop,setOpacity:noop,setActiveLayer:noop,setLocked:lock,setCompositeOrder:noop,setDisplayFilter:noop}as unknown as PencilEngineAPI
  const props:ToolSyncDeps={engineRef:{current:engine},engineEpoch:1,canvasRef:{current:null},roomContentReady:false}
  const useRender=()=>{hooks.cursor=0;const result=useToolSync(props);useLayerStateSync(props.engineRef,true,result.brushResourcesReady);for(const effect of hooks.effects.splice(0))effect();return result}
  const cleanup=()=>{for(const slot of hooks.slots)slot.cleanup?.()}
@@ -99,4 +101,26 @@ it('unlocks the actual image assets after preparation without passing Array.ever
 it('keeps the actual image locked when declared pixels are missing despite successful preparation',async()=>{
  const f=setup('straight-rgba8-v1'),preset=selectedOriginalImage(f,true)
  try{expect(importedBrushAssets(preset).map(id=>isBrushAssetReady(id))).toEqual([true,true,true,false]);f.render();await vi.waitFor(()=>expect(f.prepare).toHaveBeenCalledOnce());await Promise.resolve();expect(f.render().brushResourcesReady).toBe(false);expect(f.lock).toHaveBeenLastCalledWith(true)}finally{f.cleanup()}
+})
+
+it('keeps a persisted original selected and locked while its cold registry loads, then prepares the SAME source',async()=>{
+ const f=setup('straight-rgba8-v1'),id=coldEraser.brush.descriptor.id,preset='brush:'+id+'@'+coldEraser.brush.descriptor.version
+ useRoomStore.getState().setToolSetting('digitalBrush','brush',id)
+ useRoomStore.getState().setToolSetting('digitalBrush','size',12)
+ f.props.roomContentReady=true;f.props.availability=noSource
+ try{
+  // Renderer lookup is still strict; React can safely await its exact catalog.
+  expect(()=>importedBrushFromPreset(id)).toThrow('Imported brush unavailable')
+  expect(f.render().brushResourcesReady).toBe(false);expect(f.prepare).not.toHaveBeenCalled();expect(f.lock).toHaveBeenLastCalledWith(true)
+  expect(useRoomStore.getState().toolSettings.digitalBrush.brush).toBe(id)
+  const library:unknown={schemaVersion:1,brushes:[coldEraser.brush],assets:coldEraser.assets,skipped:[]}
+  if(!isBrushLibrary(library))throw Error('Actual original cold registry fixture required')
+  installBrushLibrary(library)
+  f.props.availability={status:'ready',options:[{id,sizePx:12,scalable:true}],schema:{}}
+  expect(f.render().brushResourcesReady).toBe(false)
+  await vi.waitFor(()=>expect(f.prepare).toHaveBeenCalledOnce())
+  expect(f.prepare.mock.calls[0][0]).toBe(preset)
+  expect(f.render().brushResourcesReady).toBe(true);expect(f.lock).toHaveBeenLastCalledWith(false)
+  expect(useRoomStore.getState().toolSettings.digitalBrush.brush).toBe(id);expect(f.props.engineEpoch).toBe(1)
+ }finally{f.cleanup()}
 })

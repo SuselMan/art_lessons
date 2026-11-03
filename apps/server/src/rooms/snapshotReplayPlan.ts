@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import type { CanonicalStrokeOperation, Operation } from '@grafetto/shared'
 
 /** Stored pixels are immutable, but their usability changes when later history
@@ -51,6 +52,10 @@ export function planSnapshotReplay(
     &&a.frame.pigmentRgb8.every((v,i)=>v===b.frame.pigmentRgb8[i])&&a.frame.composition.mode===b.frame.composition.mode
     &&a.frame.composition.alphaDarken===b.frame.composition.alphaDarken&&a.frame.composition.outerBlend===b.frame.composition.outerBlend
     &&Object.is(a.frame.composition.outerResourceOpacity,b.frame.composition.outerResourceOpacity)
+    // Captured START resources are immutable across every chunk. DRAW recipes,
+    // per-dab seeds/strengths and ordinals live in materialPacked and may change.
+    &&(['sourceScale','sourceColorFields','sourceRoleTextures','sourceTipGradient','textureGradient','texturePhase'] as const)
+      .every(key=>isDeepStrictEqual(a.frame[key],b.frame[key]))
   const cutoff = new Map<string, number>()
   const historyLayers = new Set<string>()
   const unresolvedTargets = new Set<string>()

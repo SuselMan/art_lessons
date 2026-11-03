@@ -73,19 +73,25 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   const digitalBrushId = toolSettings.digitalBrush.brush as string
   const sourcePatternId=typeof toolSettings.digitalBrush.pattern==='string'?toolSettings.digitalBrush.pattern:'none'
   const boardId=useRoomStore(s=>s.boardId)
-  const patternRequired=sourcePatternRequired(importedBrushFromPreset(digitalBrushId))
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
   // stroke has their own switches in whatever position they left them.
   const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
   const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
-  const digitalBrushPresetName = (() => {
-    let brush
-    try { brush = digitalBrushFromPreset(digitalBrushId) } catch { return undefined }
-    return digitalBrushPreset(brush.id, brush.version, {
-      size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
-    })
+  // Persisted imported IDs can precede the asynchronous catalog on cold join.
+  // Keep the selection unavailable until its exact registry entry exists; the
+  // engine's strict lookup and the selected ID remain unchanged.
+  const digitalBrushSelection = (() => {
+    try {
+      const descriptor=importedBrushFromPreset(digitalBrushId)
+      const brush=digitalBrushFromPreset(digitalBrushId)
+      return {descriptor,preset:digitalBrushPreset(brush.id, brush.version, {
+        size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
+      })}
+    } catch { return undefined }
   })()
+  const digitalBrushPresetName=digitalBrushSelection?.preset
+  const patternRequired=sourcePatternRequired(digitalBrushSelection?.descriptor)
   const [preparationEpoch, preparationChanged] = useState(0)
   const [preparedKey, setPreparedKey] = useState('')
   const t = useT()
@@ -104,7 +110,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   const selectedSource=availability?.options.find(option=>option.id===digitalBrushId)
   const selectedSourceSize=toolSettings.digitalBrush.size as number
   const eligibleSource=!availability||(availability.status==='ready'&&!!selectedSource&&(selectedSource.scalable?Number.isFinite(selectedSourceSize)&&selectedSourceSize>0:selectedSource.sizePx===selectedSourceSize))
-  const preparationReady=eligibleSource&&(!patternRequired||sourcePatternId!=='none')&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
+  const preparationReady=eligibleSource&&digitalBrushPresetName!==undefined&&(!patternRequired||sourcePatternId!=='none')&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
   const preparationKey = `${engineEpoch}:${preparationEpoch}:${boardId??''}:${sourcePatternId}:${availability?libraryRevision:0}:${digitalBrushPresetName ?? digitalBrushId}${selectedSource?.scalable?`:${selectedSourceSize}`:''}${preparationReady?'':':restoring'}`
   const brushResourcesReady = eligibleSource&&(drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(id=>isBrushAssetReady(id))))
   useEffect(() => {

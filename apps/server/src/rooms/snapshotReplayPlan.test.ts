@@ -94,3 +94,32 @@ it('preserves the historical PNG materialV1 target-chunk lane without granting i
   expect(planSnapshotReplay([snapshot(2)],[current,change('undo',6,current.id)]).unresolvedTargets.has(current.id)).toBe(true)
  }
 })
+
+
+it.each(['sourceScale','sourceColorFields','sourceRoleTextures','sourceTipGradient','textureGradient','texturePhase'] as const)('refuses an ordinal0 anchor with a different immutable canonical resource context (%s)',key=>{
+ const phase={kind:'resolved-stroke-phase-v1' as const,x:1,y:2}
+ const texture={kind:'canvasTexture' as const,asset:'asset:'+ 'a'.repeat(64),law:'pixel-texture-u8-v1' as const,mode:'multiply' as const,soft:false,width:8,height:8,periodX:8,periodY:8,phase,strength:'recorded-grain-v1' as const}
+ const contexts={sourceScale:.375,sourceColorFields:{primary:{kind:'total-random-rgb8-hash-v1' as const}},sourceRoleTextures:{primary:texture},sourceTipGradient:{kind:'captured-tip-gradient-rgba8-v1' as const,rgba:Array.from({length:1024},(_,i)=>i%256)},textureGradient:{kind:'captured-texture-gradient-rgba8-v1' as const,rgba:Array.from({length:1024},(_,i)=>(i+1)%256)},texturePhase:phase}
+ const changed={sourceScale:.5,sourceColorFields:{primary:null},sourceRoleTextures:{primary:{...texture,phase:{...phase,x:3}}},sourceTipGradient:{...contexts.sourceTipGradient,rgba:contexts.sourceTipGradient.rgba.map((v,i)=>i===0?255:v)},textureGradient:{...contexts.textureGradient,rgba:contexts.textureGradient.rgba.map((v,i)=>i===0?255:v)},texturePhase:{...phase,x:3}}
+ const first=canonicalChunk('resource-first',1,0),last=canonicalChunk('resource-last',4,1)
+ // The loader owns frame/prefix decoding. This pure dependency selector gets
+ // decoded DATA and must not substitute another resource context as ordinal0.
+ Object.assign(first.frame,{version:2,rasterProfile:'browser-highp-rgba8-v1',[key]:contexts[key]})
+ Object.assign(last.frame,{version:2,rasterProfile:'browser-highp-rgba8-v1',materialPacked:'2|different verified per-frame DRAW payload',[key]:structuredClone(contexts[key])})
+ const valid=planSnapshotReplay([snapshot(2)],[first,last,change('undo',6,last.id)])
+ expect(valid.unresolvedTargets.size).toBe(0);expect(valid.coverage.has('L')).toBe(false)
+ // Resource objects are structurally equal copies, while frame payloads and
+ // ordinals may differ. Only the captured per-stroke envelope is immutable.
+ const { [key]:missing,...withoutResource}=first.frame
+ expect(missing).toBeDefined()
+ const missingFirst={...first,frame:withoutResource}
+ const rejected=planSnapshotReplay([snapshot(2)],[missingFirst,last,change('undo',6,last.id)])
+ expect(rejected.unresolvedTargets.has(last.id)).toBe(true)
+ const changedFirst={...first,frame:{...first.frame,[key]:changed[key]}}
+ expect(planSnapshotReplay([snapshot(2)],[changedFirst,last,change('undo',6,last.id)]).unresolvedTargets.has(last.id)).toBe(true)
+})
+it('refuses changed sourceScale values while keeping per-frame material and ordinal changes independent',()=>{
+ const first=canonicalChunk('scale-first',1,0),last=canonicalChunk('scale-last',4,1)
+ Object.assign(first.frame,{sourceScale:.5});Object.assign(last.frame,{sourceScale:.75,materialPacked:'2|different verified per-frame DRAW payload'})
+ expect(planSnapshotReplay([snapshot(2)],[first,last,change('undo',6,last.id)]).unresolvedTargets.has(last.id)).toBe(true)
+})
