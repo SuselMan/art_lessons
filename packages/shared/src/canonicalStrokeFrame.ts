@@ -7,7 +7,7 @@ export interface CanonicalStrokeComposition {
   readonly mode: 'wash' | 'buildup'
   readonly alphaDarken: 'creamy' | 'hard'
   readonly outerResourceOpacity: number
-  readonly outerBlend: 'over' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
+  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
 }
 export const CANONICAL_STROKE_RASTER_PROFILE = 'installed-arm64-scalar-fused-fpcr0-v1' as const
 /** Whole-pipeline identity: existing fused local deposition plus explicit U8
@@ -116,7 +116,7 @@ export function isCanonicalStrokeComposition(value: unknown, rasterProfile: Cano
     && (value.mode === 'wash' || value.mode === 'buildup') && (value.alphaDarken === 'creamy' || value.alphaDarken === 'hard')
     && typeof value.outerResourceOpacity === 'number' && Number.isFinite(value.outerResourceOpacity) && value.outerResourceOpacity >= 0 && value.outerResourceOpacity <= 1
     && (!contract.genericSC ? value.outerBlend === 'over'
-      : (value.outerBlend === 'over' || value.mode === 'wash' && typeof value.outerBlend === 'string' && ['multiply','lighten','colorDodge','overlay'].includes(value.outerBlend)))
+      : (value.outerBlend === 'over' || value.outerBlend === 'erase' || value.mode === 'wash' && typeof value.outerBlend === 'string' && ['multiply','lighten','colorDodge','overlay'].includes(value.outerBlend)))
 }
 /** Shared admission building block, not an Operation/Socket activation.
  * Descriptor capability and contiguous gesture/group ownership still belong to

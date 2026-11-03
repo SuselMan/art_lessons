@@ -18,7 +18,9 @@ import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 export const CANONICAL_MATERIAL_PROFILE = 'qt5157-neon4-summed-u64-gray-v1' as const
 export const CANONICAL_MATERIAL_LIMITS = Object.freeze({ draws:800, rawBytes:192*1024, textBytes:256*1024, pixels:1048576, dimension:4096, workUnits:64*1024*1024, outputBytes:16*1024*1024, drawPixels:16*1024*1024 })
 export interface CanonicalMaterialAsset { readonly id:string; readonly size:number; readonly x:number; readonly y:number; readonly width:number; readonly height:number }
+export interface CanonicalMaterialParameters {readonly softness:number;readonly lightnessStrength:number;readonly sharpnessAlignValue:number;readonly sharpnessThreshold:number;readonly sharpnessSoftness:number;readonly sharpnessChecked:boolean;readonly sharpnessAlign:boolean}
 export interface CanonicalMaterialRecipe {
+  readonly materialParams?:CanonicalMaterialParameters
   readonly asset:string
   readonly brushScale:number; readonly brushAngle:number
   readonly scale:number; readonly ratio:number; readonly rotation:number
@@ -71,9 +73,10 @@ export interface CanonicalMaterialBuildInput {
 }
 /** v1 image DTOs remain source-compatible. NEW wire2 definitions are tagged. */
 export const CANONICAL_SOURCE_MATERIAL_PROFILE = 'canonical-source-material-v2' as const
-export type CanonicalSourceMaterialRecipe = (CanonicalMaterialRecipe & { readonly kind:'image' }) | CanonicalAutoRecipe | CanonicalSoftAutoRecipe
+export type CanonicalSourceMaterialRecipe = ((CanonicalMaterialRecipe & { readonly kind:'image' }) | CanonicalAutoRecipe | CanonicalSoftAutoRecipe)&{readonly materialParams?:CanonicalMaterialParameters}
 export interface CanonicalMaterialContextV2 {
   readonly version:2
+  readonly materialParams?:'source-material-parameters-v1'
   readonly assets:readonly CanonicalMaterialAsset[]
   readonly primarySource:CanonicalMaterialImageSource | CanonicalAutoSource | CanonicalSoftAutoSource
   readonly maskSource?:CanonicalMaterialImageSource | CanonicalAutoSource | CanonicalSoftAutoSource
@@ -86,6 +89,8 @@ export interface CanonicalMaterialContextV2 {
 export interface CanonicalMaterialImageSource {
   readonly kind:'image'; readonly asset:string
   readonly frames?:readonly string[]
+  /** Static original lightness-map parameters; never inferred from alpha CAS. */
+  readonly imageMaterial?:Readonly<{kind:'lightness-map-v1';grayAsset:string;strength:number;foregroundAlpha:number}>|Readonly<{kind:'color-stamp-v1';channels:readonly[string,string,string];foregroundOpacity:number}>
   readonly brushScale:number; readonly brushAngle:number
 }
 export interface CanonicalMaterialFrameV2 extends Omit<CanonicalMaterialFrame,'profile'|'definitions'> {
@@ -226,7 +231,7 @@ export interface CanonicalMaterialBuildInputV8 extends Omit<CanonicalMaterialBui
 }
 export type AnyCanonicalMaterialContext = CanonicalMaterialContext | CanonicalMaterialContextV2
 export type AnyCanonicalMaterialFrame = CanonicalMaterialFrame | CanonicalMaterialFrameV2
-export type AnyCanonicalMaterialRecipe = CanonicalMaterialRecipe | CanonicalSourceMaterialRecipe
+export type AnyCanonicalMaterialRecipe = (CanonicalMaterialRecipe | CanonicalSourceMaterialRecipe)&{readonly materialParams?:CanonicalMaterialParameters}
 type CodecContext=AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4|CanonicalMaterialContextV5|CanonicalMaterialContextV6|CanonicalMaterialContextV7|CanonicalMaterialContextV8
 type CodecFrame=AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5|CanonicalMaterialFrameV6|CanonicalMaterialFrameV7|CanonicalMaterialFrameV8
 type CodecDraw=CanonicalMaterialDraw|CanonicalMaterialDrawV3|CanonicalMaterialDrawV4|CanonicalMaterialDrawV5|CanonicalMaterialDrawV6|CanonicalMaterialDrawV7|CanonicalMaterialDrawV8
@@ -285,6 +290,13 @@ function ownArray(value:unknown,max:number,read:(value:unknown)=>unknown):unknow
   const out:unknown[]=[]
   for(let i=0;i<value.length;i++){const d=Object.getOwnPropertyDescriptor(value,String(i));if(!d||!Object.hasOwn(d,'value'))return fail();out.push(read(d.value))}
   return out
+}
+function captureCanonicalImageMaterial(value:unknown):NonNullable<CanonicalMaterialImageSource['imageMaterial']>{
+ const kind=Object.getOwnPropertyDescriptor(value??{},'kind');if(!kind||!Object.hasOwn(kind,'value'))return fail()
+ if(kind.value==='lightness-map-v1'){const m=ownRecord(value,['kind','grayAsset','strength','foregroundAlpha']);if(typeof m.grayAsset!=='string'||!number(m.strength,0,1)||!number(m.foregroundAlpha,0,1))return fail();return Object.freeze({kind:'lightness-map-v1',grayAsset:m.grayAsset,strength:m.strength,foregroundAlpha:m.foregroundAlpha})}
+ const m=ownRecord(value,['kind','channels','foregroundOpacity']);if(m.kind!=='color-stamp-v1'||!number(m.foregroundOpacity,0,1))return fail()
+ const channels=ownArray(m.channels,3,id=>{if(typeof id!=='string'||!assetId(id))return fail();return id});if(channels.length!==3||typeof channels[0]!=='string'||typeof channels[1]!=='string'||typeof channels[2]!=='string')return fail()
+ return Object.freeze({kind:'color-stamp-v1',channels:Object.freeze([channels[0],channels[1],channels[2]] as const),foregroundOpacity:m.foregroundOpacity})
 }
 function captureContext(c:CodecContext):CodecContext{
   if(!c||typeof c!=='object')return c
@@ -478,12 +490,14 @@ function context(c:CodecContext):void {
       ||frames[0]!==c.primaryAsset||frames.some(id=>!assetId(id)||!ids.has(id))))fail()
   }
   else {
-    keys(c,['version','assets','primarySource','maskSource','maskingBlend','budget','expectedDrawCount','expectedStrokeEnd'])
+    keys(c,['version','assets','primarySource','maskSource','maskingBlend','materialParams','budget','expectedDrawCount','expectedStrokeEnd'])
+    if(c.materialParams!==undefined&&c.materialParams!=='source-material-parameters-v1')fail()
     if(c.maskingBlend!==undefined&&(!c.maskSource||(!isCanonicalMaskingBlendMode(c.maskingBlend)||canonicalMaskingBlendModes.indexOf(c.maskingBlend)>=10)))fail()
     for(const [sourceSlot,source] of [c.primarySource,c.maskSource].entries()) {
       if(source===undefined){if(sourceSlot===0)fail();continue}
       if(source.kind==='image') {
-        keys(source,['kind','asset','brushScale','brushAngle','frames'])
+        keys(source,['kind','asset','brushScale','brushAngle','frames','imageMaterial'])
+        if(source.imageMaterial!==undefined){const m=captureCanonicalImageMaterial(source.imageMaterial),alpha=c.assets.find(a=>a.id===source.asset);for(const id of m.kind==='lightness-map-v1'?[m.grayAsset]:m.channels){const plane=c.assets.find(a=>a.id===id);if(!ids.has(id)||!alpha||!plane||['size','x','y','width','height'].some(k=>Reflect.get(alpha,k)!==Reflect.get(plane,k)))fail()}}
         const frameField=Object.getOwnPropertyDescriptor(source,'frames')
         if('frames' in source&&!frameField)fail()
         if(frameField){if(sourceSlot!==0||!Object.hasOwn(frameField,'value'))fail();canonicalImageFrameIds(frameField.value,source.asset,ids)}
@@ -502,8 +516,9 @@ function context(c:CodecContext):void {
 }
 function asset(c:CodecContext,id:string):CanonicalMaterialAsset {const a=c.assets.find(a=>a.id===id);if(!a)return fail();return a}
 function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCost {
-  keys(r,auto(r)?['kind','source','coverageProfile',...(r.kind==='softAuto'?['sourceSlot']:[]),...FLOATS,'width','height','mirrorH','mirrorV']:
-    [...(versioned(c)?['kind']:[]),'asset',...FLOATS,'width','height','mirrorH','mirrorV'])
+  if(isV2(c)&&c.materialParams){const p=ownRecord(r.materialParams,['softness','lightnessStrength','sharpnessAlignValue','sharpnessThreshold','sharpnessSoftness','sharpnessChecked','sharpnessAlign']);if(!['softness','lightnessStrength','sharpnessAlignValue','sharpnessThreshold'].every(k=>number(p[k],0,1))||!integer(p.sharpnessSoftness,0,100)||typeof p.sharpnessChecked!=='boolean'||typeof p.sharpnessAlign!=='boolean')fail()}else if(r.materialParams!==undefined)fail()
+  keys(r,auto(r)?['kind','source','coverageProfile',...(r.kind==='softAuto'?['sourceSlot']:[]),...FLOATS,'width','height','mirrorH','mirrorV',...(isV2(c)&&c.materialParams?['materialParams']:[])]:
+    [...(versioned(c)?['kind']:[]),'asset',...FLOATS,'width','height','mirrorH','mirrorV',...(isV2(c)&&c.materialParams?['materialParams']:[])])
   if(!integer(r.width,1,4096)||!integer(r.height,1,4096)||r.width*r.height>1048576
     ||!number(r.scale,Number.MIN_VALUE,1e6)||!number(r.ratio,Number.MIN_VALUE,100)
     ||!number(r.brushAngle,-1e6,1e6)||!number(r.rotation,-1e6,1e6)||!number(r.subX,0,1)||r.subX===1||!number(r.subY,0,1)||r.subY===1
@@ -545,7 +560,9 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
   } else {
     if(!assetId(r.asset)||!number(r.brushScale,Number.MIN_VALUE,1e6)||versioned(c)&&(!('kind' in r)||r.kind!=='image'))fail()
     cost=versioned(c)?canonicalMaterialGeometryCost(r,asset(c,r.asset)):c.preflightDefinition(r,asset(c,r.asset))
+    if(isV2(c)){const pin=[c.primarySource,c.maskSource].find(source=>source?.kind==='image'&&source.asset===r.asset);if(pin?.kind==='image'&&pin.imageMaterial){const planes=pin.imageMaterial.kind==='lightness-map-v1'?2:4;cost={workUnits:cost.workUnits*planes,outputBytes:cost.outputBytes*planes}}}
   }
+  if(isV2(c)&&c.materialParams)cost={...cost,outputBytes:cost.outputBytes+48}
   if(!cost||!integer(cost.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(cost.outputBytes,r.width*r.height,CANONICAL_MATERIAL_LIMITS.outputBytes))fail()
   return cost
 }
@@ -580,7 +597,8 @@ function entry(e:CanonicalMaterialEntry):void {
 function recipeKey(r:AnyCanonicalMaterialRecipe):string {
   const view=new DataView(new ArrayBuffer(8))
   const identity=auto(r)?(r.kind==='softAuto'?'slot'+r.sourceSlot+':':'')+r.kind+':'+r.coverageProfile+':'+r.source.shape+':'+Number(r.source.antialias)+':'+[r.source.diameter,r.source.ratio,r.source.horizontalFade,r.source.verticalFade].map(n=>{view.setFloat64(0,n,true);return view.getBigUint64(0,true).toString(16)}).join(':'):r.asset
-  return identity+(auto(r)&&r.kind==='defaultAuto'&&r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?':density'+r.source.density:'')+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
+  const material=r.materialParams?':params'+[r.materialParams.softness,r.materialParams.lightnessStrength,r.materialParams.sharpnessAlignValue,r.materialParams.sharpnessThreshold,r.materialParams.sharpnessSoftness].map(n=>{view.setFloat64(0,n,true);return view.getBigUint64(0,true).toString(16)}).join(':')+':'+Number(r.materialParams.sharpnessChecked)+Number(r.materialParams.sharpnessAlign):''
+  return identity+material+(auto(r)&&r.kind==='defaultAuto'&&r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?':density'+r.source.density:'')+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
 }
 interface FrameReader {
   readonly version:1|2|3|4|5|6|7|8
@@ -705,12 +723,13 @@ function packMaterialCore(f:CodecFrame,c:CodecContext):string {
   const ids:string[]=textured(c)?c.assets.map(a=>a.id):[]
   for(const d of f.definitions)if(!auto(d)&&!ids.includes(d.asset))ids.push(d.asset)
   if(ids.length>2)fail()
-  const definitionBytes=r.version===1?DEFINITION:DEFINITION2,drawBytes=r.version>=3?DRAW3:DRAW
+  const parameterized=isV2(c)&&c.materialParams!==undefined,definitionBytes=r.version===1?DEFINITION:parameterized?144:DEFINITION2,drawBytes=r.version>=3?DRAW3:DRAW
   const length=HEADER+ids.length*ASSET+r.definitions*definitionBytes+r.draws*drawBytes+r.fences*FENCE
   if(length>CANONICAL_MATERIAL_LIMITS.rawBytes)fail()
   const bytes=new Uint8Array(length),v=new DataView(bytes.buffer)
   bytes.set([67,77,65,84,r.version,f.entry.phase==='between'?0:f.entry.phase==='primary'?1:2,ids.length,Number(f.masked)])
   v.setUint16(8,r.definitions,true);v.setUint16(10,r.draws,true);v.setUint16(12,r.fences,true);v.setFloat64(16,f.entry.phase==='between'?0:f.entry.group===0?0:f.entry.group,true)
+  v.setUint16(14,Number(parameterized),true)
   let offset=HEADER
   for(const id of ids){const a=asset(c,id);for(let j=0;j<32;j++)bytes[offset+j]=parseInt(id.slice(6+j*2,8+j*2),16);v.setUint16(offset+32,a.width,true);v.setUint16(offset+34,a.height,true);v.setUint16(offset+36,a.x,true);v.setUint16(offset+38,a.y,true);offset+=ASSET}
   for(const d of f.definitions){
@@ -727,6 +746,7 @@ function packMaterialCore(f:CodecFrame,c:CodecContext):string {
       const values=auto(d)?[d.source.diameter,d.source.ratio,d.source.horizontalFade,d.source.verticalFade,...FLOATS.map(k=>d[k])]:FLOATS.map(k=>d[k])
       values.forEach((n,j)=>v.setFloat64(offset+8+j*8,n,true))
     }
+    if(parameterized){const p='materialParams'in d?d.materialParams:undefined;if(!p)return fail();[p.softness,p.lightnessStrength,p.sharpnessAlignValue,p.sharpnessThreshold,p.sharpnessSoftness].forEach((n,j)=>v.setFloat64(offset+96+j*8,n,true));bytes[offset+136]=Number(p.sharpnessChecked)|Number(p.sharpnessAlign)<<1}
     offset+=definitionBytes
   }
   for(const d of f.draws){v.setUint16(offset,d.definition,true);bytes[offset+2]=Number(d.role==='mask');v.setInt32(offset+4,d.x,true);v.setInt32(offset+8,d.y,true);v.setFloat64(offset+12,d.opacity,true);v.setFloat64(offset+20,d.flow,true);if(r.version===8){if(!('grainStrengthU8'in d))return fail();v.setFloat64(offset+32,d.grainStrengthU8,true)}else if(r.version>=3){if(!('grainDepth'in d))return fail();v.setFloat64(offset+32,d.grainDepth,true)}offset+=drawBytes}
@@ -753,8 +773,8 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
   const raw=atob(b64)
   if(raw.length<HEADER||raw.length>CANONICAL_MATERIAL_LIMITS.rawBytes||btoa(raw)!==b64)fail()
   const u8=(i:number)=>raw.charCodeAt(i),u16=(i:number)=>u8(i)+u8(i+1)*256
-  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>2||u8(7)>1||u16(14)!==0)fail()
-  const version=u8(4) as 1|2|3|4|5|6|7|8,definitionBytes=version===1?DEFINITION:DEFINITION2,drawBytes=version>=3?DRAW3:DRAW
+  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>2||u8(7)>1||u16(14)!==(isV2(c)&&c.materialParams?1:0))fail()
+  const parameterized=isV2(c)&&c.materialParams!==undefined,version=u8(4) as 1|2|3|4|5|6|7|8,definitionBytes=version===1?DEFINITION:parameterized?144:DEFINITION2,drawBytes=version>=3?DRAW3:DRAW
   if(version!==contextVersion(c)||(version===3||version===8)&&(u8(6)!==2||u8(7)!==0)||(version===4||version===5||version===6||version===7)&&(u8(6)!==1||u8(7)!==0))fail()
   const ac=u8(6),dc=u16(8),rc=u16(10),fc=u16(12)
   checkedCounts(dc,rc,fc)
@@ -780,11 +800,12 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
     if(tag) {if(tag===4?u8(o+3)>1:u8(o+3)!==0)fail()}
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
     if(version!==1&&!tag)for(let j=64;j<96;j++)if(u8(o+j))fail()
+    if(parameterized){if(u8(o+136)>3)fail();for(let j=137;j<144;j++)if(u8(o+j))fail()}
   }
   if(version!==3&&version!==4&&version!==5&&version!==6&&version!==7&&version!==8&&nextAsset!==ac)fail()
   const readDefinition=(i:number):AnyCanonicalMaterialRecipe=>{
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o),flags=u8(o+(version===1?1:2))
-    const common={width:u16(o+4),height:u16(o+6),mirrorH:!!(flags&1),mirrorV:!!(flags&2)}
+    const common={...parameterized?{materialParams:{softness:v.getFloat64(o+96,true),lightnessStrength:v.getFloat64(o+104,true),sharpnessAlignValue:v.getFloat64(o+112,true),sharpnessThreshold:v.getFloat64(o+120,true),sharpnessSoftness:v.getFloat64(o+128,true),sharpnessChecked:!!(u8(o+136)&1),sharpnessAlign:!!(u8(o+136)&2)}}:{},width:u16(o+4),height:u16(o+6),mirrorH:!!(flags&1),mirrorV:!!(flags&2)}
     if(tag) {
       const values={...common,brushScale:v.getFloat64(o+40,true),brushAngle:v.getFloat64(o+48,true),scale:v.getFloat64(o+56,true),ratio:v.getFloat64(o+64,true),rotation:v.getFloat64(o+72,true),subX:v.getFloat64(o+80,true),subY:v.getFloat64(o+88,true)}
       const source={diameter:v.getFloat64(o+8,true),ratio:v.getFloat64(o+16,true),horizontalFade:v.getFloat64(o+24,true),verticalFade:v.getFloat64(o+32,true),antialias:!!(flags&4),spikes:2,randomness:0,density:1}
@@ -805,7 +826,7 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
       }
       // Static spike count is bound by the original single-primary context,
       // not reconstructed from a descriptor or a packet-selected source.
-      if((isV2(c)||isV7(c))&&!u8(7)&&c.primarySource.kind!=='image')source.spikes=c.primarySource.source.spikes
+      if(isV2(c)||isV7(c)){const pin=u8(7)?isV2(c)?c.maskSource:undefined:c.primarySource;if(pin&&pin.kind!=='image')source.spikes=pin.source.spikes}
       return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
         : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
     }
@@ -903,22 +924,33 @@ export function packCanonicalPrimaryGrainMaterial(frame:CanonicalMaterialFrameV8
 export function unpackCanonicalPrimaryGrainMaterial(text:string,context:CanonicalMaterialContextV8):CanonicalMaterialFrameV8{const f=unpackMaterialCore(text,canonicalPrimaryGrainMaterialContext(context));if(f.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)return fail();return f}
 export function buildCanonicalPrimaryGrainMaterial(input:CanonicalMaterialBuildInputV8,context:CanonicalMaterialContextV8):{packed:string;frame:CanonicalMaterialFrameV8}{const r=buildMaterialCore(input,canonicalPrimaryGrainMaterialContext(context));if(r.frame.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE)return fail();return{packed:r.packed,frame:r.frame}}
 
-/** Named closed context for executable dual bindings. Historical geometry-only
- * V2 remains decodable; absence of this law never implies multiply. */
-export function canonicalMaskedSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 & {readonly maskSource:NonNullable<CanonicalMaterialContextV2['maskSource']>;readonly maskingBlend:CanonicalMaskingBlendMode} {
- const p=ownRecord(value,['version','assets','primarySource','maskSource','maskingBlend','budget'],['expectedDrawCount','expectedStrokeEnd'])
- if(p.version!==2||(!isCanonicalMaskingBlendMode(p.maskingBlend)||canonicalMaskingBlendModes.indexOf(p.maskingBlend)>=10))return fail()
+/** Own-DATA capture for the shared source2 executor, including optional mask.
+ * It does not attest an original descriptor, room or execution permission. */
+export function canonicalSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 {
+ const p=ownRecord(value,['version','assets','primarySource','budget'],['maskSource','maskingBlend','materialParams','expectedDrawCount','expectedStrokeEnd'])
+ if(p.version!==2||p.materialParams!==undefined&&p.materialParams!=='source-material-parameters-v1')return fail()
+ let maskingBlend:CanonicalMaskingBlendMode|undefined
+ if(p.maskingBlend!==undefined){if(!isCanonicalMaskingBlendMode(p.maskingBlend)||canonicalMaskingBlendModes.indexOf(p.maskingBlend)>=10||p.maskSource===undefined)return fail();maskingBlend=p.maskingBlend}
  const readSource=(value:unknown,slot:0|1):CanonicalMaterialContextV2['primarySource']=>{
   const k=Object.getOwnPropertyDescriptor(value??{},'kind');if(!k||!Object.hasOwn(k,'value'))return fail()
   if(k.value==='softAuto')return capturedSoftAuto(value,slot)
   if(k.value==='defaultAuto')return capturedDefaultAuto(value)
   if(k.value==='gaussianAuto'){const a=ownRecord(value,autoPinFields),source=ownRecord(a.source,autoSourceFields);return canonicalGaussianAutoSourcePin({...a,source} as unknown as Extract<CanonicalAutoSource,{kind:'gaussianAuto'}>)}
-  const a=ownRecord(value,['kind','asset','brushScale','brushAngle']);if(a.kind!=='image'||typeof a.asset!=='string'||typeof a.brushScale!=='number'||typeof a.brushAngle!=='number')return fail()
-  return Object.freeze({kind:'image',asset:a.asset,brushScale:a.brushScale,brushAngle:a.brushAngle})
+  const a=ownRecord(value,['kind','asset','brushScale','brushAngle'],['frames','imageMaterial']);if(a.kind!=='image'||typeof a.asset!=='string'||typeof a.brushScale!=='number'||typeof a.brushAngle!=='number')return fail()
+  const frames=a.frames===undefined?undefined:Object.freeze(ownArray(a.frames,16,v=>v).map(v=>{if(typeof v!=='string')return fail();return v}))
+  let imageMaterial:CanonicalMaterialImageSource['imageMaterial']
+  if(a.imageMaterial!==undefined)imageMaterial=captureCanonicalImageMaterial(a.imageMaterial)
+  return Object.freeze({kind:'image',asset:a.asset,brushScale:a.brushScale,brushAngle:a.brushAngle,...frames?{frames}:{},...imageMaterial?{imageMaterial}:{}})
  }
- const assets=ownArray(p.assets,2,a=>Object.freeze(ownRecord(a,['id','size','x','y','width','height']))) as unknown as CanonicalMaterialAsset[]
+ const assets=ownArray(p.assets,16,a=>Object.freeze(ownRecord(a,['id','size','x','y','width','height']))) as unknown as CanonicalMaterialAsset[]
  const budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels']) as unknown as CanonicalMaterialContextV2['budget']
- const captured={...p,version:2 as const,assets:Object.freeze(assets),primarySource:readSource(p.primarySource,0),maskSource:readSource(p.maskSource,1),maskingBlend:p.maskingBlend as CanonicalMaskingBlendMode,budget:Object.freeze(budget)}
+ const captured={...p,...p.materialParams!==undefined?{materialParams:'source-material-parameters-v1' as const}:{},version:2 as const,assets:Object.freeze(assets),primarySource:readSource(p.primarySource,0),...p.maskSource!==undefined?{maskSource:readSource(p.maskSource,1)}:{},...maskingBlend?{maskingBlend}:{},budget:Object.freeze(budget)}
  context(captured)
  return Object.freeze(captured)
+}
+/** Executable masking always requires an explicitly recorded composition. */
+export function canonicalMaskedSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 & {readonly maskSource:NonNullable<CanonicalMaterialContextV2['maskSource']>;readonly maskingBlend:CanonicalMaskingBlendMode} {
+ const captured=canonicalSourceMaterialContext(value)
+ if(!captured.maskSource||!captured.maskingBlend)return fail()
+ return Object.freeze({...captured,maskSource:captured.maskSource,maskingBlend:captured.maskingBlend})
 }

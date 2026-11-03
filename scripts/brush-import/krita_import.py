@@ -261,6 +261,8 @@ def brush_application(definition, images):
 
 
 def image_coverage(image, application=0):
+    if application==1:
+        return image.convert('RGBA').getchannel('A')
     if application!=0:
         # Existing approximation only; caller reports the resolved unsupported
         # application explicitly. Lightness/RGB/gradient material is not added.
@@ -558,7 +560,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         softness_checked=enabled(params.get('PressureSoftness'))
         constant_softness=(not softness_checked or
             (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
-        standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
+        standard=(default_generator and shape in ('circle','rect') and 2<=numeric(generator.get('spikes'),2)<=64
             and numeric(definition.get('randomness'))==0 and (numeric(definition.get('density'),1)==1 or seeded_source is not None)
             and constant_softness)
         if standard:
@@ -581,10 +583,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = source_tip_filename
         material_gray=[]
+        material_color=[]
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
+            if application==1 and engine=='paintbrush': material_color=[frame.convert('RGBA') for frame in pipe['frames']]
             if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 material_gray=[gray for gray,alpha in planes]
@@ -605,13 +609,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
-            if pipe['coloured'] and application!=0 and not material_gray:
+            if pipe['coloured'] and application!=0 and not material_gray and not material_color:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             source_static_image = kind in ('png_brush','gbr_brush')
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
+            if application==1 and engine=='paintbrush': material_color=[image.convert('RGBA')]
             if application==2 and engine=='paintbrush' and adjustment_active:
                 gray,mask=lightness_planes(image,definition)
                 material_gray=[gray]
@@ -639,6 +644,18 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
                 notes.append(compatibility('lightnessStrength','Active native lightness-strength sensors are not applied; constant strength retained.','unsupported'))
             notes.append(compatibility('lightnessMaterial','Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
+        elif material_color:
+            channels=[]
+            for frame in material_color:
+                ids=[]
+                for channel in frame.convert('RGB').split():
+                    aid,bounds=tip_asset(channel,catalog,warnings)
+                    if bounds!=d['tip']['maskBounds']: raise ValueError('Color/alpha plane bounds mismatch')
+                    ids.append(aid)
+                channels.append(ids)
+            d['tip']['material']={'kind':'color','channels':channels[0]}
+            if len(channels)>1: d['tip']['material']['frames']=channels
+            notes.append(compatibility('colorMaterial','Original straight RGB and alpha retained as paired CAS planes; material renderer must consume color rather than tint an alpha approximation.'))
         elif application!=0:
             application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
             notes.append(compatibility('brushApplication',application_name+' resolved from native/legacy flags; its material is unsupported and retains the alpha-mask approximation.','unsupported'))
@@ -869,7 +886,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # independent: stale enabled curves must not revive an unchecked option.
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
-        if texture_mode in (0,1):
+        texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'add',9:'linearBurn',10:'hardMix',11:'hardMixSofter',12:'height',13:'linearHeight',14:'heightPhotoshop',15:'linearHeightPhotoshop'}
+        if texture_mode in texture_modes:
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
             if scale<0: raise ValueError('Negative Krita texture scale')
@@ -902,7 +920,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
-                          'application':{'mode':'multiply' if texture_mode==0 else 'subtract','soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+                          'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
                 notes.append(compatibility('textureOffset','Native offset exceeds bounded8192 and was clamped.','unsupported'))
             if offset['randomX'] or offset['randomY']:

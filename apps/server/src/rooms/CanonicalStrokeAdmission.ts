@@ -1,3 +1,4 @@
+import {canonicalSourceMaterialContext,canonicalMaskedSourceMaterialContext} from '@grafetto/shared'
 import {canonicalPrimaryGrainMaterialContext,decodeCanonicalPrimaryGrainStrokeFrame,type CanonicalMaterialContextV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
 import { createHash } from 'node:crypto'
 import { canonicalTexturedAutoMaterialContext,decodeCanonicalTexturedAutoStrokeFrame,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,canonicalSoftNativeDefaultTexturedSourceMaterialContext,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,canonicalPressureTexturedSourceMaterialContext,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,canonicalTexturedSourceMaterialContext,canonicalStrokeRasterContract,canonicalStrokeCoverageMatches,canonicalPrimaryTextureMaterialContext,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3,canonicalImageMaterialPin,advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
@@ -207,6 +208,12 @@ export class CanonicalStrokeAdmission {
     }else if('version'in m&&m.version===3){
       if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('unsupported trusted material3 profile')
       materialSignature=canonicalPrimaryTextureMaterialContext(m);preflight=undefined
+    }else if('version'in m&&m.version===2&&!m.maskSource&&(m.materialParams||m.primarySource.kind==='image'&&m.primarySource.imageMaterial)){
+      if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('extended Pixel source raster unavailable')
+      materialSignature=canonicalSourceMaterialContext(m);preflight=undefined
+    }else if('version'in m&&m.version===2&&m.maskSource){
+      if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('masked Pixel raster unavailable')
+      materialSignature=canonicalMaskedSourceMaterialContext(m);preflight=undefined
     }else if('version' in m){
       if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.maskSource!==undefined)fail('unsupported trusted material capability')
       if(m.primarySource?.kind==='image'){
@@ -216,7 +223,7 @@ export class CanonicalStrokeAdmission {
         if(m.assets.length!==0||(m.primarySource?.kind!=='defaultAuto'&&m.primarySource?.kind!=='gaussianAuto'&&m.primarySource?.kind!=='softAuto'))fail('unsupported trusted material capability')
         const pin=m.primarySource.kind==='softAuto'?canonicalSoftAutoSourcePin(m.primarySource):m.primarySource.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(m.primarySource):canonicalGaussianAutoSourcePin(m.primarySource)
         if(pin.kind==='softAuto'&&pin.sourceSlot!==0)fail('unsupported trusted soft source slot')
-        if(pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
+        if(!grant.plainAutoGeometry&&pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
         preflight=undefined;materialSignature={...m,primarySource:pin}
       }
     }else{

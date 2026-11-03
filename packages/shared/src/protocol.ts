@@ -295,6 +295,10 @@ export type RoomStateLegacyPayload = {
   canonicalAuthorPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPressureTexturedSource
   canonicalAuthorSoftPressureTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorSoftPressureTexturedSource
   canonicalTexturedAutoSource?:import('./canonicalIndexedHistory.js').CanonicalTexturedAutoReadSource
+  canonicalImageMaterialSource?:import('./canonicalIndexedHistory.js').CanonicalImageMaterialReadSource
+  canonicalAuthorImageMaterialSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorImageMaterialSource
+  canonicalPixelMaskedSource?:import('./canonicalIndexedHistory.js').CanonicalPixelMaskedReadSource
+  canonicalAuthorPixelMaskedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPixelMaskedSource
   canonicalPlainAutoGeometrySource?:import('./canonicalIndexedHistory.js').CanonicalPlainAutoGeometryReadSource
   canonicalAuthorPlainAutoGeometrySource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPlainAutoGeometrySource
   canonicalPrimaryGrainSource?:import('./canonicalIndexedHistory.js').CanonicalPrimaryGrainReadSource
@@ -317,7 +321,7 @@ export type RoomStateLegacyPayload = {
 } & {canonicalIndexedHistory?:never}
 export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
- 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalPlainTiltSource'|'canonicalAuthorPlainTiltSource'|'canonicalPrimaryGrainSource'|'canonicalAuthorPrimaryGrainSource'|'canonicalPlainAutoGeometrySource'|'canonicalAuthorPlainAutoGeometrySource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalAuthorPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource'|'canonicalAuthorTexturedAutoSource'|'canonicalTexturedAutoSource'|'canonicalPlainTiltSource'|'canonicalAuthorPlainTiltSource'|'canonicalPrimaryGrainSource'|'canonicalAuthorPrimaryGrainSource'|'canonicalPlainAutoGeometrySource'|'canonicalAuthorPlainAutoGeometrySource'|'canonicalPixelMaskedSource'|'canonicalAuthorPixelMaskedSource'|'canonicalImageMaterialSource'|'canonicalAuthorImageMaterialSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
  readonly latestSnapshotSeq:null
  readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
  readonly tailOperations?:never
@@ -330,6 +334,10 @@ export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  readonly canonicalAuthorSoftPressureTexturedSource?:never
  readonly canonicalTexturedAutoSource?:never
  readonly canonicalAuthorTexturedAutoSource?:never
+ readonly canonicalImageMaterialSource?:never
+ readonly canonicalAuthorImageMaterialSource?:never
+ readonly canonicalPixelMaskedSource?:never
+ readonly canonicalAuthorPixelMaskedSource?:never
  readonly canonicalPlainAutoGeometrySource?:never
  readonly canonicalAuthorPlainAutoGeometrySource?:never
  readonly canonicalPrimaryGrainSource?:never

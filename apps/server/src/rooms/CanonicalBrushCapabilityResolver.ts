@@ -1,6 +1,9 @@
+import {canonicalDynamicAutoSourceBinding} from '@grafetto/shared'
+import {canonicalLightnessImageSourceBinding,canonicalLightnessImageMaterialContext,canonicalColorImageSourceBinding,canonicalColorImageMaterialContext} from '@grafetto/shared'
+import {extractCanonicalPixelDualSourceData,canonicalPixelDualSourceBinding,canonicalMaskedSourceMaterialContext,canonicalGaussianAutoStatic,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialAsset} from '@grafetto/shared'
 import {extractCanonicalDynamicAutoGeometryData} from '@grafetto/shared'
 import {canonicalPrimaryGrainImageSourceBinding,canonicalPrimaryGrainImageMaterialContext,decodeCanonicalPrimaryGrainStrokeFrame,canonicalStandaloneStrokeSnapshotV8,prepareCanonicalRecordedAttachmentV8,type CanonicalMaterialContextV8,type CanonicalRecordedAttachmentV8,type CanonicalRecordedReadCapabilityV8} from '@grafetto/shared'
-import {freezeCanonicalPrimaryGrainPolicies,freezeCanonicalPlainAutoGeometryPolicies} from './canonicalExecutionPolicy.js'
+import {freezeCanonicalPrimaryGrainPolicies,freezeCanonicalPlainAutoGeometryPolicies,freezeCanonicalPixelMaskedPolicies,freezeCanonicalImageMaterialPolicies} from './canonicalExecutionPolicy.js'
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
@@ -64,6 +67,8 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly imageMaterialPolicies:ReturnType<typeof freezeCanonicalImageMaterialPolicies>
+  private readonly pixelMaskedPolicies:ReturnType<typeof freezeCanonicalPixelMaskedPolicies>
   private readonly plainAutoGeometryPolicies:ReturnType<typeof freezeCanonicalPlainAutoGeometryPolicies>
   private readonly primaryGrainPolicies:ReturnType<typeof freezeCanonicalPrimaryGrainPolicies>
   private readonly plainTiltPolicies:ReturnType<typeof freezeCanonicalPlainTiltPolicies>
@@ -100,6 +105,10 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly imageMaterialSource?:CanonicalRoomExecutionPolicy['imageMaterialSource']
+    readonly authorImageMaterialSource?:CanonicalRoomExecutionPolicy['authorImageMaterialSource']
+    readonly pixelMaskedSource?:CanonicalRoomExecutionPolicy['pixelMaskedSource']
+    readonly authorPixelMaskedSource?:CanonicalRoomExecutionPolicy['authorPixelMaskedSource']
     readonly plainAutoGeometrySource?:CanonicalRoomExecutionPolicy['plainAutoGeometrySource']
     readonly authorPlainAutoGeometrySource?:CanonicalRoomExecutionPolicy['authorPlainAutoGeometrySource']
     readonly primaryGrainSource?:CanonicalRoomExecutionPolicy['primaryGrainSource']
@@ -141,6 +150,8 @@ export class CanonicalBrushCapabilityResolver {
     this.authorPrimaryTextureSource=freezeCanonicalAuthorPrimaryTexturePolicy(options)
     this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
     this.seededPolicies=freezeCanonicalSeededDefaultAutoPolicies(options)
+    this.imageMaterialPolicies=freezeCanonicalImageMaterialPolicies(options)
+    this.pixelMaskedPolicies=freezeCanonicalPixelMaskedPolicies(options)
     this.plainAutoGeometryPolicies=freezeCanonicalPlainAutoGeometryPolicies(options)
     this.primaryGrainPolicies=freezeCanonicalPrimaryGrainPolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
@@ -503,8 +514,64 @@ export class CanonicalBrushCapabilityResolver {
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
+    if(composition.outerBlend==='erase'){
+      const enabled=role==='author'
+        ?this.imageMaterialPolicies.authorImageMaterialSource||this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource||this.pixelMaskedPolicies.authorPixelMaskedSource||this.primaryGrainPolicies.authorPrimaryGrainSource
+        :this.imageMaterialPolicies.imageMaterialSource||this.plainAutoGeometryPolicies.plainAutoGeometrySource||this.pixelMaskedPolicies.pixelMaskedSource||this.primaryGrainPolicies.primaryGrainSource
+      if(!enabled)fail('Pixel erase requires negotiated extended source policy')
+    }
     let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup',plainAutoGeometry:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'|undefined
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+    if(descriptor.tip.material){
+      if(!this.imageMaterialPolicies.imageMaterialSource||role==='author'&&!this.imageMaterialPolicies.authorImageMaterialSource)fail('image material source policy disabled')
+      if(!canonicalStrokeRasterContract(profile).genericSC||phase||descriptor.behavior?.dual)fail('image material profile/phase unavailable')
+      // Current public input stores RGB; foreground alpha remains one and the
+      // independent resource opacity is retained in the BEGIN composition.
+      const binding=descriptor.tip.material.kind==='lightness'
+        ?canonicalLightnessImageSourceBinding(descriptor,descriptorSha256,library.assets,1)
+        :canonicalColorImageSourceBinding(descriptor,descriptorSha256,library.assets,1)
+      for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
+      const material=binding.kind==='lightness-image-program-v1'
+        ?canonicalLightnessImageMaterialContext(binding,budget):canonicalColorImageMaterialContext(binding,budget)
+      return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}
+    }
+    if(descriptor.behavior?.dual){
+      if(!this.pixelMaskedPolicies.pixelMaskedSource||role==='author'&&!this.pixelMaskedPolicies.authorPixelMaskedSource)fail('Pixel masked source policy disabled')
+      if(!canonicalStrokeRasterContract(profile).genericSC||phase)fail('masked Pixel profile/phase unavailable')
+      const data=extractCanonicalPixelDualSourceData(descriptor,library.assets)
+      if(!data.supported)fail('unsupported Pixel masking source: '+data.reasons.join(','))
+      const assets=new Map<string,CanonicalMaterialAsset>()
+      const pinRole=(r:typeof data.primary|typeof data.mask,slot:0|1):CanonicalMaterialContextV2['primarySource']=>{
+        const d=r.data,identity={descriptorId:r.descriptor.id,descriptorVersion:r.descriptor.version,descriptorSha256}
+        if(d.version===2&&d.source.kind!=='image'){
+          const kind=d.source.kind,configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:this.autoSources.softAuto
+          if(!configured||!canonicalStrokeCoverageMatches(profile,configured.coverageProfile))fail('masked Auto source profile unavailable')
+          const coverageProfile=configured.coverageProfile
+          if(d.source.kind==='defaultAuto'){
+            if(coverageProfile==='scalar-bionic-f64-fma-v1')fail('Default mask numeric profile mismatch')
+            return canonicalDefaultAutoSourcePin({kind:'defaultAuto',...identity,...canonicalDefaultAutoStatic(d.source,r.effectiveBrushScale,d.brush.angle,coverageProfile),coverageProfile})
+          }
+          if(d.source.kind==='gaussianAuto'){
+            if(coverageProfile==='scalar-f64-fma-v1')fail('Gaussian mask numeric profile mismatch')
+            return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,...canonicalGaussianAutoStatic(d.source,r.effectiveBrushScale,d.brush.angle),coverageProfile})
+          }
+          if(coverageProfile==='scalar-bionic-f64-fma-v1')fail('Soft mask numeric profile mismatch')
+          const compiled=d.compiled
+          if(compiled?.version!==2||!compiled.radialCurve)fail('masked Soft radial program unavailable')
+          return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:slot,...identity,source:d.source,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle,coverageProfile,reader:d.reader,compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
+        }
+        if(!this.primaryImageSource||!('capability'in r.material))fail('masked image source unavailable')
+        const a=r.material.capability.asset,previous=assets.get(a.id)
+        if(previous&&!isDeepStrictEqual(previous,a))fail('masked image crop collision')
+        assets.set(a.id,a);this.storage.asset(a.id.slice(6),a.size)
+        return Object.freeze({kind:'image',asset:a.id,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle})
+      }
+      const primarySource=pinRole(data.primary,0),maskSource=pinRole(data.mask,1)
+      if(!!data.primary.data.materialOptions!==!!data.mask.data.materialOptions)fail('inconsistent masking material option programs')
+      const material=canonicalMaskedSourceMaterialContext({version:2,...data.primary.data.materialOptions?{materialParams:'source-material-parameters-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
+      canonicalPixelDualSourceBinding(descriptor,descriptorSha256,material)
+      return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}
+    }
     if(descriptor.texture?.application?.mode==='multiply'){
       if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('primary grain source policy disabled')
       if(!phase||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary grain phase/profile unavailable')
@@ -592,7 +659,7 @@ export class CanonicalBrushCapabilityResolver {
       const data=descriptor.sourceStamp
       const dynamic=!!this.plainAutoGeometryPolicies.plainAutoGeometrySource&&!data.flags.textureEnabled&&canonicalStrokeRasterContract(profile).genericSC
       if(dynamic){
-        if(composition.mode!=='wash')fail('plain dynamic Auto buildup consumer unavailable')
+        if(!(composition.mode==='wash'||composition.mode==='buildup'&&(composition.outerBlend==='over'||composition.outerBlend==='erase')))fail('plain dynamic Auto composition unavailable')
         if(role==='author'){
           if(!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
           const capability=extractCanonicalDynamicAutoGeometryData(descriptor)
@@ -620,7 +687,8 @@ export class CanonicalBrushCapabilityResolver {
         plainAutoGeometry='plain-auto-tilt-v1'
         return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,...stat,coverageProfile:configured.coverageProfile})
       }
-      const pin=!dynamic&&recordedPlain?recordedDefault():kind==='softAuto'
+      const dynamicPolicy=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:this.autoSources.softAuto
+      const pin=dynamic?dynamicPolicy?canonicalDynamicAutoSourceBinding(descriptor,descriptorSha256,dynamicPolicy.coverageProfile,profile):fail('dynamic Auto source family disabled'):recordedPlain?recordedDefault():kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
         ? descriptor.sourceStamp.source.density<1
@@ -631,7 +699,7 @@ export class CanonicalBrushCapabilityResolver {
       if(!savedMode)fail('inconsistent-source-painting-mode')
       if(!dynamic&&pin.brushScale!==1)fail('unsupported stored auto scale')
       mode=savedMode
-      material=Object.freeze({version:2,assets:Object.freeze([]),primarySource:pin,budget})
+      material=Object.freeze({version:2,...dynamic&&data.materialOptions?{materialParams:'source-material-parameters-v1' as const}:{},assets:Object.freeze([]),primarySource:pin,budget})
     }else{
       // Retained IMAGE data1 is independent of the explicitly selected wire material V2.
       // primaryImageSource is also the shared base-V2 gate required by the pipe-role freezer.

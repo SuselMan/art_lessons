@@ -1,3 +1,4 @@
+import {isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import { isSourceStampData, sourceStampDataBudget, MAX_LIBRARY_SOURCE_STAMP_BUDGET, type SourceStampData } from './sourceStampData.js'
 import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
@@ -62,7 +63,8 @@ export interface BrushTip {
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
   animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
-  material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
+  material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number; channels?:never; frames?:never }
+    | {kind:'color';channels:readonly [AssetId,AssetId,AssetId];frames?:readonly (readonly [AssetId,AssetId,AssetId])[];gray?:never;grayFrames?:never;strength?:never}
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -215,7 +217,7 @@ export interface BrushDescriptor {
   texture?: {
     id: BrushTextureId; periodPx: number; strength: number
     /** Explicit operation on the dab mask; absent preserves historical grain. */
-    application?: { mode: 'multiply' | 'subtract'; soft: boolean }
+    application?: { mode: CanonicalMaskingBlendMode; soft: boolean }
     /** Integer repeat grid at the top-left of its padded square asset. */
     patternSize?: { width: number; height: number }
     /** Canvas phase in world pixels; random axes are selected once per gesture. */
@@ -449,18 +451,24 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (sizes.size !== 1) return false
     }
     if (d.tip.material !== undefined) {
-      const material = d.tip.material
-      if (d.model !== 'stamp' || d.tip.kind !== 'bitmap' || !record(material)
-        || Object.keys(material).some(key => !['kind','gray','grayFrames','strength'].includes(key))
-        || material.kind !== 'lightness' || !ref(material.gray) || !ref(d.tip.mask)
-        || !numberIn(material.strength,0,1)) return false
-      const animation = d.tip.animation as { frames: unknown[] } | undefined
-      const alphaFrames = animation?.frames ?? [d.tip.mask]
-      if (d.tip.animation ? !Array.isArray(material.grayFrames) || material.grayFrames.length !== alphaFrames.length
-        || material.grayFrames[0] !== material.gray || !material.grayFrames.every(ref) : material.grayFrames !== undefined) return false
-      const grayFrames = (material.grayFrames ?? [material.gray]) as unknown[]
-      const paired = [...alphaFrames,...grayFrames]
-      if (new Set(value.assets.filter(asset => paired.includes(asset.id)).map(asset => asset.size)).size !== 1) return false
+      const material=d.tip.material
+      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||!record(material)||!ref(d.tip.mask))return false
+      const animation=d.tip.animation as {frames:unknown[]}|undefined
+      const alphaFrames=animation?.frames??[d.tip.mask]
+      let planes:unknown[]
+      if(material.kind==='lightness'){
+        if(Object.keys(material).some(k=>!['kind','gray','grayFrames','strength'].includes(k))||!ref(material.gray)||!numberIn(material.strength,0,1))return false
+        if(animation?!Array.isArray(material.grayFrames)||material.grayFrames.length!==alphaFrames.length||material.grayFrames[0]!==material.gray||!material.grayFrames.every(ref):material.grayFrames!==undefined)return false
+        planes=(material.grayFrames??[material.gray]) as unknown[]
+      }else if(material.kind==='color'){
+        const triple=(v:unknown):v is unknown[]=>Array.isArray(v)&&v.length===3&&Reflect.ownKeys(v).length===4&&v.every(ref)
+        const channels=material.channels,frames=material.frames
+        if(Object.keys(material).some(k=>!['kind','channels','frames'].includes(k))||!triple(channels))return false
+        if(animation?!Array.isArray(frames)||frames.length!==alphaFrames.length||!frames.every(triple)||!frames[0].every((id:unknown,i:number)=>id===channels[i]):frames!==undefined)return false
+        planes=Array.isArray(frames)?frames.flat():channels
+      }else return false
+      const paired=[...alphaFrames,...planes]
+      if(new Set(value.assets.filter(asset=>paired.includes(asset.id)).map(asset=>asset.size)).size!==1)return false
     }
     const key = `${d.id}@${d.version}`
     if (keys.has(key)) return false
@@ -470,7 +478,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const t = d.texture
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
         || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset'].includes(key))) return false
-      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract'].includes(String(t.application.mode))
+      if (t.application !== undefined && (!record(t.application) || !isCanonicalMaskingBlendMode(t.application.mode)
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
       if (t.patternSize !== undefined) {
         const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
@@ -531,6 +539,8 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     visited.add(value)
     add(value.tip.mask)
     for(const id of value.tip.animation?.frames ?? [])add(id)
+    for(const id of value.tip.material?.channels??[])add(id)
+    for(const frame of value.tip.material?.frames??[])for(const id of frame)add(id)
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id)

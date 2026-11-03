@@ -32,6 +32,10 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly imageMaterialSource?:'pixel-image-material-v1'|false
+ readonly authorImageMaterialSource?:'pixel-image-material-v1'|false
+ readonly pixelMaskedSource?:'pixel-masked-v1'|false
+ readonly authorPixelMaskedSource?:'pixel-masked-v1'|false
  readonly plainAutoGeometrySource?:'dynamic-auto-geometry-v1'|false
  readonly authorPlainAutoGeometrySource?:'dynamic-auto-geometry-v1'|false
  readonly primaryGrainSource?:'primary-grain-image-v1'|false
@@ -299,4 +303,42 @@ export function freezeCanonicalPlainAutoGeometryPolicies(value:CanonicalRoomExec
   if(authorPlainAutoGeometrySource&&!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC)throw TypeError('Auto geometry author profile unavailable')
  }
  return Object.freeze({plainAutoGeometrySource,authorPlainAutoGeometrySource})
+}
+
+export function freezeCanonicalPixelMaskedPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'pixelMaskedSource'|'authorPixelMaskedSource'>> {
+ const flag=(key:'pixelMaskedSource'|'authorPixelMaskedSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('inherited Pixel masking policy');return false}
+  if(!Object.hasOwn(d,'value'))throw TypeError('Pixel masking policy accessor')
+  if(d.value===undefined||d.value===false)return false
+  if(d.value!=='pixel-masked-v1')throw TypeError('unknown Pixel masking policy')
+  return 'pixel-masked-v1' as const
+ }
+ const pixelMaskedSource=flag('pixelMaskedSource'),authorPixelMaskedSource=flag('authorPixelMaskedSource')
+ if(authorPixelMaskedSource&&!pixelMaskedSource)throw TypeError('Pixel masking author requires read')
+ if(pixelMaskedSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('Pixel masking reader profile unavailable')
+  if(authorPixelMaskedSource&&!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC)throw TypeError('Pixel masking author profile unavailable')
+ }
+ return Object.freeze({pixelMaskedSource,authorPixelMaskedSource})
+}
+
+export function freezeCanonicalImageMaterialPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'imageMaterialSource'|'authorImageMaterialSource'>> {
+ const flag=(key:'imageMaterialSource'|'authorImageMaterialSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('inherited Pixel image material policy');return false}
+  if(!Object.hasOwn(d,'value'))throw TypeError('Pixel image material policy accessor')
+  if(d.value===undefined||d.value===false)return false
+  if(d.value!=='pixel-image-material-v1')throw TypeError('unknown Pixel image material policy')
+  return 'pixel-image-material-v1' as const
+ }
+ const imageMaterialSource=flag('imageMaterialSource'),authorImageMaterialSource=flag('authorImageMaterialSource')
+ if(authorImageMaterialSource&&!imageMaterialSource)throw TypeError('Pixel image material author requires read')
+ if(imageMaterialSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('Pixel image material reader profile unavailable')
+  if(authorImageMaterialSource&&!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC)throw TypeError('Pixel image material author profile unavailable')
+ }
+ return Object.freeze({imageMaterialSource,authorImageMaterialSource})
 }

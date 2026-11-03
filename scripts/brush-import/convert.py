@@ -673,18 +673,30 @@ def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=Non
             if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
         if 'material' in tip:
             material=tip['material']
-            if (d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict)
-                    or set(material)-{'kind','gray','grayFrames','strength'} or material.get('kind')!='lightness'
-                    or not isinstance(material.get('gray'),str) or material['gray'] not in ids
-                    or type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1):
-                raise ValueError('Invalid portable lightness material')
+            if d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict):
+                raise ValueError('Invalid portable image material')
             alpha_frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
-            gray_frames=material.get('grayFrames',[material['gray']])
-            if ('animation' in tip and ('grayFrames' not in material or not isinstance(gray_frames,list) or len(gray_frames)!=len(alpha_frames)
-                    or gray_frames[0]!=material['gray'])) or ('animation' not in tip and 'grayFrames' in material):
-                raise ValueError('Portable lightness animation mismatch')
-            if any(not isinstance(frame,str) or frame not in ids for frame in gray_frames): raise ValueError('Missing portable lightness asset')
-            if len({asset_sizes[frame] for frame in alpha_frames+gray_frames})!=1: raise ValueError('Portable lightness plane dimensions differ')
+            if material.get('kind')=='lightness':
+                if (set(material)-{'kind','gray','grayFrames','strength'}
+                        or not isinstance(material.get('gray'),str) or material['gray'] not in ids
+                        or type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1):
+                    raise ValueError('Invalid portable lightness material')
+                frames=material.get('grayFrames',[material['gray']])
+                if ('animation' in tip and ('grayFrames' not in material or not isinstance(frames,list) or len(frames)!=len(alpha_frames)
+                        or frames[0]!=material['gray'])) or ('animation' not in tip and 'grayFrames' in material):
+                    raise ValueError('Portable lightness animation mismatch')
+                if any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable lightness asset')
+                planes=frames
+            elif material.get('kind')=='color':
+                triple=lambda value:isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
+                if set(material)-{'kind','channels','frames'} or not triple(material.get('channels')): raise ValueError('Invalid portable color planes')
+                frames=material.get('frames',[material['channels']])
+                if ('animation' in tip and ('frames' not in material or not isinstance(frames,list) or len(frames)!=len(alpha_frames)
+                        or not all(triple(frame) for frame in frames) or frames[0]!=material['channels'])) or ('animation' not in tip and 'frames' in material):
+                    raise ValueError('Portable color animation mismatch')
+                planes=[a for frame in frames for a in frame]
+            else: raise ValueError('Unknown portable image material')
+            if len({asset_sizes[frame] for frame in alpha_frames+planes})!=1: raise ValueError('Portable image plane dimensions differ')
         if 'maskBounds' in tip:
             bounds=tip['maskBounds']
             if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')

@@ -61,7 +61,7 @@ export function sourceAutoGeometry(tip: SourceAutoGeometryTip, shape: SourceAuto
     || ![tip.diameter, tip.ratio, tip.scale, tip.angle, shape.scale, shape.ratio, shape.rotation, subX, subY].every(Number.isFinite)
     || tip.diameter <= 0 || tip.ratio <= 0 || tip.scale < 0 || shape.scale < 0 || shape.ratio < 0
     || subX < 0 || subX >= 1 || subY < 0 || subY >= 1) throw new RangeError('Unsupported source auto geometry')
-  const rawHeight = tip.diameter * tip.ratio
+  const rawHeight = tip.diameter * (tip.spikes>2?1:tip.ratio)
   if (!Number.isFinite(rawHeight) || Math.max(tip.diameter, rawHeight) > 2147483647) throw new RangeError('Auto dimensions exceed qint32')
   const initialSize = [Math.trunc(Math.max(1, tip.diameter)), Math.trunc(Math.max(1, rawHeight))] as const
   // Native ctor calculates this window before applying the brush angle/scale.
