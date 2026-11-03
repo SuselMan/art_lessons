@@ -1,3 +1,5 @@
+import {canonicalPixelTextureSourceBinding,canonicalPixelTextureMaterialContext} from '@grafetto/shared'
+import {hasActiveSourceMaterialOptions,hasActiveSourceColorOptions} from '@grafetto/shared'
 import {canonicalDynamicAutoSourceBinding} from '@grafetto/shared'
 import {canonicalLightnessImageSourceBinding,canonicalLightnessImageMaterialContext,canonicalColorImageSourceBinding,canonicalColorImageMaterialContext} from '@grafetto/shared'
 import {extractCanonicalPixelDualSourceData,canonicalPixelDualSourceBinding,canonicalMaskedSourceMaterialContext,canonicalGaussianAutoStatic,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialAsset} from '@grafetto/shared'
@@ -340,7 +342,7 @@ export class CanonicalBrushCapabilityResolver {
         bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
         const common={rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition}
         const decoded=bound.material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material:bound.material}):bound.material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:7,material:bound.material}):bound.material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:6,material:bound.material}):bound.material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:5,material:bound.material}):bound.material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(bound.rasterProfile),materialVersion:4,material:bound.material}):bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
-        if(decoded.frame.masked)fail('recorded masked prefix unavailable')
+        if(decoded.frame.masked&&!(bound.material.version===2&&bound.material.maskSource&&bound.material.maskingBlend))fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
         lastOperationId=op.id;lastSeq=op.seq!;if(state.ended)endSeq=op.seq!
@@ -417,12 +419,12 @@ export class CanonicalBrushCapabilityResolver {
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
     this.assertImagePipeRole(descriptor,'recorded')
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame))
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame))
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
     const decoded=material.version===8?decodeCanonicalPrimaryGrainStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material}):material.version===7?decodeCanonicalTexturedAutoStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:7,material}):material.version===6?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:6,material}):material.version===5?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:5,material}):material.version===4?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:material4Raster(profile),materialVersion:4,material}):material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
-    if(decoded.frame.masked)fail('recorded masked material unavailable')
+    if(decoded.frame.masked&&!(material.version===2&&material.maskSource&&material.maskingBlend))fail('recorded masked material unavailable')
     if(plainAutoGeometry==='dynamic-auto-geometry-v1')assertCanonicalDynamicAutoGeometryFrame(decoded.frame)
     else if(plainAutoGeometry)assertCanonicalPlainAutoGeometryFrame(decoded.frame)
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
@@ -508,7 +510,7 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded',phase?:CanonicalResolvedTexturePhase,recordedVersion?:number):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string;plainAutoGeometry?:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
@@ -522,6 +524,20 @@ export class CanonicalBrushCapabilityResolver {
     }
     let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup',plainAutoGeometry:'plain-auto-tilt-v1'|'dynamic-auto-geometry-v1'|undefined
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+    // New texture8 carries one captured source and a neutral texture law. The
+    // saved wire selector chooses history; current AUTHOR policy cannot upgrade7.
+    if(phase&&descriptor.sourceStamp.textureOption&&(role==='recorded'?recordedVersion===8:!!this.primaryGrainPolicies.primaryGrainSource&&!!this.primaryGrainPolicies.authorPrimaryGrainSource)){
+      if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('Pixel texture source policy disabled')
+      if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('Pixel texture raster unavailable')
+      const kind=descriptor.sourceStamp.version===2?descriptor.sourceStamp.source.kind:'image'
+      const configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:kind==='softAuto'?this.autoSources.softAuto:undefined
+      if(kind!=='image'&&!configured)fail('Pixel texture Auto family unavailable')
+      if(kind==='image'&&!this.primaryImageSource)fail('Pixel texture image family unavailable')
+      const binding=canonicalPixelTextureSourceBinding(descriptor,descriptorSha256,library.assets,configured?configured.coverageProfile:'browser-number-coverage-v1',profile,1)
+      for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
+      const material=canonicalPixelTextureMaterialContext(binding,phase,budget)
+      return {material,mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
+    }
     if(descriptor.tip.material){
       if(!this.imageMaterialPolicies.imageMaterialSource||role==='author'&&!this.imageMaterialPolicies.authorImageMaterialSource)fail('image material source policy disabled')
       if(!canonicalStrokeRasterContract(profile).genericSC||phase||descriptor.behavior?.dual)fail('image material profile/phase unavailable')
@@ -567,12 +583,11 @@ export class CanonicalBrushCapabilityResolver {
         return Object.freeze({kind:'image',asset:a.id,brushScale:r.effectiveBrushScale,brushAngle:d.brush.angle})
       }
       const primarySource=pinRole(data.primary,0),maskSource=pinRole(data.mask,1)
-      if(!!data.primary.data.materialOptions!==!!data.mask.data.materialOptions)fail('inconsistent masking material option programs')
-      const material=canonicalMaskedSourceMaterialContext({version:2,...data.primary.data.materialOptions?{materialParams:'source-material-parameters-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
+      const material=canonicalMaskedSourceMaterialContext({version:2,...(hasActiveSourceMaterialOptions(data.primary.data)||hasActiveSourceMaterialOptions(data.mask.data))?{materialParams:'source-material-parameters-v1'}:{},...(hasActiveSourceColorOptions(data.primary.data)||hasActiveSourceColorOptions(data.mask.data))?{colorParams:'source-pigment-rgb8-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
       canonicalPixelDualSourceBinding(descriptor,descriptorSha256,material)
       return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}
     }
-    if(descriptor.texture?.application?.mode==='multiply'){
+    if(descriptor.texture?.application?.mode==='multiply'&&(role==='author'||recordedVersion===8)){
       if(!this.primaryGrainPolicies.primaryGrainSource||role==='author'&&!this.primaryGrainPolicies.authorPrimaryGrainSource)fail('primary grain source policy disabled')
       if(!phase||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary grain phase/profile unavailable')
       const primary=library.assets.find(a=>a.id===descriptor.tip.mask),pattern=library.assets.find(a=>a.id===descriptor.texture?.id)
@@ -583,6 +598,7 @@ export class CanonicalBrushCapabilityResolver {
       return {material,mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
     }
     if(phase!==undefined){
+      if(role==='recorded'&&recordedVersion!==7)fail('recorded texture material version unavailable')
       if(!this.texturedAutoPolicies.texturedAutoSource)fail('material7 consumer disabled')
       if(role==='author'&&!this.texturedAutoPolicies.authorTexturedAutoSource)fail('material7 author policy disabled')
       material4Raster(profile)
@@ -699,7 +715,7 @@ export class CanonicalBrushCapabilityResolver {
       if(!savedMode)fail('inconsistent-source-painting-mode')
       if(!dynamic&&pin.brushScale!==1)fail('unsupported stored auto scale')
       mode=savedMode
-      material=Object.freeze({version:2,...dynamic&&data.materialOptions?{materialParams:'source-material-parameters-v1' as const}:{},assets:Object.freeze([]),primarySource:pin,budget})
+      material=Object.freeze({version:2,...dynamic&&hasActiveSourceMaterialOptions(data)?{materialParams:'source-material-parameters-v1' as const}:{},...dynamic&&hasActiveSourceColorOptions(data)?{colorParams:'source-pigment-rgb8-v1' as const}:{},assets:Object.freeze([]),primarySource:pin,budget})
     }else{
       // Retained IMAGE data1 is independent of the explicitly selected wire material V2.
       // primaryImageSource is also the shared base-V2 gate required by the pipe-role freezer.
@@ -776,6 +792,15 @@ function material4Raster(profile:CanonicalStrokeRasterProfile){
  const contract=canonicalStrokeRasterContract(profile)
  if(!contract.genericSC)fail('material4 composition profile unavailable')
  return contract.profile
+}
+
+/** Selector is read only after the original stored row has been verified. */
+function recordedMaterialVersion(frame:CanonicalStrokeOperation['frame']):number {
+ const packed=Object.getOwnPropertyDescriptor(frame,'materialPacked')
+ if(!packed||!Object.hasOwn(packed,'value')||typeof packed.value!=='string')fail('recorded material selector unavailable')
+ const selector=/^([1-8])\|/.exec(packed.value)
+ if(!selector)fail('recorded material version unavailable')
+ return Number(selector[1])
 }
 
 /** Only the verified original row/envelope may supply saved random phase. */

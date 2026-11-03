@@ -170,13 +170,22 @@ def gih(data, preserve_color=False):
         params=dict(pairs)
         if len(params)!=len(pairs):
             raise ValueError('Duplicate GIH header parameter')
-        if not 1<=count<=256 or int(params.get('dim','1'))!=1 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
-            raise ValueError('Unsupported GIH frame count or dimensions/ranks')
+        dim=int(params.get('dim','1'));cells=int(params.get('ncells',str(count)))
+        if not 1<=count<=256 or not 1<=dim<=4 or not 1<=cells<=256:
+            raise ValueError('Unsupported GIH count/dimensions/cells')
+        modes=('constant','incremental','random','pressure','angular','xtilt','ytilt','velocity')
+        dimensions=[];product=1;stride=cells
+        for axis in range(dim):
+            rank=int(params.get('rank'+str(axis),str(count) if dim==1 else '0'))
+            mode=params.get('sel'+str(axis),params.get('selection','incremental') if axis==0 else 'constant')
+            if not 1<=rank<=256 or mode not in modes:
+                raise ValueError('Unsupported GIH rank/selection')
+            product*=rank;stride//=rank
+            if product>256: raise ValueError('GIH rank product exceeds capacity')
+            dimensions.append({'mode':mode,'rank':rank,'stride':stride})
+        mode=dimensions[0]['mode'] if dim==1 and dimensions[0]['rank']==count and cells==count and dimensions[0]['mode'] in ('random','incremental') else 'native-dimensions-v1'
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
-    mode=params.get('sel0',params.get('selection','incremental'))
-    if mode not in ('random','incremental'):
-        raise ValueError('Unsupported GIH selection mode: '+mode)
     frames=[];offset=second+1;pixels=0;coloured=False
     for _ in range(count):
         # Krita loads valid frames until exact EOF, then indexes modulo the
@@ -195,7 +204,7 @@ def gih(data, preserve_color=False):
             raise ValueError('GIH cumulative pixel limit')
     if offset!=len(data):
         raise ValueError('GIH trailing bytes or frame count mismatch')
-    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count}
+    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count,'declaredCells':cells,'dimensions':dimensions}
 
 
 def tip_asset(mask,catalog,warnings):
@@ -283,6 +292,17 @@ def lightness_planes(image, definition):
         contrast=numeric(definition.get('ContrastAdjustment'),0),
         adjustment_version=int(numeric(definition.get('AdjustmentVersion'),1)),
         auto_midpoint=enabled(definition.get('AutoAdjustMidPoint')) if definition.get('AutoAdjustMidPoint') is not None else None)
+
+
+def adjusted_mask_image(image, definition):
+    """KisColorfulBrush non-IMAGESTAMP gray transfer before coverage/levels.
+
+    Uses the same bounded native midpoint/brightness/contrast law as lightness
+    materials, retaining source alpha. The resulting CAS pixels are already
+    adjusted; playback must never apply this transfer again.
+    """
+    gray,alpha=lightness_planes(image,definition)
+    return Image.merge('RGBA',(gray,gray,gray,alpha))
 
 
 def raster(data, name, brush=False):
@@ -588,6 +608,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
+            if application==0 and adjustment_active:
+                pipe['frames']=[adjusted_mask_image(frame,definition) if frame.mode=='RGBA' else frame for frame in pipe['frames']]
             if application==1 and engine=='paintbrush': material_color=[frame.convert('RGBA') for frame in pipe['frames']]
             if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
@@ -600,15 +622,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
-            if pipe['mode'] in ('incremental','random') and 2<=len(frames)<=256 and pipe['declaredCount']==len(frames) and not pipe['coloured'] and not material_gray:
+            if 1<=len(frames)<=256:
                 source_static_image = True
                 sampling=integer_image_sampling(frames[0],application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling: d['tip']['imageSampling']=sampling
-            if len(assets)>1:
+            if len(assets)>1 or pipe['mode']=='native-dimensions-v1':
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
+                if pipe['mode']=='native-dimensions-v1':
+                    d['tip']['animation'].update(declaredCells=pipe['declaredCells'],dimensions=pipe['dimensions'])
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
-            notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
+            notes.append(compatibility('gihSelection','All original pipe dimensions/ranks and actual EOF frames retained; author resolves selection with recorded frame identity, replay does not query sensors or RNG.'))
             if pipe['coloured'] and application!=0 and not material_gray and not material_color:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
@@ -616,6 +640,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             source_static_image = kind in ('png_brush','gbr_brush')
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
+            if application==0 and adjustment_active:
+                image=adjusted_mask_image(image,definition)
             if application==1 and engine=='paintbrush': material_color=[image.convert('RGBA')]
             if application==2 and engine=='paintbrush' and adjustment_active:
                 gray,mask=lightness_planes(image,definition)
@@ -660,7 +686,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
             notes.append(compatibility('brushApplication',application_name+' resolved from native/legacy flags; its material is unsupported and retains the alpha-mask approximation.','unsupported'))
         elif adjustment_active and (any(numeric(definition.get(key),default)!=default for key,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or enabled(definition.get('AutoAdjustMidPoint'))):
-            notes.append(compatibility('alphaMaskAdjustments','Custom brightness/contrast/midpoint adjustment of image masks is not implemented.','unsupported'))
+            notes.append(compatibility('alphaMaskAdjustments','Native midpoint migration and brightness/contrast gray transfer are baked once into alpha coverage before pyramid preparation; source alpha is retained.'))
     else:
         raise ValueError('Unsupported Krita brush definition: '+str(kind))
     d['spacing']=clamp(numeric(definition.get('spacing'),0.1),0.000001,2)

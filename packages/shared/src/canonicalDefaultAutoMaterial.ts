@@ -1,12 +1,14 @@
-import {canonicalStrokeRasterContract,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {canonicalStrokeRasterContract,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import { extractCanonicalDefaultAutoPressureTextureProgramData, extractCanonicalDefaultAutoFixedTextureCapability, extractDefaultAutoSourceDataCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
-export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE | typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE | typeof CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE | typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
 export interface CanonicalDefaultAutoRecipe {
   readonly kind: 'defaultAuto'
+  readonly maskSeed?:number
+  readonly sourceSlot?:0|1
   readonly source: SourceDefaultAutoData
   readonly coverageProfile: CanonicalAutoCoverageProfile
   readonly brushScale: number; readonly brushAngle: number
@@ -23,7 +25,7 @@ export interface CanonicalDefaultAutoSource {
   readonly brushScale: number; readonly brushAngle: number
   readonly coverageProfile: CanonicalAutoCoverageProfile
 }
-export type CanonicalGaussianCoverageProfile = 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE
+export type CanonicalGaussianCoverageProfile = 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE | typeof CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE
 export interface CanonicalGaussianAutoRecipe extends Omit<CanonicalDefaultAutoRecipe, 'kind'|'source'|'coverageProfile'> {
   readonly kind: 'gaussianAuto'
   readonly source: SourceGaussianAutoData
@@ -41,18 +43,18 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const zero = (n: number) => n === 0 ? 0 : n
 /** Explicit static-only zero policy: descriptor JSON need not preserve -0.
  * Dynamic saved shape/subpixel channels NEVER pass through this helper. */
-function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(source: S, brushScale: number, brushAngle: number, seededDensity = false): {
+function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(source: S, brushScale: number, brushAngle: number, seededDensity = false, seededMask = false): {
   source: S; brushScale: number; brushAngle: number
 } {
   if (!source || Object.keys(source).length !== fields.length || !fields.every(k => Object.hasOwn(source, k))
     || !(source.kind === 'defaultAuto' && source.generator === 'default' && ['circle','rect'].includes(source.shape)
       || source.kind === 'gaussianAuto' && source.generator === 'gauss' && source.shape === 'circle' && source.ratio <= 1)
     || ![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
-    || source.diameter <= 0 || source.ratio <= 0 || (!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || source.randomness !== 0 || !finite(source.density) || source.density < 0 || source.density > 1 || (!seededDensity && source.density !== 1) || (seededDensity && source.kind !== 'defaultAuto')
+    || source.diameter <= 0 || source.ratio <= 0 || (!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || (!seededMask&&source.randomness !== 0)||!finite(source.randomness)||source.randomness<0||source.randomness>1 || !finite(source.density) || source.density < 0 || source.density > 1 || (!seededDensity&&!seededMask && source.density !== 1) || (seededDensity && source.kind !== 'defaultAuto')
     || source.horizontalFade < 0 || source.horizontalFade > 1 || source.verticalFade < 0 || source.verticalFade > 1
     || typeof source.antialias !== 'boolean' || brushScale < 0) throw new TypeError('Invalid default-auto static source')
   return { source: Object.freeze<S>({ ...source, diameter: zero(source.diameter), ratio: zero(source.ratio),
-    horizontalFade: zero(source.horizontalFade), verticalFade: zero(source.verticalFade), randomness: 0, density: zero(source.density) }),
+    horizontalFade: zero(source.horizontalFade), verticalFade: zero(source.verticalFade), randomness: zero(source.randomness), density: zero(source.density) }),
     brushScale: zero(brushScale), brushAngle: zero(brushAngle) }
 }
 /** Closed trusted-data validation and static normalization, reused by context,
@@ -63,13 +65,14 @@ function autoSourcePin<T extends CanonicalAutoSource>(trusted: T): T {
     || !['defaultAuto','gaussianAuto'].includes(trusted.kind) || trusted.source?.kind !== trusted.kind || typeof trusted.descriptorId!=='string' || !trusted.descriptorId || trusted.descriptorId.length > 256
     || trusted.descriptorId.includes('\0') || !Number.isSafeInteger(trusted.descriptorVersion) || trusted.descriptorVersion < 1
     || typeof trusted.descriptorSha256!=='string' || !/^[a-f0-9]{64}$/.test(trusted.descriptorSha256)
-    || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE]).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
-  return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle,trusted.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)})
+    || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE]).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
+  return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle,trusted.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,trusted.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)})
 }
 export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: CanonicalAutoSource): { workUnits: number; outputBytes: number } {
+  if(recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?(!Number.isInteger(recipe.maskSeed)||recipe.maskSeed!<0||recipe.maskSeed!>0xffffffff||Object.is(recipe.maskSeed,-0)):recipe.maskSeed!==undefined)throw new TypeError('Invalid recorded mask seed')
   const pin = autoSourcePin(trusted)
   if (recipe.kind !== pin.kind || recipe.source?.kind !== recipe.kind) throw new TypeError('Auto generator mismatch')
-  const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)
+  const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
   // Raw static -0 is not a canonical wire spelling. Trusted input is normalized
   // independently; no descriptor JSON hash is claimed to attest float bits.
   for (const k of ['diameter','ratio','horizontalFade','verticalFade','spikes','randomness','density'] as const)
@@ -85,7 +88,7 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
     || recipe.width > 4096 || recipe.height > 4096 || recipe.width * recipe.height > 1048576) throw new RangeError('Auto allocation mismatch')
   // RGBA8 service output, not the smaller A8 reference array. Conservative 6x6
   // AA work until common exact sample scheduling becomes a separate capability.
-  const workUnits=recipe.width * recipe.height * ((actual.source.antialias ? 36 : 1) + (recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE && actual.source.density<1 ? 1 : 0))
+  const workUnits=recipe.width * recipe.height * ((actual.source.antialias ? 36 : 1) + (recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?Number(actual.source.randomness!==0)+Number(actual.source.density!==1):recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE && actual.source.density<1 ? 1 : 0))
   if(workUnits>16*1024*1024)throw new RangeError('Auto recipe exceeds source evaluator work capacity')
   return { workUnits, outputBytes: recipe.width * recipe.height * 4 }
 }
@@ -97,7 +100,7 @@ export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, d
   if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Default-auto outer composition unavailable')
   const result = coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE ? extractSeededDensityDefaultAutoSourceDataCapability(descriptor) : extractDefaultAutoSourceDataCapability(descriptor)
   if (!result.supported || !/^[a-f0-9]{64}$/.test(descriptorSha256)
-    || !['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
+    || !['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
   const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle,coverageProfile)
   return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
     descriptorSha256, ...normalized, coverageProfile})
@@ -146,11 +149,11 @@ export function canonicalDefaultAutoPressureTextureSourceBinding(descriptor: Bru
 
 export function canonicalDefaultAutoStatic(source: SourceDefaultAutoData, brushScale: number, brushAngle: number, coverageProfile?: CanonicalAutoCoverageProfile) {
   if (source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')
-  return autoStatic(source, brushScale, brushAngle,coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)
+  return autoStatic(source, brushScale, brushAngle,coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
 }
-export function canonicalGaussianAutoStatic(source: SourceGaussianAutoData, brushScale: number, brushAngle: number) {
+export function canonicalGaussianAutoStatic(source: SourceGaussianAutoData, brushScale: number, brushAngle: number, coverageProfile?:CanonicalGaussianCoverageProfile) {
   if (source?.kind !== 'gaussianAuto') throw new TypeError('Expected Gaussian auto')
-  return autoStatic(source, brushScale, brushAngle)
+  return autoStatic(source, brushScale, brushAngle,false,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
 }
 export function canonicalDefaultAutoSourcePin(source: CanonicalDefaultAutoSource): CanonicalDefaultAutoSource {
   if (source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')

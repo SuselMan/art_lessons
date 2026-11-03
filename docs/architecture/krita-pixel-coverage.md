@@ -109,3 +109,28 @@ Protected `sourceDefaultAutoVectorShader.ts` в этом аудите не чи�
 (Spray/Deform/Sketch/Filter и прочие) **вне Pixel**; их нельзя включить в обещание
 завершить Pixel или объявить исправленными через Scatter. Production deploy,
 новый каталог, protocol/runtime cutover и Grafetto push здесь не выполнялись.
+
+## Реализация 3 ноября: незапущенный код
+
+После исходного среза добавлены общие контракты source2/source8, независимые
+READ/AUTHOR-политики protocol10, оригинальные CAS/SHA-привязки и смешанная
+recorded-доставка. В рабочем дереве реализованы динамическая Auto-геометрия
+(включая spikes2..64), primary/mask planes, первые10 alpha masking operators,
+source2 buildup/erase, парные lightness/RGB ресурсы и их LOD/prepass, material
+options и per-DRAW RGB. Новые параметры записываются автором; replay не повторяет
+sensor/curve/RNG-запросы. Ввод получает доступные twist/tangential и нормированную
+скорость в координатах вида; timed airbrush имеет отдельный bounded producer.
+
+Это **код в интеграции**, а не подтверждённая визуальная совместимость. После
+крупного блока frontend production typecheck (607 roots) нашёл12 диагностик;
+причины исправлены, повторная проверка назначена после следующего связного блока.
+Server production typecheck (67 roots) завершился без диагностик. Тесты,
+приложение, устройства и производственная сборка в этой фазе не запускались.
+
+Сейчас единый texture8 расширяется до image/Auto +14 hard/soft alpha laws через
+одну реализацию с параметром режима. Старые3–7 сохраняют свои законы; история
+выбирает версию по исходной записи. Следующие незавершённые области: полный
+GIH selection/ranks и цветные pipes, mask randomness/density для всех Auto,
+color-source/gradient providers, texture LIGHTNESS/GRADIENT, UI source scale
+с записанной неизменяемой идентичностью и оставшиеся composite/color-space laws.
+Число подтверждённых кистей и состояние тестового стенда этим кодом не изменены.

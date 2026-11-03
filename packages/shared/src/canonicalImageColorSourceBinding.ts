@@ -1,3 +1,4 @@
+import {hasActiveSourceMaterialOptions,hasActiveSourceColorOptions} from './sourceStampData.js'
 import type {BrushDescriptor} from './brushes.js'
 import {canonicalBrushDescriptorJSON} from './canonicalBrushDescriptor.js'
 import {extractCanonicalColorImageSourceData,extractCanonicalLightnessImageSourceData} from './canonicalBrushCapability.js'
@@ -16,7 +17,7 @@ export type CanonicalLightnessImageBinding=ReturnType<typeof canonicalLightnessI
 export function canonicalLightnessImageMaterialContext(binding:CanonicalLightnessImageBinding,budget:CanonicalMaterialContextV2['budget']):CanonicalMaterialContextV2{
  const expected=canonicalLightnessImageSourceBinding(binding.descriptor,binding.descriptorSha256,binding.assets,binding.imageMaterial.foregroundAlpha)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Lightness original binding mismatch')
- const context=Object.freeze({version:2 as const,...expected.data.materialOptions?{materialParams:'source-material-parameters-v1' as const}:{},assets:expected.assets,primarySource:expected.source,budget:Object.freeze({...budget})})
+ const context=Object.freeze({version:2 as const,...hasActiveSourceColorOptions(expected.data)?{colorParams:'source-pigment-rgb8-v1' as const}:{},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1' as const}:{},assets:expected.assets,primarySource:expected.source,budget:Object.freeze({...budget})})
  buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},context)
  return context
 }
@@ -33,7 +34,7 @@ export type CanonicalImageMaterialBinding=CanonicalLightnessImageBinding|Canonic
 export function canonicalColorImageMaterialContext(binding:CanonicalColorImageBinding,budget:CanonicalMaterialContextV2['budget']):CanonicalMaterialContextV2{
  const expected=canonicalColorImageSourceBinding(binding.descriptor,binding.descriptorSha256,binding.assets,binding.imageMaterial.foregroundOpacity)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Color original binding mismatch')
- const context=Object.freeze({version:2 as const,...expected.data.materialOptions?{materialParams:'source-material-parameters-v1' as const}:{},assets:expected.assets,primarySource:expected.source,budget:Object.freeze({...budget})})
+ const context=Object.freeze({version:2 as const,...hasActiveSourceColorOptions(expected.data)?{colorParams:'source-pigment-rgb8-v1' as const}:{},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1' as const}:{},assets:expected.assets,primarySource:expected.source,budget:Object.freeze({...budget})})
  buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},context)
  return context
 }

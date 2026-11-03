@@ -61,7 +61,8 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
+  animation?: { mode: 'random' | 'incremental'; frames: AssetId[]; dimensions?:never; declaredCells?:never }
+    | {mode:'native-dimensions-v1';frames:AssetId[];declaredCells:number;dimensions:readonly {mode:'constant'|'incremental'|'random'|'pressure'|'angular'|'xtilt'|'ytilt'|'velocity';rank:number;stride:number}[]}
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number; channels?:never; frames?:never }
     | {kind:'color';channels:readonly [AssetId,AssetId,AssetId];frames?:readonly (readonly [AssetId,AssetId,AssetId])[];gray?:never;grayFrames?:never;strength?:never}
@@ -442,10 +443,23 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames'].includes(key))
-        || !['random','incremental'].includes(String(animation.mode))
-        || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
+        || Object.keys(animation).some(key => !(animation.mode==='native-dimensions-v1'?['mode','frames','dimensions','declaredCells']:['mode','frames']).includes(key))
+        || !['random','incremental','native-dimensions-v1'].includes(String(animation.mode))
+        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='native-dimensions-v1'?1:2) || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
+      if(animation.mode==='native-dimensions-v1'){
+        if(!Number.isSafeInteger(animation.declaredCells)||Number(animation.declaredCells)<1||Number(animation.declaredCells)>256||!Array.isArray(animation.dimensions)||animation.dimensions.length<1||animation.dimensions.length>4)return false
+        let stride=Number(animation.declaredCells),product=1
+        for(const dimension of animation.dimensions){
+          if(!record(dimension)||Object.keys(dimension).some(k=>!['mode','rank','stride'].includes(k)))return false
+          const fields=Object.getOwnPropertyDescriptors(dimension)
+          if(['mode','rank','stride'].some(k=>!fields[k]||!('value' in fields[k])))return false
+          const mode=fields.mode.value,rank=fields.rank.value,capturedStride=fields.stride.value
+          if(!['constant','incremental','random','pressure','angular','xtilt','ytilt','velocity'].includes(mode)||!Number.isSafeInteger(rank)||rank<1||rank>256)return false
+          product*=rank;stride=Math.trunc(stride/rank)
+          if(product>256||capturedStride!==stride)return false
+        }
+      }
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (sizes.size !== 1) return false

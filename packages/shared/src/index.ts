@@ -1,3 +1,4 @@
+export * from './canonicalSharpness.js'
 export * from './canonicalDynamicAutoSourceBinding.js'
 export * from './canonicalMaskingBlend.js'
 // @grafetto/shared — the contract between the web client and the server.
@@ -96,3 +97,5 @@ export * from './canonicalPrimaryGrainSourceBinding.js'
 export * from './canonicalPixelDualSourceBinding.js'
 
 export * from './canonicalImageColorSourceBinding.js'
+
+export * from './canonicalPixelTextureSourceBinding.js'

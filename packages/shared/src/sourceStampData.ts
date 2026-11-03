@@ -1,6 +1,9 @@
 /** Raw native author inputs. Presence is data retention, NEVER renderer admission.
  * Reader version is separate from the future exact native curve compiler. */
 export const SOURCE_STAMP_OPTIONS = ['Size','Rotation','Ratio','Scatter','Opacity','Flow','Mirror','Spacing','Rate'] as const
+export type SourceStampTextureOptionData=Omit<SourceStampOptionData,'id'>&{readonly id:'Texture/Strength/'}
+export const SOURCE_STAMP_COLOR_OPTIONS=['Mix','Darken','h','s','v'] as const
+export type SourceStampColorOptionData=Omit<SourceStampOptionData,'id'>&{readonly id:typeof SOURCE_STAMP_COLOR_OPTIONS[number]}
 export const SOURCE_STAMP_MATERIAL_OPTIONS=['Softness','LightnessStrength','Sharpness'] as const
 export type SourceStampMaterialOptionData=Omit<SourceStampOptionData,'id'>&{readonly id:typeof SOURCE_STAMP_MATERIAL_OPTIONS[number]}
 export const SOURCE_STAMP_SENSORS = ['pressure','pressureIn','tangentialPressure','drawingAngle','xTilt','yTilt','tiltDirection','tiltElevation','rotation','fuzzyPerDab','fuzzyPerStroke','speed','fade','distance','time','perspective'] as const
@@ -84,7 +87,7 @@ export function sourceStampCurveIsIdentity(points: readonly {readonly x:number;r
   if (!points.length || points[0].x !== 0 || points[0].y !== 0 || points[points.length-1].x !== 1 || points[points.length-1].y !== 1) return false
   return points.slice(1,-1).every(p=>Math.abs(p.x-p.y)*1e12<=Math.min(Math.abs(p.x),Math.abs(p.y)))
 }
-export function sourceStampRequiredCurves(options: readonly (SourceStampOptionData|SourceStampMaterialOptionData)[]): readonly SourceStampCurveData[] {
+export function sourceStampRequiredCurves(options: readonly (SourceStampOptionData|SourceStampMaterialOptionData|SourceStampColorOptionData|SourceStampTextureOptionData)[]): readonly SourceStampCurveData[] {
   const curves=new Map<string,SourceStampCurveData>()
   for(const option of options)if(option.checked && option.useCurve)for(const sensor of option.sensors) {
     if(!sourceStampCurveIsIdentity(sensor.curve.points) && !curves.has(sensor.curve.text))curves.set(sensor.curve.text,sensor.curve)
@@ -130,6 +133,8 @@ export interface SourceStampCommon {
   readonly precision: { readonly level: number; readonly automatic: boolean }
   readonly options: readonly SourceStampOptionData[]
   readonly materialOptions?:readonly SourceStampMaterialOptionData[]
+  readonly colorOptions?:readonly SourceStampColorOptionData[]
+  readonly textureOption?:SourceStampTextureOptionData
   /** Missing material/compiler capabilities remain explicit; legacy behavior is retained. */
   readonly unsupported: readonly string[]
 }
@@ -188,6 +193,7 @@ export function sourceStampDataBudget(value: unknown): number {
     }
   }
   if(!record(value) || !record(value.settings) || Object.keys(value.settings).length>256 || !Array.isArray(value.options) || value.options.length>9 || !Array.isArray(value.unsupported) || value.unsupported.length>32)return Infinity
+  if(value.colorOptions!==undefined&&(!Array.isArray(value.colorOptions)||value.colorOptions.length>5))return Infinity
   let total=2048
   if(record(value.source) && value.source.kind==='softAuto') {
     const curve=value.source.softnessCurve
@@ -199,7 +205,7 @@ export function sourceStampDataBudget(value: unknown): number {
     total+=utf8Size(key)+utf8Size(text)
   }
   for(const reason of value.unsupported) { if(typeof reason!=='string')return Infinity;total+=utf8Size(reason) }
-  for(const option of [...value.options,...(Array.isArray(value.materialOptions)?value.materialOptions:[])]) {
+  for(const option of [...value.options,...(Array.isArray(value.materialOptions)?value.materialOptions:[]),...(Array.isArray(value.colorOptions)?value.colorOptions:[]),...(value.textureOption===undefined?[]:[value.textureOption])]) {
     if(!record(option) || !Array.isArray(option.sensors) || option.sensors.length>16)return Infinity
     total+=64
     for(const item of [option.commonCurve,...option.sensors.map(s=>record(s)?s.curve:undefined)]) {
@@ -250,7 +256,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
       if(version.value===3||version.value===4){try{v=textureCapture(v)}catch{return false}}
     }
   }
-  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','materialOptions','unsupported','compiled','source']) || !sourceIdentity(v) || v.reader !== 'krita-bd6e8d0-v1'
+  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','materialOptions','colorOptions','textureOption','unsupported','compiled','source']) || !sourceIdentity(v) || v.reader !== 'krita-bd6e8d0-v1'
     || !['primary','mask'].includes(String(v.role)) || !record(v.settings) || Object.keys(v.settings).length > 256
     || Object.entries(v.settings).some(([k,s]) => !text(k,128) || !text(s,65536))
     || Object.entries(v.settings).reduce((n,[k,s]) => n+k.length+(s as string).length,0) > 1048576
@@ -265,10 +271,12 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
     || !record(v.precision) || !keys(v.precision,['level','automatic']) || !Number.isInteger(v.precision.level) || (v.precision.level as number) < 1 || (v.precision.level as number) > 5 || !bool(v.precision.automatic)) return false
   if(v.materialOptions!==undefined&&(!Array.isArray(v.materialOptions)||v.materialOptions.length!==3))return false
   const optionCount=v.options.length
-  const allOptions=[...v.options,...(Array.isArray(v.materialOptions)?v.materialOptions:[])]
+  if(v.colorOptions!==undefined&&(!Array.isArray(v.colorOptions)||v.colorOptions.length!==5))return false
+  const allOptions=[...v.options,...(Array.isArray(v.materialOptions)?v.materialOptions:[]),...(Array.isArray(v.colorOptions)?v.colorOptions:[]),...(v.textureOption===undefined?[]:[v.textureOption])]
+  const expectedOptions=[...SOURCE_STAMP_OPTIONS.slice(0,optionCount),...(Array.isArray(v.materialOptions)?SOURCE_STAMP_MATERIAL_OPTIONS:[]),...(Array.isArray(v.colorOptions)?SOURCE_STAMP_COLOR_OPTIONS:[]),...(v.textureOption===undefined?[]:['Texture/Strength/'])]
   const validOptions=allOptions.every((o: unknown,index: number) => {
     if (!record(o) || !keys(o,['id','checkable','checked','useCurve','useSameCurve','commonCurve','curveMode','strength','min','max','sensors'])
-      || o.id !== (index<optionCount?SOURCE_STAMP_OPTIONS[index]:SOURCE_STAMP_MATERIAL_OPTIONS[index-optionCount]) || ![o.checkable,o.checked,o.useCurve,o.useSameCurve].every(bool)
+      || o.id !== expectedOptions[index] || ![o.checkable,o.checked,o.useCurve,o.useSameCurve].every(bool)
       || (!o.checkable && !o.checked) || !isSourceStampCurveData(o.commonCurve) || !Number.isInteger(o.curveMode)
       || ![o.strength,o.min,o.max].every(finite) || (o.min as number) > (o.max as number) || !Array.isArray(o.sensors) || o.sensors.length < 1 || o.sensors.length > 16) return false
     if (o.useSameCurve && o.sensors.some((s: unknown) => !record(s) || !record(s.curve) || s.curve.text !== (o.commonCurve as unknown as SourceStampCurveData).text)) return false
@@ -446,3 +454,8 @@ export function captureSourcePlainAutoGeometryData(value:unknown):Readonly<{desc
  if(!record(descriptor)||!isSourceStampData(descriptor.sourceStamp)||descriptor.sourceStamp.version!==2||descriptor.sourceStamp.source.kind!=='defaultAuto'||descriptor.sourceStamp.compiled?.version!==2)throw TypeError('Plain DefaultAuto compiled2 required')
  return Object.freeze({descriptor,data:descriptor.sourceStamp})
 }
+
+/** Metadata retention is separate from native apply: unchecked consumers do not
+ * evaluate sensors and must not opt a frame into another material layout. */
+export function hasActiveSourceMaterialOptions(data:Pick<SourceStampCommon,'materialOptions'>):boolean{return data.materialOptions?.some(option=>option.checked)??false}
+export function hasActiveSourceColorOptions(data:Pick<SourceStampCommon,'colorOptions'>):boolean{return data.colorOptions?.some(option=>option.checked)??false}

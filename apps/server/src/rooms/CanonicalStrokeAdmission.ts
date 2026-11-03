@@ -31,7 +31,8 @@ export interface TrustedCanonicalGesture {
 export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonicalGesture,ordinal:number){
   const material=grant.material,common={rasterProfile:grant.rasterProfile,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
   if('version'in material&&material.version===8){
-    if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')fail('material8 raster/composition mismatch')
+    const c=canonicalPrimaryGrainMaterialContext(material),pin=c.primarySource
+    if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||c.primaryTexture.law!=='pixel-texture-u8-v1'&&(grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')||pin.kind!=='image'&&!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile))fail('material8 raster/composition mismatch')
     return decodeCanonicalPrimaryGrainStrokeFrame(value,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:8,material})
   }
   if('version'in material&&material.version===7){
@@ -183,7 +184,7 @@ export class CanonicalStrokeAdmission {
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
     if('version'in m&&m.version===8){
       const c=canonicalPrimaryGrainMaterialContext(m),pin=c.primarySource
-      if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')fail('trusted material8 descriptor/raster/composition mismatch')
+      if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||c.primaryTexture.law!=='pixel-texture-u8-v1'&&(grant.composition.mode!=='buildup'||grant.composition.outerBlend!=='over')||pin.kind!=='image'&&!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile))fail('trusted material8 descriptor/raster/composition mismatch')
       materialSignature=c;preflight=undefined
     }else if('version'in m&&m.version===7){
       const c=canonicalTexturedAutoMaterialContext(m),pin=c.primarySource
@@ -208,7 +209,7 @@ export class CanonicalStrokeAdmission {
     }else if('version'in m&&m.version===3){
       if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('unsupported trusted material3 profile')
       materialSignature=canonicalPrimaryTextureMaterialContext(m);preflight=undefined
-    }else if('version'in m&&m.version===2&&!m.maskSource&&(m.materialParams||m.primarySource.kind==='image'&&m.primarySource.imageMaterial)){
+    }else if('version'in m&&m.version===2&&!m.maskSource&&(m.materialParams||m.colorParams||m.primarySource.kind==='image'&&m.primarySource.imageMaterial)){
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('extended Pixel source raster unavailable')
       materialSignature=canonicalSourceMaterialContext(m);preflight=undefined
     }else if('version'in m&&m.version===2&&m.maskSource){

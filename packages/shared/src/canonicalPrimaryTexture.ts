@@ -1,4 +1,5 @@
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
+import { isCanonicalMaskingBlendMode, type CanonicalMaskingBlendMode } from './canonicalMaskingBlend.js'
 
 /** Pure material metadata, not a descriptor/CAS attestation or execution grant. */
 export interface CanonicalPrimaryTexturePin {
@@ -175,8 +176,22 @@ export interface CanonicalMultiplyPrimaryTexturePin extends Omit<CanonicalRecord
 export function canonicalMultiplyPrimaryTexturePin(input:unknown,trustedAsset:CanonicalMaterialAsset):Readonly<CanonicalMultiplyPrimaryTexturePin>{
  return captureRecordedPrimaryTexturePin(input,trustedAsset,'hard-multiply-u8-native-v1')
 }
-function captureRecordedPrimaryTexturePin<L extends CanonicalRecordedPrimaryTexturePin['law']|CanonicalMultiplyPrimaryTexturePin['law']>(input:unknown,trustedAsset:CanonicalMaterialAsset,law:L):Readonly<Omit<CanonicalRecordedPrimaryTexturePin,'law'>&{readonly law:L}>{
- const p=capture(input,['kind','asset','law','width','height','periodX','periodY','phase','strength']),a=capture(trustedAsset,assetFields)
+/** Unified Pixel texture DATA. Historical subtract and multiply pins stay closed. */
+export interface CanonicalPixelPrimaryTexturePin extends Omit<CanonicalRecordedPrimaryTexturePin,'law'> {
+ readonly law:'pixel-texture-u8-v1'
+ readonly mode:CanonicalMaskingBlendMode
+ readonly soft:boolean
+}
+export function canonicalPixelPrimaryTexturePin(input:unknown,trustedAsset:CanonicalMaterialAsset):Readonly<CanonicalPixelPrimaryTexturePin>{
+ const p=capture(input,['kind','asset','law','width','height','periodX','periodY','phase','strength','mode','soft'])
+ if(!isCanonicalMaskingBlendMode(p.mode)||typeof p.soft!=='boolean')return fail()
+ const geometry=captureRecordedPrimaryTexturePin(input,trustedAsset,'pixel-texture-u8-v1')
+ return Object.freeze({...geometry,mode:p.mode,soft:p.soft})
+}
+function captureRecordedPrimaryTexturePin<L extends CanonicalRecordedPrimaryTexturePin['law']|CanonicalMultiplyPrimaryTexturePin['law']|CanonicalPixelPrimaryTexturePin['law']>(input:unknown,trustedAsset:CanonicalMaterialAsset,law:L):Readonly<Omit<CanonicalRecordedPrimaryTexturePin,'law'>&{readonly law:L}>{
+ const fields=['kind','asset','law','width','height','periodX','periodY','phase','strength']
+ if(law==='pixel-texture-u8-v1')fields.push('mode','soft')
+ const p=capture(input,fields),a=capture(trustedAsset,assetFields)
  if(p.kind!=='canvasTexture'||p.law!==law||p.strength!=='recorded-grain-v1'
   ||!cas(p.asset)||p.asset!==a.id||!cas(a.id)||!dimension(p.width)||!dimension(p.height)||p.width*p.height>1048576
   ||!dimension(a.size)||a.x!==0||Object.is(a.x,-0)||a.y!==0||Object.is(a.y,-0)||a.width!==p.width||a.height!==p.height||p.width>a.size||p.height>a.size
