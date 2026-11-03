@@ -58,9 +58,9 @@ export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonical
   if('version'in material&&material.version===3){if(grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('material3 raster mismatch');return decodeCanonicalStrokeFrame(value,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material})}
   const decoded='version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
   if(grant.plainAutoGeometry){
-    if(!('version'in material)||material.version!==2||material.primarySource.kind==='image'||!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||grant.composition.mode!=='wash')fail('plain Auto geometry grant mismatch')
+    if(!('version'in material)||material.version!==2||material.primarySource.kind==='image'||!canonicalStrokeRasterContract(grant.rasterProfile).genericSC)fail('plain Auto geometry grant mismatch')
     if(grant.plainAutoGeometry==='dynamic-auto-geometry-v1')assertCanonicalDynamicAutoGeometryFrame(decoded.frame)
-    else{if(grant.plainAutoGeometry!=='plain-auto-tilt-v1'||material.primarySource.kind!=='defaultAuto')fail('plain-tilt grant mismatch');assertCanonicalPlainAutoGeometryFrame(decoded.frame)}
+    else{if(grant.plainAutoGeometry!=='plain-auto-tilt-v1'||material.primarySource.kind!=='defaultAuto'||grant.composition.mode!=='wash')fail('plain-tilt grant mismatch');assertCanonicalPlainAutoGeometryFrame(decoded.frame)}
   }
   return decoded
 }

@@ -1,3 +1,4 @@
+import texturedDualOriginals from '../../engine/src/presets/fixtures/pixelTexturedDualAvailability.metadata.json'
 import browserOriginals from '../../engine/src/presets/fixtures/pixelBrowserBindings.native.json'
 import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
 import texturedAutoMetadata from '../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with {type:'json'}
@@ -199,4 +200,20 @@ it('keeps actual bitmap image originals scalable only with image AUTHOR and pres
  expect(ready?.options).toEqual([{id:brush.descriptor.id,sizePx:7.5,scalable:true}])
  const dynamicOnly={...pixelBrowserRead(),authorImageMaterialSource:undefined}
  expect(canonicalToolAvailability(true,true,dynamicOnly,[brush],()=>assets)?.options).toEqual([{id:brush.descriptor.id,sizePx:7.5}])
+})
+
+it('offers actual textured Charcoal duals through masked source eligibility before texture admission',()=>{
+ const original:unknown=texturedDualOriginals;if(!isBrushLibrary(original))throw Error('Exact original metadata required')
+ const read={...pixelBrowserRead(),primaryGrainSource:'primary-grain-image-v1' as const,authorPrimaryGrainSource:'primary-grain-image-v1' as const,pixelMaskedSource:'pixel-masked-v1' as const,authorPixelMaskedSource:'pixel-masked-v1' as const}
+ const availability=canonicalToolAvailability(true,true,read,original.brushes,()=>original.assets)
+ expect(availability?.options).toHaveLength(3)
+ for(const brush of original.brushes){expect(brush.descriptor.behavior?.dual).toBeDefined();expect(brush.descriptor.sourceStamp?.flags.textureEnabled).toBe(true);expect(availability?.options.find(o=>o.id===brush.descriptor.id)?.scalable).toBe(true)}
+ const state=useRoomStore.getState();state.setToolSetting('digitalBrush','brush',original.brushes[0].descriptor.id);state.setToolSetting('digitalBrush','size',24);useRoomStore.getState().normalizeCanonicalTool(availability!.options);expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(24)
+})
+
+it('does not replace missing masked AUTHOR with primary texture AUTHOR for actual Charcoal duals',()=>{
+ const original:unknown=texturedDualOriginals;if(!isBrushLibrary(original))throw Error('Exact original metadata required')
+ const read={...pixelBrowserRead(),primaryGrainSource:'primary-grain-image-v1' as const,authorPrimaryGrainSource:'primary-grain-image-v1' as const,pixelMaskedSource:'pixel-masked-v1' as const}
+ const availability=canonicalToolAvailability(true,true,read,original.brushes,()=>original.assets)
+ expect(availability?.options).toHaveLength(0)
 })

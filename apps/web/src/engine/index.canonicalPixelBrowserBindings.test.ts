@@ -1,3 +1,4 @@
+import dryCreasesMetadata from './src/presets/fixtures/pixelDryCreasesPreparation.metadata.json'
 import {afterEach,expect,it,vi} from 'vitest'
 import {SourceStrokeAuthor} from './src/presets/sourceStrokeAuthor'
 import {SourceStrokeMaterialAdapter,createPixelTextureMaterialAdapter} from './src/presets/sourceStrokeMaterialAdapter'
@@ -6,6 +7,7 @@ import {createHash} from 'node:crypto'
 import {inflateSync} from 'node:zlib'
 import originals from './src/presets/fixtures/pixelBrowserBindings.native.json'
 import pencilMetadata from './src/presets/fixtures/pixelPencilPreparation.metadata.json'
+import thickpaintMetadata from './src/presets/fixtures/pixelThickpaintPreparation.metadata.json'
 import {canonicalBrushDescriptorJSON,canonicalSourceStrokeSnapshotV2,canonicalSourceMaterialContext,canonicalStandaloneStrokeSnapshotV8,canonicalPixelSourceComposition,decodeCanonicalRecordedSnapshotFrameV8,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV8,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {createTestEngine} from './testing/engineTestUtils'
 import type {CanonicalSourceAuthorService} from './index'
@@ -14,8 +16,8 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
- const row=kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
+async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'thickpaint'|'dry-creases',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false){
+ const row=kind==='thickpaint'?thickpaintMetadata:kind==='dry-creases'?dryCreasesMetadata.rows[0]:kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
  if(recordedColor){if(!descriptor.sourceStamp)throw Error('Original source required');Object.assign(descriptor.sourceStamp.settings,{'ColorSource/Type':'uniform_random'});const mask=descriptor.behavior?.dual?.brush.sourceStamp;if(mask)Object.assign(mask.settings,{'ColorSource/Type':'uniform_random'})}
  if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?(recordedColor?'c3':'c1'):'c2').repeat(16)
  let assets=row.assets.map(a=>{if(!a.id.startsWith('asset:'))throw Error('Original CAS asset required');return{...a,id:a.id as `asset:${string}`}})
@@ -27,10 +29,10 @@ async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5',beg
   const t=descriptor.texture!;descriptor.texture={id:id as `asset:${string}`,strength:t.strength,periodPx:8,patternSize:{width:8,height:8},offset:{x:0,y:0,randomX:false,randomY:false},application:t.application!}
   assets=assets.filter(a=>a.id!==t.id);assets.push({id:id as `asset:${string}`,size:8,file:id.slice(6)+'.bin'});installBrushPixels(id,pixels)
  }
- if(kind==='pencil3'||kind==='pencil5'){
+ if(kind==='pencil3'||kind==='pencil5'||kind==='dry-creases'||kind==='thickpaint'){
   // Keep exact original source/compiler/geometry, but use explicitly derived
   // self-authored L8 resources. This is preparation coverage, not native pixels.
-  descriptor.id='imported-'+(kind==='pencil3'?'d3':'d5').repeat(16)
+  descriptor.id='imported-'+(kind==='thickpaint'?'d2':kind==='pencil3'?'d3':kind==='pencil5'?'d5':'d6').repeat(16)
   for(let index=0;index<assets.length;index++){
    const original=assets[index],pixels=Uint8Array.from({length:original.size*original.size},(_,i)=>(i*17+index*31+3)%256)
    const id='asset:'+createHash('sha256').update(pixels).digest('hex') as `asset:${string}`
@@ -45,9 +47,9 @@ async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5',beg
  const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:32,pageHeight:32,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{authorImageMaterialSource:'pixel-image-material-v1',authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1',authorPrimaryGrainSource:'primary-grain-image-v1',...maskedAuthor?{authorPixelMaskedSource:'pixel-masked-v1' as const}:{},begin},onLocalOperation:op=>operations.push(op)},{width:32,height:32}),engine=r.engine
  const gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,32,32]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
- engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(12);engine.setLocked(false)
+ engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(kind==='thickpaint'?24:12);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
- return{engine,p,operations,preset,sha,descriptor}
+ return{engine,p,operations,preset,sha,descriptor,assets}
 }
 it.each([{kind:'dual',modifiers:false},{kind:'dual',modifiers:true},{kind:'texture',modifiers:false},{kind:'bitmap-auto',modifiers:false}] as const)('prepares actual browser $kind (UI modifiers=$modifiers) under all named policies through START and encoded END',async({kind,modifiers})=>{
  let snapshot!:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV8
@@ -186,3 +188,80 @@ it('admits actual Pencil3 Gaussian V8 START through full-policy BEGIN and local 
   expect(engine['_canonicalLayerOwner']?.coordinator?.poisoned).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 })
+
+
+it.each([{name:'near-limit accumulated bank',retained:300000,ready:true},{name:'genuine CPU overbudget',retained:800000,ready:false}])('charges actual Dry Creases preparation once with $name',async({retained,ready})=>{
+ const begin=vi.fn(),h=await setup('dry-creases',begin),{engine}=h
+ let release:(()=>void)|undefined,releasePriorRuntime:(()=>void)|undefined,priorRoot:import('./src/dabs/CanonicalMaskSourceBank').CanonicalMaskSourceLease|undefined
+ try{
+  // Actual existing owner and storage survive the candidate transaction. This
+  // retained CPU allocation represents prior admitted metadata, never a cap or
+  // reclamation change; the source/pattern bytes are self-authored L8 planes.
+  const prior=structuredClone(h.descriptor),priorPixels=Uint8Array.from({length:64},(_,i)=>(i*19+7)%256)
+  prior.id='imported-'+'d7'.repeat(16)
+  const priorPattern='asset:'+createHash('sha256').update(priorPixels).digest('hex') as `asset:${string}`
+  const oldPattern=prior.texture!.id
+  prior.texture={...prior.texture!,id:priorPattern,periodPx:8,patternSize:{width:8,height:8},offset:{x:0,y:0,randomX:false,randomY:false}}
+  const priorAssets=[...h.assets.filter(a=>a.id!==oldPattern),{id:priorPattern,size:8,file:priorPattern.slice(6)+'.bin'}]
+  installBrushPixels(priorPattern,priorPixels)
+  const union=[...new Map([...h.assets,...priorAssets].map(a=>[a.id,a])).values()]
+  installBrushLibrary({schemaVersion:1,brushes:[{descriptor:h.descriptor,name:'Derived Dry Creases',source:'self-authored L8',warnings:[]},{descriptor:prior,name:'Prior actual image texture owner',source:'self-authored L8',warnings:[]}],assets:union,skipped:[]})
+  engine.setPencil('brush:'+prior.id+'@'+prior.version);engine.setSize(24)
+  expect(await engine.prepareBrush('brush:'+prior.id+'@'+prior.version)).toEqual({status:'ready'})
+  const bank=engine['_canonicalLayerOwner']?.bank;if(!bank)throw Error('Actual prior bank required')
+  const priorPrepared=engine['_canonicalPreparedAuthor'];if(!priorPrepared?.imageLease||!priorPrepared.retainPreparedRuntime)throw Error('Actual prior resource/runtime owner required')
+  priorRoot=priorPrepared.imageLease.retain();releasePriorRuntime=priorPrepared.retainPreparedRuntime()
+  const cpu=engine['_brushMipCache'],baseline=cpu.reservedBytes
+  engine.setPencil(h.preset)
+  release=cpu.reserve(retained)
+  const before=cpu.reservedBytes
+  expect(before-baseline).toBe(retained)
+  expect(cpu.budgetBytes).toBe(4194304)
+  expect(h.descriptor.sourceStamp?.brush.width).toBe(300)
+  expect(h.descriptor.tip.imageSampling?.sourceRect).toEqual({x:106,y:106,width:300,height:300})
+  const reserves=vi.spyOn(cpu,'reserve'),prepare=engine.prepareBrush(h.preset)
+  if(ready){
+   expect(await prepare).toEqual({status:'ready'})
+   const prepared=engine['_canonicalPreparedAuthor'];if(!prepared||prepared.material.kind!=='pixelTexture')throw Error('Actual retained Pixel preparation required')
+   expect(prepared.material.binding.source.kind).toBe('image')
+   const nextBank=engine['_canonicalLayerOwner']?.bank;if(!nextBank)throw Error('Extended actual bank required')
+   expect(nextBank.jobs.some(job=>job.kind==='raw-pattern-l8'&&job.asset.size===1024)).toBe(true)
+   expect(priorRoot.isReady()).toBe(true)
+  }else{
+   await expect(prepare).rejects.toThrow('Canonical image author union exceeds budget')
+   expect(cpu.reservedBytes).toBe(before)
+  }
+  // A real positive source graph/table reservation occurs before the budget
+  // decision; zero charge or blanket omission cannot make this test pass.
+  expect(reserves.mock.calls.some(([bytes])=>bytes>=300000&&bytes<=400000)).toBe(true)
+  expect(begin).not.toHaveBeenCalled();expect(h.operations).toHaveLength(0)
+ }finally{release?.();releasePriorRuntime?.();priorRoot?.release();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('retains named image-texture frame bounds through capacity and actual Thickpaint START/DRAW/END',async()=>{
+ let snapshot!:CanonicalStrokeSnapshotV8
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedMaterialContext8
+  if(!material)throw Error('Expected actual image-texture START material')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Original composition required')
+  snapshot=canonicalStandaloneStrokeSnapshotV8({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:8,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup('thickpaint',begin),{engine}=h
+ try{
+  expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  const material=engine['_canonicalPreparedAuthor']!.material
+  if(material.kind!=='pixelTexture'||material.binding.source.kind!=='image'||!material.pin)throw Error('Expected captured image-texture geometry')
+  expect(material.pin.primarySource.frameBounds).toEqual(material.binding.source.frameBounds)
+  expect(material.pin.primarySource.brushScale).toBe(24/128)
+  engine['_onStart']({...packet(2,100),pressure:.3,tiltX:30,tiltY:15})
+  engine['_onMove']({...packet(8,112),pressure:.95,tiltX:30,tiltY:15})
+  engine['_onEnd']({...packet(8,124),pressure:0,tiltX:30,tiltY:15})
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  expect(begin).toHaveBeenCalledOnce()
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Expected source operation');return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
+  expect(frames.reduce((n,frame)=>n+frame.draws.length,0)).toBeGreaterThan(0)
+  expect(frames.flatMap(frame=>[...frame.definitions]).some(recipe=>'kind'in recipe&&recipe.kind==='image'&&recipe.ratio<1)).toBe(true)
+  expect(frames.flatMap(frame=>frame.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
+},15000)

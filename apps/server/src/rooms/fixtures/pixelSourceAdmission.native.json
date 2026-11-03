@@ -1,0 +1,3307 @@
+{
+  "schemaVersion": 1,
+  "brushes": [
+    {
+      "descriptor": {
+        "id": "imported-128eb9ad311cead8f2a3ccfa",
+        "version": 27,
+        "model": "stamp",
+        "category": "paint",
+        "tip": {
+          "kind": "round",
+          "hardness": 0.04,
+          "aspect": 1.0,
+          "angle": -0.0,
+          "rotation": "fixed"
+        },
+        "paperInteraction": 0,
+        "spacing": 0.15,
+        "flow": 1,
+        "flowPer": "stamp",
+        "sizeByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "flowByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "opacityByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "pressureSmoothingPx": 0,
+        "opacity": 1,
+        "behavior": {
+          "version": 2,
+          "speedInput": {
+            "version": 1,
+            "space": "view",
+            "maximum": 30,
+            "estimator": "grafettoEMA30ms"
+          },
+          "rendering": {
+            "opacityCeiling": "uniform",
+            "mode": "buildUp",
+            "blendMode": "normal",
+            "wetEdges": 0,
+            "burntEdges": 0,
+            "burntEdgesMode": "multiply",
+            "accumulation": "directOver"
+          },
+          "spacing": {
+            "mode": "diameter",
+            "coefficient": 0.15
+          },
+          "modulations": {
+            "size": [
+              {
+                "control": "speed",
+                "minimum": 0,
+                "jitter": 0,
+                "curve": {
+                  "kind": "uniform",
+                  "samples": [
+                    1,
+                    0.9981415843137255,
+                    0.996283168627451,
+                    0.9944247529411765,
+                    0.9925663372549021,
+                    0.9907079215686274,
+                    0.9888495058823529,
+                    0.9869910901960784,
+                    0.9851326745098039,
+                    0.9832742588235295,
+                    0.9814158431372549,
+                    0.9795574274509804,
+                    0.9776990117647059,
+                    0.9758405960784313,
+                    0.9739821803921569,
+                    0.9721237647058824,
+                    0.9702653490196078,
+                    0.9684069333333334,
+                    0.9665485176470588,
+                    0.9646901019607843,
+                    0.9628316862745099,
+                    0.9609732705882352,
+                    0.9591148549019608,
+                    0.9572564392156863,
+                    0.9553980235294117,
+                    0.9535396078431373,
+                    0.9516811921568628,
+                    0.9498227764705883,
+                    0.9479643607843137,
+                    0.9461059450980391,
+                    0.9442475294117647,
+                    0.9423891137254902,
+                    0.9405306980392156,
+                    0.9386722823529412,
+                    0.9368138666666667,
+                    0.9349554509803922,
+                    0.9330970352941177,
+                    0.9312386196078432,
+                    0.9293802039215686,
+                    0.9275217882352941,
+                    0.9256633725490196,
+                    0.9238049568627451,
+                    0.9219465411764707,
+                    0.920088125490196,
+                    0.9182297098039215,
+                    0.9163712941176471,
+                    0.9145128784313725,
+                    0.9126544627450981,
+                    0.9107960470588236,
+                    0.908937631372549,
+                    0.9070792156862746,
+                    0.9052208,
+                    0.9033623843137255,
+                    0.9015039686274511,
+                    0.8996455529411764,
+                    0.897787137254902,
+                    0.8959287215686275,
+                    0.8940703058823529,
+                    0.8922118901960785,
+                    0.8903534745098038,
+                    0.8884950588235294,
+                    0.8866366431372549,
+                    0.8847782274509803,
+                    0.8829198117647059,
+                    0.8810613960784314,
+                    0.8792029803921568,
+                    0.8773445647058824,
+                    0.8754861490196079,
+                    0.8736277333333334,
+                    0.8717693176470589,
+                    0.8699109019607842,
+                    0.8680524862745098,
+                    0.8661940705882353,
+                    0.8643356549019607,
+                    0.8624772392156863,
+                    0.8606188235294117,
+                    0.8587604078431372,
+                    0.8569019921568627,
+                    0.8550435764705883,
+                    0.8531851607843137,
+                    0.8513267450980392,
+                    0.8494683294117648,
+                    0.8476099137254902,
+                    0.8457514980392158,
+                    0.8438930823529412,
+                    0.8420346666666667,
+                    0.8401762509803922,
+                    0.8383178352941176,
+                    0.8364594196078432,
+                    0.8346010039215687,
+                    0.8327425882352941,
+                    0.8308841725490196,
+                    0.829025756862745,
+                    0.8271673411764706,
+                    0.8253089254901961,
+                    0.8234505098039215,
+                    0.8215920941176471,
+                    0.8197336784313726,
+                    0.817875262745098,
+                    0.8160168470588236,
+                    0.8141584313725491,
+                    0.8123000156862745,
+                    0.8104416,
+                    0.8085831843137254,
+                    0.806724768627451,
+                    0.8048663529411765,
+                    0.8030079372549019,
+                    0.8011495215686274,
+                    0.7992911058823529,
+                    0.7974326901960784,
+                    0.7955742745098039,
+                    0.7937158588235294,
+                    0.7918574431372549,
+                    0.7899990274509804,
+                    0.7881406117647058,
+                    0.7862821960784314,
+                    0.784423780392157,
+                    0.7825653647058824,
+                    0.7807069490196079,
+                    0.7788485333333334,
+                    0.7769901176470588,
+                    0.7751317019607843,
+                    0.7732732862745098,
+                    0.7714148705882353,
+                    0.7695564549019607,
+                    0.7676980392156862,
+                    0.7658396235294118,
+                    0.7639812078431373,
+                    0.7621227921568627,
+                    0.7602643764705883,
+                    0.7584059607843138,
+                    0.7565475450980392,
+                    0.7546891294117648,
+                    0.7528307137254902,
+                    0.7509722980392157,
+                    0.7491138823529412,
+                    0.7472554666666666,
+                    0.7453970509803922,
+                    0.7435386352941177,
+                    0.7416802196078431,
+                    0.7398218039215686,
+                    0.7379633882352941,
+                    0.7361049725490196,
+                    0.7342465568627451,
+                    0.7323881411764706,
+                    0.7305297254901961,
+                    0.7286713098039216,
+                    0.726812894117647,
+                    0.7249544784313726,
+                    0.723096062745098,
+                    0.7212376470588235,
+                    0.719379231372549,
+                    0.7175208156862745,
+                    0.7156624,
+                    0.7138039843137255,
+                    0.711945568627451,
+                    0.7100871529411765,
+                    0.7082287372549019,
+                    0.7063703215686274,
+                    0.704511905882353,
+                    0.7026534901960784,
+                    0.7007950745098039,
+                    0.6989366588235295,
+                    0.6970782431372549,
+                    0.6952198274509804,
+                    0.6933614117647059,
+                    0.6915029960784314,
+                    0.6896445803921569,
+                    0.6877861647058824,
+                    0.6859277490196078,
+                    0.6840693333333334,
+                    0.6822109176470589,
+                    0.6803525019607843,
+                    0.6784940862745098,
+                    0.6766356705882353,
+                    0.6747772549019608,
+                    0.6729188392156863,
+                    0.6710604235294118,
+                    0.6692020078431373,
+                    0.6673435921568628,
+                    0.6654851764705882,
+                    0.6636267607843137,
+                    0.6617683450980392,
+                    0.6599099294117647,
+                    0.6580515137254902,
+                    0.6561930980392157,
+                    0.6543346823529412,
+                    0.6524762666666667,
+                    0.6506178509803922,
+                    0.6487594352941177,
+                    0.6469010196078431,
+                    0.6450426039215686,
+                    0.6431841882352941,
+                    0.6413257725490196,
+                    0.6394673568627451,
+                    0.6376089411764706,
+                    0.6357505254901961,
+                    0.6338921098039216,
+                    0.632033694117647,
+                    0.6301752784313726,
+                    0.6283168627450981,
+                    0.6264584470588235,
+                    0.624600031372549,
+                    0.6227416156862746,
+                    0.6208832,
+                    0.6190247843137255,
+                    0.617166368627451,
+                    0.6153079529411765,
+                    0.613449537254902,
+                    0.6115911215686275,
+                    0.609732705882353,
+                    0.6078742901960785,
+                    0.606015874509804,
+                    0.6041574588235294,
+                    0.6022990431372549,
+                    0.6004406274509804,
+                    0.5985822117647059,
+                    0.5967237960784314,
+                    0.5948653803921569,
+                    0.5930069647058824,
+                    0.5911485490196078,
+                    0.5892901333333334,
+                    0.5874317176470588,
+                    0.5855733019607843,
+                    0.5837148862745098,
+                    0.5818564705882353,
+                    0.5799980549019608,
+                    0.5781396392156863,
+                    0.5762812235294118,
+                    0.5744228078431373,
+                    0.5725643921568628,
+                    0.5707059764705882,
+                    0.5688475607843138,
+                    0.5669891450980392,
+                    0.5651307294117647,
+                    0.5632723137254902,
+                    0.5614138980392157,
+                    0.5595554823529412,
+                    0.5576970666666667,
+                    0.5558386509803921,
+                    0.5539802352941177,
+                    0.5521218196078432,
+                    0.5502634039215686,
+                    0.5484049882352942,
+                    0.5465465725490196,
+                    0.5446881568627451,
+                    0.5428297411764706,
+                    0.5409713254901961,
+                    0.5391129098039216,
+                    0.5372544941176471,
+                    0.5353960784313726,
+                    0.5335376627450981,
+                    0.5316792470588235,
+                    0.529820831372549,
+                    0.5279624156862746,
+                    0.526104
+                  ],
+                  "endpointEpsilon": 1e-06,
+                  "preserveInputSign": true
+                }
+              }
+            ]
+          }
+        },
+        "sourceStamp": {
+          "version": 2,
+          "source": {
+            "kind": "gaussianAuto",
+            "generator": "gauss",
+            "shape": "circle",
+            "diameter": 3.0,
+            "ratio": 1.0,
+            "horizontalFade": 0.04,
+            "verticalFade": 0.04,
+            "antialias": false,
+            "spikes": 9,
+            "randomness": 0.0,
+            "density": 1.0
+          },
+          "reader": "krita-bd6e8d0-v1",
+          "role": "primary",
+          "settings": {
+            "ColorSource/Type": "plain",
+            "DarkenSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "DarkenUseCurve": "true",
+            "DarkenUseSameCurve": "true",
+            "DarkenValue": "1",
+            "DarkencurveMode": "0",
+            "FlowSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "FlowUseCurve": "false",
+            "FlowUseSameCurve": "true",
+            "FlowValue": "1",
+            "FlowcurveMode": "0",
+            "HorizontalMirrorEnabled": "false",
+            "KisPrecisionOption/AutoPrecisionEnabled": "false",
+            "KisPrecisionOption/DeltaValue": "15",
+            "KisPrecisionOption/SizeToStartFrom": "0",
+            "KisPrecisionOption/precisionLevel": "5",
+            "MaskingBrush/Enabled": "false",
+            "MaskingBrush/MaskingCompositeOp": "multiply",
+            "MaskingBrush/MasterSizeCoeff": "156.25",
+            "MaskingBrush/UseMasterSize": "true",
+            "MirrorSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "MirrorUseCurve": "false",
+            "MirrorUseSameCurve": "true",
+            "MirrorValue": "0",
+            "MirrorcurveMode": "0",
+            "MixSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0.208835;0.13253,0.554217;0.445783,0.947791;1,1;</curve> </params> ",
+            "MixUseCurve": "true",
+            "MixUseSameCurve": "true",
+            "MixValue": "1",
+            "MixcurveMode": "0",
+            "OpacitySensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0.163266,0;0.914286,1;</curve> </params> ",
+            "OpacityUseCurve": "false",
+            "OpacityUseSameCurve": "true",
+            "OpacityValue": "1",
+            "OpacitycurveMode": "0",
+            "PaintOpAction": "1",
+            "PaintOpSettings/ignoreSpacing": "false",
+            "PaintOpSettings/isAirbrushing": "false",
+            "PaintOpSettings/rate": "20",
+            "PaintOpSettings/updateSpacingBetweenDabs": "false",
+            "PressureDarken": "false",
+            "PressureMirror": "false",
+            "PressureMix": "false",
+            "PressureRate": "false",
+            "PressureRatio": "false",
+            "PressureRotation": "false",
+            "PressureScatter": "false",
+            "PressureSharpness": "false",
+            "PressureSize": "true",
+            "PressureSoftness": "true",
+            "PressureSpacing": "false",
+            "PressureTexture/Strength/": "true",
+            "Pressureh": "false",
+            "Pressures": "false",
+            "Pressurev": "false",
+            "RateSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "RateUseCurve": "true",
+            "RateUseSameCurve": "true",
+            "RateValue": "1",
+            "RatecurveMode": "0",
+            "RatioSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "RatioUseCurve": "true",
+            "RatioUseSameCurve": "true",
+            "RatioValue": "1",
+            "RatiocurveMode": "0",
+            "RotationSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "RotationUseCurve": "true",
+            "RotationUseSameCurve": "true",
+            "RotationValue": "1",
+            "RotationcurveMode": "0",
+            "ScatterSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "ScatterUseCurve": "true",
+            "ScatterUseSameCurve": "true",
+            "ScatterValue": "1",
+            "ScattercurveMode": "0",
+            "Scattering/AxisX": "true",
+            "Scattering/AxisY": "true",
+            "Sharpness/threshold": "42",
+            "SharpnessSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;0.457831,0.461847;1,1;</curve> </params> ",
+            "SharpnessUseCurve": "false",
+            "SharpnessUseSameCurve": "true",
+            "SharpnessValue": "1",
+            "SharpnesscurveMode": "0",
+            "SizeSensor": "<!DOCTYPE params> <params id=\"speed\"> <curve>0,1;1,0.526104;</curve> </params> ",
+            "SizeUseCurve": "true",
+            "SizeUseSameCurve": "true",
+            "SizeValue": "1",
+            "SizecurveMode": "0",
+            "SoftnessSensor": "<!DOCTYPE params> <params id=\"sensorslist\"> <ChildSensor id=\"speed\"> <curve>0,0.963855;0.20482,0.558233;1,0;</curve> </ChildSensor> <ChildSensor id=\"pressure\"> <curve>0.00803213,0;0.722992,0.172691;1,1;</curve> </ChildSensor> </params> ",
+            "SoftnessUseCurve": "false",
+            "SoftnessUseSameCurve": "true",
+            "SoftnessValue": "0.1",
+            "SoftnesscurveMode": "0",
+            "Spacing/Isotropic": "false",
+            "SpacingSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0.00803213,0;1,1;</curve> </params> ",
+            "SpacingUseCurve": "false",
+            "SpacingUseSameCurve": "true",
+            "SpacingValue": "0.08",
+            "SpacingcurveMode": "0",
+            "Texture/Pattern/Enabled": "false",
+            "VerticalMirrorEnabled": "false",
+            "brush_definition": "<Brush type=\"auto_brush\" useAutoSpacing=\"0\" autoSpacingCoeff=\"1\" angle=\"0\" spacing=\"0.15\" BrushVersion=\"2\" density=\"1\" randomness=\"0\"> <MaskGenerator ratio=\"1\" vfade=\"0.04\" spikes=\"9\" type=\"circle\" hfade=\"0.04\" antialiasEdges=\"0\" diameter=\"3\" id=\"gauss\"/> </Brush> ",
+            "hSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "hUseCurve": "true",
+            "hUseSameCurve": "true",
+            "hValue": "1",
+            "hcurveMode": "0",
+            "sSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "sUseCurve": "true",
+            "sUseSameCurve": "true",
+            "sValue": "1",
+            "scurveMode": "0",
+            "vSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "vUseCurve": "true",
+            "vUseSameCurve": "true",
+            "vValue": "1",
+            "vcurveMode": "0"
+          },
+          "brush": {
+            "width": 3,
+            "height": 3,
+            "scale": 1,
+            "angle": 0.0
+          },
+          "spacing": {
+            "value": 0.15,
+            "automatic": false,
+            "coefficient": 1.0,
+            "isotropic": false
+          },
+          "timing": {
+            "enabled": false,
+            "rate": 20.0,
+            "ignoreDistance": false
+          },
+          "precision": {
+            "level": 5,
+            "automatic": false
+          },
+          "flags": {
+            "scatterX": true,
+            "scatterY": true,
+            "mirrorX": false,
+            "mirrorY": false,
+            "indirectPainting": false,
+            "textureEnabled": false,
+            "materialFixed1": false
+          },
+          "options": [
+            {
+              "id": "Size",
+              "checkable": true,
+              "checked": true,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,1;1,0.526104;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 1.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 0.526104,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "speed",
+                  "sourceId": "speed",
+                  "sourceSlot": 11,
+                  "curve": {
+                    "text": "0,1;1,0.526104;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 0.526104,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Rotation",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Ratio",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Scatter",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 5,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Opacity",
+              "checkable": false,
+              "checked": true,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0.163266,0;0.914286,1;",
+                "points": [
+                  {
+                    "x": 0.163266,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.914286,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0.163266,0;0.914286,1;",
+                    "points": [
+                      {
+                        "x": 0.163266,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.914286,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Flow",
+              "checkable": false,
+              "checked": true,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Mirror",
+              "checkable": true,
+              "checked": false,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 0.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Spacing",
+              "checkable": true,
+              "checked": false,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0.00803213,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.00803213,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 0.08,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0.00803213,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.00803213,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Rate",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "unsupported": [
+            "gaussian-auto-mask-parameters-unavailable"
+          ],
+          "materialOptions": [
+            {
+              "id": "Softness",
+              "checkable": true,
+              "checked": true,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0.00803213,0;0.722992,0.172691;1,1;",
+                "points": [
+                  {
+                    "x": 0.00803213,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.722992,
+                    "y": 0.172691,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 0.1,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0.00803213,0;0.722992,0.172691;1,1;",
+                    "points": [
+                      {
+                        "x": 0.00803213,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.722992,
+                        "y": 0.172691,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "speed",
+                  "sourceId": "speed",
+                  "sourceSlot": 11,
+                  "curve": {
+                    "text": "0.00803213,0;0.722992,0.172691;1,1;",
+                    "points": [
+                      {
+                        "x": 0.00803213,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.722992,
+                        "y": 0.172691,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "LightnessStrength",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Sharpness",
+              "checkable": true,
+              "checked": false,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;0.457831,0.461847;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.457831,
+                    "y": 0.461847,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;0.457831,0.461847;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.457831,
+                        "y": 0.461847,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "compiled": {
+            "version": 2,
+            "reader": "krita-bd6e8d0-v1",
+            "profile": "eigen-5.0.1-source-functional-f64-v1",
+            "buildId": "c9448db2cab661b36ded12e5ef4aca224c6c28d767d6e64243386006d07e6e72",
+            "curves": [
+              {
+                "source": {
+                  "text": "0,1;1,0.526104;",
+                  "points": [
+                    {
+                      "x": 0.0,
+                      "y": 1.0,
+                      "corner": false
+                    },
+                    {
+                      "x": 1.0,
+                      "y": 0.526104,
+                      "corner": false
+                    }
+                  ]
+                },
+                "coefficients": [
+                  [
+                    0.0,
+                    0.0,
+                    -0.473896,
+                    1.0
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "name": "d)_Ink-1_Precision",
+      "source": "d)_Ink-1_Precision.kpp",
+      "warnings": [
+        "kritaEngine: Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+        "autoBrush: Gaussian/curve generator, spikes, randomness and density are not reproduced.",
+        "SizeSensor: Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.",
+        "SizeCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.",
+        "activeDynamics: PressureSoftness, PressureTexture/Strength/"
+      ],
+      "compatibility": [
+        {
+          "feature": "kritaEngine",
+          "status": "approximate",
+          "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+        },
+        {
+          "feature": "autoBrush",
+          "status": "unsupported",
+          "detail": "Gaussian/curve generator, spikes, randomness and density are not reproduced."
+        },
+        {
+          "feature": "SizeSensor",
+          "status": "approximate",
+          "detail": "Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator."
+        },
+        {
+          "feature": "SizeCurve",
+          "status": "approximate",
+          "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+        },
+        {
+          "feature": "activeDynamics",
+          "status": "unsupported",
+          "detail": "PressureSoftness, PressureTexture/Strength/"
+        }
+      ],
+      "sourceDefaults": {
+        "sizePx": 3.0,
+        "opacity": 1,
+        "flow": 1
+      }
+    },
+    {
+      "descriptor": {
+        "id": "imported-ba50ef2ec5526f6707ffd03d",
+        "version": 27,
+        "model": "stamp",
+        "category": "paint",
+        "tip": {
+          "kind": "bitmap",
+          "mask": "asset:2a8a5345bbcb8283031147520de38120698de4cfc8acfcfb18bb25e9ae465f22",
+          "hardness": 0.7,
+          "aspect": 1.0,
+          "rotation": "fixed",
+          "angle": 0.0,
+          "maskBounds": {
+            "x": 0.20703125,
+            "y": 0.20703125,
+            "width": 0.5859375,
+            "height": 0.5859375
+          },
+          "material": {
+            "kind": "lightness",
+            "gray": "asset:6093f653a2ab6138b2c96052e0cf2a96994006b42fdd1a8a703b00e657273fd8",
+            "strength": 1
+          }
+        },
+        "paperInteraction": 0,
+        "spacing": 0.03,
+        "flow": 1,
+        "flowPer": "stamp",
+        "sizeByPressure": {
+          "kind": "uniform",
+          "samples": [
+            0.279006,
+            0.28045504870703647,
+            0.28190428397291417,
+            0.2833538923564741,
+            0.28480406041655754,
+            0.28625497471200556,
+            0.2877068218016593,
+            0.28915978824435995,
+            0.2906140605989487,
+            0.2920698254242665,
+            0.29352726927915473,
+            0.2949865787224544,
+            0.29644794031300675,
+            0.29791154060965286,
+            0.2993775661712339,
+            0.30084620355659103,
+            0.30231763932456535,
+            0.30379206003399817,
+            0.3052696522437304,
+            0.30675060251260333,
+            0.3082350973994581,
+            0.3097233234631358,
+            0.3112154672624776,
+            0.3127117153563248,
+            0.31421225430351835,
+            0.3157172706628995,
+            0.3172269509933093,
+            0.31874148185358897,
+            0.3202610498025797,
+            0.32178584139912253,
+            0.32331604320205865,
+            0.32485184177022935,
+            0.3263934236624756,
+            0.32794097543763856,
+            0.3294946836545595,
+            0.3310547348720794,
+            0.3326213156490396,
+            0.33419461254428107,
+            0.33577481211664506,
+            0.33736210092497276,
+            0.33895666552810516,
+            0.34055869248488363,
+            0.3421683683541491,
+            0.34378587969474284,
+            0.345411413065506,
+            0.34704515502527955,
+            0.34868729213290495,
+            0.3503380109472231,
+            0.3519974980270753,
+            0.3536659399313025,
+            0.3553435232187462,
+            0.3570304344482472,
+            0.3587268601786468,
+            0.3604329869687861,
+            0.36214900137750633,
+            0.3638750899636486,
+            0.365611439286054,
+            0.36735823590356365,
+            0.3691156663750189,
+            0.3708839172592607,
+            0.3726631751151303,
+            0.3744536265014688,
+            0.3762554579771174,
+            0.37806885610091706,
+            0.37989400743170926,
+            0.3817310985283349,
+            0.38358031594963526,
+            0.3854418462544515,
+            0.3873158760016245,
+            0.38920259174999566,
+            0.3911021800584062,
+            0.39301482748569705,
+            0.3949407205907094,
+            0.3968800459322845,
+            0.3988329900692635,
+            0.4007997395604875,
+            0.4027804809647975,
+            0.4047754008410349,
+            0.4067846857480407,
+            0.4088085222446562,
+            0.4108470968897224,
+            0.4129005962420804,
+            0.4149692068605716,
+            0.41705311530403677,
+            0.41915250813131744,
+            0.4212675719012545,
+            0.42339849317268935,
+            0.4255454585044629,
+            0.4277086544554163,
+            0.42988826758439086,
+            0.4320844844502276,
+            0.4342974916117677,
+            0.43652747562785243,
+            0.43877462305732273,
+            0.4410391204590199,
+            0.44332115439178504,
+            0.44562091141445925,
+            0.4479385780858838,
+            0.45027434096489966,
+            0.4526283866103482,
+            0.4550009015810704,
+            0.45739207243590746,
+            0.4598020857337006,
+            0.4622311280332908,
+            0.4646793858935193,
+            0.46714704587322736,
+            0.469634294531256,
+            0.47214131842644635,
+            0.47466830411763966,
+            0.477215438163677,
+            0.4797829071233995,
+            0.48237089755564844,
+            0.4849795619457559,
+            0.48760883902779445,
+            0.4902585848349449,
+            0.49292865522125595,
+            0.49561890604077574,
+            0.49832919314755303,
+            0.5010593723956361,
+            0.5038092996390738,
+            0.5065788307319146,
+            0.5093678215282066,
+            0.5121761278819987,
+            0.5150036056473394,
+            0.5178501106782769,
+            0.52071549882886,
+            0.5235996259531371,
+            0.5265023479051569,
+            0.5294235205389676,
+            0.5323629997086178,
+            0.5353206412681559,
+            0.5382963010716307,
+            0.5412898349730907,
+            0.5443010988265841,
+            0.5473299484861596,
+            0.5503762398058657,
+            0.5534398286397508,
+            0.5565205708418635,
+            0.5596183222662524,
+            0.562732938766966,
+            0.5658642761980527,
+            0.5690121904135608,
+            0.5721765372675391,
+            0.5753571726140362,
+            0.5785539523071003,
+            0.5817667322007801,
+            0.5849953681491242,
+            0.5882397160061807,
+            0.5914996316259986,
+            0.5947749708626262,
+            0.5980655895701119,
+            0.6013713436025043,
+            0.604692088813852,
+            0.6080276810582033,
+            0.6113779761896069,
+            0.6147428300621113,
+            0.6181220985297649,
+            0.621515637446616,
+            0.6249233026667136,
+            0.628344950044106,
+            0.6317804354328416,
+            0.635229614686969,
+            0.6386923436605365,
+            0.6421684782075929,
+            0.6456578741821867,
+            0.6491603874383665,
+            0.6526758738301802,
+            0.656204189211677,
+            0.6597451894369049,
+            0.6632987303599128,
+            0.6668646678347491,
+            0.6704428577154622,
+            0.6740331558561007,
+            0.6776354181107129,
+            0.6812495003333477,
+            0.6848752583780532,
+            0.6885125480988782,
+            0.6921612253498711,
+            0.6958211459850803,
+            0.6994921658585544,
+            0.7031741408243422,
+            0.7068669267364918,
+            0.7105703794490518,
+            0.7142843548160706,
+            0.7180087086915969,
+            0.7217432969296793,
+            0.7254879753843662,
+            0.729242599909706,
+            0.7330070263597472,
+            0.7367811105885386,
+            0.7405647084501283,
+            0.7443576757985652,
+            0.7481598684878974,
+            0.7519711423721737,
+            0.7557913533054426,
+            0.7596203571417525,
+            0.7634580097351518,
+            0.7673041669396894,
+            0.7711586846094133,
+            0.7750214185983725,
+            0.7788922247606151,
+            0.7827709589501899,
+            0.7866574770211452,
+            0.7905516348275297,
+            0.7944532882233918,
+            0.79836229306278,
+            0.8022785051997426,
+            0.8062017804883286,
+            0.8101319747825861,
+            0.8140689439365638,
+            0.81801254380431,
+            0.8219626302398736,
+            0.8259190590973028,
+            0.8298816862306463,
+            0.8338503674939521,
+            0.8378249587412694,
+            0.8418053158266464,
+            0.8457912946041315,
+            0.8497827509277733,
+            0.8537795406516203,
+            0.8577815196297213,
+            0.8617885437161241,
+            0.8658004687648779,
+            0.869817150630031,
+            0.8738384451656316,
+            0.8778642082257286,
+            0.8818942956643704,
+            0.8859285633356054,
+            0.8899668670934823,
+            0.8940090627920495,
+            0.8980550062853555,
+            0.9021045534274488,
+            0.9061575600723778,
+            0.9102138820741913,
+            0.9142733752869374,
+            0.918335895564665,
+            0.9224012987614226,
+            0.9264694407312583,
+            0.9305401773282209,
+            0.9346133644063589,
+            0.9386888578197208,
+            0.9427665134223553,
+            0.9468461870683104,
+            0.9509277346116349,
+            0.9550110119063774,
+            0.9590958748065864,
+            0.9631821791663103,
+            0.9672697808395975,
+            0.9713585356804967,
+            0.9754482995430562,
+            0.9795389282813248,
+            0.9836302777493509,
+            0.987722203801183,
+            0.9918145622908696,
+            0.995907209072459,
+            1
+          ],
+          "endpointEpsilon": 1e-06,
+          "preserveInputSign": true
+        },
+        "flowByPressure": {
+          "kind": "uniform",
+          "samples": [
+            0,
+            0.0006946674470430744,
+            0.001389722965934701,
+            0.002085554628523433,
+            0.0027825505066578224,
+            0.0034810986721864213,
+            0.004181587196957781,
+            0.004884404152820458,
+            0.005589937611623002,
+            0.006298575645213961,
+            0.007010706325441899,
+            0.00772671772415536,
+            0.008446997913202895,
+            0.009171934964433063,
+            0.00990191694969441,
+            0.010637331940835493,
+            0.011378568009704864,
+            0.012126013228151069,
+            0.01288005566802267,
+            0.013641083401168218,
+            0.014409484499436267,
+            0.015185647034675346,
+            0.015969959078734042,
+            0.016762808703460898,
+            0.017564583980704443,
+            0.018375672982313265,
+            0.019196463780135887,
+            0.02002734444602088,
+            0.020868703051816775,
+            0.021720927669372156,
+            0.022584406370535548,
+            0.023459527227155524,
+            0.024346678311080616,
+            0.02524624769415939,
+            0.026158623448240395,
+            0.027084193645172186,
+            0.028023346356803307,
+            0.02897646965498233,
+            0.02994395161155778,
+            0.030926180298378236,
+            0.03192354378729224,
+            0.03293643015014833,
+            0.033965227458795065,
+            0.03501032378508102,
+            0.036072107200854735,
+            0.03715096577796474,
+            0.03824728758825961,
+            0.03936146070358791,
+            0.04049387319579814,
+            0.04164491313673892,
+            0.04281496859825878,
+            0.04400442765220624,
+            0.045213678370429874,
+            0.04644310882477823,
+            0.0476931070870999,
+            0.04896406122924337,
+            0.05025635932305724,
+            0.051570389440390045,
+            0.05290653965309034,
+            0.05426519803300669,
+            0.05564675265198763,
+            0.0570515915818817,
+            0.05848010289453748,
+            0.05993267466180352,
+            0.061409694955528366,
+            0.06291155184756056,
+            0.06443863340974867,
+            0.06599132771394123,
+            0.06757002283198682,
+            0.069175106835734,
+            0.07080696779703124,
+            0.07246599378772722,
+            0.07415257287967034,
+            0.0758670931447093,
+            0.07760994265469257,
+            0.07938150948146874,
+            0.08118218169688635,
+            0.08301234737279392,
+            0.08487239458104007,
+            0.08676271139347327,
+            0.08868368588194214,
+            0.09063570611829516,
+            0.09261916017438096,
+            0.09463443612204814,
+            0.09668192203314507,
+            0.09876200597952042,
+            0.10087507603302276,
+            0.1030215202655006,
+            0.10520172674880252,
+            0.10741608355477703,
+            0.1096649787552727,
+            0.11194880042213814,
+            0.11426793662722182,
+            0.11662277544237235,
+            0.11901370493943825,
+            0.12144111319026801,
+            0.12390538826671033,
+            0.12640691824061367,
+            0.1289460911838266,
+            0.13152329516819772,
+            0.13413891826557547,
+            0.13679334854780847,
+            0.13948697408674535,
+            0.14222018295423447,
+            0.14499336322212453,
+            0.14780690296226406,
+            0.15066119024650157,
+            0.1535566131466857,
+            0.15649355973466492,
+            0.15947241808228774,
+            0.1624935762614029,
+            0.16555742234385876,
+            0.16866434440150394,
+            0.17181473050618698,
+            0.17500896872975646,
+            0.178247447144061,
+            0.181530553820949,
+            0.18485867683226903,
+            0.1882322042498698,
+            0.19165152414559974,
+            0.19511702459130736,
+            0.19862909365884127,
+            0.20218811942005008,
+            0.20579448994678234,
+            0.20944859331088647,
+            0.21315081758421114,
+            0.2169015508386049,
+            0.22070118114591622,
+            0.2245500965779937,
+            0.2284486852066859,
+            0.2323973351038414,
+            0.2363964343413087,
+            0.24044637099047841,
+            0.24454739290200098,
+            0.24869921181380075,
+            0.25290141135702293,
+            0.25715357516281284,
+            0.26145528686231584,
+            0.26580613008667703,
+            0.27020568846704185,
+            0.27465354563455546,
+            0.2791492852203632,
+            0.28369249085561016,
+            0.2882827461714419,
+            0.2929196347990034,
+            0.29760274036944007,
+            0.30233164651389716,
+            0.30710593686352,
+            0.31192519504945376,
+            0.31678900470284393,
+            0.32169694945483546,
+            0.32664861293657366,
+            0.33164357877920403,
+            0.3366814306138717,
+            0.34176175207172194,
+            0.3468841267839,
+            0.3520481383815514,
+            0.3572533704958209,
+            0.36249940675785414,
+            0.3677858307987963,
+            0.3731122262497926,
+            0.37847817674198847,
+            0.383883265906529,
+            0.3893270773745595,
+            0.3948091947772253,
+            0.4003292017456718,
+            0.40588668191104393,
+            0.41148121890448713,
+            0.41711239635714675,
+            0.4227797979001679,
+            0.4284830071646959,
+            0.43422160778187613,
+            0.4399951833828539,
+            0.4458033175987743,
+            0.45164559406078253,
+            0.45752159640002393,
+            0.4634309082476439,
+            0.4693731132347877,
+            0.4753477949926005,
+            0.48135453715222754,
+            0.48739292334481416,
+            0.49346253720150585,
+            0.49956296235344744,
+            0.5056937824317843,
+            0.5118545810676619,
+            0.5180449418922255,
+            0.5242644485366202,
+            0.5305126846319913,
+            0.5367892338094844,
+            0.5430936797002441,
+            0.5494256059354163,
+            0.5557845961461461,
+            0.5621702339635785,
+            0.5685821030188589,
+            0.5750197869431327,
+            0.5814828693675451,
+            0.5879709339232414,
+            0.5944835642413671,
+            0.6010203439530669,
+            0.6075808566894866,
+            0.614164686081771,
+            0.6207714157610656,
+            0.6274006293585158,
+            0.6340519105052667,
+            0.6407248428324638,
+            0.647419009971252,
+            0.6541339955527768,
+            0.6608693832081834,
+            0.6676247565686171,
+            0.6743996992652233,
+            0.6811937949291469,
+            0.6880066271915336,
+            0.6948377796835283,
+            0.7016868360362767,
+            0.7085533798809237,
+            0.7154369948486146,
+            0.7223372645704946,
+            0.7292537726777094,
+            0.7361861028014038,
+            0.7431338385727233,
+            0.7500965636228134,
+            0.7570738615828189,
+            0.7640653160838851,
+            0.7710705107571576,
+            0.7780890292337814,
+            0.7851204551449018,
+            0.7921643721216642,
+            0.7992203637952139,
+            0.8062880137966959,
+            0.813366905757256,
+            0.8204566233080388,
+            0.8275567500801899,
+            0.8346668697048545,
+            0.841786565813178,
+            0.8489154220363055,
+            0.8560530220053826,
+            0.8631989493515543,
+            0.8703527877059657,
+            0.8775141206997622,
+            0.8846825319640893,
+            0.8918576051300919,
+            0.8990389238289157,
+            0.9062260716917057,
+            0.9134186323496071,
+            0.9206161894337653,
+            0.9278183265753258,
+            0.9350246274054334,
+            0.9422346755552335,
+            0.9494480546558716,
+            0.9566643483384927,
+            0.9638831402342422,
+            0.9711040139742653,
+            0.9783265531897076,
+            0.9855503415117138,
+            0.9927749625714295,
+            1
+          ],
+          "endpointEpsilon": 1e-06,
+          "preserveInputSign": true
+        },
+        "opacityByPressure": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "pressureSmoothingPx": 0,
+        "opacity": 1,
+        "behavior": {
+          "version": 2,
+          "speedInput": {
+            "version": 1,
+            "space": "view",
+            "maximum": 30,
+            "estimator": "grafettoEMA30ms"
+          },
+          "rendering": {
+            "opacityCeiling": "uniform",
+            "mode": "buildUp",
+            "blendMode": "normal",
+            "wetEdges": 0,
+            "burntEdges": 0,
+            "burntEdgesMode": "multiply",
+            "accumulation": "alphaDarken"
+          },
+          "spacing": {
+            "mode": "diameter",
+            "coefficient": 0.03,
+            "axisScale": {
+              "x": 0.4066666666666667,
+              "y": 1.0
+            }
+          },
+          "rotation": {
+            "follow": 1,
+            "random": "none"
+          },
+          "dual": {
+            "brush": {
+              "id": "imported-ddd21c8031418241b8492b8a",
+              "version": 27,
+              "model": "stamp",
+              "category": "paint",
+              "tip": {
+                "kind": "bitmap",
+                "mask": "asset:88d897cf162e045c2543d0eecec8e2f557add60e92aee1bc4b1938143aa1366f",
+                "hardness": 0.7,
+                "aspect": 1.0,
+                "rotation": "fixed",
+                "angle": 0.0,
+                "maskBounds": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "width": 1.0,
+                  "height": 1.0
+                },
+                "imageSampling": {
+                  "kind": "integer-pyramid",
+                  "signal": "inverse-gray",
+                  "sourceRect": {
+                    "x": 0,
+                    "y": 0,
+                    "width": 256,
+                    "height": 256
+                  }
+                }
+              },
+              "paperInteraction": 0,
+              "spacing": 0.04,
+              "flow": 1,
+              "flowPer": "stamp",
+              "sizeByPressure": [
+                [
+                  0,
+                  1.6612698412698412
+                ],
+                [
+                  1,
+                  1.6612698412698412
+                ]
+              ],
+              "flowByPressure": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  1
+                ]
+              ],
+              "opacityByPressure": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  1
+                ]
+              ],
+              "pressureSmoothingPx": 0,
+              "opacity": 1,
+              "behavior": {
+                "version": 2,
+                "speedInput": {
+                  "version": 1,
+                  "space": "view",
+                  "maximum": 30,
+                  "estimator": "grafettoEMA30ms"
+                },
+                "rendering": {
+                  "opacityCeiling": "uniform",
+                  "mode": "buildUp",
+                  "blendMode": "normal",
+                  "wetEdges": 0,
+                  "burntEdges": 0,
+                  "burntEdgesMode": "multiply",
+                  "accumulation": "alphaDarken"
+                },
+                "spacing": {
+                  "mode": "diameter",
+                  "coefficient": 0.04
+                },
+                "rotation": {
+                  "follow": 1,
+                  "random": "none"
+                }
+              },
+              "sourceStamp": {
+                "version": 2,
+                "source": {
+                  "kind": "image"
+                },
+                "reader": "krita-bd6e8d0-v1",
+                "role": "mask",
+                "settings": {
+                  "FlowSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+                  "FlowUseCurve": "false",
+                  "FlowUseSameCurve": "true",
+                  "FlowValue": "1",
+                  "FlowcommonCurve": "0,0;0.512563,0.504808;1,1;",
+                  "FlowcurveMode": "0",
+                  "HorizontalMirrorEnabled": "true",
+                  "MirrorSensor": "<!DOCTYPE params> <params id=\"fuzzy\"/> ",
+                  "MirrorUseCurve": "true",
+                  "MirrorUseSameCurve": "true",
+                  "MirrorValue": "1",
+                  "MirrorcommonCurve": "0,0;1,1;",
+                  "MirrorcurveMode": "0",
+                  "OpacitySensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+                  "OpacityUseCurve": "false",
+                  "OpacityUseSameCurve": "true",
+                  "OpacityValue": "1",
+                  "OpacitycommonCurve": "0,0;0.507538,0.467337;1,1;",
+                  "OpacitycurveMode": "0",
+                  "PressureMirror": "false",
+                  "PressureRatio": "false",
+                  "PressureRotation": "true",
+                  "PressureScatter": "false",
+                  "PressureSize": "false",
+                  "RatioSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+                  "RatioUseCurve": "true",
+                  "RatioUseSameCurve": "true",
+                  "RatioValue": "1",
+                  "RatiocommonCurve": "0,0;1,1;",
+                  "RatiocurveMode": "0",
+                  "RotationSensor": "<!DOCTYPE params> <params id=\"drawingangle\" fanCornersStep=\"30\" angleOffset=\"0\" fanCornersEnabled=\"0\" lockedAngleMode=\"0\"/> ",
+                  "RotationUseCurve": "true",
+                  "RotationUseSameCurve": "true",
+                  "RotationValue": "1",
+                  "RotationcommonCurve": "0,0;1,1;",
+                  "RotationcurveMode": "0",
+                  "ScatterSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,1;0.819095,0.668342;1,0;</curve> </params> ",
+                  "ScatterUseCurve": "false",
+                  "ScatterUseSameCurve": "true",
+                  "ScatterValue": "1.04",
+                  "ScattercommonCurve": "0,1;0.658291,0.638191;1,0;",
+                  "ScattercurveMode": "0",
+                  "Scattering/AxisX": "true",
+                  "Scattering/AxisY": "true",
+                  "SizeSensor": "<!DOCTYPE params> <params id=\"fuzzy\"/> ",
+                  "SizeUseCurve": "true",
+                  "SizeUseSameCurve": "true",
+                  "SizeValue": "1",
+                  "SizecommonCurve": "0,0;1,1;",
+                  "SizecurveMode": "0",
+                  "VerticalMirrorEnabled": "true",
+                  "brush_definition": "<Brush scale=\"0.817656\" AdjustmentMidPoint=\"127\" angle=\"0\" ColorAsMask=\"0\" BrightnessAdjustment=\"0\" preserveLightness=\"0\" useAutoSpacing=\"0\" BrushVersion=\"2\" autoSpacingCoeff=\"1\" filename=\"rake_sparse.png\" spacing=\"0.04\" ContrastAdjustment=\"0\" type=\"png_brush\"/> "
+                },
+                "brush": {
+                  "width": 256,
+                  "height": 256,
+                  "scale": 0.817656,
+                  "angle": 0.0
+                },
+                "spacing": {
+                  "value": 0.04,
+                  "automatic": false,
+                  "coefficient": 1.0,
+                  "isotropic": false
+                },
+                "timing": {
+                  "enabled": false,
+                  "rate": 20.0,
+                  "ignoreDistance": false
+                },
+                "precision": {
+                  "level": 5,
+                  "automatic": false
+                },
+                "flags": {
+                  "scatterX": true,
+                  "scatterY": true,
+                  "mirrorX": true,
+                  "mirrorY": true,
+                  "indirectPainting": true,
+                  "textureEnabled": false,
+                  "materialFixed1": true
+                },
+                "options": [
+                  {
+                    "id": "Size",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "fuzzyPerDab",
+                        "sourceId": "fuzzy",
+                        "sourceSlot": 9,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Rotation",
+                    "checkable": true,
+                    "checked": true,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "drawingAngle",
+                        "sourceId": "drawingangle",
+                        "sourceSlot": 3,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        },
+                        "angleOffset": 0.0,
+                        "lockedAngle": false,
+                        "fanCorners": false,
+                        "fanStep": 30
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Ratio",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Scatter",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": false,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,1;0.658291,0.638191;1,0;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 1.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 0.658291,
+                          "y": 0.638191,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 0.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.04,
+                    "min": 0,
+                    "max": 5,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,1;0.658291,0.638191;1,0;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 1.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 0.658291,
+                              "y": 0.638191,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 0.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Opacity",
+                    "checkable": false,
+                    "checked": true,
+                    "useCurve": false,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;0.507538,0.467337;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 0.507538,
+                          "y": 0.467337,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,0;0.507538,0.467337;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 0.507538,
+                              "y": 0.467337,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Flow",
+                    "checkable": false,
+                    "checked": true,
+                    "useCurve": false,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;0.512563,0.504808;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 0.512563,
+                          "y": 0.504808,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,0;0.512563,0.504808;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 0.512563,
+                              "y": 0.504808,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Mirror",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "fuzzyPerDab",
+                        "sourceId": "fuzzy",
+                        "sourceSlot": 9,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Spacing",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "Rate",
+                    "checkable": true,
+                    "checked": false,
+                    "useCurve": true,
+                    "useSameCurve": true,
+                    "commonCurve": {
+                      "text": "0,0;1,1;",
+                      "points": [
+                        {
+                          "x": 0.0,
+                          "y": 0.0,
+                          "corner": false
+                        },
+                        {
+                          "x": 1.0,
+                          "y": 1.0,
+                          "corner": false
+                        }
+                      ]
+                    },
+                    "curveMode": 0,
+                    "strength": 1.0,
+                    "min": 0,
+                    "max": 1,
+                    "sensors": [
+                      {
+                        "id": "pressure",
+                        "sourceId": "pressure",
+                        "sourceSlot": 0,
+                        "curve": {
+                          "text": "0,0;1,1;",
+                          "points": [
+                            {
+                              "x": 0.0,
+                              "y": 0.0,
+                              "corner": false
+                            },
+                            {
+                              "x": 1.0,
+                              "y": 1.0,
+                              "corner": false
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "unsupported": [
+                  "mask-prefix-and-master-size-unresolved"
+                ],
+                "compiled": {
+                  "version": 2,
+                  "reader": "krita-bd6e8d0-v1",
+                  "profile": "eigen-5.0.1-source-functional-f64-v1",
+                  "buildId": "c9448db2cab661b36ded12e5ef4aca224c6c28d767d6e64243386006d07e6e72",
+                  "curves": []
+                }
+              }
+            },
+            "blendMode": "darken",
+            "sampling": "independent"
+          }
+        },
+        "sourceStamp": {
+          "version": 2,
+          "source": {
+            "kind": "image"
+          },
+          "reader": "krita-bd6e8d0-v1",
+          "role": "primary",
+          "settings": {
+            "ColorSource/Type": "plain",
+            "DarkenSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "DarkenUseCurve": "true",
+            "DarkenUseSameCurve": "true",
+            "DarkenValue": "1",
+            "DarkencommonCurve": "0,0;1,1;",
+            "DarkencurveMode": "0",
+            "FlowSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "FlowUseCurve": "true",
+            "FlowUseSameCurve": "true",
+            "FlowValue": "1",
+            "FlowcommonCurve": "0,0;0.517588,0.240385;1,1;",
+            "FlowcurveMode": "0",
+            "HorizontalMirrorEnabled": "false",
+            "KisPrecisionOption/AutoPrecisionEnabled": "false",
+            "KisPrecisionOption/precisionLevel": "1",
+            "MaskingBrush/Enabled": "true",
+            "MaskingBrush/MaskingCompositeOp": "darken",
+            "MaskingBrush/MasterSizeCoeff": "1.6612698412698412",
+            "MaskingBrush/UseMasterSize": "true",
+            "MirrorSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "MirrorUseCurve": "true",
+            "MirrorUseSameCurve": "true",
+            "MirrorValue": "1",
+            "MirrorcommonCurve": "0,0;1,1;",
+            "MirrorcurveMode": "0",
+            "MixSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;1,1;</curve> </params> ",
+            "MixUseCurve": "true",
+            "MixUseSameCurve": "true",
+            "MixValue": "1",
+            "MixcommonCurve": "0,0;1,1;",
+            "MixcurveMode": "0",
+            "OpacitySensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0;0.206422,0.248996;0.715596,0.7751;1,1;</curve> </params> ",
+            "OpacityUseCurve": "false",
+            "OpacityUseSameCurve": "true",
+            "OpacityValue": "1",
+            "OpacitycommonCurve": "0,0;0.326633,0.105528;0.753769,0.80402;1,1;",
+            "OpacitycurveMode": "0",
+            "PaintOpAction": "2",
+            "PaintOpSettings/ignoreSpacing": "false",
+            "PaintOpSettings/isAirbrushing": "false",
+            "PaintOpSettings/rate": "20",
+            "PaintOpSettings/updateSpacingBetweenDabs": "false",
+            "PressureDarken": "false",
+            "PressureMirror": "false",
+            "PressureMix": "false",
+            "PressureRate": "false",
+            "PressureRatio": "false",
+            "PressureRotation": "true",
+            "PressureScatter": "false",
+            "PressureSharpness": "false",
+            "PressureSize": "true",
+            "PressureSoftness": "false",
+            "PressureSpacing": "false",
+            "PressureTexture/Strength/": "true",
+            "Pressureh": "false",
+            "Pressures": "false",
+            "Pressurev": "false",
+            "RateSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "RateUseCurve": "true",
+            "RateUseSameCurve": "true",
+            "RateValue": "1",
+            "RatecommonCurve": "0,0;1,1;",
+            "RatecurveMode": "0",
+            "RatioSensor": "<!DOCTYPE params> <params id=\"declination\"> <curve>0,1;1,0.266332;</curve> </params> ",
+            "RatioUseCurve": "true",
+            "RatioUseSameCurve": "false",
+            "RatioValue": "1",
+            "RatiocommonCurve": "0,0;1,1;",
+            "RatiocurveMode": "0",
+            "RotationSensor": "<!DOCTYPE params> <params id=\"drawingangle\" fanCornersStep=\"30\" angleOffset=\"0\" fanCornersEnabled=\"0\" lockedAngleMode=\"0\"/> ",
+            "RotationUseCurve": "true",
+            "RotationUseSameCurve": "true",
+            "RotationValue": "1",
+            "RotationcommonCurve": "0,0;1,1;",
+            "RotationcurveMode": "0",
+            "ScatterSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "ScatterUseCurve": "true",
+            "ScatterUseSameCurve": "true",
+            "ScatterValue": "5",
+            "ScattercommonCurve": "0,0;1,1;",
+            "ScattercurveMode": "0",
+            "Scattering/AxisX": "true",
+            "Scattering/AxisY": "true",
+            "Sharpness/softness": "0",
+            "SharpnessSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "SharpnessUseCurve": "true",
+            "SharpnessUseSameCurve": "true",
+            "SharpnessValue": "1",
+            "SharpnesscommonCurve": "0,0;1,1;",
+            "SharpnesscurveMode": "0",
+            "SizeSensor": "<!DOCTYPE params> <params id=\"pressure\"> <curve>0,0.279006;0.435875,0.482756;1,1;</curve> </params> ",
+            "SizeUseCurve": "true",
+            "SizeUseSameCurve": "true",
+            "SizeValue": "1",
+            "SizecommonCurve": "0,0.279006;0.435875,0.482756;1,1;",
+            "SizecurveMode": "0",
+            "SoftnessSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "SoftnessUseCurve": "true",
+            "SoftnessUseSameCurve": "true",
+            "SoftnessValue": "1",
+            "SoftnesscommonCurve": "0,0;1,1;",
+            "SoftnesscurveMode": "0",
+            "Spacing/Isotropic": "false",
+            "SpacingSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "SpacingUseCurve": "true",
+            "SpacingUseSameCurve": "true",
+            "SpacingValue": "1",
+            "SpacingcommonCurve": "0,0;1,1;",
+            "SpacingcurveMode": "0",
+            "Texture/Pattern/Enabled": "false",
+            "VerticalMirrorEnabled": "false",
+            "brush_definition": "<Brush scale=\"1.03279\" AdjustmentMidPoint=\"127\" angle=\"0\" ColorAsMask=\"1\" BrightnessAdjustment=\"0.04\" preserveLightness=\"1\" useAutoSpacing=\"0\" BrushVersion=\"2\" autoSpacingCoeff=\"1\" filename=\"DA_RGBA bluegreen_small1.png\" spacing=\"0.03\" ContrastAdjustment=\"0.01\" type=\"png_brush\"/> ",
+            "hSensor": "<!DOCTYPE params> <params id=\"sensorslist\"> <ChildSensor id=\"fuzzy\"> <curve>0,0.461538;1,0.528846;</curve> </ChildSensor> <ChildSensor id=\"pressure\"> <curve>0.753769,0.5;0.859296,0.528846;0.949749,0.490385;1,0.572115;</curve> </ChildSensor> </params> ",
+            "hUseCurve": "true",
+            "hUseSameCurve": "false",
+            "hValue": "1",
+            "hcommonCurve": "0,0;1,1;",
+            "hcurveMode": "0",
+            "sSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "sUseCurve": "true",
+            "sUseSameCurve": "true",
+            "sValue": "1",
+            "scommonCurve": "0,0;1,1;",
+            "scurveMode": "0",
+            "vSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+            "vUseCurve": "true",
+            "vUseSameCurve": "true",
+            "vValue": "1",
+            "vcommonCurve": "0,0;1,1;",
+            "vcurveMode": "0"
+          },
+          "brush": {
+            "width": 122,
+            "height": 300,
+            "scale": 1.03279,
+            "angle": 0.0
+          },
+          "spacing": {
+            "value": 0.03,
+            "automatic": false,
+            "coefficient": 1.0,
+            "isotropic": false
+          },
+          "timing": {
+            "enabled": false,
+            "rate": 20.0,
+            "ignoreDistance": false
+          },
+          "precision": {
+            "level": 1,
+            "automatic": false
+          },
+          "flags": {
+            "scatterX": true,
+            "scatterY": true,
+            "mirrorX": false,
+            "mirrorY": false,
+            "indirectPainting": true,
+            "textureEnabled": false,
+            "materialFixed1": true
+          },
+          "options": [
+            {
+              "id": "Size",
+              "checkable": true,
+              "checked": true,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0.279006;0.435875,0.482756;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.279006,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.435875,
+                    "y": 0.482756,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0.279006;0.435875,0.482756;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.279006,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.435875,
+                        "y": 0.482756,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Rotation",
+              "checkable": true,
+              "checked": true,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "drawingAngle",
+                  "sourceId": "drawingangle",
+                  "sourceSlot": 3,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  },
+                  "angleOffset": 0.0,
+                  "lockedAngle": false,
+                  "fanCorners": false,
+                  "fanStep": 30
+                }
+              ]
+            },
+            {
+              "id": "Ratio",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": false,
+              "commonCurve": {
+                "text": "0,1;1,0.266332;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 1.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 0.266332,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "tiltElevation",
+                  "sourceId": "declination",
+                  "sourceSlot": 7,
+                  "curve": {
+                    "text": "0,1;1,0.266332;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 0.266332,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Scatter",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 5.0,
+              "min": 0,
+              "max": 5,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Opacity",
+              "checkable": false,
+              "checked": true,
+              "useCurve": false,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;0.326633,0.105528;0.753769,0.80402;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.326633,
+                    "y": 0.105528,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.753769,
+                    "y": 0.80402,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;0.326633,0.105528;0.753769,0.80402;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.326633,
+                        "y": 0.105528,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.753769,
+                        "y": 0.80402,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Flow",
+              "checkable": false,
+              "checked": true,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;0.517588,0.240385;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 0.517588,
+                    "y": 0.240385,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;0.517588,0.240385;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 0.517588,
+                        "y": 0.240385,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Mirror",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Spacing",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "Rate",
+              "checkable": true,
+              "checked": false,
+              "useCurve": true,
+              "useSameCurve": true,
+              "commonCurve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              },
+              "curveMode": 0,
+              "strength": 1.0,
+              "min": 0,
+              "max": 1,
+              "sensors": [
+                {
+                  "id": "pressure",
+                  "sourceId": "pressure",
+                  "sourceSlot": 0,
+                  "curve": {
+                    "text": "0,0;1,1;",
+                    "points": [
+                      {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "corner": false
+                      },
+                      {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "corner": false
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "unsupported": [
+            "source-image-adjustments-unavailable"
+          ],
+          "compiled": {
+            "version": 2,
+            "reader": "krita-bd6e8d0-v1",
+            "profile": "eigen-5.0.1-source-functional-f64-v1",
+            "buildId": "c9448db2cab661b36ded12e5ef4aca224c6c28d767d6e64243386006d07e6e72",
+            "curves": [
+              {
+                "source": {
+                  "text": "0,0.279006;0.435875,0.482756;1,1;",
+                  "points": [
+                    {
+                      "x": 0.0,
+                      "y": 0.279006,
+                      "corner": false
+                    },
+                    {
+                      "x": 0.435875,
+                      "y": 0.482756,
+                      "corner": false
+                    },
+                    {
+                      "x": 1.0,
+                      "y": 1.0,
+                      "corner": false
+                    }
+                  ]
+                },
+                "coefficients": [
+                  [
+                    0.5155670174417943,
+                    0.0,
+                    0.36949949154356465,
+                    0.279006
+                  ],
+                  [
+                    -0.39835634607124676,
+                    1.1950690382137403,
+                    -0.1514012254878493,
+                    0.35468853334535566
+                  ]
+                ]
+              },
+              {
+                "source": {
+                  "text": "0,0;0.517588,0.240385;1,1;",
+                  "points": [
+                    {
+                      "x": 0.0,
+                      "y": 0.0,
+                      "corner": false
+                    },
+                    {
+                      "x": 0.517588,
+                      "y": 0.240385,
+                      "corner": false
+                    },
+                    {
+                      "x": 1.0,
+                      "y": 1.0,
+                      "corner": false
+                    }
+                  ]
+                },
+                "coefficients": [
+                  [
+                    1.0724608079652682,
+                    0.0,
+                    0.17712370594242022,
+                    0.0
+                  ],
+                  [
+                    -1.1506613531030063,
+                    3.451984059309019,
+                    -1.6095818193472167,
+                    0.3082591131412039
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "name": "m)_RGBA_03_Rake",
+      "source": "m)_RGBA_03_Rake.kpp",
+      "warnings": [
+        "Tip padded to square power-of-two; footprint includes transparent margin",
+        "Tip padded to square power-of-two; footprint includes transparent margin",
+        "kritaEngine: Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+        "lightnessMaterial: Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.",
+        "SizeCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.",
+        "FlowCurve: Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.",
+        "RotationDrawingAngle: Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced.",
+        "activeDynamics: PressureTexture/Strength/",
+        "masking.kritaEngine: Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+        "masking.integerImagePyramid: Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.",
+        "masking.RotationDrawingAngle: Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced.",
+        "maskingBrush: Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate."
+      ],
+      "compatibility": [
+        {
+          "feature": "kritaEngine",
+          "status": "approximate",
+          "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+        },
+        {
+          "feature": "lightnessMaterial",
+          "status": "approximate",
+          "detail": "Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison."
+        },
+        {
+          "feature": "SizeCurve",
+          "status": "approximate",
+          "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+        },
+        {
+          "feature": "FlowCurve",
+          "status": "approximate",
+          "detail": "Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration."
+        },
+        {
+          "feature": "RotationDrawingAngle",
+          "status": "approximate",
+          "detail": "Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced."
+        },
+        {
+          "feature": "activeDynamics",
+          "status": "unsupported",
+          "detail": "PressureTexture/Strength/"
+        },
+        {
+          "feature": "masking.kritaEngine",
+          "status": "approximate",
+          "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+        },
+        {
+          "feature": "masking.integerImagePyramid",
+          "status": "approximate",
+          "detail": "Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison."
+        },
+        {
+          "feature": "masking.RotationDrawingAngle",
+          "status": "approximate",
+          "detail": "Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced."
+        },
+        {
+          "feature": "maskingBrush",
+          "status": "approximate",
+          "detail": "Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate."
+        }
+      ],
+      "sourceDefaults": {
+        "sizePx": 309.83700000000005,
+        "opacity": 1,
+        "flow": 1
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset:2a8a5345bbcb8283031147520de38120698de4cfc8acfcfb18bb25e9ae465f22",
+      "size": 512,
+      "file": "2a8a5345bbcb8283031147520de38120698de4cfc8acfcfb18bb25e9ae465f22.bin"
+    },
+    {
+      "id": "asset:6093f653a2ab6138b2c96052e0cf2a96994006b42fdd1a8a703b00e657273fd8",
+      "size": 512,
+      "file": "6093f653a2ab6138b2c96052e0cf2a96994006b42fdd1a8a703b00e657273fd8.bin"
+    },
+    {
+      "id": "asset:88d897cf162e045c2543d0eecec8e2f557add60e92aee1bc4b1938143aa1366f",
+      "size": 256,
+      "file": "88d897cf162e045c2543d0eecec8e2f557add60e92aee1bc4b1938143aa1366f.bin"
+    }
+  ],
+  "skipped": []
+}

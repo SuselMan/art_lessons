@@ -8746,12 +8746,15 @@ export class PencilEngine implements PencilEngineAPI {
     const geometryCapability=dynamicAdmission?.supported?dynamicAdmission.geometryCapability:plainAdmission?.supported?plainAdmission.geometryCapability:undefined
     const grain=admission.material.kind==='pixelTexture'?admission.material.capability:undefined
     const selectedSizePx=this._opts.size,scaled=dynamicPlain||!!grain,scale=scaled?canonicalSourceScale(selectedSizePx,admission.data.version===2&&admission.data.source.kind!=='image'?admission.data.source.diameter:Math.max(admission.data.brush.width,admission.data.brush.height),admission.data.brush.scale):undefined,sourceScale=scale?.effectiveBrushScale
-    const grainImage=(()=>{
-      if(!grain||grain.data.source.kind!=='image'||!grain.material.supported||!('capability'in grain.material)||!('asset'in grain.material.capability))return undefined
-      const first=grain.material.capability.asset,ids=descriptor.tip.animation?.frames??[first.id],available=importedBrushAssetMetadata(preset)??[]
-      const assets=ids.map(id=>{const metadata=available.find(a=>a.id===id);if(!metadata||metadata.size!==first.size)throw new Error('Pixel image frame size differs');return{...first,id}})
-      return canonicalImageMaterialPin({kind:'image',asset:first.id,brushScale:sourceScale??grain.data.brush.scale,brushAngle:grain.data.brush.angle,...ids.length>1?{frames:ids}:{}},assets)
-    })()
+    let imageBinding8:CanonicalPixelTextureSourceBinding|undefined,imageBindingSha:string|undefined
+    if(grain?.data.source.kind==='image'){
+      const sourceBytes=new TextEncoder().encode(canonicalBrushDescriptorJSON(descriptor))
+      imageBindingSha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),v=>v.toString(16).padStart(2,'0')).join('')
+      this._assertCanonicalLayerCurrent(owner)
+      if(options.signal?.aborted||this._opts.pencilType!==preset||this._opts.size!==selectedSizePx)return{status:'cancelled'}
+      imageBinding8=canonicalPixelTextureSourceBinding(descriptor,imageBindingSha,importedBrushAssetMetadata(preset)??[],owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1',owner.plan.profile,1,{sourceScale})
+    }
+    const grainImage=imageBinding8?.source.kind==='image'?canonicalImageGeometryPin(imageBinding8.source,imageBinding8.assets):undefined
     const deferredTextureGradient=grain?.mode==='gradient'
     const grainPattern=grain&&!deferredTextureGradient?(grain.mode==='lightness'?canonicalPixelColorTexturePin({kind:'canvasTexture',asset:grain.patternAsset.id,alphaAsset:grain.alphaAsset?.id,law:'pixel-color-texture-v1',mode:grain.mode,width:grain.patternAsset.width,height:grain.patternAsset.height,periodX:grain.patternAsset.width,periodY:grain.patternAsset.height,phase:resolveCanonicalTexturePhase(grain.phasePolicy,()=>0),strength:'recorded-grain-v1'},grain.patternAsset,grain.alphaAsset!):canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:grain.patternAsset.id,law:'pixel-texture-u8-v1',mode:grain.mode,soft:grain.soft,width:grain.patternAsset.width,height:grain.patternAsset.height,periodX:grain.patternAsset.width,periodY:grain.patternAsset.height,phase:resolveCanonicalTexturePhase(grain.phasePolicy,()=>0),strength:'recorded-grain-v1'},grain.patternAsset)):undefined
 
@@ -8783,7 +8786,7 @@ export class PencilEngine implements PencilEngineAPI {
       const budget=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>image?accept(image.primarySource,image.assets,image):undefined,requirements=>canonicalMaskSourceBankBudget([...(image?.assets??[]).map(asset=>({asset,readOriginalCoverage:()=>{throw new Error('Pure image budget cannot read pixels')}})),...pattern?[{kind:'raw-pattern-l8' as const,asset:pattern,pin:grainPattern??fixed?.primaryTexture??((pressure||softPressure)?canonicalPressureCurvePrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:descriptor.texture!.patternSize!.width,height:descriptor.texture!.patternSize!.height,periodX:descriptor.texture!.periodPx,periodY:descriptor.texture!.periodPx,offsetX:descriptor.texture!.offset!.x,offsetY:descriptor.texture!.offset!.y,strength:'source-pressure-curve-v1'},[pattern]):texture!.primaryTexture),...grain?.alphaAsset?{alphaAsset:grain.alphaAsset,readOriginalAlpha:()=>{throw new Error('Pure pattern budget cannot read alpha')}}:{},readOriginalGray:()=>{throw new Error('Pure pattern budget cannot read pixels')}}]:[]],requirements.length?requirements:undefined)),oldKeys=new Set(owner.bank?.jobs.map(job=>job.key)??[]),union=new Map((owner.bank?.jobs??[]).map(job=>[job.key,job.bytes]))
       for(const resource of budget.resources)union.set(resource.key,resource.bytes)
       const fresh=budget.resources.filter(resource=>!oldKeys.has(resource.key)).length,stageCpu=fresh?union.size*512+192*(union.size*2+8)+1024+budget.maximumSourceCpuBytes:0
-      if([...union.values()].reduce((n,v)=>n+v,0)+maskCost.gpuBytes+compositeCost.gpuBytes+(growing?transformedMaskPrepassBudget(owner.mask).gpuBytes:0)>owner.cache.budgetBytes||this._brushMipCache.reservedBytes+charge+fresh*512+(fresh?budget.maximumTransientCpuBytes:0)+stageCpu+(initializing?maskCost.cpuBytes+compositeCost.cpuBytes:growing?maskCost.cpuBytes:0)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical image author union exceeds budget')
+      if([...union.values()].reduce((n,v)=>n+v,0)+maskCost.gpuBytes+compositeCost.gpuBytes+(growing?transformedMaskPrepassBudget(owner.mask).gpuBytes:0)>owner.cache.budgetBytes||this._brushMipCache.reservedBytes+(plainRelease?0:charge)+fresh*512+(fresh?budget.maximumTransientCpuBytes:0)+stageCpu+(initializing?maskCost.cpuBytes+compositeCost.cpuBytes:growing?maskCost.cpuBytes:0)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical image author union exceeds budget')
       for(const asset of sourceAssets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
     }else if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
     if(charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source program exceeds CPU budget')
@@ -8795,10 +8798,10 @@ export class PencilEngine implements PencilEngineAPI {
       let binding8:CanonicalPixelTextureSourceBinding|undefined
       let fixedSha:string|undefined,binding7:CanonicalTexturedAutoProgramBinding|undefined
       if(grain){
-        fixedSha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('')
+        fixedSha=imageBindingSha??Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('')
         this._assertCanonicalLayerCurrent(owner)
         if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
-        binding8=canonicalPixelTextureSourceBinding(descriptor,fixedSha,importedBrushAssetMetadata(preset)??[],coverageProfile,owner.plan.profile,1,{sourceScale})
+        binding8=imageBinding8??canonicalPixelTextureSourceBinding(descriptor,fixedSha,importedBrushAssetMetadata(preset)??[],coverageProfile,owner.plan.profile,1,{sourceScale})
         // Zero entropy only plans fixed-size resources; actual START samples phase once.
         if(!deferredTextureGradient)texture=canonicalPixelTexturePreparationContext(binding8,resolveCanonicalTexturePhase(binding8.phasePolicy,()=>0),{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
       }

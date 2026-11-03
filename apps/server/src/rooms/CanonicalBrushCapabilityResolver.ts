@@ -612,7 +612,7 @@ export class CanonicalBrushCapabilityResolver {
       for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
       return {material:canonicalPixelImageMaterialContext(binding,budget,(sourceTipGradient||sourceColorFields)?{...sourceTipGradient?{sourceTipGradient}:{},...sourceColorFields?{sourceColorFields,sourceColorAvailable:library.assets.map(({id,size})=>({id,size}))}:{}}:undefined),mode:binding.composition.mode,outerBlend:binding.composition.outerBlend,descriptorSha256}
     }
-    if(descriptor.tip.material){
+    if(descriptor.tip.material&&!descriptor.behavior?.dual){
       if(!this.imageMaterialPolicies.imageMaterialSource||role==='author'&&!this.imageMaterialPolicies.authorImageMaterialSource)fail('image material source policy disabled')
       if(!canonicalStrokeRasterContract(profile).genericSC||phase||descriptor.behavior?.dual)fail('image material profile/phase unavailable')
       // Current public input stores RGB; foreground alpha remains one and the
