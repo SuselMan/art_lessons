@@ -956,12 +956,13 @@ export class CanonicalFrameExecutor {
           return {pending:this.pending,checkpointReady:this.checkpointReady}
         }
       }
-      // SAME Work mixed raw deposition: all physical ownership is acquired
-      // before the parent snapshot, and never transitioned inside its children.
-      if(this.canEnterMixedColdSequence(work)&&this.mixedColdHeadroom(work,4224)){
-        // No GL capture is needed for a still-incomplete CPU-only Soft table.
-        if(!this.prepareSoftTable(work,turnStarted))return {pending:true,checkpointReady:false}
-        this.paintMixedColdSequence(work,layer,turnStarted)
+      // Finish current cold CPU work before acquiring any parent snapshot.
+      // Prepared image/resident/final-upload entries retain the original first
+      // indivisible paint even if snapshot acquisition crosses the soft clock.
+      if(this.canEnterMixedPreparedSequence(work)){
+        if(!this.mixedPreparedSourceReady(work)
+          &&(!this.prepareAuto(work,turnStarted)||performance.now()-turnStarted>=4))return {pending:true,checkpointReady:false}
+        this.paintMixedPreparedSequence(work,layer,turnStarted)
         return {pending:this.pending,checkpointReady:this.checkpointReady}
       }
       const warmAtEntry=this.warmAutoReady(work);
@@ -982,58 +983,48 @@ export class CanonicalFrameExecutor {
     return { pending: this.pending, checkpointReady: this.checkpointReady }
   }
 
-  private canEnterMixedColdSequence(work:Work):boolean {
+  private canEnterMixedPreparedSequence(work:Work):boolean {
     const p=work.physical
     return !!this.options.maskedSource&&!!p&&work.draw<work.result.draws.length
       &&work.targetCursor===p.targetCount&&work.scratchCursor===p.scratchCount
       &&work.washCursor===work.newTiles.length&&(work.dualCursor??0)===(work.dualPositions?.length??0)
       &&!work.dualAcquisition&&!this.maskedSegmentDue(work)
   }
-  private mixedColdHeadroom(work:Work,parentBytes=0):boolean {
+  /** Actual source readiness only; never a new source/room grant. */
+  private mixedPreparedSourceReady(work:Work):boolean {
     const d=work.result.draws[work.draw],recipe=d&&work.input.frame.definitions[d.definition]
-    return !!recipe&&(!autoRecipe(recipe)||this.maskParticipant.canBeginAutoGenerationInTurn(this.maskRequest(work,work.draw),parentBytes))
+    if(!recipe)return false
+    if(!autoRecipe(recipe))return true
+    const request=this.maskRequest(work,work.draw)
+    return this.maskParticipant.hasReadyAutoGeneration(request)||this.maskParticipant.finalAutoUploadPending(request)
   }
-  private paintMixedColdSequence(work:Work,layer:TiledLayerBuffer,started:number):void {
+  private paintMixedPreparedSequence(work:Work,layer:TiledLayerBuffer,started:number):void {
     const segment=work.segment??0
     runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
       for(let steps=0;steps<32&&(steps===0||performance.now()-started<4);steps++){
         this.assertPrepared()
         if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Mixed sequence owner changed')
-        if((work.segment??0)!==segment||!this.canEnterMixedColdSequence(work)||!this.mixedColdHeadroom(work))break
+        // Stop BEFORE opening a child or evaluating the next cold definition.
+        // Its original standalone CPU64 continuation runs on the next advance.
+        if((work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work)||!this.mixedPreparedSourceReady(work))break
         const draw=work.draw,tile=work.tile,part=work.paintPart
-        let ready=false
         sequence.step(turn=>{
           this.assertPrepared()
-          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedColdSequence(work))throw new Error('Mixed sequence boundary changed')
+          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work)||!this.mixedPreparedSourceReady(work))throw new Error('Mixed prepared sequence boundary changed')
           const d=work.result.draws[work.draw],recipe=work.input.frame.definitions[d.definition]
-          let readyAtEntry=!autoRecipe(recipe)
           if(autoRecipe(recipe)){
-            if(recipe.kind==='softAuto'){
-              const program=d.role==='mask'?this.maskSoftProgram:this.softProgram
-              if(!program)throw new TypeError('Mixed soft source is not trusted')
-              while(!program.done){program.advance(64);if(performance.now()-started>=4)return}
-            }
-            ready=this.maskParticipant.beginAutoGeneration(this.maskRequest(work,work.draw))
-            readyAtEntry=ready
-            if(!ready)this.maskParticipant.withAutoGenerationTurn(turn,advance=>{
-              do{const result=advance(64);if(result.done){ready=true;break}}while(performance.now()-started<4)
-            })
-          }else ready=true
-          // Existing first indivisible paint is permitted only for an already
-          // ready entry. Cold generation exhausting the clock restores/yields.
-          if(!ready||performance.now()-started>=4&&!(steps===0&&readyAtEntry))return
+            const request=this.maskRequest(work,work.draw)
+            if(!this.maskParticipant.hasReadyAutoGeneration(request))this.maskParticipant.flushFinalAutoGeneration(request,turn)
+          }
           this.assertPrepared()
-          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedColdSequence(work))throw new Error('Mixed paint boundary changed')
-          // Upload callback is closed; this same fresh child can now be claimed
-          // once by the batch. No group/owner lease spans a role transition.
+          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work))throw new Error('Mixed paint boundary changed')
           this.paint(work,layer,turn,started)
         })
-        if(!ready)break
         if(work.draw===draw&&work.tile===tile&&work.paintPart===part)break
       }
     })
-    // Fence resolve, presentation, END and Work retirement occur on the outer
-    // path only after the parent and all children have completely restored.
+    // Segment resolve, presentation, END and Work retirement remain outside
+    // the completely restored parent and its fresh single-use children.
   }
 
   /** Masked raw deposition only: no segment resolve, presentation or ownership

@@ -2181,7 +2181,7 @@ it('refuses standalone Auto bogus image assets before any paint',()=>{
 
 
 // RAM masked sequencing regressions: real prepared state / real capture queries.
-function maskedWarmSequenceFixture(primaryCount=3){
+function maskedWarmSequenceFixture(primaryCount=3,warm=true){
  const native=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
  const pin:CanonicalDefaultAutoSource={...native,coverageProfile:CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE}
  const nativeRecipe=closedAutoFrame(native).definitions[0]
@@ -2196,10 +2196,12 @@ function maskedWarmSequenceFixture(primaryCount=3){
  let n=0
  while(!s.executor['preparePhysical'](work,s.layer,performance.now()))expect(++n).toBeLessThan(100)
  while(!s.executor['prepareDualPlanes'](work,performance.now()))expect(++n).toBeLessThan(100)
- while(!s.executor['prepareAuto'](work,performance.now()))expect(++n).toBeLessThan(100)
- // Upload actual computed bytes through the same owned preparation turn.
- s.executor['runPreparedTurn'](work,performance.now(),'physical',()=>{})
- expect(s.executor['warmAutoReady'](work)).toBe(true)
+ if(warm){
+  while(!s.executor['prepareAuto'](work,performance.now()))expect(++n).toBeLessThan(100)
+  // Upload actual computed bytes through the same owned preparation turn.
+  s.executor['runPreparedTurn'](work,performance.now(),'physical',()=>{})
+  expect(s.executor['warmAutoReady'](work)).toBe(true)
+ }
  return {...s,frame,work,primaryCount}
 }
 
@@ -2208,11 +2210,10 @@ it('masked B resident same-role draws share one real capture and preserve role/f
  try{
   const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource')
   s.executor.advance()
-  // The new mixed parent also deposits the mask role after closing the last
-  // primary child; segment resolve remains outside the parent.
-  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2,0])
+  // The next cold mask role is prepared outside the restored parent.
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,2])
   expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
-  expect(s.work.draw).toBe(4);expect(s.work.segment??0).toBe(0)
+  expect(s.work.draw).toBe(3);expect(s.work.segment??0).toBe(0)
   expect(s.executor.pending).toBe(true);expect(s.snapshot()).toEqual(before)
   s.drain()
   expect(draw.mock.calls.filter(([r])=>r.operation.kind==='maskingAlpha')).toHaveLength(1)
@@ -2256,13 +2257,13 @@ function mixedColdImageSoftFixture(){
  let n=0;while(!s.executor['preparePhysical'](work,s.layer,0)||!s.executor['prepareDualPlanes'](work,0))expect(++n).toBeLessThan(100)
  return{...s,work}
 }
-it('SAME Work cold IMAGE definitions and Soft role share one capture without crossing segment resolution',()=>{
+it('SAME Work IMAGE group restores before cold Soft CPU preparation and final upload paint',()=>{
  const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=mixedColdImageSoftFixture()
  try{
   const before=s.snapshot(),queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource'),uploads=vi.spyOn(s.gl,'texSubImage2D')
   let turns=0;while(!s.executor['maskedSegmentDue'](s.work)){s.executor.advance();expect(++turns).toBeLessThan(100)}
   expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1,0,1])
-  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
+  expect(queries.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(2)
   expect(uploads).toHaveBeenCalled();expect(s.work.draw).toBe(4);expect(s.work.segment??0).toBe(0)
   expect(s.snapshot()).toEqual(before);s.drain();expect(draw.mock.calls.filter(([r])=>r.operation.kind==='maskingAlpha')).toHaveLength(1)
   expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
@@ -2273,7 +2274,7 @@ it('mixed cold sequence closes actual scopes when second-role paint throws undef
  try{
   const before=s.snapshot(),original=s.composite.drawSource.bind(s.composite);let calls=0
   vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{if(++calls===3)throw undefined;return original(request,frame)})
-  let caught=false,value:unknown='not-thrown';try{s.executor.advance()}catch(error){caught=true;value=error}
+  let caught=false,value:unknown='not-thrown';try{let turns=0;while(s.executor.pending){s.executor.advance();expect(++turns).toBeLessThan(100)}}catch(error){caught=true;value=error}
   expect(caught).toBe(true);expect(value).toBeUndefined();expect(calls).toBe(3)
   expect(s.snapshot()).toEqual(before);expect(s.prepass['turnDepth']).toBe(0);expect(s.poison).toHaveBeenCalledOnce()
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
@@ -2301,5 +2302,30 @@ it('unfinished Soft table after a mixed role switch resumes CPU64 without anothe
   expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1)
   query.mockClear();s.executor.advance();expect(query).not.toHaveBeenCalled();expect(s.work.draw).toBe(2)
   table.advance=advance;now=0;s.drain();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('current cold Auto CPU64 continuation yields with zero full GL captures before final upload',()=>{
+ let now=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),s=maskedWarmSequenceFixture(1,false)
+ try{
+  const request=s.executor['maskRequest'](s.work,s.work.draw),participant=s.executor['maskParticipant']
+  expect(participant.beginAutoGeneration(request)).toBe(false)
+  const pending=s.prepass['pendingAuto']!,advance=pending.evaluator.advance.bind(pending.evaluator),step=vi.spyOn(pending.evaluator,'advance').mockImplementation((...args)=>{const result=advance(...args);now+=4;return result})
+  const query=vi.spyOn(s.gl,'getParameter');query.mockClear()
+  s.executor.advance();expect(step).toHaveBeenCalled();expect(s.work.draw).toBe(0)
+  expect(query).not.toHaveBeenCalled();expect(s.prepass['turnDepth']).toBe(0)
+  step.mockRestore();now=0;s.drain();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('prepared mixed final upload and first paint progress when the parent capture crosses the original deadline',()=>{
+ let now=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),s=maskedWarmSequenceFixture(2,false)
+ try{
+  let turns=0;while(!s.executor['prepareAuto'](s.work,0))expect(++turns).toBeLessThan(100)
+  const request=s.executor['maskRequest'](s.work,s.work.draw)
+  expect(s.executor['maskParticipant'].finalAutoUploadPending(request)).toBe(true)
+  const get=s.gl.getParameter.bind(s.gl),query=vi.spyOn(s.gl,'getParameter').mockImplementation((name)=>{if(name===s.gl.VIEWPORT)now+=5;return get(name)}),draw=vi.spyOn(s.composite,'drawSource')
+  s.executor.advance();expect(draw).toHaveBeenCalledTimes(1);expect(s.work.draw).toBe(1)
+  expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(1);expect(s.prepass['turnDepth']).toBe(0)
+  query.mockRestore();now=0;s.drain();expect(s.executor.checkpointReady).toBe(true)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

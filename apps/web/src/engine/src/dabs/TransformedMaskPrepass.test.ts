@@ -357,72 +357,51 @@ describe('canonical default-auto incremental slot generation', () => {
         scale:.7,ratio:1,rotation:.19,subX:.25,subY:.5,width,height,mirrorH:false,mirrorV:false}},
       rect:{x:-9,y:17,width,height},profile:'neon4-summed-wordsize64' };
   }
-  it('pending stripe near full CPU allowance falls back before parent capture and completes through original continuation',()=>{
-    const s=setup(8*1048576,4*1048576),request=autoRequest({},400)
-    let hold:(()=>void)|undefined
-    try{
-      s.service.prepare({width:512,height:512,slots:1},[])
-      expect(s.service.beginAutoGeneration(request)).toBe(false)
-      expect(s.service.advanceAutoGeneration(64,{deferFinalUpload:true}).done).toBe(false)
-      const pending=s.service['pendingAuto']!;expect(pending).toBeDefined();expect(pending.computedFinal).toBe(false);expect(pending.filled).toBeGreaterThan(0)
-      hold=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-1)
-      const before=s.cpu.reservedBytes,reserve=vi.spyOn(s.cpu,'reserve'),query=vi.spyOn(s.gl,'getParameter');query.mockClear()
-      expect(s.service.canBeginAutoGenerationInTurn(request,4224)).toBe(false)
-      expect(s.service.canBeginAutoGenerationInTurn(request,0)).toBe(true)
-      expect(reserve).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(before);expect(s.service['pendingAuto']).toBe(pending)
-      // No parent capture/reservation is attempted before the original pending
-      // stripe has published and released its charged staging/program owner.
-      while(!s.service.advanceAutoGeneration(64).done){}
-      expect(s.service['pendingAuto']).toBeUndefined();expect(s.cpu.reservedBytes).toBeLessThan(before-4224)
-      expect(s.service.canBeginAutoGenerationInTurn(request,4224)).toBe(true)
-      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},()=>{})
-    }finally{hold?.();s.service.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
-  })
-  it('cold owned headroom miss does not reclaim or reserve and the original outside preparation still completes',()=>{
-    const s=setup(8*1048576,4*1048576),request=autoRequest({},400)
-    let hold:(()=>void)|undefined
+  it('cold standalone CPU continuation releases its stripe before a near-budget parent is acquired',()=>{
+    const s=setup(8*1048576,4*1048576),request=autoRequest({},400);let hold:(()=>void)|undefined
     try{
       s.service.prepare({width:512,height:512,slots:1},[])
       const {width,height}=request.material.recipe,stripe=Math.min(height,Math.max(1,Math.floor(16384/width)))*width*5+512
       hold=s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-stripe-1)
-      const reserve=vi.spyOn(s.cpu,'reserve')
-      expect(s.service.canBeginAutoGenerationInTurn(request,4224)).toBe(false);expect(reserve).not.toHaveBeenCalled()
       expect(s.service.beginAutoGeneration(request)).toBe(false)
+      const query=vi.spyOn(s.gl,'getParameter');query.mockClear()
       while(!s.service.advanceAutoGeneration(64).done){}
-      expect(s.service.canBeginAutoGenerationInTurn(request,4224)).toBe(true)
+      expect(query.mock.calls.filter(([name])=>name===s.gl.VIEWPORT)).toHaveLength(0)
+      expect(s.service['pendingAuto']).toBeUndefined()
       runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},()=>{})
     }finally{hold?.();s.service.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
   })
-  it('owned multistripe continuation preserves standalone bytes with one queried parent and closed advance capability',()=>{
+  it('standalone multistripe CPU bytes and one owned final upload preserve exact old output and unpack',()=>{
     const plain=setup(8*1048576,4*1048576),owned=setup(8*1048576,4*1048576),a=autoRequest({},400),b=autoRequest({},400)
     const uploads=(s:ReturnType<typeof setup>)=>{const data:Uint8Array[]=[];s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>data.push(new Uint8Array(args[8] as Uint8Array)));return data}
-    const expected=uploads(plain),actual=uploads(owned)
-    let escaped:((n:number)=>{done:boolean;consumed:number;uploadedBytes:number})|undefined
+    const expected=uploads(plain),actual=uploads(owned);let escaped:(()=>void)|undefined
     try{
       for(const s of[plain,owned])s.service.prepare({width:512,height:512,slots:1},[])
       plain.service.beginAutoGeneration(a);while(!plain.service.advanceAutoGeneration(64).done){}
       owned.service.beginAutoGeneration(b)
+      while(!owned.service.advanceAutoGeneration(64,{deferFinalUpload:true}).finalUploadPending){}
       const before=owned.snapshot(),query=vi.spyOn(owned.gl,'getParameter');query.mockClear()
       runBrushGlSequence({participants:[owned.service],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>sequence.step(turn=>{
-        owned.service.withAutoGenerationTurn(turn,advance=>{escaped=advance;while(!advance(64).done){}})
+        escaped=()=>{owned.service.flushFinalAutoGeneration(b,turn)}
+        owned.service.flushFinalAutoGeneration(b,turn)
       }))
       expect(actual.length).toBeGreaterThan(1);expect(actual).toEqual(expected)
       expect(query.mock.calls.filter(([name])=>name===owned.gl.VIEWPORT)).toHaveLength(1)
       expect(query.mock.calls.filter(([name])=>name===owned.gl.UNPACK_FLIP_Y_WEBGL)).toHaveLength(1)
-      expect(owned.snapshot()).toEqual(before);expect(owned.gl.getParameter(owned.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(owned.gl.getParameter(owned.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true);expect(owned.service.beginAutoGeneration(b)).toBe(true)
-      expect(()=>escaped!(64)).toThrow('Closed');expect(owned.service['pendingAuto']).toBeUndefined()
+      expect(owned.snapshot()).toEqual(before);expect(owned.gl.getParameter(owned.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(owned.gl.getParameter(owned.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true)
+      expect(()=>escaped!()).toThrow();expect(owned.service['pendingAuto']).toBeUndefined()
     }finally{for(const s of[plain,owned]){s.service.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}}
   })
-  it.each(['upload','cancel']as const)('owned multistripe %s preserves first undefined and restores before teardown',fault=>{
+  it.each(['upload','cancel']as const)('owned final stripe %s preserves first undefined and restores before teardown',fault=>{
     const s=setup(8*1048576,4*1048576),request=autoRequest({},400)
     try{
       s.service.prepare({width:512,height:512,slots:1},[]);s.service.beginAutoGeneration(request)
+      while(!s.service.advanceAutoGeneration(64,{deferFinalUpload:true}).finalUploadPending){}
       const before=s.snapshot();let caught=false,value:unknown='not thrown'
       if(fault==='upload')s.gl.texSubImage2D.mockImplementation(()=>{throw undefined})
       try{runBrushGlSequence({participants:[s.service],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>sequence.step(turn=>{
-        s.service.withAutoGenerationTurn(turn,advance=>{
-          if(fault==='cancel'){s.service.cancelAutoGeneration();advance(64)}else while(!advance(64).done){}
-        })
+        if(fault==='cancel')s.service.cancelAutoGeneration()
+        s.service.flushFinalAutoGeneration(request,turn)
       }))}catch(error){caught=true;value=error}
       expect(caught).toBe(true);if(fault==='upload')expect(value).toBeUndefined()
       expect(s.snapshot()).toEqual(before);expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true);expect(s.service['pendingAuto']).toBeUndefined();expect(s.service['turnDepth']).toBe(0)

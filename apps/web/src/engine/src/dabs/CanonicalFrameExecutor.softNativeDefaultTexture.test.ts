@@ -91,7 +91,7 @@ it.each([G,B])('routes standalone textured buildup EACH draw to its installed OV
 it('requires explicit OVER preparation before capture/reserve and keeps deposition-only closed',()=>{
  const s=fixture();try{
   const e=s.create(),input=s.submission(),bytes=s.cpu.reservedBytes
-  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('OVER variant')
+  expect(()=>e.enqueue({...input,composition:{...input.composition,mode:'buildup'}})).toThrow('Canonical texture direct variant was not prepared')
   expect(s.cpu.reservedBytes).toBe(bytes);expect(s.reserve).not.toHaveBeenCalled();expect(e.pending).toBe(false)
  }finally{s.close()}
  const t=fixture(true,true,G,true);try{
@@ -463,8 +463,8 @@ it.each(['defaultAuto','gaussianAuto','softAuto']as const)('source capture7 borr
   Reflect.set(raw.primaryTexture.phase,'x',1);Reflect.set(raw.primarySource,'brushScale',2);Object.defineProperty(raw.primaryTexture,'phase',{get(){throw Error('raw phase must never be read again')}})
   view.assertCurrent();expect(view.context.primaryTexture.phase).toEqual(c.primaryTexture.phase);expect(view.autoSource.brushScale).toBe(1)
   expect(()=>Reflect.apply(e.replaySource7,{...e},[])).toThrow('Foreign');const trap=vi.fn(()=>{throw Error('foreign getter invoked')});const foreign=Object.create(null);for(const key of ['replaySource','replaySourceRead'])Object.defineProperty(foreign,key,{get:trap});expect(()=>Reflect.apply(e.replaySource7,foreign,[])).toThrow('Foreign');expect(trap).not.toHaveBeenCalled();expect(()=>Reflect.apply(view.assertCurrent,{...view},[])).toThrow('Foreign');expect(()=>Reflect.apply(view.retainRoot,{...view},[])).toThrow('Foreign')
-  const baseline=s.cpu.reservedBytes,child=view.retainRoot();expect(s.cpu.reservedBytes).toBe(baseline+2048);expect(child).not.toBe(captured.root);expect(child.patternResource(view.context.primaryTexture,view.context.assets[0],s.prepass.brushGlBatchInfo()).asset.id).toBe(c.assets[0].id);child.release();expect(s.cpu.reservedBytes).toBe(baseline)
-  const survivor=view.retainRoot();e.cancel();expect(()=>view.assertCurrent()).toThrow();expect(()=>view.retainRoot()).toThrow();expect(()=>e.replaySource7()).toThrow();expect(survivor.isReady()).toBe(true);survivor.release()
+  const baseline=s.cpu.reservedBytes,child=view.retainRoot();if(!child)throw Error('Expected prepared source root lease');expect(s.cpu.reservedBytes).toBe(baseline+2048);expect(child).not.toBe(captured.root);expect(child.patternResource(view.context.primaryTexture,view.context.assets[0],s.prepass.brushGlBatchInfo()).asset.id).toBe(c.assets[0].id);child.release();expect(s.cpu.reservedBytes).toBe(baseline)
+  const survivor=view.retainRoot();if(!survivor)throw Error('Expected prepared source root lease');e.cancel();expect(()=>view.assertCurrent()).toThrow();expect(()=>view.retainRoot()).toThrow();expect(()=>e.replaySource7()).toThrow();expect(survivor.isReady()).toBe(true);survivor.release()
  }finally{s.close()}
 })
 it('source capture7 getter/assert/retain share one nonreentrant scope without recursive child reservations',()=>{
@@ -473,7 +473,7 @@ it('source capture7 getter/assert/retain share one nonreentrant scope without re
   const e=s.create({replayFrontier:'textured7-buildup-v1'}),view=e.replaySource7(),reserve=s.cpu.reserve.bind(s.cpu),baseline=s.cpu.reservedBytes
   for(const nested of[()=>e.replaySource7(),()=>view.assertCurrent(),()=>view.retainRoot()]){
    let calls=0;const spy=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{const release=reserve(n);if(n===2048){calls++;expect(nested).toThrow('reentered')}return release})
-   const child=view.retainRoot();expect(calls).toBe(1);child.release();expect(s.cpu.reservedBytes).toBe(baseline);spy.mockRestore()
+   const child=view.retainRoot();if(!child)throw Error('Expected prepared source root lease');expect(calls).toBe(1);child.release();expect(s.cpu.reservedBytes).toBe(baseline);spy.mockRestore()
   }
   const prepared=s.composite.preparedCapacity.bind(s.composite),scope=vi.spyOn(s.composite,'preparedCapacity').mockImplementationOnce(()=>{expect(()=>view.retainRoot()).toThrow('reentered');return prepared()})
   view.assertCurrent();scope.mockRestore();expect(s.cpu.reservedBytes).toBe(baseline)
@@ -728,7 +728,7 @@ it('groups freeze exact accepted source and frame refs, reject forged groups and
   const held=s.cpu.reservedBytes;expect(held).toBeGreaterThan(before)
   expect(()=>snapshot.retainRoot!({...group})).toThrow('Foreign replay group');expect(s.cpu.reservedBytes).toBe(held)
   expect(()=>snapshot.values.call({})).toThrow('receiver');expect(()=>snapshot.groups!.call({})).toThrow('receiver');expect(()=>snapshot.assertCurrent!.call({})).toThrow('receiver');expect(()=>snapshot.retainRoot!.call({},group)).toThrow('receiver');expect(()=>snapshot.release.call({})).toThrow('receiver')
-  const child=snapshot.retainRoot!(group);expect(s.cpu.reservedBytes).toBeGreaterThan(held);expect(snapshot.groups!()).toBe(groups)
+  const child=snapshot.retainRoot!(group);if(!child)throw Error('Expected prepared source root lease');expect(s.cpu.reservedBytes).toBeGreaterThan(held);expect(snapshot.groups!()).toBe(groups)
   child.release();expect(s.cpu.reservedBytes).toBe(held);expect(s.source).toHaveBeenCalledTimes(sourceCalls)
   snapshot.release();expect(s.cpu.reservedBytes).toBe(before);snapshot.release()
  }finally{s.close()}
@@ -839,7 +839,7 @@ it('groups retain one original child per FIRST group and caller budget denial le
   expect(rootReservations).toBe(2);expect(row.rootOwners.size).toBe(owners+2);expect(groups.map(g=>g.frames[0].value.kind==='recorded'?g.frames[0].value.input:null)).toEqual([first,second])
   expect(groups.map(g=>g.id)).toEqual(s.coordinator['entries'].map(e=>e.id));snapshot.values();snapshot.groups!();snapshot.assertCurrent!();expect(rootReservations).toBe(2)
   deny=true;expect(()=>snapshot.retainRoot!(groups[0])).toThrow('child budget denied');expect(s.cpu.reservedBytes).toBe(bytes);snapshot.assertCurrent!()
-  deny=false;const child=snapshot.retainRoot!(groups[1]);expect(rootReservations).toBe(4);expect(row.rootOwners.size).toBe(owners+3);child.release();expect(row.rootOwners.size).toBe(owners+2);expect(s.cpu.reservedBytes).toBe(bytes)
+  deny=false;const child=snapshot.retainRoot!(groups[1]);if(!child)throw Error('Expected prepared source root lease');expect(rootReservations).toBe(4);expect(row.rootOwners.size).toBe(owners+3);child.release();expect(row.rootOwners.size).toBe(owners+2);expect(s.cpu.reservedBytes).toBe(bytes)
   hook.mockRestore();snapshot.release();expect(row.rootOwners.size).toBe(owners)
  }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
@@ -856,7 +856,7 @@ it('groups private owned operations reject unowned and recursive callbacks witho
   s.setLate(()=>{if(!inside){inside=true;try{expect(()=>work.valuesOwned()).toThrow('reentered');expect(()=>work.groupsOwned()).toThrow('reentered');expect(()=>work.retainRootOwned(groups[0])).toThrow('reentered')}finally{inside=false}}})
   const reserve=s.cpu.reserve.bind(s.cpu),hook=vi.spyOn(s.cpu,'reserve').mockImplementation(n=>{if(n===2048){expect(()=>work.groupsOwned()).toThrow('reentered');expect(()=>work.retainRootOwned(groups[0])).toThrow('reentered')}return reserve(n)})
   s.coordinator['busy']=true
-  try{expect(work.valuesOwned()[0]).toBe(groups[0].frames[0].value);const child=work.retainRootOwned(groups[0]);child.release();}finally{s.coordinator['busy']=false;s.setLate();hook.mockRestore()}
+  try{expect(work.valuesOwned()[0]).toBe(groups[0].frames[0].value);const child=work.retainRootOwned(groups[0]);if(!child)throw Error('Expected prepared source root lease');child.release();}finally{s.coordinator['busy']=false;s.setLate();hook.mockRestore()}
   snapshot.release()
  }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)

@@ -1,5 +1,5 @@
 import {prepareCanonicalImageAssets} from '../../../lib/api/brushLibrary'
-import {canonicalImageMaterialReadSource,canonicalPlainAutoGeometryReadSource,canonicalPixelMaskedReadSource,prepareCanonicalRecordedAttachment,prepareCanonicalRecordedAttachmentV8,canonicalPrimaryGrainReadSource,type Operation,CANONICAL_RECORDED_ATTACHMENT_LIMITS,captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalMaterialAsset,type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import {canonicalSoftAutoDataEqual,canonicalImageMaterialReadSource,canonicalPlainAutoGeometryReadSource,canonicalPixelMaskedReadSource,prepareCanonicalRecordedAttachment,prepareCanonicalRecordedAttachmentV8,canonicalPrimaryGrainReadSource,type Operation,CANONICAL_RECORDED_ATTACHMENT_LIMITS,captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalMaterialAsset,type CanonicalPreparedRecordedOperationV8 as CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
 import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine'
 
 type LocalScope=CanonicalRecordedReadScope&{readonly isCurrent:()=>boolean}
@@ -34,6 +34,62 @@ export function canonicalRecordedLifetimeOf(scope:LocalScope):CanonicalRecordedL
  if(current.roomId!==scope.roomId||current.boardEpoch!==scope.boardEpoch||a.length!==b.length||a.some((p,i)=>p!==b[i]))return fail()
  return lifetime
 }
+type RecordedCapability=NonNullable<CanonicalPreparedRecordedOperation['read']>['capability']
+// Optimization only: no retained snapshot graph and no new delivery authority.
+// The existing capability64 limit also bounds weak cache index metadata.
+const sharedReadCapabilities=new WeakMap<CanonicalRecordedLifetime,{readonly slots:WeakRef<RecordedCapability>[];next:number}>()
+/** Parser results are deeply frozen DATA. A custom atom is never promoted into
+ * the sharing table merely because its outer wrapper happens to be frozen. */
+function frozenCapabilityData(value:unknown):boolean {
+ let nodes=0
+ const ancestors=new Set<object>()
+ const visit=(v:unknown,depth:number):boolean=>{
+  if(++nodes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilityBytes||depth>64)return false
+  if(v===null||typeof v==='string'||typeof v==='boolean'||v===undefined)return true
+  if(typeof v==='number')return Number.isFinite(v)
+  if(typeof v!=='object'||!Object.isFrozen(v)||ancestors.has(v))return false
+  const array=Array.isArray(v),prototype=Object.getPrototypeOf(v)
+  if(array?prototype!==Array.prototype:prototype!==Object.prototype&&prototype!==null)return false
+  const keys=Reflect.ownKeys(v),length=array?Object.getOwnPropertyDescriptor(v,'length')?.value:undefined
+  if(array&&(!Number.isSafeInteger(length)||length<0||length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilityBytes||keys.length!==length+1))return false
+  ancestors.add(v)
+  try{
+   for(const key of keys){
+    if(typeof key!=='string')return false
+    const field=Object.getOwnPropertyDescriptor(v,key)
+    if(array&&key==='length')continue
+    if(array&&(!Number.isSafeInteger(Number(key))||Number(key)<0||Number(key)>=length||String(Number(key))!==key))return false
+    if(!field||!Object.hasOwn(field,'value')||field.enumerable!==true||!visit(field.value,depth+1))return false
+   }
+   return true
+  }finally{ancestors.delete(v)}
+ }
+ return visit(value,0)
+}
+function shareRecordedCapability(atom:CanonicalPreparedRecordedOperation,lifetime:CanonicalRecordedLifetime):CanonicalPreparedRecordedOperation {
+ const read=atom.read,capability=read?.capability
+ if(!read||!capability||!frozenCapabilityData(capability))return atom
+ let table=sharedReadCapabilities.get(lifetime)
+ if(!table){table={slots:[],next:0};sharedReadCapabilities.set(lifetime,table)}
+ let vacant:number|undefined
+ for(let index=0;index<table.slots.length;index++){
+  const previous=table.slots[index].deref()
+  if(!previous){vacant??=index;continue}
+  if(previous.originalUserId!==capability.originalUserId||previous.snapshot.layerId!==capability.snapshot.layerId||previous.snapshot.strokeId!==capability.snapshot.strokeId)continue
+  // ALL normalized fields, including coefficient/signed-zero bits, must match.
+  // A descriptor ID or stroke namespace alone never permits substitution.
+  if(!canonicalSoftAutoDataEqual(previous,capability))throw new TypeError('Original recorded stroke capability changed')
+  if(previous===capability)return atom
+  return Object.freeze({...atom,read:Object.freeze({...read,capability:previous})})
+ }
+ // No strong namespace-string keys or snapshot graph survives this call.
+ const reference=new WeakRef(capability)
+ if(vacant!==undefined)table.slots[vacant]=reference
+ else if(table.slots.length<CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)table.slots.push(reference)
+ else{table.slots[table.next]=reference;table.next=(table.next+1)%CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities}
+ return atom
+}
+
 /** Select the named format8 decoder only from the SAME original READ owner. */
 export function prepareCanonicalOriginalAttachment(capabilities:unknown,operations:readonly Operation[],scope:LocalScope):readonly CanonicalPreparedRecordedOperation[] {
  const lifetime=canonicalRecordedLifetimeOf(scope)
@@ -43,7 +99,7 @@ export function prepareCanonicalOriginalAttachment(capabilities:unknown,operatio
  const prepared=enabled?prepareCanonicalRecordedAttachmentV8(capabilities,operations,scope):prepareCanonicalRecordedAttachment(capabilities,operations,scope)
  if(prepared.some(a=>a.read?.capability.snapshot.materialVersion===2&&a.read.capability.snapshot.material.maskingBlend!==undefined)&&(!lifetime||!profile||canonicalPixelMaskedReadSource(lifetime,'pixelMaskedSource',profile.value)!=='pixel-masked-v1'))return fail()
  if(lifetime&&canonicalRecordedLifetimeOf(scope)!==lifetime)return fail()
- return prepared
+ return lifetime?Object.freeze(prepared.map(atom=>shareRecordedCapability(atom,lifetime))):prepared
 }
 /** Immutable per-delivery lexical resource. A data-only scope, a copied atom
  * or copied method receiver cannot manufacture the original input lifetime. */
@@ -77,7 +133,11 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
   if(this!==delivery||candidate!==input||canonicalRecordedLifetimeOf(scope)!==lifetime||lifetime.assertCurrent()!==originalScope)return fail()
  }})
  // Local execution capability never enters operation JSON or spread copies.
- input=Object.freeze(Object.defineProperty({...atom,operation},'delivery',{value:delivery})) as CanonicalRecordedInput
+ // Initial room_state atoms already share within their batch. Seed that
+ // exact capability after its genuine lifetime exists; later pages/live ACKs
+ // are canonicalized before their accepted-payload closures retain read DATA.
+ const shared=shareRecordedCapability(atom,lifetime)
+ input=Object.freeze(Object.defineProperty({...shared,operation},'delivery',{value:delivery})) as CanonicalRecordedInput
  delivery.assertCurrent(input)
  return input
 }

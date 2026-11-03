@@ -1,3 +1,5 @@
+// Published accounting model: one Map row/counter/closure allowance per actual capability object.
+const CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES=256
 import pencilMetadata from '../presets/fixtures/pixelPencilPreparation.metadata.json'
 import {canonicalPixelTextureSourceBinding,canonicalPixelTextureMaterialContext,resolveCanonicalTexturePhase,canonicalStandaloneStrokeSnapshotV8} from '@grafetto/shared'
 import type {CanonicalReplaySource} from './CanonicalFrameExecutor'
@@ -60,6 +62,19 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==accepted)throw Error('foreign');lifetime.assertCurrent()}})
   accepted=Object.freeze({...atom,delivery});return accepted
  }
+ // One real normalized attachment batch issues the SAME captured capability
+ // for these original frames. No rewriter/structural cast grants a new source.
+ const sharedInputs=(count=3,ended=false)=>{
+  const originals=Array.from({length:count},(_,i)=>input('author',i,i+1,ended&&i===count-1))
+  const operations=originals.map(value=>value.operation)
+  const cap=originals[0].read!.capability
+  const atoms=(masked?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment)({version:1,roomId:'room',boardEpoch:1,capabilities:[cap],bindings:operations.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))},operations,scope)
+  return atoms.map(atom=>{
+   let accepted:CanonicalRecordedInput
+   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==accepted)throw Error('foreign');lifetime.assertCurrent()}})
+   accepted=Object.freeze({...atom,delivery});return accepted
+  })
+ }
  const source=vi.fn(()=>({autoSource:pin,...masked?{sourceMaterial:canonicalSourceMaterialContext(material)}:{}}))
  const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:profile,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>{layerObserver?.();return {buffer:layer,epoch:layerEpoch}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
@@ -74,7 +89,7 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   return author
  }
  const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
- return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,observeLayer:(callback:(()=>void)|undefined)=>{layerObserver=callback},stale:()=>{current=false},replaceScope:()=>{replaced=true},changeLayer:()=>{layerEpoch=1},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ return {coordinator,layer,derived,cpu,gl,scratch,composite,input,sharedInputs,seal,source,snapshot,localAuthor,local,observeLayer:(callback:(()=>void)|undefined)=>{layerObserver=callback},stale:()=>{current=false},replaceScope:()=>{replaced=true},changeLayer:()=>{layerEpoch=1},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -657,7 +672,7 @@ describe('owner-scoped active replay retention', () => {
             expect(s.coordinator.queuedFrameCount).toBe(1);
             expect(s.coordinator['replay'].get(op.id)).toBe(entry);
             expect(entry.value).toMatchObject({ kind: 'recorded', input: original });
-            expect(s.cpu.reservedBytes - before).toBe(JSON.stringify(original.read).length * 2);
+            expect(s.cpu.reservedBytes - before).toBe(JSON.stringify(original.read).length * 2+CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES);
             expect(work.values()[0]).toMatchObject({ kind: 'local', operation: op });
             work.release();
             const next = snapshot(s);
@@ -1113,4 +1128,77 @@ it('checks V8 Gaussian replay pin exactly while preserving the image-only absenc
   expect(()=>s.coordinator['assertReplayOriginal']({...imageSource,autoSource:originalAuto},imageSnapshot)).toThrow('Accepted primary replay source differs')
 
  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+function replayHeaderPayloadBytes(input:CanonicalRecordedInput):number {
+ const op=input.operation;if(op.type!=='canonical_stroke'||!input.read)throw Error('Original recorded frame required')
+ return 512+2*(JSON.stringify(input.read).length-JSON.stringify(input.read.capability).length+JSON.stringify(['room',1,op.userId,op.frame.strokeId]).length+op.id.length+op.userId.length+op.layerId.length+op.frame.strokeId.length+op.frame.brush.length+op.frame.materialPacked.length)
+}
+const replayCapabilityBytes=(input:CanonicalRecordedInput)=>JSON.stringify(input.read!.capability).length*2+CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES
+it('retains actual shared original capability once while every frame header and exact payload remain charged',()=>{
+ const s=fixture(4,{maxEntries:16,maxBytes:1048576}),inputs=s.sharedInputs(3)
+ try{
+  expect(inputs.every(input=>input.read!.capability===inputs[0].read!.capability)).toBe(true)
+  for(const input of inputs)s.coordinator.enqueueRecorded(input)
+  expect(s.coordinator['replayCount']).toBe(3)
+  expect([...s.coordinator['replay'].values()].map(entry=>entry.value)).toEqual(inputs.map(input=>({kind:'recorded',input})))
+  const expected=replayCapabilityBytes(inputs[0])+inputs.reduce((sum,input)=>sum+replayHeaderPayloadBytes(input),0)
+  expect(s.coordinator['replayBytes']).toBe(expected)
+  const charges=s.coordinator['replayCapabilities'];expect(charges.size).toBe(1);expect(charges.get(inputs[0].read!.capability)?.refs).toBe(3)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.coordinator['replayBytes']).toBe(0);if(s.coordinator['replayCapabilities'])expect(s.coordinator['replayCapabilities'].size).toBe(0)}
+})
+it('equal but independently captured originals and changed author context receive no shared-body credit',()=>{
+ const s=fixture(4,{maxEntries:16,maxBytes:1048576}),inputs=[s.input('author',0,1),s.input('author',1,2),s.input('other',0,3)]
+ try{
+  expect(inputs[0].read!.capability).not.toBe(inputs[1].read!.capability)
+  expect(inputs[0].read!.capability).toEqual(inputs[1].read!.capability)
+  for(const input of inputs)s.coordinator.enqueueRecorded(input)
+  expect(s.coordinator['replayBytes']).toBe(inputs.reduce((sum,input)=>sum+replayHeaderPayloadBytes(input)+replayCapabilityBytes(input),0))
+  expect(s.coordinator['replayCapabilities'].size).toBe(3)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('retired shared replay bodies remain charged until the final real snapshot pin releases',()=>{
+ const s=fixture(4,{maxEntries:16,maxBytes:1048576}),inputs=s.sharedInputs(3,true)
+ try{
+  for(const input of inputs)s.coordinator.enqueueRecorded(input)
+  const snapshot=s.coordinator['retainReplaySnapshot'](),charge=s.coordinator['replayCapabilities'].get(inputs[0].read!.capability)!,release=vi.spyOn(charge,'release')
+  let n=0;while(s.coordinator.pending){s.coordinator.advance();expect(++n).toBeLessThan(100)}
+  expect(s.coordinator['replay'].size).toBe(0);expect(s.coordinator['replayCount']).toBe(3)
+  expect(snapshot.values().every(value=>value.kind==='recorded'&&value.input.read!.capability===inputs[0].read!.capability)).toBe(true)
+  expect(release).not.toHaveBeenCalled();expect(charge.refs).toBe(3)
+  snapshot.release();snapshot.release();expect(release).toHaveBeenCalledOnce();expect(s.coordinator['replayCapabilities'].size).toBe(0);expect(s.coordinator['replayBytes']).toBe(0)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('unpublished replay stage rollback releases its sole body reference and is idempotent',()=>{
+ const s=fixture(4,{maxEntries:16,maxBytes:1048576}),input=s.sharedInputs(1)[0],op=input.operation
+ if(op.type!=='canonical_stroke')throw Error('frame')
+ try{
+  const before=s.cpu.reservedBytes,stage=s.coordinator['stageReplay']('staged',op,{kind:'recorded',input})
+  expect(s.coordinator['replayBytes']).toBe(replayCapabilityBytes(input));expect(s.coordinator['replayCount']).toBe(0)
+  stage.rollback();stage.rollback();expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator['replayBytes']).toBe(0);expect(s.coordinator['replayCapabilities'].size).toBe(0)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('header admission preserves undefined primary while newly reserved body release also throws',()=>{
+ const s=fixture(4,{maxEntries:16,maxBytes:1048576}),input=s.sharedInputs(1)[0],op=input.operation
+ if(op.type!=='canonical_stroke')throw Error('frame')
+ try{
+  const before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu);let calls=0
+  const spy=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(++calls===2)throw undefined;const release=reserve(bytes);return()=>{release();throw Error('secondary body release')}})
+  let threw=false,value:unknown='not-thrown';try{s.coordinator['stageReplay']('staged',op,{kind:'recorded',input})}catch(error){threw=true;value=error}
+  spy.mockRestore();expect(threw).toBe(true);expect(value).toBeUndefined();expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator['replayBytes']).toBe(0);expect(s.coordinator['replayCapabilities'].size).toBe(0)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('shared body remains inside the same maxBytes admission while exact per-frame headers are bounded',()=>{
+ const probe=fixture(4,{maxEntries:16,maxBytes:1048576}),samples=probe.sharedInputs(3)
+ const exact=replayCapabilityBytes(samples[0])+samples.reduce((n,input)=>n+replayHeaderPayloadBytes(input),0);probe.close();expect(probe.cpu.reservedBytes).toBe(0)
+ for(const deficit of[0,1]){
+  const s=fixture(4,{maxEntries:16,maxBytes:exact-deficit}),inputs=s.sharedInputs(3)
+  try{
+   s.coordinator.enqueueRecorded(inputs[0]);s.coordinator.enqueueRecorded(inputs[1])
+   const before=s.cpu.reservedBytes,bytes=s.coordinator['replayBytes']
+   if(deficit){expect(()=>s.coordinator.enqueueRecorded(inputs[2])).toThrow('Active replay capacity exceeded');expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator['replayBytes']).toBe(bytes);expect(s.coordinator['replayCount']).toBe(2)}
+   else{expect(()=>s.coordinator.enqueueRecorded(inputs[2])).not.toThrow();expect(s.coordinator['replayBytes']).toBe(exact);expect(s.coordinator['replayCount']).toBe(3)}
+  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
 })

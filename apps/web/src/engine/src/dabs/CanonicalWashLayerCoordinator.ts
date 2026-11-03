@@ -165,6 +165,10 @@ type ReplayValue = Readonly<{
     author: CanonicalLocalWashAuthor;
     operation: CanonicalStrokeOperation;
 }>;
+// One Map row, counter and idempotent release closure; logical estimate, not V8 heap.
+const CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES=256
+type ReplayCapability=NonNullable<CanonicalRecordedInput['read']>['capability']
+interface ReplayCapabilityCharge {readonly bytes:number;refs:number;readonly release:()=>void}
 interface ReplayEntry {
     /** Buildup7/8: SAME normalized envelope, covered by existing512 index charge. */
     acceptedFrame?:CanonicalStrokeOperation['frame'];
@@ -298,6 +302,7 @@ export class CanonicalWashLayerCoordinator {
   private failed = false
   private closed = false
   private readonly replay = new Map<string,ReplayEntry>()
+  private readonly replayCapabilities=new Map<ReplayCapability,ReplayCapabilityCharge>()
   private replayBytes = 0
   private replayCount = 0
   private replayGeneration = 0
@@ -1014,23 +1019,39 @@ export class CanonicalWashLayerCoordinator {
       const old = this.replay.get(op.id);
       if (old && (old.gestureId !== gestureId || old.value.kind !== 'local' || value.kind !== 'recorded'))
           throw new Error('Replay operation already retained');
-      // Logical payload/index accounting; normalized input is already bounded by ingress.
-      // Every original may carry a separately normalized read/snapshot object.
-      // Conservatively charge the whole validated read metadata per entry.
-      const readBytes = value.kind === 'recorded' ? JSON.stringify(value.input.read).length * 2 : 0;
+      // Exact read header stays per frame. Only a genuinely shared capability
+      // object can share its retained body; equal copies receive no credit.
+      const read=value.kind==='recorded'?value.input.read:undefined
+      if(value.kind==='recorded'&&!read)throw new TypeError('Recorded replay read metadata required')
+      const capability=read?.capability
+      const priorCapability=capability?this.replayCapabilities.get(capability):undefined
+      const capabilityBytes=capability?(priorCapability?.bytes??JSON.stringify(capability).length*2+CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES):0
+      // Include the omitted ,"capability": field punctuation exactly, without
+      // serializing that large immutable body again for every frame.
+      const header=read?(({capability:_capability,...fields})=>fields)(read):undefined
+      const readBytes=header?(JSON.stringify(header).length+14)*2:0
+      const sharedExtra=capability&&!priorCapability?capabilityBytes:0;
       const bytes = readBytes + 512 + 2 * (gestureId.length + op.id.length + op.userId.length + op.layerId.length + op.frame.strokeId.length + op.frame.brush.length + op.frame.materialPacked.length);
       const extra = old ? Math.max(0, bytes - old.bytes) : bytes;
-      if (!Number.isSafeInteger(bytes) || (!old && this.replayCount >= limit.maxEntries) || this.replayBytes + extra > limit.maxBytes)
+      if (!Number.isSafeInteger(bytes)||!Number.isSafeInteger(capabilityBytes) || (!old && this.replayCount >= limit.maxEntries) || this.replayBytes + extra + sharedExtra > limit.maxBytes)
           throw new RangeError('Active replay capacity exceeded');
+      let releaseCapability:(()=>void)|undefined
+      if(capability)releaseCapability=this.retainReplayCapability(capability,capabilityBytes);
       // Promotion keeps the old reservation (same logical payload) and only
       // reserves a positive delta before the receipt's external release callback.
-      const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(value.kind === 'local' ? 512 : extra);
-      const release = () => { try {
-          releaseMetadata();
+      let releaseMetadata:()=>void
+      try{releaseMetadata=this.options.prepass.brushGlBatchInfo().cpu.reserve(value.kind === 'local' ? 512 : extra)}
+      catch(primary){try{releaseCapability?.()}catch{/* Preserve admission primary. */}throw primary}
+      const releaseMetadataAndCapability=()=>{
+        let failed=false,primary:unknown
+        for(const action of [releaseMetadata,releaseCapability])try{action?.()}catch(error){if(!failed){failed=true;primary=error}}
+        if(failed)throw primary
       }
-      finally {
-          releaseLocalPayload?.();
-      } };
+      const release=()=>{
+        let failed=false,primary:unknown
+        for(const action of [releaseMetadataAndCapability,releaseLocalPayload])try{action?.()}catch(error){if(!failed){failed=true;primary=error}}
+        if(failed)throw primary
+      };
       const generation = this.replayGeneration;
       let done = false,published=false;
       let acceptedFrame:CanonicalStrokeOperation['frame']|undefined
@@ -1052,12 +1073,11 @@ export class CanonicalWashLayerCoordinator {
                   old.value = value;
                   if(this.options.mixedReplay7)old.acceptedFrame=acceptedFrame;
                   old.bytes += extra;
-                  old.release = () => { try {
-                      prior();
-                  }
-                  finally {
-                      release();
-                  } };
+                  old.release = () => {
+                      let failed=false,primary:unknown
+                      for(const action of [prior,release])try{action()}catch(error){if(!failed){failed=true;primary=error}}
+                      if(failed)throw primary
+                  };
                   this.replayBytes += extra;
               }
               else {
@@ -1070,9 +1090,32 @@ export class CanonicalWashLayerCoordinator {
       return {get published(){return published},bindAcceptedFrame,assertPrepared,publishPrepared,commit:()=>{if(done)return;assertPrepared();publishPrepared()},
           rollback: () => { if (!done) {
               done = true;
-              releaseMetadata();
+              releaseMetadataAndCapability();
           } },
       };
+  }
+  /** A stage owns one reference, transferred unchanged to its ReplayEntry on
+   * publication. Snapshot pins postpone that Entry's final release; no global
+   * clear can release a capability while a captured value still owns it. */
+  private retainReplayCapability(capability:ReplayCapability,bytes:number):()=>void {
+    let charge=this.replayCapabilities.get(capability)
+    if(charge){if(charge.bytes!==bytes||charge.refs>=Number.MAX_SAFE_INTEGER)throw new Error('Replay capability charge changed');charge.refs++}
+    else{
+      const release=this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes)
+      charge={bytes,refs:1,release}
+      this.replayCapabilities.set(capability,charge);this.replayBytes+=bytes
+    }
+    const owned=charge;let released=false
+    return()=>{
+      if(released)return
+      if(this.replayCapabilities.get(capability)!==owned||owned.refs<1)throw new Error('Replay capability reference changed')
+      released=true
+      if(--owned.refs===0){
+        this.replayCapabilities.delete(capability)
+        this.replayBytes-=owned.bytes
+        owned.release()
+      }
+    }
   }
   private retireReplayGesture(gestureId: string): void {
       for (const [id, entry] of this.replay)
