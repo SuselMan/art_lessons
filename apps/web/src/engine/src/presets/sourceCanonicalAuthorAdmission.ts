@@ -186,7 +186,7 @@ export function canonicalDynamicAutoGeometryAuthorAdmission(descriptor:BrushDesc
   const field=Object.getOwnPropertyDescriptor(options,'authorPlainAutoGeometrySource')
   if(!field||!Object.hasOwn(field,'value')||field.value!=='dynamic-auto-geometry-v1'||!canonicalStrokeRasterContract(profile).genericSC)return reject('Unsupported dynamic Auto policy/profile')
   const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
-  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,pattern?{pattern}:undefined,metadata)
+  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,pattern?{pattern}:undefined,metadata,profile)
   if(!capability.supported)return reject(capability.reasons.join(','))
   const data=capability.data
   if(data.version!==2||data.source.kind==='image')return reject('Unsupported dynamic Auto source family')
@@ -210,7 +210,7 @@ export function canonicalPixelTextureAuthorAdmission(descriptor:BrushDescriptor,
  try{
   if(!canonicalStrokeRasterContract(profile).genericSC)return reject('Pixel texture requires genericSC')
   const metadata=captureMetadata(available);if(!metadata)return reject('Pixel texture asset metadata unavailable')
-  const capability=extractCanonicalPixelTextureSourceData(descriptor,metadata);if(!capability.supported)return reject(capability.reasons.join(','))
+  const capability=extractCanonicalPixelTextureSourceData(descriptor,metadata,profile);if(!capability.supported)return reject(capability.reasons.join(','))
   const d=capability.data,nativeSizePx=(d.source.kind==='image'?Math.max(d.brush.width,d.brush.height):d.source.diameter)*d.brush.scale
   if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid Pixel texture size')
   return{supported:true as const,data:d,nativeSizePx,material:{kind:'pixelTexture' as const,capability}}
@@ -236,7 +236,7 @@ export function canonicalPixelImageAuthorAdmission(descriptor:BrushDescriptor,pr
  try{
   if(!canonicalStrokeRasterContract(profile).genericSC)return reject('Pixel image requires genericSC')
   const metadata=captureMetadata(available);if(!metadata)return reject('Pixel image assets unavailable')
-  const capability=extractCanonicalPixelImageSourceData(descriptor,metadata);if(!capability.supported)return reject(capability.reasons.join(','))
+  const capability=extractCanonicalPixelImageSourceData(descriptor,metadata,profile);if(!capability.supported)return reject(capability.reasons.join(','))
   const d=capability.data,nativeSizePx=Math.max(d.brush.width,d.brush.height)*d.brush.scale
   if(!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return reject('Invalid Pixel image size')
   return{supported:true as const,data:d,nativeSizePx,material:{kind:'pixelImage' as const,capability}}

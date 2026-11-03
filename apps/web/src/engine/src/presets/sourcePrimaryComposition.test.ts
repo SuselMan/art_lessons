@@ -1,3 +1,4 @@
+import {canonicalSourceMaterialContext,canonicalSourceStrokeSnapshotV2,decodeCanonicalRecordedSnapshotFrameV8,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
 import {buildCanonicalMaterial,canonicalPrimaryTexturePin,type CanonicalMaterialContextV3} from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE as profile, packCanonicalMaterial, unpackCanonicalMaterial,
@@ -128,7 +129,7 @@ describe('decoded single-primary composition session (no renderer activation)', 
     expect(step(s, f).draws).toHaveLength(2)
   })
   it('rejects unsupported policy, malformed checkpoint, mask and masked frames', () => {
-    for (const patch of [{ mode: 'other' }, { alphaDarken: 'other' }, { outerBlend: 'screen' }, { outerResourceOpacity: NaN }]) {
+    for (const patch of [{ mode: 'other' }, { alphaDarken: 'other' }, { outerBlend: 'unknown-blend' }, { outerResourceOpacity: NaN }]) {
       expect(() => create({ ...wash, ...patch } as SourcePrimaryCompositionContext)).toThrow()
     }
     const initial = create(wash).state
@@ -158,7 +159,10 @@ for(const outerBlend of ['multiply','lighten','colorDodge','overlay'] as const) 
  expect(preview.commands[0]).toMatchObject({kind:'presentWash',blend:outerBlend,opacity:.27})
  expect(commit.commands[0]).toMatchObject({kind:'commitWash',blend:outerBlend,opacity:.27})
  expect(step(initial.state,original).draws).toEqual(step(create(wash).state,original).draws)
- expect(()=>create({...wash,mode:'buildup',outerBlend})).toThrow()
+ const direct=create({...wash,mode:'buildup',outerBlend}),paint=step(direct.state,original)
+ expect(direct.commands).toEqual([]);expect(paint.commands).toEqual([])
+ expect(paint.draws.map(d=>d.controls)).toEqual([.8,.2].map(opacity=>({kind:'directBlend',blend:outerBlend,opacity:Math.fround(opacity)})))
+ expect(paint.state.ended).toBe(true)
 })
 
 
@@ -205,4 +209,15 @@ it('accepts actual decoded V3 in the same phase2/ordinal state machine and refus
   const malformed={...first,draws:[{...first.draws[0],grainDepth}]}
   expect(()=>advance(create(wash).state,{ordinal:0,frame:malformed})).toThrow()
  }
+})
+
+it('folds an original READ SOURCE2 direct-law frame into per-dab blend controls without wash publication',()=>{
+ const material=canonicalSourceMaterialContext({version:2,outerCompositionLaw:'pixel-direct-composite-browser-v1',assets:[{id:asset,size:1,x:0,y:0,width:1,height:1}],primarySource:{kind:'image',asset,brushScale:1,brushAngle:0},budget:{workUnits:1000,outputBytes:1000,drawPixels:1000}})
+ const composition={...wash,mode:'buildup' as const,outerBlend:'screen' as const},built=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:{...recipe,kind:'image'},role:'primary',x:0,y:0,opacity:.8,flow:.4}],fences:[begin,...finish(1),end(1)]},material)
+ const snapshot=canonicalSourceStrokeSnapshotV2({layerId:'layer',brush:'brush:fixture@1',strokeId:'direct-read',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:B,pigmentRgb8:[31,79,151],composition,assets:material.assets,materialVersion:2,material},2,B)
+ const accepted=decodeCanonicalRecordedSnapshotFrameV8({version:2,rasterProfile:B,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition,materialPacked:built.packed},snapshot,0)
+ const initial=create(snapshot.composition),result=advance(initial.state,{ordinal:0,frame:accepted.frame})
+ expect(initial.commands).toEqual([]);expect(result.commands).toEqual([])
+ expect(result.draws[0].controls).toEqual({kind:'directBlend',blend:'screen',opacity:Math.fround(.8)})
+ expect(result.state.ended).toBe(true);expect(result.state.drawCount).toBe(1)
 })

@@ -1,3 +1,4 @@
+import { SOURCE_RGBA8_GENERIC_SC_MODES } from '../presets/sourceColorRgba8';
 import {CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL} from './canonicalTextureColorMaterial';
 import { CANONICAL_MASKING_BLEND_GLSL } from './canonicalMaskingBlendShader';
 import {BRUSH_ALPHA_THRESHOLD_GLSL} from '../presets/brushAlphaThreshold'
@@ -171,7 +172,7 @@ type CanonicalTexturedCompositeOperation=typeof TEXTURED_OPERATIONS[number];
 const isTexturedOperation=(kind:CanonicalCompositeOperationKind):kind is CanonicalTexturedCompositeOperation=>TEXTURED_OPERATIONS.some(value=>value===kind);
 const texturedProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:subtract-u8-v1` as const;
 export interface CanonicalPrimaryGrainProgram {
-    readonly operation:CanonicalTexturedCompositeOperation|'erase32FusedScalar';
+    readonly operation:CanonicalTexturedCompositeOperation|'erase32FusedScalar'|'genericSCU8'|'colorHsyBrowser';
     readonly law:'hard-multiply-u8-native-v1'|'pixel-texture-u8-v1'|'pixel-color-texture-v1';
 }
 const multiplyProgram='over32FusedScalar:hard-multiply-u8-native-v1' as const;
@@ -180,21 +181,21 @@ const colorTextureProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:pixel
 const primaryGrainProgram=(law:CanonicalPrimaryGrainProgram['law'],kind:CanonicalCompositeOperationKind)=>law==='pixel-color-texture-v1'?colorTextureProgram(kind):law==='pixel-texture-u8-v1'?pixelTextureProgram(kind):multiplyProgram;
 function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly CanonicalPrimaryGrainProgram[] {
     const selected=limits.primaryGrainPrograms??[];
-    if(!Array.isArray(selected)||selected.length>11)throw new RangeError('Invalid primary grain programs');
+    if(!Array.isArray(selected)||selected.length>operationsFor(limits).length*3)throw new RangeError('Invalid primary grain programs');
     for(let i=0;i<selected.length;i++){
         const item=Object.getOwnPropertyDescriptor(selected,String(i));
         if(!item||!Object.hasOwn(item,'value'))throw new RangeError('Invalid primary grain program item');
         const entry:unknown=item.value;
         if(!entry||typeof entry!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(entry))||Reflect.ownKeys(entry).length!==2)throw new RangeError('Invalid primary grain program');
         const operation=Object.getOwnPropertyDescriptor(entry,'operation'),law=Object.getOwnPropertyDescriptor(entry,'law');
-        if(!operation||!Object.hasOwn(operation,'value')||!['alphaDarken32FusedScalar','alphaDarkenBrowserFloat','over32FusedScalar','overBrowserFloat','erase32FusedScalar'].includes(operation.value)||!law||!Object.hasOwn(law,'value')||!['hard-multiply-u8-native-v1','pixel-texture-u8-v1','pixel-color-texture-v1'].includes(law.value)||!operationsFor(limits).includes(operation.value))throw new RangeError('Invalid primary grain program');
+        if(!operation||!Object.hasOwn(operation,'value')||!['alphaDarken32FusedScalar','alphaDarkenBrowserFloat','over32FusedScalar','overBrowserFloat','erase32FusedScalar','genericSCU8','colorHsyBrowser'].includes(operation.value)||!law||!Object.hasOwn(law,'value')||!['hard-multiply-u8-native-v1','pixel-texture-u8-v1','pixel-color-texture-v1'].includes(law.value)||!operationsFor(limits).includes(operation.value))throw new RangeError('Invalid primary grain program');
     }
     if(selected.some(p=>p.law==='hard-multiply-u8-native-v1'&&p.operation!=='over32FusedScalar'))throw new RangeError('Historical multiply only supports OVER');
     if(new Set(selected.map(p=>primaryGrainProgram(p.law,p.operation))).size!==selected.length)throw new RangeError('Duplicate primary grain program');
     return Object.freeze(selected.map(p=>Object.freeze({operation:p.operation,law:p.law})));
 }
 const imageMaterialProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:image-material` as const;
-function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>4||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
+function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>operationsFor(limits).length||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
 type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
@@ -406,7 +407,10 @@ export class CanonicalRgba8CompositePass {
     preparePrimaryGrainProgramUpdate(requested:readonly CanonicalPrimaryGrainProgram[]):CanonicalPreparedResourceUpdate {
         return this.prepareProgramUpdate({kind:'grain',requested});
     }
-    private prepareProgramUpdate(request:{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
+    prepareImageMaterialProgramUpdate(requested:readonly CanonicalCompositeOperationKind[]):CanonicalPreparedResourceUpdate {
+        return this.prepareProgramUpdate({kind:'image',requested});
+    }
+    private prepareProgramUpdate(request:{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations'|'image';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
         this.assertMutationIdle();
         if(!this.workspace||!this.limits)throw new Error('Composite program owner unavailable');
         const owner=this,epoch=this.workspace,limits=this.limits,oldPrograms=epoch.programs;
@@ -421,13 +425,18 @@ export class CanonicalRgba8CompositePass {
         this.busy=true;
         try{
             releaseStage=this.cpu.reserve(4096);owned();
-            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law']}>[];
+            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true}>[];
             let updatedLimits:CanonicalCompositeLimits;
             if(request.kind==='grain'){
                 const wanted=primaryGrainProgramsFor({...limits,primaryGrainPrograms:request.requested}),inventory=new Map(primaryGrainProgramsFor(limits).map(p=>[primaryGrainProgram(p.law,p.operation),p]));
                 for(const item of wanted)inventory.set(primaryGrainProgram(item.law,item.operation),item);
                 const all=primaryGrainProgramsFor({...limits,primaryGrainPrograms:[...inventory.values()]});
                 additions=all.map(p=>({key:primaryGrainProgram(p.law,p.operation),operation:p.operation,law:p.law}));updatedLimits={...limits,primaryGrainPrograms:all};
+            }else if(request.kind==='image'){
+                const wanted=imageMaterialOperationsFor({...limits,imageMaterialOperations:request.requested});
+                const all=imageMaterialOperationsFor({...limits,imageMaterialOperations:[...new Set([...imageMaterialOperationsFor(limits),...wanted])]});
+                additions=all.map(operation=>({key:imageMaterialProgram(operation),operation,imageMaterial:true}));
+                updatedLimits={...limits,imageMaterialOperations:all};
             }else{
                 if(!Array.isArray(request.requested)||request.requested.length>12||request.requested.some(k=>k!=='colorHsyBrowser'&&!operationsFor(limits).includes(k)))throw new RangeError('Unsupported operation addition');
                 const operations=operationsFor({...limits,operations:[...new Set([...operationsFor(limits),...request.requested])]});
@@ -441,7 +450,7 @@ export class CanonicalRgba8CompositePass {
                 restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,3);
                 vertex=this.gl.createShader(this.gl.VERTEX_SHADER);if(!vertex)throw new Error('Composite update vertex allocation failed');
                 this.gl.shaderSource(vertex,VERTEX);this.gl.compileShader(vertex);if(!this.gl.getShaderParameter(vertex,this.gl.COMPILE_STATUS))throw new Error('Composite update vertex compile failed: '+this.gl.getShaderInfoLog(vertex));owned();
-                for(const item of missing){const info=this.compile(item.operation,vertex,item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply');created.push(info);owned();nextPrograms.set(item.key,info)}
+                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply');created.push(info);owned();nextPrograms.set(item.key,info)}
             }
             owned();
         }catch(error){failed=true;primary=error}
@@ -600,6 +609,11 @@ export class CanonicalRgba8CompositePass {
     preparedPrimaryGrainPrograms():readonly CanonicalPrimaryGrainProgram[]{
         if(!this.workspace||!this.limits)throw new Error('Composite program inventory unavailable');
         return this.limits.primaryGrainPrograms??NO_PRIMARY_GRAIN_PROGRAMS;
+    }
+    /** Captured published inventory; pending transactions never alter this DATA. */
+    preparedImageMaterialOperations():readonly CanonicalCompositeOperationKind[]{
+        if(!this.workspace||!this.limits)throw new Error('Composite image material inventory unavailable');
+        return Object.freeze([...imageMaterialOperationsFor(this.limits)]);
     }
     supportsPrimaryGrainPrograms(programs:readonly CanonicalPrimaryGrainProgram[]):boolean {
         try{return this.isReady()&&primaryGrainProgramsFor({width:1,height:1,operations:this.limits!.operations,primaryGrainPrograms:programs}).every(p=>this.workspace!.programs.has(primaryGrainProgram(p.law,p.operation)))}
@@ -935,7 +949,7 @@ export class CanonicalRgba8CompositePass {
             canonicalizeSourceInstalledHsyControl(operation.control);
         } else if (operation.kind === 'genericSCU8') {
             if (operation.control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE
-                || !['multiply', 'lighten', 'colorDodge', 'overlay'].includes(operation.control.mode))
+                || !SOURCE_RGBA8_GENERIC_SC_MODES.includes(operation.control.mode))
                 throw new RangeError('Invalid GenericSC U8 profile or mode');
             validateRgba8CompositeControl(operation.control);
         } else if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar'||operation.kind==='alphaDarkenBrowserFloat') {

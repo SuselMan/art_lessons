@@ -149,13 +149,13 @@ function compileDescriptor(descriptor:BrushDescriptor,context:SourceAuthorDescri
   let pixelData:ReturnType<typeof extractCanonicalPixelTextureSourceData>|undefined
   if(pixelTexture){
    if(context.compileCurve||context.primaryTexture||context.fixedPrimaryTexture||context.pressurePrimaryTexture||context.softPressurePrimaryTexture||context.scale!==undefined&&context.scale!==pixelTexture.source.brushScale||context.lodScale!==1||generic||imageBinding||dualRole||imageMaterialBinding||dynamicCapability)return reject('invalid Pixel texture context')
-   pixelData=extractCanonicalPixelTextureSourceData(descriptor,pixelTexture.originalAssets??pixelTexture.assets);if(!pixelData.supported)return pixelData
+   pixelData=extractCanonicalPixelTextureSourceData(descriptor,pixelTexture.originalAssets??pixelTexture.assets,pixelTexture.rasterProfile);if(!pixelData.supported)return pixelData
    data=pixelData.data
    const source=pixelTexture.source
    if(source.kind!=='image'&&context.coverageProfile!==source.coverageProfile)return reject('Pixel texture coverage mismatch')
   }
   let imageSourceData:ReturnType<typeof extractCanonicalPixelImageSourceData>|undefined
-  if(sourceImage){if(context.compileCurve||context.primaryTexture||context.fixedPrimaryTexture||context.pressurePrimaryTexture||context.softPressurePrimaryTexture||context.scale!==undefined&&context.scale!==sourceImage.source.brushScale||context.lodScale!==1||pixelTexture||generic||imageBinding||dualRole||imageMaterialBinding||dynamicCapability)return reject('invalid native image pipe context');imageSourceData=extractCanonicalPixelImageSourceData(descriptor,sourceImage.assets);if(!imageSourceData.supported)return imageSourceData;data=imageSourceData.data}
+  if(sourceImage){if(context.compileCurve||context.primaryTexture||context.fixedPrimaryTexture||context.pressurePrimaryTexture||context.softPressurePrimaryTexture||context.scale!==undefined&&context.scale!==sourceImage.source.brushScale||context.lodScale!==1||pixelTexture||generic||imageBinding||dualRole||imageMaterialBinding||dynamicCapability)return reject('invalid native image pipe context');imageSourceData=extractCanonicalPixelImageSourceData(descriptor,sourceImage.assets,sourceImage.rasterProfile);if(!imageSourceData.supported)return imageSourceData;data=imageSourceData.data}
   const pressureData=pressure?(pressure.version===6?extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor,{pattern:{id:pressure.assets[0].id,size:pressure.assets[0].size}}):extractCanonicalDefaultAutoPressureTextureProgramData(descriptor,{pattern:{id:pressure.assets[0].id,size:pressure.assets[0].size}})):undefined
   if(pressureData&&!pressureData.supported)return pressureData
   const material = imageSourceData?.supported?imageSourceData:pixelData?.supported?pixelData.material:dynamicCapability?dynamicCapability.material:imageMaterialBinding ? imageMaterialBinding.kind==='lightness-image-program-v1'?extractCanonicalLightnessImageSourceData(descriptor,imageMaterialBinding.assets):extractCanonicalColorImageSourceData(descriptor,imageMaterialBinding.assets) : dualRole ? dualRole.material : imageData?.supported ? imageData : genericData?.supported ? genericData : pressureData?.supported ? pressureData : fixed ? extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern:{id:fixed.assets[0].id,size:fixed.assets[0].size}}) : texture&&context.asset ? extractCanonicalPrimaryTextureCapability(descriptor,{primary:context.asset,pattern:texture.pattern}) : soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? (seededDensity?extractSeededDensityDefaultAutoSourceDataCapability(descriptor):extractDefaultAutoSourceDataCapability(descriptor))
@@ -274,7 +274,7 @@ export function sourcePixelDualAuthorProgram(descriptor:BrushDescriptor,context:
  try{
   assertTexturedAutoOwnData(descriptor);assertTexturedAutoOwnData(context)
   if(context.primaryTexture||context.fixedPrimaryTexture||context.pressurePrimaryTexture||context.softPressurePrimaryTexture||context.scale!==undefined&&context.scale!==context.binding.material.primarySource.brushScale)return reject('unsupported dual material/size override')
-  const binding=canonicalPixelDualSourceBinding(descriptor,context.binding.descriptorSha256,context.binding.material,context.binding.sourceScale!==undefined?{sourceScale:context.binding.sourceScale}:undefined,context.binding.originalAssets)
+  const binding=canonicalPixelDualSourceBinding(descriptor,context.binding.descriptorSha256,context.binding.material,context.binding.sourceScale!==undefined?{sourceScale:context.binding.sourceScale}:undefined,context.binding.originalAssets,context.binding.rasterProfile)
   if(canonicalBrushDescriptorJSON(binding)!==canonicalBrushDescriptorJSON(context.binding))return reject('dual original binding mismatch')
   const compile=(role:typeof binding.primary)=>{const pin=role.data.role==='primary'?binding.material.primarySource:binding.material.maskSource!;return compileDescriptor(role.descriptor,{...context,coverageProfile:pin.kind==='image'?undefined:pin.coverageProfile,asset:context.assets.find(a=>a.id===role.descriptor.tip.mask),assets:undefined},{dualRole:role,dualBinding:binding,descriptorSha256:binding.descriptorSha256})}
   const primary=compile(binding.primary);if(!primary.supported)return primary
@@ -308,12 +308,12 @@ export function sourceColorImageAuthorProgram(descriptor:BrushDescriptor,context
 }
 
 /** SAME original dynamic Auto kernel; no descriptor projection or old entry widening. */
-export function sourceDynamicAutoAuthorProgram(descriptor:BrushDescriptor,context:SourceAuthorDescriptorContext & {readonly descriptorSha256:string;readonly geometryCapability:Extract<ReturnType<typeof extractCanonicalDynamicAutoGeometryData>,{supported:true}>}):SourceAuthorDescriptorResult{
+export function sourceDynamicAutoAuthorProgram(descriptor:BrushDescriptor,context:SourceAuthorDescriptorContext & {readonly descriptorSha256:string;readonly geometryCapability:Extract<ReturnType<typeof extractCanonicalDynamicAutoGeometryData>,{supported:true}>;readonly rasterProfile?:CanonicalStrokeRasterProfile}):SourceAuthorDescriptorResult{
  const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
  try{
   assertTexturedAutoOwnData(descriptor);assertTexturedAutoOwnData(context)
   if(!/^[a-f0-9]{64}$/.test(context.descriptorSha256)||context.geometryCapability.kind!=='dynamic-auto-geometry-v1'||context.geometryCapability.data.flags.textureEnabled)return reject('Invalid plain dynamic original binding')
-  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,context.geometryCapability.originalAssets)
+  const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,context.geometryCapability.originalAssets,context.rasterProfile??CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
   if(!capability.supported)return capability
   if(canonicalBrushDescriptorJSON(capability)!==canonicalBrushDescriptorJSON(context.geometryCapability))return reject('Dynamic original capability mismatch')
   const compiled=compileDescriptor(capability.descriptor,context,{dynamicCapability:capability,descriptorSha256:context.descriptorSha256})

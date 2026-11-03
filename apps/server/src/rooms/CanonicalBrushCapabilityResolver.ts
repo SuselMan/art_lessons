@@ -1,3 +1,4 @@
+import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,canonicalPixelSourceOuterCompositionLaw} from '@grafetto/shared'
 import {canonicalSourceTipGradient,canonicalSourceMaterialTipGradient,type CanonicalSourceTipGradient} from '@grafetto/shared'
 import {canonicalSourceAssetStorageCompatible} from '@grafetto/shared'
 import {canonicalPixelSourceComposition} from '@grafetto/shared'
@@ -544,11 +545,14 @@ export class CanonicalBrushCapabilityResolver {
     let bound=this.bindOriginalDescriptor(descriptor,library,profile,role,phase,recordedVersion,options,recordedFlags,textureGradient,sourceRoleTextureInputs,sourceTipGradient,fields)
     const actualTipGradient='version'in bound.material&&(bound.material.version===2||bound.material.version===8)?canonicalSourceMaterialTipGradient(bound.material):undefined
     if(!isDeepStrictEqual(sourceTipGradient,actualTipGradient))fail('tip gradient input differs from original material')
-    if(recordedVersion!==undefined&&(bound.outerBlend==='colorHsyBrowser')!==!!(recordedFlags&1024))fail('browser HSY recorded law changed')
-    if(bound.outerBlend==='colorHsyBrowser'){
+    const outerLaw=canonicalPixelSourceOuterCompositionLaw(bound)
+    const expectedOuterFlags=outerLaw==='browser-hsy-rgba8-functional-v1'?1024:outerLaw==='generic-separable-u8-v1'?2048:outerLaw==='pixel-direct-composite-browser-v1'?4096:0
+    if(recordedVersion!==undefined&&(recordedFlags&(1024|2048|4096))!==expectedOuterFlags)fail('recorded outer composition law changed')
+    if(outerLaw){
       const material=bound.material
-      if(!('version'in material)||(material.version!==2&&material.version!==8))fail('browser HSY requires named Pixel source material')
-      bound={...bound,material:material.version===2?canonicalSourceMaterialContext({...material,outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}):canonicalPrimaryGrainMaterialContext({...material,outerCompositionLaw:'browser-hsy-rgba8-functional-v1'})}
+      if(!('version'in material)||(material.version!==2&&material.version!==8))fail('outer composition requires named Pixel material')
+      if(outerLaw==='pixel-direct-composite-browser-v1'&&profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)fail('incremental composition requires browser raster')
+      bound={...bound,material:material.version===2?canonicalSourceMaterialContext({...material,outerCompositionLaw:outerLaw}):canonicalPrimaryGrainMaterialContext({...material,outerCompositionLaw:outerLaw})}
     }
     if(!fields)return bound
     const base=bound.material
@@ -624,7 +628,7 @@ export class CanonicalBrushCapabilityResolver {
     if(descriptor.behavior?.dual){
       if(!this.pixelMaskedPolicies.pixelMaskedSource||role==='author'&&!this.pixelMaskedPolicies.authorPixelMaskedSource)fail('Pixel masked source policy disabled')
       if(!canonicalStrokeRasterContract(profile).genericSC||phase)fail('masked Pixel profile/phase unavailable')
-      const data=extractCanonicalPixelDualSourceData(descriptor,library.assets,scaleOptions)
+      const data=extractCanonicalPixelDualSourceData(descriptor,library.assets,scaleOptions,profile)
       if(!data.supported)fail('unsupported Pixel masking source: '+data.reasons.join(','))
       const assets=new Map<string,CanonicalMaterialAsset>()
       const imageSources:CanonicalMaterialContextV2['primarySource'][]=[]
@@ -654,7 +658,7 @@ export class CanonicalBrushCapabilityResolver {
       }
       const primarySource=pinRole(data.primary,0),maskSource=pinRole(data.mask,1)
       const baseMaterial=canonicalMaskedSourceMaterialContext({version:2,...(recordedVersion!==undefined?!!(recordedFlags&8):'imageSource'in data.primary||'imageSource'in data.mask)?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},...scaleOptions.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...(hasActiveSourceMaterialOptions(data.primary.data)||hasActiveSourceMaterialOptions(data.mask.data))?{materialParams:'source-material-parameters-v1'}:{},...[data.primary.data,data.mask.data].some(d=>sourceColorRecording(d))?{colorParams:[data.primary.data,data.mask.data].some(d=>sourceColorRecording(d)==='source-pigment-rgba8-v1')?'source-pigment-rgba8-v1':'source-pigment-rgb8-v1'}:{},assets:[...assets.values()],primarySource,maskSource,maskingBlend:data.blendMode,budget})
-      const binding=canonicalPixelDualSourceBinding(descriptor,descriptorSha256,baseMaterial,scaleOptions,library.assets.map(({id,size})=>({id,size})))
+      const binding=canonicalPixelDualSourceBinding(descriptor,descriptorSha256,baseMaterial,scaleOptions,library.assets.map(({id,size})=>({id,size})),profile)
       const material=canonicalPixelDualSourceMaterialContext(binding,sourceRoleTextureInputs,(sourceTipGradient||sourceColorFields)?{...sourceTipGradient?{sourceTipGradient}:{},...sourceColorFields?{sourceColorFields,sourceColorAvailable:library.assets.map(({id,size})=>({id,size}))}:{}}:undefined)
       for(const asset of material.assets)this.storage.asset(asset.id.slice(6),asset.size)
       return {material,mode:composition.mode,outerBlend:composition.outerBlend,descriptorSha256}

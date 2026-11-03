@@ -8,7 +8,7 @@ import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalSourceStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,prepareCanonicalRecordedAttachmentV8,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalMaskSourceReader,CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
-import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, isCanonicalStrokeComposition, canonicalStrokeCompositionExtensions, canonicalPixelSourceOuterCompositionLaw, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { TiledLayerBuffer,PreparedLayerTargets } from '../buffers/TiledLayerBuffer'
@@ -782,10 +782,16 @@ export class CanonicalWashLayerCoordinator {
       || input.layerEpoch !== this.options.layerEpoch || (!this.options.mixedReplay7&&input.composition.mode!=='wash')
       ||this.options.mixedReplay7&&(!origin&&!local||input.composition.mode==='buildup'&&input.frame.profile!==CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE&&input.frame.profile!==CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE&&!(input.frame.profile===CANONICAL_SOURCE_MATERIAL_PROFILE&&(origin?.recorded.snapshot.materialVersion===2||local?.author.snapshot.materialVersion===2)))) throw new Error('Invalid recorded wash lane order/context')
     const original=origin?.recorded.snapshot??local?.author.snapshot??pair?.originalSnapshot
-    const browserHsy=!!original&&(original.materialVersion===2||original.materialVersion===8)&&original.material.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
-    if((input.composition.outerBlend==='colorHsyBrowser')!==browserHsy)throw new TypeError('Recorded outer composition law differs from original source')
-    if(browserHsy&&!this.options.composite.supportsOperations(['colorHsyBrowser']))throw new TypeError('Recorded browser HSY program was not prepared')
-    if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile,browserHsy)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
+    const outerLaw=original&&(original.materialVersion===2||original.materialVersion===8)?original.material.outerCompositionLaw:undefined
+    const extensions=canonicalStrokeCompositionExtensions(outerLaw)
+    const browserHsy=!!extensions.browserHsy
+    if(canonicalPixelSourceOuterCompositionLaw(input.composition)!==outerLaw)throw new TypeError('Recorded Pixel composition marker differs from original source')
+    if(extensions.directBlend&&(this.options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE||input.composition.mode!=='buildup'||input.composition.outerBlend==='over'))throw new TypeError('Invalid direct Pixel composition context')
+    if(extensions.separableOuter&&input.composition.mode!=='wash')throw new TypeError('Invalid separable Pixel WASH context')
+    if((extensions.separableOuter||extensions.directBlend)&&input.composition.outerBlend!=='colorHsyBrowser'&&!this.options.composite.supportsOperations(['genericSCU8']))throw new TypeError('Recorded GenericSC program was not prepared')
+    if((input.composition.outerBlend==='colorHsyBrowser')!==(browserHsy||!!extensions.directBlend&&input.composition.outerBlend==='colorHsyBrowser'))throw new TypeError('Recorded outer composition law differs from original source')
+    if(input.composition.outerBlend==='colorHsyBrowser'&&!this.options.composite.supportsOperations(['colorHsyBrowser']))throw new TypeError('Recorded browser HSY program was not prepared')
+    if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile,extensions)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical wash lane queue is full')
     this.assertLayers()
     let entry = this.entries.find(e => e.id === input.gestureId)

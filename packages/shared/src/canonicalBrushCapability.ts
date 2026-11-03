@@ -3,7 +3,7 @@ import {sourceColorProviderKind} from './sourceStampData.js'
 import {captureCanonicalSourceScaleOptions,type CanonicalSourceScaleOptions} from './canonicalSourceScale.js'
 import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import {canonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin,resolveCanonicalTexturePhase,canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,canonicalStrokeOuterCompositionLaw,CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import {brushAssetIds,isBrushLibrary,type BrushDescriptor} from './brushes.js'
 import type { CanonicalMaterialAsset,CanonicalMaterialImageSource } from './canonicalMaterialCodec.js'
 import { captureSourcePlainAutoGeometryData, captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
@@ -46,7 +46,7 @@ export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProf
  * never admitted by the historical native composition selector. */
 export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):ReturnType<typeof canonicalSourceComposition>{
  const raw=descriptor.sourceStamp?.settings.CompositeOp
- const aliases:Readonly<Record<string,string>>={normal:'normal',multiply:'multiply',screen:'screen',overlay:'overlay',darken:'darken',lighten:'lighten',burn:'colorBurn',dodge:'colorDodge',linear_burn:'linearBurn',linear_dodge:'add',add:'add',subtract:'subtract',diff:'difference',exclusion:'exclusion',soft_light:'softLight',hard_light:'hardLight',divide:'divide',hue:'hue',saturation:'saturation',color:'color',luminosity:'luminosity','linear light':'linearLight',vivid_light:'vividLight',pin_light:'pinLight','hard mix':'hardMix',hard_mix_photoshop:'hardMix','darker color':'darkerColor','lighter color':'lighterColor',erase:'erase','destination-out':'erase'}
+ const aliases:Readonly<Record<string,string>>={normal:'normal',multiply:'multiply',screen:'screen',overlay:'overlay',darken:'darken',lighten:'lighten',burn:'colorBurn',dodge:'colorDodge',linear_burn:'linearBurn',linear_dodge:'add',add:'add',subtract:'subtract',diff:'difference',exclusion:'exclusion',soft_light:'softLight',soft_light_svg:'softLightSvg',hard_light:'hardLight',divide:'divide',hue:'hue',saturation:'saturation',color:'color',luminosity:'luminosity','linear light':'linearLight',vivid_light:'vividLight',pin_light:'pinLight','hard mix':'hardMix',hard_mix_photoshop:'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor',erase:'erase','destination-out':'erase'}
  if(raw!==undefined&&(!Object.hasOwn(aliases,raw)||!descriptor.behavior?.erase&&aliases[raw]!== (descriptor.behavior?.rendering?.blendMode??'normal')))return
  if(descriptor.behavior?.erase){
   let contract:ReturnType<typeof canonicalStrokeRasterContract>
@@ -61,8 +61,17 @@ export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,raste
  let contract:ReturnType<typeof canonicalStrokeRasterContract>
  try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return}
  const rendering=descriptor.behavior?.rendering,data=descriptor.sourceStamp
- if(!contract.genericSC||descriptor.behavior?.erase||rendering?.blendMode!=='color'||(rendering.wetEdges??0)!==0||(rendering.burntEdges??0)!==0||!isSourceStampData(data)||(data.settings.CompositeOp!==undefined&&data.settings.CompositeOp!=='color')||sourceStampPaintingMode(data)!=='wash')return
- return Object.freeze({mode:'wash',outerBlend:'colorHsyBrowser'})
+ if(!contract.genericSC||(rendering?.wetEdges??0)!==0||(rendering?.burntEdges??0)!==0||!isSourceStampData(data))return
+ const mode=sourceStampPaintingMode(data),selected=rendering?.blendMode??'normal'
+ if(!mode||mode==='buildup'&&rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return
+ const outerBlend=selected==='color'?'colorHsyBrowser':(['multiply','lighten','colorDodge','overlay'] as const).find(name=>name===selected)??CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS.find(name=>name===selected)
+ if(!outerBlend)return
+ return Object.freeze({mode,outerBlend})
+}
+
+/** Closed named Pixel context marker; never a grant by itself. */
+export function canonicalPixelSourceOuterCompositionLaw(composition:Pick<CanonicalStrokeComposition,'mode'|'outerBlend'>){
+ return canonicalStrokeOuterCompositionLaw(composition)
 }
 
 /** Saved reader law shared by image/auto capability binding. Undefined action
@@ -733,7 +742,7 @@ export function extractCanonicalPrimaryGrainImageAuthorData(original:unknown,ass
 }
 
 /** Captured native Pixel Auto mechanism; DATA only, never a policy/BEGIN grant. */
-export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?:Readonly<{pattern:Readonly<{id:string;size:number}>}>,originalAssets?:readonly Readonly<{id:string;size:number}>[]) {
+export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?:Readonly<{pattern:Readonly<{id:string;size:number}>}>,originalAssets?:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE) {
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original)
@@ -744,7 +753,7 @@ export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?
   if(!isBrushLibrary(library))return reject('invalid dynamic Auto descriptor')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
   const refs=new Set<string>(brushAssetIds(descriptor)),capturedAssets=Object.freeze(library.assets.filter(a=>refs.has(a.id)).map(({id,size})=>Object.freeze({id,size})))
-  if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,undefined,true,true))||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dynamic Auto source')
+  if(!isSourceStampData(data)||data.version!==2||data.source.kind==='image'||data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,undefined,true,true))||canonicalPixelSourceEffectReject(descriptor,rasterProfile))return reject('unsupported dynamic Auto source')
   const material=data.flags.textureEnabled?(assets?extractCanonicalTexturedAutoProgramData(descriptor,assets):undefined):data.source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'plain',data,undefined,true,true):data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,false,true):extractSoftAutoDataCore(descriptor,undefined,true,false,true)
   if(!material?.supported)return reject('unsupported dynamic Auto kernel/program')
   if(data.brush.scale<=0||data.brush.scale>1)return reject('dynamic Auto scale bound')
@@ -762,7 +771,7 @@ export function extractCanonicalDynamicAutoGeometryData(original:unknown,assets?
 
 /** Native dual role binding retains the actual master/child and blend law.
  * It never projects a mask into a primary descriptor or grants execution. */
-export function extractCanonicalPixelDualSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[],options?:CanonicalSourceScaleOptions) {
+export function extractCanonicalPixelDualSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[],options?:CanonicalSourceScaleOptions,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE) {
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original)
@@ -774,11 +783,11 @@ export function extractCanonicalPixelDualSourceData(original:unknown,available:r
   const nativeModes:Readonly<Record<string,import('./canonicalMaskingBlend.js').CanonicalMaskingBlendMode>>={multiply:'multiply',darken:'darken',overlay:'overlay',dodge:'colorDodge',burn:'colorBurn',linear_burn:'linearBurn',linear_dodge:'add',hard_mix_photoshop:'hardMix',hard_mix_softer_photoshop:'hardMixSofter',subtract:'subtract'}
   const blendMode=typeof nativeMode==='string'&&Object.hasOwn(nativeModes,nativeMode)?nativeModes[nativeMode]:undefined
   if(!isCanonicalMaskingBlendMode(blendMode)||canonicalMaskingBlendModes.indexOf(blendMode)>=10)return reject('unsupported native masking blend')
-  const composition=canonicalPixelSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+  const composition=canonicalPixelSourceComposition(descriptor,rasterProfile)
   if(!composition)return reject('Missing effective dual composition')
   const role=(d:BrushDescriptor,id:'primary'|'mask')=>{
    const data=d.sourceStamp
-   if(!isSourceStampData(data)||data.role!==id||sourceStampSourceKind(data)!=='image'&&data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,id,true,true))||canonicalPixelSourceEffectReject(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported dual role source')
+   if(!isSourceStampData(data)||data.role!==id||sourceStampSourceKind(data)!=='image'&&data.unsupported.some(reason=>!resolvedMaskSourceReason(data,reason,id,true,true))||canonicalPixelSourceEffectReject(d,rasterProfile))return reject('unsupported dual role source')
    const material=data.version===2&&data.source.kind==='defaultAuto'?extractDefaultAutoData(d,false,data.flags.textureEnabled?'pixel-texture':'plain',data,id,true,true):data.version===2&&data.source.kind==='gaussianAuto'?extractGaussianAutoDataCore(d,id,true,data.flags.textureEnabled,true):data.version===2&&data.source.kind==='softAuto'?extractSoftAutoDataCore(d,id,true,data.flags.textureEnabled,true):(()=>{
     const assets:CanonicalMaterialAsset[]=[]
     for(const [frameIndex,frame] of (d.tip.animation?.frames??[d.tip.mask!]).entries()){
@@ -893,14 +902,14 @@ function capturePixelRoleTexture(descriptor:BrushDescriptor,data:SourceStampData
   return Object.freeze({supported:true as const,...originalAssets?{originalAssets}:{},patternAsset,phasePolicy,textureGeometry,mode:application.mode,...alpha?{alphaAsset:Object.freeze({...alpha,x:0,y:0,width:size.width,height:size.height})}:{},soft:application.soft,strengthOption:option})
 }
 export type CanonicalPixelRoleTextureSource=Extract<ReturnType<typeof capturePixelRoleTexture>,{supported:true}>
-export function extractCanonicalPixelTextureSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[]){
+export function extractCanonicalPixelTextureSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE){
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
   if(!isBrushLibrary(library))return reject('invalid Pixel texture original')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,texture=descriptor.texture
-  if(!isSourceStampData(data)||data.version!==2||data.role!=='primary'||!data.flags.textureEnabled||!texture||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported Pixel texture original')
-  const composition=canonicalPixelSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+  if(!isSourceStampData(data)||data.version!==2||data.role!=='primary'||!data.flags.textureEnabled||!texture||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,rasterProfile))return reject('unsupported Pixel texture original')
+  const composition=canonicalPixelSourceComposition(descriptor,rasterProfile)
   if(!composition)return reject('unsupported Pixel texture composition')
   const textureSource=capturePixelRoleTexture(descriptor,data,available,composition);if(!textureSource.supported)return textureSource
   const source=data.source
@@ -922,17 +931,17 @@ export function extractCanonicalSeededAutoMaskData(original:unknown){
 }
 
 /** Native pipe dimensions are immutable source DATA; replay records only frame IDs. */
-export function extractCanonicalPixelImageSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[]){
+export function extractCanonicalPixelImageSourceData(original:unknown,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE){
  const reject=(reason:string)=>({supported:false as const,reasons:Object.freeze([reason])})
  try{
   const captured=capturePrimaryGrainOriginal(original),library={schemaVersion:1,brushes:[{descriptor:captured,name:'',source:'',warnings:[]}],assets:available.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
   if(!isBrushLibrary(library))return reject('invalid native image pipe original')
   const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp,animation=descriptor.tip.animation
-  if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.flags.textureEnabled||!hasCanonicalSourceCurvePrograms(data)||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return reject('unsupported native image pipe source')
+  if(!isSourceStampData(data)||sourceStampSourceKind(data)!=='image'||data.role!=='primary'||data.flags.textureEnabled||!hasCanonicalSourceCurvePrograms(data)||descriptor.behavior?.dual||descriptor.mixer||descriptor.wet||descriptor.screentonePx||canonicalPixelSourceEffectReject(descriptor,rasterProfile))return reject('unsupported native image pipe source')
   const assets:CanonicalMaterialAsset[]=[]
   for(const [frameIndex,id] of (animation?.frames??[descriptor.tip.mask!]).entries()){const a=available.find(a=>a.id===id);if(!a)return reject('native pipe alpha unavailable');const c=extractImageFrameCapability(descriptor,a,{frameIndex,animation,nativeImage:true});if(!c.supported)return c;assets.push(c.capability.asset)}
   if(!animation?.frameBounds&&assets.some(a=>['size','x','y','width','height'].some(k=>Reflect.get(a,k)!==Reflect.get(assets[0],k))))return reject('native pipe grids differ')
-  const composition=canonicalPixelSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+  const composition=canonicalPixelSourceComposition(descriptor,rasterProfile)
   if(!composition)return reject('native image pipe composition unavailable')
   return Object.freeze({supported:true as const,kind:'pixel-image-source-v1' as const,descriptor,data,animation,assets:Object.freeze(assets),composition})
  }catch{return reject('invalid native image pipe original DATA')}

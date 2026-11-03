@@ -233,3 +233,22 @@ it('retains the original seeded pin across catalog removal and refuses ungranted
  catalog=changed;expect(()=>new CanonicalBrushCapabilityResolver(options).beginGesture(f.identity,input)).toThrow()
  expect(f.board.operations).toEqual([])
 })
+
+it.each(['wash','buildup'] as const)('pins the selected Pixel %s composition law from the original descriptor',mode=>{
+ const f=fixture(),library=JSON.parse(JSON.stringify(f.library)),d=library.brushes[0].descriptor
+ d.id='imported-'+createHash('sha256').update(d.id+mode).digest('hex').slice(0,24)
+ d.behavior.rendering.blendMode='screen'
+ d.sourceStamp.settings.CompositeOp='screen'
+ d.sourceStamp.settings.PaintOpAction=mode==='wash'?'2':'1'
+ d.sourceStamp.flags.indirectPainting=mode==='wash'
+ if(!isBrushLibrary(library))throw Error('Invalid authored Pixel fixture')
+ f.storage.install('author',library,new Map([[f.hash,Buffer.alloc(64,127)]]))
+ const B='browser-highp-rgba8-v1' as const
+ const resolver=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,rasterProfile:B,
+  imageMaterialSource:'pixel-image-material-v1',authorImageMaterialSource:'pixel-image-material-v1',alphaDarkenVariants:['creamy'],maxGestures:4})
+ const grant=resolver.beginGesture(f.identity,{...f.input,brush:'brush:'+d.id+'@'+d.version})
+ expect(grant.composition).toEqual({mode,outerBlend:'screen',alphaDarken:'creamy',outerResourceOpacity:.63})
+ expect('version' in grant.material&&grant.material.version).toBe(2)
+ expect('outerCompositionLaw' in grant.material&&grant.material.outerCompositionLaw).toBe(mode==='wash'?'generic-separable-u8-v1':'pixel-direct-composite-browser-v1')
+ resolver.clearRoom(f.identity.roomId)
+})

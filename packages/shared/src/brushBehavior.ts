@@ -2,7 +2,7 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 /** Shared brush behavior schema; built-in defaults are normalized by the engine. */
 import type { BrushDescriptor } from './brushes.js'
 
-export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
+export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time'
 export interface BrushDynamic {
   control: BrushControl
@@ -92,7 +92,7 @@ export interface BrushImportJob {
   error?: string
 }
 
-export const BRUSH_BLEND_MODES: readonly BrushBlendMode[] = ['normal','multiply','screen','overlay','darken','lighten','colorBurn','linearBurn','colorDodge','add','subtract','difference','exclusion','softLight','hardLight','divide','linearLight','vividLight','pinLight','hardMix','darkerColor','lighterColor','hue','saturation','color','luminosity']
+export const BRUSH_BLEND_MODES: readonly BrushBlendMode[] = ['normal','multiply','screen','overlay','darken','lighten','colorBurn','linearBurn','colorDodge','add','subtract','difference','exclusion','softLight','hardLight','divide','linearLight','vividLight','pinLight','hardMix','hardMixPhotoshop','softLightSvg','darkerColor','lighterColor','hue','saturation','color','luminosity']
 
 /** Fail closed, including unknown keys, before a descriptor reaches the GPU. */
 export function isBrushBehavior(value: unknown): value is BrushBehavior {

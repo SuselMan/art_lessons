@@ -530,3 +530,57 @@ it('cold shared vertex cancellation and lost reset retain existing program retir
   expect(s.gl.deleteShader).toHaveBeenCalledTimes(6);expect(s.snapshot()).toEqual(before);s.pass.reset(lost);s.cache.clear();expect(s.cpu.reservedBytes).toBe(0);
  }
 });
+
+it('dispatches all extended Pixel functors through one prepared GenericSC program without draw-time compilation',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion)
+ const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
+ const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot(),policy=vi.spyOn(s.gl,'uniform2f')
+ // Literal IDs are the producer/shader ABI, not generated from the implementation enum.
+ const cases=[['add',1],['darken',7],['screen',8],['colorBurn',9],['linearBurn',10],['subtract',11],['difference',12],['exclusion',13],['softLight',14],['hardLight',15],['divide',16],['linearLight',17],['vividLight',18],['pinLight',19],['hardMix',20],['darkerColor',21],['lighterColor',22],['hue',23],['saturation',24],['luminosity',25],['hardMixPhotoshop',26],['softLightSvg',27]] as const
+ try{
+  for(const [mode,id]of cases){
+   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[200,100,50]},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}}})).toBe('painted')
+   expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),id,0)
+  }
+  expect(s.gl.createProgram.mock.calls.length).toBe(programs)
+  expect(s.snapshot()).toEqual(before)
+  // recordingGL validates selection/state, not shader pixels. GPU readback is a later device gate.
+  const fragmentSources=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1])).join('\n')
+  expect(fragmentSources).toContain('sourceRgba8VectorBlend')
+ }finally{s.pass.reset();s.cache.clear()}
+})
+
+it('adds only missing image-material programs with the same checked publication and exact CPU accounting',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['overBrowserFloat','genericSCU8','colorHsyBrowser'],imageMaterialOperations:['overBrowserFloat']},s.companion)
+ const before=s.snapshot(),cpu=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length
+ const update=s.pass.prepareImageMaterialProgramUpdate(['genericSCU8','colorHsyBrowser'])
+ try{
+  expect(s.pass.preparedImageMaterialOperations()).toEqual(['overBrowserFloat'])
+  expect(s.pass.supportsImageMaterialOperations(['genericSCU8'])).toBe(false)
+  expect(s.cpu.reservedBytes-cpu).toBe(4096+2*8192)
+  expect(s.gl.createProgram.mock.calls.length-programs).toBe(2)
+  expect(()=>s.pass.prepareImageMaterialProgramUpdate(['genericSCU8'])).toThrow()
+  update.assertCurrent();update.publish();update.finalizeCleanup()
+  expect(s.pass.preparedImageMaterialOperations()).toEqual(['genericSCU8','colorHsyBrowser','overBrowserFloat'])
+  expect(s.pass.supportsImageMaterialOperations(['genericSCU8','colorHsyBrowser'])).toBe(true)
+  expect(s.cpu.reservedBytes-cpu).toBe(2*8192)
+  const duplicate=s.pass.prepareImageMaterialProgramUpdate(['genericSCU8']);duplicate.assertCurrent();duplicate.publish();duplicate.finalizeCleanup()
+  expect(s.gl.createProgram.mock.calls.length-programs).toBe(2)
+  expect(s.cpu.reservedBytes-cpu).toBe(2*8192)
+  expect(s.snapshot()).toEqual(before)
+ }finally{if(update.status==='pending')update.cancel();else update.finalizeCleanup();s.pass.reset();s.cache.clear()}
+})
+
+it('cancels unpublished image programs and rejects variants lacking their base operation',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['overBrowserFloat','genericSCU8'],imageMaterialOperations:['overBrowserFloat']},s.companion)
+ const cpu=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
+ try{
+  expect(()=>s.pass.prepareImageMaterialProgramUpdate(['colorHsyBrowser'])).toThrow()
+  expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.cpu.reservedBytes).toBe(cpu)
+  const update=s.pass.prepareImageMaterialProgramUpdate(['genericSCU8'])
+  update.cancel();update.finalizeCleanup()
+  expect(s.pass.preparedImageMaterialOperations()).toEqual(['overBrowserFloat'])
+  expect(s.pass.supportsImageMaterialOperations(['genericSCU8'])).toBe(false)
+  expect(s.cpu.reservedBytes).toBe(cpu);expect(s.snapshot()).toEqual(before)
+ }finally{s.pass.reset();s.cache.clear()}
+})

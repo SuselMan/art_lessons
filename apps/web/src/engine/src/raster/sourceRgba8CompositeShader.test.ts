@@ -28,8 +28,10 @@ describe('integer shader host input contract (not GPU execution)', () => {
     for (const mask of [-1, .5, 256]) expect(() => canonicalizeSourceRgba8Control({ mode: 'over', opacity: 1, mask })).toThrow();
     expect(() => canonicalizeSourceRgba8Control({ mode: 'bad', opacity: 1 } as unknown as Rgba8CompositeControl)).toThrow();
   });
-  it('exports a composable GLSL ES3 library, without target/storage or float arithmetic', () => {
+  it('exports a composable GLSL ES3 library with historical integer and explicit extended browser functors', () => {
     expect(SOURCE_RGBA8_COMPOSITE_GLSL).toContain('uvec4 sourceCompositeRgba8(');
-    expect(SOURCE_RGBA8_COMPOSITE_GLSL).not.toMatch(/\b(float|vec[234]|texture|main)\b|#version/);
+    expect(SOURCE_RGBA8_COMPOSITE_GLSL).not.toMatch(/\b(texture|main)\b|#version/);
+    expect(SOURCE_RGBA8_COMPOSITE_GLSL).toContain('uint sourceRgba8Multiply3(');
+    expect(SOURCE_RGBA8_COMPOSITE_GLSL).toContain('vec3 sourceRgba8VectorBlend(');
   });
 });

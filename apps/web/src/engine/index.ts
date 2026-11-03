@@ -1,3 +1,4 @@
+import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient} from '@grafetto/shared'
 import {canonicalPixelDualSourcePreparationContext,canonicalPixelDualSourceMaterialContext,canonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
 import {sourceSpatialRoleProvider} from './src/presets/sourceSpatialColor'
@@ -1558,6 +1559,7 @@ function assertCanonicalMaskedRecipeCapacity(recipe:Parameters<typeof assertCano
  throw new RangeError('Masked recipe exceeds original role capacity')
 }
 function canonicalCandidateComposition(snapshot:Parameters<typeof canonicalTexture>[0]):boolean {
+ if((snapshot.materialVersion===2||snapshot.materialVersion===8)&&snapshot.material.outerCompositionLaw==='pixel-direct-composite-browser-v1')return snapshot.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE&&snapshot.composition.mode==='buildup'&&snapshot.composition.outerBlend!=='over'&&canonicalPixelSourceOuterCompositionLaw(snapshot.composition)===snapshot.material.outerCompositionLaw&&isCanonicalStrokeComposition(snapshot.composition,snapshot.rasterProfile,canonicalStrokeCompositionExtensions(snapshot.material.outerCompositionLaw))
  return snapshot.composition.mode==='wash'||(snapshot.materialVersion===7||snapshot.materialVersion===8||snapshot.materialVersion===2)
   &&snapshot.composition.mode==='buildup'&&(snapshot.composition.outerBlend==='over'||(snapshot.materialVersion===2||snapshot.materialVersion===8)&&snapshot.composition.outerBlend==='erase')
   &&(snapshot.rasterProfile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||snapshot.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
@@ -1571,6 +1573,20 @@ function assertCanonicalSource2ReadPolicy(snapshot:Parameters<typeof canonicalTe
 }
 function canonicalHsyCompositeLimits(limits:CanonicalCompositeLimits,requested:boolean):CanonicalCompositeLimits {
  return requested?{...limits,operations:[...new Set([...(limits.operations??[]),'colorHsyBrowser' as const])]}:limits
+}
+/** Adds only source variants actually selected by this captured composition.
+ * Masked roles still deposit OVER; their resolved segment uses the base kernel. */
+function canonicalSourceCompositeLimits(limits:CanonicalCompositeLimits,profile:CanonicalStrokeRasterProfile,composition:ReturnType<typeof canonicalPixelSourceComposition>,material?:CanonicalMaterialContextV2,texture?:CanonicalTextureContext):CanonicalCompositeLimits {
+ let next=canonicalHsyCompositeLimits(limits,composition?.outerBlend==='colorHsyBrowser')
+ if(composition?.mode!=='buildup'||composition.outerBlend==='over'||composition.outerBlend==='erase'||material?.maskSource)return next
+ if(profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Direct Pixel composite requires browser profile')
+ const operation=composition.outerBlend==='colorHsyBrowser'?'colorHsyBrowser' as const:'genericSCU8' as const
+ if(texture?.version===8){
+  if(texture.primaryTexture.law==='hard-multiply-u8-native-v1')throw new TypeError('Historical grain direct mode unavailable')
+  const programs=[...(next.primaryGrainPrograms??[]),{law:texture.primaryTexture.law,operation}]
+  next={...next,primaryGrainPrograms:[...new Map(programs.map(p=>[p.law+':'+p.operation,p])).values()]}
+ }else if(material?.primarySource.kind==='image'&&material.primarySource.imageMaterial&&material.primarySource.imageMaterial.kind!=='gradient-map-v1')next={...next,imageMaterialOperations:[...new Set([...(next.imageMaterialOperations??[]),operation])]}
+ return next
 }
 function canonicalRoleTexturePrograms(material:CanonicalMaterialContextV2|undefined,profile:CanonicalStrokeRasterProfile,erase=false):NonNullable<CanonicalCompositeLimits['primaryGrainPrograms']>{
  if(!material?.roleTextures)return []
@@ -1745,6 +1761,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
  const mask={width:maskWidth,height:maskHeight,slots:maskSlots,...spatialColors?{spatialColors:true as const}:{},...tipGradient?{tipGradient:true as const}:{}};let composite=canonicalCompositePlan(read.authorRasterProfile,tileWidth,tileHeight,canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile)==='primary-grain-image-v1',canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)==='pixel-masked-v1',!!canonicalPixelMaskedReadSource(read,'pixelMaskedSource',read.authorRasterProfile)||!!canonicalPlainAutoGeometryReadSource(read,'plainAutoGeometrySource',read.authorRasterProfile)||!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile)||!!canonicalPrimaryGrainReadSource(read,'primaryGrainSource',read.authorRasterProfile),!!canonicalImageMaterialReadSource(read,'imageMaterialSource',read.authorRasterProfile))
  composite=canonicalHsyCompositeLimits(composite,browserHsy)
+ for(const input of inputs){const snapshot=input.read?.capability.snapshot;if(snapshot)composite=canonicalSourceCompositeLimits(composite,read.authorRasterProfile,snapshot.composition,snapshot.materialVersion===2?snapshot.material:undefined,canonicalTexture(snapshot))}
  const roleErase=paintInputs.some(input=>input.read?.capability.snapshot.composition.outerBlend==='erase')
  const rolePrograms=[...imageMaterials.values()].flatMap(context=>canonicalRoleTexturePrograms(context,read.authorRasterProfile,roleErase))
  if(rolePrograms.length)composite={...composite,primaryGrainPrograms:[...new Map([...(composite.primaryGrainPrograms??[]),...rolePrograms].map(program=>[program.law+':'+program.operation,program])).values()]}
@@ -7530,7 +7547,7 @@ export class PencilEngine implements PencilEngineAPI {
     const replace=!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height||capacity.slots>owner.mask.slots||!!capacity.spatialColors&&!owner.mask.spatialColors||!!capacity.tipGradient&&!owner.mask.tipGradient
     if(replace&&!owner.prepared&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical cold workspace requires an idle owner')
     if(!pin&&!texture&&!imageMaterial?.roleTextures&&!canonicalHasSpatialPattern(imageMaterial?.sourceColorFields)){
-      if(!replace){if(imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')this._ensureCanonicalHsyProgram(owner,current);return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)}
+      if(!replace){if(snapshot.composition.outerBlend==='colorHsyBrowser')this._ensureCanonicalHsyProgram(owner,current);return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)}
       const key='recorded-auto:'+JSON.stringify(source),generation=this._brushPreparationGeneration
       while(!this._brushPreparation.canRunWithoutReplacing(key)){await this._brushPreparation.whenIdle();current();if(options.signal?.aborted)return{status:'cancelled'}}
       let update:CanonicalPreparedResourceUpdate|undefined,cancelled=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
@@ -7543,7 +7560,7 @@ export class PencilEngine implements PencilEngineAPI {
       }],options,available,key,outcome=>{
         try{
           if('result'in outcome&&outcome.result.status==='ready'){
-            try{current();if(cancelled||owner.resourceCandidate!==candidate||generation!==this._brushPreparationGeneration)throw new Error('Canonical resource preparation changed');update=this._prepareCanonicalOriginalAutoWorkspace(owner,capacity,imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1');update?.assertCurrent();update?.publish();update?.finalizeCleanup()}
+            try{current();if(cancelled||owner.resourceCandidate!==candidate||generation!==this._brushPreparationGeneration)throw new Error('Canonical resource preparation changed');update=this._prepareCanonicalOriginalAutoWorkspace(owner,capacity,snapshot.composition.outerBlend==='colorHsyBrowser');update?.assertCurrent();update?.publish();update?.finalizeCleanup()}
             catch(error){try{update?.cancel()}catch{/* Preserve publication error. */}throw error}
           }else update?.cancel()
         }finally{if(owner.resourceCandidate===candidate)owner.resourceCandidate=undefined}
@@ -7559,7 +7576,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(op.frame.frameOrdinal>0)return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     }
     if(!owner.indexedCandidate&&!owner.indexedCut&&!replace&&op.frame.frameOrdinal>0&&pin&&!texture&&!imageMaterial&&(images??[pin]).every(image=>this._canonicalImageSourceReady(owner,image,current)))return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
-    const result=await this._prepareCanonicalImageResources(owner,pin,current,options,replace?{width:Math.max(owner.mask.width,capacity.width),height:Math.max(owner.mask.height,capacity.height),slots:Math.max(owner.mask.slots,capacity.slots),...owner.mask.spatialColors||capacity.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||capacity.tipGradient?{tipGradient:true as const}:{}}:undefined,true,input,undefined,texture,images?.slice(1),imageMaterial,snapshot.composition.outerBlend==='erase')
+    const result=await this._prepareCanonicalImageResources(owner,pin,current,options,replace?{width:Math.max(owner.mask.width,capacity.width),height:Math.max(owner.mask.height,capacity.height),slots:Math.max(owner.mask.slots,capacity.slots),...owner.mask.spatialColors||capacity.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||capacity.tipGradient?{tipGradient:true as const}:{}}:undefined,true,input,undefined,texture,images?.slice(1),imageMaterial,snapshot.composition.outerBlend==='erase',snapshot.composition)
     if(result.status==='ready')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     return result
   }
@@ -7571,20 +7588,20 @@ export class PencilEngine implements PencilEngineAPI {
   }
   /** Resource data only. Local preparation has no fabricated original input and
    * never waits the recorded admission/confirmation capacity barrier. */
-  private async _prepareCanonicalImageResources(owner:CanonicalLayerOwner,pin:ReturnType<typeof canonicalImageMaterialPin>|undefined,current:()=>void,options:Pick<BrushPreparationOptions,'signal'>,initialMask?:TransformedMaskLimits,originalAddition=false,rootInput?:CanonicalRecordedInput,localLease?:{lease?:CanonicalMaskSourceLease},texture?:CanonicalTextureContext,additionalImages:readonly ReturnType<typeof canonicalImageMaterialPin>[]=[],imageMaterial?:CanonicalMaterialContextV2,roleErase=false):Promise<BrushPreparationResult> {
+  private async _prepareCanonicalImageResources(owner:CanonicalLayerOwner,pin:ReturnType<typeof canonicalImageMaterialPin>|undefined,current:()=>void,options:Pick<BrushPreparationOptions,'signal'>,initialMask?:TransformedMaskLimits,originalAddition=false,rootInput?:CanonicalRecordedInput,localLease?:{lease?:CanonicalMaskSourceLease},texture?:CanonicalTextureContext,additionalImages:readonly ReturnType<typeof canonicalImageMaterialPin>[]=[],imageMaterial?:CanonicalMaterialContextV2,roleErase=false,composition?:ReturnType<typeof canonicalPixelSourceComposition>):Promise<BrushPreparationResult> {
     if(!pin&&!texture&&!imageMaterial?.roleTextures&&!imageMaterial?.sourceColorFields&&imageMaterial?.primarySource.kind!=='image'&&imageMaterial?.maskSource?.kind!=='image')throw new TypeError('Canonical resource source missing')
     const imageMaterialPlan=imageMaterial?prepareCanonicalImageMaterialSources(imageMaterial,this._brushMipCache,asset=>{current();if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Image material asset unavailable');return importedAssetPixels(asset.id)},current):undefined
     try{
     const rolePrograms=canonicalRoleTexturePrograms(imageMaterial,owner.plan.profile,roleErase)
     const resourcePrograms=[...new Map([...(owner.plan.composite.primaryGrainPrograms??[]),...owner.composite.isReady()?owner.composite.preparedPrimaryGrainPrograms():[],...rolePrograms].map(program=>[program.law+':'+program.operation,program])).values()]
-    const resourceComposite:CanonicalCompositeLimits=canonicalHsyCompositeLimits({...this._canonicalCompositeLimits(owner),...resourcePrograms.length?{primaryGrainPrograms:resourcePrograms}:{}},imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'||texture?.version===8&&texture.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')
+    const resourceComposite:CanonicalCompositeLimits=canonicalSourceCompositeLimits(canonicalHsyCompositeLimits({...this._canonicalCompositeLimits(owner),...resourcePrograms.length?{primaryGrainPrograms:resourcePrograms}:{}},imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'||texture?.version===8&&texture.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'),owner.plan.profile,composition,imageMaterial,texture)
     const initializing=!!initialMask&&!owner.prepared,growing=!!initialMask&&owner.prepared,oldMask=owner.mask
     const imagePins=[...pin?[pin]:[],...additionalImages],imageAssets=[...new Map(imagePins.flatMap(p=>p.assets).map(a=>[JSON.stringify([a.id,a.size,a.x,a.y,a.width,a.height]),a])).values()]
     const patternData=texture?canonicalPatternRecord(texture):undefined,assets=[...imageMaterialPlan?.assets??imageAssets,...patternData?patternData.alphaAsset?[patternData.asset,patternData.alphaAsset]:[patternData.asset]:[]]
     const assertAssets=()=>{for(const asset of assets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')}
     assertAssets()
     if(growing&&!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
-    const key='recorded-image:'+JSON.stringify([imagePins,texture,imageMaterial])
+    const key='recorded-image:'+JSON.stringify([imagePins,texture,imageMaterial,composition])
     while(!this._brushPreparation.canRunWithoutReplacing(key)){
       // Passive work completion only: no candidate, author ownership, timer,
       // gesture-end or ACK dependency is retained by this waiter.
@@ -7617,12 +7634,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(initializing&&(owner.prepared||owner.mask!==oldMask||owner.bank||owner.inputs.length||!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical initial image owner changed')
       if(growing&&(!owner.prepared||owner.mask!==oldMask||!originalAddition&&!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical workspace busy')
       candidate={cancel:cleanup};owner.resourceCandidate=candidate
-      if(imageMaterial?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'||texture?.version===8&&texture.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')this._ensureCanonicalHsyProgram(owner,current)
-      if(owner.composite.isReady()&&rolePrograms.length&&!owner.composite.supportsPrimaryGrainPrograms(rolePrograms)){
-        const update=owner.composite.preparePrimaryGrainProgramUpdate(rolePrograms)
-        try{current();update.assertCurrent();update.publish();update.finalizeCleanup()}catch(error){try{update.cancel()}catch{/* Preserve the original preparation error. */}throw error}
-        current()
-      }
+      this._ensureCanonicalSourceCompositePrograms(owner,resourceComposite,current)
       const readAsset=(asset:CanonicalMaterialAsset)=>{this._assertCanonicalLayerCurrent(owner);if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable');return importedAssetPixels(asset.id)}
       const inputs=[...imageMaterialPlan?imageMaterialPlan.inputs:imageAssets.map(asset=>({asset,readOriginalCoverage:()=>readAsset(asset)})),...patternData?[canonicalPatternInput(patternData,readAsset)]:[]]
       const metadata=(owner.bank?.jobs.length??0)+count,stageCpu=metadata*512+192*(metadata*2+8)+1024+Math.max(0,...assets.map(asset=>asset.size*asset.size))
@@ -7740,10 +7752,11 @@ export class PencilEngine implements PencilEngineAPI {
       else if(snapshot.materialVersion===7)assertCanonicalTexturedAuto7RecipeCapacity(recipe,snapshot.material,owner.mask)
       else if(pin.kind!=='image'){if(snapshot.materialVersion===2&&pin.kind==='defaultAuto'&&canonicalPlainTiltReadSource(owner.plan.originalRead??owner.plan.indexedRead,'plainTiltSource',owner.plan.profile))assertCanonicalPlainAutoGeometryRecipeCapacity(recipe,pin,capacity);else assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)}
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
-      const resourceComposite:CanonicalCompositeLimits=canonicalHsyCompositeLimits({...this._canonicalCompositeLimits(owner),...owner.composite.isReady()?{primaryGrainPrograms:owner.composite.preparedPrimaryGrainPrograms()}:snapshot.materialVersion===2&&snapshot.material.roleTextures?{primaryGrainPrograms:canonicalRoleTexturePrograms(snapshot.material,owner.plan.profile,snapshot.composition.outerBlend==='erase')}:{}},snapshot.materialVersion===2&&snapshot.material.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')
+      const resourceComposite:CanonicalCompositeLimits=canonicalSourceCompositeLimits(this._canonicalCompositeLimits(owner),owner.plan.profile,snapshot.composition,snapshot.materialVersion===2?snapshot.material:undefined,canonicalTexture(snapshot))
       const mask=owner.prepared?owner.mask:capacity,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(resourceComposite)
       const metadata=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities*(1024+1024+4096+64*512)+64*256+82432
       if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+metadata>this._brushMipCache.budgetBytes)throw new RangeError('Canonical workspace companions exceed existing budgets')
+      this._ensureCanonicalSourceCompositePrograms(owner,resourceComposite,()=>this._assertCanonicalLayerCurrent(owner))
       owner.accepting=true
       if(!owner.prepared){owner.mask=Object.freeze(mask);owner.prepass.prepare(owner.mask,[]);owner.composite.prepare(owner.composite.isReady()?{...resourceComposite,primaryGrainPrograms:owner.composite.preparedPrimaryGrainPrograms()}:resourceComposite,owner.prepass.preparedResources(),maskCost.cpuBytes);owner.prepared=true}
       this._assertCanonicalLayerCurrent(owner)
@@ -7805,7 +7818,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** Original cold initialization is a resource ticket too: existing compiled
    * composite resources/companions stay live until its pure publication. */
   private _canonicalCompositeLimits(owner:CanonicalLayerOwner,browserHsy=false):CanonicalCompositeLimits {
-    return canonicalHsyCompositeLimits({...owner.plan.composite,...owner.composite.isReady()?{operations:owner.composite.preparedOperations(),primaryGrainPrograms:owner.composite.preparedPrimaryGrainPrograms()}:{}},browserHsy)
+    return canonicalHsyCompositeLimits({...owner.plan.composite,...owner.composite.isReady()?{operations:owner.composite.preparedOperations(),primaryGrainPrograms:owner.composite.preparedPrimaryGrainPrograms(),imageMaterialOperations:owner.composite.preparedImageMaterialOperations()}:{}},browserHsy)
+  }
+  private _ensureCanonicalSourceCompositePrograms(owner:CanonicalLayerOwner,limits:CanonicalCompositeLimits,current:()=>void):void {
+    if(!owner.composite.isReady())return
+    if(limits.operations?.includes('colorHsyBrowser'))this._ensureCanonicalHsyProgram(owner,current)
+    const publish=(update:CanonicalPreparedResourceUpdate)=>{try{current();update.assertCurrent();update.publish();update.finalizeCleanup()}catch(error){try{update.cancel()}catch{/* Preserve original preparation failure. */}throw error}current()}
+    if(limits.primaryGrainPrograms?.length&&!owner.composite.supportsPrimaryGrainPrograms(limits.primaryGrainPrograms)){current();publish(owner.composite.preparePrimaryGrainProgramUpdate(limits.primaryGrainPrograms))}
+    if(limits.imageMaterialOperations?.length&&!owner.composite.supportsImageMaterialOperations(limits.imageMaterialOperations)){current();publish(owner.composite.prepareImageMaterialProgramUpdate(limits.imageMaterialOperations))}
   }
   private _ensureCanonicalHsyProgram(owner:CanonicalLayerOwner,current:()=>void):void {
     if(!owner.composite.isReady()||owner.composite.preparedOperations().includes('colorHsyBrowser'))return
@@ -8566,8 +8586,8 @@ export class PencilEngine implements PencilEngineAPI {
       if(this._brushPreparationPreset!==preparationIdentity){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preparationIdentity}
       const generation=this._brushPreparationGeneration,check=()=>{current();if(generation!==this._brushPreparationGeneration)throw new Error('Image material generation changed')}
       const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}:undefined
-      let result=await this._prepareCanonicalImageResources(owner,pin,check,options,initial,false,undefined,localLease,undefined,[],context)
-      if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,pin,check,options,undefined,false,undefined,localLease,undefined,[],context)
+      let result=await this._prepareCanonicalImageResources(owner,pin,check,options,initial,false,undefined,localLease,undefined,[],context,false,binding.composition)
+      if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,pin,check,options,undefined,false,undefined,localLease,undefined,[],context,false,binding.composition)
       lease=localLease.lease;localLease.lease=undefined
       if(result.status!=='ready')return result
       if(!lease)throw new Error('Image material prepared root missing')
@@ -8598,7 +8618,7 @@ export class PencilEngine implements PencilEngineAPI {
       current()
       const originalData=original.sourceStamp;if(!originalData)throw new Error('Selected source metadata unavailable')
       const sourceScale=canonicalSourceScale(selectedSizePx,originalData.version===2&&originalData.source.kind!=='image'?originalData.source.diameter:Math.max(originalData.brush.width,originalData.brush.height),originalData.brush.scale).effectiveBrushScale
-      const metadata=importedBrushAssetMetadata(preset)??[],captured=extractCanonicalPixelDualSourceData(original,metadata,{sourceScale})
+      const metadata=importedBrushAssetMetadata(preset)??[],captured=extractCanonicalPixelDualSourceData(original,metadata,{sourceScale},owner.plan.profile)
       if(!captured.supported)throw new Error(captured.reasons.join(','))
       const descriptor=captured.descriptor,composition=canonicalPixelSourceComposition(descriptor,owner.plan.profile)
       if(!composition)throw new Error('Masked source composition unavailable')
@@ -8619,7 +8639,7 @@ export class PencilEngine implements PencilEngineAPI {
         return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:slot,...identity,...canonicalSoftAutoStatic(data.source,scale,data.brush.angle,coverageProfile),coverageProfile,reader:data.reader,compilerProfile:data.compiled.profile,buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})
       }
       const primaryColor=sourceColorRecording(captured.primary.data),maskColor=sourceColorRecording(captured.mask.data),colorParams=primaryColor==='source-pigment-rgba8-v1'||maskColor==='source-pigment-rgba8-v1'?'source-pigment-rgba8-v1':primaryColor??maskColor
-      const primarySource=source(captured.primary,0),maskSource=source(captured.mask,1),baseContext=canonicalMaskedSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1' as const}:{},...primarySource.kind==='image'||maskSource.kind==='image'?{imageFrameIndices:'source-image-pipe-frame-v1' as const}:{},assets:imageAssets,primarySource,maskSource,maskingBlend:captured.blendMode,...hasActiveSourceMaterialOptions(captured.primary.data)||hasActiveSourceMaterialOptions(captured.mask.data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}),binding=canonicalPixelDualSourceBinding(descriptor,sha,baseContext,{sourceScale},metadata),context=canonicalPixelDualSourcePreparationContext(binding)
+      const primarySource=source(captured.primary,0),maskSource=source(captured.mask,1),baseContext=canonicalMaskedSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...canonicalPixelSourceOuterCompositionLaw(composition)?{outerCompositionLaw:canonicalPixelSourceOuterCompositionLaw(composition)}:{},...primarySource.kind==='image'||maskSource.kind==='image'?{imageFrameIndices:'source-image-pipe-frame-v1' as const}:{},assets:imageAssets,primarySource,maskSource,maskingBlend:captured.blendMode,...hasActiveSourceMaterialOptions(captured.primary.data)||hasActiveSourceMaterialOptions(captured.mask.data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}),binding=canonicalPixelDualSourceBinding(descriptor,sha,baseContext,{sourceScale},metadata,owner.plan.profile),context=canonicalPixelDualSourcePreparationContext(binding)
       const requested=canonicalSpatialCapacity(canonicalMaskedCapacity(context),[captured.primary,captured.mask].some(role=>role.imageSource?.imageMaterial?.kind!=='color-stamp-v1'&&canonicalSpatialProvider(role.data))),images=canonicalMaskedImages(context),compiled=sourcePixelDualAuthorProgram(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile:owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1',assets:metadata,binding,scale:sourceScale})
       if(!compiled.supported)throw new Error(compiled.reasons.join(','))
       const preparationIdentity=preset+':sourceScale:'+sourceScale
@@ -8628,8 +8648,8 @@ export class PencilEngine implements PencilEngineAPI {
       let result:BrushPreparationResult
       if(images.length){
         const initial=!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors?{width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}:undefined
-        result=await this._prepareCanonicalImageResources(owner,images[0],check,options,initial,false,undefined,localLease,undefined,images.slice(1),context)
-        if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,images[0],check,options,undefined,false,undefined,localLease,undefined,images.slice(1),context)
+        result=await this._prepareCanonicalImageResources(owner,images[0],check,options,initial,false,undefined,localLease,undefined,images.slice(1),context,false,composition)
+        if(result.status==='ready'&&!localLease.lease)result=await this._prepareCanonicalImageResources(owner,images[0],check,options,undefined,false,undefined,localLease,undefined,images.slice(1),context,false,composition)
         lease=localLease.lease;localLease.lease=undefined
         if(result.status==='ready'&&!lease)throw new Error('Masked source root missing')
       }else{
@@ -8800,7 +8820,7 @@ export class PencilEngine implements PencilEngineAPI {
         texture=canonicalTexturedSourceMaterialContext({version:4,assets:[fixed.patternAsset],primarySource:pin,primaryTexture:fixed.primaryTexture,budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}})
       }
       if(dynamicPlain&&geometryCapability?.kind==='dynamic-auto-geometry-v1'){fixedSha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');this._assertCanonicalLayerCurrent(owner);if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}}
-      const compiled=dynamicPlain&&geometryCapability?.kind==='dynamic-auto-geometry-v1'&&fixedSha?sourceDynamicAutoAuthorProgram(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,descriptorSha256:fixedSha,geometryCapability,scale:sourceScale}):binding8?sourcePixelTextureAuthorProgram(descriptor,{binding:binding8,rasterProfile:owner.plan.profile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,scale:sourceScale}):binding7?sourceTexturedAutoAuthorProgram(descriptor,{binding:binding7,rasterProfile:owner.plan.profile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,materialCpuBudgetBytes:materialCpu}):sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,...image?{asset:{id:image.primarySource.asset,size:image.assets.find(a=>a.id===image.primarySource.asset)!.size},assets:image.assets,...texture?.version===3?{primaryTexture:{pattern:{id:texture.assets[1].id,size:texture.assets[1].size}}}:{}}:{},...texture?.version===6?{softPressurePrimaryTexture:{context:texture,rasterProfile:owner.plan.profile,materialCpuBudgetBytes:materialCpu}}:texture?.version===5?{pressurePrimaryTexture:{context:texture,rasterProfile:owner.plan.profile,materialCpuBudgetBytes:materialCpu}}:texture?.version===4?{fixedPrimaryTexture:{context:texture,rasterProfile:owner.plan.profile}}:{}})
+      const compiled=dynamicPlain&&geometryCapability?.kind==='dynamic-auto-geometry-v1'&&fixedSha?sourceDynamicAutoAuthorProgram(descriptor,{rasterProfile:owner.plan.profile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,descriptorSha256:fixedSha,geometryCapability,scale:sourceScale}):binding8?sourcePixelTextureAuthorProgram(descriptor,{binding:binding8,rasterProfile:owner.plan.profile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,scale:sourceScale}):binding7?sourceTexturedAutoAuthorProgram(descriptor,{binding:binding7,rasterProfile:owner.plan.profile,inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,materialCpuBudgetBytes:materialCpu}):sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,...image?{asset:{id:image.primarySource.asset,size:image.assets.find(a=>a.id===image.primarySource.asset)!.size},assets:image.assets,...texture?.version===3?{primaryTexture:{pattern:{id:texture.assets[1].id,size:texture.assets[1].size}}}:{}}:{},...texture?.version===6?{softPressurePrimaryTexture:{context:texture,rasterProfile:owner.plan.profile,materialCpuBudgetBytes:materialCpu}}:texture?.version===5?{pressurePrimaryTexture:{context:texture,rasterProfile:owner.plan.profile,materialCpuBudgetBytes:materialCpu}}:texture?.version===4?{fixedPrimaryTexture:{context:texture,rasterProfile:owner.plan.profile}}:{}})
       if(!compiled.supported)throw new Error(compiled.reasons.join(','))
       const sha=fixedSha??Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('')
       this._assertCanonicalLayerCurrent(owner)
@@ -8837,14 +8857,14 @@ export class PencilEngine implements PencilEngineAPI {
         if(actual.width!==requested.width||actual.height!==requested.height||actual.slots!==requested.slots)throw new Error('Canonical source candidate capacity changed')
       }
       const colorParams=sourceColorRecording(data)
-      const sourceContext2=dynamicPlain&&material.kind==='auto'?canonicalSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...originalComposition?.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1' as const}:{},assets:[],primarySource:material.pin,...hasActiveSourceMaterialOptions(data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}):undefined
+      const sourceContext2=dynamicPlain&&material.kind==='auto'?canonicalSourceMaterialContext({version:2,scaledSource:'source-scale-v1',...originalComposition&&canonicalPixelSourceOuterCompositionLaw(originalComposition)?{outerCompositionLaw:canonicalPixelSourceOuterCompositionLaw(originalComposition)}:{},assets:[],primarySource:material.pin,...hasActiveSourceMaterialOptions(data)?{materialParams:'source-material-parameters-v1' as const}:{},...colorParams?{colorParams}:{},budget:{workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels}}):undefined
       const preparationIdentity=sourceScale!==undefined?preset+':sourceScale:'+sourceScale:preset
       if(this._brushPreparationPreset!==preparationIdentity){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preparationIdentity}
       const generation=this._brushPreparationGeneration
       const available=()=>!this._destroyed&&!this._contextLost&&!owner.retiring&&this._canonicalLayerOwner===owner&&owner.generation===this._physicalGeneration&&generation===this._brushPreparationGeneration&&this._opts.pencilType===preset&&(!scaled||this._opts.size===selectedSizePx)&&(originalComposition?.mode!=='buildup'||!!owner.previewPublication)
       const current=()=>{this._assertCanonicalLayerCurrent(owner);if(!available())throw new Error('Canonical selected source changed')}
       let workspaceUpdate:CanonicalPreparedResourceUpdate|undefined
-      let result=resources?await this._prepareCanonicalImageResources(owner,image,current,options,initialMask,false,undefined,localLease,texture,[],texture?.version===8?canonicalGrainImageMaterial(texture):undefined):await this._brushPreparation.run([()=>{
+      let result=resources?await this._prepareCanonicalImageResources(owner,image,current,options,initialMask,false,undefined,localLease,texture,[],texture?.version===8?canonicalGrainImageMaterial(texture):undefined,false,originalComposition):await this._brushPreparation.run([()=>{
         this._assertCanonicalLayerCurrent(owner)
         workspaceUpdate=this._prepareCanonicalLayerWorkspace(owner,requested,false,originalComposition?.outerBlend==='colorHsyBrowser')
       },()=>this._prewarmCanonicalLayerStorage(owner,'stable',available),()=>this._prewarmCanonicalLayerStorage(owner,'scratch',available)],options,available,preparationIdentity,outcome=>{
@@ -8857,7 +8877,7 @@ export class PencilEngine implements PencilEngineAPI {
       // A shared preparation has a creator-owned finalizer. A ready subscriber
       // acquires its own root lease in one bounded cache-hit preparation.
       if(resources&&result.status==='ready'&&!localLease.lease&&!options.signal?.aborted&&available()){
-        current();result=await this._prepareCanonicalImageResources(owner,image,current,options,undefined,false,undefined,localLease,texture,[],texture?.version===8?canonicalGrainImageMaterial(texture):undefined)
+        current();result=await this._prepareCanonicalImageResources(owner,image,current,options,undefined,false,undefined,localLease,texture,[],texture?.version===8?canonicalGrainImageMaterial(texture):undefined,false,originalComposition)
       }
       imageLease=localLease.lease;localLease.lease=undefined
       if(result.status!=='ready'||generation!==this._brushPreparationGeneration||options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
@@ -9232,7 +9252,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(source.context7||source.context8||source.context2?.roleTextures||canonicalHasSpatialPattern(source.context2?.sourceColorFields)||source.context2&&canonicalSourceMaterialTipGradient(source.context2)){
           const localLease:{lease?:CanonicalMaskSourceLease}={},preparedOutcome:{active:boolean;value?:BrushPreparationResult}={active:true}
           try{
-            const work=owner._prepareCanonicalImageResources(prepared.owner,prepared.material.kind==='pixelTexture'?prepared.material.pin:undefined,()=>owner._assertCanonicalSource(session),{signal:controller.signal},undefined,false,undefined,localLease,source.context8??source.context7,[],source.context8?canonicalGrainImageMaterial(source.context8):source.context2,canonicalPreparedSourceComposition(prepared)?.outerBlend==='erase')
+            const work=owner._prepareCanonicalImageResources(prepared.owner,prepared.material.kind==='pixelTexture'?prepared.material.pin:undefined,()=>owner._assertCanonicalSource(session),{signal:controller.signal},undefined,false,undefined,localLease,source.context8??source.context7,[],source.context8?canonicalGrainImageMaterial(source.context8):source.context2,canonicalPreparedSourceComposition(prepared)?.outerBlend==='erase',canonicalPreparedSourceComposition(prepared))
             observeCanonicalPreparation(work,preparedOutcome)
             yield {kind:'author-input-wait',promise:work,deadline:performance.now()+150000,timeoutError:new Error('Canonical START pattern preparation timed out')}
             owner._assertCanonicalSource(session)

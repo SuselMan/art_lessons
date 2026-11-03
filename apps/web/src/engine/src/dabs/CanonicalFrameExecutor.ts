@@ -1,3 +1,4 @@
+import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient,canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
 import {assertCanonicalAutoRecipeCapacity,type CanonicalAutoGeometryMechanism} from './canonicalAutoCapacity'
 import type {BrushMipCache} from './BrushMipCache'
@@ -596,15 +597,17 @@ export class CanonicalFrameExecutor {
     if(this.queue.length>=8)throw new RangeError('Canonical frame queue is full')
     const source=this.primaryTexture
     if(!source)throw new TypeError('Canonical material3 requires a texture root')
-    if((input.composition.outerBlend==='colorHsyBrowser')!==(source.context.version===8&&source.context.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'))throw new TypeError('Texture outer composition law differs');
+    const textureOuterLaw=source.context.version===8?source.context.outerCompositionLaw:undefined
+    if(textureOuterLaw!==canonicalPixelSourceOuterCompositionLaw(input.composition))throw new TypeError('Texture outer composition law differs');
     const textureRasterProfile=this.options.rasterProfile
     if(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&textureRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Unsupported canonical texture raster profile')
-    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile,source.context.version===8&&source.context.outerCompositionLaw==='browser-hsy-rgba8-functional-v1')||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
+    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile,canonicalStrokeCompositionExtensions(textureOuterLaw))||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
     if(source.context.version===8&&source.context.primaryTexture.law==='hard-multiply-u8-native-v1'&&(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||input.composition.mode!=='buildup'||input.composition.outerBlend!=='over'))throw new TypeError('Standalone image8 requires buildup OVER')
     if(input.composition.mode==='buildup'){
       if(this.options.washMode==='deposition-only')throw new TypeError('Deposition-only requires wash')
-      const operation=textureRasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar'
-      if(source.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar',law:source.context.primaryTexture.law}]):!this.options.composite.supportsTexturedOperations([operation]))throw new TypeError('Canonical texture OVER variant was not prepared')
+      const operation=canonicalWashOuterOperation(textureRasterProfile,input.composition.outerBlend,1).kind
+      if(operation!=='overBrowserFloat'&&operation!=='over32FusedScalar'&&operation!=='erase32FusedScalar'&&operation!=='genericSCU8'&&operation!=='colorHsyBrowser')throw new TypeError('Unsupported direct texture operation')
+      if(source.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation,law:source.context.primaryTexture.law}]):!this.options.composite.supportsTexturedOperations([textureRasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':'over32FusedScalar']))throw new TypeError('Canonical texture direct variant was not prepared')
     }
     const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
     const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
@@ -652,11 +655,12 @@ export class CanonicalFrameExecutor {
     if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
     if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     const outerContext=this.options.sourceMaterial??this.options.maskedSource??(this.primaryTexture?.context.version===8?this.primaryTexture.context:undefined)
-    const browserHsy=outerContext?.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
-    if((input?.composition?.outerBlend==='colorHsyBrowser')!==browserHsy)throw new TypeError('Canonical outer composition law differs')
-    if(browserHsy&&!this.options.composite.supportsOperations(['colorHsyBrowser']))throw new TypeError('Browser HSY program was not prepared')
-    if (!isCanonicalStrokeComposition(input?.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile,browserHsy)) throw new TypeError('Invalid canonical composition for pinned raster profile')
+    const outerLaw=outerContext?.outerCompositionLaw
+    if(outerLaw!==canonicalPixelSourceOuterCompositionLaw(input?.composition))throw new TypeError('Canonical outer composition law differs')
+    if(input?.composition?.outerBlend==='colorHsyBrowser'&&!this.options.composite.supportsOperations(['colorHsyBrowser']))throw new TypeError('Browser HSY program was not prepared')
+    if (!isCanonicalStrokeComposition(input?.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile,canonicalStrokeCompositionExtensions(outerLaw))) throw new TypeError('Invalid canonical composition for pinned raster profile')
     if(input.composition.outerBlend==='erase'&&!this.options.composite.supportsOperations(['erase32FusedScalar']))throw new TypeError('Canonical eraser program was not prepared')
+    if(input.composition.mode==='buildup'&&input.composition.outerBlend!=='over'&&!this.options.composite.supportsOperations([canonicalWashOuterOperation(this.options.rasterProfile,input.composition.outerBlend,1).kind]))throw new TypeError('Canonical direct blend program was not prepared')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
     if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
@@ -740,8 +744,8 @@ export class CanonicalFrameExecutor {
     for(const d of result.draws){
       const original=definitionSources[d.definition]
       if(this.primaryTexture?.context.version===8||original?.kind==='image'&&original.imageMaterial&&original.imageMaterial.kind!=='gradient-map-v1'){
-        const kind:CanonicalCompositeOperationKind=d.controls.kind==='localAlphaDarken'?(this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'alphaDarken32':'alphaDarken32FusedScalar'):d.controls.kind==='directErase'&&!this.options.maskedSource?'erase32FusedScalar':this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'over32':'over32FusedScalar'
-        if(this.primaryTexture?.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:kind==='alphaDarken32FusedScalar'||kind==='alphaDarkenBrowserFloat'||kind==='overBrowserFloat'||kind==='erase32FusedScalar'?kind:'over32FusedScalar',law:this.primaryTexture.context.primaryTexture.law}]):!this.options.composite.supportsImageMaterialOperations([kind]))throw new TypeError('Image material composition was not prepared')
+        const kind:CanonicalCompositeOperationKind=d.controls.kind==='localAlphaDarken'?(this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'alphaDarken32':'alphaDarken32FusedScalar'):d.controls.kind==='directBlend'&&!this.options.maskedSource?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity).kind:d.controls.kind==='directErase'&&!this.options.maskedSource?'erase32FusedScalar':this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'over32':'over32FusedScalar'
+        if(this.primaryTexture?.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:kind==='alphaDarken32FusedScalar'||kind==='alphaDarkenBrowserFloat'||kind==='overBrowserFloat'||kind==='erase32FusedScalar'||kind==='genericSCU8'||kind==='colorHsyBrowser'?kind:'over32FusedScalar',law:this.primaryTexture.context.primaryTexture.law}]):!this.options.composite.supportsImageMaterialOperations([kind]))throw new TypeError('Image material composition was not prepared')
       }
     }
     // Decoder caps definitions/draws. Reserve retained DTO/plan metadata in the
@@ -1117,7 +1121,7 @@ export class CanonicalFrameExecutor {
     runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners:[bound.lifetime,t.lifetime,...wash?[wash.lifetime]:[]]},frame=>{
       if(this.currentLayer(work)!==layer)throw new Error('Masked segment target retired')
       this.options.composite.drawSource({source:{kind:'straightRgba8',view:this.dualView(t.mask,t)},target:primary,operation:{kind:'maskingAlpha',control:{mode}},writeBounds:bounds},frame)
-      this.options.composite.drawSource({source:{kind:'straightRgba8',view:this.dualView(t.primary,t)},target:output,operation:work.input.composition.mode==='buildup'&&work.input.composition.outerBlend==='erase'?canonicalWashOuterOperation(this.options.rasterProfile,'erase',1):this.overOperation(1),writeBounds:bounds},frame)
+      this.options.composite.drawSource({source:{kind:'straightRgba8',view:this.dualView(t.primary,t)},target:output,operation:work.input.composition.mode==='buildup'?canonicalWashOuterOperation(this.options.rasterProfile,work.input.composition.outerBlend,1):this.overOperation(1),writeBounds:bounds},frame)
     })
     if(wash){if(this.options.washMode==='deposition-only')this.options.changed(work.input.layerId,bounds)}else{layer.markContentPainted(bounds);this.options.changed(work.input.layerId,bounds)}
     work.segmentPart=part+1
@@ -1308,7 +1312,7 @@ export class CanonicalFrameExecutor {
                 : fused
                 ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
                 : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
-              : d.controls.kind==='directErase'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,'erase',d.controls.opacity):this.overOperation(d.controls.opacity)
+              : d.controls.kind==='directBlend'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity):d.controls.kind==='directErase'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,'erase',d.controls.opacity):this.overOperation(d.controls.opacity)
             const texture=this.primaryTexture
             const original=d.role==='mask'?this.options.maskedSource?.maskSource:this.options.sourceMaterial?.primarySource??(this.primaryTexture?.context.version===8?this.primaryTexture.context.primarySource:undefined)
             const imageMaterial=original?.kind==='image'?original.imageMaterial:undefined

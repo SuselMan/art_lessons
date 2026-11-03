@@ -1,3 +1,4 @@
+import {canonicalPixelSourceOuterCompositionLaw} from './canonicalBrushCapability.js'
 import {brushAssetIds} from './brushes.js'
 export type {CanonicalPixelGradientMapTemplate,CanonicalPixelSourceMaterialInputs} from './canonicalPixelImageSourceCapture.js'
 import {canonicalSourceColorFieldsForDescriptor,canonicalSourceColorFieldAssets,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
@@ -16,7 +17,7 @@ import {sourceColorRecording,hasActiveSourceMaterialOptions} from './sourceStamp
 export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSha256:string,available:readonly Readonly<{id:string;size:number}>[],coverageProfile:CanonicalTexturedAutoSource['coverageProfile'],rasterProfile:CanonicalStrokeRasterProfile,foregroundOpacity=1,options?:CanonicalSourceScaleOptions){
  const fail=():never=>{throw new TypeError('Invalid Pixel texture original binding')}
  if(!/^[a-f0-9]{64}$/.test(descriptorSha256)||!canonicalStrokeRasterContract(rasterProfile).genericSC||!Number.isFinite(foregroundOpacity)||foregroundOpacity<0||foregroundOpacity>1)return fail()
- const c=extractCanonicalPixelTextureSourceData(original,available);if(!c.supported)throw new TypeError(c.reasons.join(','))
+ const c=extractCanonicalPixelTextureSourceData(original,available,rasterProfile);if(!c.supported)throw new TypeError(c.reasons.join(','))
  const scaleOptions=captureCanonicalSourceScaleOptions(options),brushScale=scaleOptions.sourceScale??c.data.brush.scale
  const {descriptor,data}=c,identity={descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256}
  const assets:CanonicalMaterialAsset[]=[]
@@ -73,7 +74,7 @@ function pixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,
  const source=expected.gradientMapTemplate&&stage==='start'?{...expected.source,imageMaterial:pixelGradientMapMaterial(expected.gradientMapTemplate,tipGradient!)}:expected.source
  if(stage==='prepare'&&expected.gradientMapTemplate){const keep=new Set(source.kind==='image'?pixelPreparationImageAssets(source,expected.assets).map(a=>a.id):[]);keep.add(expected.textureGeometry.asset);if(expected.textureGeometry.law==='pixel-color-texture-v1')keep.add(expected.textureGeometry.alphaAsset);for(let i=assets.length-1;i>=0;i--)if(!keep.has(assets[i].id))assets.splice(i,1)}
  const colorParams=sourceColorRecording(expected.data)
- return canonicalPrimaryGrainMaterialContext({version:8,...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.source.kind==='image'&&expected.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalPrimaryGrainMaterialContext({version:8,...canonicalPixelSourceOuterCompositionLaw(expected.composition)?{outerCompositionLaw:canonicalPixelSourceOuterCompositionLaw(expected.composition)}:{},...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.source.kind==='image'&&expected.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,phase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget'],inputs?:CanonicalPixelSourceMaterialInputs&{readonly textureGradient?:CanonicalTextureGradientRGBA}){return pixelTextureMaterialContext(binding,phase,budget,inputs,'start')}
@@ -83,7 +84,7 @@ export function canonicalPixelTexturePreparationContext(binding:CanonicalPixelTe
 /** Named source2 pipe binding; old image/texture families remain unchanged. */
 export function canonicalPixelImageSourceBinding(original:unknown,descriptorSha256:string,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile,foregroundOpacity=1,options?:CanonicalSourceScaleOptions){
  if(!/^[a-f0-9]{64}$/.test(descriptorSha256)||!canonicalStrokeRasterContract(rasterProfile).genericSC||!Number.isFinite(foregroundOpacity)||foregroundOpacity<0||foregroundOpacity>1)throw new TypeError('Invalid native image pipe binding')
- const c=extractCanonicalPixelImageSourceData(original,available);if(!c.supported)throw new TypeError(c.reasons.join(','))
+ const c=extractCanonicalPixelImageSourceData(original,available,rasterProfile);if(!c.supported)throw new TypeError(c.reasons.join(','))
  const scaleOptions=captureCanonicalSourceScaleOptions(options)
  const image=captureOriginalPixelImageSource(c.descriptor,c.data,descriptorSha256,available,foregroundOpacity,scaleOptions.sourceScale??c.data.brush.scale)
  return Object.freeze({kind:'pixel-image-program-v1' as const,...scaleOptions,descriptorSha256,descriptor:c.descriptor,data:c.data,source:image.source,...image.gradientMapTemplate?{gradientMapTemplate:image.gradientMapTemplate}:{},assets:Object.freeze(image.assets),animation:c.animation,composition:c.composition,rasterProfile,foregroundOpacity})
@@ -100,7 +101,7 @@ function pixelImageMaterialContext(binding:CanonicalPixelImageSourceBinding|Cano
  const assets=stage==='prepare'&&b.gradientMapTemplate?[...pixelPreparationImageAssets(s,b.assets)]:[...b.assets]
  for(const a of selected?.spatialAssets??[]){const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size)throw new TypeError('Spatial source storage mismatch')}else assets.push(a)}
  const colorParams=sourceColorRecording(b.data)
- return canonicalSourceMaterialContext({version:2,...b.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.frameBounds?{frameBounds:s.frameBounds}:{},...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets,...selected?.sourceColorFields?{sourceColorFields:selected.sourceColorFields}:{},...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalSourceMaterialContext({version:2,...canonicalPixelSourceOuterCompositionLaw(b.composition)?{outerCompositionLaw:canonicalPixelSourceOuterCompositionLaw(b.composition)}:{},...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.source.frameBounds?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.frameBounds?{frameBounds:s.frameBounds}:{},...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets,...selected?.sourceColorFields?{sourceColorFields:selected.sourceColorFields}:{},...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 export function canonicalNativeImagePipeSourceBinding(original:unknown,descriptorSha256:string,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile,foregroundOpacity=1,options?:CanonicalSourceScaleOptions){

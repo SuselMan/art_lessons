@@ -142,12 +142,28 @@ export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = SOURCE_RGBA8_BYTE_CONTROLS_GLS
   return floor((floor(t * (1.0/256.0)) + t) * (1.0/256.0)) + destination;
 }
 ` + SOURCE_RGBA8_BYTE_WRAP_GLSL + /* glsl */ `// Closed IDs: 0 Over, 1 Add, 2 AlphaDarken, 3 Multiply, 4 Lighten,
-// 5 ColorDodge, 6 Overlay. New IDs require the explicit host generic-SC profile.
+// 5 ColorDodge, 6 Overlay. Extended browser functors append IDs7..27 under explicit source law.
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if (mode == 3.0) return sourceRgba8Multiply(source, destination);
   if (mode == 4.0) return max(source, destination);
   if (mode == 5.0) return source == 255.0 ? (destination == 0.0 ? 0.0 : 255.0)
     : min(255.0, sourceRgba8Divide(destination, 255.0-source));
+  if(mode==7.0)return min(source,destination);
+  if(mode==8.0)return source+destination-sourceRgba8Multiply(source,destination);
+  if(mode==9.0)return destination==255.0?255.0:source==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(255.0-destination,source));
+  if(mode==10.0)return max(0.0,source+destination-255.0);
+  if(mode==11.0)return max(0.0,destination-source);
+  if(mode==12.0)return abs(destination-source);
+  if(mode==13.0)return clamp(source+destination-2.0*sourceRgba8Multiply(source,destination),0.0,255.0);
+  if(mode==14.0)return floor(255.0*(source>127.5?destination/255.0+(2.0*source/255.0-1.0)*(sqrt(destination/255.0)-destination/255.0):destination/255.0-(1.0-2.0*source/255.0)*(destination/255.0)*(1.0-destination/255.0))+.5);
+  if(mode==15.0)return source==127.0?destination:source<127.0?sourceRgba8Multiply(2.0*source,destination):(2.0*source-255.0)+destination-sourceRgba8Multiply(2.0*source-255.0,destination);
+  if(mode==16.0)return destination==0.0?0.0:source==0.0?255.0:min(255.0,sourceRgba8Divide(destination,source));
+  if(mode==17.0)return clamp(2.0*source+destination-255.0,0.0,255.0);
+  if(mode==18.0)return source<127.0?(source==0.0?(destination==255.0?255.0:0.0):max(0.0,255.0-sourceRgba8Divide(255.0-destination,2.0*source))):(source==255.0?(destination==0.0?0.0:255.0):min(255.0,sourceRgba8Divide(destination,2.0*(255.0-source))));
+  if(mode==19.0)return max(2.0*source-255.0,min(destination,2.0*source));
+  if(mode==20.0)return destination>127.0?(source==255.0?(destination==0.0?0.0:255.0):min(255.0,sourceRgba8Divide(destination,255.0-source))):(destination==255.0?255.0:source==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(255.0-destination,source)));
+  if(mode==26.0)return source+destination>255.0?255.0:0.0;
+  if(mode==27.0){float y=destination/255.0,x=source/255.0;float d=y>.25?sqrt(y):((16.0*y-12.0)*y+4.0)*y;return floor(255.0*(x>.5?y+(2.0*x-1.0)*(d-y):y-(1.0-2.0*x)*y*(1.0-y))+.5);}
   if (destination == 127.0) return source;
   if (destination < 127.0) return sourceRgba8Multiply(2.0*destination, source);
   float doubled = 2.0*destination-255.0;
@@ -168,6 +184,19 @@ float sourceRgba8AddChannel(float source, float destination, float sa, float da,
 float sourceRgba8GenericScModeChannel(float mode, float source, float destination, float sa, float da, float alpha) {
   float cf = mode == 1.0 ? min(255.0, source+destination) : sourceRgba8SeparableChannel(mode, source, destination);
   return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
+}
+
+vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
+ vec3 a=source/255.0,b=destination/255.0;vec3 weights=vec3(.299,.587,.114);
+ float la=dot(a,weights),lb=dot(b,weights);
+ if(mode==21.0||mode==22.0)return(mode==21.0?la<lb:la>lb)?source:destination;
+ vec3 c=mode==23.0?a:b;
+ if(mode!=25.0){vec3 q=mode==23.0?b:a;float sat=max(q.r,max(q.g,q.b))-min(q.r,min(q.g,q.b));float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);}
+ float target=mode==25.0?la:lb;c+=vec3(target-dot(c,weights));
+ float l=dot(c,weights),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
+ if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?vec3(1.0):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
+ return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
 }
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control) {
   float da = destination.a;
@@ -197,6 +226,9 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
   float sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0.0) return destination;
   float alpha = sa + da - sourceRgba8Multiply(sa, da);
+  if(control.mode>=21.0&&control.mode<=25.0){vec3 cf=sourceRgba8VectorBlend(control.mode,source.rgb,destination.rgb);
+    vec3 v=vec3(sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.r)+sourceRgba8Multiply3(255.0-da,sa,source.r)+sourceRgba8Multiply3(da,sa,cf.r)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.g)+sourceRgba8Multiply3(255.0-da,sa,source.g)+sourceRgba8Multiply3(da,sa,cf.g)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.b)+sourceRgba8Multiply3(255.0-da,sa,source.b)+sourceRgba8Multiply3(da,sa,cf.b)));
+    return vec4(sourceRgba8Wrap(sourceRgba8Divide(v.r,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.g,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.b,alpha)),alpha);}
   return vec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
     sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
     sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);

@@ -3,7 +3,7 @@ import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_COLOR_HSY_BROWSER_PR
 
 /** Host-resolved bytes; no shader float quantization or implicit mask collapse. */
 export interface SourceRgba8CompositeBytes {
-  readonly mode: 0 | 1 | 2 | 3 | 4 | 5 | 6; // Existing0/1/2; generic SC Multiply/Lighten/Dodge/Overlay3..6
+  readonly mode: number; // Existing0/1/2; generic SC Multiply/Lighten/Dodge/Overlay3..6
   readonly opacity: number;
   readonly mask: number;
   readonly hasMask: boolean;
@@ -60,11 +60,32 @@ uint sourceRgba8Blend(uint source, uint destination, uint alpha) {
   int t = (int(source) - int(destination)) * int(alpha) + 128;
   return uint((((t >> 8) + t) >> 8) + int(destination));
 }
-uint sourceRgba8SeparableChannel(uint mode, uint source, uint destination) {
+float sourceRgba8BrowserMultiply(float a,float b){float c=a*b+128.0;return floor((floor(c/256.0)+c)/256.0);}
+float sourceRgba8BrowserDivide(float a,float b){return floor((a*255.0+floor(b/2.0))/b);}
+uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByte) {
+  uint source=sourceByte,destination=destinationByte;
   if (mode == 3u) return sourceRgba8Multiply(source, destination);
   if (mode == 4u) return max(source, destination);
   if (mode == 5u) return source == 255u ? (destination == 0u ? 0u : 255u)
     : min(255u, sourceRgba8Divide(destination, 255u-source));
+  if(mode>=7u){float sx=float(sourceByte),dx=float(destinationByte);
+  if(mode==7u)return uint(min(sx,dx));
+  if(mode==8u)return uint(sx+dx-sourceRgba8BrowserMultiply(sx,dx));
+  if(mode==9u)return uint(dx==255.0?255.0:sx==0.0?0.0:255.0-min(255.0,sourceRgba8BrowserDivide(255.0-dx,sx)));
+  if(mode==10u)return uint(max(0.0,sx+dx-255.0));
+  if(mode==11u)return uint(max(0.0,dx-sx));
+  if(mode==12u)return uint(abs(dx-sx));
+  if(mode==13u)return uint(clamp(sx+dx-2.0*sourceRgba8BrowserMultiply(sx,dx),0.0,255.0));
+  if(mode==14u)return uint(floor(255.0*(sx>127.5?dx/255.0+(2.0*sx/255.0-1.0)*(sqrt(dx/255.0)-dx/255.0):dx/255.0-(1.0-2.0*sx/255.0)*(dx/255.0)*(1.0-dx/255.0))+.5));
+  if(mode==15u)return uint(sx==127.0?dx:sx<127.0?sourceRgba8BrowserMultiply(2.0*sx,dx):(2.0*sx-255.0)+dx-sourceRgba8BrowserMultiply(2.0*sx-255.0,dx));
+  if(mode==16u)return uint(dx==0.0?0.0:sx==0.0?255.0:min(255.0,sourceRgba8BrowserDivide(dx,sx)));
+  if(mode==17u)return uint(clamp(2.0*sx+dx-255.0,0.0,255.0));
+  if(mode==18u)return uint(sx<127.0?(sx==0.0?(dx==255.0?255.0:0.0):max(0.0,255.0-sourceRgba8BrowserDivide(255.0-dx,2.0*sx))):(sx==255.0?(dx==0.0?0.0:255.0):min(255.0,sourceRgba8BrowserDivide(dx,2.0*(255.0-sx)))));
+  if(mode==19u)return uint(max(2.0*sx-255.0,min(dx,2.0*sx)));
+  if(mode==20u)return dx>127.0?(sx==255.0?(dx==0.0?0u:255u):uint(min(255.0,sourceRgba8BrowserDivide(dx,255.0-sx)))):(dx==255.0?255u:sx==0.0?0u:uint(255.0-min(255.0,sourceRgba8BrowserDivide(255.0-dx,sx))));
+  if(mode==26u)return sx+dx>255.0?255u:0u;
+  if(mode==27u){float y=dx/255.0,x=sx/255.0;float d=y>.25?sqrt(y):((16.0*y-12.0)*y+4.0)*y;return uint(floor(255.0*(x>.5?y+(2.0*x-1.0)*(d-y):y-(1.0-2.0*x)*y*(1.0-y))+.5));}
+  }
   if (destination == 127u) return source;
   if (destination < 127u) return sourceRgba8Multiply(2u*destination, source);
   uint doubled = 2u*destination-255u;
@@ -85,6 +106,19 @@ uint sourceRgba8AddChannel(uint source, uint destination, uint sa, uint da, uint
 uint sourceRgba8GenericScModeChannel(uint mode, uint source, uint destination, uint sa, uint da, uint alpha) {
   uint cf = mode == 1u ? min(255u, source+destination) : sourceRgba8SeparableChannel(mode, source, destination);
   return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
+}
+
+vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
+ vec3 a=source/255.0,b=destination/255.0;vec3 weights=vec3(.299,.587,.114);
+ float la=dot(a,weights),lb=dot(b,weights);
+ if(mode==21.0||mode==22.0)return(mode==21.0?la<lb:la>lb)?source:destination;
+ vec3 c=mode==23.0?a:b;
+ if(mode!=25.0){vec3 q=mode==23.0?b:a;float sat=max(q.r,max(q.g,q.b))-min(q.r,min(q.g,q.b));float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);}
+ float target=mode==25.0?la:lb;c+=vec3(target-dot(c,weights));
+ float l=dot(c,weights),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
+ if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?vec3(1.0):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
+ return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
 }
 uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8CompositeControl control) {
   uint da = destination.a;
@@ -111,10 +145,13 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
       da == 0u ? source.g : sourceRgba8Blend(source.g,destination.g,sa),
       da == 0u ? source.b : sourceRgba8Blend(source.b,destination.b,sa), alpha);
   }
-  // Valid host-preflight generic SC modes1/3/4/5/6 only.
+  // Closed host-preflight generic SC table; IDs0..6 retain the historical byte graph.
   uint sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0u) return destination;
   uint alpha = sa + da - sourceRgba8Multiply(sa, da);
+  if(control.mode>=21u&&control.mode<=25u){uvec3 cf=uvec3(sourceRgba8VectorBlend(float(control.mode),vec3(source.rgb),vec3(destination.rgb)));
+    uvec3 v=(uvec3(sourceRgba8Multiply3(255u-sa,da,destination.r),sourceRgba8Multiply3(255u-sa,da,destination.g),sourceRgba8Multiply3(255u-sa,da,destination.b))+uvec3(sourceRgba8Multiply3(255u-da,sa,source.r),sourceRgba8Multiply3(255u-da,sa,source.g),sourceRgba8Multiply3(255u-da,sa,source.b))+uvec3(sourceRgba8Multiply3(da,sa,cf.r),sourceRgba8Multiply3(da,sa,cf.g),sourceRgba8Multiply3(da,sa,cf.b)))&uvec3(255u);
+    return uvec4(sourceRgba8Divide(v.r,alpha)&255u,sourceRgba8Divide(v.g,alpha)&255u,sourceRgba8Divide(v.b,alpha)&255u,alpha);}
   return uvec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
     sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
     sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);

@@ -122,7 +122,7 @@ export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-gener
 export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
-export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity'
 interface Rgba8CompositeParameters {
   readonly opacity: number
   readonly mask?: number
@@ -131,17 +131,19 @@ interface Rgba8CompositeParameters {
 }
 export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: 'over' | 'add' | 'alphaDarken'; readonly profile?: never } |
-  { readonly mode: SourceRgba8SeparableMode; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
+  { readonly mode: SourceRgba8SeparableMode | 'add'; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
   { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
-export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay'] as const
-export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg'] as const
+export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): number {
   const index = SOURCE_RGBA8_COMPOSITE_MODES.findIndex(candidate => candidate === mode)
   if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
-  return index as 0 | 1 | 2 | 3 | 4 | 5 | 6
+  return index
 }
-const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay']
-/** Closed byte-channel functions from the pinned generic SC functors. */
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg']
+export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
+/** Closed channel functors. Whole-RGB modes require compositeRgba8, which
+ * supplies all three channels and preserves the generic HSL alpha shell. */
 export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
   if (!Number.isInteger(source) || source < 0 || source > 255 || !Number.isInteger(destination) || destination < 0 || destination > 255)
     throw new RangeError('Invalid separable byte channel')
@@ -151,7 +153,27 @@ function separableChannel(mode: SourceRgba8SeparableMode, source: number, destin
   if (mode === 'multiply') return multiply(source, destination)
   if (mode === 'lighten') return Math.max(source, destination)
   if (mode === 'colorDodge') return source === 255 ? destination === 0 ? 0 : 255 : Math.min(255, divide(destination, 255 - source))
-  if (mode !== 'overlay') throw new RangeError('Unknown separable byte operation')
+  if (mode === 'darken') return Math.min(source,destination)
+  if (mode === 'screen') return source+destination-multiply(source,destination)
+  if (mode === 'colorBurn') return destination===255?255:source===0?0:255-Math.min(255,divide(255-destination,source))
+  if (mode === 'linearBurn') return Math.max(0,source+destination-255)
+  if (mode === 'subtract') return Math.max(0,destination-source)
+  if (mode === 'difference') return Math.abs(destination-source)
+  if (mode === 'exclusion') return Math.max(0,Math.min(255,source+destination-2*multiply(source,destination)))
+  if (mode === 'divide') return destination===0?0:source===0?255:Math.min(255,divide(destination,source))
+  if (mode === 'linearLight') return Math.max(0,Math.min(255,2*source+destination-255))
+  if (mode === 'pinLight') return Math.max(2*source-255,Math.min(destination,2*source))
+  if (mode === 'hardMix') return separableChannel(destination>127?'colorDodge':'colorBurn',source,destination)
+  if (mode === 'hardMixPhotoshop') return source+destination>255?255:0
+  if (mode === 'vividLight') return source<127
+    ?source===0?(destination===255?255:0):Math.max(0,255-divide(255-destination,2*source))
+    :source===255?(destination===0?0:255):Math.min(255,divide(destination,2*(255-source)))
+  if (mode === 'softLight'||mode==='softLightSvg') {
+    const x=source/255,y=destination/255
+    return Math.trunc(255*(x>.5?y+(2*x-1)*((mode==='softLightSvg'&&y<=.25?((16*y-12)*y+4)*y:Math.sqrt(y))-y):y-(1-2*x)*y*(1-y))+.5)
+  }
+  if (mode === 'hardLight') return separableChannel('overlay',destination,source)
+  if (mode !== 'overlay') throw new RangeError('Vector RGB operation needs complete pixels')
   if (destination === 127) return source
   if (destination < 127) return multiply(destination * 2, source)
   const doubled = destination * 2 - 255
@@ -195,6 +217,26 @@ export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8, p
   if (profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE) throw new RangeError('Unknown HSY profile')
   return colorHsyChannels(source, destination, profile === SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE)
 }
+/** Functional sRGB/HSY vector functors; whole-RGB selection is intentional.
+ * These browser modes do not claim native ICC/ISA pixel identity. */
+type SourceRgba8VectorMode=Extract<SourceRgba8SeparableMode,'darkerColor'|'lighterColor'|'hue'|'saturation'|'luminosity'>
+const vectorModes:readonly SourceRgba8VectorMode[]=['darkerColor','lighterColor','hue','saturation','luminosity']
+function isVectorMode(mode:SourceRgba8SeparableMode|'add'):mode is SourceRgba8VectorMode{return vectorModes.some(candidate=>candidate===mode)}
+function vectorBlend(mode:SourceRgba8SeparableMode,source:Rgba8,destination:Rgba8):number[]{
+ const a=source.slice(0,3).map(x=>x/255),b=destination.slice(0,3).map(x=>x/255)
+ const lum=(c:readonly number[])=>.299*c[0]+.587*c[1]+.114*c[2]
+ if(mode==='darkerColor'||mode==='lighterColor')return ((mode==='darkerColor'?lum(a)<lum(b):lum(a)>lum(b))?a:b).map(x=>Math.trunc(x*255+.5))
+ let c=mode==='hue'?[...a]:[...b]
+ if(mode!=='luminosity'){
+  const sat=Math.max(...(mode==='hue'?b:a))-Math.min(...(mode==='hue'?b:a)),lo=Math.min(...c),hi=Math.max(...c)
+  c=hi-lo>2**-23?c.map(x=>(x-lo)*sat/(hi-lo)):[0,0,0]
+ }
+ const target=lum(mode==='luminosity'?a:b),delta=target-lum(c);c=c.map(x=>x+delta)
+ const l=lum(c),n=Math.min(...c),x=Math.max(...c)
+ if(n<0)c=l<=.00001||l-n<2**-23?[0,0,0]:c.map(v=>l+(v-l)*l/(l-n))
+ if(x>1)c=l>1||x-l<2**-23?[1,1,1]:c.map(v=>l+(v-l)*(1-l)/(x-l))
+ return c.map(v=>Math.trunc(clamp(v)*255+.5))
+}
 /** Same generic-SC branch/narrowing body used by addition and separable ops. */
 function genericScChannel(source: number, destination: number, sa: number, da: number, alpha: number, cf: number): number {
   if (!da) return source
@@ -206,7 +248,7 @@ function genericScChannel(source: number, destination: number, sa: number, da: n
 /** Validate the complete control before a caller allocates/writes surfaces. */
 export function validateRgba8CompositeControl(control: Rgba8CompositeControl): void {
   if (!control || !['over', 'add', 'alphaDarken', 'colorHsy', ...separableModes].includes(control.mode)) throw new RangeError('Unknown composite mode')
-  if (separableModes.includes(control.mode) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
+  if ((separableModes.includes(control.mode)||control.mode==='add'&&control.profile!==undefined) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
   if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE) throw new RangeError('Missing explicit HSY profile')
   unit(control.opacity)
   if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
@@ -256,6 +298,11 @@ export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8
   if (!sa) return [...destination]
   const a = sa + da - multiply(sa, da)
   const mode = control.mode
+  if(isVectorMode(mode)){
+    const cf=vectorBlend(mode,source,destination)
+    const channel=(i:0|1|2)=>divide((multiply3(255-sa,da,destination[i])+multiply3(255-da,sa,source[i])+multiply3(da,sa,cf[i]))&255,a)&255
+    return[channel(0),channel(1),channel(2),a]
+  }
   const channel = (i: 0 | 1 | 2): number => genericScChannel(source[i], destination[i], sa, da, a,
     mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(mode, source[i], destination[i]))
   return [channel(0), channel(1), channel(2), a]

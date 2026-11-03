@@ -1,4 +1,5 @@
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
+import {canonicalPixelSourceOuterCompositionLaw} from './canonicalBrushCapability.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import {brushAssetIds} from './brushes.js'
 import {canonicalPixelPrimaryTexturePin,canonicalPixelColorTexturePin,canonicalResolvedTexturePhase,resolveCanonicalTexturePhase} from './canonicalPrimaryTexture.js'
 import {canonicalSourceRoleTexturesInput,sourceRoleTextureInputsFromPins,type CanonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturePin} from './canonicalSourceRoleTextures.js'
@@ -11,16 +12,16 @@ import {canonicalPixelSourceComposition,extractCanonicalPixelDualSourceData} fro
 import {canonicalSourceMaterialContext,canonicalMaskedSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalMaterialImageSource,type CanonicalMaterialAsset} from './canonicalMaterialCodec.js'
 
 /** Original descriptor pairing only, not verified CAS or room/BEGIN authority. */
-export function canonicalPixelDualSourceBinding(original:BrushDescriptor,descriptorSha256:string,material:CanonicalMaterialContextV2,options?:CanonicalSourceScaleOptions,available?:readonly Readonly<{id:string;size:number}>[]){
+export function canonicalPixelDualSourceBinding(original:BrushDescriptor,descriptorSha256:string,material:CanonicalMaterialContextV2,options?:CanonicalSourceScaleOptions,available?:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE){
  const fail=():never=>{throw new TypeError('Invalid original Pixel dual binding')}
  if(typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256))return fail()
  const context=canonicalMaskedSourceMaterialContext(material)
  const scaleOptions=captureCanonicalSourceScaleOptions(options===undefined&&context.scaledSource?{sourceScale:context.primarySource.brushScale}:options)
  if((scaleOptions.sourceScale!==undefined)!==!!context.scaledSource)return fail()
- const data=extractCanonicalPixelDualSourceData(original,available??context.assets.map(a=>({id:a.id,size:a.size})),scaleOptions)
+ const data=extractCanonicalPixelDualSourceData(original,available??context.assets.map(a=>({id:a.id,size:a.size})),scaleOptions,rasterProfile)
  if(!data.supported||data.blendMode!==context.maskingBlend)return fail()
- const composition=canonicalPixelSourceComposition(data.descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
- if(!composition||context.outerCompositionLaw!==undefined&&composition.outerBlend!=='colorHsyBrowser')return fail()
+ const composition=canonicalPixelSourceComposition(data.descriptor,rasterProfile)
+ if(!composition||context.outerCompositionLaw!==undefined&&context.outerCompositionLaw!==canonicalPixelSourceOuterCompositionLaw(composition))return fail()
  const imageAssets=new Map<string,CanonicalMaterialContextV2['assets'][number]>()
  const bindRole=(role:typeof data.primary,pin:CanonicalMaterialContextV2['primarySource']):Readonly<typeof data.primary&{imageSource?:CanonicalMaterialImageSource;imageAssets?:readonly CanonicalMaterialAsset[];gradientMapTemplate?:CanonicalPixelGradientMapTemplate;gradientMapAssets?:readonly CanonicalMaterialAsset[]}>=>{
   const source=role.data
@@ -45,7 +46,7 @@ export function canonicalPixelDualSourceBinding(original:BrushDescriptor,descrip
  const refs=brushAssetIds(data.descriptor)
  if(refs.length>2048)return fail()
  const originalAssets=Object.freeze(refs.map(id=>{const a=(available??context.assets).find(a=>a.id===id);if(!a)return fail();return Object.freeze({id:a.id,size:a.size})}))
- return Object.freeze({kind:'pixel-dual-source-binding-v1' as const,...scaleOptions,originalAssets,descriptorSha256,descriptor:data.descriptor,composition,primary,mask,material:context,maskingBlend:context.maskingBlend,masterSizePolicy:data.masterSizePolicy})
+ return Object.freeze({kind:'pixel-dual-source-binding-v1' as const,...scaleOptions,originalAssets,descriptorSha256,descriptor:data.descriptor,rasterProfile,composition,primary,mask,material:context,maskingBlend:context.maskingBlend,masterSizePolicy:data.masterSizePolicy})
 }
 export type CanonicalPixelDualSourceBinding=ReturnType<typeof canonicalPixelDualSourceBinding>
 
@@ -67,7 +68,7 @@ function captureOriginalRoleTextures(primary:CanonicalPixelRoleTextureSource|und
 }
 /** Reconstruct selected original role pins from START inputs, never caller pins. */
 function pixelDualSourceMaterialContext(binding:CanonicalPixelDualSourceBinding,inputs:CanonicalSourceRoleTexturesInput|undefined,options:CanonicalPixelSourceMaterialInputs|undefined,stage:'prepare'|'start'):CanonicalMaterialContextV2{
- const expected=canonicalPixelDualSourceBinding(binding.descriptor,binding.descriptorSha256,binding.material,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined,binding.originalAssets)
+ const expected=canonicalPixelDualSourceBinding(binding.descriptor,binding.descriptorSha256,binding.material,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined,binding.originalAssets,binding.rasterProfile)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Dual source original binding differs')
  const selected=stage==='start'?capturePixelSourceMaterialInputs(expected.descriptor,options):undefined
  const templates=!!(expected.primary.gradientMapTemplate||expected.mask.gradientMapTemplate)
@@ -77,7 +78,7 @@ function pixelDualSourceMaterialContext(binding:CanonicalPixelDualSourceBinding,
  const merge=(a:CanonicalMaterialAsset)=>{const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size)throw new TypeError('Original source storage mismatch')}else assets.push(a)}
  if(stage==='start')for(const role of [expected.primary,expected.mask])for(const a of role.gradientMapAssets??[])merge(a)
  for(const a of selected?.spatialAssets??[])merge(a)
- const material=canonicalSourceMaterialContext({...expected.material,assets,primarySource:source(expected.material.primarySource,expected.primary),maskSource:source(expected.material.maskSource!,expected.mask),...selected?.sourceColorFields?{sourceColorFields:selected.sourceColorFields}:{},...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{}})
+ const material=canonicalSourceMaterialContext({...expected.material,assets,primarySource:source(expected.material.primarySource,expected.primary),maskSource:source(expected.material.maskSource!,expected.mask),...selected?.sourceColorFields?{sourceColorFields:selected.sourceColorFields}:{},...canonicalPixelSourceOuterCompositionLaw(expected.composition)?{outerCompositionLaw:canonicalPixelSourceOuterCompositionLaw(expected.composition)}:{}})
  if(stage==='prepare')return material
  if(!expected.primary.textureSource&&!expected.mask.textureSource){if(inputs!==undefined)throw new TypeError('Unexpected dual texture START inputs');return material}
  const captured=captureOriginalRoleTextures(expected.primary.textureSource,expected.mask.textureSource,inputs),texturedAssets=[...material.assets]

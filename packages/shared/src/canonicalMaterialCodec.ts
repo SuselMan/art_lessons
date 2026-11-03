@@ -87,7 +87,7 @@ export const CANONICAL_SOURCE_MATERIAL_PROFILE = 'canonical-source-material-v2' 
 export type CanonicalSourceMaterialRecipe = ((CanonicalMaterialRecipe & { readonly kind:'image' }) | CanonicalAutoRecipe | CanonicalSoftAutoRecipe)&{readonly materialParams?:CanonicalMaterialParameters}
 export interface CanonicalMaterialContextV2 {
   readonly version:2
-  readonly outerCompositionLaw?:'browser-hsy-rgba8-functional-v1'
+  readonly outerCompositionLaw?:'browser-hsy-rgba8-functional-v1'|'generic-separable-u8-v1'|'pixel-direct-composite-browser-v1'
   readonly roleTextures?:CanonicalSourceRoleTextures
   readonly materialParams?:'source-material-parameters-v1'
   readonly sourceColorFields?:CanonicalSourceColorFields;readonly colorParams?:CanonicalSourceColorParameters
@@ -234,7 +234,7 @@ export interface CanonicalPrimaryGrainImageSource extends CanonicalMaterialImage
  readonly descriptorId:string;readonly descriptorVersion:number;readonly descriptorSha256:string
 }
 export interface CanonicalMaterialContextV8 {
- readonly outerCompositionLaw?:'browser-hsy-rgba8-functional-v1'
+ readonly outerCompositionLaw?:'browser-hsy-rgba8-functional-v1'|'generic-separable-u8-v1'|'pixel-direct-composite-browser-v1'
  readonly version:8;readonly assets:readonly CanonicalMaterialAsset[]
  readonly primarySource:CanonicalPrimaryGrainImageSource|CanonicalTexturedAutoSource;readonly primaryTexture:CanonicalMultiplyPrimaryTexturePin|CanonicalPixelPrimaryTexturePin|CanonicalPixelColorTexturePin
  readonly materialParams?:'source-material-parameters-v1';readonly sourceColorFields?:CanonicalSourceColorFields;readonly colorParams?:CanonicalSourceColorParameters;readonly imageFrameIndices?:'source-image-pipe-frame-v1'
@@ -586,6 +586,8 @@ function validateImageMaterialFrames(source:CanonicalMaterialImageSource,c:Codec
  return ids
 }
 const browserHsyContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.outerCompositionLaw==='browser-hsy-rgba8-functional-v1'
+const separableOuterContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.outerCompositionLaw==='generic-separable-u8-v1'
+const directBlendContext=(c:CodecContext):boolean=>(isV2(c)||isV8(c))&&c.outerCompositionLaw==='pixel-direct-composite-browser-v1'
 /** One selected application gradient is captured once at START. Original
  * role material pins stay separate from source/texture gradient semantics. */
 export function canonicalSourceMaterialTipGradient(context:CanonicalMaterialContextV2|CanonicalMaterialContextV8):Readonly<CanonicalSourceTipGradient>|undefined{
@@ -606,7 +608,7 @@ function context(c:CodecContext):void {
    }
   }
   const outer=Object.getOwnPropertyDescriptor(c??{},'outerCompositionLaw')
-  if(outer&&(!Object.hasOwn(outer,'value')||!browserHsyContext(c)||isV8(c)&&c.primaryTexture.law==='hard-multiply-u8-native-v1'))return fail()
+  if(outer&&(!Object.hasOwn(outer,'value')||!browserHsyContext(c)&&!separableOuterContext(c)&&!directBlendContext(c)||isV8(c)&&c.primaryTexture.law==='hard-multiply-u8-native-v1'))return fail()
   if(spatialContext(c)){
    if(!isV2(c)&&!isV8(c))return fail()
    const fields=canonicalSourceColorFields(c.sourceColorFields)
@@ -940,7 +942,7 @@ function packMaterialCore(f:CodecFrame,c:CodecContext):string {
   const bytes=new Uint8Array(length),v=new DataView(bytes.buffer)
   bytes.set([67,77,65,84,r.version,f.entry.phase==='between'?0:f.entry.phase==='primary'?1:2,ids.length,Number(f.masked)])
   v.setUint16(8,r.definitions,true);v.setUint16(10,r.draws,true);v.setUint16(12,r.fences,true);v.setFloat64(16,f.entry.phase==='between'?0:f.entry.group===0?0:f.entry.group,true)
-  v.setUint16(14,Number(parameterized)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0)|(roleTextureContext(c)?512:0)|(browserHsyContext(c)?1024:0),true)
+  v.setUint16(14,Number(parameterized)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0)|(roleTextureContext(c)?512:0)|(browserHsyContext(c)?1024:0)|(separableOuterContext(c)?2048:0)|(directBlendContext(c)?4096:0),true)
   let offset=HEADER
   for(const id of ids){const a=asset(c,id);for(let j=0;j<32;j++)bytes[offset+j]=parseInt(id.slice(6+j*2,8+j*2),16);v.setUint16(offset+32,a.width,true);v.setUint16(offset+34,a.height,true);v.setUint16(offset+36,a.x,true);v.setUint16(offset+38,a.y,true);offset+=ASSET}
   for(const d of f.definitions){
@@ -986,7 +988,7 @@ function unpackMaterialCore(text:string,c:CodecContext):CodecFrame {
   const raw=atob(b64)
   if(raw.length<HEADER||raw.length>CANONICAL_MATERIAL_LIMITS.rawBytes||btoa(raw)!==b64)fail()
   const u8=(i:number)=>raw.charCodeAt(i),u16=(i:number)=>u8(i)+u8(i+1)*256
-  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>(isV2(c)&&indexedImages(c)||roleTextureContext(c)||localTexture8(c)?255:2)||u8(7)>1||u16(14)!==(((isV2(c)||isV8(c))&&c.materialParams?1:0)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0)|(roleTextureContext(c)?512:0)|(browserHsyContext(c)?1024:0)))fail()
+  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4&&u8(4)!==5&&u8(4)!==6&&u8(4)!==7&&u8(4)!==8)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>(isV2(c)&&indexedImages(c)||roleTextureContext(c)||localTexture8(c)?255:2)||u8(7)>1||u16(14)!==(((isV2(c)||isV8(c))&&c.materialParams?1:0)|((isV2(c)||isV8(c))&&c.colorParams?2:0)|(seededContext(c)?4:0)|(indexedImages(c)?8:0)|(scaledContext(c)?16:0)|(localTexture8(c)&&!colorTexture8(c)?32:0)|(rgbaColor(c)?64:0)|(colorTexture8(c)?128:0)|(spatialContext(c)?256:0)|(roleTextureContext(c)?512:0)|(browserHsyContext(c)?1024:0)|(separableOuterContext(c)?2048:0)|(directBlendContext(c)?4096:0)))fail()
   const parameterized=(isV2(c)||isV8(c))&&c.materialParams!==undefined,version=u8(4) as 1|2|3|4|5|6|7|8,definitionBytes=version===1?DEFINITION:(parameterized||seededContext(c))?144:DEFINITION2,drawBytes=(version>=3||roleTextureContext(c)?DRAW3:DRAW)+(spatialContext(c)?16:0)
   if(version!==contextVersion(c)||version===3&&(u8(6)!==2||u8(7)!==0)||version===8&&(!localTexture8(c)&&u8(6)!==c.assets.length||u8(7)!==0)||(version===4||version===5||version===6||version===7)&&(u8(6)!==1||u8(7)!==0))fail()
   const ac=u8(6),dc=u16(8),rc=u16(10),fc=u16(12)

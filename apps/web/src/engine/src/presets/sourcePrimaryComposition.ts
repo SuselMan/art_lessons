@@ -1,4 +1,5 @@
-import {CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalMaterialFrameV8,type CanonicalSourceColorFieldDraw,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialFrameV7,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialFrameV6, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE, CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalMaterialFrameV3, type CanonicalMaterialFrameV4, type CanonicalMaterialFrameV5, type CanonicalStrokeComposition } from '@grafetto/shared'
+import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared'
+import {CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalMaterialFrameV8,type CanonicalSourceColorFieldDraw,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialFrameV7,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialFrameV6, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE, CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE, isCanonicalStrokeComposition, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalMaterialFrameV3, type CanonicalMaterialFrameV4, type CanonicalMaterialFrameV5, type CanonicalStrokeComposition } from '@grafetto/shared'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity, type SourcePainterOpacity } from './sourcePainterOpacity'
 
@@ -23,6 +24,7 @@ export type SourcePrimaryCompositionCommand =
 export type SourcePrimaryCompositionControls =
   | ({ readonly kind: 'localAlphaDarken'; readonly variant: 'creamy' | 'hard' } & SourcePainterOpacity)
   | { readonly kind: 'directOver'|'directErase'; readonly opacity: number }
+  | { readonly kind:'directBlend'; readonly blend:Exclude<CanonicalStrokeComposition['outerBlend'],'over'|'erase'>; readonly opacity:number }
 export interface SourcePrimaryCompositionDraw {
   readonly role:'primary'|'mask'
   readonly sourcePigmentRGB?:readonly[number,number,number]
@@ -48,7 +50,7 @@ const integer = (n: unknown, min = 0): n is number => typeof n === 'number' && N
 /** Pure fold accepts the named browser law; its caller must first match the
  * captured source2/8 marker. This fold grants no source/execution authority. */
 function context(c: SourcePrimaryCompositionContext): void {
-  if (!isCanonicalStrokeComposition(c, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,true)) fail()
+  if (!isCanonicalStrokeComposition(c,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,{browserHsy:true,separableOuter:true,directBlend:true}))fail()
 }
 function entry(e: CanonicalMaterialEntry): void {
   if (!e || !['between', 'primary', 'mask'].includes(e.phase) || e.phase !== 'between' && !integer(e.group)) fail()
@@ -143,7 +145,9 @@ export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState
     const p = normalizeSourcePainterOpacity({ opacity: d.opacity, averageOpacity: d.role==='mask'?maskAverage:average, flow: d.flow })
     const controls: SourcePrimaryCompositionControls = s.context.mode === 'wash'
       ? Object.freeze({ kind: 'localAlphaDarken', variant: s.context.alphaDarken, ...p })
-      : Object.freeze({ kind: s.context.outerBlend==='erase'?'directErase':'directOver', opacity: p.opacity })
+      : s.context.outerBlend==='over'||s.context.outerBlend==='erase'
+        ? Object.freeze({kind:s.context.outerBlend==='erase'?'directErase':'directOver',opacity:p.opacity})
+        : Object.freeze({kind:'directBlend',blend:s.context.outerBlend,opacity:p.opacity})
     if(current.phase==='between')return fail()
     draws.push(Object.freeze({ role:d.role,...('sourceColorField'in d&&d.sourceColorField?{sourceColorField:d.sourceColorField}:{}),...('sourcePigmentRGBA'in d&&d.sourcePigmentRGBA?{sourcePigmentRGBA:d.sourcePigmentRGBA}:{}),...('sourcePigmentRGB'in d&&d.sourcePigmentRGB?{sourcePigmentRGB:d.sourcePigmentRGB}:{}),group:current.group,frameDrawIndex: at, drawOrdinal: count++, definition: d.definition, x: d.x, y: d.y, controls }))
   }

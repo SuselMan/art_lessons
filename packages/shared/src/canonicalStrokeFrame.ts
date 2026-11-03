@@ -12,7 +12,7 @@ export interface CanonicalStrokeComposition {
   readonly mode: 'wash' | 'buildup'
   readonly alphaDarken: 'creamy' | 'hard'
   readonly outerResourceOpacity: number
-  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'colorHsyBrowser'
+  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'colorHsyBrowser'  | 'add' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'hardMixPhotoshop' | 'softLightSvg'
 }
 export const CANONICAL_STROKE_RASTER_PROFILE = 'installed-arm64-scalar-fused-fpcr0-v1' as const
 /** Whole-pipeline identity: existing fused local deposition plus explicit U8
@@ -120,14 +120,32 @@ const rgb = (value: unknown): value is readonly [number, number, number] => Arra
 const fields = (value: Record<string, unknown>, names: readonly string[]) => Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name))
 /** Closed composition law for an already selected trusted raster profile.
  * This validates policy, never grants descriptor/room execution capability. */
-export function isCanonicalStrokeComposition(value: unknown, rasterProfile: CanonicalStrokeRasterProfile, browserHsy=false): value is CanonicalStrokeComposition {
-  let contract:ReturnType<typeof canonicalStrokeRasterContract>
-  try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return false}
-  return record(value) && fields(value, ['mode', 'alphaDarken', 'outerResourceOpacity', 'outerBlend'])
-    && (value.mode === 'wash' || value.mode === 'buildup') && (value.alphaDarken === 'creamy' || value.alphaDarken === 'hard')
-    && typeof value.outerResourceOpacity === 'number' && Number.isFinite(value.outerResourceOpacity) && value.outerResourceOpacity >= 0 && value.outerResourceOpacity <= 1
-    && (!contract.genericSC ? value.outerBlend === 'over'
-      : (value.outerBlend === 'over' || value.outerBlend === 'erase' || value.mode === 'wash' && typeof value.outerBlend === 'string' && ['multiply','lighten','colorDodge','overlay',...browserHsy?['colorHsyBrowser']:[]].includes(value.outerBlend)))
+export const CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS = Object.freeze(['add', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg'] as const)
+export type CanonicalStrokeOuterCompositionLaw = 'browser-hsy-rgba8-functional-v1'|'generic-separable-u8-v1'|'pixel-direct-composite-browser-v1'
+export interface CanonicalStrokeCompositionExtensions {readonly browserHsy?:boolean;readonly separableOuter?:boolean;readonly directBlend?:boolean}
+export function canonicalStrokeCompositionExtensions(law:unknown):Readonly<CanonicalStrokeCompositionExtensions>{
+ return Object.freeze({browserHsy:law==='browser-hsy-rgba8-functional-v1',separableOuter:law==='generic-separable-u8-v1',directBlend:law==='pixel-direct-composite-browser-v1'})
+}
+/** Mode is part of the law: incremental non-Over composites execute per dab. */
+export function canonicalStrokeOuterCompositionLaw(composition:Pick<CanonicalStrokeComposition,'mode'|'outerBlend'>):CanonicalStrokeOuterCompositionLaw|undefined{
+ if(composition.outerBlend==='over'||composition.outerBlend==='erase')return
+ if(composition.mode==='buildup')return 'pixel-direct-composite-browser-v1'
+ if(composition.outerBlend==='colorHsyBrowser')return 'browser-hsy-rgba8-functional-v1'
+ if(CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS.some(mode=>mode===composition.outerBlend))return 'generic-separable-u8-v1'
+}
+export function isCanonicalStrokeComposition(value: unknown, rasterProfile: CanonicalStrokeRasterProfile, extensions:boolean|CanonicalStrokeCompositionExtensions=false): value is CanonicalStrokeComposition {
+ let contract:ReturnType<typeof canonicalStrokeRasterContract>
+ try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return false}
+ const options=typeof extensions==='boolean'?{browserHsy:extensions}:extensions
+ if(!record(value)||!fields(value,['mode','alphaDarken','outerResourceOpacity','outerBlend'])
+  ||value.mode!=='wash'&&value.mode!=='buildup'||value.alphaDarken!=='creamy'&&value.alphaDarken!=='hard'
+  ||typeof value.outerResourceOpacity!=='number'||!Number.isFinite(value.outerResourceOpacity)||value.outerResourceOpacity<0||value.outerResourceOpacity>1)return false
+ if(!contract.genericSC)return value.outerBlend==='over'
+ if(value.outerBlend==='over'||value.outerBlend==='erase')return true
+ const basic=typeof value.outerBlend==='string'&&['multiply','lighten','colorDodge','overlay'].includes(value.outerBlend)
+ const extended=CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS.some(mode=>mode===value.outerBlend)
+ if(value.mode==='buildup')return options.directBlend===true&&rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE&&(basic||extended||value.outerBlend==='colorHsyBrowser')
+ return basic||options.browserHsy===true&&value.outerBlend==='colorHsyBrowser'||options.separableOuter===true&&extended
 }
 /** Shared admission building block, not an Operation/Socket activation.
  * Descriptor capability and contiguous gesture/group ownership still belong to
@@ -177,10 +195,13 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   const contract=canonicalStrokeRasterContract(rasterProfile)
   const materialField=Object.getOwnPropertyDescriptor(trusted??{},'material')
   const outerField=materialField&&Object.hasOwn(materialField,'value')&&materialField.value&&typeof materialField.value==='object'?Object.getOwnPropertyDescriptor(materialField.value,'outerCompositionLaw'):undefined
-  const browserHsy=!!outerField
-  if(browserHsy&&(!Object.hasOwn(outerField!,'value')||outerField!.value!=='browser-hsy-rgba8-functional-v1'||selector!==2||!contract.genericSC))throw new TypeError('Unsupported outer composition context')
-  if((trusted?.composition?.outerBlend==='colorHsyBrowser')!==browserHsy)throw new TypeError('Outer composition law differs from material')
-  if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile,browserHsy))
+  const browserHsy=outerField?.value==='browser-hsy-rgba8-functional-v1'
+  const separableOuter=outerField?.value==='generic-separable-u8-v1'
+  const directBlend=outerField?.value==='pixel-direct-composite-browser-v1'
+  const extensions=canonicalStrokeCompositionExtensions(outerField?.value)
+  if(outerField&&(!Object.hasOwn(outerField,'value')||!browserHsy&&!separableOuter&&!directBlend||selector!==2||!contract.genericSC))throw new TypeError('Unsupported outer composition context')
+  if(!trusted?.composition||canonicalStrokeOuterCompositionLaw(trusted.composition)!==outerField?.value)throw new TypeError('Outer composition law differs from material')
+  if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile,extensions))
     throw new TypeError('Invalid trusted canonical stroke context')
   const field=Object.getOwnPropertyDescriptor(trusted,'material')
   if((aware3||aware4||aware5||aware6||aware7)&&(!field||!Object.hasOwn(field,'value')))throw new TypeError('Invalid explicit canonical material context')
@@ -208,7 +229,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(early7)value=captureEnvelope7(value,early7)
   if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[]),...(sourceRoleTextures?['sourceRoleTextures']:[]),...(sourceTipGradient?['sourceTipGradient']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
-    || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile,browserHsy) || typeof value.materialPacked !== 'string')
+    || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile,extensions) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
   const materialPacked=value.materialPacked
   if(typeof materialPacked!=='string'||!(aware7?/^7\|/:aware6?/^6\|/:aware5?/^5\|/:aware4?/^4\|/:aware3?/^3\|/:/^[12]\|/).test(materialPacked))throw new TypeError('Unsupported selected canonical stroke material')

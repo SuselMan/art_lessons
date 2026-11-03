@@ -315,7 +315,7 @@ for(const rasterProfile of [CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GEN
     s.executor.enqueue(s.submit(decoded(1, 2, true, { phase: 'primary', group: 0 }), 1)); s.drain()
     const requests = calls.mock.calls.map(([request]) => request)
     expect(requests.length).toBeGreaterThanOrEqual(3)
-    expect(requests.every(r => r.operation.control.profile === CANONICAL_STROKE_RASTER_PROFILE)).toBe(true)
+    expect(requests.every(r => 'profile'in r.operation.control&&r.operation.control.profile === CANONICAL_STROKE_RASTER_PROFILE)).toBe(true)
     if (mode === 'wash') {
       const local = requests.filter(r => r.operation.kind === 'alphaDarken32FusedScalar')
       expect(local).toHaveLength(3)
@@ -475,7 +475,7 @@ it('skips fully clipped pixel work without allocating targets, changing source h
 
 
 function closedAutoFrame(pin:CanonicalDefaultAutoSource){
-  const coverageProfile=pin.coverageProfile;if(coverageProfile==='browser-number-coverage-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1')throw Error('Native fixture coverage required');
+  const coverageProfile=pin.coverageProfile;if(coverageProfile!=='scalar-f64-fma-v1'&&coverageProfile!=='neon64-f32-fma-v1')throw Error('Native fixture coverage required');
   const r=prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},
     storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:1,ratio:1,rotation:0},subpixelX:0,subpixelY:0,
     coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576});
@@ -1424,13 +1424,13 @@ for(const outerBlend of ['multiply','lighten','colorDodge','overlay'] as const)i
   expect(executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
  }finally{now.mockRestore();executor.cancel();s.close()}
 })
-it('requires prepared V2 operations and rejects non-over buildup before services or target mutation',()=>{
+it('requires prepared V2 operations and rejects non-over buildup without its captured law before services or target mutation',()=>{
  const legacy=setup('wash'),s=setup('buildup',4,4,undefined,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
  try{
   expect(()=>new CanonicalFrameExecutor({...legacy.executor['options'],rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE})).toThrow(/not prepared/)
   const layer=vi.fn(()=>{throw Error('layer must not be touched')}),executor=new CanonicalFrameExecutor({...s.executor['options'],layer}),cpu=s.cpu.reservedBytes
   try{
-   expect(()=>executor.enqueue({...s.submit(),composition:{...s.submit().composition,outerBlend:'multiply'}})).toThrow(/pinned raster profile/)
+   expect(()=>executor.enqueue({...s.submit(),composition:{...s.submit().composition,outerBlend:'multiply'}})).toThrow(/outer composition law differs/)
    expect(layer).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(cpu);expect(executor.pending).toBe(false)
   }finally{executor.cancel()}
  }finally{legacy.close();s.close()}
