@@ -1168,3 +1168,35 @@ it('plain geometry READ-on AUTHOR-off consumes actual indexed page/evidence/cut 
  const read=await issuer.open(),engine=paired7EngineFor(read)
  try{await engine.restoreCanonicalIndexedRoom(read);expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(frames.length);expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalAuthorService']).toBeUndefined()}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
+
+it('known-clean full-queue preview denial resumes admitted raw work and releases the real recorded capacity waiter',async()=>{
+ const p=original(true),{engine}=engineFor(p),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const abort=new AbortController();let preparation:Promise<unknown>|undefined
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;owner.previewPublication=true
+  const schedule=vi.fn();engine['_scheduleCanonicalRebuild']=schedule
+  engine.appendOriginalRecorded(recorded(p,1,'fullqueue-follow',false))
+  const coordinator=owner.coordinator!,job=owner.job!
+  for(let n=0;n<1024&&coordinator.completedPresentationRevision<0;n++)engine['_stepCanonicalLayer'](job)
+  expect(coordinator.completedPresentationRevision).toBeGreaterThanOrEqual(0)
+  const oldP=owner.derived!
+  engine.appendOriginalRecorded(recorded(p,2,'fullqueue-tail',false,0))
+  for(let n=0;n<1024&&coordinator.queuedFrameCount;n++)engine['_stepCanonicalLayer'](job)
+  expect(coordinator.queuedFrameCount).toBe(0);expect(coordinator['previewBoundaryReady']).toBe(true)
+  for(let seq=3;seq<=10;seq++)engine.appendOriginalRecorded(recorded(p,seq,'fullqueue-tail',false,seq-2))
+  expect(coordinator.queuedFrameCount).toBe(8)
+  let settled=false,error:unknown
+  preparation=engine.prepareOriginalRecorded(recorded(p,11,'fullqueue-tail',false,9),{signal:abort.signal}).then(value=>{settled=true;return value},reason=>{error=reason;return undefined})
+  await Promise.resolve();expect(settled).toBe(false);expect(owner.recordedCapacity).toBeDefined()
+  const stage=vi.spyOn(engine as unknown as { _stageCanonicalPreview: typeof engine['_stageCanonicalPreview'] },'_stageCanonicalPreview').mockImplementation(()=>{throw Error('known clean full queue staging denial')})
+  schedule.mockClear();engine['_stepCanonicalLayer'](job)
+  expect(coordinator.queuedFrameCount).toBe(8);expect(stage).toHaveBeenCalledTimes(1);expect(owner.derived).toBe(oldP);expect(coordinator.poisoned).toBe(false)
+  expect(schedule).toHaveBeenCalledWith(job);expect(owner.orderParked).toBe(false)
+  // The resumed turn consumes already-admitted raw. It must NOT retry the
+  // failed staging revision before actual raw progress frees capacity.
+  engine['_stepCanonicalLayer'](job)
+  expect(coordinator.queuedFrameCount).toBe(7);expect(stage).toHaveBeenCalledTimes(1)
+  await preparation;expect(error).toBeUndefined();expect(settled).toBe(true);expect(owner.recordedCapacity).toBeUndefined();expect(owner.derived).toBe(oldP)
+ }finally{abort.abort();engine.destroy();await preparation;clock.mockRestore();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

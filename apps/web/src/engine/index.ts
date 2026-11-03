@@ -7779,6 +7779,9 @@ export class PencilEngine implements PencilEngineAPI {
         }
         // Park before notification: an admitted input may wake this SAME job.
         if(!current()||!notify())return
+        if(preview.kind==='preview-failed'&&owner.orderParked&&coordinator.executionPending){
+          owner.orderParked=false;this._scheduleCanonicalRebuild(job)
+        }
         return
       }
       if(!notify())return
