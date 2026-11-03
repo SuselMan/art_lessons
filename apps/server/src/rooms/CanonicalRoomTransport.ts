@@ -382,10 +382,10 @@ export class CanonicalRoomTransport {
       if(input&&typeof input==='object'&&'emptyDiscardNonce'in input){
         if(![Object.prototype,null].includes(Object.getPrototypeOf(input)))fail('invalid_operation')
         const names=Reflect.ownKeys(input)
-        if(names.length<7||names.length>9||names.some(k=>typeof k!=='string'||!['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken','texturePhase','sourceScale','emptyDiscardNonce'].includes(k)))fail('invalid_operation')
+        if(names.length<7||names.length>10||names.some(k=>typeof k!=='string'||!['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken','texturePhase','sourceScale','textureGradient','emptyDiscardNonce'].includes(k)))fail('invalid_operation')
         const body:Record<string,PropertyDescriptor>=Object.create(null)
         for(const name of names){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))fail('invalid_operation');if(name==='emptyDiscardNonce'){if(typeof d.value!=='string'||!/^[A-Za-z0-9_-]{10,64}$/.test(d.value))fail('invalid_operation');emptyDiscardNonce=d.value}else body[String(name)]=d}
-        input=binder.captureBeginInput(identity,{layerId:body.layerId?.value,brush:body.brush?.value,strokeId:body.strokeId?.value,pigmentRgb8:body.pigmentRgb8?.value,outerResourceOpacity:body.outerResourceOpacity?.value,alphaDarken:body.alphaDarken?.value,...Object.hasOwn(body,'texturePhase')?{texturePhase:body.texturePhase.value}:{},...Object.hasOwn(body,'sourceScale')?{sourceScale:body.sourceScale.value}:{}})
+        input=binder.captureBeginInput(identity,{layerId:body.layerId?.value,brush:body.brush?.value,strokeId:body.strokeId?.value,pigmentRgb8:body.pigmentRgb8?.value,outerResourceOpacity:body.outerResourceOpacity?.value,alphaDarken:body.alphaDarken?.value,...Object.hasOwn(body,'texturePhase')?{texturePhase:body.texturePhase.value}:{},...Object.hasOwn(body,'sourceScale')?{sourceScale:body.sourceScale.value}:{},...Object.hasOwn(body,'textureGradient')?{textureGradient:body.textureGradient.value}:{}})
       }else input=binder.captureBeginInput(identity,input)
       const key = gestureKey(identity, input.strokeId), signature = JSON.stringify(emptyDiscardNonce?[input,emptyDiscardNonce]:input)
       const pending = this.begins.get(key)

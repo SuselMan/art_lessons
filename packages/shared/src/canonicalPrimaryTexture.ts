@@ -188,9 +188,33 @@ export function canonicalPixelPrimaryTexturePin(input:unknown,trustedAsset:Canon
  const geometry=captureRecordedPrimaryTexturePin(input,trustedAsset,'pixel-texture-u8-v1')
  return Object.freeze({...geometry,mode:p.mode,soft:p.soft})
 }
-function captureRecordedPrimaryTexturePin<L extends CanonicalRecordedPrimaryTexturePin['law']|CanonicalMultiplyPrimaryTexturePin['law']|CanonicalPixelPrimaryTexturePin['law']>(input:unknown,trustedAsset:CanonicalMaterialAsset,law:L):Readonly<Omit<CanonicalRecordedPrimaryTexturePin,'law'>&{readonly law:L}>{
+/** Original captured texture-gradient resource, never an application fallback. */
+export interface CanonicalTextureGradientRGBA {readonly kind:'captured-texture-gradient-rgba8-v1';readonly rgba:readonly number[]}
+export function canonicalTextureGradientRGBA(value:unknown):Readonly<CanonicalTextureGradientRGBA>{
+ const p=capture(value,['kind','rgba'])
+ if(p.kind!=='captured-texture-gradient-rgba8-v1'||!Array.isArray(p.rgba)||Object.getPrototypeOf(p.rgba)!==Array.prototype||p.rgba.length!==1024||Reflect.ownKeys(p.rgba).length!==1025)return fail()
+ const rgba:number[]=[]
+ for(let i=0;i<1024;i++){const d=Object.getOwnPropertyDescriptor(p.rgba,String(i));if(!d||!Object.hasOwn(d,'value')||!integer(d.value,0,255)||Object.is(d.value,-0))return fail();rgba.push(d.value)}
+ return Object.freeze({kind:'captured-texture-gradient-rgba8-v1',rgba:Object.freeze(rgba)})
+}
+export interface CanonicalPixelColorTexturePin extends Omit<CanonicalRecordedPrimaryTexturePin,'law'>{
+ readonly law:'pixel-color-texture-v1';readonly mode:'lightness'|'gradient';readonly alphaAsset:string;readonly gradient?:CanonicalTextureGradientRGBA
+}
+export function canonicalPixelColorTexturePin(input:unknown,trustedGray:CanonicalMaterialAsset,trustedAlpha:CanonicalMaterialAsset):Readonly<CanonicalPixelColorTexturePin>{
+ const mode=Object.getOwnPropertyDescriptor(input??{},'mode')
+ if(!mode||!Object.hasOwn(mode,'value')||mode.value!=='lightness'&&mode.value!=='gradient')return fail()
+ const p=capture(input,['kind','asset','law','width','height','periodX','periodY','phase','strength','mode','alphaAsset',...mode.value==='gradient'?['gradient']:[]])
+ const alpha=capture(trustedAlpha,assetFields),gray=capture(trustedGray,assetFields)
+ if(!cas(p.alphaAsset)||p.alphaAsset!==alpha.id||!cas(alpha.id))return fail()
+ for(const k of ['size','x','y','width','height'])if(!Object.is(alpha[k],gray[k]))return fail()
+ // Reuse the closed recorded geometry validator without inventing a source pin.
+ const geometry=captureRecordedPrimaryTexturePin(input,trustedGray,'pixel-color-texture-v1')
+ return Object.freeze({...geometry,mode:mode.value,alphaAsset:p.alphaAsset,...mode.value==='gradient'?{gradient:canonicalTextureGradientRGBA(p.gradient)}:{}})
+}
+function captureRecordedPrimaryTexturePin<L extends CanonicalRecordedPrimaryTexturePin['law']|CanonicalMultiplyPrimaryTexturePin['law']|CanonicalPixelPrimaryTexturePin['law']|CanonicalPixelColorTexturePin['law']>(input:unknown,trustedAsset:CanonicalMaterialAsset,law:L):Readonly<Omit<CanonicalRecordedPrimaryTexturePin,'law'>&{readonly law:L}>{
  const fields=['kind','asset','law','width','height','periodX','periodY','phase','strength']
  if(law==='pixel-texture-u8-v1')fields.push('mode','soft')
+ if(law==='pixel-color-texture-v1'){fields.push('mode','alphaAsset');const m=Object.getOwnPropertyDescriptor(input??{},'mode');if(m&&Object.hasOwn(m,'value')&&m.value==='gradient')fields.push('gradient')}
  const p=capture(input,fields),a=capture(trustedAsset,assetFields)
  if(p.kind!=='canvasTexture'||p.law!==law||p.strength!=='recorded-grain-v1'
   ||!cas(p.asset)||p.asset!==a.id||!cas(a.id)||!dimension(p.width)||!dimension(p.height)||p.width*p.height>1048576

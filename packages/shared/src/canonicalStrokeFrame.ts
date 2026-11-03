@@ -36,6 +36,7 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
   return canonicalStrokeRasterContract(profile).coverageProfiles.some(value=>value===coverage)
 }
 interface CanonicalStrokeFrameData {
+  readonly textureGradient?:import('./canonicalPrimaryTexture.js').CanonicalTextureGradientRGBA
   readonly sourceScale?:number
   /** Mandatory only for named material7; old decoders reject this field. */
   readonly texturePhase?:CanonicalResolvedTexturePhase

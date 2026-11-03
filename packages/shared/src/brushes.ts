@@ -218,7 +218,8 @@ export interface BrushDescriptor {
   texture?: {
     id: BrushTextureId; periodPx: number; strength: number
     /** Explicit operation on the dab mask; absent preserves historical grain. */
-    application?: { mode: CanonicalMaskingBlendMode; soft: boolean }
+    application?: { mode: CanonicalMaskingBlendMode|'lightness'|'gradient'; soft: boolean }
+    colorSource?: {gray:AssetId;alpha:AssetId}
     /** Integer repeat grid at the top-left of its padded square asset. */
     patternSize?: { width: number; height: number }
     /** Canvas phase in world pixels; random axes are selected once per gesture. */
@@ -491,9 +492,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.texture !== undefined) {
       const t = d.texture
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
-        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset'].includes(key))) return false
-      if (t.application !== undefined && (!record(t.application) || !isCanonicalMaskingBlendMode(t.application.mode)
+        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset','colorSource'].includes(key))) return false
+      if (t.application !== undefined && (!record(t.application) || !(isCanonicalMaskingBlendMode(t.application.mode)||t.application.mode==='lightness'||t.application.mode==='gradient')
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
+      if(t.colorSource!==undefined&&(!record(t.colorSource)||!ref(t.colorSource.gray)||!ref(t.colorSource.alpha)||Object.keys(t.colorSource).some(k=>!['gray','alpha'].includes(k))))return false
       if (t.patternSize !== undefined) {
         const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
         if (!record(p) || !asset || !numberIn(p.width,1,asset.size) || !numberIn(p.height,1,asset.size)
@@ -558,6 +560,8 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id)
+    add(value.texture?.colorSource?.gray)
+    add(value.texture?.colorSource?.alpha)
     if(value.tip.profile?.kind==='radialCurve')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }

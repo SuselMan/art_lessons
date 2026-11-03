@@ -785,18 +785,22 @@ export function extractCanonicalPixelTextureSourceData(original:unknown,availabl
   if(data.timing.enabled!==(data.settings['PaintOpSettings/isAirbrushing']==='true')||!Number.isFinite(data.timing.rate)||data.timing.rate<=0)return reject('inconsistent Pixel timing')
   const composition=canonicalSourceComposition(descriptor,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
   if(!composition||!['wash','buildup'].includes(composition.mode)||!['over','erase'].includes(composition.outerBlend))return reject('unsupported Pixel texture composition')
-  const t=textureData(texture,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
-  if(!isCanonicalMaskingBlendMode(application.mode)||typeof application.soft!=='boolean'||typeof size.width!=='number'||typeof size.height!=='number'||typeof offset.x!=='number'||typeof offset.y!=='number'||typeof offset.randomX!=='boolean'||typeof offset.randomY!=='boolean')return reject('invalid Pixel texture geometry/law')
+  const color=texture.application?.mode==='lightness'||texture.application?.mode==='gradient'
+  const t=textureData(texture,['id','periodPx','strength','application','patternSize','offset',...color?['colorSource']:[]]),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+  if(!(isCanonicalMaskingBlendMode(application.mode)||application.mode==='lightness'||application.mode==='gradient')||typeof application.soft!=='boolean'||typeof size.width!=='number'||typeof size.height!=='number'||typeof offset.x!=='number'||typeof offset.y!=='number'||typeof offset.randomX!=='boolean'||typeof offset.randomY!=='boolean')return reject('invalid Pixel texture geometry/law')
   const pattern=available.find(a=>a.id===t.id);if(!pattern)return reject('Pixel pattern unavailable')
   const patternAsset=Object.freeze({...pattern,x:0,y:0,width:size.width,height:size.height}),phasePolicy=Object.freeze({width:size.width,height:size.height,offsetX:offset.x,offsetY:offset.y,randomX:offset.randomX,randomY:offset.randomY})
-  canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'pixel-texture-u8-v1',mode:application.mode,soft:application.soft,width:size.width,height:size.height,periodX:size.width,periodY:size.height,phase:resolveCanonicalTexturePhase(phasePolicy,()=>0),strength:'recorded-grain-v1'},patternAsset)
+  const colorSource=color?textureData(t.colorSource,['gray','alpha']):undefined
+  const alpha=colorSource?available.find(a=>a.id===colorSource.alpha):undefined
+  if(colorSource&&(colorSource.gray!==pattern.id||!alpha||alpha.size!==pattern.size))return reject('original color texture planes unavailable')
+  if(!color)canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'pixel-texture-u8-v1',mode:application.mode,soft:application.soft,width:size.width,height:size.height,periodX:size.width,periodY:size.height,phase:resolveCanonicalTexturePhase(phasePolicy,()=>0),strength:'recorded-grain-v1'},patternAsset)
   const source=data.source
   const material=source.kind==='defaultAuto'?extractDefaultAutoData(descriptor,false,'pixel-texture',data,undefined,true,true):source.kind==='gaussianAuto'?extractGaussianAutoDataCore(descriptor,undefined,true,true,true):source.kind==='softAuto'?extractSoftAutoDataCore(descriptor,undefined,true,true,true):(()=>{const a=available.find(a=>a.id===descriptor.tip.mask);return a?extractImageFrameCapability(descriptor,a,{material:'verified-primary-texture',pixelTexture:true,...descriptor.tip.animation?{animation:descriptor.tip.animation}:{}}):reject('Pixel primary image unavailable')})()
   if(!material.supported)return material
   // Every option is resolved by the existing native query engine. Resource
   // maxima still reject expansion beyond the bounded mask geometry domain.
   for(const o of [...data.options,...(data.materialOptions??[]),...(data.colorOptions??[]),option])if(o.checked){if(!Number.isFinite(o.strength)||o.sensors.some(s=>s.id==='perspective'))return reject('unavailable Pixel source sensor');if(['Size','Ratio'].includes(o.id)&&(o.min<0||o.max>1||o.strength<0||o.strength>1))return reject('unbounded Pixel geometry option')}
-  return Object.freeze({supported:true as const,kind:'pixel-texture-source-v1' as const,descriptor,data,material,patternAsset,phasePolicy,mode:application.mode,soft:application.soft,strengthOption:option,composition})
+  return Object.freeze({supported:true as const,kind:'pixel-texture-source-v1' as const,descriptor,data,material,patternAsset,phasePolicy,mode:application.mode,...alpha?{alphaAsset:Object.freeze({...alpha,x:0,y:0,width:size.width,height:size.height})}:{},soft:application.soft,strengthOption:option,composition})
  }catch{return reject('invalid Pixel texture source DATA')}
 }
 

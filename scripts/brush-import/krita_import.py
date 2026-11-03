@@ -912,7 +912,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # independent: stale enabled curves must not revive an unchecked option.
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
-        texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'add',9:'linearBurn',10:'hardMix',11:'hardMixSofter',12:'height',13:'linearHeight',14:'heightPhotoshop',15:'linearHeightPhotoshop'}
+        texture_modes={0:'multiply',1:'subtract',2:'lightness',3:'gradient',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'add',9:'linearBurn',10:'hardMix',11:'hardMixSofter',12:'height',13:'linearHeight',14:'heightPhotoshop',15:'linearHeightPhotoshop'}
         if texture_mode in texture_modes:
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
@@ -937,16 +937,31 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 invert=enabled(params.get(prefix+'Invert')),
                 cutoff_policy=int(numeric(params.get(prefix+'CutoffPolicy'),0)),
                 cutoff_left=int(numeric(params.get(prefix+'CutoffLeft'),0)),
-                cutoff_right=int(numeric(params.get(prefix+'CutoffRight'),255)))
+                cutoff_right=int(numeric(params.get(prefix+'CutoffRight'),255)),
+                preserve_alpha=texture_mode in (2,3))
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
-            padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
-            aid=catalog.asset(padded,warnings,grain=True)
+            # Native preserveAlpha keeps the adjusted gray AND cutoff-adjusted
+            # source alpha. Do not pass RGBA to Catalog.asset: that would multiply
+            # gray by alpha a second time and destroy the independent planes.
+            color_source=None
+            if texture_mode in (2,3):
+                gray=mask.getchannel('R') if mask.mode=='RGBA' else mask.convert('L')
+                alpha=mask.getchannel('A') if mask.mode=='RGBA' else Image.new('L',mask.size,255)
+                padded=Image.new('L',(pot,pot));padded.paste(gray,(0,0))
+                alpha_padded=Image.new('L',(pot,pot));alpha_padded.paste(alpha,(0,0))
+                aid=catalog.asset(padded,warnings,grain=True)
+                alpha_id=catalog.asset(alpha_padded,warnings,grain=True)
+                color_source={'gray':aid,'alpha':alpha_id}
+            else:
+                padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
+                aid=catalog.asset(padded,warnings,grain=True)
             offset={axis:clamp(numeric(params.get(prefix+'Offset'+axis.upper()),0),-8192,8192) for axis in ('x','y')}
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
                           'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+            if color_source is not None: d['texture']['colorSource']=color_source
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
                 notes.append(compatibility('textureOffset','Native offset exceeds bounded8192 and was clamped.','unsupported'))
             if offset['randomX'] or offset['randomY']:
@@ -955,7 +970,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
             controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
-            notes.append(compatibility('texture','Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
+            notes.append(compatibility('texture','Native adjusted-gray and preserved-alpha planes retained for color texture; selected gradient is captured by the application at stroke START.' if color_source is not None else 'Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
         else:
             aid=catalog.asset(mask,warnings,grain=True)
             d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}

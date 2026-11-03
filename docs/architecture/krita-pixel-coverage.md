@@ -140,3 +140,13 @@ color-source/gradient providers, texture LIGHTNESS/GRADIENT, UI source scale
 многомерный GIH и выбранный sourceScale через подготовку, BEGIN, frame и snapshot.
 После этого продолжается реализация ColorSource: uniform random и gradient RGBA.
 Эти результаты компиляции не подтверждают визуальное поведение или отзывчивость.
+
+### Pixel CODE FIRST: цветные текстуры, 3 ноября
+
+Lightness/Gradient получили явные gray/alpha ресурсы и захваченный на START
+RGBA LUT; BEGIN, кадры и сохранение истории несут ту же таблицу.
+Сервер: 67 production roots, 0 diagnostics (compile11); shared: 67, 0
+(compile15). Frontend compile9: 613 roots, 7 diagnostics; исправления в работе.
+Это проверка типов, приложение, тесты и устройства не запускались.
+Остаётся отдельный spatial color путь для total_random и pattern/lockedpattern;
+один записанный цвет даба его не заменяет.

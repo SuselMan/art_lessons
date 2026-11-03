@@ -6,7 +6,7 @@ import {canonicalSourceMaterialContext,type CanonicalMaterialContextV2,canonical
 import {canonicalDefaultAutoStatic,canonicalDefaultAutoSourcePin,canonicalGaussianAutoStatic,canonicalGaussianAutoSourcePin} from './canonicalDefaultAutoMaterial.js'
 import {canonicalSoftAutoStatic,canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
 import {CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,canonicalStrokeRasterContract,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
-import {resolveCanonicalTexturePhase,canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
+import {canonicalTextureGradientRGBA,type CanonicalTextureGradientRGBA,resolveCanonicalTexturePhase,canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
 import {sourceColorRecording,hasActiveSourceMaterialOptions} from './sourceStampData.js'
 
 /** Original source/program + texture DATA; verified bytes and authority stay external. */
@@ -28,20 +28,27 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
   else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE),reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
  }
  if(assets.some(a=>a.id===c.patternAsset.id))return fail()
+ const alphaAsset=c.alphaAsset
+ if(alphaAsset&&!assets.some(a=>a.id===alphaAsset.id)&&alphaAsset.id!==c.patternAsset.id)assets.push(alphaAsset)
  assets.push(c.patternAsset)
- const textureGeometry=Object.freeze({kind:'canvasTexture' as const,asset:c.patternAsset.id,law:'pixel-texture-u8-v1' as const,mode:c.mode,soft:c.soft,width:c.patternAsset.width,height:c.patternAsset.height,periodX:c.patternAsset.width,periodY:c.patternAsset.height})
+ const base={kind:'canvasTexture' as const,asset:c.patternAsset.id,width:c.patternAsset.width,height:c.patternAsset.height,periodX:c.patternAsset.width,periodY:c.patternAsset.height}
+ const textureGeometry=c.mode==='lightness'||c.mode==='gradient'?Object.freeze({...base,law:'pixel-color-texture-v1' as const,mode:c.mode,alphaAsset:c.alphaAsset?.id??fail()}):Object.freeze({...base,law:'pixel-texture-u8-v1' as const,mode:c.mode,soft:c.soft})
  return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,descriptorSha256,descriptor,data,source,assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
 }
 export type CanonicalPixelTextureSourceBinding=ReturnType<typeof canonicalPixelTextureSourceBinding>
 /** Fixed axes are checked; random axes are sampled once by the stroke owner. */
-export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,savedPhase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget']):CanonicalMaterialContextV8{
+export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,savedPhase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget'],inputs?:{readonly textureGradient?:CanonicalTextureGradientRGBA}):CanonicalMaterialContextV8{
  const coverage=binding.source.kind==='image'?'browser-number-coverage-v1':binding.source.coverageProfile
  const expected=canonicalPixelTextureSourceBinding(binding.descriptor,binding.descriptorSha256,binding.assets,coverage,binding.rasterProfile,binding.foregroundOpacity,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Pixel texture original binding differs')
  const p=expected.phasePolicy,phase=canonicalResolvedTexturePhase(savedPhase,p.width,p.height),fixed=resolveCanonicalTexturePhase(p,()=>0)
  if(!p.randomX&&phase.x!==fixed.x||!p.randomY&&phase.y!==fixed.y)throw new TypeError('Pixel texture fixed phase differs')
+ const gradientMode=expected.textureGeometry.law==='pixel-color-texture-v1'&&expected.textureGeometry.mode==='gradient'
+ let textureGradient:CanonicalTextureGradientRGBA|undefined
+ if(inputs!==undefined){if(!inputs||typeof inputs!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(inputs))||Reflect.ownKeys(inputs).length!==1)return (()=>{throw new TypeError('Invalid texture START inputs')})();const d=Object.getOwnPropertyDescriptor(inputs,'textureGradient');if(!d||!Object.hasOwn(d,'value')||!gradientMode)throw new TypeError('Invalid texture START gradient');textureGradient=canonicalTextureGradientRGBA(d.value)}
+ if(gradientMode&&!textureGradient)throw new TypeError('Missing selected texture gradient')
  const colorParams=sourceColorRecording(expected.data)
- return canonicalPrimaryGrainMaterialContext({version:8,...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets:expected.assets,primarySource:expected.source,primaryTexture:{...expected.textureGeometry,phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalPrimaryGrainMaterialContext({version:8,...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets:expected.assets,primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 /** Named source2 pipe binding; old image/texture families remain unchanged. */
