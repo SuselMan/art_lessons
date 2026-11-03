@@ -104,7 +104,7 @@ export function canonicalSourceStrokeSnapshotV2(value:unknown,epoch:number,raste
  const brush=s.brush,strokeId=s.strokeId,probe=buildCanonicalMaterial({masked:!!material.maskSource,entry:{phase:'between'},draws:[],fences:[]},material)
  // The decoder owns RGB/composition and envelope validation. Its normalized
  // values are returned rather than retaining arbitrary caller arrays.
- const decoded=decodeCanonicalStrokeFrame({version:canonicalStrokeRasterContract(rasterProfile).envelopeVersion,rasterProfile,brush,strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed,...material.scaledSource?{sourceScale:pin.brushScale}:{}},
+ const decoded=decodeCanonicalStrokeFrame({version:canonicalStrokeRasterContract(rasterProfile).envelopeVersion,rasterProfile,brush,strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed,...material.roleTextures?{sourceRoleTextures:material.roleTextures}:{},...material.sourceColorFields?{sourceColorFields:material.sourceColorFields}:{},...material.scaledSource?{sourceScale:pin.brushScale}:{}},
   {rasterProfile,brush,strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8 as CanonicalStrokeSnapshotV2['pigmentRgb8'],composition:s.composition as CanonicalStrokeSnapshotV2['composition'],material})
  return Object.freeze({layerId:s.layerId,brush,strokeId,boardEpoch:epoch,descriptorSha256:s.descriptorSha256,rasterProfile,pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:material.assets,materialVersion:2,material})
 }

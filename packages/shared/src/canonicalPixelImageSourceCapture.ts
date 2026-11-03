@@ -1,6 +1,18 @@
 import type {BrushDescriptor} from './brushes.js'
 import type {SourceStampData} from './sourceStampData.js'
 import type {CanonicalMaterialAsset,CanonicalMaterialImageSource} from './canonicalMaterialCodec.js'
+/** Original image pixels occupy their actual rectangle, not the square
+ * drawing crop. Named consumers share this check; legacy PNG stays separate. */
+export function captureOriginalPixelImageGrid(descriptor:BrushDescriptor,data:SourceStampData,asset:Readonly<{id:string;size:number}>){
+ const fail=():never=>{throw new TypeError('Invalid original image pixel grid')}
+ const width=data.brush.width,height=data.brush.height,size=asset.size,bounds=descriptor.tip.maskBounds,sampling=descriptor.tip.imageSampling
+ if(!Number.isInteger(size)||size<2||size>2048||(size&(size-1))!==0||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>size||height>size||!bounds)return fail()
+ const rect=sampling?.sourceRect??{x:Math.floor((size-width)/2),y:Math.floor((size-height)/2),width,height}
+ if(sampling&&(sampling.kind!=='integer-pyramid'||sampling.signal!=='inverse-gray')||!Object.values(rect).every(Number.isSafeInteger)||rect.x<0||rect.y<0||rect.width!==width||rect.height!==height||rect.x+width>size||rect.y+height>size)return fail()
+ const longest=Math.max(width,height)
+ if(bounds.x!==(rect.x+(width-longest)/2)/size||bounds.y!==(rect.y+(height-longest)/2)/size||bounds.width!==longest/size||bounds.height!==longest/size)return fail()
+ return Object.freeze({x:rect.x,y:rect.y,width,height})
+}
 /** Internal shared capture for already original-bound image roles. Not exported
  * by the shared barrel and never an execution/source grant. */
 export function captureOriginalPixelImageRole(descriptor:BrushDescriptor,data:SourceStampData,available:readonly Readonly<{id:string;size:number}>[],foregroundOpacity:number,brushScale=data.brush.scale){
@@ -10,7 +22,7 @@ export function captureOriginalPixelImageRole(descriptor:BrushDescriptor,data:So
  let source:CanonicalMaterialImageSource
   const ids=descriptor.tip.animation?.frames??[descriptor.tip.mask!],bounds=descriptor.tip.maskBounds
   if(!bounds||!ids.length)return fail()
-  for(const id of ids){const a=available.find(a=>a.id===id);if(!a)return fail();const rect={x:bounds.x*a.size,y:bounds.y*a.size,width:bounds.width*a.size,height:bounds.height*a.size};if(!Object.values(rect).every(Number.isSafeInteger)||rect.width!==data.brush.width||rect.height!==data.brush.height)return fail();if(!assets.some(a=>a.id===id))assets.push(Object.freeze({...a,...rect}))}
+  for(const id of ids){const a=available.find(a=>a.id===id);if(!a)return fail();const rect=captureOriginalPixelImageGrid(descriptor,data,a);if(!assets.some(a=>a.id===id))assets.push(Object.freeze({id:a.id,size:a.size,...rect}))}
   const alpha=assets[0],material=descriptor.tip.material
   let imageMaterial:CanonicalMaterialImageSource['imageMaterial']
   const plane=(id:string)=>{const a=available.find(a=>a.id===id);if(!a||a.size!==alpha.size)return fail();const p=Object.freeze({...alpha,id});if(!assets.some(a=>a.id===id))assets.push(p);return id}

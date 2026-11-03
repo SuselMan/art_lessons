@@ -1,3 +1,4 @@
+import {canonicalSourcePatternResource,type CanonicalSourcePatternResource} from './canonicalSourceSpatialColor.js'
 import {isCanonicalMaskingBlendMode,type CanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import { isSourceStampData, sourceStampDataBudget, MAX_LIBRARY_SOURCE_STAMP_BUDGET, type SourceStampData } from './sourceStampData.js'
 import { isDabSourceTime } from './dabCodec.js'
@@ -50,6 +51,8 @@ export interface BrushTip {
     signal: 'inverse-gray'
     sourceRect: { x: number; y: number; width: number; height: number }
   }
+  /** Offline selected-font provenance; playback consumes captured mask bytes. */
+  textRasterization?: {kind:'fontconfig-pillow-text-mask-v1';originalFont:string;fontSha256:string;faceIndex:number;pixelSize:number;dpi:96;family:string;style:string;layout:'basic'|'raqm';substituted:boolean}
   /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
    * Absence preserves legacy round/bitmap sampling. */
   profile?: { kind: 'gaussian'; fade: number; antialias: boolean }
@@ -220,6 +223,7 @@ export interface BrushDescriptor {
     /** Explicit operation on the dab mask; absent preserves historical grain. */
     application?: { mode: CanonicalMaskingBlendMode|'lightness'|'gradient'; soft: boolean }
     colorSource?: {gray:AssetId;alpha:AssetId}
+    eraseVariant?: {id:AssetId;colorSource?:{gray:AssetId;alpha:AssetId}}
     /** Integer repeat grid at the top-left of its padded square asset. */
     patternSize?: { width: number; height: number }
     /** Canvas phase in world pixels; random axes are selected once per gesture. */
@@ -298,9 +302,12 @@ export interface ImportedBrush {
   compatibility?: BrushCompatibility[]
 }
 export interface BrushAsset { id: AssetId; size: number; file: string }
+/** Explicit catalog paint input; not a brush descriptor or paint grant. */
+export interface BrushPattern {readonly id:string;readonly name:string;readonly resource:CanonicalSourcePatternResource}
 export interface BrushLibrary {
   schemaVersion: 1
   brushes: ImportedBrush[]
+  patterns?: readonly BrushPattern[]
   assets: BrushAsset[]
   skipped: { name: string; reasons: string[] }[]
 }
@@ -337,6 +344,22 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     ids.add(a.id); assetSizes.set(a.id, a.size); bytes += a.size * a.size
   }
   if (bytes > (limits.maxBytes ?? 256 * 1024 * 1024)) return false
+  const patternField=Object.getOwnPropertyDescriptor(value,'patterns')
+  if(!patternField&&'patterns'in value)return false
+  if(patternField){
+    if(!Object.hasOwn(patternField,'value')||!Array.isArray(patternField.value)||Object.getPrototypeOf(patternField.value)!==Array.prototype||patternField.value.length>128||Reflect.ownKeys(patternField.value).length!==patternField.value.length+1)return false
+    const seen=new Set<string>()
+    try{for(let i=0;i<patternField.value.length;i++){
+      const item=Object.getOwnPropertyDescriptor(patternField.value,String(i));if(!item||!Object.hasOwn(item,'value'))return false
+      const p=item.value
+      if(!p||typeof p!=='object'||Array.isArray(p)||![Object.prototype,null].includes(Object.getPrototypeOf(p))||Reflect.ownKeys(p).length!==3)return false
+      const own=(key:string)=>{const field=Object.getOwnPropertyDescriptor(p,key);if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Pattern requires own DATA');return field.value}
+      const id=own('id'),name=own('name'),resource=canonicalSourcePatternResource(own('resource'))
+      if(typeof id!=='string'||!/^pattern:[a-f0-9]{64}$/.test(id)||seen.has(id)||typeof name!=='string'||name.length<1||name.length>128||resource.size>2048)return false
+      seen.add(id)
+      for(const aid of [...resource.channels,resource.alphaAsset])if(assetSizes.get(aid)!==resource.size)return false
+    }}catch{return false}
+  }
   const keys = new Set<string>()
   const ref = (id: unknown): boolean => typeof id === 'string' && ids.has(id)
   for (const b of value.brushes) {
@@ -421,6 +444,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || !numberIn(bounds.width,1/2048,1) || !numberIn(bounds.height,1/2048,1)
         || bounds.x + bounds.width > 1 || bounds.y + bounds.height > 1) return false
     }
+    if(d.tip.textRasterization!==undefined){
+      const p=d.tip.textRasterization
+      if(d.tip.kind!=='bitmap'||!record(p)||Object.keys(p).length!==10||Object.keys(p).some(k=>!['kind','originalFont','fontSha256','faceIndex','pixelSize','dpi','family','style','layout','substituted'].includes(k))||p.kind!=='fontconfig-pillow-text-mask-v1'||typeof p.originalFont!=='string'||p.originalFont.length>4096||typeof p.fontSha256!=='string'||!/^([a-f0-9]{64})$/.test(p.fontSha256)||!Number.isInteger(p.faceIndex)||!numberIn(p.faceIndex,0,65535)||!Number.isInteger(p.pixelSize)||!numberIn(p.pixelSize,1,2048)||p.dpi!==96||typeof p.family!=='string'||p.family.length>1024||typeof p.style!=='string'||p.style.length>1024||!['basic','raqm'].includes(String(p.layout))||typeof p.substituted!=='boolean')return false
+    }
     if (d.tip.imageSampling !== undefined) {
       const sampling = d.tip.imageSampling
       if (d.tip.kind !== 'bitmap' || d.tip.material !== undefined || !record(sampling)
@@ -492,10 +519,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.texture !== undefined) {
       const t = d.texture
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
-        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset','colorSource'].includes(key))) return false
+        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset','colorSource','eraseVariant'].includes(key))) return false
       if (t.application !== undefined && (!record(t.application) || !(isCanonicalMaskingBlendMode(t.application.mode)||t.application.mode==='lightness'||t.application.mode==='gradient')
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
       if(t.colorSource!==undefined&&(!record(t.colorSource)||!ref(t.colorSource.gray)||!ref(t.colorSource.alpha)||Object.keys(t.colorSource).some(k=>!['gray','alpha'].includes(k))))return false
+      if(t.eraseVariant!==undefined){const e=t.eraseVariant;if(!record(e)||!ref(e.id)||Object.keys(e).some(k=>!['id','colorSource'].includes(k))||e.colorSource!==undefined&&(!record(e.colorSource)||!ref(e.colorSource.gray)||!ref(e.colorSource.alpha)||e.colorSource.gray!==e.id||Object.keys(e.colorSource).some(k=>!['gray','alpha'].includes(k))))return false}
       if (t.patternSize !== undefined) {
         const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
         if (!record(p) || !asset || !numberIn(p.width,1,asset.size) || !numberIn(p.height,1,asset.size)
@@ -562,6 +590,9 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     add(value.texture?.id)
     add(value.texture?.colorSource?.gray)
     add(value.texture?.colorSource?.alpha)
+    add(value.texture?.eraseVariant?.id)
+    add(value.texture?.eraseVariant?.colorSource?.gray)
+    add(value.texture?.eraseVariant?.colorSource?.alpha)
     if(value.tip.profile?.kind==='radialCurve')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }

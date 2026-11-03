@@ -42,15 +42,16 @@ export function canonicalSoftAutoDataEqual(a:unknown,b:unknown):boolean {
 function curveCopy(c:SourceSoftAutoData['softnessCurve']) {
   return Object.freeze({text:c.text,points:Object.freeze(c.points.map(p=>Object.freeze({...p})))})
 }
-export function canonicalSoftAutoStatic(source:SourceSoftAutoData,brushScale:number,brushAngle:number,seededMask=false) {
+export function canonicalSoftAutoStatic(source:SourceSoftAutoData,brushScale:number,brushAngle:number,coverageProfile?:CanonicalSoftAutoSource['coverageProfile']) {
+  const seededMask=coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,browserShapes=seededMask||coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE
   if(!closed(source,['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density','softnessCurve'])
-    ||source.kind!=='softAuto'||source.generator!=='soft'||source.shape!=='circle'||(!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64)||(!seededMask&&(source.randomness!==0||source.density!==1))||![source.randomness,source.density].every(v=>finite(v)&&v>=0&&v<=1)||source.antialias!==false
+    ||source.kind!=='softAuto'||source.generator!=='soft'||!(source.shape==='circle'||browserShapes&&source.shape==='rect')||(!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64)||(!seededMask&&(source.randomness!==0||source.density!==1))||![source.randomness,source.density].every(v=>finite(v)&&v>=0&&v<=1)||typeof source.antialias!=='boolean'||!browserShapes&&source.antialias!==false
     ||![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
     ||source.diameter<=0||source.ratio<=0||source.ratio>1||brushScale<0||source.horizontalFade<0||source.horizontalFade>1||source.verticalFade<0||source.verticalFade>1
     ||!isSourceStampCurveData(source.softnessCurve)||source.softnessCurve.points.length<2||source.softnessCurve.points.length>9
     ||source.softnessCurve.points[0].corner||source.softnessCurve.points[source.softnessCurve.points.length-1].corner)fail()
   const resolution=Math.floor(source.diameter*4+.5)
-  if(!Number.isSafeInteger(resolution)||resolution+2>16384)fail()
+  if(!Number.isSafeInteger(resolution)||resolution+(source.shape==='rect'?1:2)>16384)fail()
   return {source:Object.freeze({...source,diameter:zero(source.diameter),ratio:zero(source.ratio),horizontalFade:zero(source.horizontalFade),verticalFade:zero(source.verticalFade),randomness:zero(source.randomness),density:zero(source.density),softnessCurve:curveCopy(source.softnessCurve)}),brushScale:zero(brushScale),brushAngle:zero(brushAngle)}
 }
 export function canonicalSoftAutoSourcePin(pin:CanonicalSoftAutoSource):CanonicalSoftAutoSource {
@@ -59,17 +60,18 @@ export function canonicalSoftAutoSourcePin(pin:CanonicalSoftAutoSource):Canonica
     ||!Number.isSafeInteger(pin.descriptorVersion)||pin.descriptorVersion<1||typeof pin.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.descriptorSha256)
     ||pin.reader!=='krita-bd6e8d0-v1'||pin.compilerProfile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE||typeof pin.buildId!=='string'||!/^[a-f0-9]{64}$/.test(pin.buildId)
     ||!['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE].includes(pin.coverageProfile))fail()
-  const normalized=canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle,pin.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE),radial=pin.radialCurve
+  const normalized=canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle,pin.coverageProfile),radial=pin.radialCurve
   if(!closed(radial,['source','coefficients'])||!isSourceStampCurveData(radial.source)||!canonicalSoftAutoDataEqual(radial.source,pin.source.softnessCurve)
     ||!Array.isArray(radial.coefficients)||radial.coefficients.length!==Math.max(1,radial.source.points.length-1)
     ||radial.coefficients.some(c=>!Array.isArray(c)||c.length!==4||!c.every(finite)))fail()
   return Object.freeze({...pin,...normalized,sourceSlot:pin.sourceSlot===0?0:1,radialCurve:Object.freeze({source:curveCopy(radial.source),coefficients:Object.freeze(radial.coefficients.map(c=>Object.freeze([c[0],c[1],c[2],c[3]] as const)))})})
 }
-export function canonicalSoftAutoCost(recipe:CanonicalSoftAutoRecipe,trusted:CanonicalSoftAutoSource):{workUnits:number;outputBytes:number} {
+export function canonicalSoftAutoCost(recipe:CanonicalSoftAutoRecipe,trusted:CanonicalSoftAutoSource,coverageScaleFactor?:number):{workUnits:number;outputBytes:number} {
   if(recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?(!Number.isInteger(recipe.maskSeed)||recipe.maskSeed!<0||recipe.maskSeed!>0xffffffff||Object.is(recipe.maskSeed,-0)):recipe.maskSeed!==undefined)fail()
+  if(coverageScaleFactor!==undefined&&(!Number.isFinite(coverageScaleFactor)||coverageScaleFactor<=0||coverageScaleFactor!==1&&recipe.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE&&recipe.coverageProfile!==CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE))fail()
   const pin=canonicalSoftAutoSourcePin(trusted)
   if(recipe.kind!=='softAuto'||recipe.sourceSlot!==pin.sourceSlot||recipe.coverageProfile!==pin.coverageProfile)fail()
-  const actual=canonicalSoftAutoStatic(recipe.source,recipe.brushScale,recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
+  const actual=canonicalSoftAutoStatic(recipe.source,recipe.brushScale,recipe.brushAngle,recipe.coverageProfile)
   if(!canonicalSoftAutoDataEqual(actual.source,recipe.source)||!canonicalSoftAutoDataEqual(actual.source,pin.source)
     ||!Object.is(recipe.brushScale,actual.brushScale)||!Object.is(recipe.brushAngle,actual.brushAngle)
     ||!Object.is(actual.brushScale,pin.brushScale)||!Object.is(actual.brushAngle,pin.brushAngle))fail()
@@ -78,7 +80,10 @@ export function canonicalSoftAutoCost(recipe:CanonicalSoftAutoRecipe,trusted:Can
   const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:actual.source.diameter,ratio:actual.source.ratio,spikes:actual.source.spikes,scale:actual.brushScale,angle:actual.brushAngle},
     {scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},recipe.subX,recipe.subY)
   if(geometry.maskSize[0]!==recipe.width||geometry.maskSize[1]!==recipe.height||recipe.width<1||recipe.height<1||recipe.width>4096||recipe.height>4096||recipe.width*recipe.height>1048576)fail()
-  return {workUnits:recipe.width*recipe.height*(1+(recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?Number(actual.source.randomness!==0)+Number(actual.source.density!==1):0)),outputBytes:recipe.width*recipe.height*4}
+  const minimum=Math.min(actual.source.diameter*recipe.scale*(coverageScaleFactor??1),actual.source.diameter*actual.source.ratio*recipe.scale*recipe.ratio*(coverageScaleFactor??1)),sampleGrid=actual.source.antialias&&minimum<10?minimum<1?6:3:1
+  const samples=sampleGrid*sampleGrid,workUnits=recipe.width*recipe.height*(samples+(recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?Number(actual.source.randomness!==0)+Number(actual.source.density!==1):0))
+  if(workUnits>16*1048576)fail()
+  return {workUnits,outputBytes:recipe.width*recipe.height*4}
 }
 
 /** Structural binding from an already verified descriptor. Data readiness is

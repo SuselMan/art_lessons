@@ -1,3 +1,4 @@
+import {canonicalSourceRoleTextures,type CanonicalSourceRoleTextures} from './canonicalSourceRoleTextures.js'
 import {canonicalSourceColorFields,type CanonicalSourceColorFields} from './canonicalSourceSpatialColor.js'
 import {canonicalSourceScale} from './canonicalSourceScale.js'
 import {canonicalResolvedTexturePhase,type CanonicalResolvedTexturePhase} from './canonicalPrimaryTexture.js'
@@ -9,7 +10,7 @@ export interface CanonicalStrokeComposition {
   readonly mode: 'wash' | 'buildup'
   readonly alphaDarken: 'creamy' | 'hard'
   readonly outerResourceOpacity: number
-  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
+  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'colorHsyBrowser'
 }
 export const CANONICAL_STROKE_RASTER_PROFILE = 'installed-arm64-scalar-fused-fpcr0-v1' as const
 /** Whole-pipeline identity: existing fused local deposition plus explicit U8
@@ -37,6 +38,7 @@ export function canonicalStrokeCoverageMatches(profile:unknown,coverage:unknown)
   return canonicalStrokeRasterContract(profile).coverageProfiles.some(value=>value===coverage)
 }
 interface CanonicalStrokeFrameData {
+  readonly sourceRoleTextures?:CanonicalSourceRoleTextures
   readonly textureGradient?:import('./canonicalPrimaryTexture.js').CanonicalTextureGradientRGBA
   readonly sourceColorFields?:CanonicalSourceColorFields
   readonly sourceScale?:number
@@ -115,14 +117,14 @@ const rgb = (value: unknown): value is readonly [number, number, number] => Arra
 const fields = (value: Record<string, unknown>, names: readonly string[]) => Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name))
 /** Closed composition law for an already selected trusted raster profile.
  * This validates policy, never grants descriptor/room execution capability. */
-export function isCanonicalStrokeComposition(value: unknown, rasterProfile: CanonicalStrokeRasterProfile): value is CanonicalStrokeComposition {
+export function isCanonicalStrokeComposition(value: unknown, rasterProfile: CanonicalStrokeRasterProfile, browserHsy=false): value is CanonicalStrokeComposition {
   let contract:ReturnType<typeof canonicalStrokeRasterContract>
   try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return false}
   return record(value) && fields(value, ['mode', 'alphaDarken', 'outerResourceOpacity', 'outerBlend'])
     && (value.mode === 'wash' || value.mode === 'buildup') && (value.alphaDarken === 'creamy' || value.alphaDarken === 'hard')
     && typeof value.outerResourceOpacity === 'number' && Number.isFinite(value.outerResourceOpacity) && value.outerResourceOpacity >= 0 && value.outerResourceOpacity <= 1
     && (!contract.genericSC ? value.outerBlend === 'over'
-      : (value.outerBlend === 'over' || value.outerBlend === 'erase' || value.mode === 'wash' && typeof value.outerBlend === 'string' && ['multiply','lighten','colorDodge','overlay'].includes(value.outerBlend)))
+      : (value.outerBlend === 'over' || value.outerBlend === 'erase' || value.mode === 'wash' && typeof value.outerBlend === 'string' && ['multiply','lighten','colorDodge','overlay',...browserHsy?['colorHsyBrowser']:[]].includes(value.outerBlend)))
 }
 /** Shared admission building block, not an Operation/Socket activation.
  * Descriptor capability and contiguous gesture/group ownership still belong to
@@ -170,7 +172,12 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   const early5=aware5?canonicalPressureTexturedSourceMaterialContext(earlyField!.value):undefined
   const rasterProfile = trusted?.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : trusted.rasterProfile
   const contract=canonicalStrokeRasterContract(rasterProfile)
-  if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile))
+  const materialField=Object.getOwnPropertyDescriptor(trusted??{},'material')
+  const outerField=materialField&&Object.hasOwn(materialField,'value')&&materialField.value&&typeof materialField.value==='object'?Object.getOwnPropertyDescriptor(materialField.value,'outerCompositionLaw'):undefined
+  const browserHsy=!!outerField
+  if(browserHsy&&(!Object.hasOwn(outerField!,'value')||outerField!.value!=='browser-hsy-rgba8-functional-v1'||selector!==2||!contract.genericSC))throw new TypeError('Unsupported outer composition context')
+  if((trusted?.composition?.outerBlend==='colorHsyBrowser')!==browserHsy)throw new TypeError('Outer composition law differs from material')
+  if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile,browserHsy))
     throw new TypeError('Invalid trusted canonical stroke context')
   const field=Object.getOwnPropertyDescriptor(trusted,'material')
   if((aware3||aware4||aware5||aware6||aware7)&&(!field||!Object.hasOwn(field,'value')))throw new TypeError('Invalid explicit canonical material context')
@@ -189,10 +196,14 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
   if(spatial&&(!Object.hasOwn(spatial,'value')||aware3||aware4||aware5||aware6||aware7||!contract.genericSC))throw new TypeError('Unsupported spatial color context')
   const sourceColorFields=spatial?canonicalSourceColorFields(spatial.value):undefined
   if(sourceColorFields){const d=Object.getOwnPropertyDescriptor(value??{},'sourceColorFields');if(!d||!Object.hasOwn(d,'value')||JSON.stringify(canonicalSourceColorFields(d.value))!==JSON.stringify(sourceColorFields))throw new TypeError('Spatial color envelope differs')}
+  const roles=Object.getOwnPropertyDescriptor(material,'roleTextures')
+  if(roles&&(!Object.hasOwn(roles,'value')||aware3||aware4||aware5||aware6||aware7||!contract.genericSC||!('version'in material)||material.version!==2))throw new TypeError('Unsupported role texture context')
+  const sourceRoleTextures=roles&&'version'in material&&material.version===2?canonicalSourceRoleTextures(roles.value,material.assets,!!material.maskSource):undefined
+  if(sourceRoleTextures){const d=Object.getOwnPropertyDescriptor(value??{},'sourceRoleTextures');if(!d||!Object.hasOwn(d,'value')||!('version'in material)||material.version!==2||JSON.stringify(canonicalSourceRoleTextures(d.value,material.assets,!!material.maskSource))!==JSON.stringify(sourceRoleTextures))throw new TypeError('Role texture envelope differs')}
   if(early7)value=captureEnvelope7(value,early7)
-  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[])])
+  if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked',...(aware7?['texturePhase']:[]),...(scaleValue!==undefined?['sourceScale']:[]),...(sourceColorFields?['sourceColorFields']:[]),...(sourceRoleTextures?['sourceRoleTextures']:[])])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
-    || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
+    || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile,browserHsy) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
   const materialPacked=value.materialPacked
   if(typeof materialPacked!=='string'||!(aware7?/^7\|/:aware6?/^6\|/:aware5?/^5\|/:aware4?/^4\|/:aware3?/^3\|/:/^[12]\|/).test(materialPacked))throw new TypeError('Unsupported selected canonical stroke material')
@@ -216,7 +227,7 @@ function decodeFrameCore(value:unknown,trusted:CanonicalStrokeFrameContext|Canon
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked,...sourceColorFields?{sourceColorFields}:{},...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
+    materialPacked,...sourceRoleTextures?{sourceRoleTextures}:{},...sourceColorFields?{sourceColorFields}:{},...scaleValue!==undefined?{sourceScale:scaleValue}:{},...(early7?{texturePhase:early7.primaryTexture.phase}:{}) }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })

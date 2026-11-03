@@ -1,3 +1,4 @@
+import {captureBrushPatterns} from './patternCatalog.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
@@ -37,6 +38,11 @@ export function merge(...libraries: BrushLibrary[]): BrushLibrary {
       if (existing && !isDeepStrictEqual(wireDescriptor(existing.descriptor), wireDescriptor(brush.descriptor))) throw Error('Immutable brush conflict')
       if (!existing) result.brushes.push(brush)
     }
+    for(const pattern of captureBrushPatterns(library)){
+      const existing=result.patterns?.find(p=>p.id===pattern.id)
+      if(existing&&!isDeepStrictEqual(existing.resource,pattern.resource))throw Error('Immutable pattern conflict')
+      if(!existing)result.patterns=[...result.patterns??[],pattern]
+    }
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)
     for (const item of library.skipped) if (!result.skipped.some(previous => previous.name === item.name && JSON.stringify(previous.reasons) === JSON.stringify(item.reasons))) result.skipped.push(item)
   }
@@ -53,7 +59,7 @@ export class BrushStorage {
   }
   path(kind: 'owners'|'rooms'|'jobs', id: string): string { return join(this.root,kind,key(id)+'.json') }
   library(kind: 'owners'|'rooms', id: string): BrushLibrary {
-    try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), BRUSH_LIBRARY_MANIFEST_MAX_BYTES).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
+    try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), BRUSH_LIBRARY_MANIFEST_MAX_BYTES).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); const patterns=captureBrushPatterns(value);return value.patterns===undefined?value:{...value,patterns} }
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
   }
   atomic(path: string, value: unknown): void {
@@ -193,6 +199,9 @@ export class BrushStorage {
         referenced.add(authorized.id)
       }
       selected.assets=available.assets.filter(a=>referenced.has(a.id))
+      const selectedResourceIds=new Set(materialAssets.map(asset=>asset.id))
+      const capturedPatterns=(available.patterns??[]).filter(pattern=>[...pattern.resource.channels,pattern.resource.alphaAsset].every(id=>selectedResourceIds.has(id)))
+      if(capturedPatterns.length)selected.patterns=capturedPatterns
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
       const next=merge(current,selected)
       if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')

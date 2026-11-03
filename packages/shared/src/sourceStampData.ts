@@ -107,7 +107,7 @@ export interface SourceDefaultAutoData {
 export interface SourceGaussianAutoData {
   readonly kind: 'gaussianAuto'
   readonly generator: 'gauss'
-  readonly shape: 'circle'
+  readonly shape: 'circle' | 'rect'
   readonly diameter: number; readonly ratio: number
   readonly horizontalFade: number; readonly verticalFade: number
   readonly antialias: boolean; readonly spikes: number
@@ -152,8 +152,8 @@ function sourceIdentity(v: Record<string, unknown>): boolean {
   const s = v.source
   if (s.kind === 'image') return keys(s, ['kind'])
   const generatorIdentity = s.kind === 'defaultAuto' ? s.generator === 'default' && ['circle','rect'].includes(String(s.shape))
-    : s.kind === 'gaussianAuto' ? s.generator === 'gauss' && s.shape === 'circle'
-    : s.kind === 'softAuto' && s.generator === 'soft' && s.shape === 'circle' && isSourceStampCurveData(s.softnessCurve)
+    : s.kind === 'gaussianAuto' ? s.generator === 'gauss' && ['circle','rect'].includes(String(s.shape))
+    : s.kind === 'softAuto' && s.generator === 'soft' && ['circle','rect'].includes(String(s.shape)) && isSourceStampCurveData(s.softnessCurve)
   if (!generatorIdentity || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density',...(s.kind==='softAuto'?['softnessCurve']:[])])
     || !bool(s.antialias)
     || ![s.diameter,s.ratio,s.horizontalFade,s.verticalFade,s.spikes,s.randomness,s.density].every(finite)

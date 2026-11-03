@@ -43,12 +43,12 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const zero = (n: number) => n === 0 ? 0 : n
 /** Explicit static-only zero policy: descriptor JSON need not preserve -0.
  * Dynamic saved shape/subpixel channels NEVER pass through this helper. */
-function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(source: S, brushScale: number, brushAngle: number, seededDensity = false, seededMask = false): {
+function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(source: S, brushScale: number, brushAngle: number, seededDensity = false, seededMask = false, browserShapes = false): {
   source: S; brushScale: number; brushAngle: number
 } {
   if (!source || Object.keys(source).length !== fields.length || !fields.every(k => Object.hasOwn(source, k))
     || !(source.kind === 'defaultAuto' && source.generator === 'default' && ['circle','rect'].includes(source.shape)
-      || source.kind === 'gaussianAuto' && source.generator === 'gauss' && source.shape === 'circle' && source.ratio <= 1)
+      || source.kind === 'gaussianAuto' && source.generator === 'gauss' && (source.shape === 'circle'||browserShapes&&source.shape==='rect') && source.ratio <= 1)
     || ![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
     || source.diameter <= 0 || source.ratio <= 0 || (!Number.isSafeInteger(source.spikes)||source.spikes<2||source.spikes>64) || (!seededMask&&source.randomness !== 0)||!finite(source.randomness)||source.randomness<0||source.randomness>1 || !finite(source.density) || source.density < 0 || source.density > 1 || (!seededDensity&&!seededMask && source.density !== 1) || (seededDensity && source.kind !== 'defaultAuto')
     || source.horizontalFade < 0 || source.horizontalFade > 1 || source.verticalFade < 0 || source.verticalFade > 1
@@ -66,13 +66,14 @@ function autoSourcePin<T extends CanonicalAutoSource>(trusted: T): T {
     || trusted.descriptorId.includes('\0') || !Number.isSafeInteger(trusted.descriptorVersion) || trusted.descriptorVersion < 1
     || typeof trusted.descriptorSha256!=='string' || !/^[a-f0-9]{64}$/.test(trusted.descriptorSha256)
     || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE]).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
-  return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle,trusted.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,trusted.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)})
+  return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle,trusted.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,trusted.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,trusted.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE||trusted.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)})
 }
-export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: CanonicalAutoSource): { workUnits: number; outputBytes: number } {
+export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: CanonicalAutoSource, coverageScaleFactor?:number): { workUnits: number; outputBytes: number } {
   if(recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?(!Number.isInteger(recipe.maskSeed)||recipe.maskSeed!<0||recipe.maskSeed!>0xffffffff||Object.is(recipe.maskSeed,-0)):recipe.maskSeed!==undefined)throw new TypeError('Invalid recorded mask seed')
+  if(coverageScaleFactor!==undefined&&(!Number.isFinite(coverageScaleFactor)||coverageScaleFactor<=0||coverageScaleFactor!==1&&recipe.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE&&recipe.coverageProfile!==CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE))throw new TypeError('Invalid browser auto coverage scale')
   const pin = autoSourcePin(trusted)
   if (recipe.kind !== pin.kind || recipe.source?.kind !== recipe.kind) throw new TypeError('Auto generator mismatch')
-  const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
+  const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle,recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,recipe.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE||recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
   // Raw static -0 is not a canonical wire spelling. Trusted input is normalized
   // independently; no descriptor JSON hash is claimed to attest float bits.
   for (const k of ['diameter','ratio','horizontalFade','verticalFade','spikes','randomness','density'] as const)
@@ -88,7 +89,9 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
     || recipe.width > 4096 || recipe.height > 4096 || recipe.width * recipe.height > 1048576) throw new RangeError('Auto allocation mismatch')
   // RGBA8 service output, not the smaller A8 reference array. Conservative 6x6
   // AA work until common exact sample scheduling becomes a separate capability.
-  const workUnits=recipe.width * recipe.height * ((actual.source.antialias ? 36 : 1) + (recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?Number(actual.source.randomness!==0)+Number(actual.source.density!==1):recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE && actual.source.density<1 ? 1 : 0))
+  const minimum=Math.min(actual.source.diameter*recipe.scale*(coverageScaleFactor??1),actual.source.diameter*actual.source.ratio*recipe.scale*recipe.ratio*(coverageScaleFactor??1)),grid=actual.source.antialias&&minimum<10?minimum<1?6:3:1
+  const sampleCount=coverageScaleFactor===undefined?(actual.source.antialias?36:1):grid*grid
+  const workUnits=recipe.width * recipe.height * (sampleCount + (recipe.coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE?Number(actual.source.randomness!==0)+Number(actual.source.density!==1):recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE && actual.source.density<1 ? 1 : 0))
   if(workUnits>16*1024*1024)throw new RangeError('Auto recipe exceeds source evaluator work capacity')
   return { workUnits, outputBytes: recipe.width * recipe.height * 4 }
 }
@@ -153,7 +156,7 @@ export function canonicalDefaultAutoStatic(source: SourceDefaultAutoData, brushS
 }
 export function canonicalGaussianAutoStatic(source: SourceGaussianAutoData, brushScale: number, brushAngle: number, coverageProfile?:CanonicalGaussianCoverageProfile) {
   if (source?.kind !== 'gaussianAuto') throw new TypeError('Expected Gaussian auto')
-  return autoStatic(source, brushScale, brushAngle,false,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
+  return autoStatic(source, brushScale, brushAngle,false,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE,coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE||coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE)
 }
 export function canonicalDefaultAutoSourcePin(source: CanonicalDefaultAutoSource): CanonicalDefaultAutoSource {
   if (source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')

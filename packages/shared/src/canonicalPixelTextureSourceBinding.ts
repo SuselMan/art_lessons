@@ -26,21 +26,20 @@ export function canonicalPixelTextureSourceBinding(original:unknown,descriptorSh
   if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile))return fail()
   if(native.kind==='defaultAuto'){if(coverageProfile==='scalar-bionic-f64-fma-v1')return fail();source=canonicalDefaultAutoSourcePin({kind:'defaultAuto',...identity,coverageProfile,...canonicalDefaultAutoStatic(native,brushScale,data.brush.angle,coverageProfile)})}
   else if(native.kind==='gaussianAuto'){if(coverageProfile==='scalar-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1')return fail();source=canonicalGaussianAutoSourcePin({kind:'gaussianAuto',...identity,coverageProfile,...canonicalGaussianAutoStatic(native,brushScale,data.brush.angle,coverageProfile)})}
-  else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile===CANONICAL_SEEDED_AUTO_MASK_COVERAGE_PROFILE),reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
+  else{if(coverageProfile==='scalar-bionic-f64-fma-v1'||coverageProfile==='neon64-f32-fma-seeded-density-v1'||data.compiled?.version!==2||!data.compiled.radialCurve)return fail();source=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,...identity,coverageProfile,...canonicalSoftAutoStatic(native,brushScale,data.brush.angle,coverageProfile),reader:data.reader,compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:data.compiled.buildId,radialCurve:data.compiled.radialCurve})}
  }
  if(assets.some(a=>a.id===c.patternAsset.id))return fail()
  const alphaAsset=c.alphaAsset
  if(alphaAsset&&!assets.some(a=>a.id===alphaAsset.id)&&alphaAsset.id!==c.patternAsset.id)assets.push(alphaAsset)
  assets.push(c.patternAsset)
- const base={kind:'canvasTexture' as const,asset:c.patternAsset.id,width:c.patternAsset.width,height:c.patternAsset.height,periodX:c.patternAsset.width,periodY:c.patternAsset.height}
- const textureGeometry=c.mode==='lightness'||c.mode==='gradient'?Object.freeze({...base,law:'pixel-color-texture-v1' as const,mode:c.mode,alphaAsset:c.alphaAsset?.id??fail()}):Object.freeze({...base,law:'pixel-texture-u8-v1' as const,mode:c.mode,soft:c.soft})
- return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,descriptorSha256,descriptor,data,source,assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
+ const textureGeometry=c.textureGeometry
+ return Object.freeze({kind:'pixel-texture-program-v1' as const,...scaleOptions,...c.originalAssets?{originalAssets:c.originalAssets}:{},descriptorSha256,descriptor,data,source,assets:Object.freeze(assets),textureGeometry,phasePolicy:c.phasePolicy,strengthOption:c.strengthOption,composition:c.composition,foregroundOpacity,rasterProfile})
 }
 export type CanonicalPixelTextureSourceBinding=ReturnType<typeof canonicalPixelTextureSourceBinding>
 /** Fixed axes are checked; random axes are sampled once by the stroke owner. */
 export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextureSourceBinding,savedPhase:CanonicalResolvedTexturePhase,budget:CanonicalMaterialContextV8['budget'],inputs?:{readonly textureGradient?:CanonicalTextureGradientRGBA;readonly sourceColorFields?:CanonicalSourceColorFields;readonly sourceColorAvailable?:readonly Readonly<{id:string;size:number}>[]}):CanonicalMaterialContextV8{
  const coverage=binding.source.kind==='image'?'browser-number-coverage-v1':binding.source.coverageProfile
- const expected=canonicalPixelTextureSourceBinding(binding.descriptor,binding.descriptorSha256,binding.assets,coverage,binding.rasterProfile,binding.foregroundOpacity,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined)
+ const expected=canonicalPixelTextureSourceBinding(binding.descriptor,binding.descriptorSha256,binding.originalAssets??binding.assets,coverage,binding.rasterProfile,binding.foregroundOpacity,binding.sourceScale!==undefined?{sourceScale:binding.sourceScale}:undefined)
  if(canonicalBrushDescriptorJSON(expected)!==canonicalBrushDescriptorJSON(binding))throw new TypeError('Pixel texture original binding differs')
  const p=expected.phasePolicy,phase=canonicalResolvedTexturePhase(savedPhase,p.width,p.height),fixed=resolveCanonicalTexturePhase(p,()=>0)
  if(!p.randomX&&phase.x!==fixed.x||!p.randomY&&phase.y!==fixed.y)throw new TypeError('Pixel texture fixed phase differs')
@@ -59,7 +58,7 @@ export function canonicalPixelTextureMaterialContext(binding:CanonicalPixelTextu
  for(const a of spatialAssets){const prior=assets.find(p=>p.id===a.id);if(prior){if(prior.size!==a.size||prior.x!==a.x||prior.y!==a.y||prior.width!==a.width||prior.height!==a.height)throw new TypeError('Source pattern asset crop differs')}else assets.splice(Math.max(0,assets.length-1),0,a)}
  if(gradientMode&&!textureGradient)throw new TypeError('Missing selected texture gradient')
  const colorParams=sourceColorRecording(expected.data)
- return canonicalPrimaryGrainMaterialContext({version:8,...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalPrimaryGrainMaterialContext({version:8,...expected.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...expected.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...expected.descriptor.tip.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},assets,...sourceColorFields?{sourceColorFields}:{},primarySource:expected.source,primaryTexture:{...expected.textureGeometry,...textureGradient?{gradient:textureGradient}:{},phase,strength:'recorded-grain-v1'},...hasActiveSourceMaterialOptions(expected.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 /** Named source2 pipe binding; old image/texture families remain unchanged. */
@@ -78,7 +77,7 @@ function pixelImageMaterialContext(binding:CanonicalPixelImageSourceBinding|Cano
  // Descriptor identity belongs to the binding; source2 captures original image planes.
  const s=b.source
  const colorParams=sourceColorRecording(b.data)
- return canonicalSourceMaterialContext({version:2,...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets:b.assets,...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
+ return canonicalSourceMaterialContext({version:2,...b.composition.outerBlend==='colorHsyBrowser'?{outerCompositionLaw:'browser-hsy-rgba8-functional-v1'}:{},...b.sourceScale!==undefined?{scaledSource:'source-scale-v1'}:{},...b.animation?{imageFrameIndices:'source-image-pipe-frame-v1'}:{},primarySource:{kind:s.kind,asset:s.asset,brushScale:s.brushScale,brushAngle:s.brushAngle,frames:s.frames,...s.imageMaterial?{imageMaterial:s.imageMaterial}:{}},assets:b.assets,...hasActiveSourceMaterialOptions(b.data)?{materialParams:'source-material-parameters-v1'}:{},...colorParams?{colorParams}:{},budget})
 }
 
 export function canonicalNativeImagePipeSourceBinding(original:unknown,descriptorSha256:string,available:readonly Readonly<{id:string;size:number}>[],rasterProfile:CanonicalStrokeRasterProfile,foregroundOpacity=1,options?:CanonicalSourceScaleOptions){

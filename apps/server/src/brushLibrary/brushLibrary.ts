@@ -1,3 +1,4 @@
+import {captureBrushPatterns} from './patternCatalog.js'
 import { constants } from 'node:fs'
 import { open, lstat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
@@ -55,6 +56,8 @@ export async function loadBrushLibrary(directory?: string): Promise<{ manifest: 
     if (brush.source.includes('/') || brush.source.includes('\\') || brush.source.includes('..')) fail()
     manifest.brushes.push(brush)
   }
+  const patterns=captureBrushPatterns(value)
+  if(patterns.length)manifest.patterns=patterns
   manifest.skipped = value.skipped
   return { manifest, assets }
 }

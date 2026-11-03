@@ -28,9 +28,9 @@ function rgb(value:unknown):readonly[number,number,number]{
  const channel=(i:number):number=>{const d=Object.getOwnPropertyDescriptor(value,String(i));if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='number'||!Number.isInteger(d.value)||d.value<0||d.value>255)return fail();return d.value}
  return Object.freeze([channel(0),channel(1),channel(2)])
 }
-function composition(value:unknown,extended=false):Readonly<CanonicalStrokeComposition>{
+function composition(value:unknown,extended=false,browserHsy=false):Readonly<CanonicalStrokeComposition>{
  const p=own(value,['mode','alphaDarken','outerResourceOpacity','outerBlend'])
- if(!isCanonicalStrokeComposition(p,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)||!extended&&(p.mode!=='buildup'||p.outerBlend!=='over'))return fail()
+ if(!isCanonicalStrokeComposition(p,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,browserHsy)||(p.outerBlend==='colorHsyBrowser')!==browserHsy||!extended&&(p.mode!=='buildup'||p.outerBlend!=='over'))return fail()
  return Object.freeze({mode:p.mode,alphaDarken:p.alphaDarken,outerResourceOpacity:p.outerResourceOpacity,outerBlend:p.outerBlend})
 }
 export function decodeCanonicalPrimaryGrainStrokeFrame(value:unknown,trusted:CanonicalStrokeFrameContextV8):{readonly envelope:CanonicalPrimaryGrainFrameEnvelope;readonly frame:CanonicalMaterialFrameV8}{
@@ -38,7 +38,7 @@ export function decodeCanonicalPrimaryGrainStrokeFrame(value:unknown,trusted:Can
  if(t.materialVersion!==8||t.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!text(t.brush)||!text(t.strokeId)||!ordinal(t.frameOrdinal))return fail()
  const material=canonicalPrimaryGrainMaterialContext(t.material),pin=material.primarySource
  if(t.brush!=='brush:'+pin.descriptorId+'@'+pin.descriptorVersion)return fail()
- const expectedRgb=rgb(t.pigmentRgb8),expectedComposition=composition(t.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1')
+ const expectedRgb=rgb(t.pigmentRgb8),expectedComposition=composition(t.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1',material.outerCompositionLaw!==undefined)
  const sourceScale=material.scaledSource?canonicalSourceScale(pin.brushScale):undefined
  const textureGradient=material.primaryTexture.law==='pixel-color-texture-v1'&&material.primaryTexture.mode==='gradient'?material.primaryTexture.gradient:undefined
  const v=own(value,['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked','texturePhase',...sourceScale!==undefined?['sourceScale']:[],...textureGradient?['textureGradient']:[],...material.sourceColorFields?['sourceColorFields']:[]])
@@ -48,7 +48,7 @@ export function decodeCanonicalPrimaryGrainStrokeFrame(value:unknown,trusted:Can
  if(sourceColorFields&&JSON.stringify(sourceColorFields)!==JSON.stringify(material.sourceColorFields))return fail()
  const contract=canonicalStrokeRasterContract(t.rasterProfile)
  if(contract.envelopeVersion!==2||v.version!==2||v.rasterProfile!==t.rasterProfile||v.brush!==t.brush||v.strokeId!==t.strokeId||v.frameOrdinal!==t.frameOrdinal||!ordinal(v.frameOrdinal)||typeof v.materialPacked!=='string'||!v.materialPacked.startsWith('8|'))return fail()
- const pigmentRgb8=rgb(v.pigmentRgb8),savedComposition=composition(v.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1')
+ const pigmentRgb8=rgb(v.pigmentRgb8),savedComposition=composition(v.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1',material.outerCompositionLaw!==undefined)
  if(pigmentRgb8.some((n,i)=>n!==expectedRgb[i])||savedComposition.mode!==expectedComposition.mode||savedComposition.alphaDarken!==expectedComposition.alphaDarken||savedComposition.outerBlend!==expectedComposition.outerBlend||savedComposition.outerResourceOpacity!==expectedComposition.outerResourceOpacity)return fail()
  const texturePhase=canonicalResolvedTexturePhase(v.texturePhase,material.primaryTexture.width,material.primaryTexture.height)
  if(texturePhase.x!==material.primaryTexture.phase.x||texturePhase.y!==material.primaryTexture.phase.y)return fail()
@@ -67,7 +67,7 @@ export function canonicalStandaloneStrokeSnapshotV8(value:unknown,epoch:number,r
  const assets=s.assets
  if(!Array.isArray(assets)||Object.getPrototypeOf(assets)!==Array.prototype||assets.length!==material.assets.length||Reflect.ownKeys(assets).length!==material.assets.length+1)return fail()
  for(let i=0;i<material.assets.length;i++){const d=Object.getOwnPropertyDescriptor(assets,String(i));if(!d||!Object.hasOwn(d,'value'))return fail();const a=own(d.value,['id','size','x','y','width','height']);for(const k of ['id','size','x','y','width','height']as const)if(!Object.is(a[k],material.assets[i][k]))return fail()}
- const pigmentRgb8=rgb(s.pigmentRgb8),savedComposition=composition(s.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1')
+ const pigmentRgb8=rgb(s.pigmentRgb8),savedComposition=composition(s.composition,material.primaryTexture.law!=='hard-multiply-u8-native-v1',material.outerCompositionLaw!==undefined)
  const probe=buildCanonicalPrimaryGrainMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material)
  const parsed=decodeCanonicalPrimaryGrainStrokeFrame({version:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition:savedComposition,materialPacked:probe.packed,texturePhase:material.primaryTexture.phase,...material.sourceColorFields?{sourceColorFields:material.sourceColorFields}:{},...material.primaryTexture.law==='pixel-color-texture-v1'&&material.primaryTexture.mode==='gradient'?{textureGradient:material.primaryTexture.gradient}:{},...material.scaledSource?{sourceScale:pin.brushScale}:{}},{materialVersion:8,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8,composition:savedComposition,material})
  return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:pin.descriptorSha256,rasterProfile,pigmentRgb8:parsed.envelope.pigmentRgb8,composition:parsed.envelope.composition,assets:material.assets,materialVersion:8,material})
