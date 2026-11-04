@@ -33,12 +33,15 @@ it('uses the shared compact lookup in both kernels within the mobile branch budg
  expect(es1).toContain(shader);expect(es3).toContain(shader)
 })
 
-it('preserves the pinned signed cosine coefficients and reflected positive shader half',()=>{
- const bytes=new Uint8Array(256*4),view=new DataView(bytes.buffer)
- for(let index=0;index<256;index++){view.setInt32(index*4,SOURCE_SCALAR4_COS_Q[index]!,true);expect(SOURCE_SCALAR4_COS_Q[255-index]).toBe(-SOURCE_SCALAR4_COS_Q[index]!)}
- expect(createHash('sha256').update(bytes).digest('hex')).toBe('2323fb3eb8145bdc632de7bb8437800f763f5ea34c204259a7c9a0dcbbe60ecf')
- const positive=cosShader.slice(0,cosShader.indexOf('\nfloat sourceScalar4Cos(')),tree=readShader(positive,'sourceScalar4CosPositive','v'),gpu=new Uint8Array(128*4),output=new DataView(gpu.buffer)
- for(let index=0;index<128;index++)output.setInt32(index*4,evaluate(tree,index),true)
- expect(createHash('sha256').update(gpu).digest('hex')).toBe('0cec0adad5a72254b0bfc7055e81cd1b69ea1b08c59f47231344cbceed9147bc')
- expect(cosShader.match(/sourceScalar4CosPositive\(/g)!.length).toBe(2);expect(cosShader.length).toBeLessThan(5000);expect(es1).toContain(cosShader);expect(es3).toContain(cosShader)
+it('preserves all pinned cosine shader values without reflected helper calls',()=>{
+ const tree=readShader(cosShader,'sourceScalar4Cos','v')
+ for(const offset of [0,.25,.5,.999]){
+  const bytes=new Uint8Array(256*4),view=new DataView(bytes.buffer)
+  for(let index=0;index<256;index++){
+   const value=evaluate(tree,index+offset);expect(value).toBe(SOURCE_SCALAR4_COS_Q[index]);view.setInt32(index*4,value,true)
+  }
+  expect(createHash('sha256').update(bytes).digest('hex')).toBe('2323fb3eb8145bdc632de7bb8437800f763f5ea34c204259a7c9a0dcbbe60ecf')
+ }
+ expect(evaluate(tree,-Infinity)).toBe(65535);expect(evaluate(tree,Infinity)).toBe(-65535);expect(evaluate(tree,NaN)).toBe(-65535)
+ expect(cosShader.match(/sourceScalar4Cos\(/g)!.length).toBe(1);expect(es1).toContain(cosShader);expect(es3).toContain(cosShader)
 })
