@@ -94,6 +94,9 @@ it('compiles the actual private selected fragment before drawing and binds its r
  await pass.prepareScalarAtlas('easyDodge')
  const sources:string[]=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1]))
  expect(sources.some(source=>source.includes('uniform highp sampler2D scalarPowerTexture;')&&source.includes('if(mode==95.0)return sourceScalarPowerByte(s,d);'))).toBe(true)
+ const selected=sources.find(source=>source.includes('uniform highp sampler2D scalarPowerTexture;'))!
+ expect(selected).toContain('SourceRgba8CompositeControl(95.0,controls.x,')
+ expect(selected).not.toContain('SourceRgba8CompositeControl(policy.x,controls.x,')
  const texture=s.gl.createTexture(),framebuffer=s.gl.createFramebuffer();s.gl.getFramebufferAttachmentParameter=()=>texture
  const view={key:'mask',texture:mask.texture,rect:{x:0,y:0,width:2,height:2},bounds:{x:0 as const,y:0 as const,width:1,height:1},mirror:{horizontal:false,vertical:false},channel:'r' as const}
  const target={brand:'canonical-straight-rgba8-v1' as const,texture,framebuffer,width:2,height:2,originX:0,originY:0,lifetime:{kind:'external' as const,owner:{},lease:()=>()=>{}}}

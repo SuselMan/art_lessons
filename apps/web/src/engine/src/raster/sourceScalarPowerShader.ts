@@ -11,14 +11,22 @@ highp float sourceScalarPowerByte(highp float S,highp float D){
 `
 const ids:Readonly<Record<SourceScalarPowerMode,number>>=Object.freeze({easyDodge:95,easyBurn:96,pNormA:97,superLight:99,softLightIfs:100})
 /** Derives the actual current fragment, including its policy ABI and source style.
- * Only the selected finite-U8 functor changes. Never splice an apply constructor. */
+ * The selected finite-U8 functor and its already captured mode are specialized.
+ * The common RGBA shell remains the actual production implementation. */
 export function scalarPowerFragmentVariant(fragment:string,mode:SourceScalarPowerMode,dialect:'webgl1'|'webgl2'='webgl1'):string{
  const id=ids[mode]
  if(id===undefined)throw new TypeError('Unknown scalar atlas mode')
  const expression=new RegExp('if\\(mode=='+id+'\\.0\\)[^\\n]*')
  const matches=fragment.match(new RegExp(expression.source,'g'))
  if(!matches||matches.length!==1||fragment.includes('uniform highp sampler2D scalarPowerTexture;'))throw new TypeError('Scalar atlas shader provenance changed')
- const rewritten=fragment.replace(expression,'if(mode=='+id+'.0)return sourceScalarPowerByte(s,d);')
+ let rewritten=fragment.replace(expression,'if(mode=='+id+'.0)return sourceScalarPowerByte(s,d);')
+ // Real Pass fragments have exactly one apply site. Fixing the mode there lets
+ // mobile drivers eliminate unrelated composite graphs before linking the LUT.
+ // Bare kernel exports have no apply site and retain their existing ABI.
+ const constructor='SourceRgba8CompositeControl(policy.x,controls.x,'
+ const constructorCount=rewritten.split(constructor).length-1
+ if(constructorCount>1||rewritten.includes('gl_FragColor=')&&constructorCount!==1)throw new TypeError('Scalar atlas apply provenance changed')
+ if(constructorCount===1)rewritten=rewritten.replace(constructor,'SourceRgba8CompositeControl('+id+'.0,controls.x,')
  const anchor='float sourceRgba8Scalar23Real('
  const offset=rewritten.indexOf(anchor)
  if(offset<0)throw new TypeError('Scalar atlas kernel missing')
