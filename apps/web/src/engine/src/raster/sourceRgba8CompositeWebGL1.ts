@@ -446,6 +446,7 @@ vec4 sourceFinal6(float mode,vec4 source,vec4 destination,SourceRgba8CompositeCo
  float weight=mode==129.0&&da!=0.0?min(255.0,sourceRgba8Divide(applied,da)):applied;
  return da==0.0?vec4(source.rgb,a):vec4(sourceRgba8Blend(source.r,destination.r,weight),sourceRgba8Blend(source.g,destination.g,weight),sourceRgba8Blend(source.b,destination.b,weight),a);
 }
+uniform int sourceCompositeChannelLimit;
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control, bool rawHard) {
   if(control.mode>=125.0&&control.mode<=130.0)return sourceFinal6(control.mode,source,destination,control,rawHard);
   float da = destination.a;
@@ -479,9 +480,17 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
   if((control.mode>=21.0&&control.mode<=25.0)||(control.mode>=63.0&&control.mode<=91.0)||(control.mode>=115.0&&control.mode<=118.0)){vec3 cf=sourceRgba8VectorBlend(control.mode,source.rgb,destination.rgb);
     vec3 v=vec3(sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.r)+sourceRgba8Multiply3(255.0-da,sa,source.r)+sourceRgba8Multiply3(da,sa,cf.r)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.g)+sourceRgba8Multiply3(255.0-da,sa,source.g)+sourceRgba8Multiply3(da,sa,cf.g)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.b)+sourceRgba8Multiply3(255.0-da,sa,source.b)+sourceRgba8Multiply3(da,sa,cf.b)));
     return vec4(sourceRgba8Wrap(sourceRgba8Divide(v.r,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.g,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.b,alpha)),alpha);}
-  return vec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
-    sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
-    sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);
+  // One static callsite prevents three copies of the complete scalar graph.
+  // The private renderer always uploads3; it is not a wire brush parameter.
+  vec3 channels=vec3(0.0);
+  for(int channel=0;channel<3;channel++){
+    if(channel>=sourceCompositeChannelLimit)break;
+    float s=channel==0?source.r:channel==1?source.g:source.b;
+    float d=channel==0?destination.r:channel==1?destination.g:destination.b;
+    float value=sourceRgba8GenericScModeChannel(control.mode,s,d,sa,da,alpha);
+    if(channel==0)channels.r=value;else if(channel==1)channels.g=value;else channels.b=value;
+  }
+  return vec4(channels,alpha);
 }
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control){return sourceCompositeRgba8(source,destination,control,false);}
 

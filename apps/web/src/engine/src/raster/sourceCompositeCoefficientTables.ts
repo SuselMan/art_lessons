@@ -12,6 +12,5 @@ function emit(values:readonly number[],first:number,last:number,variable:string,
  return 'if('+variable+'<'+(middle+offset)+'.0){'+emit(values,first,middle-1,variable,offset)+'}else{'+emit(values,middle,last,variable,offset)+'}'
 }
 export const SOURCE_GREATER_WEIGHT_GLSL='float sourceGreaterWeight(float delta){'+emit(SOURCE_GREATER_Q_WEIGHTS,0,510,'delta',-255)+'}'
-/** Byte coefficients are antisymmetric. Reflecting the floored index shares
- * the positive half; clamps/NaN retain the previous full-tree behavior. */
+/** Keep the original direct cosine decision tree for mobile compilers. */
 export const SOURCE_SCALAR4_COS_GLSL='float sourceScalar4Cos(float v){'+emit(SOURCE_SCALAR4_COS_Q,0,255,'v',0)+'}'

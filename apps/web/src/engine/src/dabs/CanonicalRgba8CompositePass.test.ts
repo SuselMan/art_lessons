@@ -411,6 +411,7 @@ it('runs explicit GenericSC U8 modes through the SAME composite service and shar
   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
    operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255}}})).toBe('painted');
   expect(policy).toHaveBeenCalledWith(expect.objectContaining({name:'policy'}),i+3,0,1,0);
+  expect(s.gl.uniform1i).toHaveBeenCalledWith(expect.objectContaining({name:'sourceCompositeChannelLimit'}),3);
  }
  expect(s.gl.uniform4f.mock.calls.filter((r:unknown[])=>r[0]&&typeof r[0]==='object'&&'name' in r[0]&&r[0].name==='controls').map((r:unknown[])=>r.slice(1))).toEqual(Array(4).fill([248,248,255,255]));
  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
