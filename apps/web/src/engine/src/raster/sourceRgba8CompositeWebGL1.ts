@@ -482,13 +482,12 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
     return vec4(sourceRgba8Wrap(sourceRgba8Divide(v.r,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.g,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.b,alpha)),alpha);}
   // One static callsite prevents three copies of the complete scalar graph.
   // The private renderer always uploads3; it is not a wire brush parameter.
-  vec3 channels=vec3(0.0);
+  vec3 channels=vec3(0.0),sourceChannels=source.rgb,destinationChannels=destination.rgb;
   for(int channel=0;channel<3;channel++){
     if(channel>=sourceCompositeChannelLimit)break;
-    float s=channel==0?source.r:channel==1?source.g:source.b;
-    float d=channel==0?destination.r:channel==1?destination.g:destination.b;
-    float value=sourceRgba8GenericScModeChannel(control.mode,s,d,sa,da,alpha);
-    if(channel==0)channels.r=value;else if(channel==1)channels.g=value;else channels.b=value;
+    float value=sourceRgba8GenericScModeChannel(control.mode,sourceChannels.r,destinationChannels.r,sa,da,alpha);
+    channels=vec3(channels.gb,value);
+    sourceChannels=sourceChannels.gbr;destinationChannels=destinationChannels.gbr;
   }
   return vec4(channels,alpha);
 }
