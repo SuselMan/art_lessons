@@ -407,15 +407,8 @@ float sourceScalar4FourthRoot(float s,float d){
  float ss=s*s,dd=d*d;vec2 n=sourceHsxPairAdd(sourceHsxProduct(ss,ss),sourceHsxProduct(dd,dd));
  float root=sourceNormalIsqrt(n);return min(255.0,sourceNormalIsqrt(sourceHsxProduct(root,1.0)));
 }
-// Private renderer uploads2. One cosine tree callsite avoids duplicate branches.
-uniform int sourceCosineStageLimit;
 float sourceScalar4Interpolation(float s,float d){
- float sum=0.0;
- for(int stage=0;stage<2;stage++){
-  if(stage>=sourceCosineStageLimit)break;
-  sum+=sourceScalar4Cos(stage==0?s:d);
- }
- return sourceHsxMulRatio(131070.0-sum,255.0,262140.0);
+ return sourceHsxMulRatio(131070.0-sourceScalar4Cos(s)-sourceScalar4Cos(d),255.0,262140.0);
 }
 float sourceScalar4Tint(float s,float d){
  float x=s*257.0,y=d*257.0,root=sourceNormalIsqrt(sourceHsxProduct(y,65535.0));
@@ -453,6 +446,7 @@ vec4 sourceFinal6(float mode,vec4 source,vec4 destination,SourceRgba8CompositeCo
  float weight=mode==129.0&&da!=0.0?min(255.0,sourceRgba8Divide(applied,da)):applied;
  return da==0.0?vec4(source.rgb,a):vec4(sourceRgba8Blend(source.r,destination.r,weight),sourceRgba8Blend(source.g,destination.g,weight),sourceRgba8Blend(source.b,destination.b,weight),a);
 }
+uniform int sourceScalarBlendStageLimit;
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control, bool rawHard) {
   if(control.mode>=125.0&&control.mode<=130.0)return sourceFinal6(control.mode,source,destination,control,rawHard);
   float da = destination.a;
@@ -486,9 +480,17 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
   if((control.mode>=21.0&&control.mode<=25.0)||(control.mode>=63.0&&control.mode<=91.0)||(control.mode>=115.0&&control.mode<=118.0)){vec3 cf=sourceRgba8VectorBlend(control.mode,source.rgb,destination.rgb);
     vec3 v=vec3(sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.r)+sourceRgba8Multiply3(255.0-da,sa,source.r)+sourceRgba8Multiply3(da,sa,cf.r)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.g)+sourceRgba8Multiply3(255.0-da,sa,source.g)+sourceRgba8Multiply3(da,sa,cf.g)),sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa,da,destination.b)+sourceRgba8Multiply3(255.0-da,sa,source.b)+sourceRgba8Multiply3(da,sa,cf.b)));
     return vec4(sourceRgba8Wrap(sourceRgba8Divide(v.r,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.g,alpha)),sourceRgba8Wrap(sourceRgba8Divide(v.b,alpha)),alpha);}
-  return vec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
-    sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
-    sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);
+  // Share the separable functor only. Alpha composition remains outside the
+  // loop so its integer division temporaries do not span scalar iterations.
+  vec3 cf=vec3(0.0),sc=source.rgb,dc=destination.rgb;
+  for(int stage=0;stage<3;stage++){
+    if(stage>=sourceScalarBlendStageLimit)break;
+    float value=control.mode==1.0?min(255.0,sc.r+dc.r):sourceRgba8SeparableChannel(control.mode,sc.r,dc.r);
+    cf=vec3(cf.gb,value);sc=sc.gbr;dc=dc.gbr;
+  }
+  return vec4(sourceRgba8GenericScChannel(source.r,destination.r,sa,da,alpha,cf.r),
+    sourceRgba8GenericScChannel(source.g,destination.g,sa,da,alpha,cf.g),
+    sourceRgba8GenericScChannel(source.b,destination.b,sa,da,alpha,cf.b),alpha);
 }
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control){return sourceCompositeRgba8(source,destination,control,false);}
 
