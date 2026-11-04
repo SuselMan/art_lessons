@@ -3,8 +3,9 @@ import originalSoft from './fixtures/sourceSoftAutoData/stock.native.js'
 import originalDefault from './fixtures/sourceDefaultAutoData/stock.native.js'
 import type { BrushDescriptor } from './brushes.js'
 import { isSourceStampData, sourceStampRequiredCurves, SOURCE_STAMP_MAPPED_COMPILER_PROFILE, type SourceStampCurveData } from './sourceStampData.js'
-import { expect, it } from 'vitest'
-import { buildCanonicalMaterial, unpackCanonicalMaterial, packCanonicalMaterial, type CanonicalMaterialContextV2, type CanonicalMaterialBuildInputV2 } from './canonicalMaterialCodec.js'
+import { expect, it, vi } from 'vitest'
+import * as softStatic from './canonicalSoftAutoMaterial.js'
+import { buildCanonicalMaterial, unpackCanonicalMaterial, packCanonicalMaterial, canonicalSourceMaterialContext, type CanonicalMaterialContextV2, type CanonicalMaterialBuildInputV2 } from './canonicalMaterialCodec.js'
 import { canonicalSoftAutoSourceBinding, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalSoftAutoDataEqual, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { decodeCanonicalStrokeFrame, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
@@ -238,4 +239,25 @@ it.each(['multiply','lighten','colorDodge','overlay'] as const)('binds synthetic
  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow('outer composition')
  Object.assign(data.settings,{PaintOpAction:'1'});Object.assign(data.flags,{indirectPainting:false})
  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1',0,genericOuterProfile)).toThrow('outer composition')
+})
+
+
+it('reuses owned SOURCE2 static Soft validation across empty packets while packet validation remains live',()=>{
+ const f=fixture(),owned=canonicalSourceMaterialContext(f.context),empty=buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[],fences:[]},owned).packed
+ const spy=vi.spyOn(softStatic,'canonicalSoftAutoSourcePin')
+ try{spy.mockClear();expect(unpackCanonicalMaterial(empty,owned).draws).toEqual([]);expect(unpackCanonicalMaterial(empty,owned).draws).toEqual([]);expect(spy).not.toHaveBeenCalled()
+  expect(()=>unpackCanonicalMaterial(mutate(empty,v=>v.setUint16(10,1,true)),owned)).toThrow();expect(spy).not.toHaveBeenCalled()
+  const unknown=structuredClone(owned);Object.freeze(unknown);unpackCanonicalMaterial(empty,unknown);expect(spy).toHaveBeenCalled()
+ }finally{spy.mockRestore()}
+})
+it('owns both Soft role curves and coefficients while preserving signed-zero dynamic recipes and live per-DRAW validation',()=>{
+ const f=fixture(),raw=structuredClone(f.context),owned=canonicalSourceMaterialContext(raw),built=buildCanonicalMaterial(f.input,owned)
+ if(raw.primarySource.kind!=='softAuto'||!raw.maskSource||raw.maskSource.kind!=='softAuto'||owned.primarySource.kind!=='softAuto'||owned.maskSource?.kind!=='softAuto')throw Error('Expected paired original Soft sources')
+ expect(owned.primarySource.radialCurve.coefficients).not.toBe(raw.primarySource.radialCurve.coefficients);expect(owned.maskSource.source.softnessCurve.points).not.toBe(raw.maskSource.source.softnessCurve.points)
+ expect(Reflect.set(raw.primarySource.radialCurve.coefficients[0]!,'2',123)).toBe(true);expect(Reflect.set(raw.maskSource.source.softnessCurve.points[0]!,'y',.25)).toBe(true)
+ expect(owned.primarySource.radialCurve.coefficients[0]![2]).toBe(1);expect(owned.maskSource.source.softnessCurve.points[0]!.y).toBe(1)
+ expect(Object.isFrozen(owned.primarySource.radialCurve.coefficients[0])).toBe(true);expect(Object.isFrozen(owned.maskSource.source.softnessCurve.points[0])).toBe(true)
+ const decoded=unpackCanonicalMaterial(built.packed,owned);expect(Object.is(decoded.definitions[0]!.rotation,-0)).toBe(true)
+ expect(()=>unpackCanonicalMaterial(mutate(built.packed,v=>v.setUint8(24+2*96+2,1)),owned)).toThrow()
+ expect(unpackCanonicalMaterial(built.packed,owned)).toEqual(built.frame)
 })

@@ -4,7 +4,7 @@ import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame
 import type {BrushDescriptor} from './brushes.js'
 import { expect, it, vi } from 'vitest'
 import { assertPrimaryCanonicalMaterial, buildCanonicalMaterial, packCanonicalMaterial, unpackCanonicalMaterial, CANONICAL_SOURCE_MATERIAL_PROFILE,
-  CANONICAL_MATERIAL_PROFILE, canonicalSourceMaterialContext, type CanonicalMaterialContextV2, type CanonicalMaterialContext, type CanonicalMaterialFrameV2,
+  CANONICAL_MATERIAL_PROFILE, canonicalSourceMaterialContext, canonicalMaskedSourceMaterialContext, type CanonicalMaterialContextV2, type CanonicalMaterialContext, type CanonicalMaterialFrameV2,
   type CanonicalMaterialBuildInputV2, type CanonicalMaterialFrame } from './canonicalMaterialCodec.js'
 import { canonicalDefaultAutoStatic, type CanonicalDefaultAutoRecipe } from './canonicalDefaultAutoMaterial.js'
 import { decodeCanonicalStrokeFrame, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
@@ -177,4 +177,50 @@ it('accounts for ordered role texture assets in an empty paired SOURCE2 probe',(
  expect(()=>unpackCanonicalMaterial('2|'+btoa(String.fromCharCode(...enlarged)),c)).toThrow()
  const duplicate=canonicalSourceMaterialContext({...c,assets:c.assets.filter(asset=>asset.id!==b),roleTextures:{primary:pin(a),mask:pin(a)}})
  expect(unpackCanonicalMaterial(buildCanonicalMaterial({masked:true,entry:{phase:'between'},draws:[],fences:[]},duplicate).packed,duplicate)).toMatchObject({definitions:[]})
+})
+
+
+it('reuses only genuine owning SOURCE2 constructor results and keeps unknown frozen contexts on the full boundary',()=>{
+ const raw=context(),owned=canonicalSourceMaterialContext(raw)
+ expect(owned).not.toBe(raw);expect(canonicalSourceMaterialContext(owned)).toBe(owned)
+ const frozen=Object.freeze({...context(),primarySource:Object.freeze({...raw.primarySource}),budget:Object.freeze({...raw.budget}),assets:Object.freeze([])})
+ const captured=canonicalSourceMaterialContext(frozen);expect(captured).not.toBe(frozen);expect(canonicalSourceMaterialContext(captured)).toBe(captured)
+ expect(()=>canonicalSourceMaterialContext(Object.freeze({...frozen,budget:Object.freeze({...raw.budget,workUnits:-1})}))).toThrow()
+ expect(()=>canonicalSourceMaterialContext(Object.freeze({...frozen,version:3}))).toThrow()
+})
+it('owns image frames, crop rows, material planes and budget without freezing or retaining caller aliases',()=>{
+ const alpha='asset:'+'d'.repeat(64),gray='asset:'+'e'.repeat(64)
+ const raw={version:2 as const,assets:[alpha,gray].map(id=>({id,size:16,x:0,y:0,width:8,height:4})),primarySource:{kind:'image' as const,asset:alpha,brushScale:1,brushAngle:0,frames:[alpha,alpha],frameBounds:[{x:0,y:0,width:8,height:4},{x:1,y:1,width:7,height:3}],imageMaterial:{kind:'lightness-map-v1' as const,grayAsset:gray,strength:1,foregroundAlpha:1,grayFrames:[gray,gray]}},imageFrameIndices:'source-image-pipe-frame-v1' as const,materialParams:'source-material-parameters-v1' as const,colorParams:'source-pigment-rgb8-v1' as const,scaledSource:'source-scale-v1' as const,budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}}
+ const owned=canonicalSourceMaterialContext(raw);expect(canonicalSourceMaterialContext(owned)).toBe(owned)
+ expect(Object.isFrozen(raw.assets)).toBe(false);expect(Object.isFrozen(raw.primarySource.frameBounds[0])).toBe(false)
+ raw.assets[0]!.width=1;raw.primarySource.frames[1]=gray;raw.primarySource.frameBounds[1]!.x=9;raw.primarySource.imageMaterial.grayFrames[1]=alpha;raw.budget.workUnits=0
+ expect(owned.assets[0]!.width).toBe(8);expect(owned.primarySource).toMatchObject({kind:'image',frames:[alpha,alpha],frameBounds:[{x:0},{x:1}],imageMaterial:{grayFrames:[gray,gray]}})
+ const inspect=(value:unknown):void=>{if(value&&typeof value==='object'){expect(Object.isFrozen(value)).toBe(true);for(const v of Object.values(value))inspect(v)}};inspect(owned)
+ expect(Reflect.set(owned.assets[0]!,'width',999)).toBe(false)
+})
+it('captures Gaussian and paired role texture/spatial metadata as own SOURCE2 output',()=>{
+ const gaussian:CanonicalMaterialContextV2={...context(),primarySource:{kind:'gaussianAuto',descriptorId:'own-gauss',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{...source,kind:'gaussianAuto',generator:'gauss'},brushScale:1,brushAngle:0,coverageProfile:'scalar-bionic-f64-fma-v1'}}
+ const g=canonicalSourceMaterialContext(gaussian);expect(canonicalSourceMaterialContext(g)).toBe(g);expect(g.primarySource).toEqual(gaussian.primarySource)
+ const a='asset:'+'a'.repeat(64),pin={kind:'canvasTexture' as const,asset:a,law:'pixel-texture-u8-v1' as const,mode:'multiply' as const,width:4,height:4,periodX:4,periodY:4,phase:{kind:'resolved-stroke-phase-v1' as const,x:0,y:0},strength:'recorded-grain-v1' as const,soft:false}
+ const raw={...context(),assets:[{id:a,size:4,x:0,y:0,width:4,height:4}],maskSource:context().primarySource,maskingBlend:'multiply' as const,roleTextures:{primary:pin,mask:null},sourceColorFields:{primary:{kind:'total-random-rgb8-hash-v1' as const},mask:null}}
+ const masked=canonicalMaskedSourceMaterialContext(raw);expect(canonicalSourceMaterialContext(masked)).toBe(masked);expect(masked.maskingBlend).toBe('multiply')
+ pin.phase.x=1;raw.sourceColorFields.primary.kind='total-random-rgb8-hash-v1';expect(masked.roleTextures!.primary!.phase.x).toBe(0);expect(Object.isFrozen(masked.sourceColorFields!.primary)).toBe(true)
+ expect(Object.isFrozen(raw.roleTextures)).toBe(false)
+})
+it('keeps packed byte, definition, DRAW, fence, cost and expected-count checks live with an owned SOURCE2 context',()=>{
+ const c=canonicalSourceMaterialContext(context()),packed=buildCanonicalMaterial(input(recipe()),c).packed
+ expect(unpackCanonicalMaterial(packed,c).draws).toHaveLength(1)
+ const edits=[(v:DataView)=>v.setUint16(14,256,true),(v:DataView)=>v.setUint16(24+4,9,true),(v:DataView)=>v.setUint16(24+96,9,true),(v:DataView)=>v.setFloat64(24+96+12,2,true),(v:DataView)=>v.setFloat64(24+56,2,true)]
+ for(const edit of edits)expect(()=>unpackCanonicalMaterial(mutate(packed,edit),c)).toThrow()
+ const capped=canonicalSourceMaterialContext({...context(),expectedDrawCount:0});expect(()=>unpackCanonicalMaterial(packed,capped)).toThrow()
+ const fenced=buildCanonicalMaterial({...input(recipe()),fences:[{kind:'primaryEnd',at:1,group:1},{kind:'segmentEnd',at:1,group:1}]},c).packed
+ expect(()=>unpackCanonicalMaterial(mutate(fenced,(v,b)=>v.setUint16(b.length-16,2,true)),c)).toThrow()
+ expect(unpackCanonicalMaterial(packed,c).draws).toHaveLength(1)
+})
+it('does not brand legacy callback contexts or skip their per-definition work callbacks',()=>{
+ const id='asset:'+'f'.repeat(64),preflightDefinition=vi.fn(()=>({workUnits:1,outputBytes:32})),legacy:CanonicalMaterialContext={assets:[{id,size:8,x:0,y:0,width:8,height:4}],primaryAsset:id,budget:{workUnits:1000,outputBytes:1000,drawPixels:1000},preflightDefinition}
+ const image={asset:id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:4,mirrorH:false,mirrorV:false}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'primary',group:1},draws:[{recipe:image,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[]},legacy).packed
+ preflightDefinition.mockClear();unpackCanonicalMaterial(packed,legacy);const first=preflightDefinition.mock.calls.length;expect(first).toBeGreaterThan(0);unpackCanonicalMaterial(packed,legacy);expect(preflightDefinition.mock.calls.length).toBe(first*2)
+ expect(()=>canonicalSourceMaterialContext(legacy)).toThrow()
 })

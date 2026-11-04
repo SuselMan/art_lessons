@@ -598,7 +598,35 @@ export function canonicalSourceMaterialTipGradient(context:CanonicalMaterialCont
  }
  return gradient;
 }
+/** Static parser metadata only, never source/read/author authority. Only the
+ * owning SOURCE2 constructors below can mint membership after full validation. */
+const ownedSource2Contexts=new WeakSet<object>()
+function isOwnedSource2Context(value:unknown):value is CanonicalMaterialContextV2 {
+ return !!value&&typeof value==='object'&&ownedSource2Contexts.has(value)
+}
+/** The validated graph is bounded by existing SOURCE2 domains. Copy every
+ * nested DATA value before branding: no caller/library aliases are frozen. */
+function ownSource2Context(value:CanonicalMaterialContextV2):CanonicalMaterialContextV2 {
+ const copy=(input:unknown):unknown=>{
+  if(input===null||input===undefined||typeof input==='string'||typeof input==='boolean'||typeof input==='number')return input
+  if(typeof input!=='object')return fail()
+  const array=Array.isArray(input),prototype=Object.getPrototypeOf(input)
+  if(array?prototype!==Array.prototype:prototype!==Object.prototype&&prototype!==null)return fail()
+  const output:unknown[]|Record<string,unknown>=array?[]:Object.create(prototype)
+  for(const key of Reflect.ownKeys(input)){
+   if(array&&key==='length')continue
+   const field=typeof key==='string'?Object.getOwnPropertyDescriptor(input,key):undefined
+   if(!field||!Object.hasOwn(field,'value'))return fail()
+   Object.defineProperty(output,key,{value:copy(field.value),enumerable:field.enumerable,writable:false,configurable:false})
+  }
+  return Object.freeze(output)
+ }
+ const owned=copy(value) as CanonicalMaterialContextV2
+ ownedSource2Contexts.add(owned);return owned
+}
 function context(c:CodecContext):void {
+  if(isOwnedSource2Context(c))return
+
   if(isV2(c)||isV8(c)){
    canonicalSourceMaterialTipGradient(c);
    for(const [slot,source]of (isV2(c)?[c.primarySource,c.maskSource]:[c.primarySource]).entries())if(source?.kind==='image'&&source.imageMaterial?.kind==='gradient-map-v1'){
@@ -1185,6 +1213,7 @@ function captureSourceSlot(value:unknown,slot:0|1):CanonicalMaterialContextV2['p
 /** Own-DATA capture for the shared source2 executor, including optional mask.
  * It does not attest an original descriptor, room or execution permission. */
 export function canonicalSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 {
+ if(isOwnedSource2Context(value))return value
  const p=ownRecord(value,['version','assets','primarySource','budget'],['outerCompositionLaw','maskSource','maskingBlend','roleTextures','materialParams','colorParams','sourceColorFields','imageFrameIndices','scaledSource','expectedDrawCount','expectedStrokeEnd'])
  if(p.version!==2||p.materialParams!==undefined&&p.materialParams!=='source-material-parameters-v1'||p.colorParams!==undefined&&p.colorParams!=='source-pigment-rgb8-v1'&&p.colorParams!=='source-pigment-rgba8-v1')return fail()
  let maskingBlend:CanonicalMaskingBlendMode|undefined
@@ -1194,11 +1223,12 @@ export function canonicalSourceMaterialContext(value:unknown):CanonicalMaterialC
  const budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels']) as unknown as CanonicalMaterialContextV2['budget']
  const captured={...p,...p.roleTextures!==undefined?{roleTextures:canonicalSourceRoleTextures(p.roleTextures,assets,p.maskSource!==undefined)}:{},...p.sourceColorFields!==undefined?{sourceColorFields:canonicalSourceColorFields(p.sourceColorFields)}:{},...p.materialParams!==undefined?{materialParams:'source-material-parameters-v1' as const}:{},...p.colorParams==='source-pigment-rgba8-v1'?{colorParams:'source-pigment-rgba8-v1' as const}:p.colorParams==='source-pigment-rgb8-v1'?{colorParams:'source-pigment-rgb8-v1' as const}:{},version:2 as const,assets:Object.freeze(assets),primarySource:captureSourceSlot(p.primarySource,0),...p.maskSource!==undefined?{maskSource:captureSourceSlot(p.maskSource,1)}:{},...maskingBlend?{maskingBlend}:{},budget:Object.freeze(budget)}
  context(captured)
- return Object.freeze(captured)
+ return ownSource2Context(captured)
 }
 /** Executable masking always requires an explicitly recorded composition. */
 export function canonicalMaskedSourceMaterialContext(value:unknown):CanonicalMaterialContextV2 & {readonly maskSource:NonNullable<CanonicalMaterialContextV2['maskSource']>;readonly maskingBlend:CanonicalMaskingBlendMode} {
  const captured=canonicalSourceMaterialContext(value)
  if(!captured.maskSource||!captured.maskingBlend)return fail()
- return Object.freeze({...captured,maskSource:captured.maskSource,maskingBlend:captured.maskingBlend})
+ const masked=Object.freeze({...captured,maskSource:captured.maskSource,maskingBlend:captured.maskingBlend})
+ ownedSource2Contexts.add(masked);return masked
 }
