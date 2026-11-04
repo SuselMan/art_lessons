@@ -77,6 +77,17 @@ uint sourceRgba8PenumbraB(uint s,uint d){
 uint sourceRgba8PenumbraD(uint s,uint d){return d==255u?255u:uint(sourceRgba8QuantizedAtan(float(s),float(255u-d)));}
 uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByte) {
   uint source=sourceByte,destination=destinationByte;
+  if(mode==53u)return source^destination;
+  if(mode==54u)return source|destination;
+  if(mode==55u)return source&destination;
+  if(mode==56u)return 255u^(source&destination);
+  if(mode==57u)return 255u^(source|destination);
+  if(mode==58u)return 255u^(source^destination);
+  if(mode==59u)return source|(255u^destination);
+  if(mode==60u)return (255u^source)&destination;
+  if(mode==61u)return (255u^source)|destination;
+  if(mode==62u)return source&(255u^destination);
+
   if(mode==47u)return uint(clamp(3*int(destination)-2*int(255u-source),0,255));
   if(mode==48u)return sourceRgba8PenumbraB(destination,source);
   if(mode==49u)return sourceRgba8PenumbraB(source,destination);

@@ -198,8 +198,27 @@ APP9: 9/9 PASS; reflect_freeze и hybrid проверены через peer, Und
 reference. Четыре integer-графа точные; два atan-графа имеют функциональный
 профиль без утверждения ARM64/libm identity. IDs 47..52 добавлены в конец списка;
 revision40 применяется селективно. Старые профили G/native не расширены.
-GPU и APP этого нового блока ещё не проверены.
+На6993e00dd HOST иSamsung прошли321 GPU-сценарий и25×65536пар.
+APP6:6/6 PASS; PenumbraD иFlatLight прошли peer/UndoRedo/cold обоих клиентов.
+Все контексты закрыты, pendingRPC0; ранее открытый HOST lag остаётся открытым.
 
 Доказательства: pixel-generic-sc-quadratic-gpu-both-final-proof-v1.json,
 pixel10-quadratic9-app-samsung-a30-root1-result.json,
 pixel-penumbra6-gates-v1/final-proof.json.
+
+
+## Битовые режимы Pixel
+
+Добавлены десять режимов XOR/OR/AND/NAND/NOR/XNOR/implication/converse
+и их отрицаний: IDs53..62, селективная revision41, только browser-профиль.
+Цельный блок прошёл2254 теста в25 файлах, strict6/41/0, importer35
+и655360 пар независимого DEFINED uint32 wrapping reference.
+Это явная функциональная U8-арифметика. В исходном C++ Krita соответствующий
+путь зависит от signed overflow; переносимая идентичность native-компиляторам
+не заявляется, импорт помечается approximate с указанием закона.
+GPU иAPP битового блока пока не проверены. Старые G/native-профили закрыты.
+
+Доказательства в fixes-v52: pixel-binary10-gates-v1/final-proof.json,
+pixel-generic-sc-binary-extension-independent-review-v1.json,
+pixel-generic-sc-penumbra-gpu-both-final-proof-v1.json,
+pixel10-penumbra6-app-samsung-699-root2-result.json.

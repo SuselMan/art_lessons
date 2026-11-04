@@ -162,7 +162,27 @@ float sourceRgba8PenumbraB(float s,float d){
  return 255.0-min(255.0,floor(sourceRgba8Divide(255.0-d,s)*0.5));
 }
 float sourceRgba8PenumbraD(float s,float d){return d==255.0?255.0:sourceRgba8QuantizedAtan(s,255.0-d);}
+// Defined functional byte-bitwise graph. Exact bounded ES1 decomposition, no GPU bitops/LUT.
+float sourceRgba8Binary(float mode,float s,float d){
+ float result=0.0,weight=1.0;
+ for(int bit=0;bit<8;bit++){
+  float a=s-floor(s*0.5)*2.0,b=d-floor(d*0.5)*2.0,v=0.0;
+  if(mode==53.0)v=abs(a-b);
+  else if(mode==54.0)v=max(a,b);
+  else if(mode==55.0)v=a*b;
+  else if(mode==56.0)v=1.0-a*b;
+  else if(mode==57.0)v=1.0-max(a,b);
+  else if(mode==58.0)v=1.0-abs(a-b);
+  else if(mode==59.0)v=max(a,1.0-b);
+  else if(mode==60.0)v=(1.0-a)*b;
+  else if(mode==61.0)v=max(1.0-a,b);
+  else if(mode==62.0)v=a*(1.0-b);
+  result+=v*weight;weight*=2.0;s=floor(s*0.5);d=floor(d*0.5);
+ }
+ return result;
+}
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
+  if(mode>=53.0&&mode<=62.0)return sourceRgba8Binary(mode,source,destination);
   if(mode==47.0)return clamp(3.0*destination-2.0*(255.0-source),0.0,255.0);
   if(mode==48.0)return sourceRgba8PenumbraB(destination,source);
   if(mode==49.0)return sourceRgba8PenumbraB(source,destination);
