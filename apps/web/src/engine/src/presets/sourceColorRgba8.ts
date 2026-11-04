@@ -123,7 +123,7 @@ export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-gener
 export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
-export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid' | 'hardMixSofterPhotoshop' | 'penumbraA' | 'penumbraB' | 'penumbraC' | 'penumbraD' | 'flatLight' | 'binaryXor' | 'binaryOr' | 'binaryAnd' | 'binaryNand' | 'binaryNor' | 'binaryXnor' | 'binaryImplication' | 'binaryNotImplication' | 'binaryConverse' | 'binaryNotConverse'
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid' | 'hardMixSofterPhotoshop' | 'penumbraA' | 'penumbraB' | 'penumbraC' | 'penumbraD' | 'flatLight' | 'binaryXor' | 'binaryOr' | 'binaryAnd' | 'binaryNand' | 'binaryNor' | 'binaryXnor' | 'binaryImplication' | 'binaryNotImplication' | 'binaryConverse' | 'binaryNotConverse' | 'tint' | 'increaseSaturation' | 'decreaseSaturation' | 'increaseLuminosity' | 'decreaseLuminosity' | 'colorHsl' | 'hueHsl' | 'saturationHsl' | 'increaseSaturationHsl' | 'decreaseSaturationHsl' | 'lightnessHsl' | 'increaseLightnessHsl' | 'decreaseLightnessHsl' | 'colorHsv' | 'hueHsv' | 'saturationHsv' | 'increaseSaturationHsv' | 'decreaseSaturationHsv' | 'valueHsv' | 'increaseValueHsv' | 'decreaseValueHsv' | 'colorHsi' | 'hueHsi' | 'saturationHsi' | 'increaseSaturationHsi' | 'decreaseSaturationHsi' | 'intensityHsi' | 'increaseIntensityHsi' | 'decreaseIntensityHsi'
 interface Rgba8CompositeParameters {
   readonly opacity: number
   readonly mask?: number
@@ -135,19 +135,20 @@ export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: SourceRgba8SeparableMode | 'add'; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
   { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
-export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse'] as const
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): number {
   const index = SOURCE_RGBA8_COMPOSITE_MODES.findIndex(candidate => candidate === mode)
   if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
   return index
 }
-const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse']
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi']
 export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
 /** Closed channel functors. Whole-RGB modes require compositeRgba8, which
  * supplies all three channels and preserves the generic HSL alpha shell. */
 export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
   if (!Number.isInteger(source) || source < 0 || source > 255 || !Number.isInteger(destination) || destination < 0 || destination > 255)
     throw new RangeError('Invalid separable byte channel')
+  const hsxId=sourceRgba8CompositeModeId(mode);if(hsxId>=63&&hsxId<=91)throw new RangeError('HSX vector mode requires RGB channels')
   return separableChannel(mode, source, destination)
 }
 // Pinned Quadratic U8: materialize biased M before rounded Q; never divide at endpoints.
@@ -274,11 +275,53 @@ export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8, p
 }
 /** Functional sRGB/HSY vector functors; whole-RGB selection is intentional.
  * These browser modes do not claim native ICC/ISA pixel identity. */
-type SourceRgba8VectorMode=Extract<SourceRgba8SeparableMode,'darkerColor'|'lighterColor'|'hue'|'saturation'|'luminosity'>
-const vectorModes:readonly SourceRgba8VectorMode[]=['darkerColor','lighterColor','hue','saturation','luminosity']
+type SourceRgba8VectorMode=Extract<SourceRgba8SeparableMode,'darkerColor'|'lighterColor'|'hue'|'saturation'|'luminosity'|'tint'|'increaseSaturation'|'decreaseSaturation'|'increaseLuminosity'|'decreaseLuminosity'|'colorHsl'|'hueHsl'|'saturationHsl'|'increaseSaturationHsl'|'decreaseSaturationHsl'|'lightnessHsl'|'increaseLightnessHsl'|'decreaseLightnessHsl'|'colorHsv'|'hueHsv'|'saturationHsv'|'increaseSaturationHsv'|'decreaseSaturationHsv'|'valueHsv'|'increaseValueHsv'|'decreaseValueHsv'|'colorHsi'|'hueHsi'|'saturationHsi'|'increaseSaturationHsi'|'decreaseSaturationHsi'|'intensityHsi'|'increaseIntensityHsi'|'decreaseIntensityHsi'>
+const vectorModes:readonly SourceRgba8VectorMode[]=['darkerColor','lighterColor','hue','saturation','luminosity','tint','increaseSaturation','decreaseSaturation','increaseLuminosity','decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi']
 function isVectorMode(mode:SourceRgba8SeparableMode|'add'):mode is SourceRgba8VectorMode{return vectorModes.some(candidate=>candidate===mode)}
+// Remaining HSY functors reuse the existing browser vector lightness/saturation/ToneMapping graph.
+// Native decSat=SatD*SatS; decLum adds LS-1. These are NOT scalar channel operations.
+function hsyExtendedVector(mode:SourceRgba8SeparableMode,a:readonly number[],b:readonly number[]):number[]{
+ const lum=(c:readonly number[])=>.299*c[0]+.587*c[1]+.114*c[2],la=lum(a),lb=lum(b)
+ if(mode==='tint')return a.map(v=>Math.trunc(clamp(lb+v*(1-lb))*255+.5))
+ let c=[...b]
+ if(mode==='increaseLuminosity'||mode==='decreaseLuminosity')c=c.map(v=>v+la-(mode==='decreaseLuminosity'?1:0))
+ else{
+  const sa=Math.max(...a)-Math.min(...a),sd=Math.max(...b)-Math.min(...b),sat=mode==='increaseSaturation'?sd+(1-sd)*sa:sd*sa
+  const lo=Math.min(...c),hi=Math.max(...c);c=hi-lo>2**-23?c.map(v=>(v-lo)*sat/(hi-lo)):[0,0,0]
+  const delta=lb-lum(c);c=c.map(v=>v+delta)
+ }
+ // Same browser ToneMapping policy as existing vectorBlend; retain pre-adjustment l/n/x.
+ const l=lum(c),n=Math.min(...c),x=Math.max(...c)
+ if(n<0)c=l<=.00001||l-n<2**-23?[0,0,0]:c.map(v=>l+(v-l)*l/(l-n))
+ if(x>1)c=l>1||x-l<2**-23?[1,1,1]:c.map(v=>l+(v-l)*(1-l)/(x-l))
+ return c.map(v=>Math.trunc(clamp(v)*255+.5))
+}
+// HSL/HSV/HSI follow pinned native template helpers, not textbook model conversion.
+// model0=HSL,1=HSV,2=HSI; eight operations retain native registration order.
+function hsxExtendedVector(model:number,op:number,a:readonly number[],b:readonly number[]):number[]{
+ const eps=2**-23
+ const light=(c:readonly number[])=>model===0?(Math.max(...c)+Math.min(...c))*.5:model===1?Math.max(...c):(c[0]+c[1]+c[2])/3
+ const saturation=(c:readonly number[])=>{const hi=Math.max(...c),lo=Math.min(...c),chroma=hi-lo
+  if(model===0){const denominator=1-Math.abs(2*light(c)-1);return denominator>eps?chroma/denominator:0}
+  if(model===1)return hi>eps?chroma/hi:0
+  return chroma>eps?1-lo/light(c):0
+ }
+ const la=light(a),lb=light(b);let c=op===0||op===1?[...a]:[...b]
+ if(op===1||op===2||op===3||op===4){
+  const sa=saturation(a),sd=saturation(b),sat=op===1?sd:op===2?sa:op===3?sd+(1-sd)*sa:sd*sa
+  const lo=Math.min(...c),hi=Math.max(...c);c=hi-lo>eps?c.map(v=>(v-lo)*sat/(hi-lo)):[0,0,0]
+ }
+ const delta=op===0||op===1||op===2||op===3||op===4?lb-light(c):op===5?la-lb:op===6?la:la-1
+ c=c.map(v=>v+delta)
+ const l=light(c),n=Math.min(...c),x=Math.max(...c)
+ if(n<0)c=l<=.00001||l-n<eps?[0,0,0]:c.map(v=>l+(v-l)*l/(l-n))
+ if(x>1)c=l>1||x-l<eps?(model===1?c.map(v=>Math.min(v,1)):[1,1,1]):c.map(v=>l+(v-l)*(1-l)/(x-l))
+ return c.map(v=>Math.trunc(clamp(v)*255+.5))
+}
 function vectorBlend(mode:SourceRgba8SeparableMode,source:Rgba8,destination:Rgba8):number[]{
  const a=source.slice(0,3).map(x=>x/255),b=destination.slice(0,3).map(x=>x/255)
+ if(mode.endsWith('Hsl')||mode.endsWith('Hsv')||mode.endsWith('Hsi')){const hsxId=sourceRgba8CompositeModeId(mode);return hsxExtendedVector(Math.floor((hsxId-68)/8),(hsxId-68)%8,a,b)}
+ if(mode==='tint'||mode==='increaseSaturation'||mode==='decreaseSaturation'||mode==='increaseLuminosity'||mode==='decreaseLuminosity')return hsyExtendedVector(mode,a,b)
  const lum=(c:readonly number[])=>.299*c[0]+.587*c[1]+.114*c[2]
  if(mode==='darkerColor'||mode==='lighterColor')return ((mode==='darkerColor'?lum(a)<lum(b):lum(a)>lum(b))?a:b).map(x=>Math.trunc(x*255+.5))
  let c=mode==='hue'?[...a]:[...b]

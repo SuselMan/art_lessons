@@ -216,9 +216,28 @@ pixel-penumbra6-gates-v1/final-proof.json.
 Это явная функциональная U8-арифметика. В исходном C++ Krita соответствующий
 путь зависит от signed overflow; переносимая идентичность native-компиляторам
 не заявляется, импорт помечается approximate с указанием закона.
-GPU иAPP битового блока пока не проверены. Старые G/native-профили закрыты.
+На cabd42c99 HOST иSamsung прошли381 GPU-сценарий и35×65536пар.
+APP10:10/10 PASS, implication/converse прошли peer/UndoRedo/cold обоих клиентов;
+cleanup чистый, pendingRPC0. Старые G/native-профили закрыты.
 
 Доказательства в fixes-v52: pixel-binary10-gates-v1/final-proof.json,
 pixel-generic-sc-binary-extension-independent-review-v1.json,
 pixel-generic-sc-penumbra-gpu-both-final-proof-v1.json,
 pixel10-penumbra6-app-samsung-699-root2-result.json.
+
+
+## Полные цветовые семейства HSX
+
+Цельным блоком добавлены HSY5 и HSL/HSV/HSI8 каждый —29 векторных режимов,
+IDs63..91, единая селективная revision42. Общая альфа-композиция сохранена.
+Покрытие2317 тестов в26 модулях составлено из25 неизменённых модулей V2
+и34 тестов исправленного модуля V3; полного повторного V3-прогона не было.
+Исправлено только ожидание staged U8-композиции в тесте, production не менялся.
+Strict6/41/0, importer37, lint11. Native float witness:3509 векторов,
+112 отличий от browser f64, максимум1 байт; это диагностическое сравнение,
+не заявление native pixel identity. GPU иAPP29 пока не выполнены.
+
+Доказательства в fixes-v52: pixel-hsx29-gates-v3/final-proof.json,
+pixel-generic-sc-hsx-extension-independent-review-v2.json,
+pixel-generic-sc-binary-gpu-both-final-proof-v1.json,
+pixel10-binary10-app-samsung-cabd-root1-result.json.

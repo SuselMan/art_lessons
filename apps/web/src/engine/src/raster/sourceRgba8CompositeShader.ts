@@ -158,7 +158,57 @@ uint sourceRgba8GenericScModeChannel(uint mode, uint source, uint destination, u
   return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
 }
 
+vec3 sourceRgba8HsyExtended(float mode,vec3 a,vec3 b){
+ vec3 weights=vec3(.299,.587,.114);float la=dot(a,weights),lb=dot(b,weights);
+ if(mode==63.0)return floor(clamp(vec3(lb)+a*(1.0-lb),0.0,1.0)*255.0+vec3(.5));
+ vec3 c=b;
+ if(mode==66.0||mode==67.0)c+=vec3(la-(mode==67.0?1.0:0.0));
+ else{
+  float sa=max(a.r,max(a.g,a.b))-min(a.r,min(a.g,a.b)),sd=max(b.r,max(b.g,b.b))-min(b.r,min(b.g,b.b));
+  float sat=0.0;if(mode==64.0)sat=sd+(1.0-sd)*sa;else if(mode==65.0)sat=sd*sa;
+  float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));
+  c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);
+  c+=vec3(lb-dot(c,weights));
+ }
+ float l=dot(c,weights),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
+ if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?vec3(1.0):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
+ return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
+}
+float sourceRgba8HsxLight(float model,vec3 c){return model==0.0?(max(c.r,max(c.g,c.b))+min(c.r,min(c.g,c.b)))*.5:model==1.0?max(c.r,max(c.g,c.b)):(c.r+c.g+c.b)/3.0;}
+float sourceRgba8HsxSaturation(float model,vec3 c){
+ float hi=max(c.r,max(c.g,c.b)),lo=min(c.r,min(c.g,c.b)),chroma=hi-lo;
+ if(model==0.0){float denominator=1.0-abs(2.0*sourceRgba8HsxLight(model,c)-1.0);return denominator>0.00000011920928955078125?chroma/denominator:0.0;}
+ if(model==1.0)return hi>0.00000011920928955078125?chroma/hi:0.0;
+ return chroma>0.00000011920928955078125?1.0-lo/sourceRgba8HsxLight(model,c):0.0;
+}
+float sourceRgba8HsxOperation(float mode){
+ if(mode==68.0||mode==76.0||mode==84.0)return 0.0;
+ if(mode==69.0||mode==77.0||mode==85.0)return 1.0;
+ if(mode==70.0||mode==78.0||mode==86.0)return 2.0;
+ if(mode==71.0||mode==79.0||mode==87.0)return 3.0;
+ if(mode==72.0||mode==80.0||mode==88.0)return 4.0;
+ if(mode==73.0||mode==81.0||mode==89.0)return 5.0;
+ if(mode==74.0||mode==82.0||mode==90.0)return 6.0;
+ if(mode==75.0||mode==83.0||mode==91.0)return 7.0;
+ return -1.0;
+}
+vec3 sourceRgba8HsxExtended(float mode,vec3 a,vec3 b){
+ float model=floor((mode-68.0)/8.0),op=sourceRgba8HsxOperation(mode),la=sourceRgba8HsxLight(model,a),lb=sourceRgba8HsxLight(model,b);
+ vec3 c=op==0.0||op==1.0?a:b;
+ if(op>=1.0&&op<=4.0){
+  float sa=sourceRgba8HsxSaturation(model,a),sd=sourceRgba8HsxSaturation(model,b),sat=op==1.0?sd:op==2.0?sa:op==3.0?sd+(1.0-sd)*sa:sd*sa;
+  float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);
+ }
+ float delta=op<=4.0?lb-sourceRgba8HsxLight(model,c):op==5.0?la-lb:op==6.0?la:la-1.0;c+=vec3(delta);
+ float l=sourceRgba8HsxLight(model,c),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
+ if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?(model==1.0?min(c,vec3(1.0)):vec3(1.0)):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
+ return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
+}
 vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
+ if(mode>=68.0&&mode<=91.0)return sourceRgba8HsxExtended(mode,source/255.0,destination/255.0);
+ if(mode>=63.0&&mode<=67.0)return sourceRgba8HsyExtended(mode,source/255.0,destination/255.0);
  vec3 a=source/255.0,b=destination/255.0;vec3 weights=vec3(.299,.587,.114);
  float la=dot(a,weights),lb=dot(b,weights);
  if(mode==21.0||mode==22.0)return(mode==21.0?la<lb:la>lb)?source:destination;
@@ -199,7 +249,7 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
   uint sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0u) return destination;
   uint alpha = sa + da - sourceRgba8Multiply(sa, da);
-  if(control.mode>=21u&&control.mode<=25u){uvec3 cf=uvec3(sourceRgba8VectorBlend(float(control.mode),vec3(source.rgb),vec3(destination.rgb)));
+  if((control.mode>=21u&&control.mode<=25u)||(control.mode>=63u&&control.mode<=91u)){uvec3 cf=uvec3(sourceRgba8VectorBlend(float(control.mode),vec3(source.rgb),vec3(destination.rgb)));
     uvec3 v=(uvec3(sourceRgba8Multiply3(255u-sa,da,destination.r),sourceRgba8Multiply3(255u-sa,da,destination.g),sourceRgba8Multiply3(255u-sa,da,destination.b))+uvec3(sourceRgba8Multiply3(255u-da,sa,source.r),sourceRgba8Multiply3(255u-da,sa,source.g),sourceRgba8Multiply3(255u-da,sa,source.b))+uvec3(sourceRgba8Multiply3(da,sa,cf.r),sourceRgba8Multiply3(da,sa,cf.g),sourceRgba8Multiply3(da,sa,cf.b)))&uvec3(255u);
     return uvec4(sourceRgba8Divide(v.r,alpha)&255u,sourceRgba8Divide(v.g,alpha)&255u,sourceRgba8Divide(v.b,alpha)&255u,alpha);}
   return uvec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
