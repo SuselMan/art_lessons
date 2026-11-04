@@ -241,3 +241,29 @@ Strict6/41/0, importer37, lint11. Native float witness:3509 векторов,
 pixel-generic-sc-hsx-extension-independent-review-v2.json,
 pixel-generic-sc-binary-gpu-both-final-proof-v1.json,
 pixel10-binary10-app-samsung-cabd-root1-result.json.
+
+
+## Численный граф HSX и следующий Scalar23
+
+Первоначальный GPU-прогон7cf:555 обычных сценариев и35 scalar-таблиц прошли,
+RGB29 — FAIL. HOST120 иSamsung119 каналов отличались отCPU f64 на1;
+междуGPU совпали28/29 полныхRGBA-таблиц. Эти FAIL сохранены.
+HSX29 переведён на фиксированную сетку65535 с точными парными целочисленными
+произведениями/остатками наGPU. Входbyte*257 сохраняет тёмные цвета.
+Старые0..62, общая альфа-композиция, wire и профили не изменены.
+
+Одновременно добавлен цельный Scalar23, IDs92..114/revision43:14 световых
+режимов,6 modulo, HardOverlay и2 interpolation. Для пяти real-epsilon
+modulo выбран явный browser rational-U8 закон; это approximate импорт
+с token defined-rational-u8-modulo-v1, а не native double-epsilon identity.
+
+Объединённый14-file блок проверен2350 тестами в28 модулях, strict6/41/0,
+lint12 (два предупреждения о точности исходных PNorm литералов), importer39.
+Scalar23:23×65536 CPU/reference пар и векторы совпали на этомhost;
+2 integer и6 defined строгие,15 libm-qualified. Повторный HSXfloat/Q witness
+под combined:129 отличий/3509, максимум1. Это не native pixel identity.
+Новый GPU иAPP расширений пока не выполнены.
+
+Доказательства в fixes-v52: pixel-combined-scalar-q-gates-v1/final-proof.json,
+pixel-hsx29-first-host-root-audit.json,
+pixel-hsx29-samsung-host-diagnostic-root-audit.json.

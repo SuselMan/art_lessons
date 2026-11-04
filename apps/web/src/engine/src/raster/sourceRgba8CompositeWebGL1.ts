@@ -181,7 +181,44 @@ float sourceRgba8Binary(float mode,float s,float d){
  }
  return result;
 }
+float sourceRgba8Scalar23Round(float value){return floor(clamp(value,0.0,1.0)*255.0+.5);}
+float sourceRgba8Scalar23GammaDark(float s,float d){if(d==0.0)return 0.0;if(d==255.0)return 255.0;if(s==0.0)return 0.0;return sourceRgba8Scalar23Round(pow(d/255.0,1.0/(s/255.0)));}
+float sourceRgba8Scalar23Interpolation(float s,float d){if(s==0.0&&d==0.0)return 0.0;return sourceRgba8Scalar23Round(.5-.25*cos(3.14159265358979323846*(s/255.0))-.25*cos(3.14159265358979323846*(d/255.0)));}
+float sourceRgba8Scalar23Real(float mode,float s,float d){
+ float x=s/255.0,y=d/255.0;
+ if(mode==92.0)return sourceRgba8Scalar23GammaDark(s,d);
+ if(mode==93.0)return d==0.0?0.0:d==255.0?255.0:sourceRgba8Scalar23Round(pow(y,x));
+ if(mode==94.0)return 255.0-sourceRgba8Scalar23GammaDark(255.0-s,255.0-d);
+ if(mode==95.0)return s==255.0?255.0:sourceRgba8Scalar23Round(pow(y,(1.0-x)*1.039999999));
+ // Literal native surrogate1-.999999999999 must not collapse to zero in highp.
+ if(mode==96.0)return d==0.0?0.0:sourceRgba8Scalar23Round(1.0-pow(s==255.0?0.0000000000009999778782798785:1.0-x,y*1.039999999));
+ if(mode==97.0)return clamp(floor(pow(pow(d,2.3333333333333333)+pow(s,2.3333333333333333),.428571428571434)),0.0,255.0);
+ if(mode==98.0)return clamp(floor(pow(pow(d,4.0)+pow(s,4.0),.25)),0.0,255.0);
+ if(mode==99.0)return sourceRgba8Scalar23Round(x<.5?1.0-pow(pow(1.0-y,2.875)+pow(1.0-2.0*x,2.875),1.0/2.875):pow(pow(y,2.875)+pow(2.0*x-1.0,2.875),1.0/2.875));
+ if(mode==100.0)return sourceRgba8Scalar23Round(pow(y,pow(2.0,2.0*(.5-x))));
+ if(mode==102.0)return sourceRgba8Scalar23Round(x*(1.0-y)+sqrt(y));
+ if(mode==103.0)return sourceRgba8Scalar23Round(1.0-((1.0-y)*x+sqrt(1.0-x)));
+ if(mode==104.0)return sourceRgba8Scalar23Round(x<.5?1.0-(1.0-x)*x-(1.0-y)*(1.0-x):x-(1.0-y)*(1.0-x)+pow(1.0-x,2.0));
+ if(mode==105.0)return sourceRgba8Scalar23Round(x<.5?(1.0-x)*x+x*y:x*y+x-pow(x,2.0));
+ if(mode==113.0)return sourceRgba8Scalar23Interpolation(s,d);
+ if(mode==114.0){float inner=sourceRgba8Scalar23Interpolation(s,d);return sourceRgba8Scalar23Interpolation(inner,inner);}
+ return 0.0;
+}
+float sourceRgba8Scalar23Remainder(float n,float d){return n-sourceRgba8ChannelFloorDivide(n,d)*d;}
+float sourceRgba8Scalar23DivContinuous(float s,float d){if(d==0.0||s==0.0)return 0.0;float rem=sourceRgba8Scalar23Remainder(d-1.0,s)+1.0,q=sourceRgba8ChannelFloorDivide(d+s-1.0,s);return sourceRgba8Divide(sourceRgba8Scalar23Remainder(q,2.0)==1.0?rem:s-rem,s);}
+float sourceRgba8Scalar23Integer(float mode,float s,float d){
+ if(mode==101.0)return min(255.0,sourceRgba8Multiply(d,s+d-sourceRgba8Multiply(s,d))+sourceRgba8Multiply(sourceRgba8Multiply(s,d),255.0-d));
+ if(mode==106.0)return sourceRgba8Scalar23Remainder(d,s+1.0);
+ if(mode==107.0)return sourceRgba8Multiply(sourceRgba8Scalar23DivContinuous(s,d),s);
+ if(mode==108.0){if(d==0.0)return 0.0;if(s==0.0)return d;return sourceRgba8Divide(sourceRgba8Scalar23Remainder(d-1.0,s)+1.0,s);}
+ if(mode==109.0)return sourceRgba8Scalar23DivContinuous(s,d);
+ if(mode==110.0){if(s==255.0&&d==0.0)return 0.0;float sum=s+d;return sum==0.0?0.0:sourceRgba8Scalar23Remainder(sum-1.0,255.0)+1.0;}
+ if(mode==111.0){float sum=s+d;return sum<=255.0?sum:510.0-sum;}
+ if(mode==112.0){if(d==0.0)return 0.0;if(s==255.0)return 255.0;return min(255.0,s>=127.0?sourceRgba8ChannelFloorDivide(d*255.0,2.0*(255.0-s)):sourceRgba8ChannelFloorDivide(d*2.0*s,255.0));}
+ return 0.0;
+}
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
+  if(mode>=92.0&&mode<=114.0)return mode==101.0||(mode>=106.0&&mode<=112.0)?sourceRgba8Scalar23Integer(mode,source,destination):sourceRgba8Scalar23Real(mode,source,destination);
   if(mode>=53.0&&mode<=62.0)return sourceRgba8Binary(mode,source,destination);
   if(mode==47.0)return clamp(3.0*destination-2.0*(255.0-source),0.0,255.0);
   if(mode==48.0)return sourceRgba8PenumbraB(destination,source);
@@ -251,31 +288,40 @@ float sourceRgba8GenericScModeChannel(float mode, float source, float destinatio
   return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
 }
 
-vec3 sourceRgba8HsyExtended(float mode,vec3 a,vec3 b){
- vec3 weights=vec3(.299,.587,.114);float la=dot(a,weights),lb=dot(b,weights);
- if(mode==63.0)return floor(clamp(vec3(lb)+a*(1.0-lb),0.0,1.0)*255.0+vec3(.5));
- vec3 c=b;
- if(mode==66.0||mode==67.0)c+=vec3(la-(mode==67.0?1.0:0.0));
- else{
-  float sa=max(a.r,max(a.g,a.b))-min(a.r,min(a.g,a.b)),sd=max(b.r,max(b.g,b.b))-min(b.r,min(b.g,b.b));
-  float sat=0.0;if(mode==64.0)sat=sd+(1.0-sd)*sa;else if(mode==65.0)sat=sd*sa;
-  float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));
-  c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);
-  c+=vec3(lb-dot(c,weights));
- }
- float l=dot(c,weights),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
- if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
- if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?vec3(1.0):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
- return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
+// HSX29-only deterministic Q65535 law: pair=(high,low), base65536.
+// Split base256 product/add intermediates are exact highp integers <2^24.
+vec2 sourceHsxProduct(float a,float b){
+ float ah=floor(a/256.0),al=a-ah*256.0,bh=floor(b/256.0),bl=b-bh*256.0;
+ float cross=ah*bl+al*bh,carry=floor(cross/256.0);
+ float low=al*bl+(cross-carry*256.0)*256.0,high=ah*bh+carry;
+ float c=floor(low/65536.0);return vec2(high+c,low-c*65536.0);
 }
-float sourceRgba8HsxLight(float model,vec3 c){return model==0.0?(max(c.r,max(c.g,c.b))+min(c.r,min(c.g,c.b)))*.5:model==1.0?max(c.r,max(c.g,c.b)):(c.r+c.g+c.b)/3.0;}
-float sourceRgba8HsxSaturation(float model,vec3 c){
+vec2 sourceHsxPairAdd(vec2 a,vec2 b){float low=a.y+b.y,c=floor(low/65536.0);return vec2(a.x+b.x+c,low-c*65536.0);}
+float sourceHsxRatio(vec2 n,float d){
+ // Approximate ONLY trialquotient. Subtract exact limbs, never large rounded floats.
+ float q=floor((n.x*65536.0+n.y)/d);vec2 p=sourceHsxProduct(q,d);
+ float r=(n.x-p.x)*65536.0+(n.y-p.y);
+ if(r<0.0){q-=1.0;r+=d;}else if(r>=d){q+=1.0;r-=d;}
+ return q+(r*2.0>=d?1.0:0.0);
+}
+float sourceHsxMulRatio(float a,float b,float d){return sourceHsxRatio(sourceHsxProduct(abs(a),abs(b)),d)*sign(a)*sign(b);}
+float sourceHsxLight(float model,vec3 c){
+ float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));
+ if(model==0.0){vec3 v=c-vec3(lo);vec2 p=sourceHsxPairAdd(sourceHsxProduct(v.r,299.0),sourceHsxProduct(v.g,587.0));return lo+sourceHsxRatio(sourceHsxPairAdd(p,sourceHsxProduct(v.b,114.0)),1000.0);}
+ if(model==1.0){float sum=hi+lo;return sign(sum)*sourceHsxRatio(vec2(0.0,abs(sum)),2.0);}
+ if(model==2.0)return hi;
+ float sum=c.r+c.g+c.b;return sign(sum)*sourceHsxRatio(vec2(0.0,abs(sum)),3.0);
+}
+float sourceHsxSat(float model,vec3 c){
  float hi=max(c.r,max(c.g,c.b)),lo=min(c.r,min(c.g,c.b)),chroma=hi-lo;
- if(model==0.0){float denominator=1.0-abs(2.0*sourceRgba8HsxLight(model,c)-1.0);return denominator>0.00000011920928955078125?chroma/denominator:0.0;}
- if(model==1.0)return hi>0.00000011920928955078125?chroma/hi:0.0;
- return chroma>0.00000011920928955078125?1.0-lo/sourceRgba8HsxLight(model,c):0.0;
+ if(model==0.0)return chroma;
+ if(model==1.0){float d=65535.0-abs(hi+lo-65535.0);return d>0.0?sourceHsxMulRatio(chroma,65535.0,d):0.0;}
+ if(model==2.0)return hi>0.0?sourceHsxMulRatio(chroma,65535.0,hi):0.0;
+ return chroma>0.0?65535.0-sourceHsxMulRatio(3.0*lo,65535.0,c.r+c.g+c.b):0.0;
 }
-float sourceRgba8HsxOperation(float mode){
+float sourceHsxOperation(float mode){
+ if(mode==63.0)return -1.0;
+ if(mode==64.0)return 3.0;if(mode==65.0)return 4.0;if(mode==66.0)return 6.0;if(mode==67.0)return 7.0;
  if(mode==68.0||mode==76.0||mode==84.0)return 0.0;
  if(mode==69.0||mode==77.0||mode==85.0)return 1.0;
  if(mode==70.0||mode==78.0||mode==86.0)return 2.0;
@@ -284,24 +330,28 @@ float sourceRgba8HsxOperation(float mode){
  if(mode==73.0||mode==81.0||mode==89.0)return 5.0;
  if(mode==74.0||mode==82.0||mode==90.0)return 6.0;
  if(mode==75.0||mode==83.0||mode==91.0)return 7.0;
- return -1.0;
+ return -2.0;
 }
-vec3 sourceRgba8HsxExtended(float mode,vec3 a,vec3 b){
- float model=floor((mode-68.0)/8.0),op=sourceRgba8HsxOperation(mode),la=sourceRgba8HsxLight(model,a),lb=sourceRgba8HsxLight(model,b);
+vec3 sourceHsxBytes(vec3 c){c=clamp(c,0.0,65535.0);return vec3(sourceHsxMulRatio(c.r,255.0,65535.0),sourceHsxMulRatio(c.g,255.0,65535.0),sourceHsxMulRatio(c.b,255.0,65535.0));}
+vec3 sourceHsxQuantized(float mode,vec3 source,vec3 destination){
+ float Q=65535.0,model=mode<68.0?0.0:1.0+floor((mode-68.0)/8.0),op=sourceHsxOperation(mode);
+ vec3 a=source*257.0,b=destination*257.0;
+ float la=sourceHsxLight(model,a),lb=sourceHsxLight(model,b);
+ if(op==-1.0)return sourceHsxBytes(vec3(lb)+vec3(sourceHsxMulRatio(a.r,Q-lb,Q),sourceHsxMulRatio(a.g,Q-lb,Q),sourceHsxMulRatio(a.b,Q-lb,Q)));
  vec3 c=op==0.0||op==1.0?a:b;
  if(op>=1.0&&op<=4.0){
-  float sa=sourceRgba8HsxSaturation(model,a),sd=sourceRgba8HsxSaturation(model,b),sat=op==1.0?sd:op==2.0?sa:op==3.0?sd+(1.0-sd)*sa:sd*sa;
-  float lo=min(c.r,min(c.g,c.b)),hi=max(c.r,max(c.g,c.b));c=hi-lo>0.00000011920928955078125?(c-vec3(lo))*sat/(hi-lo):vec3(0.0);
+  float sa=sourceHsxSat(model,a),sd=sourceHsxSat(model,b),target=op==1.0?sd:op==2.0?sa:op==3.0?sd+sourceHsxMulRatio(Q-sd,sa,Q):sourceHsxMulRatio(sd,sa,Q);
+  float lo=min(c.r,min(c.g,c.b)),chroma=max(c.r,max(c.g,c.b))-lo;c-=vec3(lo);
+  c=chroma>0.0?vec3(sourceHsxMulRatio(c.r,target,chroma),sourceHsxMulRatio(c.g,target,chroma),sourceHsxMulRatio(c.b,target,chroma)):vec3(0.0);
  }
- float delta=op<=4.0?lb-sourceRgba8HsxLight(model,c):op==5.0?la-lb:op==6.0?la:la-1.0;c+=vec3(delta);
- float l=sourceRgba8HsxLight(model,c),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
- if(n<0.0)c=l<=.00001||l-n<0.00000011920928955078125?vec3(0.0):vec3(l)+(c-vec3(l))*l/(l-n);
- if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?(model==1.0?min(c,vec3(1.0)):vec3(1.0)):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
- return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
+ float delta=op<=4.0?lb-sourceHsxLight(model,c):op==5.0?la-lb:op==6.0?la:la-Q;c+=vec3(delta);
+ float l=sourceHsxLight(model,c),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0){if(l<=0.0||l-n<=0.0)c=vec3(0.0);else c=vec3(l)+vec3(sourceHsxMulRatio(c.r-l,l,l-n),sourceHsxMulRatio(c.g-l,l,l-n),sourceHsxMulRatio(c.b-l,l,l-n));}
+ if(x>Q){if(l>Q||x-l<=0.0)c=model==2.0?min(c,vec3(Q)):vec3(Q);else c=vec3(l)+vec3(sourceHsxMulRatio(c.r-l,Q-l,x-l),sourceHsxMulRatio(c.g-l,Q-l,x-l),sourceHsxMulRatio(c.b-l,Q-l,x-l));}
+ return sourceHsxBytes(c);
 }
 vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
- if(mode>=68.0&&mode<=91.0)return sourceRgba8HsxExtended(mode,source/255.0,destination/255.0);
- if(mode>=63.0&&mode<=67.0)return sourceRgba8HsyExtended(mode,source/255.0,destination/255.0);
+ if(mode>=63.0&&mode<=91.0)return sourceHsxQuantized(mode,source,destination);
  vec3 a=source/255.0,b=destination/255.0;vec3 weights=vec3(.299,.587,.114);
  float la=dot(a,weights),lb=dot(b,weights);
  if(mode==21.0||mode==22.0)return(mode==21.0?la<lb:la>lb)?source:destination;
