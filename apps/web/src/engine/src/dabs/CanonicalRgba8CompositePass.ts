@@ -1,3 +1,4 @@
+import {SOURCE_TABLE_COMPOSITE_MODES,isSourceTableCompositeMode,tableCompositeFragmentVariant,type SourceTableCompositeMode} from '../raster/sourceCompositeProgramShader'
 import{sourceDissolveUint32Bytes}from'../presets/sourceDissolve'
 import {CanonicalScalarAtlas} from './CanonicalScalarAtlas'
 import {isSourceScalarPowerMode,type SourceScalarPowerMode} from '../presets/sourceScalarPowerTable'
@@ -201,7 +202,7 @@ function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly Canon
 }
 const imageMaterialProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:image-material` as const;
 function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>operationsFor(limits).length||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
-type CompositeProgramKey=`scalar-power:${SourceScalarPowerMode}:${string}`|CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
+type CompositeProgramKey=`table-composite:${SourceTableCompositeMode}:${string}`|`scalar-power:${SourceScalarPowerMode}:${string}`|CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
@@ -227,7 +228,7 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
     if (!whole(limits.width, 1) || !whole(limits.height, 1) || limits.width > 4096 || limits.height > 4096
         || limits.width * limits.height > 1048576)
         throw new RangeError('Invalid canonical composite capacity');
-    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length+primaryGrainProgramsFor(limits).length+imageMaterialOperationsFor(limits).length) };
+    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length+primaryGrainProgramsFor(limits).length+imageMaterialOperationsFor(limits).length+SOURCE_TABLE_COMPOSITE_MODES.length*(Number(operationsFor(limits).includes('genericSCU8'))+primaryGrainProgramsFor(limits).filter(p=>p.operation==='genericSCU8').length+Number(imageMaterialOperationsFor(limits).includes('genericSCU8')))) };
 }
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
@@ -490,7 +491,7 @@ export class CanonicalRgba8CompositePass {
         this.busy=true;
         try{
             releaseStage=this.cpu.reserve(4096);owned();
-            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true;atlasMode?:SourceScalarPowerMode}>[];
+            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true;atlasMode?:SourceScalarPowerMode;tableMode?:SourceTableCompositeMode}>[];
             let updatedLimits:CanonicalCompositeLimits;
             if(request.kind==='atlas'){
                 this.scalarAtlas.resource(request.mode);
@@ -511,6 +512,7 @@ export class CanonicalRgba8CompositePass {
                 const operations=operationsFor({...limits,operations:[...new Set([...operationsFor(limits),...request.requested])]});
                 additions=operations.map(operation=>({key:operation,operation}));updatedLimits={...limits,operations};
             }
+            additions=additions.flatMap(item=>item.operation==='genericSCU8'&&!item.atlasMode?[item,...SOURCE_TABLE_COMPOSITE_MODES.map(tableMode=>({...item,key:`table-composite:${tableMode}:${item.key}` as CompositeProgramKey,tableMode}))]:[item]);
             const missing=additions.filter(p=>!oldPrograms.has(p.key));
             releaseLease=this.cache.leaseRequired([...this.preparedResources(),...this.companions]);owned();
             if(missing.length)releasePrograms=this.cpu.reserve(missing.length*PROGRAM_CPU_BYTES);owned();
@@ -519,7 +521,7 @@ export class CanonicalRgba8CompositePass {
                 restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,3);
                 vertex=this.gl.createShader(this.gl.VERTEX_SHADER);if(!vertex)throw new Error('Composite update vertex allocation failed');
                 this.gl.shaderSource(vertex,VERTEX);this.gl.compileShader(vertex);if(!this.gl.getShaderParameter(vertex,this.gl.COMPILE_STATUS))throw new Error('Composite update vertex compile failed: '+this.gl.getShaderInfoLog(vertex));owned();
-                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply',item.atlasMode);created.push(info);owned();nextPrograms.set(item.key,info)}
+                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply',item.atlasMode,item.tableMode);created.push(info);owned();nextPrograms.set(item.key,info)}
             }
             owned();
         }catch(error){failed=true;primary=error}
@@ -621,10 +623,14 @@ export class CanonicalRgba8CompositePass {
             if(!vertex)throw new Error('Composite vertex shader allocation failed');
             gl.shaderSource(vertex,VERTEX);gl.compileShader(vertex);
             if(!gl.getShaderParameter(vertex,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(vertex));
-            for(const kind of operations)programs.set(kind,this.compile(kind,vertex));
-            for(const kind of texturedOperations)programs.set(texturedProgram(kind),this.compile(kind,vertex,true));
-            for(const p of primaryGrainPrograms)programs.set(primaryGrainProgram(p.law,p.operation),this.compile(p.operation,vertex,p.law==='pixel-color-texture-v1'?'color':p.law==='pixel-texture-u8-v1'?'pixel':'multiply'));
-            for(const kind of imageMaterialOperations)programs.set(imageMaterialProgram(kind),this.compile(kind,vertex,'lightness'));
+            const addPrograms=(key:CompositeProgramKey,kind:CanonicalCompositeOperationKind,style:boolean|'multiply'|'pixel'|'color'|'lightness'=false)=>{
+                programs.set(key,this.compile(kind,vertex!,style));
+                if(kind==='genericSCU8')for(const tableMode of SOURCE_TABLE_COMPOSITE_MODES)programs.set(`table-composite:${tableMode}:${key}`,this.compile(kind,vertex!,style,undefined,tableMode));
+            };
+            for(const kind of operations)addPrograms(kind,kind);
+            for(const kind of texturedOperations)addPrograms(texturedProgram(kind),kind,true);
+            for(const p of primaryGrainPrograms)addPrograms(primaryGrainProgram(p.law,p.operation),p.operation,p.law==='pixel-color-texture-v1'?'color':p.law==='pixel-texture-u8-v1'?'pixel':'multiply');
+            for(const kind of imageMaterialOperations)addPrograms(imageMaterialProgram(kind),kind,'lightness');
             // Cleanup failure is fatal BEFORE workspace/program publication.
             const completedVertex=vertex;vertex=null;gl.deleteShader(completedVertex);
             const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
@@ -751,7 +757,8 @@ export class CanonicalRgba8CompositePass {
         const atlasMode=operation.kind==='genericSCU8'&&isSourceScalarPowerMode(operation.control.mode)?operation.control.mode:undefined;
         const atlas=atlasMode?this.scalarAtlas.resource(atlasMode):undefined;
         if(frame&&atlasMode!==undefined&&!modes.includes(atlasMode))throw new Error('Scalar composite operation scope differs');
-        const info=this.workspace.programs.get(atlasMode?`scalar-power:${atlasMode}:${baseProgram}`:baseProgram);
+        const tableMode=operation.kind==='genericSCU8'&&isSourceTableCompositeMode(operation.control.mode)?operation.control.mode:undefined;
+        const info=this.workspace.programs.get(atlasMode?`scalar-power:${atlasMode}:${baseProgram}`:tableMode?`table-composite:${tableMode}:${baseProgram}`:baseProgram);
         if(pattern&&!isTexturedOperation(operation.kind)&&!(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')&&(operation.kind==='erase32FusedScalar'||operation.kind==='genericSCU8'||operation.kind==='colorHsyBrowser')))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
@@ -828,7 +835,6 @@ export class CanonicalRgba8CompositePass {
             if(atlas){gl.activeTexture(gl.TEXTURE0+4);gl.bindTexture(gl.TEXTURE_2D,atlas.texture);restoreSamplings.push(frame?frame.pointSampling(atlas.texture):this.pointSampling(atlas.texture,gl.TEXTURE0+4));}
             const u = info.uniforms;
             if(atlas)gl.uniform1i(u.scalarPowerTexture,4);
-            if(operation.kind==='genericSCU8')gl.uniform1i(u.sourceScalarBlendStageLimit,3);
             const materialRGBA=source.kind!=='straightRgba8'&&source.view.materialRGBA;
             const spatialRGBA=source.kind!=='straightRgba8'&&source.view.spatialRGBA;
             const bitmapColor=spatialRGBA||materialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
@@ -1061,7 +1067,7 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false,atlasMode?:SourceScalarPowerMode): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false,atlasMode?:SourceScalarPowerMode,tableMode?:SourceTableCompositeMode): ProgramInfo {
         const gl=this.gl;
         let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
         let failed=false,failure:unknown;
@@ -1070,7 +1076,7 @@ export class CanonicalRgba8CompositePass {
             fragment=gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragment)throw new Error('Composite shader allocation failed');
             const fragmentSource=textured==='color'?colorTextureFragmentFor(kind):textured==='pixel'?pixelTextureFragmentFor(kind):textured==='multiply'?multiplyFragmentFor():textured==='lightness'?imageMaterialFragmentFor(kind):textured?texturedFragmentFor(kind):fragmentFor(kind);
-            gl.shaderSource(fragment,atlasMode?scalarPowerFragmentVariant(fragmentSource,atlasMode):fragmentSource);
+            gl.shaderSource(fragment,atlasMode?scalarPowerFragmentVariant(fragmentSource,atlasMode):kind==='genericSCU8'?tableCompositeFragmentVariant(fragmentSource,tableMode):fragmentSource);
             gl.compileShader(fragment);
             if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
             program=gl.createProgram();
@@ -1081,7 +1087,7 @@ export class CanonicalRgba8CompositePass {
             const attribute=gl.getAttribLocation(program,'position');
             if(attribute<0)throw new Error('Composite attribute unavailable');
             const uniforms:Record<string,WebGLUniformLocation|null>={};
-            for (const name of [...atlasMode?['scalarPowerTexture']:[],'sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceScalarBlendStageLimit','sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
+            for (const name of [...atlasMode?['scalarPowerTexture']:[],'sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
                 uniforms[name]=gl.getUniformLocation(program,name);
             info={program,attribute,uniforms};
         }catch(error){failed=true;failure=error}

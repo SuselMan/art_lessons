@@ -411,7 +411,6 @@ it('runs explicit GenericSC U8 modes through the SAME composite service and shar
   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
    operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255}}})).toBe('painted');
   expect(policy).toHaveBeenCalledWith(expect.objectContaining({name:'policy'}),i+3,0,1,0);
-  expect(s.gl.uniform1i).toHaveBeenCalledWith(expect.objectContaining({name:'sourceScalarBlendStageLimit'}),3);
  }
  expect(s.gl.uniform4f.mock.calls.filter((r:unknown[])=>r[0]&&typeof r[0]==='object'&&'name' in r[0]&&r[0].name==='controls').map((r:unknown[])=>r.slice(1))).toEqual(Array(4).fill([248,248,255,255]));
  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
@@ -434,13 +433,13 @@ it('refuses a missing or mismatched GenericSC profile before destination work',(
 it('prepares the three-operation V2 pipeline with exact per-program charges and rejects a fourth before allocations',()=>{
  const s=setup(),operations=['alphaDarken32FusedScalar','over32FusedScalar','genericSCU8'] as const
  const pair=canonicalRgba8CompositeBudget({width:16,height:16,operations:operations.slice(0,2)}),triple=canonicalRgba8CompositeBudget({width:16,height:16,operations})
- expect(triple.gpuBytes).toBe(pair.gpuBytes);expect(triple.cpuBytes-pair.cpuBytes).toBe(8192)
+ expect(triple.gpuBytes).toBe(pair.gpuBytes);expect(triple.cpuBytes-pair.cpuBytes).toBe(4*8192)
  const baseline=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
  try{
   expect(()=>s.pass.prepare({width:16,height:16,operations:[...operations,'over32']},s.companion)).toThrow(/operations/)
   expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.cpu.reservedBytes).toBe(baseline)
   s.pass.prepare({width:16,height:16,operations},s.companion)
-  expect(s.pass.supportsOperations(operations)).toBe(true);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3)
+  expect(s.pass.supportsOperations(operations)).toBe(true);expect(s.gl.createProgram.mock.calls.length-programs).toBe(6)
   expect(s.cpu.reservedBytes-baseline).toBe(triple.cpuBytes);expect(s.snapshot()).toEqual(before)
  }finally{s.pass.reset();s.cache.clear()}
  expect(s.cpu.reservedBytes).toBe(baseline)
@@ -500,27 +499,27 @@ function sharedVertexFixture(){
  const shaderStatus=vi.spyOn(s.gl,'getShaderParameter'),programStatus=vi.spyOn(s.gl,'getProgramParameter');
  return{...s,types,shaderStatus,programStatus};
 }
-it('cold GSC prepares five exact program variants with one local shared vertex, then warm companion updates compile nothing',()=>{
+it('cold GSC prepares eight exact program variants with one local shared vertex, then warm companion updates compile nothing',()=>{
  const s=sharedVertexFixture(),before=s.snapshot();
  try{
   s.pass.prepare(sharedVertexLimits,s.companion);
   const vertices=s.gl.createShader.mock.results.map((x:any)=>x.value).filter((x:object)=>s.types.get(x)===s.gl.VERTEX_SHADER);
-  expect(vertices).toHaveLength(1);expect(s.gl.createShader).toHaveBeenCalledTimes(6);expect(s.gl.createProgram).toHaveBeenCalledTimes(5);
-  expect(s.shaderStatus).toHaveBeenCalledTimes(6);expect(s.programStatus).toHaveBeenCalledTimes(5);
+  expect(vertices).toHaveLength(1);expect(s.gl.createShader).toHaveBeenCalledTimes(9);expect(s.gl.createProgram).toHaveBeenCalledTimes(8);
+  expect(s.shaderStatus).toHaveBeenCalledTimes(9);expect(s.programStatus).toHaveBeenCalledTimes(8);
   expect(s.gl.shaderSource.mock.calls.find(([shader]:any[])=>shader===vertices[0])?.[1]).toBe('attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}');
   const fragments=s.gl.shaderSource.mock.calls.filter(([shader]:any[])=>s.types.get(shader)===s.gl.FRAGMENT_SHADER).map(([,source]:any[])=>source);
-  expect(fragments).toHaveLength(5);expect(new Set(fragments).size).toBe(5);expect(fragments.filter((source:string)=>source.includes('uniform highp sampler2D patternTexture;'))).toHaveLength(2);
+  expect(fragments).toHaveLength(8);expect(new Set(fragments).size).toBe(8);expect(fragments.filter((source:string)=>source.includes('uniform highp sampler2D patternTexture;'))).toHaveLength(2);
   for(const {value:program}of s.gl.createProgram.mock.results)expect(s.gl.attachShader.mock.calls.filter(([p]:any[])=>p===program).map(([,shader]:any[])=>shader)).toEqual([vertices[0],expect.any(Object)]);
-  expect(s.gl.deleteShader.mock.calls.filter(([shader]:any[])=>shader===vertices[0])).toHaveLength(1);expect(s.gl.deleteShader).toHaveBeenCalledTimes(6);
+  expect(s.gl.deleteShader.mock.calls.filter(([shader]:any[])=>shader===vertices[0])).toHaveLength(1);expect(s.gl.deleteShader).toHaveBeenCalledTimes(9);
   expect(s.pass.supportsOperations(sharedVertexLimits.operations)).toBe(true);expect(s.pass.supportsTexturedOperations(sharedVertexLimits.texturedOperations)).toBe(true);expect(s.snapshot()).toEqual(before);
-  s.pass.prepare(sharedVertexLimits,s.companion);expect(s.gl.createShader).toHaveBeenCalledTimes(6);expect(s.gl.createProgram).toHaveBeenCalledTimes(5);
+  s.pass.prepare(sharedVertexLimits,s.companion);expect(s.gl.createShader).toHaveBeenCalledTimes(9);expect(s.gl.createProgram).toHaveBeenCalledTimes(8);
  }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
- expect(s.gl.deleteProgram).toHaveBeenCalledTimes(5);
+ expect(s.gl.deleteProgram).toHaveBeenCalledTimes(8);
 });
 it('cold shared vertex transaction rolls back status/allocation/deletion faults, preserving undefined primary and restoring GL',()=>{
- for(const fault of ['vertex-status','fragment3-status','link3-status','program3-allocation','fragment-delete-undefined','vertex-delete-undefined'] as const){
+ for(const fault of ['vertex-status','table-fragment-status','fragment3-status','link3-status','program3-allocation','fragment-delete-undefined','vertex-delete-undefined'] as const){
   const s=sharedVertexFixture(),before=s.snapshot();let fragments=0,links=0,allocations=0;
-  if(fault==='vertex-status'||fault==='fragment3-status')s.shaderStatus.mockImplementation((shader:unknown)=>s.types.get(shader)===s.gl.VERTEX_SHADER?fault!=='vertex-status':++fragments!==3);
+  if(fault==='vertex-status'||fault==='fragment3-status'||fault==='table-fragment-status')s.shaderStatus.mockImplementation((shader:unknown)=>s.types.get(shader)===s.gl.VERTEX_SHADER?fault!=='vertex-status':++fragments!==(fault==='table-fragment-status'?5:3));
   if(fault==='link3-status')s.programStatus.mockImplementation(()=>++links!==3);
   if(fault==='program3-allocation'){const create=s.gl.createProgram.getMockImplementation();s.gl.createProgram.mockImplementation(()=>++allocations===3?null:create())}
   if(fault.endsWith('delete-undefined')){const remove=s.gl.deleteShader.getMockImplementation();let thrown=false;s.gl.deleteShader.mockImplementation((shader:object)=>{remove(shader);if(!thrown&&s.types.get(shader)===(fault==='vertex-delete-undefined'?s.gl.VERTEX_SHADER:s.gl.FRAGMENT_SHADER)){thrown=true;throw undefined}})}
@@ -535,9 +534,9 @@ it('cold shared vertex transaction rolls back status/allocation/deletion faults,
 it('cold shared vertex cancellation and lost reset retain existing program retirement semantics',()=>{
  for(const lost of [false,true]){
   const s=sharedVertexFixture(),abort=new AbortController(),before=s.snapshot();
-  if(!lost){const link=s.gl.linkProgram.getMockImplementation();s.gl.linkProgram.mockImplementation((p:object)=>{link?.(p);abort.abort()});expect(s.pass.prepare(sharedVertexLimits,s.companion,0,abort.signal)).toBe('cancelled');expect(s.pass.isReady()).toBe(false);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(5)}
+  if(!lost){const link=s.gl.linkProgram.getMockImplementation();s.gl.linkProgram.mockImplementation((p:object)=>{link?.(p);abort.abort()});expect(s.pass.prepare(sharedVertexLimits,s.companion,0,abort.signal)).toBe('cancelled');expect(s.pass.isReady()).toBe(false);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(8)}
   else{s.pass.prepare(sharedVertexLimits,s.companion);s.pass.reset(true);expect(s.gl.deleteProgram).not.toHaveBeenCalled()}
-  expect(s.gl.deleteShader).toHaveBeenCalledTimes(6);expect(s.snapshot()).toEqual(before);s.pass.reset(lost);s.cache.clear();expect(s.cpu.reservedBytes).toBe(0);
+  expect(s.gl.deleteShader).toHaveBeenCalledTimes(9);expect(s.snapshot()).toEqual(before);s.pass.reset(lost);s.cache.clear();expect(s.cpu.reservedBytes).toBe(0);
  }
 });
 
@@ -570,16 +569,16 @@ it('adds only missing image-material programs with the same checked publication 
  try{
   expect(s.pass.preparedImageMaterialOperations()).toEqual(['overBrowserFloat'])
   expect(s.pass.supportsImageMaterialOperations(['genericSCU8'])).toBe(false)
-  expect(s.cpu.reservedBytes-cpu).toBe(4096+2*8192)
-  expect(s.gl.createProgram.mock.calls.length-programs).toBe(2)
+  expect(s.cpu.reservedBytes-cpu).toBe(4096+5*8192)
+  expect(s.gl.createProgram.mock.calls.length-programs).toBe(5)
   expect(()=>s.pass.prepareImageMaterialProgramUpdate(['genericSCU8'])).toThrow()
   update.assertCurrent();update.publish();update.finalizeCleanup()
   expect(s.pass.preparedImageMaterialOperations()).toEqual(['genericSCU8','colorHsyBrowser','overBrowserFloat'])
   expect(s.pass.supportsImageMaterialOperations(['genericSCU8','colorHsyBrowser'])).toBe(true)
-  expect(s.cpu.reservedBytes-cpu).toBe(2*8192)
+  expect(s.cpu.reservedBytes-cpu).toBe(5*8192)
   const duplicate=s.pass.prepareImageMaterialProgramUpdate(['genericSCU8']);duplicate.assertCurrent();duplicate.publish();duplicate.finalizeCleanup()
-  expect(s.gl.createProgram.mock.calls.length-programs).toBe(2)
-  expect(s.cpu.reservedBytes-cpu).toBe(2*8192)
+  expect(s.gl.createProgram.mock.calls.length-programs).toBe(5)
+  expect(s.cpu.reservedBytes-cpu).toBe(5*8192)
   expect(s.snapshot()).toEqual(before)
  }finally{if(update.status==='pending')update.cancel();else update.finalizeCleanup();s.pass.reset();s.cache.clear()}
 })
