@@ -856,7 +856,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if angle!=0: profile['angleOffset']=-angle
     if spacing_checked or isotropic:
         notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
-    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','soft_light_svg':'softLightSvg','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor'}
+    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','soft_light_svg':'softLightSvg','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','luminize':'luminosity','equivalence':'equivalence','additive_subtractive':'additiveSubtractive','arc_tangent':'arcTangent','negation':'negation','inverse_subtract':'inverseSubtract','grain_merge':'grainMerge','grain_extract':'grainExtract','allanon':'allanon','geometric_mean':'geometricMean','parallel':'parallel','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
     if mode in modes:
@@ -1307,6 +1307,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if native_color(behavior):d['version']=36
     # New immutable descriptor revision only for successful material-option DATA.
     if d.get('sourceStamp',{}).get('compiled',{}).get('version')==3:d['version']=37
+    # Only new raw composites or an affected child get immutable revision38.
+    # Existing stock revisions27..37 remain unchanged.
+    if engine=='paintbrush' and ((not eraser and params.get('CompositeOp') in ('equivalence', 'additive_subtractive', 'arc_tangent', 'negation', 'inverse_subtract', 'grain_merge', 'grain_extract', 'allanon', 'geometric_mean', 'parallel', 'luminize')) or behavior.get('dual',{}).get('brush',{}).get('version')==38):d['version']=38
     if seeded_source is not None and any(n['status']=='unsupported' for n in notes):
         raise ValueError('Unsupported seeded default-auto final lowering')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

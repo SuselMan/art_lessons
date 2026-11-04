@@ -72,9 +72,9 @@ uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByt
   if(mode==7u)return uint(min(sx,dx));
   if(mode==8u)return uint(sx+dx-sourceRgba8BrowserMultiply(sx,dx));
   if(mode==9u)return uint(dx==255.0?255.0:sx==0.0?0.0:255.0-min(255.0,sourceRgba8BrowserDivide(255.0-dx,sx)));
-  if(mode==10u)return uint(max(0.0,sx+dx-255.0));
+  if(mode==10u||mode==32u)return uint(max(0.0,sx+dx-255.0));
   if(mode==11u)return uint(max(0.0,dx-sx));
-  if(mode==12u)return uint(abs(dx-sx));
+  if(mode==12u||mode==28u)return uint(abs(dx-sx));
   if(mode==13u)return uint(clamp(sx+dx-2.0*sourceRgba8BrowserMultiply(sx,dx),0.0,255.0));
   if(mode==14u)return uint(floor(255.0*(sx>127.5?dx/255.0+(2.0*sx/255.0-1.0)*(sqrt(dx/255.0)-dx/255.0):dx/255.0-(1.0-2.0*sx/255.0)*(dx/255.0)*(1.0-dx/255.0))+.5));
   if(mode==15u)return uint(sx==127.0?dx:sx<127.0?sourceRgba8BrowserMultiply(2.0*sx,dx):(2.0*sx-255.0)+dx-sourceRgba8BrowserMultiply(2.0*sx-255.0,dx));
@@ -83,6 +83,15 @@ uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByt
   if(mode==18u)return uint(sx<127.0?(sx==0.0?(dx==255.0?255.0:0.0):max(0.0,255.0-sourceRgba8BrowserDivide(255.0-dx,2.0*sx))):(sx==255.0?(dx==0.0?0.0:255.0):min(255.0,sourceRgba8BrowserDivide(dx,2.0*(255.0-sx)))));
   if(mode==19u)return uint(max(2.0*sx-255.0,min(dx,2.0*sx)));
   if(mode==20u)return dx>127.0?(sx==255.0?(dx==0.0?0u:255u):uint(min(255.0,sourceRgba8BrowserDivide(dx,255.0-sx)))):(dx==255.0?255u:sx==0.0?0u:uint(255.0-min(255.0,sourceRgba8BrowserDivide(255.0-dx,sx))));
+  // Append-only IDs28..37; existing controls and GenericSC alpha shell unchanged.
+  if(mode==29u)return uint(floor(255.0*abs(sqrt(dx/255.0)-sqrt(sx/255.0))+.5));
+  if(mode==30u)return sx==0.0?0u:dx==0.0?255u:uint(floor(510.0*atan(sx/255.0,dx/255.0)/3.14159265358979323846+.5));
+  if(mode==31u)return uint(255.0-abs(255.0-sx-dx));
+  if(mode==33u)return uint(clamp(sx+dx-127.0,0.0,255.0));
+  if(mode==34u)return uint(clamp(dx-sx+127.0,0.0,255.0));
+  if(mode==35u)return ((source+destination)*127u)/255u;
+  if(mode==36u)return sx==255.0&&dx==255.0?255u:uint(floor(255.0*sqrt((sx/255.0)*(dx/255.0))+.5));
+  if(mode==37u){if(source==0u||destination==0u)return 0u;uint s=(65025u+source/2u)/source,d=(65025u+destination/2u)/destination;return min(255u,130050u/(s+d));}
   if(mode==26u)return sx+dx>255.0?255u:0u;
   if(mode==27u){float y=dx/255.0,x=sx/255.0;float d=y>.25?sqrt(y):((16.0*y-12.0)*y+4.0)*y;return uint(floor(255.0*(x>.5?y+(2.0*x-1.0)*(d-y):y-(1.0-2.0*x)*y*(1.0-y))+.5));}
   }

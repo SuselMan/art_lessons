@@ -12,7 +12,7 @@ export interface CanonicalStrokeComposition {
   readonly mode: 'wash' | 'buildup'
   readonly alphaDarken: 'creamy' | 'hard'
   readonly outerResourceOpacity: number
-  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'colorHsyBrowser'  | 'add' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'hardMixPhotoshop' | 'softLightSvg'
+  readonly outerBlend: 'over' | 'erase' | 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'colorHsyBrowser'  | 'add' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'hardMixPhotoshop' | 'softLightSvg' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel'
 }
 export const CANONICAL_STROKE_RASTER_PROFILE = 'installed-arm64-scalar-fused-fpcr0-v1' as const
 /** Whole-pipeline identity: existing fused local deposition plus explicit U8
@@ -120,7 +120,9 @@ const rgb = (value: unknown): value is readonly [number, number, number] => Arra
 const fields = (value: Record<string, unknown>, names: readonly string[]) => Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name))
 /** Closed composition law for an already selected trusted raster profile.
  * This validates policy, never grants descriptor/room execution capability. */
-export const CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS = Object.freeze(['add', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg'] as const)
+/** Additive browser-only channel laws; historical G/native profile domains stay closed. */
+export const CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS=Object.freeze(['equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel'] as const)
+export const CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS = Object.freeze(['add', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel'] as const)
 export type CanonicalStrokeOuterCompositionLaw = 'browser-hsy-rgba8-functional-v1'|'generic-separable-u8-v1'|'pixel-direct-composite-browser-v1'
 export interface CanonicalStrokeCompositionExtensions {readonly browserHsy?:boolean;readonly separableOuter?:boolean;readonly directBlend?:boolean}
 export function canonicalStrokeCompositionExtensions(law:unknown):Readonly<CanonicalStrokeCompositionExtensions>{
@@ -141,6 +143,7 @@ export function isCanonicalStrokeComposition(value: unknown, rasterProfile: Cano
   ||value.mode!=='wash'&&value.mode!=='buildup'||value.alphaDarken!=='creamy'&&value.alphaDarken!=='hard'
   ||typeof value.outerResourceOpacity!=='number'||!Number.isFinite(value.outerResourceOpacity)||value.outerResourceOpacity<0||value.outerResourceOpacity>1)return false
  if(!contract.genericSC)return value.outerBlend==='over'
+ if(CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS.some(mode=>mode===value.outerBlend)&&rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return false
  if(value.outerBlend==='over'||value.outerBlend==='erase')return true
  const basic=typeof value.outerBlend==='string'&&['multiply','lighten','colorDodge','overlay'].includes(value.outerBlend)
  const extended=CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS.some(mode=>mode===value.outerBlend)

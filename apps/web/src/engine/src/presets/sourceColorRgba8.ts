@@ -122,7 +122,7 @@ export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-gener
 export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
-export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity'
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel'
 interface Rgba8CompositeParameters {
   readonly opacity: number
   readonly mask?: number
@@ -134,13 +134,13 @@ export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: SourceRgba8SeparableMode | 'add'; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
   { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
-export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg'] as const
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): number {
   const index = SOURCE_RGBA8_COMPOSITE_MODES.findIndex(candidate => candidate === mode)
   if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
   return index
 }
-const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg']
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel']
 export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
 /** Closed channel functors. Whole-RGB modes require compositeRgba8, which
  * supplies all three channels and preserves the generic HSL alpha shell. */
@@ -150,15 +150,25 @@ export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, sour
   return separableChannel(mode, source, destination)
 }
 function separableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+  // Pinned U8 functors: halfValue=127, Allanon truncates, Parallel retains
+  // integer reciprocal division. Not textbook normalized-float substitutions.
+  if(mode==='additiveSubtractive')return Math.trunc(255*Math.abs(Math.sqrt(destination/255)-Math.sqrt(source/255))+.5)
+  if(mode==='arcTangent')return source===0?0:destination===0?255:Math.trunc(510*Math.atan2(source/255,destination/255)/Math.PI+.5)
+  if(mode==='negation')return 255-Math.abs(255-source-destination)
+  if(mode==='grainMerge')return Math.max(0,Math.min(255,source+destination-127))
+  if(mode==='grainExtract')return Math.max(0,Math.min(255,destination-source+127))
+  if(mode==='allanon')return Math.trunc((source+destination)*127/255)
+  if(mode==='geometricMean')return source===255&&destination===255?255:Math.trunc(255*Math.sqrt((source/255)*(destination/255))+.5)
+  if(mode==='parallel')return !source||!destination?0:Math.min(255,Math.trunc(130050/(divide(255,source)+divide(255,destination))))
   if (mode === 'multiply') return multiply(source, destination)
   if (mode === 'lighten') return Math.max(source, destination)
   if (mode === 'colorDodge') return source === 255 ? destination === 0 ? 0 : 255 : Math.min(255, divide(destination, 255 - source))
   if (mode === 'darken') return Math.min(source,destination)
   if (mode === 'screen') return source+destination-multiply(source,destination)
   if (mode === 'colorBurn') return destination===255?255:source===0?0:255-Math.min(255,divide(255-destination,source))
-  if (mode === 'linearBurn') return Math.max(0,source+destination-255)
+  if (mode === 'linearBurn'||mode==='inverseSubtract') return Math.max(0,source+destination-255)
   if (mode === 'subtract') return Math.max(0,destination-source)
-  if (mode === 'difference') return Math.abs(destination-source)
+  if (mode === 'difference'||mode==='equivalence') return Math.abs(destination-source)
   if (mode === 'exclusion') return Math.max(0,Math.min(255,source+destination-2*multiply(source,destination)))
   if (mode === 'divide') return destination===0?0:source===0?255:Math.min(255,divide(destination,source))
   if (mode === 'linearLight') return Math.max(0,Math.min(255,2*source+destination-255))

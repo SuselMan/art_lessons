@@ -143,6 +143,12 @@ export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = SOURCE_RGBA8_BYTE_CONTROLS_GLS
 }
 ` + SOURCE_RGBA8_BYTE_WRAP_GLSL + /* glsl */ `// Closed IDs: 0 Over, 1 Add, 2 AlphaDarken, 3 Multiply, 4 Lighten,
 // 5 ColorDodge, 6 Overlay. Extended browser functors append IDs7..27 under explicit source law.
+// New channel IDs only: bounded integer numerator/denominator (<2^24).
+// Correct division's rounded reciprocal before applying native integer floor.
+float sourceRgba8ChannelFloorDivide(float numerator,float denominator){
+ float q=floor(numerator/denominator),r=numerator-q*denominator;
+ return r<0.0?q-1.0:r>=denominator?q+1.0:q;
+}
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if (mode == 3.0) return sourceRgba8Multiply(source, destination);
   if (mode == 4.0) return max(source, destination);
@@ -151,9 +157,9 @@ float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if(mode==7.0)return min(source,destination);
   if(mode==8.0)return source+destination-sourceRgba8Multiply(source,destination);
   if(mode==9.0)return destination==255.0?255.0:source==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(255.0-destination,source));
-  if(mode==10.0)return max(0.0,source+destination-255.0);
+  if(mode==10.0||mode==32.0)return max(0.0,source+destination-255.0);
   if(mode==11.0)return max(0.0,destination-source);
-  if(mode==12.0)return abs(destination-source);
+  if(mode==12.0||mode==28.0)return abs(destination-source);
   if(mode==13.0)return clamp(source+destination-2.0*sourceRgba8Multiply(source,destination),0.0,255.0);
   if(mode==14.0)return floor(255.0*(source>127.5?destination/255.0+(2.0*source/255.0-1.0)*(sqrt(destination/255.0)-destination/255.0):destination/255.0-(1.0-2.0*source/255.0)*(destination/255.0)*(1.0-destination/255.0))+.5);
   if(mode==15.0)return source==127.0?destination:source<127.0?sourceRgba8Multiply(2.0*source,destination):(2.0*source-255.0)+destination-sourceRgba8Multiply(2.0*source-255.0,destination);
@@ -162,6 +168,15 @@ float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if(mode==18.0)return source<127.0?(source==0.0?(destination==255.0?255.0:0.0):max(0.0,255.0-sourceRgba8Divide(255.0-destination,2.0*source))):(source==255.0?(destination==0.0?0.0:255.0):min(255.0,sourceRgba8Divide(destination,2.0*(255.0-source))));
   if(mode==19.0)return max(2.0*source-255.0,min(destination,2.0*source));
   if(mode==20.0)return destination>127.0?(source==255.0?(destination==0.0?0.0:255.0):min(255.0,sourceRgba8Divide(destination,255.0-source))):(destination==255.0?255.0:source==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(255.0-destination,source)));
+  // Append-only channel IDs28..37; old0..27 math remains unchanged.
+  if(mode==29.0)return floor(255.0*abs(sqrt(destination/255.0)-sqrt(source/255.0))+.5);
+  if(mode==30.0)return source==0.0?0.0:destination==0.0?255.0:floor(510.0*atan(source/255.0,destination/255.0)/3.14159265358979323846+.5);
+  if(mode==31.0)return 255.0-abs(255.0-source-destination);
+  if(mode==33.0)return clamp(source+destination-127.0,0.0,255.0);
+  if(mode==34.0)return clamp(destination-source+127.0,0.0,255.0);
+  if(mode==35.0)return sourceRgba8ChannelFloorDivide((source+destination)*127.0,255.0);
+  if(mode==36.0)return source==255.0&&destination==255.0?255.0:floor(255.0*sqrt((source/255.0)*(destination/255.0))+.5);
+  if(mode==37.0){if(source==0.0||destination==0.0)return 0.0;float s=sourceRgba8Divide(255.0,source),d=sourceRgba8Divide(255.0,destination);return min(255.0,sourceRgba8ChannelFloorDivide(130050.0,s+d));}
   if(mode==26.0)return source+destination>255.0?255.0:0.0;
   if(mode==27.0){float y=destination/255.0,x=source/255.0;float d=y>.25?sqrt(y):((16.0*y-12.0)*y+4.0)*y;return floor(255.0*(x>.5?y+(2.0*x-1.0)*(d-y):y-(1.0-2.0*x)*y*(1.0-y))+.5);}
   if (destination == 127.0) return source;

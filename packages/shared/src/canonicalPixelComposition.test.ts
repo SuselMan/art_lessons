@@ -1,7 +1,7 @@
 import {expect,it} from 'vitest'
 import {canonicalPixelSourceOuterCompositionLaw} from './canonicalBrushCapability.js'
 import {buildCanonicalMaterial,unpackCanonicalMaterial,type CanonicalMaterialContextV2} from './canonicalMaterialCodec.js'
-import {CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,CANONICAL_STROKE_RASTER_PROFILE as native,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition,decodeCanonicalStrokeFrame,type CanonicalStrokeComposition,type CanonicalStrokeOuterCompositionLaw} from './canonicalStrokeFrame.js'
+import {CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS,CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,CANONICAL_STROKE_RASTER_PROFILE as native,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition,decodeCanonicalStrokeFrame,type CanonicalStrokeComposition,type CanonicalStrokeOuterCompositionLaw} from './canonicalStrokeFrame.js'
 
 const composition=(mode:'wash'|'buildup',outerBlend:CanonicalStrokeComposition['outerBlend']):CanonicalStrokeComposition=>({mode,outerBlend,alphaDarken:'creamy',outerResourceOpacity:.6})
 it('requires a captured extension for every extended WASH and keeps legacy profiles closed',()=>{
@@ -10,7 +10,7 @@ it('requires a captured extension for every extended WASH and keeps legacy profi
   expect(law).toBe('generic-separable-u8-v1')
   expect(isCanonicalStrokeComposition(c,browser)).toBe(false)
   expect(isCanonicalStrokeComposition(c,generic,true)).toBe(false)
-  expect(isCanonicalStrokeComposition(c,generic,canonicalStrokeCompositionExtensions(law))).toBe(true)
+  expect(isCanonicalStrokeComposition(c,generic,canonicalStrokeCompositionExtensions(law))).toBe(!CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS.some(mode=>mode===blend))
   expect(isCanonicalStrokeComposition(c,native,canonicalStrokeCompositionExtensions(law))).toBe(false)
  }
 })

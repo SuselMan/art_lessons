@@ -3,7 +3,7 @@ import {sourceColorProviderKind} from './sourceStampData.js'
 import {captureCanonicalSourceScaleOptions,type CanonicalSourceScaleOptions} from './canonicalSourceScale.js'
 import {canonicalMaskingBlendModes,isCanonicalMaskingBlendMode} from './canonicalMaskingBlend.js'
 import {canonicalPixelPrimaryTexturePin,canonicalMultiplyPrimaryTexturePin,resolveCanonicalTexturePhase,canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,canonicalStrokeOuterCompositionLaw,CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,canonicalStrokeOuterCompositionLaw,CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS,CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import {brushAssetIds,isBrushLibrary,type BrushDescriptor} from './brushes.js'
 import type { CanonicalMaterialAsset,CanonicalMaterialImageSource } from './canonicalMaterialCodec.js'
 import { captureSourcePlainAutoGeometryData, captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, captureSourceGaussianTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData, type SourceTexturePressureProgramData } from './sourceStampData.js'
@@ -46,7 +46,7 @@ export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProf
  * never admitted by the historical native composition selector. */
 export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):ReturnType<typeof canonicalSourceComposition>{
  const raw=descriptor.sourceStamp?.settings.CompositeOp
- const aliases:Readonly<Record<string,string>>={normal:'normal',multiply:'multiply',screen:'screen',overlay:'overlay',darken:'darken',lighten:'lighten',burn:'colorBurn',dodge:'colorDodge',linear_burn:'linearBurn',linear_dodge:'add',add:'add',subtract:'subtract',diff:'difference',exclusion:'exclusion',soft_light:'softLight',soft_light_svg:'softLightSvg',hard_light:'hardLight',divide:'divide',hue:'hue',saturation:'saturation',color:'color',luminosity:'luminosity','linear light':'linearLight',vivid_light:'vividLight',pin_light:'pinLight','hard mix':'hardMix',hard_mix_photoshop:'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor',erase:'erase','destination-out':'erase'}
+ const aliases:Readonly<Record<string,string>>={normal:'normal',multiply:'multiply',screen:'screen',overlay:'overlay',darken:'darken',lighten:'lighten',burn:'colorBurn',dodge:'colorDodge',linear_burn:'linearBurn',linear_dodge:'add',add:'add',subtract:'subtract',diff:'difference',exclusion:'exclusion',soft_light:'softLight',soft_light_svg:'softLightSvg',hard_light:'hardLight',divide:'divide',hue:'hue',saturation:'saturation',color:'color',luminosity:'luminosity',luminize:'luminosity','equivalence':'equivalence','additive_subtractive':'additiveSubtractive','arc_tangent':'arcTangent','negation':'negation','inverse_subtract':'inverseSubtract','grain_merge':'grainMerge','grain_extract':'grainExtract','allanon':'allanon','geometric_mean':'geometricMean','parallel':'parallel','linear light':'linearLight',vivid_light:'vividLight',pin_light:'pinLight','hard mix':'hardMix',hard_mix_photoshop:'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor',erase:'erase','destination-out':'erase'}
  if(raw!==undefined&&(!Object.hasOwn(aliases,raw)||!descriptor.behavior?.erase&&aliases[raw]!== (descriptor.behavior?.rendering?.blendMode??'normal')))return
  if(descriptor.behavior?.erase){
   let contract:ReturnType<typeof canonicalStrokeRasterContract>
@@ -65,7 +65,7 @@ export function canonicalPixelSourceComposition(descriptor:BrushDescriptor,raste
  const mode=sourceStampPaintingMode(data),selected=rendering?.blendMode??'normal'
  if(!mode||mode==='buildup'&&rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return
  const outerBlend=selected==='color'?'colorHsyBrowser':(['multiply','lighten','colorDodge','overlay'] as const).find(name=>name===selected)??CANONICAL_PIXEL_EXTENDED_OUTER_BLENDS.find(name=>name===selected)
- if(!outerBlend)return
+ if(!outerBlend||CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS.some(candidate=>candidate===outerBlend)&&rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return
  return Object.freeze({mode,outerBlend})
 }
 

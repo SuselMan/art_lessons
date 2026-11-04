@@ -221,3 +221,17 @@ it('folds an original READ SOURCE2 direct-law frame into per-dab blend controls 
  expect(result.draws[0].controls).toEqual({kind:'directBlend',blend:'screen',opacity:Math.fround(.8)})
  expect(result.state.ended).toBe(true);expect(result.state.drawCount).toBe(1)
 })
+
+it('retains all new channel blends in direct recorded control flow and both masked roles',()=>{
+ const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel'] as const
+ for(const blend of modes)for(const masked of [false,true]){
+  const composition={...wash,mode:'buildup' as const,outerBlend:blend}
+  const material=canonicalSourceMaterialContext({version:2,outerCompositionLaw:'pixel-direct-composite-browser-v1',assets:[{id:asset,size:1,x:0,y:0,width:1,height:1}],primarySource:{kind:'image',asset,brushScale:1,brushAngle:0},...masked?{maskSource:{kind:'image',asset,brushScale:1,brushAngle:0},maskingBlend:'multiply'}:{},budget:{workUnits:10000,outputBytes:10000,drawPixels:10000}})
+  const draws=[{recipe:{...recipe,kind:'image' as const},role:'primary' as const,x:0,y:0,opacity:.8,flow:.4},...masked?[{recipe:{...recipe,kind:'image' as const},role:'mask' as const,x:0,y:0,opacity:.5,flow:.7}]:[]]
+  const built=buildCanonicalMaterial({masked,entry:{phase:'between'},draws,fences:[begin,{kind:'primaryEnd',group:0,at:1},{kind:'segmentEnd',group:0,at:draws.length},end(draws.length)]},material)
+  const result=advance(create(composition).state,{ordinal:0,frame:built.frame,masked})
+  expect(result.draws.map(d=>d.role)).toEqual(masked?['primary','mask']:['primary'])
+  expect(result.draws.every(d=>d.controls.kind==='directBlend'&&d.controls.blend===blend)).toBe(true)
+  expect(result.state.ended).toBe(true);expect(result.segments).toHaveLength(masked?1:0)
+ }
+})

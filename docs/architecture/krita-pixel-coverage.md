@@ -1,156 +1,161 @@
 # Krita Pixel: текущая карта реализации
 
-Срез кода: 3 ноября 2026, ветка `agents/brush-import`. Эталон механизмов —
-Krita `bd6e8d061d2f0388c5b10278786cf0fe62e3135f`. Цель — функциональное поведение
-Pixel/defaultpaintops в клиентском Grafetto; побитовая идентичность не требуется.
-Другие движки Krita и эффекты Procreate не входят в эту итерацию.
+Срез кода: 4 ноября 2026, `agents/brush-import`, `035a3d6bc8de5551dddb6260ec64bd82508ea621`.
+Эталон механизмов — Krita `bd6e8d061d2f0388c5b10278786cf0fe62e3135f`.
+Цель — ожидаемое функциональное поведение Pixel/defaultpaintops в Grafetto,
+запись готовых DRAW и совместное воспроизведение. Побитовая идентичность Krita,
+другие движки и эффекты Procreate этой картой не заявлены.
 
-## Что означает состояние
+## Что подтверждено
 
-«Код подключён» означает наличие importer/source binding, author, ресурсов,
-записанного исполнения и необходимых границ admission в рабочем дереве.
-Это **не результат запуска** и не количество поддержанных пресетов. Последний
-аудит исходного набора выделил 101 Pixel из 118 пресетов; это классификация
-входа, не 101 успешная проверка. Исторические 27 проверенных кистей этим кодом
-не переоценены. Старый QA R10 не содержит новую реализацию.
+Свежий functional32-каталог содержит 101 Pixel из 118 пресетов и 299 CAS-ресурсов;
+в 101 корневой кисти входят 121 граф ролей с дочерними масками. Это количество
+пресетов и ролей, а не отдельных движков. Реализация использует общий source author,
+canonical renderer, бюджеты и admission, без индивидуальных renderer для пресетов.
 
-## Карта механизмов
+- Завершён короткий app sweep **101/101 на настоящем Samsung**, без ошибок;
+  собственные контексты закрыты, ожидающих RPC не осталось. Это проверка выбранных
+  исходных пресетов, размера и короткого штриха, а не всех комбинаций настроек.
+  Повтор на текущем `035a` завершён: 101 PASS, 0 failures, errors пуст.
+- Basic и dual прошли длинные **100 MOVE**, реальную подготовку через app hook,
+  BEGIN/DRAW/END, отображение второго участника, Saved, Undo/Redo и холодный вход
+  обоих участников. На текущем `035a` Basic дал 244 DRAW/203 frames и Saved
+  около10.02s, dual — 1433 DRAW/326 frames и около18.30s. Это отдельные наблюдения,
+  не изолированный benchmark и не обещание стабильного процента ускорения. Это успешная целостность онлайн-пути,
+  но задержка сохранения остаётся задачей производительности.
+- Последний целевой GL-блок: **690 тестов /22 файла**, strict **10 production
+  roots /300 inputs /0 diagnostics**, lint12 файлов без ошибок. Writer AST-аудит
+  253 production inputs:6 raw clearColor/colorMask references, все в owned service.
+  Это не общий прогон всех тестов репозитория и не browser-проверка каждого режима.
+- Диагностика двух GL clear-state queries: **985→0** повторных запросов на
+  выбранной измеренной границе при явном владении состоянием. Это число queries,
+  не ускорение всего штриха и не основание пропускать неизвестные GL callbacks.
+  Регрессии проверяют исходное состояние, foreign getters/releases и `throw undefined`.
+- Для общей композиции отдельно выполнены HOST/Samsung GPU-проверки старого
+  набора **26 режимов /170 сценариев**, включая14 независимых literal vectors,
+  gray-image и neutral-grain variants. Их результат нельзя переносить на ещё
+  не применённые новые режимы.
 
-| Механизм | Подключённый код | Практическая проверка |
-|---|---|---|
-| Default/Gaussian/Soft Auto | Circle/rectangle, fade, ratio, AA, Soft curve, spikes2..64, seeded randomness/density, общий geometry/cache/prepass | Предстоит |
-| Динамические options/sensors | Общий compiler/query: pressure/maxPressure, tilt, angle, speed, pen rotation/tangential, time/distance, fuzzy, комбинации кривых | Предстоит |
-| Spacing/scatter/fan/mirror | Общий author и checkpoint/RNG order; source/world rotation и ограниченные очереди | Предстоит |
-| Airbrush | Timed producer, Rate/ignoreDistance, тот же author/FIFO | Предстоит |
-| Масштаб | Выбор размера, исходный scale, START/BEGIN/frame и coverageScaleFactor; bounded capacity | Предстоит |
-| PNG/GBR | Исходные прямоугольники, integer levels/LOD, ratio/mirror/rotation, original image capture | Предстоит |
-| RGB/Lightness | Парные alpha/gray/RGB, собственные кадры/rect, преобразование и правильный foreground режим | Предстоит |
-| Gradient Map отпечатка | Gray/alpha → transform → захваченный tip LUT → sharpness → texture/dual; sourceTipGradient в истории | 8 нижних GPU-сценариев прошли на HOST и Samsung; интеграционные границы проверены отдельно, обычный UI ещё предстоит |
-| GIH | Native dimensions/ranks/selectors/EOF, разные размеры кадров, записанные index/slot; родительский scale не подменяется размером child | Предстоит |
-| Static Text/TextPipe | Фактический шрифт и provenance, UTF16 sequence, уникальные glyph masks и per-frame geometry; native Qt pixels не заявлены | Предстоит |
-| SVG | Проверенный stock SVG и отдельный ограниченный vector subset; offline subprocess, исходные SHA и фактические версии renderer | Предстоит |
-| ABR как ресурс Krita | Только объявленная коллекция, native ordinal/точное legacy имя; существующий bounded ABR decoder, без PNG fallback | Предстоит |
-| Softness/LightnessStrength/Sharpness | Общие compiled material options и записанные параметры; sharpness после фактической материализации alpha | Предстоит |
-| Цветовые options | Mix/Darken/HSV через общий author; recorded RGB/RGBA | Предстоит |
-| ColorSource | Plain/uniform_random/gradient/total_random/pattern/lockedpattern; явные seed/phase/resource pins и spatial prepass | Предстоит |
-| Текстуры | 14 hard/soft alpha laws, Lightness/Gradient, gray/alpha, phase, AutoInvertOnErase, отдельные primary/mask textures | Предстоит |
-| Dual/masking | Исходные parent/child данные и размеры, независимые options, общий порядок RNG, первые10 допустимых alpha laws и fences | Предстоит |
-| Внешняя композиция | Over/erase/multiply/lighten/colorDodge/overlay и отдельный functional browser Color/HSY | Предстоит; другие modes закрыты |
-| UI и ресурсы | Source size, pattern catalogue/выбор/готовность; оригинальные asset pins сохраняются в комнате | Предстоит |
-| Онлайн/история | Author вычисляет DRAW; replay не повторяет sensors/RNG. BEGIN/frame/resume/persistence/snapshot/recorded attachments расширены для новых данных | Предстоит |
+Нижние browserB GradientMap/Executor проверки, FakeGL-интеграция и server READ
+дополняют app sweep. Они подтверждают конкретные ресурсные/исторические границы,
+но не заменяют проверку всех настроек, реального физического пера или iPad.
+
+## Карта механизмов в текущем коде
+
+| Механизм | Подключённый путь и границы |
+|---|---|
+| Default/Gaussian/Soft Auto | Circle/rectangle, fade, ratio, AA, curves, spikes2..64, seeded randomness/density; общий generator/cache/prepass |
+| Options/sensors | Pressure/maxPressure, tilt/angle/speed, pen rotation/tangential, time/distance, fuzzy и комбинации; разрешённый functional32 compiler |
+| Spacing/scatter/fan/mirror/airbrush | Общий author, checkpoint/RNG order, timed producer и bounded FIFO; perspective плоского canvas явно1 |
+| Масштаб | UI size → actual sourceScale → BEGIN/every frame/snapshot/persistence; исходный descriptor не изменяется |
+| PNG/GBR/GIH | Исходные alpha/gray/RGB, native dimensions/ranks/selectors, разные rect/размеры кадров; записанные frameIndex/sourceSlot |
+| Text/TextPipe | Фактический font backend/provenance, UTF16 sequence и per-frame geometry; точные Qt pixels не заявлены |
+| SVG/ABR | Проверенный stock SVG и bounded vector subset; объявленные ABR collections с точным ordinal/name и bounded decoder |
+| Gradient Map отпечатка | Gray/alpha → transform → captured tip LUT → sharpness → texture/dual; отдельная sourceTipGradient metadata |
+| Material/color options | Softness/LightnessStrength/Sharpness, Mix/Darken/HSV; записанные параметры RGB/RGBA |
+| ColorSource | Plain/uniform_random/gradient/total_random/pattern/lockedpattern с явными seed/phase/resource pins; spatial prepass |
+| Texture | 14 hard/soft alpha laws, Lightness/Gradient, gray/alpha, phase, AutoInvertOnErase; независимые primary/mask textures |
+| Dual/masking | Исходные parent/child и scale, независимые options, общий RNG order; первые10 alpha laws, role fences |
+| Внешняя композиция | Over/erase, прежние4 separable режима, browser Color/HSY и22 extended outer blends; WASH и browser-only non-over buildup с явными laws |
+| UI/resources/online | Source size, реальный pattern catalogue/selection/readiness, original asset pins, BEGIN/frame/resume/snapshot/recorded attachments |
+
+App sweep покрывает исходные значения101 кисти; таблица не утверждает отдельный
+device-сценарий для каждой строки или полного пространства options.
+
+## Композиция и сохранение совместимости
+
+Текущие22 extended outer blends: add, darken, screen, colorBurn, linearBurn,
+subtract, difference, exclusion, softLight, hardLight, divide, linearLight,
+vividLight, pinLight, hardMix, darkerColor, lighterColor, hue, saturation,
+luminosity, hardMixPhotoshop, softLightSvg. Все текущие распознаваемые importer
+outer aliases имеют общий реализованный путь; неизвестные исходные операции
+отклоняются, а не подменяются Normal.
+
+WASH использует captured law `generic-separable-u8-v1` (header2048), Color/HSY —
+свой1024. Non-over buildup использует **browser B** и
+`pixel-direct-composite-browser-v1` (4096), исполняет композицию per dab в том же
+kernel; masked deposit остаётся OVER до соответствующей границы сегмента.
+Старые source/native selectors, material3–7 и hard8 не получают новый допуск
+через одно лишь расширение списка названий. Исторический frontier «только7 outer
+modes; non-over buildup закрыт» описывал раннюю фазу и **не является текущим**.
 
 ## Общие инварианты
 
-Один source author и один canonical renderer, без пресетных исключений. CAS —
-идентичность пикселей, а не область чтения. У каждого image/pattern/texture
-consumer своя исходная область; одинаковый CAS с разными crop допускается
-только при явных original-bound pins. Legacy unbound-пути сохраняют строгую
-проверку. Индекс кадра выбирается автором и записывается; replay его не выбирает.
+CAS задаёт идентичность пикселей, не crop. У каждого image/pattern/texture
+consumer свой original-bound rect; общий CAS с разными crop допустим только при
+явных pins. Frame index выбирается автором и записывается; replay не пересчитывает
+sensors, RNG или resource selection.
 
-Gradient Map не заменяется ColorSource/texture Gradient. PREP хранит template
-без выдуманной LUT; только START с настоящей captured таблицей создаёт реальный
-материал. При native nonPlain spatial provider используются inverse-gray alpha
-и цвет поля, затем sharpness; таблица остаётся в immutable metadata. Программа,
-LUT и дополнительные slots резервируются только по потребности до pixels.
+GradientMap не заменяется ColorSource/texture Gradient. PREP хранит template без
+выдуманной LUT; strict START требует настоящую captured таблицу. Spatial nonPlain
+provider использует native inverse-gray alpha precedence; metadata остаётся
+immutable. CPU/GPU/program/slot reservations выполняются до pixels и учитываются
+без fake credit. Старый idle author compiler может освобождаться только при
+доказанном отсутствии активных ссылок; raster/history ресурсы сохраняются.
 
-Структура даба не содержит шрифты или LUT. Ресурсы и material metadata связаны
-с BEGIN/gesture/history; сервер ретранслирует и проверяет, но не рисует. Бюджеты
-CPU/GPU/work, room authorization и атомарная отмена подготовки сохраняются.
+Ресурсы/материал связаны с BEGIN/gesture/history. Сервер проверяет admission,
+исходный descriptor, room authorization и recorded payload, но не рисует.
+Canonical JSON сохраняется без потери точности double; не используется epsilon
+или восстановление scale из предположений. Read-binding cache ограничен genuine
+stream lifetime и полным selector, не обходит проверку каждой строки/кадра.
 
-## Явные границы
+CPU/GPU/work caps, атомарная отмена,4ms quantum и bounded queues сохранены.
+Queued GL commands submit-ятся на границе Coordinator quantum без запроса GPU
+completion; owned clear-state mirror инвалидируется на неизвестных callbacks.
+Общий GL API сохраняет restore/error semantics, включая `throw undefined`.
 
-- Общий compositor вне семи перечисленных outer modes пока закрыт, как и
-  non-over/non-erase buildup. Screen/burn/add/HSL и прочие не подменяются normal.
-- Application assistants, wrap/document mirror, channel/alpha locks и tool
-  overrides — отдельные входы приложения, а не ещё один Pixel mask kernel.
-- Image side2048/1M pixels, frames256/role, sequence4096 UTF16 units,
-  исходные assets2048, wire inventory255 и остальные budgets — ограничения
-  admission. Нельзя обходить их padding, fake CAS или неограниченным fallback.
-- SVG поддерживает закрытый subset; сложные scripts/CSS/external resources
-  не исполняются. Text требует фактического font backend и сохраняет substitution.
-- sRGB/браузерная арифметика, AA, Pillow/librsvg и deterministic noise — явные
-  функциональные профили. ICC/HDR/native entropy и точные Qt edges не обещаются.
-- Новый импорт имеет rendering revision4. Старые descriptor/recorded revisions,
-  коэффициенты3/4 и законы material3–7 не переписываются. Новый импорт по умолчанию
-  использует общий compiled2, legacy4 — только явный opt-in.
+## Новый блок и оставшиеся границы
 
-## Проверки на конец фазы кода
+- Дополнительные зарегистрированные native composite aliases вне текущего
+  mapping остаются frontier. **10 scalar GenericSC modes + native luminize alias применены после code-first
+  блока и проверок: 2196/21 тестов, strict6 roots/40 inputs/0 diagnostics,
+  importer29 PASS и 12 сравнений версий; все 655360 пар каналов совпали с
+  C++ source-body эталоном.** Семь integer graphs точные, три нелинейных —
+  квалифицированный host-libm reference без ARM64/KoLuts идентичности.
+  GPU/app проверки новых режимов ещё не выполнены; старые 26/170 результаты
+  на этот блок не переносятся. ES1/ES3 source реализован, будущий Samsung
+  GPU fixture проверяет WebGL1. Старые профили G/native не расширяются;
+  revision38 применяется только к затронутым оригинальным входам.
+- SVG остаётся закрытым vector subset; scripts/CSS/external loaders/images/fonts
+  не исполняются. Text зависит от фактического font backend и фиксирует substitution.
+  Наличие ресурса не означает поддержку всех native SVG/text возможностей.
+- Assistants, wrap/document mirror, channel/alpha locks, global app inputs и
+  tool overrides — отдельные входы приложения, а не новые Pixel kernels.
+  Реальный selected pattern/gradient и hardware sensors нельзя выдавать за
+  выдуманный default или заменять browser-догадкой.
+- Image side2048/1M pixels, frames256/role, sequence4096 UTF16 units, original
+  assets2048 и wire inventory255 остаются admission-ограничениями; нельзя
+  обходить их padding, fake CAS или unbounded fallback.
+- sRGB/browser arithmetic, AA, Pillow/librsvg и deterministic noise имеют
+  функциональные профили. ICC/HDR/native entropy, точная ISA/Qt идентичность и
+  **iPad** этим результатом не подтверждены. Физические pen-сенсоры требуют своей
+  device-проверки; DOM input sweep не доказывает их hardware-поведение.
 
-Локальные checkpoints `6a3c6aa9b` и `1f3226dbf`; следующий блок Gradient Map/ABR
-ещё фиксируется. Shared compile27: 70 production roots/0 diagnostics; server
-compile24: 68/0. Frontend compile21: 619/0 на том же кодовом блоке. Девять Python-файлов проверены через compile() без импортов/декодирования.
+Новый импорт использует rendering revision4/compiled2, legacy4 — явный opt-in.
+Старые descriptors, material laws и записанные штрихи не переписываются.
 
-В этой фазе не запускались тесты, приложение, браузеры, импорт кистей, Krita
-или планшеты. Следующая фаза — исправлять реальные ошибки запусков, проверить
-ресурсную/историческую целостность и ожидаемые штрихи, затем отзывчивость и память.
-Наличие кода и успешная компиляция ещё не дают оснований объявить полную поддержку.
+## Доказательства и исторический контекст
 
-## Источники и рабочие отчёты
+Рабочие отчёты находятся в `temp/device-runs/krita-stroke-20261024/fixes-v52/`:
+`pixel-clear-state-gates-v1/final-proof-v3.json` (690/22, strict10/300/0),
+`pixel-read-binding-gates-v1/final-proof.json`,
+`pixel10-ui-extended-peer-samsung-readbinding-root1-result.json`,
+`pixel-generic-composite-gpu-both-final-proof-v1.json`,
+`tip-gradient-executor-browser-both-final-proof-v1.json`,
+`pixel-generic-sc-code-layout-readonly-v1.md`.
+Каждый запуск имеет собственный source/runtime/input SHA; ранний PASS не
+объявляется повторным запуском на новом HEAD. Данные последующих незавершённых
+прогонов не суммируются в завершённый результат.
 
-### Фаза запусков, 3 ноября
+Историческая фаза3 ноября была CODE-FIRST: 743 shared,334 importer/13 skips,
+619 production roots и ранние lower GPU/интеграционные сценарии. Тогда обычный
+UI/online/undo/cold ещё ожидались, существовал семирежимный frontier. Эти старые
+числа и ограничения не описывают нынешний объём; skip без native provider не PASS.
+Старый R10/revision3 каталог не заменяет свежий functional32/revision4.
 
-На `54a939581` исправлены реальные ошибки копирования старого V2 budget,
-допуска прежнего seeded-density профиля, проверки foreign receiver и повторных
-ключей ресурсов. Для нового Pixel исправлены исходные crop в PREP, передача
-alpha-only PREP-контекста, сравнение BEGIN с настоящим START и допуск Gradient
-Map в adapter/resource preparation. Vitest теперь использует shared/src этой
-рабочей копии вместо устаревшего shared/dist.
+Официальный эталон: https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f .
+Карта относится только к Pixel/defaultpaintops, не к остальным paint engines.
 
-- Shared: 743 теста прошли (`pixel-functional-all-shared.log`). Importer: 334 теста, 13 пропущены без явного
-  внешнего native compiler. Эти skip не означают успешную native integration.
-- Клиент после интеграционных исправлений: 619 production roots, 0 диагностик.
-- Нижний Executor2/8 на `7ffcc12a330a`: 8 случаев на HOST SwiftShader и Samsung
-  Adreno650, одинаковые итоговые RGBA и независимый CPU-оракул. Покрыты Gradient
-  Map, spatial bypass, texture8, masking, поворот/зеркало, Sharpness и отмена
-  после ошибки callback. Ресурсы освобождены, прежние вкладки сохранены.
-- Новый FakeGL-сценарий редактора: 3/3 — START/BEGIN, recorded frames/replay,
-  отмена реального resource ticket и разные crop при общем CAS.
-- Новый серверный сценарий: 2/2 — захваченная LUT и spatial metadata через
-  Transport/resolver, сохранённую строку Prisma stub и cold READ. Это не real DB.
-
-Общий ранний engine/server прогон дал 3683/3687 после исправлений: два новых
-серверных случая затем исправлены и прошли отдельно; два исторических CPU-теста
-достигли 5s под одновременной GPU-нагрузкой; без неё весь их модуль прошёл 21/21
-при прежнем лимите 5s. Общий текущий
-прогон ещё не объявлен зелёным. Новые механизмы не проверены обычным UI и пером,
-онлайн-комнатой, Undo/Redo и холодным входом на обновлённом стенде. Каталог R10
-от старого importer revision3 не является проверкой нового импорта revision4.
-
-Официальные исходники: https://github.com/KDE/krita/tree/bd6e8d061d2f0388c5b10278786cf0fe62e3135f
-— `KisDabCacheUtils`, `kis_brush.cpp`, `KisColorfulBrush`, mask generators,
-masking/texture composite factories, `kis_text_brush` и ABR collection.
-Формулы реализованы в общем клиентском пути; исходный код GPL не переносится
-целиком как зависимость.
-
-Статические отчёты и компиляции: `temp/device-runs/krita-stroke-20261024/fixes-v52/`:
-`pixel-finite-residual-mechanisms-readonly.md`,
-`pixel-raster-remaining-mechanisms-readonly-v1.md`,
-`pixel-frontend-closure-static-audit-v1.md`, `ROOT-CODE-FIRST-CURRENT.json`.
-Protected `sourceDefaultAutoVectorShader.ts` не читается и не участвует в проверках.
-
-### Полный свежий каталог и functional-профиль
-
-Свежий импорт содержит 101 Pixel из 118 пресетов и 299 CAS-ресурсов.
-Первый полный аудит проверяет все 121 графа ролей, включая 20 дочерних масок,
-а не только корневые кисти. Обнаруженная 22-узловая кривая маски
-Round-Grunge теперь также скомпилирована. Отдельный source-functional provider расширен до 32 узлов
-с прежними общими бюджетами; native mapped v3 остаётся ограничен старой
-грамматикой. Provider имеет собственный build ID, тестируется независимым
-расчётом сплайна и не заявляет ISA/пиксельную идентичность.
-
-Актуальная серия server+curve: 76 проверок прошли. Новый browserB-путь требует
-своего допуска и профиля на каждой стадии; его нельзя подтверждать прежними
-нижними GPU-проверками G. Найденные потери оригинальных metadata в texture/dual
-и фиксированные профили в index исправлены. Свежий B-аудит дал
-101/101 admission, binding, compiled program и настоящий SourceStrokeAuthor
-constructor без отказов (`pixel-functional-browser101-result.json`). Это
-проверка готовности программ, а не выполненных штрихов или GPU. Полный UI/real DB/онлайн/холодное восстановление и плавность нового
-набора остаются обязательными до заявления готовности.
-
-Нижний browserB-проход теперь проверен отдельно: 8/8 сценариев на HOST и
-Samsung Adreno650 совпали с независимым CPU-оракулом и друг с другом.
-Это endpoint OVER на прозрачной цели, не общая проверка всех смешиваний.
-Proof: `tip-gradient-executor-browser-both-final-proof-v1.json`; контексты
-закрыты, CPU/GPU-учёт обнулён, временный bundle удалён. Полный importer:
-343 теста прошли, 13 legacy-native проверок пропущены без отдельного provider.
-Новый functional32 provider был передан явно и его проверки выполнены.
+Новый блок: `pixel-generic-sc10-gates-v1/final-proof-v2.json`,
+`pixel-generic-sc-channel-extension-independent-review-v2.json`; точные входы
+и результаты отделены от ещё не выполненного device-прогона.
