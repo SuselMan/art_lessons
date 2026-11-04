@@ -828,7 +828,7 @@ export class CanonicalRgba8CompositePass {
             if(atlas){gl.activeTexture(gl.TEXTURE0+4);gl.bindTexture(gl.TEXTURE_2D,atlas.texture);restoreSamplings.push(frame?frame.pointSampling(atlas.texture):this.pointSampling(atlas.texture,gl.TEXTURE0+4));}
             const u = info.uniforms;
             if(atlas)gl.uniform1i(u.scalarPowerTexture,4);
-            if(operation.kind==='genericSCU8')gl.uniform1i(u.sourceCompositeChannelLimit,3);
+            if(operation.kind==='genericSCU8')gl.uniform1i(u.sourceCosineStageLimit,2);
             const materialRGBA=source.kind!=='straightRgba8'&&source.view.materialRGBA;
             const spatialRGBA=source.kind!=='straightRgba8'&&source.view.spatialRGBA;
             const bitmapColor=spatialRGBA||materialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
@@ -1081,7 +1081,7 @@ export class CanonicalRgba8CompositePass {
             const attribute=gl.getAttribLocation(program,'position');
             if(attribute<0)throw new Error('Composite attribute unavailable');
             const uniforms:Record<string,WebGLUniformLocation|null>={};
-            for (const name of [...atlasMode?['scalarPowerTexture']:[],'sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceCompositeChannelLimit','sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
+            for (const name of [...atlasMode?['scalarPowerTexture']:[],'sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceCosineStageLimit','sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
                 uniforms[name]=gl.getUniformLocation(program,name);
             info={program,attribute,uniforms};
         }catch(error){failed=true;failure=error}
