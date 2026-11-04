@@ -5,8 +5,8 @@ export const SOURCE_SCALAR_POWER_LOOKUP_GLSL=`
 uniform highp sampler2D scalarPowerTexture;
 highp float sourceScalarPowerByte(highp float S,highp float D){
  highp float cell=floor(S/4.0),component=S-cell*4.0;
- highp vec4 packed=floor(texture2D(scalarPowerTexture,vec2((cell+0.5)/64.0,(D+0.5)/256.0))*255.0+0.5);
- return component<0.5?packed.r:component<1.5?packed.g:component<2.5?packed.b:packed.a;
+ highp vec4 atlasTexel=floor(texture2D(scalarPowerTexture,vec2((cell+0.5)/64.0,(D+0.5)/256.0))*255.0+0.5);
+ return component<0.5?atlasTexel.r:component<1.5?atlasTexel.g:component<2.5?atlasTexel.b:atlasTexel.a;
 }
 `
 const ids:Readonly<Record<SourceScalarPowerMode,number>>=Object.freeze({easyDodge:95,easyBurn:96,pNormA:97,superLight:99,softLightIfs:100})

@@ -382,3 +382,7 @@ pixel-scalar5-atlas-combined-independent-review-v5.json.
 требует indirect mode. Raw Buildup+mask противоречит нативному предусловию;
 его явный отказ не означает отсутствующий selectable Pixel-механизм.
 Доказательство: pixel-masked-final6-native-ui-independent-v2.json.
+
+Первый реальный HOST GPU-прогон выявил зарезервированное GLSL-имя packed
+в Atlas lookup; оно переименовано в atlasTexel без изменения формул.
+Исходный FAIL сохранён. Повтор GPU обязателен; MockGL компиляцию не проверяет.
