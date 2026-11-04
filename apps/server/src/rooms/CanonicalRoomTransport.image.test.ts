@@ -814,3 +814,53 @@ it('carries accepted browser scaled SOURCE2 DRAW through actual indexed FOLLOW p
   expect((await read.next(1)).terminal).toBe(true)
  }finally{read?.cancel();leaveRoom('board','author','indexed-browser-scale-seat')}
 })
+
+async function recordedBindingScopeFixture(){
+ const f=setup(),transport=new CanonicalRoomTransport(policy)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),p=s.material.primarySource
+ expect(p).toMatchObject({kind:'image',asset:fixture.asset.id,brushScale:.05})
+ expect(s.assets).toEqual([{id:fixture.asset.id,size:256,x:53,y:53,width:150,height:150}])
+ const shape=sourcePngMaskExtent({width:150,height:150,scale:.05,angle:0},{scale:.5,ratio:1,rotation:.3},0,0)
+ const recipe={kind:'image' as const,asset:fixture.asset.id,brushScale:.05,brushAngle:0,scale:.5,ratio:1,rotation:.3,subX:0,subY:0,width:shape[0],height:shape[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
+ const frame:CanonicalStrokeFrameEnvelope={version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}
+ const operation:CanonicalStrokeOperation={id:'image-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame}
+ const saved=await transport.recorded(identity,operation,()=>true)
+ expect(saved.result).toMatchObject({ok:true,seq:1});expect(saved.canonicalCapabilities).toBeDefined()
+ const row=db.operation.create.mock.calls[0][0].data,accepted=saved.accepted
+ if(!accepted)throw Error('Expected actual durable image operation')
+
+ const cold=new CanonicalBrushCapabilityResolver({...policy,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ let current=true
+ const scope=cold.createRecordedReadBindingScope({roomId:'board',boardEpoch:s.boardEpoch,assertCurrent:()=>{if(!current)throw Error('Read permission revoked')}})
+ const input={roomId:'board',boardEpoch:s.boardEpoch,operations:[accepted],rows:[row]}
+ return {f,cold,scope,input,accepted,row,revoke:()=>{current=false}}
+}
+it('reuses one compiled original binding across follow/next-style actual row pages and keeps owned data frozen',async()=>{
+ const f=await recordedBindingScopeFixture(),library=vi.spyOn(f.f.storage,'library')
+ const first=f.cold.prepareRecordedAttachment(f.input,f.scope),second=f.cold.prepareRecordedAttachment(f.input,f.scope)
+ expect(second).toEqual(first);expect(library.mock.calls.filter(([kind])=>kind==='rooms')).toHaveLength(1)
+ const source=f.cold.readRecordedCapability({roomId:'board',boardEpoch:f.input.boardEpoch,operation:f.accepted,row:f.row,bindingScope:f.scope})
+ const asset=source.material.assets[0];if(!asset)throw Error('Real source asset required')
+ expect(Object.isFrozen(source.material)).toBe(true);expect(Object.isFrozen(asset)).toBe(true)
+ expect(Reflect.set(asset,'width',999)).toBe(false)
+ expect(f.cold.prepareRecordedAttachment(f.input,f.scope)).toEqual(first)
+})
+it('still verifies every actual indexed row on a compiled binding hit and clears on cancel without poisoning valid reuse',async()=>{
+ const f=await recordedBindingScopeFixture();f.cold.prepareRecordedAttachment(f.input,f.scope)
+ expect(()=>f.cold.prepareRecordedAttachment({...f.input,rows:[{...f.row,id:'foreign-row'}]},f.scope)).toThrow()
+ f.cold.clearRecordedReadBindings(f.scope)
+ const library=vi.spyOn(f.f.storage,'library');expect(f.cold.prepareRecordedAttachment(f.input,f.scope).bindings).toHaveLength(1)
+ expect(library.mock.calls.filter(([kind])=>kind==='rooms')).toHaveLength(1)
+ f.revoke();expect(()=>f.cold.prepareRecordedAttachment(f.input,f.scope)).toThrow('revoked')
+})
+it('invalidates a compiled source on legitimate catalog append and rejects a revision race while binding',async()=>{
+ const f=await recordedBindingScopeFixture();f.cold.prepareRecordedAttachment(f.input,f.scope)
+ const catalog=f.f.storage.library('rooms','board');f.f.storage.atomic(f.f.storage.path('rooms','board'),{...catalog,skipped:[...catalog.skipped,{name:'unrelated-import',reasons:['bounded-test']}]})
+ const library=vi.spyOn(f.f.storage,'library');expect(f.cold.prepareRecordedAttachment(f.input,f.scope).bindings).toHaveLength(1)
+ expect(library.mock.calls.filter(([kind])=>kind==='rooms')).toHaveLength(1)
+ f.cold.clearRecordedReadBindings(f.scope)
+ library.mockRestore();const read=f.f.storage.library.bind(f.f.storage)
+ vi.spyOn(f.f.storage,'library').mockImplementationOnce((kind,id)=>{const value=read(kind,id);f.f.storage.atomic(f.f.storage.path('rooms','board'),{...value,skipped:[...value.skipped,{name:'during-bind',reasons:['revision-race']}]});return value})
+ expect(()=>f.cold.prepareRecordedAttachment(f.input,f.scope)).toThrow('changed during binding')
+})

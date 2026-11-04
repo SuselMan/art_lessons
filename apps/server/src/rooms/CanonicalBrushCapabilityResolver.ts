@@ -52,6 +52,29 @@ interface RecordedFoldCheckpoint extends CanonicalMaterialPrefixState {
  readonly recordedNext:number;readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
  readonly endSeq?:number;readonly closeSeal?:ReturnType<typeof verifyCanonicalRecordedClose>
 }
+declare const recordedReadBindingScopeBrand:unique symbol
+export interface RecordedReadBindingScope {readonly [recordedReadBindingScopeBrand]:true}
+type RecordedBound=ReturnType<CanonicalBrushCapabilityResolver['bindDescriptor']>
+interface RecordedReadBindingState {readonly roomId:string;readonly boardEpoch:number;readonly board:RoomRecord;readonly current:()=>void;revision?:string;bytes:number;entries:Map<string,{readonly bound:RecordedBound;readonly bytes:number}>}
+/** Copies only closed DATA into PRIVATE owned frozen output, never freezes a
+ * public library/descriptor or trusts arbitrary Object.isFrozen input. */
+function privateRecordedBindingCopy<T>(value:T):T|undefined {
+ const ancestors=new Set<object>()
+ const clone=(v:unknown):unknown=>{
+  if(v===null||typeof v==='string'||typeof v==='boolean'||v===undefined||typeof v==='number'&&Number.isFinite(v))return v
+  if(typeof v!=='object'||ancestors.has(v))throw Error('Non-DATA recorded binding')
+  const array=Array.isArray(v),prototype=Object.getPrototypeOf(v)
+  if(array?prototype!==Array.prototype:prototype!==Object.prototype&&prototype!==null)throw Error('Non-DATA recorded binding')
+  const keys=Reflect.ownKeys(v),length=array?Object.getOwnPropertyDescriptor(v,'length')?.value:undefined
+  if(array&&(!Number.isSafeInteger(length)||length<0||keys.length!==length+1))throw Error('Non-DATA recorded binding')
+  const copy:Record<string,unknown>|unknown[]=array?[]:{};ancestors.add(v)
+  try{for(const key of keys){if(array&&key==='length')continue;const field=typeof key==='string'?Object.getOwnPropertyDescriptor(v,key):undefined
+    if(!field||!Object.hasOwn(field,'value')||field.enumerable!==true||array&&(!Number.isSafeInteger(Number(key))||String(Number(key))!==key||Number(key)<0||Number(key)>=length))throw Error('Non-DATA recorded binding')
+    Object.defineProperty(copy,key,{value:clone(field.value),enumerable:true,writable:false,configurable:false})
+  }}finally{ancestors.delete(v)}return Object.freeze(copy)
+ }
+ try{return clone(value) as T}catch{return undefined}
+}
 interface RecordedSourceFold {
  accept(this:unknown,operation:CanonicalStrokeOperation|import('@grafetto/shared').RecordedCanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow):undefined
  checkpoint(this:unknown):Readonly<RecordedFoldCheckpoint>
@@ -99,6 +122,28 @@ export class CanonicalBrushCapabilityResolver {
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
   private nextEpoch = 0
+  private readonly recordedReadBindings=new WeakMap<RecordedReadBindingScope,RecordedReadBindingState>()
+  createRecordedReadBindingScope(input:{readonly roomId:string;readonly boardEpoch:number;readonly assertCurrent:()=>void}):RecordedReadBindingScope {
+    input.assertCurrent();const board=rooms.get(input.roomId)
+    if(!board||this.captureReadScope(input.roomId).boardEpoch!==input.boardEpoch)fail('recorded read binding scope unavailable')
+    const scope=Object.freeze({}) as RecordedReadBindingScope
+    this.recordedReadBindings.set(scope,{roomId:input.roomId,boardEpoch:input.boardEpoch,board,current:input.assertCurrent,bytes:0,entries:new Map()})
+    return scope
+  }
+  clearRecordedReadBindings(scope:RecordedReadBindingScope):void {
+    const state=this.recordedReadBindings.get(scope);if(!state)fail('foreign recorded read binding scope')
+    state.entries.clear();state.bytes=0;state.revision=undefined
+  }
+  private recordedBindingState(scope:RecordedReadBindingScope,roomId:string,boardEpoch:number):RecordedReadBindingState {
+    const state=this.recordedReadBindings.get(scope)
+    if(!state||state.roomId!==roomId||state.boardEpoch!==boardEpoch)fail('foreign recorded read binding scope')
+    try{state.current();if(rooms.get(roomId)!==state.board||this.captureReadScope(roomId).boardEpoch!==boardEpoch)fail('recorded read binding scope changed')
+      const revision=this.storage.roomLibraryRevision(roomId)
+      if(state.revision!==revision){state.entries.clear();state.bytes=0;state.revision=revision}
+      return state
+    }catch(error){state.entries.clear();state.bytes=0;state.revision=undefined;throw error}
+  }
+
   /** Pass directly to CanonicalStrokeAdmission; no ambient mutable identity. */
   readonly resolve: CanonicalCapabilityResolver = (identity, selector) => {
     if (!validIdentity(identity) || !selector || !text(selector.strokeId)) return undefined
@@ -316,23 +361,23 @@ export class CanonicalBrushCapabilityResolver {
    * awaits. The row MUST originate from the authoritative loader/DB, never a
    * client echo. Cross-checking equal objects alone cannot establish provenance.
    * Does not pin, import, publish a BEGIN grant, or mutate admission/session maps. */
-  readRecordedCapability(input:{readonly roomId:string;readonly boardEpoch:number;readonly operation:CanonicalStrokeOperation;readonly row:CanonicalStoredOperationRow}):CanonicalRecordedCapability {
+  readRecordedCapability(input:{readonly roomId:string;readonly boardEpoch:number;readonly operation:CanonicalStrokeOperation;readonly row:CanonicalStoredOperationRow;readonly bindingScope?:RecordedReadBindingScope}):CanonicalRecordedCapability {
     const {roomId,boardEpoch,operation:op,row}=input
     if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
     verifyCanonicalOperationRow(roomId,op,row)
-    return this.bindRecordedOperation(roomId,boardEpoch,op)
+    return this.bindRecordedOperation(roomId,boardEpoch,op,input.bindingScope)
   }
 
   /** Internal scalar fold. Actual indexed visitor/old array adapter owns row
    * provenance and id uniqueness; this is not a source/read/append grant. */
-  createRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {return this.foldRecordedPrefix(input,false)}
+  createRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo';readonly bindingScope?:RecordedReadBindingScope}) {return this.foldRecordedPrefix(input,false)}
   /** Original indexed stream only; limits belong to each page, not the total prefix. */
-  createIndexedRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {return this.foldRecordedPrefix(input,true)}
-  private foldRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'},indexed:boolean,seed?:RecordedFoldSeed):Readonly<RecordedSourceFold> {
+  createIndexedRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo';readonly bindingScope?:RecordedReadBindingScope}) {return this.foldRecordedPrefix(input,true)}
+  private foldRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo';readonly bindingScope?:RecordedReadBindingScope},indexed:boolean,seed?:RecordedFoldSeed):Readonly<RecordedSourceFold> {
     const {roomId,boardEpoch,anchor,purpose,row}=input
     if(purpose!=='read'&&purpose!=='undo-redo')fail('invalid recorded prefix purpose')
-    const bindRow=(operation:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>this.readRecordedCapability({roomId,boardEpoch,operation,row})
-    let bound=seed?.source??(anchor?(row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})):undefined)
+    const bindRow=(operation:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>this.readRecordedCapability({roomId,boardEpoch,operation,row,bindingScope:input.bindingScope})
+    let bound=seed?.source??(anchor?(row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row,bindingScope:input.bindingScope}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})):undefined)
     let requiredAnchor=anchor
     let state=seed?.state??CANONICAL_MATERIAL_PREFIX_START,bytes=0,anchored=!anchor,firstOperationId=seed?.firstOperationId??'',lastOperationId=seed?.lastOperationId??'',firstSeq=seed?.firstSeq??0,lastSeq=seed?.lastSeq??0,endSeq=seed?.endSeq,closed=false,failed=false
     let closeSeal=seed?.closeSeal
@@ -426,22 +471,41 @@ export class CanonicalBrushCapabilityResolver {
     const value=this.nextEpoch++;this.epochs.set(board,{lesson,value});return value
   }
 
-  private bindRecordedOperation(roomId:string,boardEpoch:number,op:CanonicalStrokeOperation):CanonicalRecordedCapability {
+  private bindRecordedOperation(roomId:string,boardEpoch:number,op:CanonicalStrokeOperation,bindingScope?:RecordedReadBindingScope):CanonicalRecordedCapability {
     if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
     const board=rooms.get(roomId)
     if(!board||board.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('recorded read board unavailable')
     const match=/^brush:([a-z0-9-]+)@([1-9][0-9]*)$/.exec(op.frame.brush)
     if(!match||!Number.isSafeInteger(Number(match[2])))fail('exact versioned recorded brush required')
-    // Read ONLY the durable room pin. Personal/operator lookup is not authority
-    // for someone else's already recorded source revision.
-    const library=this.storage.library('rooms',roomId)
-    const descriptor=library.brushes.find(b=>b.descriptor.id===match[1]&&b.descriptor.version===Number(match[2]))?.descriptor
-    if(!descriptor)fail('recorded room brush pin unavailable')
-    if(!descriptor.sourceStamp||((descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&!this.primaryImageSource))fail('recorded V1 material delivery unavailable')
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
-    this.assertImagePipeRole(descriptor,'recorded',recordedMaterialFlags(op.frame))
-    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=this.bindDescriptor(descriptor,library,profile,'recorded',recordedTexturePhase(op.frame),recordedMaterialVersion(op.frame),recordedSourceScale(op.frame),recordedMaterialFlags(op.frame),recordedTextureGradient(op.frame),recordedSourceColorFields(op.frame),recordedRoleTextureInputs(op.frame),recordedSourceTipGradient(op.frame))
+    const selector={brush:op.frame.brush,profile,phase:recordedTexturePhase(op.frame),version:recordedMaterialVersion(op.frame),scale:recordedSourceScale(op.frame),flags:recordedMaterialFlags(op.frame),gradient:recordedTextureGradient(op.frame),fields:recordedSourceColorFields(op.frame),roleInputs:recordedRoleTextureInputs(op.frame),tipGradient:recordedSourceTipGradient(op.frame)}
+    // Only copied closed selector DATA reaches the cache key; no unknown input
+    // getters are walked by JSON serialization. Signed zero remains distinct.
+    const copied=privateRecordedBindingCopy(selector),cacheKey=copied?JSON.stringify(copied,(_key,value:unknown)=>typeof value==='number'&&Object.is(value,-0)?{$negativeZero:true}:value):undefined
+    const state=bindingScope?this.recordedBindingState(bindingScope,roomId,boardEpoch):undefined,revision=state?.revision
+    let bound=state&&cacheKey?state.entries.get(cacheKey)?.bound:undefined
+    if(!bound){
+      // Read ONLY the durable room pin. No operator/personal source authority.
+      const library=this.storage.library('rooms',roomId)
+      const descriptor=library.brushes.find(b=>b.descriptor.id===match[1]&&b.descriptor.version===Number(match[2]))?.descriptor
+      if(!descriptor)fail('recorded room brush pin unavailable')
+      if(!descriptor.sourceStamp||((descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&!this.primaryImageSource))fail('recorded V1 material delivery unavailable')
+      this.assertImagePipeRole(descriptor,'recorded',selector.flags)
+      bound=this.bindDescriptor(descriptor,library,profile,'recorded',selector.phase,selector.version,selector.scale,selector.flags,selector.gradient,selector.fields,selector.roleInputs,selector.tipGradient)
+      if(state&&cacheKey&&bindingScope){
+        const current=this.recordedBindingState(bindingScope,roomId,boardEpoch)
+        if(current!==state||state.revision!==revision)fail('recorded catalog changed during binding')
+        const bytes=Buffer.byteLength(cacheKey,'utf8')+Buffer.byteLength(JSON.stringify(bound),'utf8')+256
+        if(bytes<=CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){const owned=privateRecordedBindingCopy(bound)
+          if(owned){
+            while(state.entries.size>=64||state.bytes+bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){const oldest=state.entries.keys().next().value;if(oldest===undefined)break;state.bytes-=state.entries.get(oldest)!.bytes;state.entries.delete(oldest)}
+            state.entries.set(cacheKey,{bound:owned,bytes});state.bytes+=bytes;bound=owned
+          }
+        }
+      }
+    }else if(state&&cacheKey){const entry=state.entries.get(cacheKey)!;state.entries.delete(cacheKey);state.entries.set(cacheKey,entry)}
+    const {material,mode,outerBlend,descriptorSha256,plainAutoGeometry}=bound
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
@@ -458,14 +522,14 @@ export class CanonicalBrushCapabilityResolver {
    * subsequence of operations, in delivery order, from the authoritative loader.
    * Same read-permission/lifetime preconditions as readRecordedCapability.
    * Dictionary/interner exists only during this synchronous serialization. */
-  prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV8 {
+  prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]},bindingScope?:RecordedReadBindingScope):CanonicalRecordedAttachmentV8 {
     const {roomId,boardEpoch,operations,rows}=input
     if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
     let rowIndex=0
     const attachment=this.projectRecordedAttachment({roomId,boardEpoch,operations},op=>{
       const row=rows[rowIndex++]
       verifyCanonicalOperationRow(roomId,op,row??null)
-      return ()=>this.readRecordedCapability({roomId,boardEpoch,operation:op,row})
+      return ()=>this.readRecordedCapability({roomId,boardEpoch,operation:op,row,bindingScope})
     })
     if(rowIndex!==rows.length)fail('recorded attachment row closure mismatch')
     return attachment

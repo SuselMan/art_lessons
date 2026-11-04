@@ -149,6 +149,7 @@ export class CanonicalRoomTransport {
     let drains=originDrains
     const afterRead=async()=>{current();if(!await mayReadBoardContent(roomId,userId,this.fullHistoryFormat,drains))fail('not_joined');current()}
     await afterRead()
+    const bindingScope=binder.createRecordedReadBindingScope({roomId,boardEpoch:offer.scope.boardEpoch,assertCurrent:current})
     type Carry={readonly fold:ReturnType<CanonicalBrushCapabilityResolver['createIndexedRecordedPrefixFold']>;readonly root:CanonicalIndexedRootV1;readonly bytes:number}
     let committedCarry=new Map<string,Carry>(),pendingCarry:Map<string,Carry>|undefined
     const carryKey=(user:string,stroke:string)=>JSON.stringify([user,stroke])
@@ -156,12 +157,12 @@ export class CanonicalRoomTransport {
       let bytes=0;for(const value of carry.values())bytes+=value.bytes
       if(carry.size>64||bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('canonical_repair_required')
     }
-    const sourceBytes=(first:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>Buffer.byteLength(JSON.stringify(binder.readRecordedCapability({roomId,boardEpoch:offer.scope.boardEpoch,operation:first,row})),'utf8')
+    const sourceBytes=(first:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>Buffer.byteLength(JSON.stringify(binder.readRecordedCapability({roomId,boardEpoch:offer.scope.boardEpoch,operation:first,row,bindingScope})),'utf8')
     const validateCut=async(target:number):Promise<Map<string,Carry>>=>{
       const candidate=new Map<string,Carry>()
       await withCanonicalIndexedValidation(async database=>{
       await validateCanonicalIndexedHistoryRows(roomId,target,afterRead,async(first,row)=>{
-        const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row,purpose:'read'})
+        const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row,purpose:'read',bindingScope})
         const visited=await visitCanonicalIndexedGesturePrefixRows(roomId,{userId:first.userId,strokeId:first.frame.strokeId},target,
           {requiredFrame:first,afterRead,visit:(operation,originalRow)=>fold.accept(operation,originalRow)},database)
         const summary=fold.checkpoint()
@@ -191,7 +192,7 @@ export class CanonicalRoomTransport {
           const first=projectCanonicalIndexedHistoryRow(roomId,firstRow)
           if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0||first.seq!==root.firstSequence||first.userId!==root.originalUserId
             ||first.layerId!==root.layerId||first.frame.strokeId!==root.strokeId||first.seq!>atCut)fail('invalid_operation')
-          const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row:firstRow,purpose:'read'})
+          const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row:firstRow,purpose:'read',bindingScope})
           const prefix=await visitCanonicalIndexedGesturePrefixRows(roomId,{userId:first.userId,strokeId:first.frame.strokeId},atCut,
             {requiredFrame:first,afterRead,visit:(operation,row)=>fold.accept(operation,row)})
           const summary=fold.finish(),effects=await getCanonicalIndexedRootEffectRows(roomId,atCut,root,afterRead)
@@ -212,7 +213,7 @@ export class CanonicalRoomTransport {
             return row?add(projectCanonicalIndexedHistoryRow(roomId,row),row):null
           }
           const lastMetadata=ref('lastMetadata'),latestRedo=ref('latestRedo'),firstUndoAfterLatestRedo=ref('firstUndoAfterLatestRedo'),ownBranchAfterUndo=ref('ownBranchAfterUndo')
-          const capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations:rows,rows:sourceRows})
+          const capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations:rows,rows:sourceRows},bindingScope)
           if(Buffer.byteLength(JSON.stringify({rows,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('canonical_repair_required')
           assertOrigin(read)
           return Object.freeze({kind:'canonical-indexed-history-root-evidence-v1',streamId:proofStreamId,throughSeq:atCut,
@@ -232,11 +233,11 @@ export class CanonicalRoomTransport {
           const page=await getCanonicalIndexedHistoryPageRows(roomId,cut,afterSeq,afterRead)
           assert(this)
           let operations=page.operations,rows=page.rows
-          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')},bindingScope)
           while(Buffer.byteLength(JSON.stringify({operations,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){
             if(operations.length<=1)fail('canonical_repair_required')
             operations=Object.freeze(operations.slice(0,-1));rows=Object.freeze(rows.slice(0,-1))
-            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')},bindingScope)
           }
           assert(this)
           if(page.terminal){
@@ -312,11 +313,11 @@ export class CanonicalRoomTransport {
           const metadataIndex=page.operations.findIndex(operation=>operation.type==='operation_undo'||operation.type==='operation_redo')
           const operations:CanonicalIndexedOperation[]=page.operations.slice(0,metadataIndex<0?undefined:metadataIndex+1)
           const rows:CanonicalStoredOperationRow[]=page.rows.slice(0,operations.length)
-          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')},bindingScope)
           while(Buffer.byteLength(JSON.stringify({operations,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){
             if(operations.length<=1)fail('canonical_repair_required')
             operations.pop();rows.pop()
-            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')},bindingScope)
           }
           for(let i=0;i<operations.length;i++){
             const operation=operations[i],row=rows[i]
@@ -329,7 +330,7 @@ export class CanonicalRoomTransport {
             if(!carry){
               if(operation.type!=='canonical_stroke'||operation.frame.frameOrdinal!==0)fail('canonical_repair_required')
               const root=Object.freeze({originalUserId:user,strokeId:stroke,layerId:operation.layerId,firstOperationId:operation.id,firstSequence:operation.seq!})
-              carry={fold:binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:operation,row,purpose:'read'}),root,bytes:sourceBytes(operation,row)}
+              carry={fold:binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:operation,row,purpose:'read',bindingScope}),root,bytes:sourceBytes(operation,row)}
               candidate.set(key,carry);changed.add(key)
             }else if(!changed.has(key)){carry={...carry,fold:carry.fold.fork()};candidate.set(key,carry);changed.add(key)}
             carry.fold.accept(operation.type==='canonical_stroke_close'?parseCanonicalStrokeCloseOperation(operation):operation,row)
@@ -345,7 +346,7 @@ export class CanonicalRoomTransport {
           return next
         }finally{busy=false}
       },
-      cancel(this:unknown){assertOrigin(this);cancelled=true;pendingCarry=undefined;drains=originDrains},
+      cancel(this:unknown){assertOrigin(this);cancelled=true;pendingCarry=undefined;drains=originDrains;binder.clearRecordedReadBindings(bindingScope)},
     })
     return read
   }

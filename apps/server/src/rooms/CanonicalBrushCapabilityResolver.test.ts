@@ -252,3 +252,22 @@ it.each(['wash','buildup'] as const)('pins the selected Pixel %s composition law
  expect('outerCompositionLaw' in grant.material&&grant.material.outerCompositionLaw).toBe(mode==='wash'?'generic-separable-u8-v1':'pixel-direct-composite-browser-v1')
  resolver.clearRoom(f.identity.roomId)
 })
+
+it('scoped read binding metadata is lazy and foreign scopes cannot clear another resolver',()=>{
+ const f=fixture(),epoch=f.binder.captureReadScope('board').boardEpoch,current=vi.fn()
+ const probe=vi.spyOn(f.storage,'roomLibraryRevision'),scope=f.binder.createRecordedReadBindingScope({roomId:'board',boardEpoch:epoch,assertCurrent:current})
+ expect(current).toHaveBeenCalledOnce();expect(probe).not.toHaveBeenCalled()
+ const foreign=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'],maxGestures:4})
+ expect(()=>foreign.clearRecordedReadBindings(scope)).toThrow('foreign')
+ expect(()=>f.binder.clearRecordedReadBindings(scope)).not.toThrow();expect(probe).not.toHaveBeenCalled()
+})
+it('catalog revision probe detects atomic replacement without reading or sharing public mutable catalog objects',()=>{
+ const f=fixture();f.binder.beginGesture(f.identity,f.input)
+ f.storage.pin('board','author',[f.input.brush])
+ const first=f.storage.roomLibraryRevision('board'),visible=f.storage.library('rooms','board')
+ visible.skipped.push({name:'caller-only',reasons:['mutable-public-copy']})
+ expect(f.storage.roomLibraryRevision('board')).toBe(first)
+ expect(f.storage.library('rooms','board').skipped.some(x=>x.name==='caller-only')).toBe(false)
+ f.storage.atomic(f.storage.path('rooms','board'),f.storage.library('rooms','board'))
+ expect(f.storage.roomLibraryRevision('board')).not.toBe(first)
+})

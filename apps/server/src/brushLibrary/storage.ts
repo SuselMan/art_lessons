@@ -58,6 +58,21 @@ export class BrushStorage {
     for (const name of ['owners', 'rooms', 'assets', 'jobs', 'tmp']) { const path=join(this.root,name); mkdirSync(path,{mode:0o700,recursive:true}); if (lstatSync(path).isSymbolicLink()) throw Error('Unsafe storage directory') }
   }
   path(kind: 'owners'|'rooms'|'jobs', id: string): string { return join(this.root,kind,key(id)+'.json') }
+  /** Read-only identity probe; no bytes/cache/public library objects returned. */
+  roomLibraryRevision(room:string):string {
+    const path=this.path('rooms',room)
+    let cursor=parse(resolve(path)).root
+    for(const part of resolve(path).slice(cursor.length).split('/').filter(Boolean).slice(0,-1)){
+      cursor=join(cursor,part);const stat=lstatSync(cursor)
+      if(stat.isSymbolicLink()||!stat.isDirectory())throw Error('Unsafe file path')
+    }
+    const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW)
+    try{
+      const stat=fstatSync(fd,{bigint:true}),current=lstatSync(path,{bigint:true})
+      if(!stat.isFile()||stat.size>BigInt(BRUSH_LIBRARY_MANIFEST_MAX_BYTES)||current.isSymbolicLink()||!current.isFile()||current.dev!==stat.dev||current.ino!==stat.ino)throw Error('Invalid catalog revision')
+      return [stat.dev,stat.ino,stat.size,stat.mtimeNs,stat.ctimeNs].join(':')
+    }finally{closeSync(fd)}
+  }
   library(kind: 'owners'|'rooms', id: string): BrushLibrary {
     try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), BRUSH_LIBRARY_MANIFEST_MAX_BYTES).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); const patterns=captureBrushPatterns(value);return value.patterns===undefined?value:{...value,patterns} }
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
