@@ -865,6 +865,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('customCompositeFunctional','defined-custom-rgba-u8-v1: native RGBA shell order retained; Greater uses explicit Q65535 logistic-weight table, not portable native float/ICC/ISA identity.','approximate'))
         if mode in ('lambert_lighting','lambert_lighting_gamma2.2','combine_normal','tangent_normalmap'):
             notes.append(compatibility('normalCompositeFunctional','defined-q65535-normal-lighting-v1: staged Q65535 vector math and bounded exact integer normalization; functional RGB/U8, not native float/ICC/ISA byte identity.','approximate'))
+        if mode in ('pnorm_b', 'tint_ifs_illusions', 'interpolation', 'interpolation 2x'):
+            notes.append(compatibility('scalarRootCosFunctional','defined-scalar23-root-cos-q65535-v1: exact integer fourth-root and staged Q65535 sqrt/cos byte graph; preserves inner interpolation byte, functional RGB/U8, not native libm/Float32-LUT/ICC/ISA byte identity.','approximate'))
         if mode in ('modulo', 'modulo_continuous', 'divisive_modulo', 'divisive_modulo_continuous', 'modulo_shift', 'modulo_shift_continuous'):
             notes.append(compatibility('moduloCompositeFunctional','defined-rational-u8-modulo-v1: modulo D%(S+1) matches the native U8 integer graph; the five real-epsilon modes use explicit rational endpoint/parity rules, not native double-epsilon/Float32-LUT/ISA byte identity.','approximate'))
         if mode in ('xor', 'or', 'and', 'nand', 'nor', 'xnor', 'implication', 'not_implication', 'converse', 'not_converse'):

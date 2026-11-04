@@ -313,3 +313,24 @@ GPU/APP Custom6 и нового endpoint ещё не запускались.
 Доказательства: pixel-custom6-endpoint-gates-v2/final-proof.json,
 pixel-custom6-endpoint-gates-v2/actual-applied-equivalence-proof.json,
 pixel-custom6-endpoint-combined-independent-review-v1.json.
+
+
+## Четыре детерминированных численных графа Scalar23
+
+PNormB использует математический floor fourth-root через два исправленных
+целочисленных sqrt. Tint IFS — Q65535 sqrt/product; Interpolation и2x —
+замороженные Q65535 cos-коэффициенты, вычисленные через Machin/Taylor с
+аналитической обработкой точных половин. Interpolation2x сохраняет внутренний
+байт перед вторым преобразованием. Никаких новых texture/uniform ресурсов.
+Только эти4 unshipped revision43 получают defined-scalar23-root-cos-q65535-v1.
+
+2381 тест/32 модуля PASS, включая262144 пары независимого BigInt reference;
+strict3/10/0, importer44. Все6 применённых файлов совпали с проверенными SHA.
+Повторный native23 диагностический прогон:20 hash совпали, Tint/Interpolation/2x
+изменились согласно явно новому численному закону; native byte identity
+не заявляется. PNormB на этомhost совпал с native witness.
+GPU/APP нового графа ещё не запускались. Остальные5 pow-режимов дорабатываются.
+
+Доказательства: pixel-scalar4-root-cos-gates-v2/final-proof.json,
+pixel-scalar4-root-cos-gates-v2/actual-applied-equivalence-proof.json,
+pixel-scalar4-rebase-and-scalar5-generator-independent-review-v1.json.

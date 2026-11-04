@@ -172,6 +172,17 @@ function rationalModuloContinuous(source:number,destination:number):number{
  const remainder=(destination-1)%source+1,odd=Math.floor((destination+source-1)/source)%2===1
  return divide(odd?remainder:source-remainder,source)
 }
+// Explicit functional refinement for unshipped revision43, these four modes only.
+export const SOURCE_RGBA8_SCALAR4_Q_PROFILE='defined-scalar23-root-cos-q65535-v1' as const
+const SCALAR4_COS_Q=Object.freeze([65535,65530,65515,65490,65455,65411,65356,65291,65217,65133,65038,64934,64820,64696,64563,64419,64266,64103,63930,63748,63556,63354,63143,62922,62691,62451,62202,61943,61674,61397,61110,60813,60508,60193,59869,59536,59194,58843,58483,58115,57737,57351,56956,56552,56140,55719,55290,54852,54406,53952,53489,53019,52540,52054,51559,51057,50547,50029,49504,48971,48431,47883,47328,46766,46197,45621,45038,44448,43851,43248,42638,42022,41399,40770,40135,39494,38846,38193,37534,36870,36199,35523,34842,34156,33464,32768,32066,31359,30648,29932,29211,28487,27757,27024,26286,25545,24799,24050,23297,22541,21781,21018,20251,19482,18710,17935,17157,16376,15593,14808,14020,13230,12439,11645,10850,10053,9254,8454,7653,6850,6047,5242,4437,3631,2825,2018,1211,404,-404,-1211,-2018,-2825,-3631,-4437,-5242,-6047,-6850,-7653,-8454,-9254,-10053,-10850,-11645,-12439,-13230,-14020,-14808,-15593,-16376,-17157,-17935,-18710,-19482,-20251,-21018,-21781,-22541,-23297,-24050,-24799,-25545,-26286,-27024,-27757,-28487,-29211,-29932,-30648,-31359,-32066,-32768,-33464,-34156,-34842,-35523,-36199,-36870,-37534,-38193,-38846,-39494,-40135,-40770,-41399,-42022,-42638,-43248,-43851,-44448,-45038,-45621,-46197,-46766,-47328,-47883,-48431,-48971,-49504,-50029,-50547,-51057,-51559,-52054,-52540,-53019,-53489,-53952,-54406,-54852,-55290,-55719,-56140,-56552,-56956,-57351,-57737,-58115,-58483,-58843,-59194,-59536,-59869,-60193,-60508,-60813,-61110,-61397,-61674,-61943,-62202,-62451,-62691,-62922,-63143,-63354,-63556,-63748,-63930,-64103,-64266,-64419,-64563,-64696,-64820,-64934,-65038,-65133,-65217,-65291,-65356,-65411,-65455,-65490,-65515,-65530,-65535])
+function scalar4FourthRoot(source:number,destination:number):number{
+ const ss=source*source,dd=destination*destination
+ return Math.min(255,normal4Isqrt(normal4Isqrt(ss*ss+dd*dd)))
+}
+function scalar4Tint(source:number,destination:number):number{
+ const x=source*257,y=destination*257,root=normal4Isqrt(y*65535)
+ return hsxRoundRatio(Math.min(65535,hsxRoundRatio(x*(65535-y),65535)+root)*255,65535)
+}
 function scalar23Round(value:number):number{return Math.trunc(clamp(value)*255+.5)}
 function scalar23GammaDark(source:number,destination:number):number{
  if(destination===0)return 0;if(destination===255)return 255;if(source===0)return 0
@@ -179,7 +190,7 @@ function scalar23GammaDark(source:number,destination:number):number{
 }
 function scalar23Interpolation(source:number,destination:number):number{
  if(source===0&&destination===0)return 0
- return scalar23Round(.5-.25*Math.cos(Math.PI*Math.fround(source/255))-.25*Math.cos(Math.PI*Math.fround(destination/255)))
+ return hsxRoundRatio((131070-SCALAR4_COS_Q[source]-SCALAR4_COS_Q[destination])*255,262140)
 }
 function scalar23Channel(mode:SourceRgba8SeparableMode,source:number,destination:number):number{
  if(mode==='modulo')return destination%(source+1)
@@ -201,10 +212,10 @@ function scalar23Channel(mode:SourceRgba8SeparableMode,source:number,destination
  if(mode==='easyBurn')return destination===0?0:scalar23Round(1-Math.pow(source===255?1-.999999999999:1-x,y*1.039999999))
  // clamp<quint8> takes qint32: truncate real result BEFORE clamp, no half-up.
  if(mode==='pNormA')return Math.max(0,Math.min(255,Math.trunc(Math.pow(Math.pow(destination,2.3333333333333333)+Math.pow(source,2.3333333333333333),.428571428571434))))
- if(mode==='pNormB')return Math.max(0,Math.min(255,Math.trunc(Math.pow(Math.pow(destination,4)+Math.pow(source,4),.25))))
+ if(mode==='pNormB')return scalar4FourthRoot(source,destination)
  if(mode==='superLight')return scalar23Round(x<.5?1-Math.pow(Math.pow(1-y,2.875)+Math.pow(1-2*x,2.875),1/2.875):Math.pow(Math.pow(y,2.875)+Math.pow(2*x-1,2.875),1/2.875))
  if(mode==='softLightIfs')return scalar23Round(Math.pow(y,Math.pow(2,2*(.5-x))))
- if(mode==='tintIfs')return scalar23Round(x*(1-y)+Math.sqrt(y))
+ if(mode==='tintIfs')return scalar4Tint(source,destination)
  if(mode==='shadeIfs')return scalar23Round(1-((1-y)*x+Math.sqrt(1-x)))
  if(mode==='fogLightenIfs')return scalar23Round(x<.5?1-(1-x)*x-(1-y)*(1-x):x-(1-y)*(1-x)+Math.pow(1-x,2))
  if(mode==='fogDarkenIfs')return scalar23Round(x<.5?(1-x)*x+x*y:x*y+x-Math.pow(x,2))
