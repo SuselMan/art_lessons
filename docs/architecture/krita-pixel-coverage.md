@@ -262,8 +262,29 @@ lint12 (два предупреждения о точности исходных
 Scalar23:23×65536 CPU/reference пар и векторы совпали на этомhost;
 2 integer и6 defined строгие,15 libm-qualified. Повторный HSXfloat/Q witness
 под combined:129 отличий/3509, максимум1. Это не native pixel identity.
-Новый GPU иAPP расширений пока не выполнены.
+GPU f975 на HOST иSamsung:693 обычных сценария,35 прежних полных
+scalar-таблиц и29 HSX RGB-таблиц прошли. В новых23 scalar-таблицах
+9 режимов имеют численные расхождения;8 таблиц отличаются междуGPU.
+FAIL сохранены, выполняется коррекция pow/cos. APP расширений ещё не выполнен.
 
 Доказательства в fixes-v52: pixel-combined-scalar-q-gates-v1/final-proof.json,
 pixel-hsx29-first-host-root-audit.json,
 pixel-hsx29-samsung-host-diagnostic-root-audit.json.
+
+
+## Normal Map и Lighting
+
+Добавлены IDs115..118/revision44: Lambert Lighting, Lambert Lighting Gamma2.2,
+Combine Normal и Tangent Normalmap. Используется RGB-граф и существующая
+альфа-композиция; scalar API явно отклоняет эти режимы с RangeError.
+Фиксированная сетка65535, парные произведения, исправленный integer sqrt;
+новых GPU ресурсов и wire полей нет. Только браузерный профиль B.
+
+Независимый статический разбор завершён без блокеров. Цельный блок прошёл
+2360 тестов/29 модулей, strict6/41/0, importer41 и независимые BigInt RGB
+проверки. Все13 применённых файлов совпали с проверенными SHA.
+GPU/APP Normal4 ещё не проверены; native pixel identity не заявляется.
+
+Доказательства: pixel-normal4-gates-v3/final-proof.json,
+pixel-normal4-gates-v3/actual-applied-equivalence-proof.json,
+pixel-normal4-extension-independent-review-v3.json.

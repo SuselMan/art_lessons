@@ -256,7 +256,42 @@ vec3 sourceHsxQuantized(float mode,vec3 source,vec3 destination){
  if(x>Q){if(l>Q||x-l<=0.0)c=model==2.0?min(c,vec3(Q)):vec3(Q);else c=vec3(l)+vec3(sourceHsxMulRatio(c.r-l,Q-l,x-l),sourceHsxMulRatio(c.g-l,Q-l,x-l),sourceHsxMulRatio(c.b-l,Q-l,x-l));}
  return sourceHsxBytes(c);
 }
+// Functional normal4 Q65535, IDs115..118. sqrt is trial only; exact limb squares decide floor.
+bool sourceNormalPairLess(vec2 a,vec2 b){return a.x<b.x||(a.x==b.x&&a.y<b.y);}
+float sourceNormalIsqrt(vec2 n){
+ float q=floor(sqrt(n.x*65536.0+n.y));
+ if(sourceNormalPairLess(n,sourceHsxProduct(q,q)))q-=1.0;
+ else if(!sourceNormalPairLess(n,sourceHsxProduct(q+1.0,q+1.0)))q+=1.0;
+ return q;
+}
+vec3 sourceNormalBytes2(vec3 c){c=clamp(c,0.0,131070.0);return vec3(sourceHsxMulRatio(c.r,255.0,131070.0),sourceHsxMulRatio(c.g,255.0,131070.0),sourceHsxMulRatio(c.b,255.0,131070.0));}
+float sourceNormalLambert(float id,float a,float b){
+ float Q=65535.0,p=sourceHsxMulRatio(a,b,Q),v=id==115.0?sourceHsxMulRatio(p,500000.0,107843.0):2.0*p;
+ if(v<=Q)return v;float square=sourceHsxMulRatio(v-Q,v-Q,Q);
+ return Q+(id==115.0?sourceHsxMulRatio(square,1925.0,100000.0):sourceHsxMulRatio(square,2.0,5.0));
+}
+vec3 sourceNormalQuantized(float id,vec3 source,vec3 destination){
+ float Q=65535.0;vec3 a=source*257.0,b=destination*257.0;
+ if(id==118.0)return sourceNormalBytes2(vec3(2.0*(a.r+b.r)-Q,2.0*(a.g+b.g)-Q,2.0*(a.b+b.b-Q)));
+ if(id==117.0){
+  if(a.b==0.0)return destination;
+  vec3 t=vec3(2.0*a.r-Q,2.0*a.g-Q,2.0*a.b),u=vec3(Q-2.0*b.r,Q-2.0*b.g,2.0*b.b-Q);
+  float dotValue=sourceHsxMulRatio(t.r,u.r,Q)+sourceHsxMulRatio(t.g,u.g,Q)+sourceHsxMulRatio(t.b,u.b,Q);
+  vec3 h=vec3(sourceHsxMulRatio(t.r,dotValue,Q)-sourceHsxMulRatio(u.r,t.b,Q),sourceHsxMulRatio(t.g,dotValue,Q)-sourceHsxMulRatio(u.g,t.b,Q),sourceHsxMulRatio(t.b,dotValue,Q)-sourceHsxMulRatio(u.b,t.b,Q));
+  float largest=max(abs(h.r),max(abs(h.g),abs(h.b)));if(largest==0.0)return destination;
+  h=vec3(sourceHsxMulRatio(h.r,Q,largest),sourceHsxMulRatio(h.g,Q,largest),sourceHsxMulRatio(h.b,Q,largest));
+  vec2 lengthSquared=sourceHsxPairAdd(sourceHsxPairAdd(sourceHsxProduct(abs(h.r),abs(h.r)),sourceHsxProduct(abs(h.g),abs(h.g))),sourceHsxProduct(abs(h.b),abs(h.b)));
+  float len=sourceNormalIsqrt(lengthSquared);
+  return sourceNormalBytes2(vec3(sourceHsxMulRatio(h.r,Q,len),sourceHsxMulRatio(h.g,Q,len),sourceHsxMulRatio(h.b,Q,len))+vec3(Q));
+ }
+ vec3 c=vec3(sourceNormalLambert(id,a.r,b.r),sourceNormalLambert(id,a.g,b.g),sourceNormalLambert(id,a.b,b.b));
+ float l=sourceHsxLight(3.0,c),n=min(c.r,min(c.g,c.b)),x=max(c.r,max(c.g,c.b));
+ if(n<0.0){if(l<=0.0||l-n<=0.0)c=vec3(0.0);else c=vec3(l)+vec3(sourceHsxMulRatio(c.r-l,l,l-n),sourceHsxMulRatio(c.g-l,l,l-n),sourceHsxMulRatio(c.b-l,l,l-n));}
+ if(x>Q){if(l>Q||x-l<=0.0)c=vec3(Q);else c=vec3(l)+vec3(sourceHsxMulRatio(c.r-l,Q-l,x-l),sourceHsxMulRatio(c.g-l,Q-l,x-l),sourceHsxMulRatio(c.b-l,Q-l,x-l));}
+ return sourceHsxBytes(c);
+}
 vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
+ if(mode>=115.0&&mode<=118.0)return sourceNormalQuantized(mode,source,destination);
  if(mode>=63.0&&mode<=91.0)return sourceHsxQuantized(mode,source,destination);
  vec3 a=source/255.0,b=destination/255.0;vec3 weights=vec3(.299,.587,.114);
  float la=dot(a,weights),lb=dot(b,weights);
@@ -298,7 +333,7 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
   uint sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0u) return destination;
   uint alpha = sa + da - sourceRgba8Multiply(sa, da);
-  if((control.mode>=21u&&control.mode<=25u)||(control.mode>=63u&&control.mode<=91u)){uvec3 cf=uvec3(sourceRgba8VectorBlend(float(control.mode),vec3(source.rgb),vec3(destination.rgb)));
+  if((control.mode>=21u&&control.mode<=25u)||(control.mode>=63u&&control.mode<=91u)||(control.mode>=115u&&control.mode<=118u)){uvec3 cf=uvec3(sourceRgba8VectorBlend(float(control.mode),vec3(source.rgb),vec3(destination.rgb)));
     uvec3 v=(uvec3(sourceRgba8Multiply3(255u-sa,da,destination.r),sourceRgba8Multiply3(255u-sa,da,destination.g),sourceRgba8Multiply3(255u-sa,da,destination.b))+uvec3(sourceRgba8Multiply3(255u-da,sa,source.r),sourceRgba8Multiply3(255u-da,sa,source.g),sourceRgba8Multiply3(255u-da,sa,source.b))+uvec3(sourceRgba8Multiply3(da,sa,cf.r),sourceRgba8Multiply3(da,sa,cf.g),sourceRgba8Multiply3(da,sa,cf.b)))&uvec3(255u);
     return uvec4(sourceRgba8Divide(v.r,alpha)&255u,sourceRgba8Divide(v.g,alpha)&255u,sourceRgba8Divide(v.b,alpha)&255u,alpha);}
   return uvec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
