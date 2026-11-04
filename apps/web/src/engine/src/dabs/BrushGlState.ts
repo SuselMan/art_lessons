@@ -1,5 +1,7 @@
+import {setGlClearColor,setGlColorMask,captureGlClearState} from '../raster/GlClearState'
 // INTERNAL owner capabilities, never received brush/frame data. These WeakMaps
-// authenticate provenance only; they store no queried GL binding/validity cache.
+// authenticate provenance only; the separate GlClearState service owns exactly
+// two mirrored value fields for explicitly registered engine generations.
 declare const contextOwnerBrand:unique symbol;
 declare const callbackScopeBrand:unique symbol;
 declare const restoreGateBrand:unique symbol;
@@ -18,6 +20,8 @@ export function createBrushGlContextOwner(gl:WebGLRenderingContext,predicates:{r
  contextOwners.set(owner,{gl,bufferIsCurrent:predicates.bufferIsCurrent,textureIsCurrent:predicates.textureIsCurrent});callbackScopes.set(callbackScope,owner);
  return Object.freeze({owner,callbackScope});
 }
+/** Pure provenance probe; owner ID alone never grants callback closure. */
+export function isBrushGlCanonicalCallbackScope(value:unknown):boolean {return !!value&&typeof value==='object'&&callbackScopes.has(value as BrushGlCanonicalCallbackScope)}
 export function openBrushGlRestoreGate(scope:BrushGlCanonicalCallbackScope|undefined,gl:WebGLRenderingContext,owner:BrushGlContextOwner|undefined):BrushGlRestoreGate|undefined{
  if(!scope||!owner||callbackScopes.get(scope)!==owner)return;
  const record=contextOwners.get(owner);if(!record||record.gl!==gl)return;
@@ -64,7 +68,7 @@ export function saveBrushGlState(gl: WebGLRenderingContext, attributes: readonly
         textures.push(gl.getParameter(gl.TEXTURE_BINDING_2D));
     }
     gl.activeTexture(active);
-    const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING), viewport = gl.getParameter(gl.VIEWPORT), program = gl.getParameter(gl.CURRENT_PROGRAM), array = gl.getParameter(gl.ARRAY_BUFFER_BINDING), unpack = gl.getParameter(gl.UNPACK_ALIGNMENT), color = gl.getParameter(gl.COLOR_CLEAR_VALUE), mask = gl.getParameter(gl.COLOR_WRITEMASK);
+    const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING), viewport = gl.getParameter(gl.VIEWPORT), program = gl.getParameter(gl.CURRENT_PROGRAM), array = gl.getParameter(gl.ARRAY_BUFFER_BINDING), unpack = gl.getParameter(gl.UNPACK_ALIGNMENT), clearState = captureGlClearState(gl), color = clearState.color, mask = clearState.mask;
     const caps = [gl.BLEND, gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST].map(cap => [cap, gl.isEnabled(cap)] as const);
     const attribs = (vaoExtension ? [] : attributes).map(index => ({ index, enabled: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_ENABLED), buffer: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING), size: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_SIZE), type: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_TYPE), normalized: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_NORMALIZED), stride: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_STRIDE), offset: gl.getVertexAttribOffset(index, gl.VERTEX_ATTRIB_ARRAY_POINTER), divisor: instancing ? gl.getVertexAttrib(index, instancing.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE) : 0 }));
     const restore = () => {
@@ -91,13 +95,13 @@ export function saveBrushGlState(gl: WebGLRenderingContext, attributes: readonly
         ]);
         gl.useProgram(program);
         gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpack);
-        gl.clearColor(...color as [
+        setGlClearColor(gl,...color as [
             number,
             number,
             number,
             number
         ]);
-        gl.colorMask(...mask as [
+        setGlColorMask(gl,...mask as [
             boolean,
             boolean,
             boolean,

@@ -1,3 +1,4 @@
+import {setGlClearColor,setGlColorMask} from '../raster/GlClearState'
 import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalTipGradientResource} from './CanonicalMaskSourceBank'
 import {SourceSpatialColorPass,fillSourceSpatialNoise} from './SourceSpatialColorPass'
 import {canonicalSourceColorFieldDraw,type CanonicalSourceSpatialColor,type CanonicalSourceColorFieldDraw} from '@grafetto/shared'
@@ -1071,8 +1072,8 @@ export class TransformedMaskPrepass {
     gl.viewport(0, 0, plan.width, plan.height);
     for (const cap of [gl.BLEND, gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST])
       gl.disable(cap);
-    gl.colorMask(true, true, true, true);
-    gl.clearColor(0, 0, 0, 0);
+    setGlColorMask(gl,true, true, true, true);
+    setGlClearColor(gl,0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.program!);
     if (workspace.vao) this.vertexArrays!.bindVertexArrayOES(workspace.vao);

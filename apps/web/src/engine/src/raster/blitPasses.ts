@@ -1,3 +1,4 @@
+import {setGlColorMask} from './GlClearState'
 // (#494) The four full-screen-quad blits the engine resamples layer content
 // through, out of PencilEngine — the first step of taking the layer transform,
 // selection, paste and fill code (AreaOps) out of it. Each pass is a program,
@@ -132,7 +133,7 @@ export class BlitPasses {
       if (this.presentationVao) this.vertexArrays!.bindVertexArrayOES(this.presentationVao)
       this.instancing?.vertexAttribDivisorANGLE(this.transformPosLoc, 0)
       for (const cap of [gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST]) gl.disable(cap)
-      gl.colorMask(true, true, true, true)
+      setGlColorMask(gl,true, true, true, true)
       // Allocation binds on the current unit; keep it inside the saved unit.
       gl.activeTexture(gl.TEXTURE0)
       return work()

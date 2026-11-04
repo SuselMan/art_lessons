@@ -1,6 +1,7 @@
+import {withUntrackedGlClearState} from '../raster/GlClearState'
 import {isCanonicalOwnedPatternLifetime} from './CanonicalMaskSourceBank'
 import {isCanonicalOwnedLifetime} from './CanonicalLayerTargets'
-import { saveBrushGlState,openBrushGlRestoreGate,disableBrushGlRestoreGate,closeBrushGlRestoreGate,type BrushGlStateRestore,type BrushGlContextOwner,type BrushGlCanonicalCallbackScope,type BrushGlRestoreGate } from './BrushGlState'
+import { saveBrushGlState,isBrushGlCanonicalCallbackScope,openBrushGlRestoreGate,disableBrushGlRestoreGate,closeBrushGlRestoreGate,type BrushGlStateRestore,type BrushGlContextOwner,type BrushGlCanonicalCallbackScope,type BrushGlRestoreGate } from './BrushGlState'
 import type { BrushMipCache } from './BrushMipCache'
 import type { BrushTextureCache } from './BrushTextureCache'
 
@@ -268,13 +269,19 @@ type BrushGlTurnOptions={readonly participants:readonly BrushGlBatchParticipant[
 // It never describes ambient state on a later call and is never caller authority.
 const terminalRestores=new WeakMap<object,TurnRecord>()
 export function runBrushGlTurn(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn)=>void):void {
-  runBrushGlTurnCore(options,turn=>{
+  runBrushGlTurnCore(options,turn=>withUntrackedGlClearState(()=>{
     const value:unknown=execute(turn)
     if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('Brush GL turn callback must be synchronous')
     return undefined
-  })
+  }))
 }
 function runBrushGlTurnCore(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn)=>object|undefined):void {
+ const field=Object.getOwnPropertyDescriptor(options,'callbackScope')
+ const run=()=>runBrushGlTurnOwnedCore(options,execute)
+ if(field&&Object.hasOwn(field,'value')&&isBrushGlCanonicalCallbackScope(field.value))run()
+ else withUntrackedGlClearState(run)
+}
+function runBrushGlTurnOwnedCore(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn)=>object|undefined):void {
   const autoUpload=options.captureAutoUploadUnpack===true
   if(options.captureAutoUploadUnpack!==undefined&&!autoUpload)throw new Error('Invalid auto upload capture declaration')
   const infos=participantInfos(options.participants),first=infos.values().next().value!
@@ -310,7 +317,7 @@ function runBrushGlTurnCore(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn
   // All native cleanup has been attempted and the scope detached before an
   // optional diagnostic callback. Legacy callers keep the exact same primary.
   const cleanupEvidence=cleanupFailure??record?.cleanupFailure
-  if(cleanupEvidence&&options.onCleanupFailure)try{options.onCleanupFailure(cleanupEvidence.error)}catch(error){if(!failed){failed=true;failure=error}}
+  if(cleanupEvidence)withUntrackedGlClearState(()=>{if(options.onCleanupFailure)try{options.onCleanupFailure(cleanupEvidence.error)}catch(error){if(!failed){failed=true;failure=error}}})
   if(failed)throw failure
 }
 
@@ -331,8 +338,9 @@ export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0]&
         token=Object.freeze({}) as BrushGlTurn
         record={sequenceChild:true,...(options.allowAutoUpload?{sequenceAutoUpload:true as const}:{}),infos:parentRecord.infos,restore:parentRecord.restore,restoreGate:parentRecord.restoreGate,restoreAutoUpload:parentRecord.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false}
         turns.set(token,record)
-        const result:unknown=run(token)
-        if(result&&typeof(result as {then?:unknown}).then==='function')throw new Error('GL sequence step must be synchronous')
+        const activeToken=token
+        withUntrackedGlClearState(()=>{const result:unknown=run(activeToken)
+        if(result&&typeof(result as {then?:unknown}).then==='function')throw new Error('GL sequence step must be synchronous')})
       }catch(error){latch(record?.stepFailure?record.stepFailure.error:error)}
       finally{
         if(record){record.active=false;if(record.stepFailure)latch(record.stepFailure.error);if(record.cleanupFailure){parentRecord.cleanupFailure??=record.cleanupFailure;latch(record.cleanupFailure.error)}}
@@ -343,8 +351,8 @@ export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0]&
       if(failed)throw failure
     }})
     try{
-      const value:unknown=execute(sequence)
-      if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('GL sequence must be synchronous')
+      withUntrackedGlClearState(()=>{const value:unknown=execute(sequence)
+      if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('GL sequence must be synchronous')})
     }catch(error){if(!failed){failed=true;failure=error}}
     finally{active=false}
     if(failed)throw failure
@@ -418,7 +426,10 @@ export function withBrushGlTurnAutoUploadRestore<T>(turn:BrushGlTurn,participant
   catch(error){if(record.sequenceChild)record.stepFailure??={error};throw error}
 }
 
-export function runBrushGlBatch(options: {
+export function runBrushGlBatch(options:Parameters<typeof runBrushGlBatchCore>[0],execute:Parameters<typeof runBrushGlBatchCore>[1]):void {
+ withUntrackedGlClearState(()=>runBrushGlBatchCore(options,execute))
+}
+function runBrushGlBatchCore(options: {
   readonly participants: readonly BrushGlBatchParticipant[]
   readonly owners?: readonly BrushGlBatchLifetime[]
   readonly resources?: readonly BrushGlBatchResource[]
@@ -442,7 +453,7 @@ export function runBrushGlBatch(options: {
   if(first.gl.isContextLost())throw new Error('Brush GL batch context lost')
   const resources = new Map<string, number>(), owners = [...new Set(options.owners ?? [])]
   // Downgrade BEFORE reading any untrusted owner metadata or invoking its lease.
-  if(borrowed?.restoreGate&&owners.some(owner=>!isCanonicalOwnedLifetime(first.gl,owner)&&!isCanonicalOwnedPatternLifetime(first.gl,owner)))disableBrushGlRestoreGate(borrowed.restoreGate)
+  if(borrowed?.restoreGate&&owners.some(owner=>!isCanonicalOwnedLifetime(first.gl,owner)&&!isCanonicalOwnedPatternLifetime(first.gl,owner))){disableBrushGlRestoreGate(borrowed.restoreGate)}
   if (owners.length > 64 || (options.resources?.length ?? 0) > 1024) throw new RangeError('Brush GL batch declarations exceed capacity')
   for (const info of infos.values()) if (info.gl !== first.gl || info.cache !== first.cache || info.cpu !== first.cpu || info.instancing !== first.instancing || info.vertexArrays !== first.vertexArrays) throw new Error('Brush GL batch context/cache mismatch')
   for (const item of [...[...infos.values()].flatMap(info => info.resources), ...options.resources ?? []]) {
@@ -530,7 +541,8 @@ export function runBrushGlBatch(options: {
     for (const release of releases.reverse()) cleanup(release)
     cleanup(releaseCpu)
   }
-  if(cleanupFailure&&options.onCleanupFailure)try{options.onCleanupFailure(cleanupFailure.error)}catch(error){if(!failed){failed=true;failure=error}}
+  const batchCleanupEvidence=cleanupFailure
+  if(batchCleanupEvidence)withUntrackedGlClearState(()=>{if(options.onCleanupFailure)try{options.onCleanupFailure(batchCleanupEvidence.error)}catch(error){if(!failed){failed=true;failure=error}}})
   if (failed) throw failure
   }catch(error){if(borrowed?.sequenceChild)borrowed.stepFailure??={error};throw error}
 }

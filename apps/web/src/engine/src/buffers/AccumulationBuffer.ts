@@ -1,3 +1,4 @@
+import {setGlClearColor} from '../raster/GlClearState'
 import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
 import { chargeAccumOrphan, forgetAccumStorage, isAccumLeaseCurrent, materializeAccumStorage, releaseAccumLease, releaseAccumReservation, reserveAccumStorage, snapshotAccumStorage, validateAccumReservation, type StorageLease, type StorageReservation } from './ContextStorageOwner'
 
@@ -445,7 +446,7 @@ export class AccumulationBuffer {
     this._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
-    gl.clearColor(0, 0, 0, 0)
+    setGlClearColor(gl,0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }

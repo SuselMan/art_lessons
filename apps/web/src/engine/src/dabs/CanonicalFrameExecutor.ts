@@ -1,3 +1,4 @@
+import {setGlColorMask} from '../raster/GlClearState'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient,canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
 import {assertCanonicalAutoRecipeCapacity,type CanonicalAutoGeometryMechanism} from './canonicalAutoCapacity'
@@ -1185,7 +1186,7 @@ export class CanonicalFrameExecutor {
       // Publish ownership before clear callbacks; failure uses one cleanup path.
       const lifetime=this.rawLifetime(primary,t,mask)
       this.dualTiles.set(key(t),{...t,primary,mask,lifetime});work.dualPartial=undefined;work.dualPartialMask=undefined
-      this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true)
+      this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true)
       primary.clear();mask.clear();work.dualCursor=at+1
     })
     if(work.dualCursor===positions.length){plan.close();work.dualAcquisition=undefined;return true}
@@ -1218,7 +1219,7 @@ export class CanonicalFrameExecutor {
     work.segmentPart=part+1
     if(work.segmentPart===columns*rows){
       // Same owned turn, all batch leases released, no source/plane escapes.
-      this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);t.primary.clear();t.mask.clear()
+      this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true);t.primary.clear();t.mask.clear()
       work.segmentPart=0;work.segmentTile=index+1
     }
   }
@@ -1258,7 +1259,7 @@ export class CanonicalFrameExecutor {
         try{
           const original=perTile===2?plan.scratchAt(base):undefined,local=plan.scratchAt(base+perTile-1)
           if(original)target.buffer.copyTo(original)
-          this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);local.clear()
+          this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true);local.clear()
           const lifetime=this.rawLifetime(local,position,original)
           this.washes.set(key(position),{...position,original,local,lifetime})
           for(let i=0;i<perTile;i++)plan.transferScratch(base+i)

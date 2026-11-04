@@ -1,3 +1,4 @@
+import {setGlClearColor,setGlColorMask,registerGlClearState,type GlClearStateOwner} from './src/raster/GlClearState'
 import {brushPreparationSteps} from './src/dabs/BrushPreparation'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient} from '@grafetto/shared'
@@ -2162,6 +2163,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _canonicalPixelsReady=false
   private _physicalGeneration=0
   private _glSceneGeneration=0
+  private _glClearState?:GlClearStateOwner
   private _glInitializedGeneration=-1
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
@@ -3264,6 +3266,7 @@ export class PencilEngine implements PencilEngineAPI {
     } catch (error) {
       // The public destroy path requires a fully constructed engine. Retire
       // only initialized local owners, with async paper callbacks deactivated.
+      this._glClearState?.release();this._glClearState=undefined
       this._destroyed = true
       const attempt = (cleanup: () => void) => { try { cleanup() } catch { /* Preserve primary. */ } }
       attempt(() => { if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') document.removeEventListener('visibilitychange', this._handleAuthorVisibility) })
@@ -4468,6 +4471,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   releaseForPageHide(): void {
     if (this._destroyed) return
+    this._glClearState?.release();this._glClearState=undefined
     this._cancelOwnedAuthor(false,true)
     this.gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
@@ -5167,6 +5171,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     if (this._destroyed) return
+    this._glClearState?.release();this._glClearState=undefined
     this._destroyed = true
     if(this._canonicalEmptyTransaction)this._failCanonicalEmpty(this._canonicalEmptyTransaction,new Error('Engine destroyed'))
     const canonicalRetirement=this._retireCanonicalLayer(this._contextLost)
@@ -6154,6 +6159,7 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    this._glClearState?.release();this._glClearState=undefined
     if (this._destroyed) return
     this._contextLost=true
     this._physicalGeneration++
@@ -7821,7 +7827,7 @@ export class PencilEngine implements PencilEngineAPI {
         let targets:ReturnType<TiledLayerBuffer['preparePaintTargetRects']>|undefined
         try{
           targets=owner.stable.preparePaintTargetRects([page])
-          this.gl.activeTexture(this.gl.TEXTURE0);this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true)
+          this.gl.activeTexture(this.gl.TEXTURE0);this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true)
           // Existing content is NEVER cleared. Missing storage uses only the
           // layer's ordinary transparent initialization and retains contentRect=null.
           targets.take(0)
@@ -7834,7 +7840,7 @@ export class PencilEngine implements PencilEngineAPI {
           plan=pool.prepareAcquisition([{width,height,pixelEncoding:'straight-rgba8',filter:'nearest'}])
           this.gl.activeTexture(this.gl.TEXTURE0)
           buffer=plan.take(0)
-          this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);buffer.clear()
+          this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true);buffer.clear()
           this._assertCanonicalLayerCurrent(owner)
         }catch(error){failed=true;primary=error}
         finally{
@@ -8385,12 +8391,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _initGL(): () => void {
     const { gl, canvas } = this
     const physicalGeneration=this._physicalGeneration,sceneGeneration=++this._glSceneGeneration
+    this._glClearState?.release()
+    const clearState=this._glClearState=registerGlClearState(gl,Object.freeze({physicalGeneration,sceneGeneration}),()=>this.gl===gl&&!this._destroyed&&!this._contextLost&&this._physicalGeneration===physicalGeneration&&this._glSceneGeneration===sceneGeneration)
     this._straightPresentation = undefined
     // Local initialization transaction only. No persistent second owner and no
     // shared-context reset; successful initialization keeps existing owners.
     const owned: Array<() => void> = []
     let retired = false
     const rollback = () => {
+      clearState.release();if(this._glClearState===clearState)this._glClearState=undefined
       if (retired) return
       retired = true
       if(physicalGeneration!==this._physicalGeneration||sceneGeneration!==this._glSceneGeneration)return
@@ -13052,7 +13061,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!skipCompositeFBO) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, composite!.fbo)
       gl.viewport(0, 0, w, h)
-      gl.clearColor(0, 0, 0, 0)
+      setGlClearColor(gl,0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     }

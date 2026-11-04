@@ -1,3 +1,4 @@
+import {setGlColorMask} from '../raster/GlClearState'
 import { SOURCE_RGBA8_GENERIC_SC_MODES } from '../presets/sourceColorRgba8';
 import {CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL} from './canonicalTextureColorMaterial';
 import { CANONICAL_MASKING_BLEND_GLSL } from './canonicalMaskingBlendShader';
@@ -732,7 +733,7 @@ export class CanonicalRgba8CompositePass {
             gl.viewport(clip.x, clip.y, clip.width, clip.height);
             for (const cap of [gl.BLEND, gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST])
                 gl.disable(cap);
-            gl.colorMask(true, true, true, true);
+            setGlColorMask(gl,true, true, true, true);
             gl.useProgram(info.program);
             if (work.vao)
                 this.vertexArrays!.bindVertexArrayOES(work.vao);

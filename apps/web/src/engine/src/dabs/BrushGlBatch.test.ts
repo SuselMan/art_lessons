@@ -1,3 +1,4 @@
+import {registerGlClearState,captureGlClearState,setGlClearColor} from '../raster/GlClearState'
 import * as uploadTurn from './BrushGlBatch'
 import { ownedBrushFixture } from '../../testing/ownedBrushFixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -676,4 +677,30 @@ it('closed native sequence keeps hard32 children and abandons receipts when rest
   let failed=false,value:unknown='unset';try{uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{runBrushGlBatch({turn,participants:[s.service]},()=>{});return false})}catch(error){failed=true;value=error}
   expect(failed).toBe(true);expect(value).toBeUndefined();expect(restores).toBe(3);expect(s.cpu.reservedBytes).toBe(0)
  }finally{clock.mockRestore()}
+})
+
+
+describe('registered clear state across generic batch boundaries',()=>{
+ it('reads foreign participant getters inside a genuine borrowed turn without using stale mirrored fields',()=>{
+  const s=setup(),registration=registerGlClearState(s.gl,{},()=>true)
+  const native=createBrushGlContextOwner(s.gl,{bufferIsCurrent:()=>true,textureIsCurrent:()=>true})
+  let observe=false,observations=0
+  const service:BrushGlBatchParticipant={
+   brushGlBatchInfo(){if(observe){s.gl.clearColor(1,0,0,1);expect(captureGlClearState(s.gl).color).toEqual([1,0,0,1]);observations++}return {...s.service.brushGlBatchInfo(),contextOwner:native.owner}},
+   enterBrushGlBatch:frame=>s.service.enterBrushGlBatch(frame),
+  }
+  try{runBrushGlTurn({participants:[service],callbackScope:native.callbackScope},turn=>{
+   setGlClearColor(s.gl,0,0,0,0);observe=true
+   runBrushGlBatch({participants:[service],turn},()=>{})
+   observe=false
+  });expect(observations).toBeGreaterThan(0)}finally{registration.release()}
+ })
+ it('invalidates after foreign lease release writes following restoration, including throw undefined',()=>{
+  const s=setup(),registration=registerGlClearState(s.gl,{},()=>true)
+  const owner={owner:{},lease:()=>()=>{s.gl.clearColor(0,1,0,1);throw undefined}}
+  let caught=false
+  try{try{runBrushGlBatch({participants:[s.service],owners:[owner]},()=>{setGlClearColor(s.gl,1,0,0,1)})}catch(error){caught=true;expect(error).toBeUndefined()}
+   expect(caught).toBe(true);expect(captureGlClearState(s.gl).color).toEqual([0,1,0,1])
+  }finally{registration.release()}
+ })
 })
