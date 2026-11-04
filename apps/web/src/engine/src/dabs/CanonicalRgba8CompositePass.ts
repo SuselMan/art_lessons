@@ -1,4 +1,4 @@
-import {SOURCE_TABLE_COMPOSITE_MODES,isSourceTableCompositeMode,tableCompositeFragmentVariant,type SourceTableCompositeMode} from '../raster/sourceCompositeProgramShader'
+import {SOURCE_TABLE_COMPOSITE_MODES,isSourceTableCompositeMode,tableCompositeFragmentVariant,type SourceTableCompositeMode,isSourceCapturedCompositeMode,capturedCompositeFragmentVariant,type SourceCapturedCompositeMode} from '../raster/sourceCompositeProgramShader'
 import{sourceDissolveUint32Bytes}from'../presets/sourceDissolve'
 import {CanonicalScalarAtlas} from './CanonicalScalarAtlas'
 import {isSourceScalarPowerMode,type SourceScalarPowerMode} from '../presets/sourceScalarPowerTable'
@@ -181,6 +181,7 @@ export interface CanonicalPrimaryGrainProgram {
     readonly operation:CanonicalTexturedCompositeOperation|'erase32FusedScalar'|'genericSCU8'|'colorHsyBrowser';
     readonly law:'hard-multiply-u8-native-v1'|'pixel-texture-u8-v1'|'pixel-color-texture-v1';
 }
+const capturedProgram=(mode:SourceCapturedCompositeMode,base:string):`captured-composite:${string}`=>`captured-composite:${mode}:${base}`;
 const multiplyProgram='over32FusedScalar:hard-multiply-u8-native-v1' as const;
 const pixelTextureProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:pixel-texture-u8-v1` as const;
 const colorTextureProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:pixel-color-texture-v1` as const;
@@ -202,7 +203,7 @@ function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly Canon
 }
 const imageMaterialProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:image-material` as const;
 function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>operationsFor(limits).length||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
-type CompositeProgramKey=`table-composite:${SourceTableCompositeMode}:${string}`|`scalar-power:${SourceScalarPowerMode}:${string}`|CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
+type CompositeProgramKey=`captured-composite:${string}`|`table-composite:${SourceTableCompositeMode}:${string}`|`scalar-power:${SourceScalarPowerMode}:${string}`|CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
@@ -462,6 +463,32 @@ export class CanonicalRgba8CompositePass {
             return release;
         }catch(primary){try{release()}catch{}throw primary}
     }
+    /** Selected-mode variants share the same charged workspace and transaction.
+     * Existing generic programs remain valid independent numerical controls. */
+    async prepareCapturedComposite(mode:SourceCapturedCompositeMode,signal?:AbortSignal,current?:()=>void,styles:readonly CanonicalScalarAtlasStyle[]=['plain']):Promise<void>{
+        if(!isSourceCapturedCompositeMode(mode))throw new TypeError('Unknown captured composite mode');
+        if(isSourceScalarPowerMode(mode))return this.prepareScalarAtlas(mode,signal,current,styles);
+        current?.();if(signal?.aborted)throw new DOMException('Captured composite cancelled','AbortError');
+        this.assertMutationIdle();if(!this.workspace||!this.limits)throw new Error('Composite captured owner unavailable');
+        const bases=this.scalarProgramBases(styles);if(!bases.length)throw new Error('GenericSC operation must be prepared before captured composite');
+        if(isSourceTableCompositeMode(mode)){if(!bases.every(base=>this.workspace!.programs.has(`table-composite:${mode}:${base}`)))throw new Error('Table composite style unavailable');return;}
+        if(bases.every(base=>this.workspace!.programs.has(capturedProgram(mode,base))))return;
+        let update:CanonicalPreparedResourceUpdate|undefined;
+        try{
+            update=this.prepareProgramUpdate({kind:'captured',mode,styles});current?.();
+            if(signal?.aborted)throw new DOMException('Captured composite cancelled','AbortError');
+            update.assertCurrent();update.publish();update.finalizeCleanup();
+        }catch(primary){try{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()}catch{}throw primary;}
+    }
+    async prepareCapturedCompositeInventory(requests:readonly Readonly<{mode:SourceCapturedCompositeMode;styles:readonly CanonicalScalarAtlasStyle[]}>[],current:()=>void,signal?:AbortSignal):Promise<()=>void>{
+        if(!Array.isArray(requests)||requests.length>SOURCE_RGBA8_GENERIC_SC_MODES.length||new Set(requests.map(request=>request.mode)).size!==requests.length||requests.some(request=>!isSourceCapturedCompositeMode(request.mode)))throw new TypeError('Invalid captured composite inventory');
+        const releaseMetadata=this.cpu.reserve(512+requests.length*128),leases:(()=>void)[]=[];let held=true;
+        const release=()=>{if(!held)return;held=false;let failed=false,primary:unknown;for(const done of [...leases.splice(0).reverse(),releaseMetadata])try{done()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary};
+        try{
+            for(const request of requests){current();if(signal?.aborted)throw new DOMException('Captured inventory cancelled','AbortError');await this.prepareCapturedComposite(request.mode,signal,current,request.styles);current();if(signal?.aborted)throw new DOMException('Captured inventory cancelled','AbortError');if(isSourceScalarPowerMode(request.mode))leases.push(this.retainScalarAtlas(request.mode));current();}
+            return release;
+        }catch(primary){try{release()}catch{}throw primary}
+    }
     /** Actual selected finite-byte law, prepared outside input/GL turns. */
     async prepareScalarAtlas(mode:SourceScalarPowerMode,signal?:AbortSignal,current?:()=>void,styles:readonly CanonicalScalarAtlasStyle[]=['plain']):Promise<void>{
         this.assertMutationIdle();if(!this.workspace||!this.limits)throw new Error('Composite scalar owner unavailable');
@@ -476,7 +503,7 @@ export class CanonicalRgba8CompositePass {
         finally{try{releasePage()}catch(error){if(!failed){failed=true;primary=error}}}
         if(failed)throw primary;
     }
-    private prepareProgramUpdate(request:{readonly kind:'atlas';readonly mode:SourceScalarPowerMode;readonly styles:readonly CanonicalScalarAtlasStyle[]}|{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations'|'image';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
+    private prepareProgramUpdate(request:{readonly kind:'captured';readonly mode:SourceCapturedCompositeMode;readonly styles:readonly CanonicalScalarAtlasStyle[]}|{readonly kind:'atlas';readonly mode:SourceScalarPowerMode;readonly styles:readonly CanonicalScalarAtlasStyle[]}|{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations'|'image';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
         this.assertMutationIdle();
         if(!this.workspace||!this.limits)throw new Error('Composite program owner unavailable');
         const owner=this,epoch=this.workspace,limits=this.limits,oldPrograms=epoch.programs;
@@ -491,9 +518,12 @@ export class CanonicalRgba8CompositePass {
         this.busy=true;
         try{
             releaseStage=this.cpu.reserve(4096);owned();
-            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true;atlasMode?:SourceScalarPowerMode;tableMode?:SourceTableCompositeMode}>[];
+            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true;atlasMode?:SourceScalarPowerMode;tableMode?:SourceTableCompositeMode;capturedMode?:SourceCapturedCompositeMode}>[];
             let updatedLimits:CanonicalCompositeLimits;
-            if(request.kind==='atlas'){
+            if(request.kind==='captured'){
+                if(!isSourceCapturedCompositeMode(request.mode))throw new TypeError('Unknown captured composite mode');
+                additions=this.scalarProgramBases(request.styles).map(base=>({key:capturedProgram(request.mode,base),operation:'genericSCU8' as const,capturedMode:request.mode,imageMaterial:base===imageMaterialProgram('genericSCU8')?true:undefined,law:base===primaryGrainProgram('pixel-texture-u8-v1','genericSCU8')?'pixel-texture-u8-v1' as const:base===primaryGrainProgram('pixel-color-texture-v1','genericSCU8')?'pixel-color-texture-v1' as const:undefined}));updatedLimits=limits;
+            }else if(request.kind==='atlas'){
                 this.scalarAtlas.resource(request.mode);
                 additions=this.scalarProgramBases(request.styles).map(base=>({key:`scalar-power:${request.mode}:${base}` as CompositeProgramKey,operation:'genericSCU8' as const,atlasMode:request.mode,imageMaterial:base===imageMaterialProgram('genericSCU8')?true:undefined,law:base===primaryGrainProgram('pixel-texture-u8-v1','genericSCU8')?'pixel-texture-u8-v1' as const:base===primaryGrainProgram('pixel-color-texture-v1','genericSCU8')?'pixel-color-texture-v1' as const:undefined}));
                 updatedLimits=limits;
@@ -512,7 +542,7 @@ export class CanonicalRgba8CompositePass {
                 const operations=operationsFor({...limits,operations:[...new Set([...operationsFor(limits),...request.requested])]});
                 additions=operations.map(operation=>({key:operation,operation}));updatedLimits={...limits,operations};
             }
-            additions=additions.flatMap(item=>item.operation==='genericSCU8'&&!item.atlasMode?[item,...SOURCE_TABLE_COMPOSITE_MODES.map(tableMode=>({...item,key:`table-composite:${tableMode}:${item.key}` as CompositeProgramKey,tableMode}))]:[item]);
+            additions=additions.flatMap(item=>item.operation==='genericSCU8'&&!item.atlasMode&&!item.capturedMode?[item,...SOURCE_TABLE_COMPOSITE_MODES.map(tableMode=>({...item,key:`table-composite:${tableMode}:${item.key}` as CompositeProgramKey,tableMode}))]:[item]);
             const missing=additions.filter(p=>!oldPrograms.has(p.key));
             releaseLease=this.cache.leaseRequired([...this.preparedResources(),...this.companions]);owned();
             if(missing.length)releasePrograms=this.cpu.reserve(missing.length*PROGRAM_CPU_BYTES);owned();
@@ -521,7 +551,7 @@ export class CanonicalRgba8CompositePass {
                 restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,3);
                 vertex=this.gl.createShader(this.gl.VERTEX_SHADER);if(!vertex)throw new Error('Composite update vertex allocation failed');
                 this.gl.shaderSource(vertex,VERTEX);this.gl.compileShader(vertex);if(!this.gl.getShaderParameter(vertex,this.gl.COMPILE_STATUS))throw new Error('Composite update vertex compile failed: '+this.gl.getShaderInfoLog(vertex));owned();
-                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply',item.atlasMode,item.tableMode);created.push(info);owned();nextPrograms.set(item.key,info)}
+                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply',item.atlasMode,item.tableMode,item.capturedMode);created.push(info);owned();nextPrograms.set(item.key,info)}
             }
             owned();
         }catch(error){failed=true;primary=error}
@@ -758,7 +788,8 @@ export class CanonicalRgba8CompositePass {
         const atlas=atlasMode?this.scalarAtlas.resource(atlasMode):undefined;
         if(frame&&atlasMode!==undefined&&!modes.includes(atlasMode))throw new Error('Scalar composite operation scope differs');
         const tableMode=operation.kind==='genericSCU8'&&isSourceTableCompositeMode(operation.control.mode)?operation.control.mode:undefined;
-        const info=this.workspace.programs.get(atlasMode?`scalar-power:${atlasMode}:${baseProgram}`:tableMode?`table-composite:${tableMode}:${baseProgram}`:baseProgram);
+        const captured=operation.kind==='genericSCU8'&&!atlasMode?this.workspace.programs.get(capturedProgram(operation.control.mode,baseProgram)):undefined;
+        const info=captured??this.workspace.programs.get(atlasMode?`scalar-power:${atlasMode}:${baseProgram}`:tableMode?`table-composite:${tableMode}:${baseProgram}`:baseProgram);
         if(pattern&&!isTexturedOperation(operation.kind)&&!(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')&&(operation.kind==='erase32FusedScalar'||operation.kind==='genericSCU8'||operation.kind==='colorHsyBrowser')))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
@@ -1067,7 +1098,7 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false,atlasMode?:SourceScalarPowerMode,tableMode?:SourceTableCompositeMode): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false,atlasMode?:SourceScalarPowerMode,tableMode?:SourceTableCompositeMode,capturedMode?:SourceCapturedCompositeMode): ProgramInfo {
         const gl=this.gl;
         let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
         let failed=false,failure:unknown;
@@ -1076,7 +1107,7 @@ export class CanonicalRgba8CompositePass {
             fragment=gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragment)throw new Error('Composite shader allocation failed');
             const fragmentSource=textured==='color'?colorTextureFragmentFor(kind):textured==='pixel'?pixelTextureFragmentFor(kind):textured==='multiply'?multiplyFragmentFor():textured==='lightness'?imageMaterialFragmentFor(kind):textured?texturedFragmentFor(kind):fragmentFor(kind);
-            gl.shaderSource(fragment,atlasMode?scalarPowerFragmentVariant(fragmentSource,atlasMode):kind==='genericSCU8'?tableCompositeFragmentVariant(fragmentSource,tableMode):fragmentSource);
+            gl.shaderSource(fragment,atlasMode?scalarPowerFragmentVariant(fragmentSource,atlasMode):capturedMode?capturedCompositeFragmentVariant(fragmentSource,capturedMode):kind==='genericSCU8'?tableCompositeFragmentVariant(fragmentSource,tableMode):fragmentSource);
             gl.compileShader(fragment);
             if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
             program=gl.createProgram();

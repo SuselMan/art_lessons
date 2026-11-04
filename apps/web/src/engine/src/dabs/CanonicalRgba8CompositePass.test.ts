@@ -636,3 +636,26 @@ it.each([0x80000000,-0x80000001,Number.MAX_SAFE_INTEGER-16,Number.MIN_SAFE_INTEG
   expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({name:'sourceDissolveOriginY'}),...bytes)
  }finally{s.pass.reset()}
 })
+
+it('prepares only selected captured mode/styles, charges each program once, and never compiles in draw',async()=>{
+ const s=setup();vi.spyOn(s.gl,'useProgram');s.gl.getShaderPrecisionFormat=()=>({precision:23,rangeMax:127,rangeMin:127});const limits={width:16,height:16,operations:['genericSCU8'] as const,imageMaterialOperations:['genericSCU8'] as const,primaryGrainPrograms:[{operation:'genericSCU8',law:'pixel-texture-u8-v1'}] as const};
+ try{
+  s.pass.prepare(limits,s.companion);const before=s.snapshot(),cpu=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length;
+  await s.pass.prepareCapturedComposite('copy',undefined,undefined,['plain','image','grain']);
+  expect(s.cpu.reservedBytes-cpu).toBe(3*8192);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3);expect(s.snapshot()).toEqual(before);
+  const selected=s.gl.createProgram.mock.results[programs].value;
+  await s.pass.prepareCapturedComposite('copy',undefined,undefined,['plain','image','grain']);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3);
+  const sources=s.gl.shaderSource.mock.calls.slice(-6).map((call:unknown[])=>String(call[1]));expect(sources.filter((source:string)=>source.includes('SourceRgba8CompositeControl(125.0,controls.x,')).length).toBe(3);
+  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}};
+  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,operation:{kind:'genericSCU8',control:{mode:'copy',profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}}})).toBe('painted');
+  expect(s.gl.useProgram).toHaveBeenCalledWith(selected);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3);
+ }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('rolls back unpublished captured variants on cancellation and retains the original workspace',async()=>{
+ const s=setup();try{
+  s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion);const before=s.snapshot(),cpu=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length,deletes=s.gl.deleteProgram.mock.calls.length,abort=new AbortController();let checks=0;
+  await expect(s.pass.prepareCapturedComposite('copy',abort.signal,()=>{if(++checks===2)abort.abort()})).rejects.toThrow('cancelled');
+  expect(s.gl.createProgram.mock.calls.length-programs).toBe(1);expect(s.gl.deleteProgram.mock.calls.length-deletes).toBe(1);expect(s.cpu.reservedBytes).toBe(cpu);expect(s.snapshot()).toEqual(before);expect(s.pass.isReady()).toBe(true);
+  await s.pass.prepareCapturedComposite('copy');expect(s.gl.createProgram.mock.calls.length-programs).toBe(2);expect(s.cpu.reservedBytes-cpu).toBe(8192);
+ }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
+})

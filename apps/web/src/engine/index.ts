@@ -1,3 +1,4 @@
+import {isSourceCapturedCompositeMode} from './src/raster/sourceCompositeProgramShader'
 import {isSourceScalarPowerMode} from './src/presets/sourceScalarPowerTable'
 import {setGlClearColor,setGlColorMask,registerGlClearState,type GlClearStateOwner} from './src/raster/GlClearState'
 import {brushPreparationSteps} from './src/dabs/BrushPreparation'
@@ -7397,7 +7398,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(c.stage===0){if(c.sourcePreparation){c.sourcePreparation.assertPreparedPublication();c.fullSource=c.sourcePreparation.publish();c.sourcePreparation.finalizeCleanup();c.sourcePreparation=undefined}c.prepass.prepare(plan.mask,c.fullSource?.preparedResources()??[]);c.stage=1}
       else if(c.stage===1){c.composite.prepare(plan.composite,[...(c.bank?.jobs.map(({key,bytes})=>({key,bytes}))??[]),...c.prepass.preparedResources()],transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
-        const scalarModes=[...new Set(plan.paintInputs.map(input=>input.read?.capability.snapshot.composition.outerBlend).filter(isSourceScalarPowerMode))]
+        const scalarModes=[...new Set(plan.paintInputs.map(input=>input.read?.capability.snapshot.composition.outerBlend).filter(isSourceCapturedCompositeMode))]
         if(scalarModes.length){
           if(!c.scalarPreparation){
             const controller=new AbortController(),state:NonNullable<CanonicalEmptyJob['scalarPreparation']>={pending:true,failed:false,cancel:()=>controller.abort()};c.scalarPreparation=state
@@ -7405,7 +7406,7 @@ export class PencilEngine implements PencilEngineAPI {
             const requests=scalarModes.map(mode=>({mode,styles:[...new Set(plan.paintInputs.flatMap(input=>{const snapshot=input.read?.capability.snapshot;return snapshot?.composition.outerBlend===mode?canonicalScalarAtlasStyles(snapshot.composition,snapshot.materialVersion===2?snapshot.material:undefined,snapshot.materialVersion===8?snapshot.material:undefined):[]}))]}))
             void (async()=>{
               let release:undefined|(()=>void)
-              try{release=await c.composite.prepareScalarAtlasInventory(requests,current,controller.signal);current();state.release=release;release=undefined}
+              try{release=await c.composite.prepareCapturedCompositeInventory(requests,current,controller.signal);current();state.release=release;release=undefined}
               catch(error){state.failed=true;state.error=error;if(release)try{release()}catch{}}
               finally{state.pending=false;state.cancel=undefined;if(!c.retiring)this._scheduleCanonicalRebuild(job)}
             })()
@@ -7549,8 +7550,8 @@ export class PencilEngine implements PencilEngineAPI {
   private async _waitCanonicalRecordedCapacity(owner:CanonicalLayerOwner,input:CanonicalRecordedInput,current:()=>void,signal?:AbortSignal):Promise<BrushPreparationResult> {
     current()
     const composition=input.read?.capability.snapshot.composition
-    if(composition&&isSourceScalarPowerMode(composition.outerBlend)){
-      await owner.composite.prepareScalarAtlas(composition.outerBlend,signal,current,canonicalScalarAtlasStyles(composition,input.read?.capability.snapshot.materialVersion===2?input.read.capability.snapshot.material:undefined,input.read?.capability.snapshot.materialVersion===8?input.read.capability.snapshot.material:undefined));current()
+    if(composition&&isSourceCapturedCompositeMode(composition.outerBlend)){
+      await owner.composite.prepareCapturedComposite(composition.outerBlend,signal,current,canonicalScalarAtlasStyles(composition,input.read?.capability.snapshot.materialVersion===2?input.read.capability.snapshot.material:undefined,input.read?.capability.snapshot.materialVersion===8?input.read.capability.snapshot.material:undefined));current()
     }
     while(owner.coordinator&&!owner.coordinator.canAcceptRecorded(input)){
       current();if(signal?.aborted)return{status:'cancelled'}
@@ -7785,7 +7786,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if(result.status==='ready'){
       current()
-      if(composition&&isSourceScalarPowerMode(composition.outerBlend)){await owner.composite.prepareScalarAtlas(composition.outerBlend,options.signal,current,canonicalScalarAtlasStyles(composition,imageMaterial,texture?.version===8?texture:undefined));current()}
+      if(composition&&isSourceCapturedCompositeMode(composition.outerBlend)){await owner.composite.prepareCapturedComposite(composition.outerBlend,options.signal,current,canonicalScalarAtlasStyles(composition,imageMaterial,texture?.version===8?texture:undefined));current()}
     }
     return result
     }finally{imageMaterialPlan?.release()}
@@ -8776,10 +8777,16 @@ export class PencilEngine implements PencilEngineAPI {
     const prepared=this._canonicalPreparedAuthor
     if(!prepared||prepared.preset!==preset)throw new Error('Scalar author preparation changed')
     const composition=canonicalPreparedSourceComposition(prepared)
+    if(composition&&isSourceCapturedCompositeMode(composition.outerBlend)&&!isSourceScalarPowerMode(composition.outerBlend)){
+      const current=()=>{this._assertCanonicalLayerCurrent(prepared.owner);if(this._canonicalPreparedAuthor!==prepared||this._opts.pencilType!==preset||options.signal?.aborted)throw new Error('Captured author preparation changed')}
+      try{
+        await prepared.owner.composite.prepareCapturedComposite(composition.outerBlend,options.signal,current,composition.mode==='buildup'&&prepared.material.kind==='pixelTexture'?[prepared.material.binding.textureGeometry.law==='pixel-color-texture-v1'?'color-grain':'grain']:canonicalScalarAtlasStyles(composition,prepared.sourceContext2,undefined));current()
+      }catch(primary){if(this._canonicalPreparedAuthor===prepared)this._releaseCanonicalPreparedAuthor();throw primary}
+    }
     if(composition&&isSourceScalarPowerMode(composition.outerBlend)){
       const current=()=>{this._assertCanonicalLayerCurrent(prepared.owner);if(this._canonicalPreparedAuthor!==prepared||this._opts.pencilType!==preset||options.signal?.aborted)throw new Error('Scalar author preparation changed')}
       try{
-        await prepared.owner.composite.prepareScalarAtlas(composition.outerBlend,options.signal,current,composition.mode==='buildup'&&prepared.material.kind==='pixelTexture'?[prepared.material.binding.textureGeometry.law==='pixel-color-texture-v1'?'color-grain':'grain']:canonicalScalarAtlasStyles(composition,prepared.sourceContext2,undefined));current()
+        await prepared.owner.composite.prepareCapturedComposite(composition.outerBlend,options.signal,current,composition.mode==='buildup'&&prepared.material.kind==='pixelTexture'?[prepared.material.binding.textureGeometry.law==='pixel-color-texture-v1'?'color-grain':'grain']:canonicalScalarAtlasStyles(composition,prepared.sourceContext2,undefined));current()
         const mode=composition.outerBlend,composite=prepared.owner.composite,releaseRoot=composite.retainScalarAtlas(mode)
         let rootHeld=true
         const release=()=>{if(!rootHeld)return;rootHeld=false;let failed=false,primary:unknown;try{releaseRoot()}catch(error){failed=true;primary=error}try{prepared.release()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}

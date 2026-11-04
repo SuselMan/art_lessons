@@ -21,3 +21,14 @@ it('rejects missing or duplicated apply sites and coefficient tables before comp
  expect(()=>tableCompositeFragmentVariant(fragment.replace(SOURCE_GREATER_WEIGHT_GLSL,''))).toThrow('coefficient provenance')
  expect(()=>tableCompositeFragmentVariant(fragment,'unknown' as never)).toThrow('Unknown')
 })
+
+import {SOURCE_RGBA8_GENERIC_SC_MODES,sourceRgba8CompositeModeId} from '../presets/sourceColorRgba8'
+import {capturedCompositeFragmentVariant} from './sourceCompositeProgramShader'
+it('captures every admitted GenericSC mode without changing its formula or geometry',()=>{
+ for(const mode of SOURCE_RGBA8_GENERIC_SC_MODES){
+  const selected=capturedCompositeFragmentVariant(fragment,mode),id=sourceRgba8CompositeModeId(mode)
+  expect(selected.replace('SourceRgba8CompositeControl('+id+'.0,controls.x,',apply)).toBe(fragment)
+ }
+ expect(()=>capturedCompositeFragmentVariant(fragment,'over' as never)).toThrow('Unknown')
+ expect(()=>capturedCompositeFragmentVariant(fragment+apply,'copy')).toThrow('provenance')
+})
