@@ -1,3 +1,4 @@
+import {canonicalDestructiveCell}from'./CanonicalDestructiveFootprint'
 // Published accounting model: one Map row/counter/closure allowance per actual capability object.
 const CANONICAL_REPLAY_CAPABILITY_CPU_METADATA_BYTES=256
 import pencilMetadata from '../presets/fixtures/pixelPencilPreparation.metadata.json'
@@ -22,7 +23,7 @@ import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
-function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false,browser=false,poison?: (layerId:string,reason:unknown)=>void){
+function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:number},masked=false,browser=false,poison?: (layerId:string,reason:unknown)=>void,finalBlend?:'copy'|'rawAlphaDarken'|'dissolve'){
  const profile=browser?B:masked?G:CANONICAL_STROKE_RASTER_PROFILE
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
@@ -36,17 +37,17 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
  gl.getTexParameter=(_:number,name:number)=>parameters.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(name)??gl.NEAREST
  const cpu=new BrushMipCache(),cache=new BrushTextureCache(gl)
  const attrib=gl.getAttribLocation;gl.getAttribLocation=(p:unknown,n:string)=>n==='position'?0:attrib(p,n)
- const layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8')
- const derived=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+ const layer=new TiledLayerBuffer(gl,finalBlend?128:4,finalBlend?128:4,undefined,undefined,undefined,'straight-rgba8')
+ const derived=new TiledLayerBuffer(gl,finalBlend?128:4,finalBlend?128:4,undefined,undefined,undefined,'straight-rgba8')
  const prepass=new TransformedMaskPrepass(gl,cache,cpu,'recorded-owner-test')
  prepass.prepare({width:4,height:4,slots:masked?2:1},[])
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'recorded-owner-composite')
- composite.prepare({width:compositeSide,height:compositeSide,operations:masked?canonicalExecutorOperations(profile,{masked:true}):['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
+ composite.prepare({width:compositeSide,height:compositeSide,operations:masked||finalBlend?canonicalExecutorOperations(profile,{masked}):['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
  const scratch=new RibbonScratchPool(gl)
  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),browser?'browser-number-coverage-v1':'neon64-f32-fma-v1',profile)
  const nativeCoverage=pin.coverageProfile;if(!browser&&nativeCoverage==='browser-number-coverage-v1'||nativeCoverage==='neon64-f32-fma-seeded-density-v1'||nativeCoverage==='seeded-auto-mask-browser-v1')throw Error('Native fixture coverage required')
- const material={version:2 as const,assets:[],primarySource:pin,...masked?{maskSource:pin,maskingBlend:'multiply' as const}:{},budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
- const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:profile,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
+ const material={version:2 as const,...finalBlend?{outerCompositionLaw:'generic-separable-u8-v1' as const}:{},assets:[],primarySource:pin,...masked?{maskSource:pin,maskingBlend:'multiply' as const}:{},budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
+ const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:profile,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:finalBlend??'over'}}
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:profile,...masked?{pixelMaskedSource:'pixel-masked-v1' as const}:{}})
  let current=true,replaced=false,layerEpoch=0;let layerObserver:(()=>void)|undefined
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
@@ -56,8 +57,8 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
   const stride=masked?2:1
   const paintedMaterial=painted?buildCanonicalMaterial({masked,entry:{phase:'between'},draws:Array.from({length:repetitions},()=>[{recipe,role:'primary' as const,x,y:0,opacity:.5,flow:.7},...(masked?[{recipe,role:'mask' as const,x,y:0,opacity:.5,flow:.7}]:[])]).flat(),fences:[...Array.from({length:repetitions},(_,i)=>[{kind:'segmentBegin' as const,at:i*stride,group:group+i},{kind:'primaryEnd' as const,at:i*stride+1,group:group+i},{kind:'segmentEnd' as const,at:(i+1)*stride,group:group+i}]).flat(),...(ended?[{kind:'gestureEnd' as const,at:repetitions*stride}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
-  const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{...(masked?{version:2 as const,rasterProfile:browser?B:G}:{version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
-  const atom=(masked?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment)({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
+  const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{...(masked||finalBlend?{version:2 as const,rasterProfile:browser?B:G}:{version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+  const atom=(masked||finalBlend?prepareCanonicalRecordedAttachmentV8:prepareCanonicalRecordedAttachment)({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
   let accepted:CanonicalRecordedInput
   const delivery:CanonicalRecordedDelivery=Object.freeze({lifetime,assertCurrent(candidate:CanonicalRecordedInput){if(this!==delivery||candidate!==accepted)throw Error('foreign');lifetime.assertCurrent()}})
   accepted=Object.freeze({...atom,delivery});return accepted
@@ -75,7 +76,7 @@ function fixture(compositeSide=4,replayRetention?:{maxEntries:number;maxBytes:nu
    accepted=Object.freeze({...atom,delivery});return accepted
   })
  }
- const source=vi.fn(()=>({autoSource:pin,...masked?{sourceMaterial:canonicalSourceMaterialContext(material)}:{}}))
+ const source=vi.fn(()=>({autoSource:pin,...masked||finalBlend?{sourceMaterial:canonicalSourceMaterialContext(material)}:{}}))
  const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:profile,layerId:'layer',layerEpoch:0,maxGestures:4,replayRetention,layer:()=>{layerObserver?.();return {buffer:layer,epoch:layerEpoch}},presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:poison??(()=>{})})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
   const op=frame.operation;if(op.type!=='canonical_stroke')throw Error('frame')
@@ -817,8 +818,8 @@ describe('owner-scoped active replay retention', () => {
 
 // Real material2 recorded delivery and native execution. The scalar shadow is
 // one fully covered sample with installed fused CPU math, not recordingGL pixels.
-function mixedDeferredWashFixture(masked=false,browser=false){
- const s=fixture(4,undefined,masked,browser),options=s.coordinator['options'];s.coordinator.cancel()
+function mixedDeferredWashFixture(masked=false,browser=false,finalBlend?:'copy'|'rawAlphaDarken'|'dissolve'){
+ const s=fixture(finalBlend?128:4,undefined,masked,browser,undefined,finalBlend),options=s.coordinator['options'];s.coordinator.cancel()
  let stable=s.layer,derived:TiledLayerBuffer|undefined=s.derived
  const stagedBuffers:TiledLayerBuffer[]=[],stagedCuts:number[][]=[],pixels=new Map<WebGLTexture,Uint8Array>()
  const clear=AccumulationBuffer.prototype.clear,copy=AccumulationBuffer.prototype.copyTo
@@ -836,10 +837,10 @@ function mixedDeferredWashFixture(masked=false,browser=false){
  })
  const stage=vi.fn(()=>{
   stagedCuts.push(coordinator['entries'].map(entry=>entry.depositedNextOrdinal))
-  const previous=derived,buffer=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8');stagedBuffers.push(buffer);let pending=true
+  const previous=derived,buffer=new TiledLayerBuffer(s.gl,finalBlend?128:4,finalBlend?128:4,undefined,undefined,undefined,'straight-rgba8');stagedBuffers.push(buffer);let pending=true
   return {buffer,assertCurrent(){if(!pending||derived!==previous)throw Error('Staged view changed')},cancel(){if(!pending)return;pending=false;buffer.destroy()},finish(old:TiledLayerBuffer,disposition='display'){if(!pending||old!==previous||(disposition==='closed-handoff'?stable!==buffer||derived!==undefined:derived!==buffer))throw Error('Publication pointer mismatch');pending=false;old.destroy()}}
  })
- const coordinator=new CanonicalWashLayerCoordinator({...options,pageBounds:{minX:0,minY:0,maxX:4,maxY:4},mixedReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stage,layer:id=>({...options.layer(id),buffer:stable}),presentation:()=>({buffer:derived!,epoch:0})})
+ const coordinator=new CanonicalWashLayerCoordinator({...options,pageBounds:{minX:0,minY:0,maxX:finalBlend?128:4,maxY:finalBlend?64:4},mixedReplay7:true,replayRetention:{maxEntries:64,maxBytes:1048576},previewCandidate:stage,layer:id=>({...options.layer(id),buffer:stable}),presentation:()=>({buffer:derived!,epoch:0})})
  const publish=(ticket:import('./CanonicalWashLayerCoordinator').CanonicalPreviewPublication)=>{ticket.assertCurrent();ticket.publish();if(ticket.disposition==='closed-handoff'){stable=ticket.buffer;derived=undefined}else derived=ticket.buffer;ticket.finish()}
  const step=(defer=false)=>{const result=coordinator.advance(defer?{deferPresentation:true}:undefined);if(result?.kind==='preview-ready')publish(result.ticket);return result}
  const drain=(defer=false)=>{let turns=0;while(defer?coordinator.executionPending:coordinator.pending){if(++turns>2000)throw Error('Mixed deferred drain stalled');step(defer)}}
@@ -1237,4 +1238,39 @@ describe('bounded coordinator GL submission boundary',()=>{
   const poison=vi.fn();const s=fixture(4,undefined,false,false,poison);const flush=vi.spyOn(s.gl,'flush').mockImplementation(()=>{throw undefined});let caught=false,value:unknown='sentinel';
   try{try{s.coordinator.advance()}catch(e){caught=true;value=e}expect(caught).toBe(true);expect(value).toBeUndefined();expect(flush).toHaveBeenCalledTimes(1);expect(poison).toHaveBeenCalledWith('layer',undefined);expect(s.coordinator['busy']).toBe(false);expect(s.coordinator['failed']).toBe(true)}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
  })
+})
+
+it.each(['copy','rawAlphaDarken','dissolve']as const)('captures actual Coordinator %s presentation metadata and an immutable raw-prefix domain',blend=>{
+ const s=mixedDeferredWashFixture(false,true,blend),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let snapshot:ReturnType<CanonicalWashLayerCoordinator['retainReplaySnapshot']>|undefined
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,false,true,0,0));s.drain(true)
+  snapshot=s.coordinator.retainReplaySnapshot();if(!snapshot.groups)throw Error('Expected actual group snapshot API');const groups=snapshot.groups();expect(groups).toHaveLength(1)
+  const group=groups[0];if(!group||group.kind!=='wash')throw Error('Expected real captured WASH group')
+  expect(group.presentation.blend).toBe(blend)
+  if(blend==='rawAlphaDarken')expect(group.presentation.alphaDarken).toBe('hard')
+  if(blend==='dissolve')expect(group.presentation.gestureId).toBe(group.id)
+  const first=group.presentation.tiles[0];if(!first)throw Error('Expected captured raw tile')
+  if(blend==='copy'){
+   if(!first.destructive)throw Error('Expected issued destructive cut')
+   expect(canonicalDestructiveCell(first.destructive,1)).toBeUndefined()
+  }
+  // Genuine replay-work pins block mutation. Release that work authority before appending;
+  // the retained opaque fixed-cut value still refers to the SAME live raw owner, not a new read grant.
+  snapshot.release();snapshot=undefined
+  // Append to the SAME original gesture and physical128 tile, but another native64 cell.
+  s.coordinator.enqueueRecorded(s.input('author',1,2,true,true,1,65));s.drain(true)
+  if(blend==='copy'){
+   if(!first.destructive)throw Error('Expected retained issued destructive cut')
+   expect(canonicalDestructiveCell(first.destructive,1)).toBeUndefined()
+   const entry=s.coordinator['entries'][0];if(!entry)throw Error('Expected retained WASH owner')
+   const latest=s.coordinator['locals'](entry)[0];if(!latest?.destructive)throw Error('Expected current raw domain')
+   expect(canonicalDestructiveCell(latest.destructive,1)).toEqual({minX:64,minY:0,maxX:128,maxY:64})
+  }
+  s.drain()
+  const presented=s.draw.mock.calls.map(([request])=>request).filter(request=>request.operation.kind==='genericSCU8')
+  expect(presented.some(request=>request.operation.kind==='genericSCU8'&&request.operation.control.mode===blend)).toBe(true)
+  if(blend==='rawAlphaDarken')expect(presented.every(request=>request.operation.kind!=='genericSCU8'||request.operation.control.mode!=='rawAlphaDarken'||request.operation.control.alphaDarken==='hard')).toBe(true)
+ }finally{snapshot?.release();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
 })

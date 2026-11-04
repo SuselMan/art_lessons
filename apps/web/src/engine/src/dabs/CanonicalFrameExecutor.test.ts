@@ -28,7 +28,7 @@ import { BrushTextureCache } from './BrushTextureCache'
 import { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import { TransformedMaskPrepass } from './TransformedMaskPrepass'
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass'
-import { canonicalExecutorOperations, CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
+import { canonicalWashOuterOperation, canonicalExecutorOperations, CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import { canonicalSoftAutoSourcePin, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from '@grafetto/shared'
 import softTables from '../presets/fixtures/sourceSoftCircle/tables.native.json'
@@ -2343,4 +2343,40 @@ it('closed mixed IMAGE/Soft sequence removes only one outer restore per original
   expect(restores).toBe(2);expect(s.work.draw).toBe(2);expect(s.snapshot()).toEqual(before)
   s.drain();expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
+
+// Full-DAB native64 domain is independent of source pixels, resource opacity and physical tile size.
+it.each(['copy','destinationIn','destinationAtop']as const)('admits and publishes %s native64 domain across sub64 physical tiles at zero opacity',blend=>{
+ const context:CanonicalMaterialContextV2={version:2,assets:[asset],primarySource:{kind:'image',asset:id,frameBounds:[{x:0,y:0,width:1,height:1}],brushScale:1,brushAngle:0},imageFrameIndices:'source-image-pipe-frame-v1',outerCompositionLaw:'generic-separable-u8-v1',budget:{workUnits:16*1048576,outputBytes:4*1048576,drawPixels:1048576}}
+ const s=setup('wash',32,64,undefined,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,undefined,64,undefined,context)
+ const executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:0,minY:0,maxX:65,maxY:32}})
+ const observedTiles:(readonly[number,number,boolean])[]=[]
+ const draw=s.composite.drawSource.bind(s.composite),calls=vi.spyOn(s.composite,'drawSource')
+ calls.mockImplementation((request,frame)=>{if(request.operation.kind==='genericSCU8'&&!observedTiles.length)for(const tile of executor['washes'].values())observedTiles.push([tile.x,tile.y,!!tile.destructive]);return draw(request,frame)})
+ try{
+  const image={...recipe,kind:'image'as const,imageFrameIndex:0,sourceSlot:0 as const}
+  const frame=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:image,role:'primary',x:63,y:0,opacity:0,flow:1}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},context).frame
+  const submission={...s.submit(),frame,composition:{mode:'wash'as const,alphaDarken:'creamy'as const,outerResourceOpacity:0,outerBlend:blend}}
+  const beforeCpu=s.cpu.reservedBytes
+  s.reserveTransient.mockImplementationOnce(()=>{throw new RangeError('native64 admission fence')})
+  expect(()=>executor.enqueue(submission)).toThrow('native64 admission fence')
+  expect(calls).not.toHaveBeenCalled();expect(executor['washes'].size).toBe(0)
+  expect(s.cpu.reservedBytes).toBe(beforeCpu);expect(executor.checkpointReady).toBe(true)
+  executor.enqueue(submission)
+  let turns=0;while(executor.pending){executor.advance();expect(++turns).toBeLessThan(300)}
+  expect(executor.checkpointReady).toBe(true)
+  // Exclusive END legitimately releases raw ownership; inspect during actual presentation, not after retirement.
+  expect(observedTiles).toEqual([[0,0,true],[32,0,true]])
+  const presented=calls.mock.calls.map(([r])=>r).filter(r=>r.operation.kind==='genericSCU8')
+  expect(presented.length).toBeGreaterThan(0)
+  expect(presented.every(r=>r.operation.kind==='genericSCU8'&&r.operation.control.mode===blend&&r.operation.control.opacity===0)).toBe(true)
+  expect(presented.every(r=>r.writeBounds?.minX===0&&r.writeBounds.maxX===65&&r.writeBounds.minY===0&&r.writeBounds.maxY===32)).toBe(true)
+ }finally{executor.cancel();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it.each(['copy','destinationIn','destinationAtop','rawAlphaDarken','marker','dissolve']as const)('does not grant historical execution for final RGBA %s',blend=>{
+ for(const profile of [CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,'reference-scalar-f32-rne-v1']as const)expect(()=>canonicalWashOuterOperation(profile,blend,0,{alphaDarken:'hard',seed:0})).toThrow('browser Pixel')
+ const operation=canonicalWashOuterOperation(CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,blend,0,{alphaDarken:'hard',seed:0})
+ expect(operation.kind).toBe('genericSCU8')
 })

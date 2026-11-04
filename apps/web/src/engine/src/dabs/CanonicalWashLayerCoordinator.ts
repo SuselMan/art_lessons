@@ -1,3 +1,5 @@
+import{sourceDissolveSeed}from'../presets/sourceDissolve'
+import{canonicalDestructivePart,canonicalDestructiveExpandedBounds,isCanonicalDestructiveBlend,type CanonicalDestructiveFootprint}from'./CanonicalDestructiveFootprint'
 import {BrushCpuBudgetExhaustion} from './BrushMipCache'
 import {canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,decodeCanonicalStrokeFrame,CANONICAL_SOURCE_MATERIAL_PROFILE} from '@grafetto/shared'
 import {canonicalStandaloneStrokeSnapshotV8,decodeCanonicalPrimaryGrainStrokeFrame,canonicalPrimaryGrainMaterialContext,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalStandaloneStrokeSnapshotV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
@@ -62,6 +64,8 @@ export type CanonicalPreviewOutcome =
   | {readonly kind:'preview-ready';readonly ticket:CanonicalPreviewPublication}
   | {readonly kind:'preview-idle'}
 interface PreviewSnapshotEntry {
+  readonly alphaDarken?:'creamy'|'hard'
+  readonly gestureId?:string
   readonly committed:boolean
   readonly opacity:number
   readonly blend:CanonicalStrokeComposition['outerBlend']
@@ -142,6 +146,7 @@ interface Entry {
   metadataReleased?:true
   local?:LocalPrefix
   readonly id: string
+  readonly alphaDarken?:'creamy'|'hard'
   firstSequence: number|undefined
   readonly executor: CanonicalFrameExecutor
   readonly opacity: number
@@ -844,7 +849,9 @@ export class CanonicalWashLayerCoordinator {
     for (const d of input.frame.draws) {
       const r = input.frame.definitions[d.definition]
       if (!r) throw new TypeError('Invalid canonical wash definition')
-      for (const tile of planCanonicalTargets({ minX: d.x, minY: d.y, maxX: d.x + r.width, maxY: d.y + r.height }, this.options.pageBounds ?? null, this.stable.tileWidth, this.stable.tileHeight).tiles) {
+      const dab={minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height}
+      const footprint=input.composition.mode==='wash'&&d.role==='primary'&&isCanonicalDestructiveBlend(input.composition.outerBlend)?canonicalDestructiveExpandedBounds(dab):dab
+      for (const tile of planCanonicalTargets(footprint, this.options.pageBounds ?? null, this.stable.tileWidth, this.stable.tileHeight).tiles) {
         const k=`${tile.storage.minX}:${tile.storage.minY}`
         if(this.positions.has(k)||fresh.has(k))continue
         if(this.options.mixedReplay7&&this.positions.size+fresh.size>=64)throw new RangeError('Mixed cohort exceeds bounded target union')
@@ -914,7 +921,7 @@ export class CanonicalWashLayerCoordinator {
           poison: () => {if(published)this.failed=true} })
         const replaySource=buildup?executor.replaySource():undefined
         if(replaySource)this.assertReplayOriginal(replaySource,origin?.recorded.snapshot??pair?.originalSnapshot)
-        entry = { mode:input.composition.mode,depositedNextOrdinal:0,...replaySource?{replaySource}:{},image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
+        entry = { mode:input.composition.mode,depositedNextOrdinal:0,...replaySource?{replaySource}:{},image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,...input.composition.outerBlend==='rawAlphaDarken'||input.composition.outerBlend==='marker'?{alphaDarken:input.composition.alphaDarken}:{},
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       if(buildup){
@@ -1356,7 +1363,7 @@ export class CanonicalWashLayerCoordinator {
           const tiles=this.locals(owner)
           if(tiles.length>this.positions.size)throw Error('Mixed raw view count changed')
           for(const tile of tiles)if(!this.positions.has(key(tile)))throw Error('Mixed raw tile outside accepted union')
-          group=Object.freeze({kind:'wash',id:owner.id,depositedNextOrdinal:owner.depositedNextOrdinal,frames:Object.freeze(frames),presentation:Object.freeze({committed:owner.committed,opacity:owner.opacity,blend:owner.blend,tiles}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
+          group=Object.freeze({kind:'wash',id:owner.id,depositedNextOrdinal:owner.depositedNextOrdinal,frames:Object.freeze(frames),presentation:Object.freeze({committed:owner.committed,opacity:owner.opacity,blend:owner.blend,...owner.blend==='rawAlphaDarken'||owner.blend==='marker'?{alphaDarken:owner.alphaDarken}:{},...owner.blend==='dissolve'?{gestureId:owner.id}:{},tiles}),...(close?{close:Object.freeze({input:close.input,seal:close.seal})}:{})})
           proofs.push({owner,sourceLease:owner.sourceLease,ownership:owner.ownership,group,close,prefix,capturedPrefix:owner.recorded,witness})
         }else{
           if(!source)throw Error('Accepted replay source unavailable')
@@ -1531,8 +1538,15 @@ export class CanonicalWashLayerCoordinator {
     if(target.originX!==p.x||target.originY!==p.y||target.buffer.width!==p.width||target.buffer.height!==p.height)throw new Error('Canonical wash target geometry changed')
     return target
   }
-  private part(view: CanonicalRgba8SourceView, part: number, bounds?: Readonly<WorldRect>): { view: CanonicalRgba8SourceView; count: number } {
+  private part(view: CanonicalRgba8SourceView, part: number, bounds?: Readonly<WorldRect>, destructive?:CanonicalDestructiveFootprint): { view: CanonicalRgba8SourceView; count: number;skip?:boolean } {
     const capacity = this.options.composite.preparedCapacity()
+    if(destructive){
+      const clip={minX:Math.max(view.rect.x,bounds?.minX??-Infinity),minY:Math.max(view.rect.y,bounds?.minY??-Infinity),maxX:Math.min(view.rect.x+view.rect.width,bounds?.maxX??Infinity),maxY:Math.min(view.rect.y+view.rect.height,bounds?.maxY??Infinity)}
+      const planned=canonicalDestructivePart(destructive,part,capacity.width,capacity.height,clip)
+      if(!planned.rect)return{count:planned.count,view,skip:true}
+      const selected=this.part(view,0,planned.rect);if(selected.count!==1)throw new Error('Destructive domain split differs from prepared capacity')
+      return{count:planned.count,view:selected.view}
+    }
     const left=bounds?Math.max(0,bounds.minX-view.rect.x):0, top=bounds?Math.max(0,bounds.minY-view.rect.y):0
     const right=bounds?Math.min(view.textureWidth,bounds.maxX-view.rect.x):view.textureWidth
     const bottom=bounds?Math.min(view.textureHeight,bounds.maxY-view.rect.y):view.textureHeight
@@ -1571,8 +1585,8 @@ export class CanonicalWashLayerCoordinator {
         let draws=0
         while(draws++<8){
           this.assertLayers()
-          const part = this.part(tile.view, entry.part)
-          this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
+          const part = this.part(tile.view, entry.part,undefined,tile.destructive)
+          if(!part.skip)this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed(entry.id):undefined}), writeBounds: this.options.pageBounds ?? undefined }, frame)
           entry.committingBuffer = target.buffer; entry.part++
           this.stable.markContentPainted(rect(tile))
           if(entry.part===part.count){this.closeCommitPlan(entry);entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
@@ -1664,9 +1678,9 @@ export class CanonicalWashLayerCoordinator {
           const entry=entries[work.stage],tile=tiles[work.stage]
           if(entry.committed||!tile){work.stage++;work.part=0;continue}
           this.assertLayers()
-          const part=this.part(tile.view,work.part,work.bounds)
+          const part=this.part(tile.view,work.part,work.bounds,tile.destructive)
           if(!part.count){work.part=0;work.stage++;continue}
-          this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity),writeBounds:this.options.pageBounds??undefined},frame)
+          if(!part.skip)this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed('id'in entry?entry.id:entry.gestureId!):undefined}),writeBounds:this.options.pageBounds??undefined},frame)
           work.part++;draws++
           if(work.part===part.count){work.part=0;work.stage++}
           if(frame.shouldYield||performance.now()-turnStarted>=4)break
@@ -2114,7 +2128,7 @@ export class CanonicalWashLayerCoordinator {
         if(!held||!('snapshot'in held))throw Error('Mixed snapshot owner missing')
         snapshot=held
         captured=[]
-      }else captured=this.entries.map(entry=>Object.freeze({committed:entry.committed,opacity:entry.opacity,blend:entry.blend,tiles:this.locals(entry)}))
+      }else captured=this.entries.map(entry=>Object.freeze({committed:entry.committed,opacity:entry.opacity,blend:entry.blend,...entry.blend==='rawAlphaDarken'||entry.blend==='marker'?{alphaDarken:entry.alphaDarken}:{},...entry.blend==='dissolve'?{gestureId:entry.id}:{},tiles:this.locals(entry)}))
       this.assertRecordedCurrent();this.assertLayers();staged.assertCurrent()
       if(this.candidate||this.previewLane||this.revision!==revision||this.fullSeedCount()!==count||!seedCurrent())throw new Error('Preview creation reentered')
       const groups=snapshot?.groupsOwned()

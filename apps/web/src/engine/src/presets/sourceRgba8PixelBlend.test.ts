@@ -39,7 +39,7 @@ describe('functional Pixel blend functors, independent fixed byte examples',()=>
  ] as const)('retains fixed midrange %s byte arithmetic',(mode,value)=>{
   expect(opaque(mode,[64,64,64,255],[192,192,192,255])).toEqual([value,value,value,255])
  })
- it.each(SOURCE_RGBA8_GENERIC_SC_MODES.filter(mode=>!new Set<string>(['copyRed','copyGreen','copyBlue','behind','luminositySai','greater']).has(mode)))('preserves alpha endpoints and hidden destination RGB for %s',mode=>{
+ it.each(SOURCE_RGBA8_GENERIC_SC_MODES.filter(mode=>!new Set<string>(['copyRed','copyGreen','copyBlue','behind','luminositySai','greater','copy','destinationIn','destinationAtop','rawAlphaDarken','marker','dissolve']).has(mode)))('preserves alpha endpoints and hidden destination RGB for %s',mode=>{
   const source:Rgba8=[211,17,83,255],destination:Rgba8=[29,193,7,157]
   const control={mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1} as const
   expect(compositeRgba8(source,destination,{...control,opacity:0})).toEqual(destination)

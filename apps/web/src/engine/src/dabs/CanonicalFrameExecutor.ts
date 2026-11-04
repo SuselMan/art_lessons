@@ -1,3 +1,5 @@
+import{sourceDissolveSeed}from'../presets/sourceDissolve'
+import{createCanonicalDestructiveFootprint,canonicalDestructiveFootprintBytes,canonicalDestructiveExpandedBounds,canonicalDestructiveCellCount,canonicalDestructivePart,isCanonicalDestructiveBlend,type CanonicalDestructiveFootprint}from'./CanonicalDestructiveFootprint'
 import {setGlColorMask} from '../raster/GlClearState'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient,canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
@@ -116,7 +118,9 @@ export function canonicalExecutorOperations(profile:CanonicalExecutorRasterProfi
  if(extra.erase)operations.push('erase32FusedScalar')
  return Object.freeze(operations)
 }
-export function canonicalWashOuterOperation(profile: CanonicalExecutorRasterProfile, blend: CanonicalStrokeComposition['outerBlend'], opacity: number) {
+export interface CanonicalOuterExecution {readonly flow?:number;readonly averageOpacity?:number;readonly alphaDarken?:'creamy'|'hard';readonly seed?:number}
+export function canonicalWashOuterOperation(profile: CanonicalExecutorRasterProfile, blend: CanonicalStrokeComposition['outerBlend'], opacity: number, execution?:CanonicalOuterExecution) {
+  if(['copy','destinationIn','destinationAtop','rawAlphaDarken','marker','dissolve'].includes(blend)&&profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Final RGBA shell requires browser Pixel raster profile')
   if(blend==='colorHsyBrowser'){
     if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Browser HSY requires explicit GenericSC-capable pipeline');
     return {kind:'colorHsyBrowser' as const,control:{mode:'colorHsy' as const,profile:SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE,opacity}};
@@ -127,6 +131,8 @@ export function canonicalWashOuterOperation(profile: CanonicalExecutorRasterProf
   }
   if (blend !== 'over') {
     if (profile !== CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE && profile !== CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE) throw new TypeError('GenericSC outer composition requires its pinned raster profile')
+    if(blend==='rawAlphaDarken'||blend==='marker'){if(blend==='rawAlphaDarken'&&!execution?.alphaDarken)throw new TypeError('Captured raw AlphaDarken variant required');return{kind:'genericSCU8'as const,control:{mode:blend,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity,flow:execution?.flow??1,averageOpacity:execution?.averageOpacity??opacity,...blend==='rawAlphaDarken'?{alphaDarken:execution!.alphaDarken}:{}}}}
+    if(blend==='dissolve'){if(execution?.seed===undefined)throw new TypeError('Canonical dissolve seed required');return{kind:'genericSCU8'as const,control:{mode:blend,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity,seed:execution.seed}}}
     return { kind: 'genericSCU8' as const, control: { mode: blend, profile: SOURCE_RGBA8_GENERIC_SC_PROFILE, opacity } }
   }
   if(profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return {kind:'overBrowserFloat' as const,control:{profile:CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,opacity}}
@@ -135,6 +141,7 @@ export function canonicalWashOuterOperation(profile: CanonicalExecutorRasterProf
     : { kind: 'over32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, opacity } }
 }
 export interface CanonicalWashLocalTile {
+  readonly destructive?:CanonicalDestructiveFootprint
   readonly x: number
   readonly y: number
   readonly width: number
@@ -190,6 +197,7 @@ export interface CanonicalFrameExecutorOptions {
 }
 interface TilePosition { x: number; y: number; width: number; height: number; writeBounds?: Readonly<WorldRect> }
 interface WashTile extends TilePosition {
+  destructive?:ReturnType<typeof createCanonicalDestructiveFootprint>
   original?: AccumulationBuffer
   local: AccumulationBuffer
   lifetime: CanonicalOwnedRgba8Target['lifetime']
@@ -232,6 +240,7 @@ interface Work {
   present: number
   part: number
   presentTiles?: readonly WashTile[]
+  presentDomains?:readonly(CanonicalDestructiveFootprint|undefined)[]
   releaseMetadata: () => void
   frameTargets:readonly TilePosition[]
   newTiles:readonly TilePosition[]
@@ -681,6 +690,7 @@ export class CanonicalFrameExecutor {
       || this.gesture.rgb.some((n, i) => n !== input.rgb[i]) || !sameContext(this.planned!.context, input.composition))) throw new Error('Canonical gesture interleaving or context change')
     if (!input.frame || input.frame.draws.length > 800 || input.frame.definitions.length > 800 || input.frame.fences.length > 2404 || input.assets.length > 512) throw new RangeError('Canonical frame exceeds decoder limits')
     const initial = this.planned ?? createSourcePrimaryComposition(input.composition).state
+    if(this.options.maskedSource&&input.composition.mode==='buildup'&&['copy','destinationIn','destinationAtop','rawAlphaDarken','marker','dissolve'].includes(input.composition.outerBlend))throw new TypeError('Special masked buildup composition requires native domain proof')
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame,masked:!!this.options.maskedSource })
     const hasImageDefinitions = input.frame.definitions.some(r => !autoRecipe(r))
     // A paired SOURCE2 chunk may contain only the Auto mask while retaining
@@ -752,7 +762,7 @@ export class CanonicalFrameExecutor {
     for(const d of result.draws){
       const original=definitionSources[d.definition]
       if(this.primaryTexture?.context.version===8||original?.kind==='image'&&original.imageMaterial&&original.imageMaterial.kind!=='gradient-map-v1'){
-        const kind:CanonicalCompositeOperationKind=d.controls.kind==='localAlphaDarken'?(this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'alphaDarken32':'alphaDarken32FusedScalar'):d.controls.kind==='directBlend'&&!this.options.maskedSource?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity).kind:d.controls.kind==='directErase'&&!this.options.maskedSource?'erase32FusedScalar':this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'over32':'over32FusedScalar'
+        const kind:CanonicalCompositeOperationKind=d.controls.kind==='localAlphaDarken'?(this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'alphaDarken32':'alphaDarken32FusedScalar'):d.controls.kind==='directBlend'&&!this.options.maskedSource?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity,{...d.controls,seed:d.controls.blend==='dissolve'?sourceDissolveSeed(input.gestureId,{role:d.role,ordinal:d.drawOrdinal}):undefined}).kind:d.controls.kind==='directErase'&&!this.options.maskedSource?'erase32FusedScalar':this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'overBrowserFloat':this.options.rasterProfile==='reference-scalar-f32-rne-v1'?'over32':'over32FusedScalar'
         if(this.primaryTexture?.context.version===8?!this.options.composite.supportsPrimaryGrainPrograms([{operation:kind==='alphaDarken32FusedScalar'||kind==='alphaDarkenBrowserFloat'||kind==='overBrowserFloat'||kind==='erase32FusedScalar'||kind==='genericSCU8'||kind==='colorHsyBrowser'?kind:'over32FusedScalar',law:this.primaryTexture.context.primaryTexture.law}]):!this.options.composite.supportsImageMaterialOperations([kind]))throw new TypeError('Image material composition was not prepared')
       }
     }
@@ -766,7 +776,9 @@ export class CanonicalFrameExecutor {
     if (result.commands.length) for (const [k, tile] of this.admittedTiles) frameTargets.set(k, tile)
     for (const d of result.draws) {
       const recipe = input.frame.definitions[d.definition]
-      for (const t of this.targetPositions({ minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height },buffer)) {
+      const dab={minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height}
+      const admitted=input.composition.mode==='wash'&&d.role==='primary'&&isCanonicalDestructiveBlend(input.composition.outerBlend)?canonicalDestructiveExpandedBounds(dab):dab
+      for (const t of this.targetPositions(admitted,buffer)) {
         frameTargets.set(key(t), t)
         if (frameTargets.size > 64) throw new RangeError('Canonical frame exceeds bounded target union')
         if (input.composition.mode === 'wash' && !this.admittedTiles.has(key(t))) newTiles.set(key(t), t)
@@ -790,7 +802,7 @@ export class CanonicalFrameExecutor {
       // Admit the entire frame union BEFORE any tile creation or pixel write.
       // Pool accounting stays authoritative; caller applies the existing fence.
       if (newTiles.size) {
-        releaseWashMetadata = this.maskParticipant.brushGlBatchInfo().cpu.reserve(newTiles.size * (this.options.washMode==='deposition-only'?512:608))
+        releaseWashMetadata = this.maskParticipant.brushGlBatchInfo().cpu.reserve(newTiles.size * (this.options.washMode==='deposition-only'?512:608)+(isCanonicalDestructiveBlend(input.composition.outerBlend)?[...newTiles.values()].reduce((sum,t)=>sum+canonicalDestructiveFootprintBytes(t),0):0))
         // Exclusive: captured original4 + raw local4. Deposition-only: raw
         // local4 + potential stable target4, still resolved by the SAME paint
         // cursor. No duplicate original buffer is allocated in that mode.
@@ -1217,7 +1229,7 @@ export class CanonicalFrameExecutor {
     })
     if(wash){if(this.options.washMode==='deposition-only')this.options.changed(work.input.layerId,bounds)}else{layer.markContentPainted(bounds);this.options.changed(work.input.layerId,bounds)}
     work.segmentPart=part+1
-    if(work.segmentPart===columns*rows){
+    if(work.segmentPart===columns*rows){wash?.destructive?.publishPending();
       // Same owned turn, all batch leases released, no source/plane escapes.
       this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true);t.primary.clear();t.mask.clear()
       work.segmentPart=0;work.segmentTile=index+1
@@ -1261,7 +1273,9 @@ export class CanonicalFrameExecutor {
           if(original)target.buffer.copyTo(original)
           this.gl.disable(this.gl.SCISSOR_TEST);setGlColorMask(this.gl,true,true,true,true);local.clear()
           const lifetime=this.rawLifetime(local,position,original)
-          this.washes.set(key(position),{...position,original,local,lifetime})
+          const owner=this.rawOwner
+          const destructive=isCanonicalDestructiveBlend(work.input.composition.outerBlend)?createCanonicalDestructiveFootprint(position,()=>{if(!owner.alive)throw new Error('Destructive raw owner retired')}):undefined
+          this.washes.set(key(position),{...position,original,local,lifetime,...destructive?{destructive}:{}})
           for(let i=0;i<perTile;i++)plan.transferScratch(base+i)
           work.washCursor++
         }finally{release()}
@@ -1406,7 +1420,7 @@ export class CanonicalFrameExecutor {
                 : fused
                 ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
                 : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
-              : d.controls.kind==='directBlend'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity):d.controls.kind==='directErase'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,'erase',d.controls.opacity):this.overOperation(d.controls.opacity)
+              : d.controls.kind==='directBlend'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,d.controls.blend,d.controls.opacity,{...d.controls,seed:d.controls.blend==='dissolve'?sourceDissolveSeed(work.input.gestureId,{role:d.role,ordinal:d.drawOrdinal}):undefined}):d.controls.kind==='directErase'&&!dual?canonicalWashOuterOperation(this.options.rasterProfile,'erase',d.controls.opacity):this.overOperation(d.controls.opacity)
             const texture=this.primaryTexture
             const original=d.role==='mask'?this.options.maskedSource?.maskSource:this.options.sourceMaterial?.primarySource??(this.primaryTexture?.context.version===8?this.primaryTexture.context.primarySource:undefined)
             const imageMaterial=original?.kind==='image'?original.imageMaterial:undefined
@@ -1441,7 +1455,7 @@ export class CanonicalFrameExecutor {
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile; work.paintPart=task.part+1;
             if(work.paintPart===task.parts){
               work.paintPart=0;work.tile++;
-              if (work.tile === task.tiles.length) { work.draw++; work.tile = 0; work.tiles = undefined }
+              if (work.tile === task.tiles.length) { if(d.role==='primary')this.markDestructiveDab(work,task.draw,layer);work.draw++; work.tile = 0; work.tiles = undefined }
             }
           } finally { group.release() }
           if(!this.options.maskedSource&&task.wash&&this.options.washMode==='deposition-only')this.options.changed(work.input.layerId,task.writeBounds)
@@ -1462,6 +1476,17 @@ export class CanonicalFrameExecutor {
     return target
   }
 
+  private markDestructiveDab(work:Work,draw:number,layer:TiledLayerBuffer):void{
+    if(work.input.composition.mode!=='wash'||!isCanonicalDestructiveBlend(work.input.composition.outerBlend))return
+    const d=work.result.draws[draw],r=work.input.frame.definitions[d.definition],dab={minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height}
+    // Same explicit page/caller clip as originalDAB; never mark an entirely clipped dab.
+    const original=this.targetPositions(dab,layer);if(!original.length)return
+    const expanded=canonicalDestructiveExpandedBounds(dab)
+    for(const t of this.targetPositions(expanded,layer)){
+      const tile=this.washes.get(key(t));if(!tile?.destructive)throw new Error('Destructive WASH domain was not admitted')
+      if(this.options.maskedSource)tile.destructive.stage(expanded);else tile.destructive.mark(expanded)
+    }
+  }
   private washTile(position: TilePosition): WashTile {
     const existing = this.washes.get(key(position))
     if (existing) return existing
@@ -1479,6 +1504,7 @@ export class CanonicalFrameExecutor {
   private present(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn, turnStarted:number): void {
     if (!work.result.commands.length) return
     work.presentTiles ??= [...this.washes.values()]
+    work.presentDomains??=work.presentTiles.map(t=>t.destructive?.snapshot())
     const command = work.result.commands[0]
     if (command.kind === 'beginWash') throw new Error('Unexpected queued wash initialization')
     const tasks: { tile: WashTile; index: number; part: number; columns: number; rows: number; target: PaintTarget }[] = []
@@ -1488,7 +1514,7 @@ export class CanonicalFrameExecutor {
       while (tasks.length < 8 && index < work.presentTiles.length) {
         if(tasks.length && performance.now()-turnStarted>=4)break
         const tile = work.presentTiles[index]
-        const columns = Math.ceil(tile.width / this.compositeCapacity.width), rows = Math.ceil(tile.height / this.compositeCapacity.height)
+        const domain=work.presentDomains[index],columns=domain?1:Math.ceil(tile.width/this.compositeCapacity.width),rows=domain?canonicalDestructiveCellCount(domain)*Math.ceil(64/this.compositeCapacity.width)*Math.ceil(64/this.compositeCapacity.height):Math.ceil(tile.height/this.compositeCapacity.height)
         const target = this.resolveTile(layer, tile)
         releases.push(layer.retainTargets([target]))
         tasks.push({ tile, index, part, columns, rows, target })
@@ -1500,15 +1526,17 @@ export class CanonicalFrameExecutor {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], tile = task.tile
-          const x = task.part % task.columns * this.compositeCapacity.width, y = Math.floor(task.part / task.columns) * this.compositeCapacity.height
+          const domain=work.presentDomains![task.index]
+          const x = domain?0:task.part % task.columns * this.compositeCapacity.width, y = domain?0:Math.floor(task.part / task.columns) * this.compositeCapacity.height
+          const native=domain?canonicalDestructivePart(domain,task.part,this.compositeCapacity.width,this.compositeCapacity.height,{minX:tile.x,minY:tile.y,maxX:tile.x+tile.width,maxY:tile.y+tile.height}):undefined
           const w = Math.min(this.compositeCapacity.width, tile.width - x), h = Math.min(this.compositeCapacity.height, tile.height - y)
           const original = this.scratchTarget(tile.original!, tile, tile.lifetime)
           const view: CanonicalRgba8SourceView = { brand: 'canonical-straight-rgba8-view-v1', texture: tile.local.texture,
-            textureWidth: tile.width, textureHeight: tile.height, rect: { x: tile.x + x, y: tile.y + y, width: w, height: h },
-            bounds: { x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
+            textureWidth: tile.width, textureHeight: tile.height, rect: native?.rect?{x:native.rect.minX,y:native.rect.minY,width:native.rect.maxX-native.rect.minX,height:native.rect.maxY-native.rect.minY}:{ x: tile.x + x, y: tile.y + y, width: w, height: h },
+            bounds:native?.rect?{x:(native.rect.minX-tile.x)/tile.width,y:(tile.height-(native.rect.maxY-tile.y))/tile.height,width:(native.rect.maxX-native.rect.minX)/tile.width,height:(native.rect.maxY-native.rect.minY)/tile.height}:{ x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
             mirror: { horizontal: false, vertical: false }, rowOrder: 'bottomAtV0', residency: tile.lifetime }
-          this.options.composite.drawSource({ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
-            operation: canonicalWashOuterOperation(this.options.rasterProfile, command.blend, command.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
+          if(!native||native.rect)this.options.composite.drawSource({ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
+            operation: canonicalWashOuterOperation(this.options.rasterProfile, command.blend, command.opacity,{alphaDarken:work.input.composition.alphaDarken,seed:command.blend==='dissolve'?sourceDissolveSeed(work.input.gestureId):undefined}), writeBounds: this.options.pageBounds ?? undefined }, frame)
           work.present = task.index; work.part = task.part + 1
           if (work.part === task.rows * task.columns) { work.part = 0; work.present++ }
           layer.markContentPainted(rect(tile)); this.options.changed(work.input.layerId)
@@ -1730,7 +1758,7 @@ export class CanonicalFrameExecutor {
   rawWashTiles(): readonly CanonicalWashLocalTile[] {
     if (this.options.washMode !== 'deposition-only' || this.rawTransferred || this.failed) throw new Error('Raw wash ownership unavailable')
     return Object.freeze([...this.washes.values()].map(t => Object.freeze({
-      x: t.x, y: t.y, width: t.width, height: t.height,
+      x: t.x, y: t.y, width: t.width, height: t.height,...t.destructive?{destructive:t.destructive.snapshot()}:{},
       view: Object.freeze({
         brand: 'canonical-straight-rgba8-view-v1' as const, texture: t.local.texture, textureWidth: t.width, textureHeight: t.height,
         rect: Object.freeze({ x: t.x, y: t.y, width: t.width, height: t.height }),

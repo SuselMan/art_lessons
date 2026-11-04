@@ -1,3 +1,4 @@
+import{sourceDissolveUint32Bytes}from'../presets/sourceDissolve'
 import {setGlColorMask} from '../raster/GlClearState'
 import { SOURCE_RGBA8_GENERIC_SC_MODES } from '../presets/sourceColorRgba8';
 import {CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL} from './canonicalTextureColorMaterial';
@@ -239,7 +240,7 @@ function fragmentFor(kind: CanonicalCompositeOperationKind): string {
 
     const kernel = kind === 'colorHsyBrowser' ? SOURCE_RGBA8_BROWSER_HSY_WEBGL1_GLSL : kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? SOURCE_ALPHA_DARKEN32_GLSL : (kind === 'over32'||kind==='overBrowserFloat') ? SOURCE_OVER32_SCALAR_GLSL
         : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
-    const apply = kind === 'colorHsyBrowser' ? 'sourceCompositeBrowserHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
+    const apply = kind === 'colorHsyBrowser' ? 'sourceCompositeBrowserHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,(policy.x>=128.0&&policy.x<=129.0)?policy.z!=0.0:true),policy.w!=0.0)'
         : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
         : (kind === 'over32'||kind==='overBrowserFloat') ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
         : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
@@ -257,7 +258,7 @@ uniform highp vec3 pigment;
 uniform highp float pigmentAlpha;
 uniform highp float sourceAlphaChannel;
 uniform highp vec4 controls;
-uniform highp vec2 policy;
+uniform highp ${kind==='genericSCU8'?'vec4':'vec2'} policy;
 uniform highp vec3 opacityParts;
 uniform highp vec3 flowParts;
 uniform highp vec3 sharpness;
@@ -793,7 +794,13 @@ export class CanonicalRgba8CompositePass {
             } else if (operation.kind === 'genericSCU8') {
                 const prepared = canonicalizeSourceRgba8Control(operation.control);
                 gl.uniform4f(u.controls, prepared.opacity, prepared.average, prepared.flow, prepared.mask);
-                gl.uniform2f(u.policy, prepared.mode, +prepared.hasMask);
+                gl.uniform4f(u.policy,prepared.mode,+prepared.hasMask,+prepared.flowIsOne,+(prepared.rawAlphaDarkenHard===true));
+                if(operation.control.mode==='dissolve'){
+                  gl.uniform4f(u.sourceDissolveSeed,...sourceDissolveUint32Bytes(operation.control.seed!));
+                  gl.uniform4f(u.sourceDissolveOriginX,...sourceDissolveUint32Bytes(target.originX>>>0));
+                  gl.uniform4f(u.sourceDissolveOriginY,...sourceDissolveUint32Bytes(target.originY>>>0));
+                  gl.uniform1f(u.sourceDissolveTargetHeight,target.height);
+                }
             } else if (operation.kind === 'alphaDarken32FusedScalar') {
                 const prepared = prepareSourceFusedAlphaDarken32ScalarControls(operation.control.variant, operation.control, c.mask);
                 gl.uniform4f(u.controls, ...prepared.values);
@@ -994,7 +1001,7 @@ export class CanonicalRgba8CompositePass {
             const attribute=gl.getAttribLocation(program,'position');
             if(attribute<0)throw new Error('Composite attribute unavailable');
             const uniforms:Record<string,WebGLUniformLocation|null>={};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
+            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
                 uniforms[name]=gl.getUniformLocation(program,name);
             info={program,attribute,uniforms};
         }catch(error){failed=true;failure=error}

@@ -397,16 +397,16 @@ import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8';
 it('runs explicit GenericSC U8 modes through the SAME composite service and shared byte controls',()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion);
  const before=s.snapshot(),target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}};
- const policy=vi.spyOn(s.gl,'uniform2f');s.gl.uniform4f.mockClear();
+ const policy=vi.spyOn(s.gl,'uniform4f');s.gl.uniform4f.mockClear();
  for(const [i,mode] of (['multiply','lighten','colorDodge','overlay'] as const).entries()) {
   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
    operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255}}})).toBe('painted');
-  expect(policy).toHaveBeenCalledWith(expect.objectContaining({name:'policy'}),i+3,0);
+  expect(policy).toHaveBeenCalledWith(expect.objectContaining({name:'policy'}),i+3,0,1,0);
  }
  expect(s.gl.uniform4f.mock.calls.filter((r:unknown[])=>r[0]&&typeof r[0]==='object'&&'name' in r[0]&&r[0].name==='controls').map((r:unknown[])=>r.slice(1))).toEqual(Array(4).fill([248,248,255,255]));
  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
   operation:{kind:'genericSCU8',control:{mode:'multiply',profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255,mask:0}}})).toBe('painted');
- expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),3,1);
+ expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),3,1,1,0);
  expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({name:'controls'}),248,248,255,0);
  expect(s.snapshot()).toEqual(before);s.pass.reset();
 });
@@ -534,13 +534,13 @@ it('cold shared vertex cancellation and lost reset retain existing program retir
 it('dispatches all extended Pixel functors through one prepared GenericSC program without draw-time compilation',()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion)
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
- const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot(),policy=vi.spyOn(s.gl,'uniform2f')
+ const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot(),policy=vi.spyOn(s.gl,'uniform4f')
  // Literal IDs are the producer/shader ABI, not generated from the implementation enum.
  const cases=[['add',1],['darken',7],['screen',8],['colorBurn',9],['linearBurn',10],['subtract',11],['difference',12],['exclusion',13],['softLight',14],['hardLight',15],['divide',16],['linearLight',17],['vividLight',18],['pinLight',19],['hardMix',20],['darkerColor',21],['lighterColor',22],['hue',23],['saturation',24],['luminosity',25],['hardMixPhotoshop',26],['softLightSvg',27],['equivalence',28],['additiveSubtractive',29],['arcTangent',30],['negation',31],['inverseSubtract',32],['grainMerge',33],['grainExtract',34],['allanon',35],['geometricMean',36],['parallel',37],['reflect',38],['glow',39],['freeze',40],['heat',41],['glowHeat',42],['heatGlow',43],['reflectFreeze',44],['freezeReflect',45],['heatGlowFreezeReflectHybrid',46],['hardMixSofterPhotoshop',47],['penumbraA',48],['penumbraB',49],['penumbraC',50],['penumbraD',51],['flatLight',52],['binaryXor',53],['binaryOr',54],['binaryAnd',55],['binaryNand',56],['binaryNor',57],['binaryXnor',58],['binaryImplication',59],['binaryNotImplication',60],['binaryConverse',61],['binaryNotConverse',62],['tint',63],['increaseSaturation',64],['decreaseSaturation',65],['increaseLuminosity',66],['decreaseLuminosity',67],['colorHsl',68],['hueHsl',69],['saturationHsl',70],['increaseSaturationHsl',71],['decreaseSaturationHsl',72],['lightnessHsl',73],['increaseLightnessHsl',74],['decreaseLightnessHsl',75],['colorHsv',76],['hueHsv',77],['saturationHsv',78],['increaseSaturationHsv',79],['decreaseSaturationHsv',80],['valueHsv',81],['increaseValueHsv',82],['decreaseValueHsv',83],['colorHsi',84],['hueHsi',85],['saturationHsi',86],['increaseSaturationHsi',87],['decreaseSaturationHsi',88],['intensityHsi',89],['increaseIntensityHsi',90],['decreaseIntensityHsi',91],['gammaDark',92],['gammaLight',93],['gammaIllumination',94],['easyDodge',95],['easyBurn',96],['pNormA',97],['pNormB',98],['superLight',99],['softLightIfs',100],['softLightPegtop',101],['tintIfs',102],['shadeIfs',103],['fogLightenIfs',104],['fogDarkenIfs',105],['modulo',106],['moduloContinuous',107],['divisiveModulo',108],['divisiveModuloContinuous',109],['moduloShift',110],['moduloShiftContinuous',111],['hardOverlay',112],['interpolation',113],['interpolation2x',114],['lambertLighting',115],['lambertLightingGamma22',116],['combineNormal',117],['tangentNormalmap',118],['copyRed',119],['copyGreen',120],['copyBlue',121],['behind',122],['luminositySai',123],['greater',124]] as const
  try{
   for(const [mode,id]of cases){
    expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[200,100,50]},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}}})).toBe('painted')
-   expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),id,0)
+   expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),id,0,1,0)
   }
   expect(s.gl.createProgram.mock.calls.length).toBe(programs)
   expect(s.snapshot()).toEqual(before)
@@ -590,9 +590,38 @@ it('cancels unpublished image programs and rejects variants lacking their base o
 it('uses the prepared image material program for all channel extension modes without new allocations',()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8'],imageMaterialOperations:['genericSCU8']},s.companion)
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
- const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid','hardMixSofterPhotoshop','penumbraA','penumbraB','penumbraC','penumbraD','flatLight','binaryXor','binaryOr','binaryAnd','binaryNand','binaryNor','binaryXnor','binaryImplication','binaryNotImplication','binaryConverse','binaryNotConverse','tint','increaseSaturation','decreaseSaturation','increaseLuminosity','decreaseLuminosity','colorHsl','hueHsl','saturationHsl','increaseSaturationHsl','decreaseSaturationHsl','lightnessHsl','increaseLightnessHsl','decreaseLightnessHsl','colorHsv','hueHsv','saturationHsv','increaseSaturationHsv','decreaseSaturationHsv','valueHsv','increaseValueHsv','decreaseValueHsv','colorHsi','hueHsi','saturationHsi','increaseSaturationHsi','decreaseSaturationHsi','intensityHsi','increaseIntensityHsi','decreaseIntensityHsi','gammaDark','gammaLight','gammaIllumination','easyDodge','easyBurn','pNormA','pNormB','superLight','softLightIfs','softLightPegtop','tintIfs','shadeIfs','fogLightenIfs','fogDarkenIfs','modulo','moduloContinuous','divisiveModulo','divisiveModuloContinuous','moduloShift','moduloShiftContinuous','hardOverlay','interpolation','interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap','copyRed','copyGreen','copyBlue','behind','luminositySai','greater'] as const,policy=vi.spyOn(s.gl,'uniform2f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
+ const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid','hardMixSofterPhotoshop','penumbraA','penumbraB','penumbraC','penumbraD','flatLight','binaryXor','binaryOr','binaryAnd','binaryNand','binaryNor','binaryXnor','binaryImplication','binaryNotImplication','binaryConverse','binaryNotConverse','tint','increaseSaturation','decreaseSaturation','increaseLuminosity','decreaseLuminosity','colorHsl','hueHsl','saturationHsl','increaseSaturationHsl','decreaseSaturationHsl','lightnessHsl','increaseLightnessHsl','decreaseLightnessHsl','colorHsv','hueHsv','saturationHsv','increaseSaturationHsv','decreaseSaturationHsv','valueHsv','increaseValueHsv','decreaseValueHsv','colorHsi','hueHsi','saturationHsi','increaseSaturationHsi','decreaseSaturationHsi','intensityHsi','increaseIntensityHsi','decreaseIntensityHsi','gammaDark','gammaLight','gammaIllumination','easyDodge','easyBurn','pNormA','pNormB','superLight','softLightIfs','softLightPegtop','tintIfs','shadeIfs','fogLightenIfs','fogDarkenIfs','modulo','moduloContinuous','divisiveModulo','divisiveModuloContinuous','moduloShift','moduloShiftContinuous','hardOverlay','interpolation','interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap','copyRed','copyGreen','copyBlue','behind','luminositySai','greater'] as const,policy=vi.spyOn(s.gl,'uniform4f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
  try{for(const [i,mode]of modes.entries()){
   expect(s.pass.drawSource({source:{kind:'imageMaterialRgba',material:'lightness-map-v1',view:{...s.view,imageMaterial:'lightness-map-v1'},rgb:[91,127,255],strength:.7,foregroundAlpha:.8},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.8}}})).toBe('painted')
-  expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),28+i,0)
+  expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),28+i,0,1,0)
  }expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.snapshot()).toEqual(before)}finally{s.pass.reset();s.cache.clear()}
+})
+
+// RecordingGL proves dispatch and clipping, not final pixel arithmetic (covered by CPU and future GPU oracle).
+it.each(['copy','destinationIn','destinationAtop']as const)('submits full geometric %s domain at zero opacity and zero group mask',mode=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion)
+ const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
+ try{
+  for(const controls of [{opacity:0},{opacity:1,mask:0}]){
+   s.gl.drawArrays.mockClear()
+   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,...controls}}})).toBe('painted')
+   expect(s.gl.drawArrays).toHaveBeenCalledTimes(1)
+  }
+  // Geometric disjointness remains the sole empty-domain shortcut.
+  s.gl.drawArrays.mockClear()
+  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:0}},writeBounds:{minX:100,minY:100,maxX:101,maxY:101}})).toBe('empty')
+  expect(s.gl.drawArrays).not.toHaveBeenCalled()
+ }finally{s.pass.reset()}
+})
+
+it.each([0x80000000,-0x80000001,Number.MAX_SAFE_INTEGER-16,Number.MIN_SAFE_INTEGER+16])('uploads explicit low32 Dissolve origins for existing safe canvas coordinate %s',origin=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion)
+ const target:CanonicalOwnedRgba8Target={...s.target,originX:origin,originY:origin,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
+ try{
+  const view={...s.view,rect:{...s.view.rect,x:origin,y:origin}}
+  expect(s.pass.drawSource({source:{kind:'maskRgb',view,rgb:[1,2,3]},target,operation:{kind:'genericSCU8',control:{mode:'dissolve',profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1,seed:7}}})).toBe('painted')
+  const n=origin>>>0,bytes=[n&255,(n>>>8)&255,(n>>>16)&255,n>>>24]
+  expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({name:'sourceDissolveOriginX'}),...bytes)
+  expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({name:'sourceDissolveOriginY'}),...bytes)
+ }finally{s.pass.reset()}
 })

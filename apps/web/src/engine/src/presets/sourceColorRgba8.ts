@@ -1,3 +1,5 @@
+import {sourceDissolveByte}from'./sourceDissolve'
+import type{SourceRgba8ExecutionContext}from'./sourceRgba8ExecutionContext'
 import {sourceRgba8QuantizedAtan} from '../raster/sourceRgba8QuantizedAtan'
 import { sourceFmaF32 } from './sourceFmaF32'
 import type { Rgba8 } from './mixWeightedRgba8'
@@ -123,8 +125,10 @@ export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-gener
 export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
-export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid' | 'hardMixSofterPhotoshop' | 'penumbraA' | 'penumbraB' | 'penumbraC' | 'penumbraD' | 'flatLight' | 'binaryXor' | 'binaryOr' | 'binaryAnd' | 'binaryNand' | 'binaryNor' | 'binaryXnor' | 'binaryImplication' | 'binaryNotImplication' | 'binaryConverse' | 'binaryNotConverse' | 'tint' | 'increaseSaturation' | 'decreaseSaturation' | 'increaseLuminosity' | 'decreaseLuminosity' | 'colorHsl' | 'hueHsl' | 'saturationHsl' | 'increaseSaturationHsl' | 'decreaseSaturationHsl' | 'lightnessHsl' | 'increaseLightnessHsl' | 'decreaseLightnessHsl' | 'colorHsv' | 'hueHsv' | 'saturationHsv' | 'increaseSaturationHsv' | 'decreaseSaturationHsv' | 'valueHsv' | 'increaseValueHsv' | 'decreaseValueHsv' | 'colorHsi' | 'hueHsi' | 'saturationHsi' | 'increaseSaturationHsi' | 'decreaseSaturationHsi' | 'intensityHsi' | 'increaseIntensityHsi' | 'decreaseIntensityHsi' | 'gammaDark' | 'gammaLight' | 'gammaIllumination' | 'easyDodge' | 'easyBurn' | 'pNormA' | 'pNormB' | 'superLight' | 'softLightIfs' | 'softLightPegtop' | 'tintIfs' | 'shadeIfs' | 'fogLightenIfs' | 'fogDarkenIfs' | 'modulo' | 'moduloContinuous' | 'divisiveModulo' | 'divisiveModuloContinuous' | 'moduloShift' | 'moduloShiftContinuous' | 'hardOverlay' | 'interpolation' | 'interpolation2x' | 'lambertLighting' | 'lambertLightingGamma22' | 'combineNormal' | 'tangentNormalmap' | 'copyRed' | 'copyGreen' | 'copyBlue' | 'behind' | 'luminositySai' | 'greater'
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid' | 'hardMixSofterPhotoshop' | 'penumbraA' | 'penumbraB' | 'penumbraC' | 'penumbraD' | 'flatLight' | 'binaryXor' | 'binaryOr' | 'binaryAnd' | 'binaryNand' | 'binaryNor' | 'binaryXnor' | 'binaryImplication' | 'binaryNotImplication' | 'binaryConverse' | 'binaryNotConverse' | 'tint' | 'increaseSaturation' | 'decreaseSaturation' | 'increaseLuminosity' | 'decreaseLuminosity' | 'colorHsl' | 'hueHsl' | 'saturationHsl' | 'increaseSaturationHsl' | 'decreaseSaturationHsl' | 'lightnessHsl' | 'increaseLightnessHsl' | 'decreaseLightnessHsl' | 'colorHsv' | 'hueHsv' | 'saturationHsv' | 'increaseSaturationHsv' | 'decreaseSaturationHsv' | 'valueHsv' | 'increaseValueHsv' | 'decreaseValueHsv' | 'colorHsi' | 'hueHsi' | 'saturationHsi' | 'increaseSaturationHsi' | 'decreaseSaturationHsi' | 'intensityHsi' | 'increaseIntensityHsi' | 'decreaseIntensityHsi' | 'gammaDark' | 'gammaLight' | 'gammaIllumination' | 'easyDodge' | 'easyBurn' | 'pNormA' | 'pNormB' | 'superLight' | 'softLightIfs' | 'softLightPegtop' | 'tintIfs' | 'shadeIfs' | 'fogLightenIfs' | 'fogDarkenIfs' | 'modulo' | 'moduloContinuous' | 'divisiveModulo' | 'divisiveModuloContinuous' | 'moduloShift' | 'moduloShiftContinuous' | 'hardOverlay' | 'interpolation' | 'interpolation2x' | 'lambertLighting' | 'lambertLightingGamma22' | 'combineNormal' | 'tangentNormalmap' | 'copyRed' | 'copyGreen' | 'copyBlue' | 'behind' | 'luminositySai' | 'greater' | 'copy' | 'destinationIn' | 'destinationAtop' | 'rawAlphaDarken' | 'marker' | 'dissolve'
 interface Rgba8CompositeParameters {
+  readonly alphaDarken?:'creamy'|'hard'
+  readonly seed?:number
   readonly opacity: number
   readonly mask?: number
   readonly flow?: number
@@ -135,20 +139,20 @@ export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: SourceRgba8SeparableMode | 'add'; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
   { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
-export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi', 'gammaDark', 'gammaLight', 'gammaIllumination', 'easyDodge', 'easyBurn', 'pNormA', 'pNormB', 'superLight', 'softLightIfs', 'softLightPegtop', 'tintIfs', 'shadeIfs', 'fogLightenIfs', 'fogDarkenIfs', 'modulo', 'moduloContinuous', 'divisiveModulo', 'divisiveModuloContinuous', 'moduloShift', 'moduloShiftContinuous', 'hardOverlay', 'interpolation', 'interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap', 'copyRed', 'copyGreen', 'copyBlue', 'behind', 'luminositySai', 'greater'] as const
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi', 'gammaDark', 'gammaLight', 'gammaIllumination', 'easyDodge', 'easyBurn', 'pNormA', 'pNormB', 'superLight', 'softLightIfs', 'softLightPegtop', 'tintIfs', 'shadeIfs', 'fogLightenIfs', 'fogDarkenIfs', 'modulo', 'moduloContinuous', 'divisiveModulo', 'divisiveModuloContinuous', 'moduloShift', 'moduloShiftContinuous', 'hardOverlay', 'interpolation', 'interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap', 'copyRed', 'copyGreen', 'copyBlue', 'behind', 'luminositySai', 'greater', 'copy', 'destinationIn', 'destinationAtop', 'rawAlphaDarken', 'marker', 'dissolve'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): number {
   const index = SOURCE_RGBA8_COMPOSITE_MODES.findIndex(candidate => candidate === mode)
   if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
   return index
 }
-const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi', 'gammaDark', 'gammaLight', 'gammaIllumination', 'easyDodge', 'easyBurn', 'pNormA', 'pNormB', 'superLight', 'softLightIfs', 'softLightPegtop', 'tintIfs', 'shadeIfs', 'fogLightenIfs', 'fogDarkenIfs', 'modulo', 'moduloContinuous', 'divisiveModulo', 'divisiveModuloContinuous', 'moduloShift', 'moduloShiftContinuous', 'hardOverlay', 'interpolation', 'interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap', 'copyRed', 'copyGreen', 'copyBlue', 'behind', 'luminositySai', 'greater']
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight', 'binaryXor', 'binaryOr', 'binaryAnd', 'binaryNand', 'binaryNor', 'binaryXnor', 'binaryImplication', 'binaryNotImplication', 'binaryConverse', 'binaryNotConverse', 'tint', 'increaseSaturation', 'decreaseSaturation', 'increaseLuminosity', 'decreaseLuminosity', 'colorHsl', 'hueHsl', 'saturationHsl', 'increaseSaturationHsl', 'decreaseSaturationHsl', 'lightnessHsl', 'increaseLightnessHsl', 'decreaseLightnessHsl', 'colorHsv', 'hueHsv', 'saturationHsv', 'increaseSaturationHsv', 'decreaseSaturationHsv', 'valueHsv', 'increaseValueHsv', 'decreaseValueHsv', 'colorHsi', 'hueHsi', 'saturationHsi', 'increaseSaturationHsi', 'decreaseSaturationHsi', 'intensityHsi', 'increaseIntensityHsi', 'decreaseIntensityHsi', 'gammaDark', 'gammaLight', 'gammaIllumination', 'easyDodge', 'easyBurn', 'pNormA', 'pNormB', 'superLight', 'softLightIfs', 'softLightPegtop', 'tintIfs', 'shadeIfs', 'fogLightenIfs', 'fogDarkenIfs', 'modulo', 'moduloContinuous', 'divisiveModulo', 'divisiveModuloContinuous', 'moduloShift', 'moduloShiftContinuous', 'hardOverlay', 'interpolation', 'interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap', 'copyRed', 'copyGreen', 'copyBlue', 'behind', 'luminositySai', 'greater', 'copy', 'destinationIn', 'destinationAtop', 'rawAlphaDarken', 'marker', 'dissolve']
 export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
 /** Closed channel functors. Whole-RGB modes require compositeRgba8, which
  * supplies all three channels and preserves the generic HSL alpha shell. */
 export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
   if (!Number.isInteger(source) || source < 0 || source > 255 || !Number.isInteger(destination) || destination < 0 || destination > 255)
     throw new RangeError('Invalid separable byte channel')
-  const hsxId=sourceRgba8CompositeModeId(mode);if(hsxId>=119&&hsxId<=124)throw new RangeError('Custom composite mode requires RGBA channels');if(hsxId>=115&&hsxId<=118)throw new RangeError('Normal vector mode requires RGB channels');if(hsxId>=63&&hsxId<=91)throw new RangeError('HSX vector mode requires RGB channels')
+  const hsxId=sourceRgba8CompositeModeId(mode);if(hsxId>=125&&hsxId<=130)throw new RangeError('Special composite mode requires RGBA channels');if(hsxId>=119&&hsxId<=124)throw new RangeError('Custom composite mode requires RGBA channels');if(hsxId>=115&&hsxId<=118)throw new RangeError('Normal vector mode requires RGB channels');if(hsxId>=63&&hsxId<=91)throw new RangeError('HSX vector mode requires RGB channels')
   return separableChannel(mode, source, destination)
 }
 // Pinned Quadratic U8: materialize biased M before rounded Q; never divide at endpoints.
@@ -465,6 +469,33 @@ function custom6Rgba(mode:SourceRgba8SeparableMode,source:Rgba8,destination:Rgba
  const fake=hsxRoundRatio((aq-dq)*255,Q-dq),channel=(i:0|1|2)=>Math.min(255,divide(blend(source[i],multiply(destination[i],da),fake),a))
  return[channel(0),channel(1),channel(2),a]
 }
+// Final6 raw RGBA graphs; dispatched before generic SC source-zero/union shortcuts.
+function final6Rgba(mode:SourceRgba8SeparableMode,source:Rgba8,destination:Rgba8,control:Rgba8CompositeControl,context?:SourceRgba8ExecutionContext):Rgba8{
+ const mask=control.mask??255,op=opacityByte(control.opacity),sa=source[3],da=destination[3]
+ if(mode==='copy'){
+  const m=multiply(mask,op);if(m===0)return[...destination];if(m===255)return[...source]
+  const a=blend(sa,da,m);if(a===0)return[destination[0],destination[1],destination[2],0]
+  const c=(i:0|1|2)=>Math.min(255,divide(blend(multiply(source[i],sa),multiply(destination[i],da),m),a))
+  return[c(0),c(1),c(2),a]
+ }
+ if(mode==='destinationIn')return[destination[0],destination[1],destination[2],multiply(da,multiply3(mask,sa,op))]
+ if(mode==='destinationAtop'){
+  const a=multiply3(mask,sa,op);if(sa===0)return[destination[0],destination[1],destination[2],a]
+  return[da?blend(destination[0],source[0],da):source[0],da?blend(destination[1],source[1],da):source[1],da?blend(destination[2],source[2],da):source[2],a]
+ }
+ if(mode==='dissolve'){
+  const point=context?.worldPoint;if(!point)throw new RangeError('Dissolve pixel requires worldPoint execution context')
+  const applied=multiply3(mask,sa,op),random=sourceDissolveByte(control.seed!,point[0],point[1])
+  return applied!==0&&random<=applied?[source[0],source[1],source[2],255]:[...destination]
+ }
+ const hard=mode==='rawAlphaDarken'&&control.alphaDarken==='hard',flow=control.flow??1,average=control.averageOpacity??control.opacity
+ const opacity=hard?opacityByte(f(f(flow)*f(control.opacity))):op,av=hard?opacityByte(f(f(flow)*f(average))):opacityByte(average),fb=opacityByte(flow)
+ const masked=multiply(mask,sa),applied=multiply(masked,opacity)
+ const full=av>opacity?av>da?blend(av,applied,divide(da,av)):da:opacity>da?blend(opacity,da,masked):da
+ const zero=hard?applied+da-multiply(applied,da):da,a=f(flow)===1?full:blend(full,zero,fb)
+ const weight=mode==='marker'&&da?Math.min(255,divide(applied,da)):applied
+ return[da?blend(source[0],destination[0],weight):source[0],da?blend(source[1],destination[1],weight):source[1],da?blend(source[2],destination[2],weight):source[2],a]
+}
 /** Same generic-SC branch/narrowing body used by addition and separable ops. */
 function genericScChannel(source: number, destination: number, sa: number, da: number, alpha: number, cf: number): number {
   if (!da) return source
@@ -478,6 +509,8 @@ export function validateRgba8CompositeControl(control: Rgba8CompositeControl): v
   if (!control || !['over', 'add', 'alphaDarken', 'colorHsy', ...separableModes].includes(control.mode)) throw new RangeError('Unknown composite mode')
   if ((separableModes.includes(control.mode)||control.mode==='add'&&control.profile!==undefined) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
   if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE) throw new RangeError('Missing explicit HSY profile')
+  if(control.mode==='rawAlphaDarken'&&!['creamy','hard'].includes(control.alphaDarken??''))throw new RangeError('Raw AlphaDarken requires captured variant')
+  if(control.mode==='dissolve'&&(!Number.isInteger(control.seed)||control.seed!<0||control.seed!>0xffffffff))throw new RangeError('Dissolve requires canonical seed')
   unit(control.opacity)
   if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
   unit(control.flow ?? 1)
@@ -494,11 +527,12 @@ export function applyRgba8AlphaMask(source: Rgba8, mask: number): Rgba8 {
  * A missing mask preserves the source's distinct two-factor Over path.
  * Alpha-darken uses the creamy policy; averageOpacity is explicit caller state.
  */
-export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8CompositeControl): Rgba8 {
+export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8CompositeControl, execution?:SourceRgba8ExecutionContext): Rgba8 {
   validateRgba8Pixel(source); validateRgba8Pixel(destination); validateRgba8CompositeControl(control)
   const flow = control.flow ?? 1, average = control.averageOpacity ?? control.opacity
   unit(flow); unit(average)
   const mask = control.mask ?? 255, opacity = opacityByte(control.opacity), da = destination[3]
+  if(control.mode==='copy'||control.mode==='destinationIn'||control.mode==='destinationAtop'||control.mode==='rawAlphaDarken'||control.mode==='marker'||control.mode==='dissolve')return final6Rgba(control.mode,source,destination,control,execution)
   if(control.mode==='copyRed'||control.mode==='copyGreen'||control.mode==='copyBlue'||control.mode==='behind'||control.mode==='luminositySai'||control.mode==='greater')return custom6Rgba(control.mode,source,destination,opacity,mask)
   if (control.mode === 'over') {
     const sa = control.mask === undefined ? multiply(source[3], opacity) : multiply3(mask, source[3], opacity)
@@ -546,11 +580,11 @@ export interface Rgba8GroupParticle {
  * Source masks/coverage must already be supplied by the rasterizer. This function
  * neither invents Qt ellipse coverage nor substitutes a brush's noise source.
  */
-export function compositeRgba8Group(destination: Rgba8, particles: readonly Rgba8GroupParticle[], outer: Rgba8CompositeControl): { group: Rgba8; output: Rgba8 } {
+export function compositeRgba8Group(destination: Rgba8, particles: readonly Rgba8GroupParticle[], outer: Rgba8CompositeControl, execution?:SourceRgba8ExecutionContext): { group: Rgba8; output: Rgba8 } {
   if (particles.length > 65535) throw new RangeError('RGBA8 group budget exceeded')
   let group: Rgba8 = [0, 0, 0, 0]
-  for (const p of particles) group = compositeRgba8(p.color, group, { mode: 'over', opacity: p.opacity, mask: p.mask })
-  return { group, output: compositeRgba8(group, destination, outer) }
+  for (const p of particles) group = compositeRgba8(p.color, group, { mode: 'over', opacity: p.opacity, mask: p.mask },execution)
+  return { group, output: compositeRgba8(group, destination, outer,execution) }
 }
 
 /** Native Darken's actual QColor RGB stage, using the explicit sRGB functional

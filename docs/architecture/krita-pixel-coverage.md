@@ -334,3 +334,26 @@ GPU/APP нового графа ещё не запускались. Осталь
 Доказательства: pixel-scalar4-root-cos-gates-v2/final-proof.json,
 pixel-scalar4-root-cos-gates-v2/actual-applied-equivalence-proof.json,
 pixel-scalar4-rebase-and-scalar5-generator-independent-review-v1.json.
+
+
+## Финальные шесть RGBA-механизмов
+
+IDs125..130/revision46: Copy, Destination In/Atop, Raw Alpha Darken, Marker,
+Dissolve. Собственные оболочки выполняются до общих zero-alpha shortcuts.
+Destructive WASH сохраняет native64 область независимо от физических тайлов,
+с версионными неизменяемыми срезами области. Raw Alpha Darken учитывает flow
+и averageOpacity; Marker использует creamy. Dissolve использует стабильный
+seed жеста и общий целочисленный world-coordinate hash, не native entropy.
+Только профиль B. Masked final6 buildup пока закрыт явно.
+
+Составное покрытие2602/37: первоначальный прогон2595PASS/7FAIL сохранён;
+исправленные фикстуры проверены отдельным прогоном312/6. Это не полный
+повторный запуск37 модулей. Strict22 roots/333 inputs/0: production shared
+NodeNext, web bundler и отдельный shared Vitest test bundler; не утверждается
+полный shared tsc. Importer18 PASS, lint exit0 с сохранёнными предупреждениями.
+Все24 применённых файла совпали с проверенными SHA. GPU/APP/онлайн ещё не
+запускались для этого блока.
+
+Доказательства: pixel-final6-gates-v3/final-proof.json,
+pixel-final6-gates-v3/actual-applied-equivalence-proof.json,
+pixel-final6-extension-independent-review-v5.json.

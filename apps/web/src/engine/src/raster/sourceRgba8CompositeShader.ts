@@ -1,3 +1,4 @@
+import{SOURCE_DISSOLVE_ES3_GLSL}from'../presets/sourceDissolve'
 import {SOURCE_RGBA8_QUANTIZED_ATAN_GLSL} from './sourceRgba8QuantizedAtan'
 import { SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from './sourceRgba8CompositeWebGL1';
 import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE, sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
@@ -11,6 +12,7 @@ export interface SourceRgba8CompositeBytes {
   readonly flow: number;
   readonly average: number;
   readonly flowIsOne: boolean;
+  readonly rawAlphaDarkenHard?:boolean;
 }
 
 /** Same author CPU float32 byte law as sourceColorRgba8; not KoColor's double
@@ -26,8 +28,9 @@ export function canonicalizeSourceRgba8Control(control: Rgba8CompositeControl): 
   if (control.mode === 'colorHsy') throw new RangeError('Color HSY source-only profile has no GPU mode');
   const mode = sourceRgba8CompositeModeId(control.mode);
   const byte = (v: number) => Math.trunc(Math.fround(Math.fround(Math.fround(v) * 255) + .5));
-  return { mode, opacity: byte(control.opacity), mask: control.mask ?? 255,
-    hasMask: control.mask !== undefined, flow: byte(flow), average: byte(average),
+  const hard=control.mode==='rawAlphaDarken'&&control.alphaDarken==='hard'
+  return { mode,...control.mode==='rawAlphaDarken'?{rawAlphaDarkenHard:hard}:{}, opacity: byte(hard?Math.fround(Math.fround(flow)*Math.fround(control.opacity)):control.opacity), mask: control.mask ?? 255,
+    hasMask: control.mask !== undefined, flow: byte(flow), average: byte(hard?Math.fround(Math.fround(flow)*Math.fround(average)):average),
     flowIsOne: Math.fround(flow) === 1 };
 }
 
@@ -337,7 +340,25 @@ vec3 sourceRgba8VectorBlend(float mode,vec3 source,vec3 destination){
  if(x>1.0)c=l>1.0||x-l<0.00000011920928955078125?vec3(1.0):vec3(l)+(c-vec3(l))*(1.0-l)/(x-l);
  return floor(clamp(c,0.0,1.0)*255.0+vec3(.5));
 }
-uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8CompositeControl control) {
+${SOURCE_DISSOLVE_ES3_GLSL}
+uniform vec4 sourceDissolveSeed;
+uniform vec4 sourceDissolveOriginX;
+uniform vec4 sourceDissolveOriginY;
+uniform float sourceDissolveTargetHeight;
+vec4 sourceFinal6(float mode,vec4 source,vec4 destination,SourceRgba8CompositeControl control,bool hard){
+ float sa=source.a,da=destination.a,op=float(control.opacity),mask=float(control.mask);
+ if(mode==125.0){float m=sourceRgba8MultiplyCustom(mask,op);if(m==0.0)return destination;if(m==255.0)return source;float a=sourceRgba8BlendCustom(sa,da,m);if(a==0.0)return vec4(destination.rgb,0.0);vec3 s=vec3(sourceRgba8MultiplyCustom(source.r,sa),sourceRgba8MultiplyCustom(source.g,sa),sourceRgba8MultiplyCustom(source.b,sa)),d=vec3(sourceRgba8MultiplyCustom(destination.r,da),sourceRgba8MultiplyCustom(destination.g,da),sourceRgba8MultiplyCustom(destination.b,da));vec3 c=vec3(sourceRgba8BlendCustom(s.r,d.r,m),sourceRgba8BlendCustom(s.g,d.g,m),sourceRgba8BlendCustom(s.b,d.b,m));return vec4(min(vec3(255.0),vec3(sourceRgba8DivideCustom(c.r,a),sourceRgba8DivideCustom(c.g,a),sourceRgba8DivideCustom(c.b,a))),a);}
+ if(mode==126.0)return vec4(destination.rgb,sourceRgba8MultiplyCustom(da,sourceRgba8Multiply3Custom(mask,sa,op)));
+ if(mode==127.0){float a=sourceRgba8Multiply3Custom(mask,sa,op);if(sa==0.0)return vec4(destination.rgb,a);return da==0.0?vec4(source.rgb,a):vec4(sourceRgba8BlendCustom(destination.r,source.r,da),sourceRgba8BlendCustom(destination.g,source.g,da),sourceRgba8BlendCustom(destination.b,source.b,da),a);}
+ if(mode==130.0){float applied=sourceRgba8Multiply3Custom(mask,sa,op),random=sourceDissolveWorldByte(sourceDissolveSeed,sourceDissolveOriginX,sourceDissolveOriginY,sourceDissolveTargetHeight);return applied!=0.0&&random<=applied?vec4(source.rgb,255.0):destination;}
+ float masked=sourceRgba8MultiplyCustom(mask,sa),applied=sourceRgba8MultiplyCustom(masked,op),av=float(control.average),flow=float(control.flow);
+ float full=av>op?(av>da?sourceRgba8BlendCustom(av,applied,sourceRgba8DivideCustom(da,av)):da):(op>da?sourceRgba8BlendCustom(op,da,masked):da);
+ float zero=hard?applied+da-sourceRgba8MultiplyCustom(applied,da):da,a=control.flowIsOne?full:sourceRgba8BlendCustom(full,zero,flow);
+ float weight=mode==129.0&&da!=0.0?min(255.0,sourceRgba8DivideCustom(applied,da)):applied;
+ return da==0.0?vec4(source.rgb,a):vec4(sourceRgba8BlendCustom(source.r,destination.r,weight),sourceRgba8BlendCustom(source.g,destination.g,weight),sourceRgba8BlendCustom(source.b,destination.b,weight),a);
+}
+uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8CompositeControl control, bool rawHard) {
+  if(control.mode>=125u&&control.mode<=130u)return uvec4(sourceFinal6(float(control.mode),vec4(source),vec4(destination),control,rawHard));
   uint da = destination.a;
   if (control.mode == 0u) {
     uint sa = control.hasMask ? sourceRgba8Multiply3(control.mask, source.a, control.opacity)
@@ -374,6 +395,8 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
     sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
     sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);
 }
+uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8CompositeControl control){return sourceCompositeRgba8(source,destination,control,false);}
+
 `;
 
 /** Isolated portable float32 point operator. It does not implement hardware
