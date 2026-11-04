@@ -1,3 +1,4 @@
+import {installScalarPowerAssetFetch} from './testing/scalarPowerTestAssets'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {prepareCanonicalRecordedAttachmentV8} from '@grafetto/shared'
 import watercSpreadMetadata from './src/presets/fixtures/pixelWaterCSpreadPreparation.metadata.json'
@@ -21,7 +22,7 @@ import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
 const packet=(x:number,timeStamp:number):PointerData=>({x,y:2,pressure:.6,tiltX:15,tiltY:20,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp})
-async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'thickpaint'|'dry-creases'|'charcoal',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false,charcoalIndex=0){
+async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'thickpaint'|'dry-creases'|'charcoal',begin:CanonicalSourceAuthorService['begin'],modifiers=false,maskedAuthor=true,recordedColor=false,charcoalIndex=0,powerMode?:'wash'|'buildup'){
  const row=kind==='charcoal'?{...charcoalOriginals.brushes[charcoalIndex],assets:charcoalOriginals.assets}:kind==='thickpaint'?thickpaintMetadata:kind==='dry-creases'?dryCreasesMetadata.rows[0]:kind==='pencil3'?pencilMetadata.rows[0]:kind==='pencil5'?pencilMetadata.rows[1]:originals.rows[kind==='dual'?0:kind==='texture'?1:2];let descriptor=structuredClone(row.descriptor) as unknown as BrushDescriptor
  if(recordedColor){if(!descriptor.sourceStamp)throw Error('Original source required');Object.assign(descriptor.sourceStamp.settings,{'ColorSource/Type':'uniform_random'});const mask=descriptor.behavior?.dual?.brush.sourceStamp;if(mask)Object.assign(mask.settings,{'ColorSource/Type':'uniform_random'})}
  if(kind!=='bitmap-auto')descriptor.id='imported-'+(kind==='dual'?(recordedColor?'c3':'c1'):'c2').repeat(16)
@@ -45,13 +46,20 @@ async function setup(kind:'dual'|'texture'|'bitmap-auto'|'pencil3'|'pencil5'|'th
    assets[index]={...original,id,file:id.slice(6)+'.bin'};installBrushPixels(id,pixels)
   }
  }
+ if(powerMode){
+  if(!descriptor.sourceStamp||!descriptor.behavior?.rendering)throw Error('Derived original source required')
+  descriptor.id='imported-'+(powerMode==='wash'?'ae':'af').repeat(16)
+  descriptor.sourceStamp={...descriptor.sourceStamp,settings:{...descriptor.sourceStamp.settings,CompositeOp:'easy dodge',PaintOpAction:powerMode==='wash'?'2':'1'}}
+  Object.assign(descriptor.sourceStamp.flags,{indirectPainting:powerMode==='wash'})
+  descriptor.behavior={...descriptor.behavior,rendering:{...descriptor.behavior.rendering,blendMode:'easyDodge'}}
+ }
  const preset='brush:'+descriptor.id+'@'+descriptor.version+(modifiers?':flat:fixed':''),sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'Derived '+kind+' browser integration',source:'actual compiled2 metadata, derived resource identity',warnings:[]}],assets,skipped:[]})
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:32,canvasHeight:32,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:B,canonicalImageMaterialSource:'pixel-image-material-v1',canonicalAuthorImageMaterialSource:'pixel-image-material-v1',canonicalPlainAutoGeometrySource:'dynamic-auto-geometry-v1',canonicalAuthorPlainAutoGeometrySource:'dynamic-auto-geometry-v1',canonicalPrimaryGrainSource:'primary-grain-image-v1',canonicalAuthorPrimaryGrainSource:'primary-grain-image-v1',canonicalPixelMaskedSource:'pixel-masked-v1',...maskedAuthor?{canonicalAuthorPixelMaskedSource:'pixel-masked-v1' as const}:{},canonicalReadScope:{roomId:'room',boardEpoch:2,allowedRasterProfiles:[B]},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
  const p=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>true}),operations:Operation[]=[]
  const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:32,pageHeight:32,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{authorImageMaterialSource:'pixel-image-material-v1',authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1',authorPrimaryGrainSource:'primary-grain-image-v1',...maskedAuthor?{authorPixelMaskedSource:'pixel-masked-v1' as const}:{},begin},onLocalOperation:op=>operations.push(op)},{width:32,height:32}),engine=r.engine
  const gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,32,32]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,MAX_TEXTURE_IMAGE_UNITS:9005,UNPACK_COLORSPACE_CONVERSION_WEBGL:9006,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9005?8:key===9001?[0,0,32,32]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(kind==='thickpaint'?24:12);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,p,operations,preset,sha,descriptor,assets}
@@ -410,3 +418,28 @@ it('subscribes before the local-capacity revision recheck and removes canceled w
   const retired=engine['_subscribeCanonicalLocalCapacity'](owner,coordinator,revision);engine['_retireCanonicalLayerCycle'](owner,false);await retired.promise;expect(owner.localCapacity).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+it.each(['wash','buildup'] as const)('prepares the real derived browser dual %s atlas before BEGIN and preserves actual START/DRAW/END',async(mode)=>{
+ const restoreFetch=installScalarPowerAssetFetch();let snapshot!:CanonicalStrokeSnapshotV2
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedSourceMaterialContext2;if(!material)throw Error('Actual source2 required')
+  const composition=canonicalPixelSourceComposition(h.descriptor,B);if(!composition)throw Error('Actual derived composition required')
+  expect(composition.mode).toBe(mode);expect(composition.outerBlend).toBe('easyDodge')
+  const owner=h.engine['_canonicalLayerOwner']!,page=owner.composite.scalarAtlasResources('easyDodge')[0]
+  expect(page.bytes).toBe(65536);expect(owner.cache.hasResourceLease(page.key)).toBe(true)
+  snapshot=canonicalSourceStrokeSnapshotV2({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:2,material},2,B)
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ const h=await setup('dual',begin,false,true,false,0,mode),{engine}=h
+ try{
+  expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  const owner=engine['_canonicalLayerOwner']!,ordinary=owner.composite.brushGlBatchInfo(),page=owner.composite.scalarAtlasResources('easyDodge')[0]
+  expect(ordinary.resources.some(resource=>resource.key===page.key)).toBe(false)
+  expect(owner.composite.scalarParticipant('easyDodge').brushGlBatchInfo().resources.some(resource=>resource.key===page.key)).toBe(true)
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(4,112));engine['_onEnd'](packet(4,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError']!==undefined)throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)},{timeout:5000})
+  expect(begin).toHaveBeenCalledOnce()
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke')throw Error('Actual frame required');return decodeCanonicalRecordedSnapshotFrameV8(op.frame,snapshot,op.frame.frameOrdinal).frame})
+  expect(frames.flatMap(frame=>frame.draws).length).toBeGreaterThan(0);expect(frames.flatMap(frame=>frame.fences).filter(fence=>fence.kind==='gestureEnd')).toHaveLength(1)
+ }finally{engine.destroy();restoreFetch();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)

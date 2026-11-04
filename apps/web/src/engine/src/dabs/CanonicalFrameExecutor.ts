@@ -1,5 +1,6 @@
 import{sourceDissolveSeed}from'../presets/sourceDissolve'
 import{createCanonicalDestructiveFootprint,canonicalDestructiveFootprintBytes,canonicalDestructiveExpandedBounds,canonicalDestructiveCellCount,canonicalDestructivePart,isCanonicalDestructiveBlend,type CanonicalDestructiveFootprint}from'./CanonicalDestructiveFootprint'
+import {isSourceScalarPowerMode} from '../presets/sourceScalarPowerTable'
 import {setGlColorMask} from '../raster/GlClearState'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient,canonicalPixelTextureAsset,canonicalImageFrameAsset,canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,type CanonicalMaterialContextV2,type CanonicalSourceRoleTexturePin} from '@grafetto/shared'
@@ -18,7 +19,7 @@ import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchAcquisition,RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
-import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, runBrushGlClosedNativeSequence, type BrushGlTurn } from './BrushGlBatch'
+import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, runBrushGlClosedNativeSequence, type BrushGlTurn,type BrushGlBatchFrame } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalGradientResource,type CanonicalTipGradientResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import {CANONICAL_DUAL_MASKING_MODES} from './CanonicalRgba8CompositePass'
@@ -788,10 +789,12 @@ export class CanonicalFrameExecutor {
     // Queued copy and resident brush identity use the SAME existing CPU owner.
     // Each 1024-byte estimate covers at most 256 UTF16 units plus bounded metadata.
     const releaseMetadata = this.maskParticipant.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128+(densityStrokeIdentity?1024:0))
+    let releaseScalarAtlas:(()=>void)|undefined
     let releaseDual:(()=>void)|undefined
     let releaseDensityIdentity:(()=>void)|undefined
     let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined, releaseTargetBudget: (() => void) | undefined
     try {
+      if(isSourceScalarPowerMode(input.composition.outerBlend))releaseScalarAtlas=this.options.composite.retainScalarAtlas(input.composition.outerBlend)
       const dualPositions=this.options.maskedSource&&!frontier?[...frameTargets.values()].filter(t=>!this.dualAdmitted.has(key(t))):undefined
       if(dualPositions?.length){const cpu=this.maskParticipant.brushGlBatchInfo().cpu.reserve(dualPositions.length*768);try{const gpu=this.options.reserveTransient(dualPositions.reduce((n,t)=>n+t.width*t.height*8,0));releaseDual=()=>{try{gpu()}finally{cpu()}}}catch(error){cpu();throw error}}
       // Reserve an upper bound for the whole target union, not just wash pairs.
@@ -811,7 +814,8 @@ export class CanonicalFrameExecutor {
       // Leave bounded headroom for the existing batch capsule plus <=8 staged
       // commands. Never let queued DTOs predictably consume its next turn.
       const info = this.maskParticipant.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
-      const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
+      const scalarResources=isSourceScalarPowerMode(input.composition.outerBlend)?this.options.composite.scalarAtlasResources(input.composition.outerBlend):[]
+      const resources = new Set([...info.resources, ...other.resources,...scalarResources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       const requiredHeadroom=(input.frame.definitions.some(autoRecipe) ? 82432 : 65536)+resources*128
       if (info.cpu.reservedBytes + requiredHeadroom > info.cpu.budgetBytes) throw new CanonicalFrameCpuPressure(info.cpu.reservedBytes,requiredHeadroom,info.cpu.budgetBytes)
@@ -831,7 +835,7 @@ export class CanonicalFrameExecutor {
       }
       const textureColorStrengths=roleStrengths?Float64Array.from(input.frame.draws,d=>{if(roleStrengths[d.role]?.law!=='pixel-color-texture-v1')return 0;if(typeof d.textureColorStrength!=='number')throw new TypeError('Recorded role color strength required');return d.textureColorStrength}):input.frame.profile===CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE&&this.primaryTexture?.context.primaryTexture.law==='pixel-color-texture-v1'?Float64Array.from(input.frame.draws,d=>{if(!('textureColorStrength' in d)||typeof d.textureColorStrength!=='number')throw new TypeError('Recorded color texture strength required');return d.textureColorStrength}):undefined
       const work:Work={textureColorStrengths,dualPositions,segment:0, input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:retainedTargets,newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
-        releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } }
+        releaseMetadata: () => { let failed=false,primary:unknown;for(const release of [releaseMetadata,releaseTargetBudget,releaseScalarAtlas])try{release?.()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary } }
       if(frontier){
         if(newTiles.size||releaseBudget||releaseWashMetadata||releaseDensityIdentity)throw new Error('Replay frontier cannot retain wash/density admission')
         let state:'pending'|'published'|'retired'='pending',checked=false,asserting=false,released=false,ticket:CanonicalReplayAdmissionTicket
@@ -869,6 +873,7 @@ export class CanonicalFrameExecutor {
       this.washLayerId=input.layerId
       this.planned = result.state
     } catch (error) {
+      if(releaseScalarAtlas)this.cleanup(releaseScalarAtlas)
       if(releaseDual)this.cleanup(releaseDual)
       if (releaseTargetBudget) this.cleanup(releaseTargetBudget)
       if (releaseBudget) this.cleanup(releaseBudget)
@@ -929,6 +934,9 @@ export class CanonicalFrameExecutor {
     this.retireFinishedMask()
     return result
   }
+  private compositeParticipant(work:Work){const mode=work.input.composition.outerBlend;return isSourceScalarPowerMode(mode)?this.options.composite.scalarParticipant(mode):this.options.composite}
+  private drawComposite(work:Work,request:Parameters<CanonicalRgba8CompositePass['drawSource']>[0],frame:BrushGlBatchFrame){const mode=work.input.composition.outerBlend;return isSourceScalarPowerMode(mode)?this.options.composite.drawSourceFor(mode,request,frame):this.options.composite.drawSource(request,frame)}
+
   private retireFinishedMask():void {
     if(!this.retireMaskAfterTurn&&!this.retireTextureAfterTurn)return
     const before=this.cleanupErrors.length
@@ -965,7 +973,7 @@ export class CanonicalFrameExecutor {
       if(this.options.maskedSource){
         if(!this.preparePhysical(work,layer,turnStarted)||!this.prepareDualPlanes(work,turnStarted))return {pending:true,checkpointReady:false}
         if(this.maskedSegmentDue(work)){
-          runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},turn=>this.resolveMaskedSegment(work,layer,turn,turnStarted))
+          runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)]},turn=>this.resolveMaskedSegment(work,layer,turn,turnStarted))
           return {pending:this.pending,checkpointReady:this.checkpointReady}
         }
       }
@@ -1013,7 +1021,7 @@ export class CanonicalFrameExecutor {
   }
   private paintMixedPreparedSequence(work:Work,layer:TiledLayerBuffer,started:number):void {
     const segment=work.segment??0
-    runBrushGlClosedNativeSequence({started,callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},turn=>{
+    runBrushGlClosedNativeSequence({started,callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)],captureAutoUploadUnpack:true,allowAutoUpload:true},turn=>{
       this.assertPrepared()
       if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Mixed sequence owner changed')
       // Next readiness and all caller decisions remain BEFORE child restore.
@@ -1048,7 +1056,7 @@ export class CanonicalFrameExecutor {
   private paintMaskedWarmSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
     const firstDraw=work.result.draws[work.draw],definition=firstDraw.definition,role=firstDraw.role
     const segment=work.segment??0
-    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},sequence=>{
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)]},sequence=>{
       for(let steps=0;steps<32&&(steps===0||performance.now()-turnStarted<4);steps++){
         this.assertPrepared()
         if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Masked sequence owner changed')
@@ -1097,7 +1105,7 @@ export class CanonicalFrameExecutor {
       &&this.maskParticipant.canContinueSingleStripeAuto(this.maskRequest(work,work.draw))
   }
   private paintUniqueAutoSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
-    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
       let first=true
       while((first||performance.now()-turnStarted<4)&&this.queue[0]===work&&work.draw<work.result.draws.length){
         this.assertPrepared()
@@ -1126,7 +1134,7 @@ export class CanonicalFrameExecutor {
   }
   private paintWarmSequence(work:Work,layer:TiledLayerBuffer,turnStarted:number):void {
     const definition=work.result.draws[work.draw].definition
-    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},sequence=>{
+    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)]},sequence=>{
       let first=true
       while((first||performance.now()-turnStarted<4)&&this.queue[0]===work&&work.draw<work.result.draws.length
         &&work.result.draws[work.draw].definition===definition){
@@ -1155,7 +1163,7 @@ export class CanonicalFrameExecutor {
     const request=recipe&&autoRecipe(recipe)?this.maskRequest(work,work.draw):undefined;
     const upload=!!request&&this.maskParticipant.finalAutoUploadPending(request);
     let executed=false;
-    runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
+    runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.compositeParticipant(work)],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
       if(upload){
         this.maskParticipant.flushFinalAutoGeneration(request!,turn);
         if(performance.now()-turnStarted>=4){
@@ -1222,10 +1230,10 @@ export class CanonicalFrameExecutor {
     const x=t.x+(part%columns)*this.compositeCapacity.width,y=t.y+Math.floor(part/columns)*this.compositeCapacity.height
     const bounds={minX:x,minY:y,maxX:Math.min(t.x+t.width,x+this.compositeCapacity.width),maxY:Math.min(t.y+t.height,y+this.compositeCapacity.height)}
     const primary=this.scratchTarget(t.primary,t,t.lifetime),output=wash?this.scratchTarget(wash.local,t,wash.lifetime):bound
-    runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners:[bound.lifetime,t.lifetime,...wash?[wash.lifetime]:[]]},frame=>{
+    runBrushGlBatch({turn,participants:[this.maskParticipant,this.compositeParticipant(work)],owners:[bound.lifetime,t.lifetime,...wash?[wash.lifetime]:[]]},frame=>{
       if(this.currentLayer(work)!==layer)throw new Error('Masked segment target retired')
-      this.options.composite.drawSource({source:{kind:'straightRgba8',view:this.dualView(t.mask,t)},target:primary,operation:{kind:'maskingAlpha',control:{mode}},writeBounds:bounds},frame)
-      this.options.composite.drawSource({source:{kind:'straightRgba8',view:this.dualView(t.primary,t)},target:output,operation:work.input.composition.mode==='buildup'?canonicalWashOuterOperation(this.options.rasterProfile,work.input.composition.outerBlend,1):this.overOperation(1),writeBounds:bounds},frame)
+      this.drawComposite(work,{source:{kind:'straightRgba8',view:this.dualView(t.mask,t)},target:primary,operation:{kind:'maskingAlpha',control:{mode}},writeBounds:bounds},frame)
+      this.drawComposite(work,{source:{kind:'straightRgba8',view:this.dualView(t.primary,t)},target:output,operation:work.input.composition.mode==='buildup'?canonicalWashOuterOperation(this.options.rasterProfile,work.input.composition.outerBlend,1):this.overOperation(1),writeBounds:bounds},frame)
     })
     if(wash){if(this.options.washMode==='deposition-only')this.options.changed(work.input.layerId,bounds)}else{layer.markContentPainted(bounds);this.options.changed(work.input.layerId,bounds)}
     work.segmentPart=part+1
@@ -1404,7 +1412,7 @@ export class CanonicalFrameExecutor {
       if (!tasks.length) return;
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
       const roleTexture=this.roleTextures?.bindings[work.result.draws[tasks[0].draw].role],roleRoot=this.roleTextures?.root
-      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [...this.tipGradientRoot?[canonicalPatternResourceLifetime(this.tipGradientRoot.view,this.options.prepass.brushGlBatchInfo(),this.tipGradientRoot.root)]:[],...roleTexture&&roleRoot?[canonicalPatternResourceLifetime(roleTexture.view,this.options.composite.brushGlBatchInfo(),roleRoot),...roleTexture.gradient?[canonicalPatternResourceLifetime(roleTexture.gradient,this.options.composite.brushGlBatchInfo(),roleRoot)]:[]]:[],...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime,...this.options.maskedSource?[...this.dualTiles.values()].map(t=>t.lifetime):[], ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : []), ...this.primaryTexture ? [canonicalPatternResourceLifetime(this.primaryTexture.view,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)] : []] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.compositeParticipant(work)], owners: [...this.tipGradientRoot?[canonicalPatternResourceLifetime(this.tipGradientRoot.view,this.options.prepass.brushGlBatchInfo(),this.tipGradientRoot.root)]:[],...roleTexture&&roleRoot?[canonicalPatternResourceLifetime(roleTexture.view,this.options.composite.brushGlBatchInfo(),roleRoot),...roleTexture.gradient?[canonicalPatternResourceLifetime(roleTexture.gradient,this.options.composite.brushGlBatchInfo(),roleRoot)]:[]]:[],...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime,...this.options.maskedSource?[...this.dualTiles.values()].map(t=>t.lifetime):[], ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : []), ...this.primaryTexture ? [canonicalPatternResourceLifetime(this.primaryTexture.view,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)] : []] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], d = work.result.draws[task.draw]
@@ -1451,7 +1459,7 @@ export class CanonicalFrameExecutor {
             const imageControl=view.spatialRGBA?{kind:'color-stamp-v1' as const,strength:0,foregroundAlpha:1}:view.materialRGBA?{kind:'gradient-map-v1' as const,strength:0,foregroundAlpha:1}:materialControl
             const source=roleTexture?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:roleTexture.view,pin:roleTexture.pin,...roleTexture.pin.law==='pixel-color-texture-v1'?{textureColorStrength:work.textureColorStrengths![d.frameDrawIndex],gradient:roleTexture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]},imageMaterial:imageControl}:(work.textureStrengths||work.textureColorStrengths)&&texture?texture.context.version===8?{kind:'primaryGrainMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,...(work.textureColorStrengths?{textureColorStrength:work.textureColorStrengths[d.frameDrawIndex],gradient:texture.gradient}:{strengthU8:work.textureStrengths![d.frameDrawIndex]}),imageMaterial:imageControl}:{kind:'texturedMaskRgb' as const,view,rgb:pigment,pattern:texture.view,pin:texture.context.primaryTexture,strengthU8:work.textureStrengths![d.frameDrawIndex]}:materialControl&&!view.spatialRGBA&&!view.materialRGBA?{kind:'imageMaterialRgba' as const,view,rgb:pigment,material:materialControl.kind,strength:materialControl.strength,foregroundAlpha:materialControl.foregroundAlpha}:{kind:'maskRgb' as const,view,rgb:d.role==='mask'?[255,255,255] as const:pigment}
             if((work.textureStrengths||work.textureColorStrengths)&&!texture&&!this.options.sourceMaterial?.roleTextures)throw new Error('Canonical texture root retired before paint')
-            this.options.composite.drawSource({ source:{...source,pigmentAlphaU8:rgba?.[3]}, target: output, operation, writeBounds: task.writeBounds }, frame)
+            this.drawComposite(work,{ source:{...source,pigmentAlphaU8:rgba?.[3]}, target: output, operation, writeBounds: task.writeBounds }, frame)
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile; work.paintPart=task.part+1;
             if(work.paintPart===task.parts){
               work.paintPart=0;work.tile++;
@@ -1522,7 +1530,7 @@ export class CanonicalFrameExecutor {
       }
       if (!tasks.length) return
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.compositeParticipant(work)], owners: [...this.primaryTexture?.gradient?[canonicalPatternResourceLifetime(this.primaryTexture.gradient,this.options.composite.brushGlBatchInfo(),this.primaryTexture.root)]:[],bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], tile = task.tile
@@ -1535,7 +1543,7 @@ export class CanonicalFrameExecutor {
             textureWidth: tile.width, textureHeight: tile.height, rect: native?.rect?{x:native.rect.minX,y:native.rect.minY,width:native.rect.maxX-native.rect.minX,height:native.rect.maxY-native.rect.minY}:{ x: tile.x + x, y: tile.y + y, width: w, height: h },
             bounds:native?.rect?{x:(native.rect.minX-tile.x)/tile.width,y:(tile.height-(native.rect.maxY-tile.y))/tile.height,width:(native.rect.maxX-native.rect.minX)/tile.width,height:(native.rect.maxY-native.rect.minY)/tile.height}:{ x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
             mirror: { horizontal: false, vertical: false }, rowOrder: 'bottomAtV0', residency: tile.lifetime }
-          if(!native||native.rect)this.options.composite.drawSource({ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
+          if(!native||native.rect)this.drawComposite(work,{ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
             operation: canonicalWashOuterOperation(this.options.rasterProfile, command.blend, command.opacity,{alphaDarken:work.input.composition.alphaDarken,seed:command.blend==='dissolve'?sourceDissolveSeed(work.input.gestureId):undefined}), writeBounds: this.options.pageBounds ?? undefined }, frame)
           work.present = task.index; work.part = task.part + 1
           if (work.part === task.rows * task.columns) { work.part = 0; work.present++ }

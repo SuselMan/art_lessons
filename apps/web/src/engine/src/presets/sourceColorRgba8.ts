@@ -1,5 +1,6 @@
 import {sourceDissolveByte}from'./sourceDissolve'
 import type{SourceRgba8ExecutionContext}from'./sourceRgba8ExecutionContext'
+import {isSourceScalarPowerMode,readSourceScalarPowerByte} from './sourceScalarPowerTable'
 import {sourceRgba8QuantizedAtan} from '../raster/sourceRgba8QuantizedAtan'
 import { sourceFmaF32 } from './sourceFmaF32'
 import type { Rgba8 } from './mixWeightedRgba8'
@@ -149,11 +150,11 @@ const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 
 export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
 /** Closed channel functors. Whole-RGB modes require compositeRgba8, which
  * supplies all three channels and preserves the generic HSL alpha shell. */
-export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number, execution?:SourceRgba8ExecutionContext): number {
   if (!Number.isInteger(source) || source < 0 || source > 255 || !Number.isInteger(destination) || destination < 0 || destination > 255)
     throw new RangeError('Invalid separable byte channel')
   const hsxId=sourceRgba8CompositeModeId(mode);if(hsxId>=125&&hsxId<=130)throw new RangeError('Special composite mode requires RGBA channels');if(hsxId>=119&&hsxId<=124)throw new RangeError('Custom composite mode requires RGBA channels');if(hsxId>=115&&hsxId<=118)throw new RangeError('Normal vector mode requires RGB channels');if(hsxId>=63&&hsxId<=91)throw new RangeError('HSX vector mode requires RGB channels')
-  return separableChannel(mode, source, destination)
+  return separableChannel(mode, source, destination, execution)
 }
 // Pinned Quadratic U8: materialize biased M before rounded Q; never divide at endpoints.
 function quadraticGlow(source:number,destination:number):number{return destination===255?255:Math.min(255,divide(multiply(source,source),255-destination))}
@@ -196,7 +197,8 @@ function scalar23Interpolation(source:number,destination:number):number{
  if(source===0&&destination===0)return 0
  return hsxRoundRatio((131070-SCALAR4_COS_Q[source]-SCALAR4_COS_Q[destination])*255,262140)
 }
-function scalar23Channel(mode:SourceRgba8SeparableMode,source:number,destination:number):number{
+function scalar23Channel(mode:SourceRgba8SeparableMode,source:number,destination:number,execution?:SourceRgba8ExecutionContext):number{
+ if(isSourceScalarPowerMode(mode))return readSourceScalarPowerByte(execution?.powerTable,mode,source,destination)
  if(mode==='modulo')return destination%(source+1)
  if(mode==='moduloContinuous')return multiply(rationalModuloContinuous(source,destination),source)
  if(mode==='divisiveModulo'){if(destination===0)return 0;if(source===0)return destination;return divide((destination-1)%source+1,source)}
@@ -212,20 +214,15 @@ function scalar23Channel(mode:SourceRgba8SeparableMode,source:number,destination
  // Native normalized qreal modes start from float-LUT values promoted to double.
  const x=Math.fround(source/255),y=Math.fround(destination/255)
  if(mode==='gammaLight')return destination===0?0:destination===255?255:scalar23Round(Math.pow(y,x))
- if(mode==='easyDodge')return source===255?255:destination===0?0:scalar23Round(Math.pow(y,(1-x)*1.039999999))
- if(mode==='easyBurn')return destination===0?0:scalar23Round(1-Math.pow(source===255?1-.999999999999:1-x,y*1.039999999))
  // clamp<quint8> takes qint32: truncate real result BEFORE clamp, no half-up.
- if(mode==='pNormA')return Math.max(0,Math.min(255,Math.trunc(Math.pow(Math.pow(destination,2.3333333333333333)+Math.pow(source,2.3333333333333333),.428571428571434))))
  if(mode==='pNormB')return scalar4FourthRoot(source,destination)
- if(mode==='superLight')return scalar23Round(x<.5?1-Math.pow(Math.pow(1-y,2.875)+Math.pow(1-2*x,2.875),1/2.875):Math.pow(Math.pow(y,2.875)+Math.pow(2*x-1,2.875),1/2.875))
- if(mode==='softLightIfs')return scalar23Round(Math.pow(y,Math.pow(2,2*(.5-x))))
  if(mode==='tintIfs')return scalar4Tint(source,destination)
  if(mode==='shadeIfs')return scalar23Round(1-((1-y)*x+Math.sqrt(1-x)))
  if(mode==='fogLightenIfs')return scalar23Round(x<.5?1-(1-x)*x-(1-y)*(1-x):x-(1-y)*(1-x)+Math.pow(1-x,2))
  if(mode==='fogDarkenIfs')return scalar23Round(x<.5?(1-x)*x+x*y:x*y+x-Math.pow(x,2))
  throw new RangeError('Unknown scalar23 mode')
 }
-function separableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+function separableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number, execution?:SourceRgba8ExecutionContext): number {
   switch(mode){
    case 'gammaDark':
    case 'gammaLight':
@@ -250,7 +247,7 @@ function separableChannel(mode: SourceRgba8SeparableMode, source: number, destin
    case 'hardOverlay':
    case 'interpolation':
    case 'interpolation2x':
-    return scalar23Channel(mode,source,destination)
+    return scalar23Channel(mode,source,destination,execution)
   }
   // Explicit defined-uint32-wrap-u8-v1 functional interpretation; no native UB/ISA identity.
   if(mode==='binaryXor')return source^destination
@@ -567,7 +564,7 @@ export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8
     return[channel(0),channel(1),channel(2),a]
   }
   const channel = (i: 0 | 1 | 2): number => genericScChannel(source[i], destination[i], sa, da, a,
-    mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(mode, source[i], destination[i]))
+    mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(mode, source[i], destination[i], execution))
   return [channel(0), channel(1), channel(2), a]
 }
 

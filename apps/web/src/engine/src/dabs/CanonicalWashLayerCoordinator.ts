@@ -1,5 +1,6 @@
 import{sourceDissolveSeed}from'../presets/sourceDissolve'
 import{canonicalDestructivePart,canonicalDestructiveExpandedBounds,isCanonicalDestructiveBlend,type CanonicalDestructiveFootprint}from'./CanonicalDestructiveFootprint'
+import {isSourceScalarPowerMode} from '../presets/sourceScalarPowerTable'
 import {BrushCpuBudgetExhaustion} from './BrushMipCache'
 import {canonicalMaskedSourceMaterialContext,canonicalSourceMaterialContext,decodeCanonicalStrokeFrame,CANONICAL_SOURCE_MATERIAL_PROFILE} from '@grafetto/shared'
 import {canonicalStandaloneStrokeSnapshotV8,decodeCanonicalPrimaryGrainStrokeFrame,canonicalPrimaryGrainMaterialContext,CANONICAL_PRIMARY_GRAIN_MATERIAL_PROFILE,type CanonicalStandaloneStrokeSnapshotV8,type CanonicalMaterialFrameV8} from '@grafetto/shared'
@@ -865,7 +866,10 @@ export class CanonicalWashLayerCoordinator {
         releaseGpu = this.options.reserveTransient([...fresh.values()].reduce((n, t) => n + t.width * t.height * 4, 0))
       }
       if (!entry) {
-        releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(local?4096+JSON.stringify(local.author.snapshot).length*2:origin?4096:0))
+        const releaseEntryCpu=this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(local?4096+JSON.stringify(local.author.snapshot).length*2:origin?4096:0))
+        let releaseAtlas:undefined|(()=>void)
+        try{if(isSourceScalarPowerMode(input.composition.outerBlend))releaseAtlas=this.options.composite.retainScalarAtlas(input.composition.outerBlend)}catch(primary){try{releaseEntryCpu()}catch{}throw primary}
+        releaseEntry=()=>{let failed=false,primary:unknown;for(const release of [releaseEntryCpu,releaseAtlas])try{release?.()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}
         let published=false;publishCandidate=()=>{published=true}
         const source=local?this.options.source(input.gestureId,undefined,local.author):this.options.source(input.gestureId,origin?.input)
         sourceLease=source.sourceLease
@@ -1561,32 +1565,33 @@ export class CanonicalWashLayerCoordinator {
 
   private commit(entry: Entry, turnStarted: number): void {
     const tiles = entry.ownership!.tiles
+    const composite=this.options.composite.scalarParticipantForModes(isSourceScalarPowerMode(entry.blend)?[entry.blend]:[])
     if(entry.tile<tiles.length){
       const tile=tiles[entry.tile]
       entry.targetPlan??=this.stable.preparePaintTargetRects([rect(tile)])
       if(!entry.commitTarget)entry.commitTarget=this.target(entry.targetPlan,tile,true)
       if(performance.now()-turnStarted>=4)return
       if(!entry.commitTarget){
-        runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
+        runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,composite]},()=>{
           const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
           entry.commitTarget=this.target(entry.targetPlan!,tile)
         })
         return
       }
     }
-    if (entry.tile < tiles.length) runBrushGlTurn({callbackScope:this.options.callbackScope, participants: [this.maskParticipant, this.options.composite] }, turn => {
+    if (entry.tile < tiles.length) runBrushGlTurn({callbackScope:this.options.callbackScope, participants: [this.maskParticipant, composite] }, turn => {
       const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       const tile = tiles[entry.tile], target = this.target(entry.targetPlan!,tile)
       if (entry.committingBuffer && entry.committingBuffer !== target.buffer) throw new Error('Partially committed canonical target was replaced; rebuild required')
       const bound = bindCanonicalLayerTargets(this.stable, [target])[0]
       if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
-      runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners:[bound.lifetime,tile.view.residency]},frame=>{
+      runBrushGlBatch({turn,participants:[this.maskParticipant,composite],owners:[bound.lifetime,tile.view.residency]},frame=>{
         let draws=0
         while(draws++<8){
           this.assertLayers()
           const part = this.part(tile.view, entry.part,undefined,tile.destructive)
-          if(!part.skip)this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed(entry.id):undefined}), writeBounds: this.options.pageBounds ?? undefined }, frame)
+          if(!part.skip)this.options.composite.drawSourceIn(composite,{ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed(entry.id):undefined}), writeBounds: this.options.pageBounds ?? undefined }, frame)
           entry.committingBuffer = target.buffer; entry.part++
           this.stable.markContentPainted(rect(tile))
           if(entry.part===part.count){this.closeCommitPlan(entry);entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
@@ -1619,6 +1624,8 @@ export class CanonicalWashLayerCoordinator {
     if (k === undefined) return
     this.work ??= { position: (candidate?.positions??this.positions).get(k)!, revision: candidate?.revision??this.revision, stage: candidate?.mixed?.seeded?0:-1, part: 0, bounds: { ...dirty.get(k)! } }
     const work = this.work, p = work.position
+    const scalarModes=[...new Set(entries.filter(entry=>!entry.committed&&('tiles'in entry?entry.tiles:this.locals(entry)).some(tile=>key(tile)===key(p))).map(entry=>entry.blend).filter(isSourceScalarPowerMode))]
+    const composite=this.options.composite.scalarParticipantForModes(scalarModes)
     if(!work.stablePlan){
       const stable=seedBase.preparePaintTargetRects([rect(p)])
       try{work.derivedPlan=derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
@@ -1636,14 +1643,14 @@ export class CanonicalWashLayerCoordinator {
     if(!work.derivedTarget)work.derivedTarget=this.target(work.derivedPlan!,p,true)
     if(performance.now()-turnStarted>=4)return
     if((!candidate&&!work.stableTarget)||!work.derivedTarget){
-      runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
+      runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,composite]},()=>{
         const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
         if(!candidate&&!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
         else work.derivedTarget=this.target(work.derivedPlan!,p)
       })
       return
     }
-    runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},turn=>{
+    runBrushGlTurn({...candidate?{onCleanupFailure:()=>{candidate.cleanupFailed=true}}:{},callbackScope:this.options.callbackScope,participants:[this.maskParticipant,composite]},turn=>{
       const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       // Resolve while preserving the caller's complete GL state. Each actual
@@ -1663,7 +1670,7 @@ export class CanonicalWashLayerCoordinator {
         if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
         owners.push(tile.view.residency)
       }
-      runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners},frame=>{
+      runBrushGlBatch({turn,participants:[this.maskParticipant,composite],owners},frame=>{
         if (work.stage === -1) {
           const b=work.bounds
           if(!stable){
@@ -1680,7 +1687,7 @@ export class CanonicalWashLayerCoordinator {
           this.assertLayers()
           const part=this.part(tile.view,work.part,work.bounds,tile.destructive)
           if(!part.count){work.part=0;work.stage++;continue}
-          if(!part.skip)this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed('id'in entry?entry.id:entry.gestureId!):undefined}),writeBounds:this.options.pageBounds??undefined},frame)
+          if(!part.skip)this.options.composite.drawSourceIn(composite,{source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity,{alphaDarken:entry.alphaDarken,seed:entry.blend==='dissolve'?sourceDissolveSeed('id'in entry?entry.id:entry.gestureId!):undefined}),writeBounds:this.options.pageBounds??undefined},frame)
           work.part++;draws++
           if(work.part===part.count){work.part=0;work.stage++}
           if(frame.shouldYield||performance.now()-turnStarted>=4)break

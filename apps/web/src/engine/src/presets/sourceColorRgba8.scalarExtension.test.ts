@@ -1,5 +1,7 @@
+import {beforeAll,afterAll} from 'vitest'
+import {loadScalarPowerTestTables} from '../../testing/scalarPowerTestAssets'
 import {it,expect} from 'vitest'
-import {compositeRgba8,sourceRgba8SeparableChannel as channel,sourceRgba8CompositeModeId,SOURCE_RGBA8_GENERIC_SC_PROFILE as profile} from './sourceColorRgba8'
+import {compositeRgba8 as rawComposite,sourceRgba8SeparableChannel as rawChannel,sourceRgba8CompositeModeId,SOURCE_RGBA8_GENERIC_SC_PROFILE as profile} from './sourceColorRgba8'
 import {SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL as es1} from '../raster/sourceRgba8CompositeWebGL1'
 import {SOURCE_RGBA8_COMPOSITE_GLSL as es3} from '../raster/sourceRgba8CompositeShader'
 const modes=['gammaDark', 'gammaLight', 'gammaIllumination', 'easyDodge', 'easyBurn', 'pNormA', 'pNormB', 'superLight', 'softLightIfs', 'softLightPegtop', 'tintIfs', 'shadeIfs', 'fogLightenIfs', 'fogDarkenIfs', 'modulo', 'moduloContinuous', 'divisiveModulo', 'divisiveModuloContinuous', 'moduloShift', 'moduloShiftContinuous', 'hardOverlay', 'interpolation', 'interpolation2x'] as const
@@ -46,3 +48,9 @@ it('every scalar remains callable through scalar API and opaque composite rather
  expect(channel('gammaDark',255,64)).toBe(64)
  expect(compositeRgba8([255,255,255,255],[64,64,64,255],{mode:'gammaDark',profile,opacity:1})).toEqual([64,64,64,255])
 })
+
+let powerTables:Awaited<ReturnType<typeof loadScalarPowerTestTables>>
+beforeAll(async()=>{powerTables=await loadScalarPowerTestTables()})
+afterAll(()=>powerTables.release())
+const channel=(mode:Parameters<typeof rawChannel>[0],s:number,d:number)=>rawChannel(mode,s,d,powerTables.context(mode))
+const compositeRgba8=(s:Parameters<typeof rawComposite>[0],d:Parameters<typeof rawComposite>[1],control:Parameters<typeof rawComposite>[2])=>rawComposite(s,d,control,powerTables.context(control.mode))

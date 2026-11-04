@@ -55,7 +55,7 @@ export interface BrushGlBatchInfo {
   readonly instancing: ANGLE_instanced_arrays | null
   readonly vertexArrays: OES_vertex_array_object | null
   readonly resources: readonly BrushGlBatchResource[]
-  readonly textureUnits?:3|4
+  readonly textureUnits?:3|4|5
   readonly ownedPointSamplers?: readonly BrushGlBatchOwnedSampler[]
 }
 /** Internal services expose metadata, never a raw draw bypass. */
@@ -249,7 +249,7 @@ function participantInfos(participants: readonly BrushGlBatchParticipant[]): Map
       throw new Error('Brush GL batch context/cache mismatch')
     if(!Array.isArray(info.attributes)||info.attributes.length>32||info.attributes.some(a=>!Number.isSafeInteger(a)||a<0||a>31))
       throw new RangeError('Invalid brush GL batch attributes')
-    if(info.textureUnits!==undefined&&info.textureUnits!==3&&info.textureUnits!==4)throw new RangeError('Invalid brush GL texture unit declaration')
+    if(info.textureUnits!==undefined&&info.textureUnits!==3&&info.textureUnits!==4&&info.textureUnits!==5)throw new RangeError('Invalid brush GL texture unit declaration')
     infos.set(p,{...info,attributes:Object.freeze([...info.attributes])})
   }
   return infos

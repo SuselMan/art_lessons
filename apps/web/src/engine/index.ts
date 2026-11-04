@@ -1,3 +1,4 @@
+import {isSourceScalarPowerMode} from './src/presets/sourceScalarPowerTable'
 import {setGlClearColor,setGlColorMask,registerGlClearState,type GlClearStateOwner} from './src/raster/GlClearState'
 import {brushPreparationSteps} from './src/dabs/BrushPreparation'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition} from '@grafetto/shared'
@@ -1408,6 +1409,14 @@ function observeCanonicalBegin(promise:Promise<CanonicalStrokeBeginResult>,cell:
   void promise.then(value=>{if(cell.active)cell.value=value},()=>{/* FIFO throws the actual rejection. */})
 }
 function observeCanonicalPreparation(promise:Promise<BrushPreparationResult>,cell:{active:boolean;value?:BrushPreparationResult}):void {void promise.then(value=>{if(cell.active)cell.value=value},()=>{/* FIFO propagates actual rejection. */})}
+function canonicalScalarAtlasStyles(composition:{readonly mode:string},material:CanonicalMaterialContextV2|undefined,texture:CanonicalMaterialContextV8|undefined):readonly import('./src/dabs/CanonicalRgba8CompositePass').CanonicalScalarAtlasStyle[]{
+ if(composition.mode==='wash'||material?.maskSource)return ['plain']
+ const grain=material?.roleTextures?.primary??texture?.primaryTexture
+ if(grain)return [grain.law==='pixel-color-texture-v1'?'color-grain':'grain']
+ const source=material?.primarySource??texture?.primarySource
+ if(source?.kind==='image'&&source.imageMaterial&&!material?.sourceColorFields?.primary&&!texture?.sourceColorFields?.primary&&source.imageMaterial.kind!=='gradient-map-v1')return ['image']
+ return ['plain']
+}
 function canonicalPreparedSourceComposition(prepared:CanonicalPreparedAuthor){
  return prepared.sourceContext2||prepared.material.kind==='pixelTexture'?canonicalPixelSourceComposition(prepared.descriptor,prepared.owner.plan.profile):canonicalSourceComposition(prepared.descriptor,prepared.owner.plan.profile)
 }
@@ -1919,6 +1928,7 @@ interface CanonicalEmptyJob {
  indexedOwner?:CanonicalLayerOwner
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank;sourcePreparation?:CanonicalMaskSourceRootPreparation;fullSource?:CanonicalMaskSourceLease;imageNext:number;imageWork?:Generator<void,'ready'|'cancelled',void>
+ scalarPreparation?:{pending:boolean;failed:boolean;error?:unknown;release?:()=>void;cancel?:()=>void}
  coordinator?:CanonicalWashLayerCoordinator;publishedOwner?:CanonicalLayerOwner;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
  releaseMetadata?:()=>void
  wake?:number
@@ -7314,6 +7324,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean,keepResources=false):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
+    const scalar=c.scalarPreparation;c.scalarPreparation=undefined;if(scalar){attempt(()=>scalar.cancel?.());const release=scalar.release;scalar.release=undefined;if(release)attempt(release)}
     if(c.indexedOwner){const owner=c.indexedOwner;owner.retiring=true;attempt(()=>owner.resourceCandidate?.cancel(lost));const pending=owner.indexedSource;owner.indexedSource=undefined;if(pending)attempt(()=>pending.lease.release(lost));failures.push(...this._retireCanonicalLayerCycle(owner,lost));const release=owner.releaseResources;owner.releaseResources=undefined;if(release)attempt(release);if(!keepResources){const defaults=owner.defaultSourceRoots;owner.defaultSourceRoots=undefined;for(const root of defaults??[]){attempt(()=>root.lease.release(lost));attempt(root.releaseSelectionKey)}const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost))}}
     const imageWork=c.imageWork;c.imageWork=undefined;if(imageWork)attempt(()=>imageWork.return('cancelled'))
     const preparation=c.sourcePreparation;c.sourcePreparation=undefined;if(preparation)attempt(()=>preparation.cancel(lost))
@@ -7386,6 +7397,23 @@ export class PencilEngine implements PencilEngineAPI {
       if(c.stage===0){if(c.sourcePreparation){c.sourcePreparation.assertPreparedPublication();c.fullSource=c.sourcePreparation.publish();c.sourcePreparation.finalizeCleanup();c.sourcePreparation=undefined}c.prepass.prepare(plan.mask,c.fullSource?.preparedResources()??[]);c.stage=1}
       else if(c.stage===1){c.composite.prepare(plan.composite,[...(c.bank?.jobs.map(({key,bytes})=>({key,bytes}))??[]),...c.prepass.preparedResources()],transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
+        const scalarModes=[...new Set(plan.paintInputs.map(input=>input.read?.capability.snapshot.composition.outerBlend).filter(isSourceScalarPowerMode))]
+        if(scalarModes.length){
+          if(!c.scalarPreparation){
+            const controller=new AbortController(),state:NonNullable<CanonicalEmptyJob['scalarPreparation']>={pending:true,failed:false,cancel:()=>controller.abort()};c.scalarPreparation=state
+            const current=()=>{this._assertCanonicalEmptyCurrent(tx);if(c.retiring)throw new Error('Scalar baseline candidate retired')}
+            const requests=scalarModes.map(mode=>({mode,styles:[...new Set(plan.paintInputs.flatMap(input=>{const snapshot=input.read?.capability.snapshot;return snapshot?.composition.outerBlend===mode?canonicalScalarAtlasStyles(snapshot.composition,snapshot.materialVersion===2?snapshot.material:undefined,snapshot.materialVersion===8?snapshot.material:undefined):[]}))]}))
+            void (async()=>{
+              let release:undefined|(()=>void)
+              try{release=await c.composite.prepareScalarAtlasInventory(requests,current,controller.signal);current();state.release=release;release=undefined}
+              catch(error){state.failed=true;state.error=error;if(release)try{release()}catch{}}
+              finally{state.pending=false;state.cancel=undefined;if(!c.retiring)this._scheduleCanonicalRebuild(job)}
+            })()
+            return
+          }
+          if(c.scalarPreparation.pending)return
+          if(c.scalarPreparation.failed)throw c.scalarPreparation.error
+        }
         if(c.coordinator&&c.coordinator.mixedReplayEnabled!==!!c.previewPublication)throw new Error('Canonical hidden role must be selected before first input')
         if(!c.coordinator){
           if(!c.derived)c.derived=this._makeLayerBuffer() as TiledLayerBuffer
@@ -7396,6 +7424,7 @@ export class PencilEngine implements PencilEngineAPI {
             changed:()=>{if(!c.retiring&&!c.publishedOwner?.retiring)this._assertCanonicalEmptyCoordinatorCurrent(c)},poison:(_id,reason)=>{if(c.publishedOwner){if(!c.publishedOwner.retiring)this._poisonCanonicalLayer(reason)}else if(!c.retiring)tx.failures.push(reason)}})
         }
         if(c.next<plan.paintInputs.length&&c.coordinator.queuedFrameCount===0){const input=plan.paintInputs[c.next];if(input.operation.type==='canonical_stroke_close')c.coordinator.enqueueRecordedSeal(input);else c.coordinator.enqueueRecorded(input);c.next++}
+        if(c.next===plan.paintInputs.length&&c.scalarPreparation?.release){const release=c.scalarPreparation.release;c.scalarPreparation.release=undefined;release()}
         const outcome=c.coordinator.advance()
         if(outcome?.kind==='preview-ready')this._publishCanonicalPreview(c,outcome.ticket)
         else if(outcome?.kind==='preview-failed'){
@@ -7519,6 +7548,10 @@ export class PencilEngine implements PencilEngineAPI {
    * progress notification, never another frame queue or a cached ready grant. */
   private async _waitCanonicalRecordedCapacity(owner:CanonicalLayerOwner,input:CanonicalRecordedInput,current:()=>void,signal?:AbortSignal):Promise<BrushPreparationResult> {
     current()
+    const composition=input.read?.capability.snapshot.composition
+    if(composition&&isSourceScalarPowerMode(composition.outerBlend)){
+      await owner.composite.prepareScalarAtlas(composition.outerBlend,signal,current,canonicalScalarAtlasStyles(composition,input.read?.capability.snapshot.materialVersion===2?input.read.capability.snapshot.material:undefined,input.read?.capability.snapshot.materialVersion===8?input.read.capability.snapshot.material:undefined));current()
+    }
     while(owner.coordinator&&!owner.coordinator.canAcceptRecorded(input)){
       current();if(signal?.aborted)return{status:'cancelled'}
       if(!owner.recordedCapacity){
@@ -7750,7 +7783,10 @@ export class PencilEngine implements PencilEngineAPI {
       }else cleanup(this._contextLost)
       return undefined
     })
-    if(result.status==='ready')current()
+    if(result.status==='ready'){
+      current()
+      if(composition&&isSourceScalarPowerMode(composition.outerBlend)){await owner.composite.prepareScalarAtlas(composition.outerBlend,options.signal,current,canonicalScalarAtlasStyles(composition,imageMaterial,texture?.version===8?texture:undefined));current()}
+    }
     return result
     }finally{imageMaterialPlan?.release()}
   }
@@ -8735,6 +8771,29 @@ export class PencilEngine implements PencilEngineAPI {
     }finally{if(!accepted)try{try{lease?.release()}finally{localLease.lease?.release()}}finally{releaseCpu()}}
   }
   private async _prepareCanonicalAuthorBrush(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
+    const result=await this._prepareCanonicalAuthorBrushCore(preset,options)
+    if(result.status!=='ready')return result
+    const prepared=this._canonicalPreparedAuthor
+    if(!prepared||prepared.preset!==preset)throw new Error('Scalar author preparation changed')
+    const composition=canonicalPreparedSourceComposition(prepared)
+    if(composition&&isSourceScalarPowerMode(composition.outerBlend)){
+      const current=()=>{this._assertCanonicalLayerCurrent(prepared.owner);if(this._canonicalPreparedAuthor!==prepared||this._opts.pencilType!==preset||options.signal?.aborted)throw new Error('Scalar author preparation changed')}
+      try{
+        await prepared.owner.composite.prepareScalarAtlas(composition.outerBlend,options.signal,current,composition.mode==='buildup'&&prepared.material.kind==='pixelTexture'?[prepared.material.binding.textureGeometry.law==='pixel-color-texture-v1'?'color-grain':'grain']:canonicalScalarAtlasStyles(composition,prepared.sourceContext2,undefined));current()
+        const mode=composition.outerBlend,composite=prepared.owner.composite,releaseRoot=composite.retainScalarAtlas(mode)
+        let rootHeld=true
+        const release=()=>{if(!rootHeld)return;rootHeld=false;let failed=false,primary:unknown;try{releaseRoot()}catch(error){failed=true;primary=error}try{prepared.release()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}
+        const retainPreparedRuntime=()=>{
+          const releasePage=composite.retainScalarAtlas(mode);let releaseRuntime:undefined|(()=>void)
+          try{releaseRuntime=prepared.retainPreparedRuntime?.()}catch(primary){try{releasePage()}catch{}throw primary}
+          let held=true;return()=>{if(!held)return;held=false;let failed=false,primary:unknown;for(const done of [releasePage,releaseRuntime])try{done?.()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}
+        }
+        this._canonicalPreparedAuthor={...prepared,release,retainPreparedRuntime}
+      }catch(primary){if(this._canonicalPreparedAuthor===prepared)this._releaseCanonicalPreparedAuthor();throw primary}
+    }
+    return result
+  }
+  private async _prepareCanonicalAuthorBrushCore(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
     const owner=this._canonicalLayerOwner,originalDescriptor=importedBrushFromPreset(preset)
     let plainRelease:(()=>void)|undefined,plainCharge=0
     try{

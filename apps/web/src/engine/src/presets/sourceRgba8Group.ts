@@ -1,3 +1,4 @@
+import type {SourceRgba8ExecutionContext} from './sourceRgba8ExecutionContext'
 import type { Rgba8 } from './mixWeightedRgba8'
 import { applyRgba8AlphaMask, compositeRgba8, validateRgba8CompositeControl, validateRgba8Pixel, type Rgba8CompositeControl } from './sourceColorRgba8'
 
@@ -86,7 +87,8 @@ function surface(bounds: Rect, pixels: Uint8Array): StraightRgba8Surface {
  * union is only a convenience, NOT a claim about native paint-device tile extent.
  * Input buffers remain untouched; the two returned buffers have independent ownership.
  */
-export function renderRgba8Group(destination: StraightRgba8Surface, particles: readonly Rgba8MaskParticle[], outer: Rgba8CompositeControl, limits: Rgba8GroupLimits, groupBounds?: Rgba8Bounds): { group: StraightRgba8Surface; output: StraightRgba8Surface } {
+function executionAtWorldPixel(mode:string,execution:SourceRgba8ExecutionContext|undefined,x:number,y:number):SourceRgba8ExecutionContext|undefined{return mode==='dissolve'?{...execution,worldPoint:[x,y]}:execution}
+export function renderRgba8Group(destination: StraightRgba8Surface, particles: readonly Rgba8MaskParticle[], outer: Rgba8CompositeControl, limits: Rgba8GroupLimits, groupBounds?: Rgba8Bounds, execution?:SourceRgba8ExecutionContext): { group: StraightRgba8Surface; output: StraightRgba8Surface } {
   const plan = preflight(destination, particles, outer, limits, groupBounds)
   const group = new Uint8Array(plan.group.area * 4)
   const output = new Uint8Array(plan.target.area * 4)
@@ -99,14 +101,14 @@ export function renderRgba8Group(destination: StraightRgba8Surface, particles: r
       const material: Rgba8 = p.material.alphaOverride === undefined ? source : [source[0], source[1], source[2], p.material.alphaOverride]
       const masked = p.coverage === undefined ? material : applyRgba8AlphaMask(material, p.coverage[local])
       const offset = ((p.y + y - plan.group.y) * plan.group.width + p.x + x - plan.group.x) * 4
-      group.set(compositeRgba8(masked, read(group, offset), { mode: 'over', opacity: p.opacity }), offset)
+      group.set(compositeRgba8(masked, read(group, offset), { mode: 'over', opacity: p.opacity }, execution), offset)
     }
   }
   const { overlap } = plan
   if (overlap.area) for (let y = overlap.y; y < overlap.bottom; y++) for (let x = overlap.x; x < overlap.right; x++) {
     const src = ((y - plan.group.y) * plan.group.width + x - plan.group.x) * 4
     const dst = ((y - plan.target.y) * plan.target.width + x - plan.target.x) * 4
-    output.set(compositeRgba8(read(group, src), read(output, dst), outer), dst)
+    output.set(compositeRgba8(read(group, src), read(output, dst), outer, executionAtWorldPixel(outer.mode,execution,x,y)), dst)
   }
   return { group: surface(plan.group, group), output: surface(plan.target, output) }
 }

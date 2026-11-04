@@ -1,0 +1,95 @@
+{
+  "law": "defined-scalar23-power-u8-v1",
+  "qualification": "Canonical finite-U8 functional graph; not installed Krita/ISA pixel identity. Dual precision agreement is not a formal interval proof.",
+  "layout": {
+    "format": "RGBA8",
+    "width": 64,
+    "height": 256,
+    "row": "destination byte",
+    "column": "floor(source byte/4)",
+    "component": "source byte modulo4"
+  },
+  "generator": {
+    "path": "scripts/brush-math/generate_scalar_power_tables.py",
+    "sha256": "e877884ba204a2242d0c34fe5a6ef392a7caa330e656a37fb5b87ce96a085555",
+    "actualGenerationSourceSha256": "5cdbde74dedce8a8e6d7f49a3763cb1574172703b0efafe51d762df592ff90ad",
+    "numericCoreAstSha256": "1c0a6ce1baa1f39c201eb7b70cf2988a4a02d2fc2819a71458c93bc6594500fa"
+  },
+  "assets": [
+    {
+      "mode": "easyDodge",
+      "path": "/brush-math/easyDodge-a5710bff7d876933e8bbb9900dad2c605ff1a8d2dcf03594731a83c61cec9a6e.rgba",
+      "sha256": "a5710bff7d876933e8bbb9900dad2c605ff1a8d2dcf03594731a83c61cec9a6e",
+      "bytes": 65536,
+      "precisionAgreement": {
+        "digits": [
+          70,
+          100
+        ],
+        "comparedPairs": 65536,
+        "differentBytes": 0
+      },
+      "formalIntervalProof": false
+    },
+    {
+      "mode": "easyBurn",
+      "path": "/brush-math/easyBurn-5c1319035053f4e78154f5e37ef1a4e10922d6fcf8faae66f4c4d069d757a226.rgba",
+      "sha256": "5c1319035053f4e78154f5e37ef1a4e10922d6fcf8faae66f4c4d069d757a226",
+      "bytes": 65536,
+      "precisionAgreement": {
+        "digits": [
+          70,
+          100
+        ],
+        "comparedPairs": 65536,
+        "differentBytes": 0
+      },
+      "formalIntervalProof": false
+    },
+    {
+      "mode": "pNormA",
+      "path": "/brush-math/pNormA-531d7a917fa9174e0e0b371aaebc598a826c5bf8f38c0aabde21ebc157e263ea.rgba",
+      "sha256": "531d7a917fa9174e0e0b371aaebc598a826c5bf8f38c0aabde21ebc157e263ea",
+      "bytes": 65536,
+      "precisionAgreement": {
+        "digits": [
+          70,
+          100
+        ],
+        "comparedPairs": 65536,
+        "differentBytes": 0
+      },
+      "formalIntervalProof": false
+    },
+    {
+      "mode": "superLight",
+      "path": "/brush-math/superLight-beaa800237a6e7ff10f865d69227a5d9facbf54cb72d05576a855a36bfb60c31.rgba",
+      "sha256": "beaa800237a6e7ff10f865d69227a5d9facbf54cb72d05576a855a36bfb60c31",
+      "bytes": 65536,
+      "precisionAgreement": {
+        "digits": [
+          70,
+          100
+        ],
+        "comparedPairs": 65536,
+        "differentBytes": 0
+      },
+      "formalIntervalProof": false
+    },
+    {
+      "mode": "softLightIfs",
+      "path": "/brush-math/softLightIfs-569fd96d292fd3640c948903d315c63ca623ecbe6dc71da9ab73d0b570a8d11a.rgba",
+      "sha256": "569fd96d292fd3640c948903d315c63ca623ecbe6dc71da9ab73d0b570a8d11a",
+      "bytes": 65536,
+      "precisionAgreement": {
+        "digits": [
+          70,
+          100
+        ],
+        "comparedPairs": 65536,
+        "differentBytes": 0
+      },
+      "formalIntervalProof": false
+    }
+  ]
+}

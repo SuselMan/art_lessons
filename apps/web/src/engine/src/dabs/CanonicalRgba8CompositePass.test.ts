@@ -1,3 +1,8 @@
+import {beforeAll,afterAll} from 'vitest'
+import {installScalarPowerAssetFetch,retainScalarPowerTestPages,installScalarAtlasMockCaps} from '../../testing/scalarPowerTestAssets'
+let restoreScalarFetch:()=>void
+beforeAll(()=>{restoreScalarFetch=installScalarPowerAssetFetch()})
+afterAll(()=>restoreScalarFetch())
 import { ownedBrushFixture } from '../../testing/ownedBrushFixture';
 import { runBrushGlBatch } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,12 +26,16 @@ function setup(gpu = 16 * 1024 * 1024, cpuBytes = 4 * 1024 * 1024) {
     gl.LINEAR = 9010;
     gl.REPEAT = 9011;
     gl.isContextLost = () => false;
+    gl.MAX_TEXTURE_SIZE=9013;gl.MAX_TEXTURE_IMAGE_UNITS=9014;gl.UNPACK_COLORSPACE_CONVERSION_WEBGL=9015;
+    const originalGetParameter=gl.getParameter;
+    gl.getParameter=(name:number)=>name===gl.MAX_TEXTURE_SIZE?4096:name===gl.MAX_TEXTURE_IMAGE_UNITS?8:originalGetParameter(name);
     const params = new Map<object, Map<number, number>>(), originalParameter = gl.texParameteri;
     gl.getTexParameter = (_: number, name: number) => params.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(name) ?? (name === gl.TEXTURE_MIN_FILTER || name === gl.TEXTURE_MAG_FILTER ? gl.LINEAR : gl.REPEAT);
     gl.texParameteri = (_: number, name: number, value: number) => { originalParameter(_, name, value); const texture = gl.getParameter(gl.TEXTURE_BINDING_2D); let entry = params.get(texture); if (!entry) {
         entry = new Map();
         params.set(texture, entry);
     } entry.set(name, value); };
+    installScalarAtlasMockCaps(gl);
     const mask=ownedBrushFixture(gl,1024);
     const view: TransformedMaskView = { key: 'mask', texture: mask.texture, rect: { x: 8, y: 18, width: 6, height: 7 }, bounds: { x: 0, y: 0, width: 6 / 16, height: 7 / 16 }, mirror: { horizontal: false, vertical: false }, channel: 'r' };
     cache.protect(['mask']);
@@ -531,8 +540,9 @@ it('cold shared vertex cancellation and lost reset retain existing program retir
  }
 });
 
-it('dispatches all extended Pixel functors through one prepared GenericSC program without draw-time compilation',()=>{
+it('dispatches all extended Pixel functors through one prepared GenericSC program without draw-time compilation',async()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion)
+ const releaseScalarPages=await retainScalarPowerTestPages(s.pass)
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
  const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot(),policy=vi.spyOn(s.gl,'uniform4f')
  // Literal IDs are the producer/shader ABI, not generated from the implementation enum.
@@ -549,7 +559,7 @@ it('dispatches all extended Pixel functors through one prepared GenericSC progra
   expect(fragmentSources).toContain('sourceRgba8VectorBlend')
   // The REAL compiled WebGL1 body, not only host controls or the ES3 source.
   for(let id=28;id<=114;id++)expect(fragmentSources).toMatch(new RegExp('mode\\s*==\\s*'+id+'\\.0'))
- }finally{s.pass.reset();s.cache.clear()}
+ }finally{releaseScalarPages();s.pass.reset();s.cache.clear()}
 })
 
 it('adds only missing image-material programs with the same checked publication and exact CPU accounting',()=>{
@@ -587,14 +597,15 @@ it('cancels unpublished image programs and rejects variants lacking their base o
  }finally{s.pass.reset();s.cache.clear()}
 })
 
-it('uses the prepared image material program for all channel extension modes without new allocations',()=>{
+it('uses the prepared image material program for all channel extension modes without new allocations',async()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8'],imageMaterialOperations:['genericSCU8']},s.companion)
+ const releaseScalarPages=await retainScalarPowerTestPages(s.pass,['image'])
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
  const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid','hardMixSofterPhotoshop','penumbraA','penumbraB','penumbraC','penumbraD','flatLight','binaryXor','binaryOr','binaryAnd','binaryNand','binaryNor','binaryXnor','binaryImplication','binaryNotImplication','binaryConverse','binaryNotConverse','tint','increaseSaturation','decreaseSaturation','increaseLuminosity','decreaseLuminosity','colorHsl','hueHsl','saturationHsl','increaseSaturationHsl','decreaseSaturationHsl','lightnessHsl','increaseLightnessHsl','decreaseLightnessHsl','colorHsv','hueHsv','saturationHsv','increaseSaturationHsv','decreaseSaturationHsv','valueHsv','increaseValueHsv','decreaseValueHsv','colorHsi','hueHsi','saturationHsi','increaseSaturationHsi','decreaseSaturationHsi','intensityHsi','increaseIntensityHsi','decreaseIntensityHsi','gammaDark','gammaLight','gammaIllumination','easyDodge','easyBurn','pNormA','pNormB','superLight','softLightIfs','softLightPegtop','tintIfs','shadeIfs','fogLightenIfs','fogDarkenIfs','modulo','moduloContinuous','divisiveModulo','divisiveModuloContinuous','moduloShift','moduloShiftContinuous','hardOverlay','interpolation','interpolation2x','lambertLighting','lambertLightingGamma22','combineNormal','tangentNormalmap','copyRed','copyGreen','copyBlue','behind','luminositySai','greater'] as const,policy=vi.spyOn(s.gl,'uniform4f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
  try{for(const [i,mode]of modes.entries()){
   expect(s.pass.drawSource({source:{kind:'imageMaterialRgba',material:'lightness-map-v1',view:{...s.view,imageMaterial:'lightness-map-v1'},rgb:[91,127,255],strength:.7,foregroundAlpha:.8},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.8}}})).toBe('painted')
   expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),28+i,0,1,0)
- }expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.snapshot()).toEqual(before)}finally{s.pass.reset();s.cache.clear()}
+ }expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.snapshot()).toEqual(before)}finally{releaseScalarPages();s.pass.reset();s.cache.clear()}
 })
 
 // RecordingGL proves dispatch and clipping, not final pixel arithmetic (covered by CPU and future GPU oracle).

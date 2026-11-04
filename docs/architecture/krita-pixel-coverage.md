@@ -357,3 +357,28 @@ NodeNext, web bundler и отдельный shared Vitest test bundler; не у�
 Доказательства: pixel-final6-gates-v3/final-proof.json,
 pixel-final6-gates-v3/actual-applied-equivalence-proof.json,
 pixel-final6-extension-independent-review-v5.json.
+
+
+## Пять табличных режимов Scalar23
+
+Easy Dodge/Burn, PNormA, Super Light и Soft Light IFS используют общий
+канонический закон defined-scalar23-power-u8-v1. Пять статических таблиц
+занимают320 КиБ; выбранная страница64 КиБ загружается и проверяется до BEGIN.
+CPU и GPU используют те же байты. Страница имеет явные CPU/GPU reservations,
+Work/Entry/author leases и сохраняется при восстановлении нескольких режимов.
+Обычные кисти не получают таблицу или пятый sampler. Сетевых полей не добавлено.
+
+Составное покрытие2431/40: wholeV3 2430PASS/1mockFAIL, затем16/4 PASS после
+исправления TEXTURE1 в mock; не полный повтор final-map. Strict24/341/0,
+importer47 PASS, lint0 errors/13 existing warnings. Все33 применённых файла
+совпали с проверенными SHA. GPU/APP ещё не проверены.
+
+Доказательства: pixel-scalar5-atlas-gates-v6/final-proof.json,
+pixel-scalar5-atlas-gates-v6/actual-applied-equivalence-proof.json,
+pixel-scalar5-atlas-combined-independent-review-v5.json.
+
+Уточнение masked Final6: pinned Pixel UI принудительно сохраняет WASH при
+включённой маске (effective mode → baked data → PaintOpAction=2). Runtime
+требует indirect mode. Raw Buildup+mask противоречит нативному предусловию;
+его явный отказ не означает отсутствующий selectable Pixel-механизм.
+Доказательство: pixel-masked-final6-native-ui-independent-v2.json.

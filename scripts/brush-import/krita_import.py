@@ -867,6 +867,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('customCompositeFunctional','defined-custom-rgba-u8-v1: native RGBA shell order retained; Greater uses explicit Q65535 logistic-weight table, not portable native float/ICC/ISA identity.','approximate'))
         if mode in ('lambert_lighting','lambert_lighting_gamma2.2','combine_normal','tangent_normalmap'):
             notes.append(compatibility('normalCompositeFunctional','defined-q65535-normal-lighting-v1: staged Q65535 vector math and bounded exact integer normalization; functional RGB/U8, not native float/ICC/ISA byte identity.','approximate'))
+        if mode in ('easy dodge', 'easy burn', 'pnorm_a', 'super_light', 'soft_light_ifs_illusions'):
+            notes.append(compatibility('scalarPowerFunctional','defined-scalar23-power-u8-v1: canonical finite-U8 power tables generated from rational channels with dual Decimal precision agreement; functional RGB/U8, not native libm/Float32-LUT/ICC/ISA identity or a formal interval proof.','approximate'))
         if mode in ('pnorm_b', 'tint_ifs_illusions', 'interpolation', 'interpolation 2x'):
             notes.append(compatibility('scalarRootCosFunctional','defined-scalar23-root-cos-q65535-v1: exact integer fourth-root and staged Q65535 sqrt/cos byte graph; preserves inner interpolation byte, functional RGB/U8, not native libm/Float32-LUT/ICC/ISA byte identity.','approximate'))
         if mode in ('modulo', 'modulo_continuous', 'divisive_modulo', 'divisive_modulo_continuous', 'modulo_shift', 'modulo_shift_continuous'):

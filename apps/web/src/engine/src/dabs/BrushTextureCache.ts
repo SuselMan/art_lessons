@@ -202,6 +202,9 @@ export class BrushTextureCache {
     leaseRequired(resources: readonly { key: string; bytes: number }[]): () => void {
         return this.leaseResources(resources, true);
     }
+    private readonly leaseReceipts=new WeakMap<()=>void,symbol>();
+    /** Exact existing lease closure, not key presence or guessed budget credit. */
+    isResourceLeaseCurrent(release:()=>void):boolean{const token=this.leaseReceipts.get(release);return token!==undefined&&this.leases.has(token)}
     private leaseResources(resources: readonly { key: string; bytes: number }[], required: boolean): () => void {
         let saved = resources;
         const union = new Map<string, number>();
@@ -257,14 +260,17 @@ export class BrushTextureCache {
         const token = Symbol();
         this.leases.set(token, saved);
         let released = false;
-        return () => {
+        const release=() => {
             if (required && released)
                 return;
             released = true;
-            this.leases.delete(token);
+            this.leases.delete(token);this.leaseReceipts.delete(release);
             this.trim();
         };
+        this.leaseReceipts.set(release,token);return release;
     }
+    /** Read-only real lease ownership; protected/LRU hints are not authority. */
+    hasResourceLease(key:string):boolean{for(const group of this.leases.values())for(const item of group)if(item.key===key)return true;return false}
     resourceBytes(key: string): number | undefined { return this.entries.get(key)?.bytes; }
     get(key: string): WebGLTexture | undefined {
         const entry = this.entries.get(key);

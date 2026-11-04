@@ -1,4 +1,7 @@
 import{sourceDissolveUint32Bytes}from'../presets/sourceDissolve'
+import {CanonicalScalarAtlas} from './CanonicalScalarAtlas'
+import {isSourceScalarPowerMode,type SourceScalarPowerMode} from '../presets/sourceScalarPowerTable'
+import {scalarPowerFragmentVariant} from '../raster/sourceScalarPowerShader'
 import {setGlColorMask} from '../raster/GlClearState'
 import { SOURCE_RGBA8_GENERIC_SC_MODES } from '../presets/sourceColorRgba8';
 import {CANONICAL_TEXTURE_COLOR_MATERIAL_GLSL} from './canonicalTextureColorMaterial';
@@ -14,7 +17,7 @@ import { SOURCE_RGBA8_BROWSER_HSY_WEBGL1_GLSL, SOURCE_RGBA8_COMPOSITE_WEBGL1_GLS
 import { canonicalizeSourceBrowserHsyControl, canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
 import { SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE, SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
-import type { BrushGlBatchFrame, BrushGlBatchInfo, BrushGlBatchLifetime } from './BrushGlBatch';
+import type { BrushGlBatchFrame, BrushGlBatchInfo, BrushGlBatchLifetime,BrushGlBatchParticipant } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
 import { SOURCE_OVER32_SCALAR_GLSL } from '../raster/sourceOver32ScalarShader';
 import type { SourceAlphaDarken32Control } from '../presets/sourceAlphaDarken32';
@@ -198,7 +201,7 @@ function primaryGrainProgramsFor(limits:CanonicalCompositeLimits):readonly Canon
 }
 const imageMaterialProgram=(kind:CanonicalCompositeOperationKind)=>`${kind}:image-material` as const;
 function imageMaterialOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalCompositeOperationKind[]{const selected=limits.imageMaterialOperations??[];if(!Array.isArray(selected)||selected.length>operationsFor(limits).length||new Set(selected).size!==selected.length||selected.some(k=>k==='maskingAlpha'||!operationsFor(limits).includes(k)))throw new RangeError('Invalid lightness operation inventory');return operationsFor(limits).filter(k=>selected.includes(k));}
-type CompositeProgramKey=CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
+type CompositeProgramKey=`scalar-power:${SourceScalarPowerMode}:${string}`|CanonicalCompositeOperationKind|ReturnType<typeof texturedProgram>|typeof multiplyProgram|ReturnType<typeof pixelTextureProgram>|ReturnType<typeof colorTextureProgram>|ReturnType<typeof imageMaterialProgram>;
 function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly CanonicalTexturedCompositeOperation[] {
     const selected=limits.texturedOperations??[];
     if(!Array.isArray(selected)||selected.length>2||new Set(selected).size!==selected.length
@@ -357,11 +360,15 @@ interface Workspace {
  * never the existing PM layer. Source view is already rasterized: no tip transform
  * or native-domain correction is repeated. Caller presents/outer-composites later. */
 const NO_PRIMARY_GRAIN_PROGRAMS:readonly CanonicalPrimaryGrainProgram[]=Object.freeze([]);
+export type CanonicalScalarAtlasStyle='plain'|'image'|'grain'|'color-grain';
+const scalarParticipantOwners=new WeakMap<BrushGlBatchParticipant,{readonly pass:CanonicalRgba8CompositePass;readonly modes:readonly SourceScalarPowerMode[]}>();
 export class CanonicalRgba8CompositePass {
     readonly key: string;
     private readonly gl: WebGLRenderingContext;
     private readonly cache: BrushTextureCache;
     private readonly cpu: BrushMipCache;
+    private readonly scalarAtlas:CanonicalScalarAtlas;
+    private readonly scalarParticipants=new Map<SourceScalarPowerMode,BrushGlBatchParticipant>();
     private limits?: CanonicalCompositeLimits;
     private workspace?: Workspace;
   private readonly contextOwner?:BrushGlContextOwner;
@@ -382,6 +389,7 @@ export class CanonicalRgba8CompositePass {
         this.cache = cache;
         this.cpu = cpu;
         this.key = `${prefix}:workspace`;
+        this.scalarAtlas=new CanonicalScalarAtlas(gl,cache,cpu,prefix);
     }
     private checkedCompanions(companions:readonly Resource[]):Map<string,number>{
         if(!Array.isArray(companions)||companions.length>4105)throw new RangeError('Invalid composite companion count')
@@ -412,7 +420,62 @@ export class CanonicalRgba8CompositePass {
     prepareImageMaterialProgramUpdate(requested:readonly CanonicalCompositeOperationKind[]):CanonicalPreparedResourceUpdate {
         return this.prepareProgramUpdate({kind:'image',requested});
     }
-    private prepareProgramUpdate(request:{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations'|'image';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
+    scalarAtlasResources(mode:SourceScalarPowerMode):readonly Resource[]{const page=this.scalarAtlas.resource(mode);return [{key:page.key,bytes:page.bytes}]}
+    retainScalarAtlas(mode:SourceScalarPowerMode):()=>void{return this.cache.leaseRequired(this.scalarAtlasResources(mode))}
+    /** Issued immutable view of exactly this Work/presentation's actual modes. */
+    scalarParticipantForModes(modes:readonly SourceScalarPowerMode[]):BrushGlBatchParticipant{
+        if(!Array.isArray(modes)||modes.length>5||modes.some(mode=>!isSourceScalarPowerMode(mode)))throw new TypeError('Invalid scalar participant modes');
+        const selected=Object.freeze([...new Set(modes)]);if(!selected.length)return this;
+        for(const mode of selected)this.scalarAtlas.resource(mode);
+        if(selected.length===1){const existing=this.scalarParticipants.get(selected[0]);if(existing)return existing}
+        const pass=this;
+        const participant:BrushGlBatchParticipant=Object.freeze({
+            brushGlBatchInfo(){if(this!==participant)throw new Error('Foreign scalar participant');return pass.batchInfoFor(selected)},
+            enterBrushGlBatch(frame:BrushGlBatchFrame){if(this!==participant)throw new Error('Foreign scalar participant');return pass.enterBatch(frame,participant)},
+        });
+        scalarParticipantOwners.set(participant,{pass:this,modes:selected});if(selected.length===1)this.scalarParticipants.set(selected[0],participant);return participant;
+    }
+    scalarParticipant(mode:SourceScalarPowerMode):BrushGlBatchParticipant{return this.scalarParticipantForModes([mode])}
+    drawSourceIn(participant:BrushGlBatchParticipant,request:CanonicalCompositeRequest,frame?:BrushGlBatchFrame):'painted'|'empty'{
+        if(participant===this)return this.drawSource(request,frame);
+        const owned=scalarParticipantOwners.get(participant);if(owned?.pass!==this)throw new Error('Foreign scalar composite participant');
+        return this.drawSourceCore(request,frame,participant,owned.modes);
+    }
+    drawSourceFor(mode:SourceScalarPowerMode,request:CanonicalCompositeRequest,frame?:BrushGlBatchFrame):'painted'|'empty'{return this.drawSourceIn(this.scalarParticipant(mode),request,frame)}
+    private scalarProgramBases(styles:readonly CanonicalScalarAtlasStyle[]):readonly CompositeProgramKey[]{
+        if(!Array.isArray(styles)||!styles.length||styles.length>4)throw new TypeError('Invalid scalar source styles');
+        const keys:CompositeProgramKey[]=[];
+        for(const style of new Set(styles)){
+            const key=style==='plain'?'genericSCU8':style==='image'?imageMaterialProgram('genericSCU8'):style==='grain'?primaryGrainProgram('pixel-texture-u8-v1','genericSCU8'):style==='color-grain'?primaryGrainProgram('pixel-color-texture-v1','genericSCU8'):undefined;
+            if(key===undefined||!this.workspace!.programs.has(key))throw new Error('GenericSC source style must already be prepared');keys.push(key);
+        }
+        return keys;
+    }
+    /** Cold candidate's bounded temporary ownership until real Entries/Works admit. */
+    async prepareScalarAtlasInventory(requests:readonly Readonly<{mode:SourceScalarPowerMode;styles:readonly CanonicalScalarAtlasStyle[]}>[],current:()=>void,signal?:AbortSignal):Promise<()=>void>{
+        if(!Array.isArray(requests)||requests.length>5||new Set(requests.map(request=>request.mode)).size!==requests.length)throw new TypeError('Invalid scalar inventory');
+        const releaseMetadata=this.cpu.reserve(512+requests.length*128),leases:(()=>void)[]=[];let held=true;
+        const release=()=>{if(!held)return;held=false;let failed=false,primary:unknown;for(const done of [...leases.splice(0).reverse(),releaseMetadata])try{done()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary};
+        try{
+            for(const request of requests){current();if(signal?.aborted)throw new DOMException('Scalar inventory cancelled','AbortError');await this.prepareScalarAtlas(request.mode,signal,current,request.styles);current();if(signal?.aborted)throw new DOMException('Scalar inventory cancelled','AbortError');leases.push(this.retainScalarAtlas(request.mode));current()}
+            return release;
+        }catch(primary){try{release()}catch{}throw primary}
+    }
+    /** Actual selected finite-byte law, prepared outside input/GL turns. */
+    async prepareScalarAtlas(mode:SourceScalarPowerMode,signal?:AbortSignal,current?:()=>void,styles:readonly CanonicalScalarAtlasStyle[]=['plain']):Promise<void>{
+        this.assertMutationIdle();if(!this.workspace||!this.limits)throw new Error('Composite scalar owner unavailable');
+        const epoch=this.workspace,bases=this.scalarProgramBases(styles);
+        if(!bases.length)throw new Error('GenericSC operation must be prepared before scalar Atlas');
+        if(this.scalarAtlas.has(mode)&&bases.every(base=>epoch.programs.has(`scalar-power:${mode}:${base}`)))return;
+        await this.scalarAtlas.prepare(mode,[...this.preparedResources(),...this.companions],()=>{current?.();this.assertMutationIdle(epoch)},signal);
+        this.assertMutationIdle(epoch);
+        const releasePage=this.retainScalarAtlas(mode);let update:CanonicalPreparedResourceUpdate|undefined,failed=false,primary:unknown;
+        try{update=this.prepareProgramUpdate({kind:'atlas',mode,styles});update.assertCurrent();update.publish();update.finalizeCleanup()}
+        catch(error){failed=true;primary=error;try{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()}catch{}}
+        finally{try{releasePage()}catch(error){if(!failed){failed=true;primary=error}}}
+        if(failed)throw primary;
+    }
+    private prepareProgramUpdate(request:{readonly kind:'atlas';readonly mode:SourceScalarPowerMode;readonly styles:readonly CanonicalScalarAtlasStyle[]}|{readonly kind:'grain';readonly requested:readonly CanonicalPrimaryGrainProgram[]}|{readonly kind:'operations'|'image';readonly requested:readonly CanonicalCompositeOperationKind[]}):CanonicalPreparedResourceUpdate {
         this.assertMutationIdle();
         if(!this.workspace||!this.limits)throw new Error('Composite program owner unavailable');
         const owner=this,epoch=this.workspace,limits=this.limits,oldPrograms=epoch.programs;
@@ -427,9 +490,13 @@ export class CanonicalRgba8CompositePass {
         this.busy=true;
         try{
             releaseStage=this.cpu.reserve(4096);owned();
-            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true}>[];
+            let additions:readonly Readonly<{key:CompositeProgramKey;operation:CanonicalCompositeOperationKind;law?:CanonicalPrimaryGrainProgram['law'];imageMaterial?:true;atlasMode?:SourceScalarPowerMode}>[];
             let updatedLimits:CanonicalCompositeLimits;
-            if(request.kind==='grain'){
+            if(request.kind==='atlas'){
+                this.scalarAtlas.resource(request.mode);
+                additions=this.scalarProgramBases(request.styles).map(base=>({key:`scalar-power:${request.mode}:${base}` as CompositeProgramKey,operation:'genericSCU8' as const,atlasMode:request.mode,imageMaterial:base===imageMaterialProgram('genericSCU8')?true:undefined,law:base===primaryGrainProgram('pixel-texture-u8-v1','genericSCU8')?'pixel-texture-u8-v1' as const:base===primaryGrainProgram('pixel-color-texture-v1','genericSCU8')?'pixel-color-texture-v1' as const:undefined}));
+                updatedLimits=limits;
+            }else if(request.kind==='grain'){
                 const wanted=primaryGrainProgramsFor({...limits,primaryGrainPrograms:request.requested}),inventory=new Map(primaryGrainProgramsFor(limits).map(p=>[primaryGrainProgram(p.law,p.operation),p]));
                 for(const item of wanted)inventory.set(primaryGrainProgram(item.law,item.operation),item);
                 const all=primaryGrainProgramsFor({...limits,primaryGrainPrograms:[...inventory.values()]});
@@ -452,7 +519,7 @@ export class CanonicalRgba8CompositePass {
                 restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,3);
                 vertex=this.gl.createShader(this.gl.VERTEX_SHADER);if(!vertex)throw new Error('Composite update vertex allocation failed');
                 this.gl.shaderSource(vertex,VERTEX);this.gl.compileShader(vertex);if(!this.gl.getShaderParameter(vertex,this.gl.COMPILE_STATUS))throw new Error('Composite update vertex compile failed: '+this.gl.getShaderInfoLog(vertex));owned();
-                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply');created.push(info);owned();nextPrograms.set(item.key,info)}
+                for(const item of missing){const info=this.compile(item.operation,vertex,item.imageMaterial?'lightness':item.law===undefined?undefined:item.law==='pixel-color-texture-v1'?'color':item.law==='pixel-texture-u8-v1'?'pixel':'multiply',item.atlasMode);created.push(info);owned();nextPrograms.set(item.key,info)}
             }
             owned();
         }catch(error){failed=true;primary=error}
@@ -642,20 +709,24 @@ export class CanonicalRgba8CompositePass {
         if(expectedEpoch!==undefined&&(!this.workspace||this.workspace!==expectedEpoch||!this.limits||this.cache.get(this.key)!==this.workspace.texture))throw new Error('Composite preparation changed');
         assertBrushGlMutationIdle(this.gl);
     }
-    brushGlBatchInfo(): BrushGlBatchInfo {
+    brushGlBatchInfo(): BrushGlBatchInfo {return this.batchInfoFor()}
+    private batchInfoFor(modes:readonly SourceScalarPowerMode[]=[]):BrushGlBatchInfo {
         if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
         return { gl: this.gl, cache: this.cache, cpu: this.cpu, contextOwner:this.contextOwner, epoch: this.workspace,
             attributes: [...this.workspace.programs.values()].map(info => info.attribute), instancing: this.instancing, vertexArrays: this.vertexArrays,
-            textureUnits:[...this.workspace.programs.keys()].some(k=>k.includes('pixel-color-texture-v1'))?4:3,
-            resources: [...this.companions, ...this.preparedResources()] };
+            ownedPointSamplers:modes.map(mode=>({...this.scalarAtlas.sampler(mode),epoch:this.workspace!})),
+            textureUnits:modes.length?5:[...this.workspace.programs.keys()].some(k=>k.includes('pixel-color-texture-v1'))?4:3,
+            resources: [...this.companions, ...this.preparedResources(),...modes.flatMap(mode=>this.scalarAtlasResources(mode))] };
     }
-    enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
-        frame.acceptParticipant(this);
+    enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {return this.enterBatch(frame,this)}
+    private enterBatch(frame:BrushGlBatchFrame,participant:BrushGlBatchParticipant):()=>void {
+        frame.acceptParticipant(participant);
         if (this.batch || this.busy) throw new Error('Composite pass already has an active batch/draw');
         this.batch = frame;
         return () => { if (this.batch === frame) this.batch = undefined; };
     }
-    drawSource(request: CanonicalCompositeRequest, frame?: BrushGlBatchFrame): 'painted' | 'empty' {
+    drawSource(request: CanonicalCompositeRequest, frame?: BrushGlBatchFrame): 'painted' | 'empty' {return this.drawSourceCore(request,frame,this)}
+    private drawSourceCore(request:CanonicalCompositeRequest,frame:BrushGlBatchFrame|undefined,participant:BrushGlBatchParticipant,modes:readonly SourceScalarPowerMode[]=[]):'painted'|'empty'{
         if (this.batch !== frame) throw new Error('Composite batch identity mismatch');
         if (this.busy)
             throw new Error('Composite draw is already active');
@@ -676,7 +747,11 @@ export class CanonicalRgba8CompositePass {
         if (!this.isReady() || !this.workspace || !this.limits)
             throw new Error('Composite pass is not prepared');
         if(source.kind==='primaryGrainMaskRgb'&&source.pin.law==='hard-multiply-u8-native-v1'&&operation.kind!=='over32FusedScalar')throw new RangeError('Unsupported multiply operation');
-        const info = this.workspace.programs.get(source.kind==='imageMaterialRgba'?imageMaterialProgram(operation.kind):source.kind==='primaryGrainMaskRgb'?primaryGrainProgram(source.pin.law,operation.kind):pattern?texturedProgram(operation.kind):operation.kind);
+        const baseProgram=source.kind==='imageMaterialRgba'?imageMaterialProgram(operation.kind):source.kind==='primaryGrainMaskRgb'?primaryGrainProgram(source.pin.law,operation.kind):pattern?texturedProgram(operation.kind):operation.kind;
+        const atlasMode=operation.kind==='genericSCU8'&&isSourceScalarPowerMode(operation.control.mode)?operation.control.mode:undefined;
+        const atlas=atlasMode?this.scalarAtlas.resource(atlasMode):undefined;
+        if(frame&&atlasMode!==undefined&&!modes.includes(atlasMode))throw new Error('Scalar composite operation scope differs');
+        const info=this.workspace.programs.get(atlasMode?`scalar-power:${atlasMode}:${baseProgram}`:baseProgram);
         if(pattern&&!isTexturedOperation(operation.kind)&&!(source.kind==='primaryGrainMaskRgb'&&(source.pin.law==='pixel-texture-u8-v1'||source.pin.law==='pixel-color-texture-v1')&&(operation.kind==='erase32FusedScalar'||operation.kind==='genericSCU8'||operation.kind==='colorHsyBrowser')))throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
@@ -685,7 +760,7 @@ export class CanonicalRgba8CompositePass {
         if(pattern&&(pattern.view.texture===target.texture||pattern.view.texture===base.texture||pattern.view.texture===this.workspace.texture||pattern.view.texture===sampled.texture))throw new RangeError('Composite pattern feedback alias');
         const gradient=source.kind==='primaryGrainMaskRgb'?source.gradient:undefined;
         if(gradient&&(gradient.texture===target.texture||gradient.texture===base.texture||gradient.texture===sampled.texture||gradient.texture===this.workspace.texture))throw new RangeError('Composite gradient feedback alias');
-        const resources = [...gradient?[{key:gradient.key,bytes:1024}]:[],...this.companions, ...this.preparedResources(),...pattern?[{key:pattern.view.key,bytes:pattern.view.width*pattern.view.height*4}]:[]];
+        const resources = [...atlas?[{key:atlas.key,bytes:atlas.bytes}]:[],...gradient?[{key:gradient.key,bytes:1024}]:[],...this.companions, ...this.preparedResources(),...pattern?[{key:pattern.view.key,bytes:pattern.view.width*pattern.view.height*4}]:[]];
         for (const r of this.companions)
             if (this.cache.resourceBytes(r.key) !== r.bytes || !this.cache.get(r.key))
                 throw new Error('Composite companion residency changed');
@@ -701,17 +776,17 @@ export class CanonicalRgba8CompositePass {
         const declaredOwners = [...frame&&gradient?[canonicalPatternResourceLifetime(gradient,{gl:this.gl,cache:this.cache,cpu:this.cpu})]:[],target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : [], ...frame&&pattern ? [canonicalPatternResourceLifetime(pattern.view,{gl:this.gl,cache:this.cache,cpu:this.cpu})] : []];
         const clip = this.clip(sampled.rect, target, bounds);
         if (!clip) {
-            frame?.assert(this, resources, declaredOwners);
+            frame?.assert(participant, resources, declaredOwners);
             frame?.beginDraw();
             return 'empty';
         }
         if (clip.width > this.limits.width || clip.height > this.limits.height)
             throw new RangeError('Composite clip exceeds prepared capacity');
-        frame?.assert(this, resources, declaredOwners);
+        frame?.assert(participant, resources, declaredOwners);
         frame?.beginDraw();
         this.cache.protect([...unique.keys()]);
         const release = frame ? () => {} : this.cache.lease([...unique].map(([key, bytes]) => ({ key, bytes })));
-        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, source.kind==='primaryGrainMaskRgb'&&source.gradient?4:pattern?3:2), releases: (() => void)[] = [];
+        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, atlas?5:source.kind==='primaryGrainMaskRgb'&&source.gradient?4:pattern?3:2), releases: (() => void)[] = [];
         this.busy = true;
         const restoreSamplings:(()=>void)[]=[];
         let failure: unknown, failed = false;
@@ -750,7 +825,9 @@ export class CanonicalRgba8CompositePass {
                 restoreSamplings.push(frame?frame.pointSampling(pattern.view.texture):this.pointSampling(pattern.view.texture,gl.TEXTURE0+2));
             }
             if(source.kind==='primaryGrainMaskRgb'&&source.gradient){gl.activeTexture(gl.TEXTURE0+3);gl.bindTexture(gl.TEXTURE_2D,source.gradient.texture);restoreSamplings.push(frame?frame.pointSampling(source.gradient.texture):this.pointSampling(source.gradient.texture,gl.TEXTURE0+3));}
+            if(atlas){gl.activeTexture(gl.TEXTURE0+4);gl.bindTexture(gl.TEXTURE_2D,atlas.texture);restoreSamplings.push(frame?frame.pointSampling(atlas.texture):this.pointSampling(atlas.texture,gl.TEXTURE0+4));}
             const u = info.uniforms;
+            if(atlas)gl.uniform1i(u.scalarPowerTexture,4);
             const materialRGBA=source.kind!=='straightRgba8'&&source.view.materialRGBA;
             const spatialRGBA=source.kind!=='straightRgba8'&&source.view.spatialRGBA;
             const bitmapColor=spatialRGBA||materialRGBA||source.kind==='imageMaterialRgba'&&source.material==='color-stamp-v1'||source.kind==='primaryGrainMaskRgb'&&source.imageMaterial?.kind==='color-stamp-v1';
@@ -871,8 +948,9 @@ export class CanonicalRgba8CompositePass {
         let failed=false,primary:unknown;
         const update=this.companionUpdate;this.companionUpdate=undefined
         try{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()}catch(error){failed=true;primary=error}
+        try{this.scalarAtlas.reset(lost)}catch(error){if(!failed){failed=true;primary=error}}
         try{this.cache.discard(this.key,lost)}catch(error){if(!failed){failed=true;primary=error}}
-        this.workspace=undefined;this.limits=undefined;this.companions=[];
+        this.workspace=undefined;this.limits=undefined;this.companions=[];this.scalarParticipants.clear();
         const releaseMetadata=this.releaseCompanionMetadata;this.releaseCompanionMetadata=undefined
         try{releaseMetadata?.()}catch(error){if(!failed){failed=true;primary=error}}
         try{this.releaseCpu?.()}catch(error){if(!failed){failed=true;primary=error}}
@@ -982,7 +1060,7 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,vertex:WebGLShader,textured:boolean|'multiply'|'pixel'|'color'|'lightness'=false,atlasMode?:SourceScalarPowerMode): ProgramInfo {
         const gl=this.gl;
         let fragment:WebGLShader|null=null,program:WebGLProgram|null=null,info:ProgramInfo|undefined;
         let failed=false,failure:unknown;
@@ -990,7 +1068,8 @@ export class CanonicalRgba8CompositePass {
         try {
             fragment=gl.createShader(gl.FRAGMENT_SHADER);
             if(!fragment)throw new Error('Composite shader allocation failed');
-            gl.shaderSource(fragment,textured==='color'?colorTextureFragmentFor(kind):textured==='pixel'?pixelTextureFragmentFor(kind):textured==='multiply'?multiplyFragmentFor():textured==='lightness'?imageMaterialFragmentFor(kind):textured?texturedFragmentFor(kind):fragmentFor(kind));
+            const fragmentSource=textured==='color'?colorTextureFragmentFor(kind):textured==='pixel'?pixelTextureFragmentFor(kind):textured==='multiply'?multiplyFragmentFor():textured==='lightness'?imageMaterialFragmentFor(kind):textured?texturedFragmentFor(kind):fragmentFor(kind);
+            gl.shaderSource(fragment,atlasMode?scalarPowerFragmentVariant(fragmentSource,atlasMode):fragmentSource);
             gl.compileShader(fragment);
             if(!gl.getShaderParameter(fragment,gl.COMPILE_STATUS))throw new Error('Composite shader compile failed: '+gl.getShaderInfoLog(fragment));
             program=gl.createProgram();
@@ -1001,7 +1080,7 @@ export class CanonicalRgba8CompositePass {
             const attribute=gl.getAttribLocation(program,'position');
             if(attribute<0)throw new Error('Composite attribute unavailable');
             const uniforms:Record<string,WebGLUniformLocation|null>={};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
+            for (const name of [...atlasMode?['scalarPowerTexture']:[],'sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment','pigmentAlpha','sourceAlphaChannel', 'controls', 'policy', 'opacityParts', 'flowParts','sharpness',...kind==='genericSCU8'?['sourceDissolveSeed','sourceDissolveOriginX','sourceDissolveOriginY','sourceDissolveTargetHeight']:[], ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured==='lightness'?['lightnessMaterial']:textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength',...textured==='pixel'?['patternLaw','lightnessMaterial']:textured==='color'?['lightnessMaterial','textureColorMode','textureColorStrength','gradientTexture']:[]]:[]])
                 uniforms[name]=gl.getUniformLocation(program,name);
             info={program,attribute,uniforms};
         }catch(error){failed=true;failure=error}
