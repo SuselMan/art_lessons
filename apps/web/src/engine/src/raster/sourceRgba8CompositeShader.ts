@@ -68,8 +68,22 @@ uint sourceRgba8QuadraticHeat(uint s,uint d){return s==255u?255u:d==0u?0u:255u-m
 uint sourceRgba8QuadraticHeatGlow(uint s,uint d){return s+d>255u?sourceRgba8QuadraticHeat(s,d):s==0u?0u:sourceRgba8QuadraticGlow(s,d);}
 uint sourceRgba8QuadraticFreezeReflect(uint s,uint d){return s+d>255u?sourceRgba8QuadraticHeat(d,s):d==0u?0u:sourceRgba8QuadraticGlow(d,s);}
 uint sourceRgba8QuadraticGlowHeat(uint s,uint d){return d==255u?255u:s+d>255u?sourceRgba8QuadraticGlow(s,d):sourceRgba8QuadraticHeat(s,d);}
+uint sourceRgba8PenumbraB(uint s,uint d){
+ if(d==255u)return 255u;
+ if(s+d<255u)return min(255u,sourceRgba8Divide(s,255u-d))/2u;
+ if(s==0u)return 0u;
+ return 255u-min(255u,sourceRgba8Divide(255u-d,s)/2u);
+}
+uint sourceRgba8PenumbraD(uint s,uint d){return d==255u?255u:uint(sourceRgba8QuantizedAtan(float(s),float(255u-d)));}
 uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByte) {
   uint source=sourceByte,destination=destinationByte;
+  if(mode==47u)return uint(clamp(3*int(destination)-2*int(255u-source),0,255));
+  if(mode==48u)return sourceRgba8PenumbraB(destination,source);
+  if(mode==49u)return sourceRgba8PenumbraB(source,destination);
+  if(mode==50u)return sourceRgba8PenumbraD(destination,source);
+  if(mode==51u)return sourceRgba8PenumbraD(source,destination);
+  if(mode==52u)return source==0u?0u:destination>source?sourceRgba8PenumbraB(source,destination):sourceRgba8PenumbraB(destination,source);
+
   if(mode==38u)return sourceRgba8QuadraticGlow(destination,source);
   if(mode==39u)return sourceRgba8QuadraticGlow(source,destination);
   if(mode==40u)return sourceRgba8QuadraticHeat(destination,source);

@@ -155,7 +155,21 @@ float sourceRgba8QuadraticHeat(float s,float d){return s==255.0?255.0:d==0.0?0.0
 float sourceRgba8QuadraticHeatGlow(float s,float d){return s+d>255.0?sourceRgba8QuadraticHeat(s,d):s==0.0?0.0:sourceRgba8QuadraticGlow(s,d);}
 float sourceRgba8QuadraticFreezeReflect(float s,float d){return s+d>255.0?sourceRgba8QuadraticHeat(d,s):d==0.0?0.0:sourceRgba8QuadraticGlow(d,s);}
 float sourceRgba8QuadraticGlowHeat(float s,float d){return d==255.0?255.0:s+d>255.0?sourceRgba8QuadraticGlow(s,d):sourceRgba8QuadraticHeat(s,d);}
+float sourceRgba8PenumbraB(float s,float d){
+ if(d==255.0)return 255.0;
+ if(s+d<255.0)return floor(min(255.0,sourceRgba8Divide(s,255.0-d))*0.5);
+ if(s==0.0)return 0.0;
+ return 255.0-min(255.0,floor(sourceRgba8Divide(255.0-d,s)*0.5));
+}
+float sourceRgba8PenumbraD(float s,float d){return d==255.0?255.0:sourceRgba8QuantizedAtan(s,255.0-d);}
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
+  if(mode==47.0)return clamp(3.0*destination-2.0*(255.0-source),0.0,255.0);
+  if(mode==48.0)return sourceRgba8PenumbraB(destination,source);
+  if(mode==49.0)return sourceRgba8PenumbraB(source,destination);
+  if(mode==50.0)return sourceRgba8PenumbraD(destination,source);
+  if(mode==51.0)return sourceRgba8PenumbraD(source,destination);
+  if(mode==52.0)return source==0.0?0.0:destination>source?sourceRgba8PenumbraB(source,destination):sourceRgba8PenumbraB(destination,source);
+
   if(mode==38.0)return sourceRgba8QuadraticGlow(destination,source);
   if(mode==39.0)return sourceRgba8QuadraticGlow(source,destination);
   if(mode==40.0)return sourceRgba8QuadraticHeat(destination,source);

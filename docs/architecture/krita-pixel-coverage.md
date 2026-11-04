@@ -184,3 +184,22 @@ append-only, revision39 селективная. Его GPU иapp проверк�
 pixel10-channel11-app-samsung-31c-root2-root-audit.json,
 pixel-dynamic-begin-profile-v1/gates/final-proof-v2.json,
 pixel-quadratic9-gates-v1/final-proof.json вfixes-v52.
+
+## После проверки Quadratic
+
+На a30a5f1b9 HOST и Samsung прошли 285 GPU-сценариев и 19 × 65536 пар каналов.
+APP9: 9/9 PASS; reflect_freeze и hybrid проверены через peer, Undo/Redo и холодный
+вход обоих клиентов. Два lifecycle-сценария выполнялись первыми: это проверка
+механизма, а не burst benchmark. Ранее обнаруженный HOST lag остаётся открытым.
+Контексты закрыты, pending RPC — 0.
+
+Следующий блок Penumbra/FlatLight/HardMixSofter6 применён после 2232 тестов
+в 24 файлах, strict 6/41/0, importer33 и сравнения 393216 пар с native source-body
+reference. Четыре integer-графа точные; два atan-графа имеют функциональный
+профиль без утверждения ARM64/libm identity. IDs 47..52 добавлены в конец списка;
+revision40 применяется селективно. Старые профили G/native не расширены.
+GPU и APP этого нового блока ещё не проверены.
+
+Доказательства: pixel-generic-sc-quadratic-gpu-both-final-proof-v1.json,
+pixel10-quadratic9-app-samsung-a30-root1-result.json,
+pixel-penumbra6-gates-v1/final-proof.json.

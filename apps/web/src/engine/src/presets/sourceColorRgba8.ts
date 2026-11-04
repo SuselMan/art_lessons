@@ -123,7 +123,7 @@ export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-gener
 export const SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE='browser-hsy-rgba8-functional-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
-export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid'
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay' | 'darken' | 'screen' | 'colorBurn' | 'linearBurn' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'hardMixPhotoshop' | 'softLightSvg' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'luminosity' | 'equivalence' | 'additiveSubtractive' | 'arcTangent' | 'negation' | 'inverseSubtract' | 'grainMerge' | 'grainExtract' | 'allanon' | 'geometricMean' | 'parallel' | 'reflect' | 'glow' | 'freeze' | 'heat' | 'glowHeat' | 'heatGlow' | 'reflectFreeze' | 'freezeReflect' | 'heatGlowFreezeReflectHybrid' | 'hardMixSofterPhotoshop' | 'penumbraA' | 'penumbraB' | 'penumbraC' | 'penumbraD' | 'flatLight'
 interface Rgba8CompositeParameters {
   readonly opacity: number
   readonly mask?: number
@@ -135,13 +135,13 @@ export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: SourceRgba8SeparableMode | 'add'; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
   { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE }
 )
-export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid'] as const
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): number {
   const index = SOURCE_RGBA8_COMPOSITE_MODES.findIndex(candidate => candidate === mode)
   if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
   return index
 }
-const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid']
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay', 'darken', 'screen', 'colorBurn', 'linearBurn', 'subtract', 'difference', 'exclusion', 'softLight', 'hardLight', 'divide', 'linearLight', 'vividLight', 'pinLight', 'hardMix', 'darkerColor', 'lighterColor', 'hue', 'saturation', 'luminosity', 'hardMixPhotoshop', 'softLightSvg', 'equivalence', 'additiveSubtractive', 'arcTangent', 'negation', 'inverseSubtract', 'grainMerge', 'grainExtract', 'allanon', 'geometricMean', 'parallel', 'reflect', 'glow', 'freeze', 'heat', 'glowHeat', 'heatGlow', 'reflectFreeze', 'freezeReflect', 'heatGlowFreezeReflectHybrid', 'hardMixSofterPhotoshop', 'penumbraA', 'penumbraB', 'penumbraC', 'penumbraD', 'flatLight']
 export const SOURCE_RGBA8_GENERIC_SC_MODES:readonly (SourceRgba8SeparableMode|'add')[]=[...SOURCE_RGBA8_COMPOSITE_MODES.filter((mode):mode is SourceRgba8SeparableMode=>mode!=='over'&&mode!=='add'&&mode!=='alphaDarken'),'add']
 /** Closed channel functors. Whole-RGB modes require compositeRgba8, which
  * supplies all three channels and preserves the generic HSL alpha shell. */
@@ -156,7 +156,23 @@ function quadraticHeat(source:number,destination:number):number{return source===
 function quadraticHeatGlow(source:number,destination:number):number{return source+destination>255?quadraticHeat(source,destination):source===0?0:quadraticGlow(source,destination)}
 function quadraticFreezeReflect(source:number,destination:number):number{return source+destination>255?quadraticHeat(destination,source):destination===0?0:quadraticGlow(destination,source)}
 function quadraticGlowHeat(source:number,destination:number):number{return destination===255?255:source+destination>255?quadraticGlow(source,destination):quadraticHeat(source,destination)}
+// Native CFPenumbraB<quint8>: swapped SDR dodge is narrowed BEFORE /2;
+// opposite branch halves qint32 quotient BEFORE clamp/narrow. D255 precedes every division.
+function penumbraB(source:number,destination:number):number{
+ if(destination===255)return 255
+ if(source+destination<255)return Math.trunc(Math.min(255,divide(source,255-destination))/2)
+ if(source===0)return 0
+ return 255-Math.min(255,Math.trunc(divide(255-destination,source)/2))
+}
+function penumbraD(source:number,destination:number):number{return destination===255?255:sourceRgba8QuantizedAtan(source,255-destination)}
 function separableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+  if(mode==='hardMixSofterPhotoshop')return Math.max(0,Math.min(255,3*destination-2*(255-source)))
+  if(mode==='penumbraA')return penumbraB(destination,source)
+  if(mode==='penumbraB')return penumbraB(source,destination)
+  if(mode==='penumbraC')return penumbraD(destination,source)
+  if(mode==='penumbraD')return penumbraD(source,destination)
+  if(mode==='flatLight')return source===0?0:destination>source?penumbraB(source,destination):penumbraB(destination,source)
+
   if(mode==='reflect')return quadraticGlow(destination,source)
   if(mode==='glow')return quadraticGlow(source,destination)
   if(mode==='freeze')return quadraticHeat(destination,source)
