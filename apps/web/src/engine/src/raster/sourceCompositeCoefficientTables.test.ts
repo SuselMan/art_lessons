@@ -40,5 +40,5 @@ it('preserves the pinned signed cosine coefficients and reflected positive shade
  const positive=cosShader.slice(0,cosShader.indexOf('\nfloat sourceScalar4Cos(')),tree=readShader(positive,'sourceScalar4CosPositive','v'),gpu=new Uint8Array(128*4),output=new DataView(gpu.buffer)
  for(let index=0;index<128;index++)output.setInt32(index*4,evaluate(tree,index),true)
  expect(createHash('sha256').update(gpu).digest('hex')).toBe('0cec0adad5a72254b0bfc7055e81cd1b69ea1b08c59f47231344cbceed9147bc')
- expect(cosShader.length).toBeLessThan(5000);expect(es1).toContain(cosShader);expect(es3).toContain(cosShader)
+ expect(cosShader.match(/sourceScalar4CosPositive\(/g)!.length).toBe(2);expect(cosShader.length).toBeLessThan(5000);expect(es1).toContain(cosShader);expect(es3).toContain(cosShader)
 })

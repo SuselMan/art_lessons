@@ -15,4 +15,4 @@ export const SOURCE_GREATER_WEIGHT_GLSL='float sourceGreaterWeight(float delta){
 /** Byte coefficients are antisymmetric. Reflecting the floored index shares
  * the positive half; clamps/NaN retain the previous full-tree behavior. */
 export const SOURCE_SCALAR4_COS_GLSL='float sourceScalar4CosPositive(float v){'+emit(SOURCE_SCALAR4_COS_Q,0,127,'v',0)+'}\n'+
- 'float sourceScalar4Cos(float v){if(v!=v)return -65535.0;float q=floor(v);return q<128.0?sourceScalar4CosPositive(q):-sourceScalar4CosPositive(255.0-q);}'
+ 'float sourceScalar4Cos(float v){if(v!=v)return -65535.0;float q=floor(v);bool reverse=q>=128.0;float coefficient=sourceScalar4CosPositive(reverse?255.0-q:q);return reverse?-coefficient:coefficient;}'
