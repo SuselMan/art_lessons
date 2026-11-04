@@ -1,0 +1,579 @@
+{
+  "qualification": "Exact self-authored synthetic native-format KPP actualimported descriptor; no Krita artwork/export claim. Derived direct-mode test variants are explicit test DATA only.",
+  "sourceCommit": "e1a1796c795f03d5c2f05a229bde92cd3ba0ee00",
+  "originalKppSha256": "f3c08c2abb9396140267deb4d86083099145aa56625545c9627d603be41ac53a",
+  "descriptor": {
+    "id": "imported-d2c545ede1b6160a352827e4",
+    "version": 38,
+    "model": "stamp",
+    "category": "paint",
+    "tip": {
+      "kind": "procedural",
+      "hardness": 1,
+      "aspect": 1.0,
+      "angle": -0.0,
+      "rotation": "fixed",
+      "profile": {
+        "kind": "standard",
+        "shape": "ellipse",
+        "horizontalFade": 1.0,
+        "verticalFade": 1.0,
+        "antialias": false
+      }
+    },
+    "paperInteraction": 0,
+    "spacing": 0.2,
+    "flow": 1,
+    "flowPer": "stamp",
+    "sizeByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "flowByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "opacityByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "pressureSmoothingPx": 0,
+    "opacity": 1,
+    "behavior": {
+      "version": 2,
+      "speedInput": {
+        "version": 1,
+        "space": "view",
+        "maximum": 30,
+        "estimator": "grafettoEMA30ms"
+      },
+      "rendering": {
+        "opacityCeiling": "uniform",
+        "mode": "buildUp",
+        "blendMode": "equivalence",
+        "wetEdges": 0,
+        "burntEdges": 0,
+        "burntEdgesMode": "multiply",
+        "accumulation": "alphaDarken"
+      },
+      "spacing": {
+        "mode": "diameter",
+        "coefficient": 0.2
+      }
+    },
+    "sourceStamp": {
+      "version": 2,
+      "source": {
+        "kind": "defaultAuto",
+        "generator": "default",
+        "shape": "circle",
+        "diameter": 20.0,
+        "ratio": 1.0,
+        "horizontalFade": 1.0,
+        "verticalFade": 1.0,
+        "antialias": false,
+        "spikes": 2,
+        "randomness": 0.0,
+        "density": 1.0
+      },
+      "reader": "krita-bd6e8d0-v1",
+      "role": "primary",
+      "settings": {
+        "brush_definition": "<Brush type=\"auto_brush\" spacing=\"0.2\" angle=\"0\" randomness=\"0\" density=\"1\"><MaskGenerator id=\"default\" type=\"circle\" diameter=\"20\" ratio=\"1\" hfade=\"1\" vfade=\"1\" spikes=\"2\" antialiasEdges=\"0\"/></Brush>",
+        "CompositeOp": "equivalence",
+        "PaintOpAction": "2",
+        "SizeUseCurve": "false"
+      },
+      "brush": {
+        "width": 20,
+        "height": 20,
+        "scale": 1,
+        "angle": 0.0
+      },
+      "spacing": {
+        "value": 0.2,
+        "automatic": false,
+        "coefficient": 1.0,
+        "isotropic": false
+      },
+      "timing": {
+        "enabled": false,
+        "rate": 20.0,
+        "ignoreDistance": false
+      },
+      "precision": {
+        "level": 5,
+        "automatic": false
+      },
+      "flags": {
+        "scatterX": true,
+        "scatterY": true,
+        "mirrorX": false,
+        "mirrorY": false,
+        "indirectPainting": true,
+        "textureEnabled": false,
+        "materialFixed1": true
+      },
+      "options": [
+        {
+          "id": "Size",
+          "checkable": true,
+          "checked": false,
+          "useCurve": false,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Rotation",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Ratio",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Scatter",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 5.0,
+          "min": 0,
+          "max": 5,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Opacity",
+          "checkable": false,
+          "checked": true,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Flow",
+          "checkable": false,
+          "checked": true,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Mirror",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Spacing",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "Rate",
+          "checkable": true,
+          "checked": false,
+          "useCurve": true,
+          "useSameCurve": true,
+          "commonCurve": {
+            "text": "0,0;1,1;",
+            "points": [
+              {
+                "x": 0.0,
+                "y": 0.0,
+                "corner": false
+              },
+              {
+                "x": 1.0,
+                "y": 1.0,
+                "corner": false
+              }
+            ]
+          },
+          "curveMode": 0,
+          "strength": 1.0,
+          "min": 0,
+          "max": 1,
+          "sensors": [
+            {
+              "id": "pressure",
+              "sourceId": "pressure",
+              "sourceSlot": 0,
+              "curve": {
+                "text": "0,0;1,1;",
+                "points": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "corner": false
+                  },
+                  {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "corner": false
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "unsupported": [],
+      "compiled": {
+        "version": 2,
+        "reader": "krita-bd6e8d0-v1",
+        "profile": "eigen-5.0.1-source-functional-f64-v1",
+        "buildId": "c9448db2cab661b36ded12e5ef4aca224c6c28d767d6e64243386006d07e6e72",
+        "curves": []
+      }
+    }
+  }
+}

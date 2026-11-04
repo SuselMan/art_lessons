@@ -1,9 +1,10 @@
+import channelOriginal from './fixtures/pixelChannelAuto.original.json'
 import {canonicalOperationSqlMockRow} from './testing/canonicalOperationSqlMock.js'
 import {mkdtempSync,rmSync,readFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalMaterialGeometryCost,decodeCanonicalStrokeFrame,buildCanonicalMaterial,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
+import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,sourceAutoGeometry,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalMaterialGeometryCost,decodeCanonicalStrokeFrame,buildCanonicalMaterial,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
 // Test-only dynamic source imports keep browser compiler code OUT of the
 // server production/NodeNext build graph while exercising actual author glue.
 const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
@@ -427,4 +428,47 @@ it('admits actual Marker D only explicitly, preserves zero-draw/live/recorded pi
  expect(()=>disabled.readResidentRecordedCapability({roomId:'board',boardEpoch:7,operation:prefix[0]})).toThrow('recorded policy disabled')
  history.rows=prefix;history.canonicalRows=prefix.map(op=>db.operation.create.mock.calls.find(([request])=>request.data.id===op.id)![0].data);db.operation.count.mockResolvedValue(prefix.length)
  expect(await new CanonicalRoomTransport({...p,seededDefaultAuto:false,recordedSeededDefaultAutoProfile:false}).begin(identity,f.input,()=>true)).toMatchObject({ok:false})
+})
+
+// Actual functional32 compiled original from the failed app BEGIN. No disposable
+// QA paths/pixels; manual resolved recipes exercise the admission/read boundary.
+function channelDescriptor(mode:'wash'|'buildup'='wash'):BrushDescriptor {
+ const library:unknown={schemaVersion:1,brushes:[{name:'Authored original channel Auto',source:'01-equivalence.kpp',warnings:[],descriptor:structuredClone(channelOriginal.descriptor)}],assets:[],skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Actual channel original fixture invalid')
+ const d=library.brushes[0].descriptor,data=d.sourceStamp
+ if(!data||data.version!==2||data.source.kind!=='defaultAuto'||data.compiled?.version!==2||data.compiled.profile!=='eigen-5.0.1-source-functional-f64-v1')throw Error('Actual functional compiled Auto required')
+ if(mode==='buildup'){Object.assign(data.settings,{PaintOpAction:'1'});Object.assign(data.flags,{indirectPainting:false})}
+ return d
+}
+const channelPolicy={authorRasterProfile:B,allowedRecordedRasterProfiles:[B,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE],alphaDarkenVariants:['creamy'] as const,autoSources:{defaultAuto:{coverageProfile:'browser-number-coverage-v1' as const,storedScale:1 as const}},plainAutoGeometrySource:'dynamic-auto-geometry-v1' as const,authorPlainAutoGeometrySource:'dynamic-auto-geometry-v1' as const}
+it.each(['wash','buildup'] as const)('binds original browser-only channel %s BEGIN and recorded READ using the actual trusted B profile',async mode=>{
+ const f=setup(channelDescriptor(mode)),input={...f.input,sourceScale:1.2},binder=new CanonicalBrushCapabilityResolver({...channelPolicy,storage:f.storage,operator:empty,maxGestures:8})
+ const prepared=binder.prepareBeginGesture(identity,input)
+ expect(prepared.grant.rasterProfile).toBe(B);expect(prepared.grant.composition).toMatchObject({mode,outerBlend:'equivalence'})
+ const transport=new CanonicalRoomTransport(channelPolicy),s=snapshot(await transport.begin(identity,input,()=>true)),pin=s.material.primarySource
+ expect(s.material.outerCompositionLaw).toBe(mode==='wash'?'generic-separable-u8-v1':'pixel-direct-composite-browser-v1')
+ if(pin.kind!=='defaultAuto')throw Error('Expected original default Auto pin')
+ expect(pin.coverageProfile).toBe('browser-number-coverage-v1');expect(pin.brushScale).toBe(1.2)
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:pin.source.spikes,scale:pin.brushScale,angle:pin.brushAngle},{scale:.25,ratio:1,rotation:.4})
+ const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.25,ratio:1,rotation:.4,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},s.material).packed
+ const frame:CanonicalStrokeFrameEnvelope={version:2,rasterProfile:B,sourceScale:1.2,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}
+ expect(transport.live(identity,{layerId:'layer',frame}).result).toEqual({ok:true,duplicate:false})
+ const operation:CanonicalStrokeOperation={id:'actual-channel-'+mode,userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame},saved=await transport.recorded(identity,operation,()=>true)
+ expect(saved.result).toMatchObject({ok:true,seq:1});await flushRoomWrites('board');if(!saved.accepted)throw Error('Actual recorded operation unavailable')
+ const row=db.operation.create.mock.calls.at(-1)![0].data,reader=new CanonicalBrushCapabilityResolver({...channelPolicy,authorPlainAutoGeometrySource:false,storage:f.storage,operator:empty,maxGestures:8})
+ const read=reader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted,row})
+ expect(read.rasterProfile).toBe(B);expect(read.material).toEqual(s.material);expect(read.composition).toEqual(s.composition)
+ expect(()=>reader.beginGesture(identity,{...input,strokeId:'no-author-grant'})).toThrow()
+ const wrong={...saved.accepted,frame:{...frame,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE}}
+ expect(()=>reader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:wrong,row})).toThrow()
+})
+it('keeps browser-only channel originals closed under G and rejects conflicting raw source under trusted B before pinning',async()=>{
+ const d=channelDescriptor(),f=setup(d),pin=vi.spyOn(f.storage,'pin')
+ const generic={...channelPolicy,authorRasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,allowedRecordedRasterProfiles:[CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE],autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
+ expect(await new CanonicalRoomTransport(generic).begin(identity,{...f.input,sourceScale:1.2},()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+ const invalid=channelDescriptor();Object.assign(invalid.sourceStamp!.settings,{CompositeOp:'equivalence-unknown'})
+ const bad=setup(invalid)
+ expect(await new CanonicalRoomTransport(channelPolicy).begin(identity,{...bad.input,sourceScale:1.2},()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+ expect(pin).not.toHaveBeenCalled();expect(f.board.operations).toEqual([]);expect(bad.board.operations).toEqual([])
 })

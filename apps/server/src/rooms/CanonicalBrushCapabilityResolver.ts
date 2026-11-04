@@ -816,10 +816,9 @@ export class CanonicalBrushCapabilityResolver {
       const data=descriptor.sourceStamp
       const dynamic=!!this.plainAutoGeometryPolicies.plainAutoGeometrySource&&!data.flags.textureEnabled&&canonicalStrokeRasterContract(profile).genericSC
       if(dynamic){
-        if(!(composition.mode==='wash'||composition.mode==='buildup'&&(composition.outerBlend==='over'||composition.outerBlend==='erase')))fail('plain dynamic Auto composition unavailable')
         if(role==='author'){
           if(!this.plainAutoGeometryPolicies.authorPlainAutoGeometrySource)fail('dynamic Auto author policy disabled')
-          const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,library.assets.map(({id,size})=>({id,size})))
+          const capability=extractCanonicalDynamicAutoGeometryData(descriptor,undefined,library.assets.map(({id,size})=>({id,size})),profile)
           if(!capability.supported)fail('unsupported dynamic Auto source: '+capability.reasons.join(','))
         }
         plainAutoGeometry='dynamic-auto-geometry-v1'
