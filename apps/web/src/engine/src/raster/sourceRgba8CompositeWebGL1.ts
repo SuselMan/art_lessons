@@ -1,3 +1,4 @@
+import {SOURCE_RGBA8_QUANTIZED_ATAN_GLSL} from './sourceRgba8QuantizedAtan'
 import { SOURCE_FMA_F32_BASE4096_GLSL } from './sourceFmaF32Base4096Shader'
 import { SOURCE_FMA_F32_NUMERIC_GLSL, SOURCE_FMA_F32_COMPOSE_GLSL } from './sourceFmaF32NumericShader'
 
@@ -137,7 +138,7 @@ float sourceRgba8Divide(float a, float b) {
 `;
 const SOURCE_RGBA8_BYTE_WRAP_GLSL = /* glsl */ `float sourceRgba8Wrap(float value) { return value - floor(value * (1.0/256.0)) * 256.0; }
 `;
-export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = SOURCE_RGBA8_BYTE_CONTROLS_GLSL + /* glsl */ `float sourceRgba8Blend(float source, float destination, float alpha) {
+export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = SOURCE_RGBA8_QUANTIZED_ATAN_GLSL + SOURCE_RGBA8_BYTE_CONTROLS_GLSL + /* glsl */ `float sourceRgba8Blend(float source, float destination, float alpha) {
   float t = (source - destination) * alpha + 128.0;
   return floor((floor(t * (1.0/256.0)) + t) * (1.0/256.0)) + destination;
 }
@@ -170,7 +171,7 @@ float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if(mode==20.0)return destination>127.0?(source==255.0?(destination==0.0?0.0:255.0):min(255.0,sourceRgba8Divide(destination,255.0-source))):(destination==255.0?255.0:source==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(255.0-destination,source)));
   // Append-only channel IDs28..37; old0..27 math remains unchanged.
   if(mode==29.0)return floor(255.0*abs(sqrt(destination/255.0)-sqrt(source/255.0))+.5);
-  if(mode==30.0)return source==0.0?0.0:destination==0.0?255.0:floor(510.0*atan(source/255.0,destination/255.0)/3.14159265358979323846+.5);
+  if(mode==30.0)return sourceRgba8QuantizedAtan(source,destination);
   if(mode==31.0)return 255.0-abs(255.0-source-destination);
   if(mode==33.0)return clamp(source+destination-127.0,0.0,255.0);
   if(mode==34.0)return clamp(destination-source+127.0,0.0,255.0);

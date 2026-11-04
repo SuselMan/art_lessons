@@ -1,3 +1,4 @@
+import {sourceRgba8QuantizedAtan} from '../raster/sourceRgba8QuantizedAtan'
 import { sourceFmaF32 } from './sourceFmaF32'
 import type { Rgba8 } from './mixWeightedRgba8'
 
@@ -153,7 +154,7 @@ function separableChannel(mode: SourceRgba8SeparableMode, source: number, destin
   // Pinned U8 functors: halfValue=127, Allanon truncates, Parallel retains
   // integer reciprocal division. Not textbook normalized-float substitutions.
   if(mode==='additiveSubtractive')return Math.trunc(255*Math.abs(Math.sqrt(destination/255)-Math.sqrt(source/255))+.5)
-  if(mode==='arcTangent')return source===0?0:destination===0?255:Math.trunc(510*Math.atan2(source/255,destination/255)/Math.PI+.5)
+  if(mode==='arcTangent')return sourceRgba8QuantizedAtan(source,destination)
   if(mode==='negation')return 255-Math.abs(255-source-destination)
   if(mode==='grainMerge')return Math.max(0,Math.min(255,source+destination-127))
   if(mode==='grainExtract')return Math.max(0,Math.min(255,destination-source+127))

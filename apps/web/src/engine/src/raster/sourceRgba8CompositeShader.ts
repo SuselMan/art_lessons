@@ -1,3 +1,4 @@
+import {SOURCE_RGBA8_QUANTIZED_ATAN_GLSL} from './sourceRgba8QuantizedAtan'
 import { SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from './sourceRgba8CompositeWebGL1';
 import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_COLOR_HSY_BROWSER_PROFILE, sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 
@@ -35,7 +36,7 @@ export function canonicalizeSourceRgba8Control(control: Rgba8CompositeControl): 
  * canonical controls only. Integer target output first; storage is separate.
  * No production import. GPU execution remains an independent acceptance gate.
  */
-export const SOURCE_RGBA8_COMPOSITE_GLSL = /* glsl */ `
+export const SOURCE_RGBA8_COMPOSITE_GLSL = SOURCE_RGBA8_QUANTIZED_ATAN_GLSL + /* glsl */ `
 struct SourceRgba8CompositeControl {
   uint mode;
   uint opacity;
@@ -85,7 +86,7 @@ uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByt
   if(mode==20u)return dx>127.0?(sx==255.0?(dx==0.0?0u:255u):uint(min(255.0,sourceRgba8BrowserDivide(dx,255.0-sx)))):(dx==255.0?255u:sx==0.0?0u:uint(255.0-min(255.0,sourceRgba8BrowserDivide(255.0-dx,sx))));
   // Append-only IDs28..37; existing controls and GenericSC alpha shell unchanged.
   if(mode==29u)return uint(floor(255.0*abs(sqrt(dx/255.0)-sqrt(sx/255.0))+.5));
-  if(mode==30u)return sx==0.0?0u:dx==0.0?255u:uint(floor(510.0*atan(sx/255.0,dx/255.0)/3.14159265358979323846+.5));
+  if(mode==30u)return uint(sourceRgba8QuantizedAtan(sx,dx));
   if(mode==31u)return uint(255.0-abs(255.0-sx-dx));
   if(mode==33u)return uint(clamp(sx+dx-127.0,0.0,255.0));
   if(mode==34u)return uint(clamp(dx-sx+127.0,0.0,255.0));
