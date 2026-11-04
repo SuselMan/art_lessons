@@ -39,7 +39,7 @@ describe('functional Pixel blend functors, independent fixed byte examples',()=>
  ] as const)('retains fixed midrange %s byte arithmetic',(mode,value)=>{
   expect(opaque(mode,[64,64,64,255],[192,192,192,255])).toEqual([value,value,value,255])
  })
- it.each(SOURCE_RGBA8_GENERIC_SC_MODES)('preserves alpha endpoints and hidden destination RGB for %s',mode=>{
+ it.each(SOURCE_RGBA8_GENERIC_SC_MODES.filter(mode=>!new Set<string>(['copyRed','copyGreen','copyBlue','behind','luminositySai','greater']).has(mode)))('preserves alpha endpoints and hidden destination RGB for %s',mode=>{
   const source:Rgba8=[211,17,83,255],destination:Rgba8=[29,193,7,157]
   const control={mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1} as const
   expect(compositeRgba8(source,destination,{...control,opacity:0})).toEqual(destination)
@@ -51,4 +51,13 @@ describe('functional Pixel blend functors, independent fixed byte examples',()=>
  it.each([['add',[199,107,70,172]],['darken',[178,92,43,172]],['screen',[194,102,68,172]]] as const)('keeps partial alpha/opacity/mask rounding for %s',(mode,expected)=>{
   expect(compositeRgba8([80,130,240,128],[200,90,30,160],{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:128/255,mask:127})).toEqual(expected)
  })
+})
+
+// Exact new RGBA shells intentionally differ from scalarSC empty-destination rules.
+it.each([['copyRed',[211,9,10,0]],['copyGreen',[8,17,10,0]],['copyBlue',[8,9,83,0]],['behind',[211,17,83,255]],['luminositySai',[219,26,93,255]],['greater',[211,17,83,255]]]as const)('retains explicit custom-shell empty-destination law for %s',(mode,expected)=>{
+ const control={mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}as const
+ expect(compositeRgba8([211,17,83,255],[8,9,10,0],control)).toEqual(expected)
+ expect(compositeRgba8([211,17,83,0],[8,9,10,0],control)).toEqual([8,9,10,0])
+ expect(compositeRgba8([211,17,83,255],[29,193,7,157],{...control,opacity:0})).toEqual([29,193,7,157])
+ expect(compositeRgba8([211,17,83,255],[29,193,7,157],{...control,mask:0})).toEqual([29,193,7,157])
 })

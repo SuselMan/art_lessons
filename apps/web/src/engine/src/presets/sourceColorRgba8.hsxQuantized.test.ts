@@ -55,7 +55,8 @@ describe('HSX29 Q65535 staged deterministic browser law',()=>{
   }
  })
  it('uses identical exact-limb implementation in BOTH real shader modules, only newIDdispatch',()=>{
-  const start='// HSX29-only deterministic Q65535 law:',end='vec3 sourceRgba8VectorBlend('
+  const start='// HSX29-only deterministic Q65535 law:',end='// Functional normal4 Q65535,'
+  for(const shader of[es1,es3]){expect(shader.indexOf(start)).toBeGreaterThanOrEqual(0);expect(shader.indexOf(end)).toBeGreaterThan(shader.indexOf(start))}
   expect(es1.slice(es1.indexOf(start),es1.indexOf(end))).toBe(es3.slice(es3.indexOf(start),es3.indexOf(end)))
   for(const text of [es1,es3]){
    expect(text).toContain('sourceHsxProduct')

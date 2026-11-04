@@ -288,3 +288,28 @@ GPU/APP Normal4 ещё не проверены; native pixel identity не за�
 Доказательства: pixel-normal4-gates-v3/final-proof.json,
 pixel-normal4-gates-v3/actual-applied-equivalence-proof.json,
 pixel-normal4-extension-independent-review-v3.json.
+
+
+## Шесть собственных RGBA-композиций
+
+IDs119..124/revision45: Copy Red/Green/Blue, Behind, SAI Luminosity, Greater.
+Собственные альфа-оболочки выполняются до generic-SC shortcuts. Копирование
+каналов сохраняет destination alpha; SAI прибавляет цвет напрямую, без общего
+unpremultiply. Greater использует детерминированные Q65535 sigmoid weights.
+Исторический colorHsy сохранён отдельной веткой. Только профиль B.
+
+Вместе применён точечный Easy Dodge endpoint: S255 сначала даёт255, затем D0
+даёт0; GPU pow не вызывается на этом нулевом основании. Прочие Scalar23
+численные расхождения этим не объявляются исправленными.
+
+2375 тестов/31 модуль составного покрытия:29 неизменённых модулей2231 плюс
+144 проверки двух исправленных исторических модулей; полный V2 rerun не
+проводился. Первоначальные5 FAIL сохранены, исправлены только неверная область
+общего alpha-endpoint теста и граница извлечения HSX shader блока. Все прежние
+14 выходов блока совпадают побайтно; дополнительно изменены2 test файла.
+Strict6/41/0, importer43. Все16 применённых файлов совпали с проверенными SHA.
+GPU/APP Custom6 и нового endpoint ещё не запускались.
+
+Доказательства: pixel-custom6-endpoint-gates-v2/final-proof.json,
+pixel-custom6-endpoint-gates-v2/actual-applied-equivalence-proof.json,
+pixel-custom6-endpoint-combined-independent-review-v1.json.
