@@ -15,7 +15,7 @@ import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchAcquisition,RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
-import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, type BrushGlTurn } from './BrushGlBatch'
+import { runBrushGlBatch, runBrushGlTurn, runBrushGlSequence, runBrushGlClosedNativeSequence, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import {canonicalPatternResourceLifetime,assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalGradientResource,type CanonicalTipGradientResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import {CANONICAL_DUAL_MASKING_MODES} from './CanonicalRgba8CompositePass'
@@ -1000,28 +1000,23 @@ export class CanonicalFrameExecutor {
   }
   private paintMixedPreparedSequence(work:Work,layer:TiledLayerBuffer,started:number):void {
     const segment=work.segment??0
-    runBrushGlSequence({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},sequence=>{
-      for(let steps=0;steps<32&&(steps===0||performance.now()-started<4);steps++){
-        this.assertPrepared()
-        if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Mixed sequence owner changed')
-        // Stop BEFORE opening a child or evaluating the next cold definition.
-        // Its original standalone CPU64 continuation runs on the next advance.
-        if((work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work)||!this.mixedPreparedSourceReady(work))break
-        const draw=work.draw,tile=work.tile,part=work.paintPart
-        sequence.step(turn=>{
-          this.assertPrepared()
-          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work)||!this.mixedPreparedSourceReady(work))throw new Error('Mixed prepared sequence boundary changed')
-          const d=work.result.draws[work.draw],recipe=work.input.frame.definitions[d.definition]
-          if(autoRecipe(recipe)){
-            const request=this.maskRequest(work,work.draw)
-            if(!this.maskParticipant.hasReadyAutoGeneration(request))this.maskParticipant.flushFinalAutoGeneration(request,turn)
-          }
-          this.assertPrepared()
-          if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work))throw new Error('Mixed paint boundary changed')
-          this.paint(work,layer,turn,started)
-        })
-        if(work.draw===draw&&work.tile===tile&&work.paintPart===part)break
+    runBrushGlClosedNativeSequence({started,callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],captureAutoUploadUnpack:true,allowAutoUpload:true},turn=>{
+      this.assertPrepared()
+      if(this.queue[0]!==work||this.currentLayer(work)!==layer)throw new Error('Mixed sequence owner changed')
+      // Next readiness and all caller decisions remain BEFORE child restore.
+      // A cold definition is prepared outside any parent on the next advance.
+      if((work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work)||!this.mixedPreparedSourceReady(work))return false
+      const draw=work.draw,tile=work.tile,part=work.paintPart
+      const d=work.result.draws[work.draw],recipe=work.input.frame.definitions[d.definition]
+      if(autoRecipe(recipe)){
+        const request=this.maskRequest(work,work.draw)
+        if(!this.maskParticipant.hasReadyAutoGeneration(request))this.maskParticipant.flushFinalAutoGeneration(request,turn)
       }
+      this.assertPrepared()
+      if(this.queue[0]!==work||this.currentLayer(work)!==layer||(work.segment??0)!==segment||!this.canEnterMixedPreparedSequence(work))throw new Error('Mixed paint boundary changed')
+      this.paint(work,layer,turn,started)
+      if(work.draw===draw&&work.tile===tile&&work.paintPart===part)return false
+      return (work.segment??0)===segment&&this.canEnterMixedPreparedSequence(work)&&this.mixedPreparedSourceReady(work)
     })
     // Segment resolve, presentation, END and Work retirement remain outside
     // the completely restored parent and its fresh single-use children.

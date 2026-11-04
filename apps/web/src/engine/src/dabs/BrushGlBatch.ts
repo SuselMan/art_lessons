@@ -263,7 +263,18 @@ function sameParticipantBinding(current:BrushGlBatchInfo,pinned:BrushGlBatchInfo
 /** One full capture BEFORE direct target allocation/copy and owner callbacks.
  * One inner batch may borrow it. The SAME snapshot is restored inside that
  * batch before owner releases and again here after preparation cleanup. */
-export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[];readonly captureAutoUploadUnpack?:true;readonly callbackScope?:BrushGlCanonicalCallbackScope;readonly onCleanupFailure?:(error:unknown)=>void},execute:(turn:BrushGlTurn)=>void):void {
+type BrushGlTurnOptions={readonly participants:readonly BrushGlBatchParticipant[];readonly captureAutoUploadUnpack?:true;readonly callbackScope?:BrushGlCanonicalCallbackScope;readonly onCleanupFailure?:(error:unknown)=>void}
+// One synchronous terminal restore receipt, minted/consumed only by this module.
+// It never describes ambient state on a later call and is never caller authority.
+const terminalRestores=new WeakMap<object,TurnRecord>()
+export function runBrushGlTurn(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn)=>void):void {
+  runBrushGlTurnCore(options,turn=>{
+    const value:unknown=execute(turn)
+    if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('Brush GL turn callback must be synchronous')
+    return undefined
+  })
+}
+function runBrushGlTurnCore(options:BrushGlTurnOptions,execute:(turn:BrushGlTurn)=>object|undefined):void {
   const autoUpload=options.captureAutoUploadUnpack===true
   if(options.captureAutoUploadUnpack!==undefined&&!autoUpload)throw new Error('Invalid auto upload capture declaration')
   const infos=participantInfos(options.participants),first=infos.values().next().value!
@@ -272,7 +283,7 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
   const releaseCpu=first.cpu.reserve(4096+(autoUpload?128:0))
   let restore:BrushGlStateRestore|undefined,restoreGate:BrushGlRestoreGate|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
   const participantReleases:(()=>void)[]=[]
-  let cleanupFailure:{readonly error:unknown}|undefined
+  let cleanupFailure:{readonly error:unknown}|undefined,terminalRestored=false
   const cleanup=(fn:()=>void)=>{try{fn()}catch(error){cleanupFailure??={error};if(!failed){failed=true;failure=error}}}
   turnContexts.add(first.gl)
   try{
@@ -284,13 +295,13 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
     restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,Math.max(...[...infos.values()].map(i=>i.textureUnits??3)),autoUpload,restoreGate)
     token=Object.freeze({}) as BrushGlTurn
     record={infos,restore,restoreGate,restoreAutoUpload:restore.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false};turns.set(token,record)
-    const value:unknown=execute(token)
-    if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('Brush GL turn callback must be synchronous')
+    const receipt=execute(token)
+    if(receipt){terminalRestored=terminalRestores.get(receipt)===record;terminalRestores.delete(receipt)}
   }catch(error){failed=true;failure=error}
   finally{
     if(record)record.active=false
     if(token)turns.delete(token) // retained expired tokens must not retain GL snapshots
-    if(restore)cleanup(()=>{if(!first.gl.isContextLost())restore!()})
+    if(restore&&!terminalRestored)cleanup(()=>{if(!first.gl.isContextLost())restore!()})
     cleanup(releaseCpu)
     for(const release of participantReleases.reverse())cleanup(release)
     closeBrushGlRestoreGate(restoreGate)
@@ -337,6 +348,49 @@ export function runBrushGlSequence(options:Parameters<typeof runBrushGlTurn>[0]&
     }catch(error){if(!failed){failed=true;failure=error}}
     finally{active=false}
     if(failed)throw failure
+  })
+}
+
+/** Closed native driver: caller code only runs INSIDE a child, before its
+ * final restore. Unlike the generic sequence it has no arbitrary postlude.
+ * The boolean continuation is plain DATA, inspected before restoring the child.
+ * A successful terminal child needs no duplicate outer restore. */
+export function runBrushGlClosedNativeSequence(options:BrushGlTurnOptions&{readonly started:number;readonly allowAutoUpload?:true},step:(turn:BrushGlTurn)=>boolean):void {
+  const started=options.started
+  if(!Number.isFinite(started)||typeof step!=='function')throw new Error('Invalid closed sequence plan')
+  if(options.allowAutoUpload!==undefined&&(options.allowAutoUpload!==true||options.captureAutoUploadUnpack!==true))throw new Error('Sequence upload requires declared unpack capture')
+  runBrushGlTurnCore(options,parent=>{
+    const parentRecord=turns.get(parent)!,gl=parentRecord.infos.values().next().value!.gl
+    for(let ordinal=0;ordinal<32;ordinal++){
+      let token:BrushGlTurn|undefined,record:TurnRecord|undefined,failed=false,failure:unknown,more=false,restored=false
+      const latch=(error:unknown)=>{if(!failed){failed=true;failure=error}}
+      try{
+        for(const [participant,pinned]of parentRecord.infos)if(!sameParticipantBinding(participant.brushGlBatchInfo(),pinned))throw new Error('Sequence participant changed')
+        token=Object.freeze({}) as BrushGlTurn
+        record={sequenceChild:true,...(options.allowAutoUpload?{sequenceAutoUpload:true as const}:{}),infos:parentRecord.infos,restore:parentRecord.restore,restoreGate:parentRecord.restoreGate,restoreAutoUpload:parentRecord.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false}
+        turns.set(token,record)
+        // Recheck the original clock AFTER child admission too. The first
+        // indivisible paint remains allowed even if entry capture crossed 4ms.
+        if(ordinal===0||performance.now()-started<4){
+          const result:unknown=step(token)
+          if(result!==true&&result!==false)throw new Error('Closed GL sequence requires a boolean continuation')
+          more=result
+        }
+      }catch(error){latch(record?.stepFailure?record.stepFailure.error:error)}
+      finally{
+        if(record){record.active=false;if(record.stepFailure)latch(record.stepFailure.error);if(record.cleanupFailure){parentRecord.cleanupFailure??=record.cleanupFailure;latch(record.cleanupFailure.error)}}
+        if(token)turns.delete(token)
+        try{if(!gl.isContextLost()){parentRecord.restore();restored=true}}catch(error){parentRecord.cleanupFailure??={error};latch(error)}
+      }
+      if(failed)throw failure
+      // Only module-owned primitive/clock checks occur after the restore.
+      // No caller callback/getter/thenable inspection can modify terminal GL.
+      if(!more||ordinal===31||performance.now()-started>=4){
+        if(!restored)return undefined
+        const receipt=Object.freeze({});terminalRestores.set(receipt,parentRecord);return receipt
+      }
+    }
+    return undefined
   })
 }
 

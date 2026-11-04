@@ -616,3 +616,64 @@ it('ordinary warm sequence still denies upload without adding upload-unpack quer
  uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>sequence.step(turn=>expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(turn,s.service)).toThrow('Warm sequence')))
  expect(query.mock.calls).toHaveLength(baseline);expect(s.cpu.reservedBytes).toBe(0)
 })
+
+
+it('closed native sequence removes only the terminal outer restore after native releases',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=setup(),before=s.snapshot(),viewport=vi.spyOn(s.gl,'viewport');let calls=0,old:BrushGlTurn|undefined
+ try{
+  uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{
+   expect(s.snapshot()).toEqual(before)
+   if(old)expect(()=>runBrushGlBatch({turn:old,participants:[s.service]},()=>{})).toThrow()
+   runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>()=>s.gl.viewport(7,8,9,10)}]},frame=>{frame.beginDraw();s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer())})
+   old=turn;return ++calls<3
+  })
+  // Each child: batch restore + owner mutation + final child restore. No +1 outer.
+  expect(viewport.mock.calls).toHaveLength(9);expect(calls).toBe(3);expect(s.snapshot()).toEqual(before)
+  expect(()=>runBrushGlBatch({turn:old,participants:[s.service]},()=>{})).toThrow();expect(s.cpu.reservedBytes).toBe(0)
+ }finally{clock.mockRestore()}
+})
+it('generic sequence still restores arbitrary GL postlude and never accepts a terminal receipt',()=>{
+ const s=setup(),before=s.snapshot(),viewport=vi.spyOn(s.gl,'viewport')
+ uploadTurn.runBrushGlSequence({participants:[s.service]},sequence=>{
+  sequence.step(turn=>runBrushGlBatch({turn,participants:[s.service]},()=>{}))
+  s.gl.viewport(5,6,7,8)
+ })
+ expect(viewport.mock.calls).toHaveLength(4);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('closed sequence checks the deadline after restore and preserves the first indivisible draw',()=>{
+ let now=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),s=setup(),original=s.gl.viewport.bind(s.gl);let calls=0
+ const view=vi.spyOn(s.gl,'viewport').mockImplementation((...args)=>{original(...args);now=5})
+ try{
+  uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{calls++;runBrushGlBatch({turn,participants:[s.service]},frame=>frame.beginDraw());return true})
+  expect(calls).toBe(1);expect(view).toHaveBeenCalledTimes(2);expect(s.cpu.reservedBytes).toBe(0)
+ }finally{clock.mockRestore()}
+})
+it('closed sequence rejects escaped/reentered children and preserves an undefined primary across cleanup',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=setup(),before=s.snapshot();let failed=false,value:unknown='unset',saved:BrushGlTurn|undefined
+ try{
+  try{uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{
+   saved=turn;expect(()=>uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},()=>false)).toThrow('Nested')
+   try{runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>()=>{throw Error('secondary release')}}]},()=>{throw undefined})}catch{}
+   return false
+  })}catch(error){failed=true;value=error}
+  expect(failed).toBe(true);expect(value).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+  expect(()=>runBrushGlBatch({turn:saved,participants:[s.service]},()=>{})).toThrow()
+ }finally{clock.mockRestore()}
+})
+it('closed sequence rejects nonboolean results without inspecting a foreign then getter',()=>{
+ const s=setup(),before=s.snapshot(),get=vi.fn(()=>{s.gl.viewport(1,2,3,4);return undefined})
+ const callback=(()=>Object.defineProperty({},'then',{get})) as unknown as (turn:BrushGlTurn)=>boolean
+ expect(()=>uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:performance.now()},callback)).toThrow('boolean')
+ expect(get).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('closed native sequence keeps hard32 children and abandons receipts when restore fails',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=setup();let calls=0
+ try{
+  uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{calls++;runBrushGlBatch({turn,participants:[s.service]},()=>{});return true})
+  expect(calls).toBe(32);expect(s.cpu.reservedBytes).toBe(0)
+  const viewport=s.gl.viewport.bind(s.gl);let restores=0
+  vi.spyOn(s.gl,'viewport').mockImplementation((...args)=>{viewport(...args);if(++restores===2)throw undefined})
+  let failed=false,value:unknown='unset';try{uploadTurn.runBrushGlClosedNativeSequence({participants:[s.service],started:0},turn=>{runBrushGlBatch({turn,participants:[s.service]},()=>{});return false})}catch(error){failed=true;value=error}
+  expect(failed).toBe(true);expect(value).toBeUndefined();expect(restores).toBe(3);expect(s.cpu.reservedBytes).toBe(0)
+ }finally{clock.mockRestore()}
+})

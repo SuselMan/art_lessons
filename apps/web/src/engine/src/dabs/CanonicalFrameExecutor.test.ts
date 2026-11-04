@@ -2329,3 +2329,18 @@ it('prepared mixed final upload and first paint progress when the parent capture
   query.mockRestore();now=0;s.drain();expect(s.executor.checkpointReady).toBe(true)
  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })
+
+
+it('closed mixed IMAGE/Soft sequence removes only one outer restore per original parent',()=>{
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=mixedColdImageSoftFixture()
+ try{
+  const before=s.snapshot(),viewport=vi.spyOn(s.gl,'viewport'),draw=vi.spyOn(s.composite,'drawSource')
+  s.executor.advance()
+  // Count only restores of the caller viewport, not actual target setup.
+  const saved=before.viewport
+  const restores=viewport.mock.calls.filter(args=>args.every((v,i)=>v===saved[i])).length
+  expect(draw.mock.calls.map(([r])=>r.source.view.rect.x)).toEqual([0,1])
+  expect(restores).toBe(2);expect(s.work.draw).toBe(2);expect(s.snapshot()).toEqual(before)
+  s.drain();expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)}
+})
