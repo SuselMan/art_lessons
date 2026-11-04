@@ -150,7 +150,22 @@ float sourceRgba8ChannelFloorDivide(float numerator,float denominator){
  float q=floor(numerator/denominator),r=numerator-q*denominator;
  return r<0.0?q-1.0:r>=denominator?q+1.0:q;
 }
+float sourceRgba8QuadraticGlow(float s,float d){return d==255.0?255.0:min(255.0,sourceRgba8Divide(sourceRgba8Multiply(s,s),255.0-d));}
+float sourceRgba8QuadraticHeat(float s,float d){return s==255.0?255.0:d==0.0?0.0:255.0-min(255.0,sourceRgba8Divide(sourceRgba8Multiply(255.0-s,255.0-s),d));}
+float sourceRgba8QuadraticHeatGlow(float s,float d){return s+d>255.0?sourceRgba8QuadraticHeat(s,d):s==0.0?0.0:sourceRgba8QuadraticGlow(s,d);}
+float sourceRgba8QuadraticFreezeReflect(float s,float d){return s+d>255.0?sourceRgba8QuadraticHeat(d,s):d==0.0?0.0:sourceRgba8QuadraticGlow(d,s);}
+float sourceRgba8QuadraticGlowHeat(float s,float d){return d==255.0?255.0:s+d>255.0?sourceRgba8QuadraticGlow(s,d):sourceRgba8QuadraticHeat(s,d);}
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
+  if(mode==38.0)return sourceRgba8QuadraticGlow(destination,source);
+  if(mode==39.0)return sourceRgba8QuadraticGlow(source,destination);
+  if(mode==40.0)return sourceRgba8QuadraticHeat(destination,source);
+  if(mode==41.0)return sourceRgba8QuadraticHeat(source,destination);
+  if(mode==42.0)return sourceRgba8QuadraticGlowHeat(source,destination);
+  if(mode==43.0)return sourceRgba8QuadraticHeatGlow(source,destination);
+  if(mode==44.0)return sourceRgba8QuadraticGlowHeat(destination,source);
+  if(mode==45.0)return sourceRgba8QuadraticFreezeReflect(source,destination);
+  if(mode==46.0)return sourceRgba8ChannelFloorDivide((sourceRgba8QuadraticFreezeReflect(source,destination)+sourceRgba8QuadraticHeatGlow(source,destination))*127.0,255.0);
+
   if (mode == 3.0) return sourceRgba8Multiply(source, destination);
   if (mode == 4.0) return max(source, destination);
   if (mode == 5.0) return source == 255.0 ? (destination == 0.0 ? 0.0 : 255.0)

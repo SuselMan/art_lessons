@@ -159,3 +159,28 @@ UI/online/undo/cold ещё ожидались, существовал семир
 Новый блок: `pixel-generic-sc10-gates-v1/final-proof-v2.json`,
 `pixel-generic-sc-channel-extension-independent-review-v2.json`; точные входы
 и результаты отделены от ещё не выполненного device-прогона.
+
+## Последующее расширение, 4 ноября
+
+После среза035a добавлены10scalarGenericSC иalias luminize: 2196/21 тестов,
+strict6/40/0, importer29. GPU наe1a1796c7: HOST иSamsung231/231 и
+10×65536парPASS; исходные170сценариев сохранены. Детерминированный
+arcTangent проверен523/7 и совпал с native hash всех65536пар. Это WebGL1,
+а не ES3 GPU или iPad.
+
+31c7714b7 исправляет потерянный browser-профиль в Auto BEGIN:42/3 иstrict1/87/0.
+11 настоящих импортов исходных синтетическихKPP прошли ACK/Saved; arc иParallel
+прошли peer/Undo/Redo/cold обоих клиентов в повторе. Общий диагностический
+PASS отсутствует: один HOST sample превысил2s, ранее непейсированный Parallel
+не догналpeer за20s. Производительностьсерий остаётся открытой; задержки
+пассивных samples не выдаются за ускорение. Все контексты закрыты, pendingRPC0.
+
+Новый цельный Quadratic9 блок применён после2218/23 тестов, strict6/41/0,
+importer31 и11 сравнений revision;589824CPU/nativeU8пар совпали. IDs38..46
+append-only, revision39 селективная. Его GPU иapp проверки ещё НЕ выполнены.
+Все эти расширения сохраняют закрытыми G/native; другиеpaint engines не заявлены.
+
+Доказательства: pixel-generic-sc-channel-gpu-both-final-proof-v1.json,
+pixel10-channel11-app-samsung-31c-root2-root-audit.json,
+pixel-dynamic-begin-profile-v1/gates/final-proof-v2.json,
+pixel-quadratic9-gates-v1/final-proof.json вfixes-v52.

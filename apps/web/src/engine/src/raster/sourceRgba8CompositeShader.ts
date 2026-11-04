@@ -63,8 +63,23 @@ uint sourceRgba8Blend(uint source, uint destination, uint alpha) {
 }
 float sourceRgba8BrowserMultiply(float a,float b){float c=a*b+128.0;return floor((floor(c/256.0)+c)/256.0);}
 float sourceRgba8BrowserDivide(float a,float b){return floor((a*255.0+floor(b/2.0))/b);}
+uint sourceRgba8QuadraticGlow(uint s,uint d){return d==255u?255u:min(255u,sourceRgba8Divide(sourceRgba8Multiply(s,s),255u-d));}
+uint sourceRgba8QuadraticHeat(uint s,uint d){return s==255u?255u:d==0u?0u:255u-min(255u,sourceRgba8Divide(sourceRgba8Multiply(255u-s,255u-s),d));}
+uint sourceRgba8QuadraticHeatGlow(uint s,uint d){return s+d>255u?sourceRgba8QuadraticHeat(s,d):s==0u?0u:sourceRgba8QuadraticGlow(s,d);}
+uint sourceRgba8QuadraticFreezeReflect(uint s,uint d){return s+d>255u?sourceRgba8QuadraticHeat(d,s):d==0u?0u:sourceRgba8QuadraticGlow(d,s);}
+uint sourceRgba8QuadraticGlowHeat(uint s,uint d){return d==255u?255u:s+d>255u?sourceRgba8QuadraticGlow(s,d):sourceRgba8QuadraticHeat(s,d);}
 uint sourceRgba8SeparableChannel(uint mode, uint sourceByte, uint destinationByte) {
   uint source=sourceByte,destination=destinationByte;
+  if(mode==38u)return sourceRgba8QuadraticGlow(destination,source);
+  if(mode==39u)return sourceRgba8QuadraticGlow(source,destination);
+  if(mode==40u)return sourceRgba8QuadraticHeat(destination,source);
+  if(mode==41u)return sourceRgba8QuadraticHeat(source,destination);
+  if(mode==42u)return sourceRgba8QuadraticGlowHeat(source,destination);
+  if(mode==43u)return sourceRgba8QuadraticHeatGlow(source,destination);
+  if(mode==44u)return sourceRgba8QuadraticGlowHeat(destination,source);
+  if(mode==45u)return sourceRgba8QuadraticFreezeReflect(source,destination);
+  if(mode==46u)return (sourceRgba8QuadraticFreezeReflect(source,destination)+sourceRgba8QuadraticHeatGlow(source,destination))*127u/255u;
+
   if (mode == 3u) return sourceRgba8Multiply(source, destination);
   if (mode == 4u) return max(source, destination);
   if (mode == 5u) return source == 255u ? (destination == 0u ? 0u : 255u)

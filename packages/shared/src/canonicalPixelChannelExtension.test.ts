@@ -4,7 +4,7 @@ import type {BrushDescriptor} from './brushes.js'
 import {canonicalPixelSourceComposition} from './canonicalBrushCapability.js'
 import {canonicalSourceMaterialContext,buildCanonicalMaterial} from './canonicalMaterialCodec.js'
 import {CANONICAL_PIXEL_BROWSER_CHANNEL_OUTER_BLENDS as modes,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_RASTER_PROFILE as A,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition,decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
-const raws=['equivalence','additive_subtractive','arc_tangent','negation','inverse_subtract','grain_merge','grain_extract','allanon','geometric_mean','parallel'] as const
+const raws=['equivalence','additive_subtractive','arc_tangent','negation','inverse_subtract','grain_merge','grain_extract','allanon','geometric_mean','parallel','reflect','glow','freeze','heat','glow_heat','heat_glow','reflect_freeze','freeze_reflect','heat_glow_freeze_reflect_hybrid'] as const
 function original(raw:string,mode:string):BrushDescriptor{
  const d=JSON.parse(JSON.stringify(fixture.descriptor));d.sourceStamp.settings.CompositeOp=raw;d.behavior.rendering.blendMode=mode;return d
 }

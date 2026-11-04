@@ -536,7 +536,7 @@ it('dispatches all extended Pixel functors through one prepared GenericSC progra
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
  const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot(),policy=vi.spyOn(s.gl,'uniform2f')
  // Literal IDs are the producer/shader ABI, not generated from the implementation enum.
- const cases=[['add',1],['darken',7],['screen',8],['colorBurn',9],['linearBurn',10],['subtract',11],['difference',12],['exclusion',13],['softLight',14],['hardLight',15],['divide',16],['linearLight',17],['vividLight',18],['pinLight',19],['hardMix',20],['darkerColor',21],['lighterColor',22],['hue',23],['saturation',24],['luminosity',25],['hardMixPhotoshop',26],['softLightSvg',27],['equivalence',28],['additiveSubtractive',29],['arcTangent',30],['negation',31],['inverseSubtract',32],['grainMerge',33],['grainExtract',34],['allanon',35],['geometricMean',36],['parallel',37]] as const
+ const cases=[['add',1],['darken',7],['screen',8],['colorBurn',9],['linearBurn',10],['subtract',11],['difference',12],['exclusion',13],['softLight',14],['hardLight',15],['divide',16],['linearLight',17],['vividLight',18],['pinLight',19],['hardMix',20],['darkerColor',21],['lighterColor',22],['hue',23],['saturation',24],['luminosity',25],['hardMixPhotoshop',26],['softLightSvg',27],['equivalence',28],['additiveSubtractive',29],['arcTangent',30],['negation',31],['inverseSubtract',32],['grainMerge',33],['grainExtract',34],['allanon',35],['geometricMean',36],['parallel',37],['reflect',38],['glow',39],['freeze',40],['heat',41],['glowHeat',42],['heatGlow',43],['reflectFreeze',44],['freezeReflect',45],['heatGlowFreezeReflectHybrid',46]] as const
  try{
   for(const [mode,id]of cases){
    expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[200,100,50]},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}}})).toBe('painted')
@@ -548,7 +548,7 @@ it('dispatches all extended Pixel functors through one prepared GenericSC progra
   const fragmentSources=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1])).join('\n')
   expect(fragmentSources).toContain('sourceRgba8VectorBlend')
   // The REAL compiled WebGL1 body, not only host controls or the ES3 source.
-  for(let id=28;id<=37;id++)expect(fragmentSources).toMatch(new RegExp('mode\\s*==\\s*'+id+'\\.0'))
+  for(let id=28;id<=46;id++)expect(fragmentSources).toMatch(new RegExp('mode\\s*==\\s*'+id+'\\.0'))
  }finally{s.pass.reset();s.cache.clear()}
 })
 
@@ -590,7 +590,7 @@ it('cancels unpublished image programs and rejects variants lacking their base o
 it('uses the prepared image material program for all channel extension modes without new allocations',()=>{
  const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8'],imageMaterialOperations:['genericSCU8']},s.companion)
  const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
- const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel'] as const,policy=vi.spyOn(s.gl,'uniform2f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
+ const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid'] as const,policy=vi.spyOn(s.gl,'uniform2f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
  try{for(const [i,mode]of modes.entries()){
   expect(s.pass.drawSource({source:{kind:'imageMaterialRgba',material:'lightness-map-v1',view:{...s.view,imageMaterial:'lightness-map-v1'},rgb:[91,127,255],strength:.7,foregroundAlpha:.8},target,operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.8}}})).toBe('painted')
   expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),28+i,0)

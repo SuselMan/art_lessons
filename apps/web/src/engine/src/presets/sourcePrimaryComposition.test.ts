@@ -223,7 +223,7 @@ it('folds an original READ SOURCE2 direct-law frame into per-dab blend controls 
 })
 
 it('retains all new channel blends in direct recorded control flow and both masked roles',()=>{
- const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel'] as const
+ const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid'] as const
  for(const blend of modes)for(const masked of [false,true]){
   const composition={...wash,mode:'buildup' as const,outerBlend:blend}
   const material=canonicalSourceMaterialContext({version:2,outerCompositionLaw:'pixel-direct-composite-browser-v1',assets:[{id:asset,size:1,x:0,y:0,width:1,height:1}],primarySource:{kind:'image',asset,brushScale:1,brushAngle:0},...masked?{maskSource:{kind:'image',asset,brushScale:1,brushAngle:0},maskingBlend:'multiply'}:{},budget:{workUnits:10000,outputBytes:10000,drawPixels:10000}})

@@ -287,7 +287,7 @@ it('dispatches all channel extension IDs through the same prepared neutral grain
   s.pass.prepare({width:16,height:16,operations:['genericSCU8'],primaryGrainPrograms:[{operation:'genericSCU8',law:'pixel-texture-u8-v1'}]},s.companions)
   const source=s.request.source;if(source.kind!=='texturedMaskRgb')throw Error('Original pattern fixture required')
   const pin=canonicalPixelPrimaryTexturePin({kind:'canvasTexture',asset:s.pattern.asset.id,law:'pixel-texture-u8-v1',mode:'multiply',soft:false,width:s.pin.width,height:s.pin.height,periodX:s.pin.width,periodY:s.pin.height,phase:{kind:'resolved-stroke-phase-v1',x:1,y:1},strength:'recorded-grain-v1'},s.pattern.asset)
-  const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel'] as const,policy=vi.spyOn(s.gl,'uniform2f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
+  const modes=['equivalence','additiveSubtractive','arcTangent','negation','inverseSubtract','grainMerge','grainExtract','allanon','geometricMean','parallel','reflect','glow','freeze','heat','glowHeat','heatGlow','reflectFreeze','freezeReflect','heatGlowFreezeReflectHybrid'] as const,policy=vi.spyOn(s.gl,'uniform2f'),programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
   for(const [i,mode]of modes.entries()){
    expect(s.pass.drawSource({...s.request,source:{...source,kind:'primaryGrainMaskRgb',pin,strengthU8:128},operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.8,mask:127}}})).toBe('painted')
    expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),28+i,1)
