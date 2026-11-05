@@ -1,3 +1,4 @@
+import { COLOR_SMUDGE_MEAN_FRAG } from '../raster/colorSmudgeMeanShader'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushTipSamplerId, brushTipProfileUniforms } from './BrushPreparation'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
@@ -218,6 +219,7 @@ export class SmudgePainter {
   // full-screen quad over the imprint texture; it needs no dab-quad
   // geometry, only the patch's own normalized square) rather than DAB_VERT.
   private pickupProg!: WebGLProgram
+  private colorMean?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private meanProg!: WebGLProgram
   private meanUni: Uniforms = {}
   private meanPosLoc = -1
@@ -246,6 +248,7 @@ export class SmudgePainter {
     this.maximumImageSide = undefined
     this.wetTextures.clear(true)
     this.proceduralTransfer = undefined
+    this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -266,6 +269,7 @@ export class SmudgePainter {
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
     this.proceduralTransfer = undefined
+    this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -289,9 +293,11 @@ export class SmudgePainter {
     if (this.ownsMipCache) this.imageMips.clear()
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
+    if(this.colorMean)gl.deleteProgram(this.colorMean.program)
     if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
     if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
+    this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -676,7 +682,7 @@ export class SmudgePainter {
             this.drawTransferDab({buffer:mask,originX:0,originY:0,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
           }
           const sourceBase=canvasMeanSourceRect(previous,current,1)
-          source=this.meanPreviousCanvas(target,sampleRect,mask ? {buffer:mask,x:(sampleRect.minX+current.minX-sourceBase.minX-rect.minX)/span,y:(sampleRect.minY+current.minY-sourceBase.minY-rect.minY)/span,inverseSpan:1/span} : undefined)
+          source=this.meanPreviousCanvas(target,mask?sourceBase:sampleRect,mask ? {buffer:mask,x:(current.minX-rect.minX)/span,y:(current.minY-rect.minY)/span,inverseSpan:1/span,radius:Math.min(1,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)} : undefined)
         } finally { if(mask)this.releaseScratch(mask) }
       }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)}
       const targets = target.resolveForPaint(rect)
@@ -695,7 +701,7 @@ export class SmudgePainter {
   /** Fixed64 nearest-centre samples, no CPU readback or persistent reservoir.
    * Samples larger than512px use the bounded gather's existing downsampling;
    * importer reports both this and native adaptive-count approximation. */
-  private meanPreviousCanvas(target:ILayerBuffer,rect:WorldRect,mask?:{buffer:AccumulationBuffer;x:number;y:number;inverseSpan:number}):AccumulationBuffer {
+  private meanPreviousCanvas(target:ILayerBuffer,rect:WorldRect,mask?:{buffer:AccumulationBuffer;x:number;y:number;inverseSpan:number;radius:number}):AccumulationBuffer {
     const width=rect.maxX-rect.minX,height=rect.maxY-rect.minY,span=Math.max(width,height)
     const size=Math.min(SMUDGE_MAX_PATCH_SIZE,span),sample=this.acquireScratch(size)
     let mean:AccumulationBuffer|undefined
@@ -703,17 +709,18 @@ export class SmudgePainter {
       const square={...rect,maxX:rect.minX+span,maxY:rect.minY+span}
       this.gatherPatch(sample,target.resolveForPaint(square),square,size,span)
       mean=this.acquireScratch(1)
-      const {gl}=this,u=this.meanUni
+      const {gl}=this,binding=mask?this.colorMean:undefined,u=binding?.uniforms ?? this.meanUni
       mean.beginReplaceDraw()
       try {
-      gl.useProgram(this.meanProg)
+      gl.useProgram(binding?.program ?? this.meanProg)
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sample.texture)
       gl.uniform1i(u.u_source,0)
       gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.buffer.texture ?? sample.texture);gl.uniform1i(u.u_mask,1)
+      if(mask)gl.uniform3f(u.u_radius,mask.radius,Math.trunc((rect.minX+rect.maxX-1)/2)-rect.minX,Math.trunc((rect.minY+rect.maxY-1)/2)-rect.minY)
       gl.uniform4f(u.u_maskMapping,mask?.x ?? 0,mask?.y ?? 0,mask?.inverseSpan ?? 0,mask?1:0)
       gl.uniform4f(u.u_geometry,width,height,span,Math.min(64,width*height))
-      gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(this.meanPosLoc)
-      gl.vertexAttribPointer(this.meanPosLoc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(binding?.position ?? this.meanPosLoc)
+      gl.vertexAttribPointer(binding?.position ?? this.meanPosLoc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)
       }finally{mean.endDraw()}
       return mean
     }catch(error){if(mean)this.releaseScratch(mean);throw error}
@@ -849,6 +856,10 @@ export class SmudgePainter {
 
   prepareColorSmudge(): void {
     this.imageDimensionLimit()
+    if(!this.colorMean){
+      const gl=this.gl,program=createProgram(gl,DISPLAY_VERT,COLOR_SMUDGE_MEAN_FRAG)
+      this.colorMean={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,['u_source','u_mask','u_geometry','u_maskMapping','u_radius'])}
+    }
     if(this.colorSmudgeTransfer)return
     const gl=this.gl,program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true,true,true))
     this.colorSmudgeTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,

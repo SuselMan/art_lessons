@@ -307,26 +307,12 @@ export const WET_TRANSFER_FRAG = `
 export const CANVAS_MEAN_FRAG = `
 precision highp float;
 uniform sampler2D u_source;
-uniform sampler2D u_mask;
-// Weighted mode maps source sample pixels back into the current dab mask.
-uniform vec4 u_maskMapping; // offset UV, inverse world span, enabled
+// Native integer sample width/height, gathered square world span, sample count.
 uniform vec4 u_geometry;
 void main() {
-  vec4 sum=vec4(0.0),plain=vec4(0.0);
-  float weights=0.0;
-  ${CANVAS_MEAN_TAPS.map(([x,y],i)=>`if(u_geometry.w>${i}.0){
-    vec2 p=floor(vec2(${x.toFixed(12)},${y.toFixed(12)})*(u_geometry.xy-1.0)+0.5);
-    vec4 pixel=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));
-    float weight=1.0;
-    if(u_maskMapping.w>0.5){
-      vec2 uv=u_maskMapping.xy+(p+0.5)*u_maskMapping.z;
-      weight=texture2D(u_mask,vec2(uv.x,1.0-uv.y)).a;
-    }
-    sum+=pixel*weight; weights+=weight; plain+=pixel;
-  }`).join('\n')}
-  // A sparse mask can miss all bounded taps; retain canvas colour rather
-  // than injecting transparent black. Native retries with a larger radius.
-  gl_FragColor=u_maskMapping.w<0.5 ? sum/u_geometry.w : weights>0.0 ? sum/weights : plain/u_geometry.w;
+  vec4 sum=vec4(0.0);
+  ${CANVAS_MEAN_TAPS.map(([x,y],i)=>`if(u_geometry.w>${i}.0){vec2 p=floor(vec2(${x.toFixed(12)},${y.toFixed(12)})*(u_geometry.xy-1.0)+0.5);sum+=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));}`).join('\n')}
+  gl_FragColor=sum/u_geometry.w;
 }
 `
 
