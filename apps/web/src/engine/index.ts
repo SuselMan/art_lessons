@@ -1685,7 +1685,7 @@ export class PencilEngine implements PencilEngineAPI {
   // along the way as well as on the final op.
   private _strokeBrushRandom?: BrushRandomSeeds
   private _strokeBrushSource?:BrushSourceContext
-  private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number}
+  private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
    *  scratch alive across the several operations it was chunked into.
@@ -4976,7 +4976,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!source.projection)throw Error('Missing captured projection sources')
     const historical=this._projectionReadScope
     const targetId=historical?.layerId ?? [...this._layers].find(([,buffer])=>buffer===target)?.[0]
-    const scope=historical ?? {beforeSeq:this._log.entries.length+1,target,layerId:targetId ?? '',cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}
+    const scope=historical ?? {beforeSeq:this._log.entries.length+1,target,layerId:targetId ?? '',store:{cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}}
     return {layers:source.projection.map(item=>({opacity:item.opacity,buffer:{resolveVisible:rect=>{
       if(item.id===targetId)return target.resolveVisible(rect)
       // A source deleted after pen-down still belongs to this captured view;
@@ -4987,18 +4987,22 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _releaseProjectionScope(scope:NonNullable<PencilEngine['_projectionReadScope']>):void {
-    for(const entry of scope.cache.values()){this._forgetWashesOf(entry.buffer);entry.buffer.destroy()}
-    scope.cache.clear();scope.bytes=0
+    for(const entry of scope.store.cache.values()){this._forgetWashesOf(entry.buffer);entry.buffer.destroy()}
+    scope.store.cache.clear();scope.store.bytes=0
   }
 
   private _historicalProjectionLayer(scope:NonNullable<PencilEngine['_projectionReadScope']>,id:string):ILayerBuffer {
-    const cached=scope.cache.get(id)
-    if(cached){scope.cache.delete(id);scope.cache.set(id,cached);return cached.buffer}
+    const operations=this._log.layerPixelOps(id,scope.beforeSeq)
+    // Distinct readers can see the same source prefix. Share that immutable
+    // reconstruction through the whole read tree, not merely through one dab.
+    const key=JSON.stringify([id,operations.map(op=>op.id)])
+    const cached=scope.store.cache.get(key)
+    if(cached){scope.store.cache.delete(key);scope.store.cache.set(key,cached);return cached.buffer}
     const fresh=this._makeLayerBuffer()
     const savedChunks=this._replayRibbonChunks, savedAuthors=[...this._chunkAuthors]
     this._replayRibbonChunks=new Map();this._chunkAuthors.clear()
     try {
-      this._smudge.withIsolatedGestures(()=>this._replayInto(fresh,id,this._log.layerPixelOps(id,scope.beforeSeq)))
+      this._smudge.withIsolatedGestures(()=>this._replayInto(fresh,id,operations))
     } catch(error){fresh.destroy();throw error}
     finally {
       for(const chunk of this._replayRibbonChunks.values())chunk.scratch.destroy()
@@ -5009,11 +5013,11 @@ export class PencilEngine implements PencilEngineAPI {
     const budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
     // Proxies resolve one source at a time, so an older cached layer can be
     // released after its draw instead of retaining copies of every room layer.
-    for(const [key,entry]of scope.cache){
-      if(scope.bytes+bytes<=budget)break
-      this._forgetWashesOf(entry.buffer);entry.buffer.destroy();scope.cache.delete(key);scope.bytes-=entry.bytes
+    for(const [key,entry]of scope.store.cache){
+      if(scope.store.bytes+bytes<=budget)break
+      this._forgetWashesOf(entry.buffer);entry.buffer.destroy();scope.store.cache.delete(key);scope.store.bytes-=entry.bytes
     }
-    scope.cache.set(id,{buffer:fresh,bytes});scope.bytes+=bytes
+    scope.store.cache.set(key,{buffer:fresh,bytes});scope.store.bytes+=bytes
     return fresh
   }
 
@@ -5021,11 +5025,11 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type!=='stroke'||!op.brushSource?.projection){this._applyPixelOpBody(buf,layerId,op,spreadSettle);return}
     if(op.seq===undefined)throw Error('Historical projection requires ordered operation')
     const previous=this._projectionReadScope
-    const scope={beforeSeq:op.seq,target:buf,layerId,cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}
+    const scope={beforeSeq:op.seq,target:buf,layerId,store:previous?.store ?? {cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}}
     this._projectionReadScope=scope
     try{this._applyPixelOpBody(buf,layerId,op,spreadSettle)}finally{
       this._projectionReadScope=previous
-      this._releaseProjectionScope(scope)
+      if(!previous)this._releaseProjectionScope(scope)
     }
   }
 

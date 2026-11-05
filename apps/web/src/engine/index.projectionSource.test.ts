@@ -43,3 +43,21 @@ it('rebuilds external read pixels at the operation prefix rather than the curren
   expect(observed.slice(beforeUndo).every(n=>n===0)).toBe(true)
  }finally{engine.destroy()}
 })
+
+it('shares an unchanged source prefix across nested projection read scopes',async()=>{
+ const {engine}=createTestEngine({userId:'A'},{width:32,height:32});await paperReady(engine)
+ const store={cache:new Map<string,{buffer:import('./src/buffers/ILayerBuffer').ILayerBuffer;bytes:number}>(),bytes:0}
+ try{
+  engine.appendOperation(makeLayerAdd('A','L'),'remote')
+  const paint=makeStroke('A','L',[dab(12,12,{size:14,opacity:.6})]);engine.appendOperation(paint,'remote')
+  const target=engine['_layers'].get('L')!
+  const scope={beforeSeq:100,target,layerId:'outer',store}
+  const first=engine['_historicalProjectionLayer'](scope,'L')
+  const nested=engine['_historicalProjectionLayer']({...scope,beforeSeq:99,layerId:'nested'},'L')
+  expect(nested).toBe(first)
+  expect(store.cache.size).toBe(1)
+  expect(store.bytes).toBeGreaterThan(0)
+  engine['_releaseProjectionScope'](scope)
+  expect(store.cache.size).toBe(0);expect(store.bytes).toBe(0)
+ }finally{for(const entry of store.cache.values())entry.buffer.destroy();engine.destroy()}
+})
