@@ -1917,7 +1917,7 @@ interface CanonicalLayerOwner {
  preparationProgress?:CanonicalPreparationProgress
  releaseResources?:()=>void
  indexedCandidate?:CanonicalEmptyJob;indexedCut?:CanonicalAcceptedCut;indexedCarry?:Map<string,CanonicalIndexedActiveRoot>;historySelecting?:boolean;exporting?:boolean;indexedFollowing?:boolean;mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
- derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
+ derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number;lastLocalPresentationAt?:number
  accepting:boolean;retiring:boolean;failed:boolean;outstanding:number;readonly logicalBytes:number
 }
 interface CanonicalEmptyTransaction {
@@ -8143,7 +8143,7 @@ export class PencilEngine implements PencilEngineAPI {
       owner.derived=ticket.buffer
       if(hidden)hidden.derived=ticket.buffer
     }
-    if(!('transaction'in owner))owner.lastDisplayedPresentationRevision=ticket.revision
+    if(!('transaction'in owner)){owner.lastDisplayedPresentationRevision=ticket.revision;owner.lastLocalPresentationAt=performance.now()}
     // All disposal resolves the captured OLD payload, never the new stable.
     // Expected old-executor cancel cannot poison its successor. Unexpected
     // cleanup still escapes to the caller's existing fail-closed boundary.
@@ -8203,7 +8203,14 @@ export class PencilEngine implements PencilEngineAPI {
       if(!current())return
       const deferred=this._deferCanonicalFollowPresentation(owner,coordinator)
       if(!owned())return
-      const preview=coordinator!.advance(deferred?{deferPresentation:true}:undefined);if(!current())return
+      // Local input may consume several small raw frames between screen
+      // publications. The first preview and the final empty execution queue
+      // stay immediate; a shown preview can coalesce for at most one 60Hz frame.
+      const localSource=this._authorProducer?.source
+      const localDeferred=!deferred&&localSource?.prepared.owner===owner&&this._authorInput.pending
+        &&coordinator.publishedPresentationReady&&coordinator.executionPending
+        &&owner.lastLocalPresentationAt!==undefined&&performance.now()-owner.lastLocalPresentationAt<1000/60
+      const preview=coordinator!.advance(deferred||localDeferred?{deferPresentation:true}:undefined);if(!current())return
       if(preview?.kind==='preview-ready'){
         if(preview.ticket.disposition==='closed-handoff'){this._dropCanonicalFollowPresentation(owner);if(!current())return}
         this._publishCanonicalPreview(owner,preview.ticket)
