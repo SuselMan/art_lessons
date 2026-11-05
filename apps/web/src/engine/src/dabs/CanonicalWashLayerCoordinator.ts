@@ -1497,13 +1497,14 @@ export class CanonicalWashLayerCoordinator {
     else if (this.queue.length)this.advanceEntry(this.washSlot(0),0)
   }
 
-  private advanceEntry(entry:Entry,index:number):boolean {
+  private advanceEntry(entry:Entry,index:number,turnStarted?:number):boolean {
     if(this.options.mixedReplay7){
       if(this.replayWork||this.candidate||entry.mode!=='wash'||this.entries.some(e=>e!==entry&&e.washInFlight))throw new Error('Mixed raw lane is frozen')
       entry.washInFlight=true
     }
     const before=entry.executor.pendingFrameCount,revision=this.revision
-    entry.executor.advance()
+    if(turnStarted===undefined)entry.executor.advance()
+    else entry.executor.advanceDepositionWithinTurn(turnStarted)
     const completed=entry.executor.pendingFrameCount<before||!entry.executor.pending&&entry.executor.rawWashSealed
     if(completed){this.queue.splice(index,1);if(this.options.mixedReplay7){if(entry.executor.pendingFrameCount<before)entry.depositedNextOrdinal++;entry.washInFlight=undefined}}
     if(entry.executor.rawWashSealed){entry.ownership=entry.executor.takeRawWash();this.invalidate()}
@@ -1737,9 +1738,14 @@ export class CanonicalWashLayerCoordinator {
       if(this.replayWork)return
       const head=this.queue[0]
       if(head&&'kind'in head&&(deferPresentation||!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
-        this.queue.shift();head.ticket.release();this.previewBoundaryReady=true
-        this.assertRecordedCurrent();this.assertLayers()
-        if(this.closed||this.failed||!this.busy)throw Error('Mixed frontier retired during release')
+        let steps=0
+        do{
+          const next=this.queue[0];if(!next||!('kind'in next)||next.entry!==head.entry)break
+          this.queue.shift();next.ticket.release();this.previewBoundaryReady=true
+          this.assertRecordedCurrent();this.assertLayers()
+          if(this.closed||this.failed||!this.busy)throw Error('Mixed frontier retired during release')
+          steps++
+        }while(steps<8&&performance.now()-turnStarted<4)
         // A displayed R may already contain every accepted frame while its
         // admission tickets still drained. Queue-empty is a NEW close-proof
         // frontier, not new pixels. Request one recapture on the existing
@@ -1748,19 +1754,34 @@ export class CanonicalWashLayerCoordinator {
         return
       }
       if(this.previewLane){
-        const index=this.queue.indexOf(this.previewLane)
-        if(index<0)throw Error('Mixed selected frame disappeared')
-        if(this.advanceEntry(this.previewLane,index)){this.previewLane=undefined;this.previewBoundaryReady=true}
+        this.advanceMixedRaw(turnStarted)
         return
       }
       if(head&&!('kind'in head)&&(deferPresentation||!this.dirty.size||!this.previewBoundaryReady||this.previewFailure?.revision===this.revision)){
         this.previewLane=head
-        if(this.advanceEntry(head,0)){this.previewLane=undefined;this.previewBoundaryReady=true}
+        this.advanceMixedRaw(turnStarted)
         return
       }
       if(deferPresentation)return
     }
     return this.advancePreview(turnStarted)
+  }
+  /** One existing 4ms budget, at most eight completed raw frames. No staged
+   * preview is advanced or replaced here; every frame uses its same executor. */
+  private advanceMixedRaw(turnStarted:number):void {
+    let steps=0
+    do{
+      const entry=this.previewLane
+      if(!entry)return
+      const index=this.queue.indexOf(entry)
+      if(index<0)throw Error('Mixed selected frame disappeared')
+      if(!this.advanceEntry(entry,index,turnStarted))return
+      this.previewLane=undefined;this.previewBoundaryReady=true;steps++
+      const next=this.queue[0]
+      if(!next||'kind'in next||next!==entry)return
+      if(steps>=8||performance.now()-turnStarted>=4)return
+      this.previewLane=next
+    }while(true)
   }
   /** Pure eligibility of this captured, completely rendered R. External source,
    * layer and original-close assertions remain snapshot.assertOwned's job. This

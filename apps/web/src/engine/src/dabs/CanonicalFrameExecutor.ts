@@ -927,6 +927,11 @@ export class CanonicalFrameExecutor {
     if(!this.candidateReplay||!Number.isFinite(turnStarted)||turnStarted>performance.now())throw new Error('Invalid replay turn budget')
     return this.advanceAt(turnStarted)
   }
+  /** Coordinator-owned deposition shares one outer quantum across frames. */
+  advanceDepositionWithinTurn(turnStarted:number): { pending: boolean; checkpointReady: boolean } {
+    if(this.options.washMode!=='deposition-only'||this.candidateReplay||!Number.isFinite(turnStarted)||turnStarted>performance.now())throw new Error('Invalid deposition turn budget')
+    return this.advanceAt(turnStarted)
+  }
   private advanceAt(turnStarted?:number): { pending: boolean; checkpointReady: boolean } {
     if(this.candidateReplay&&(this.candidateTerminal||this.sourceRetired))throw new Error('Candidate replay cursor retired')
     if(this.options.replayFrontier)throw new Error('Replay frontier cannot execute pixels')

@@ -2380,3 +2380,17 @@ it.each(['copy','destinationIn','destinationAtop','rawAlphaDarken','marker','dis
  const operation=canonicalWashOuterOperation(CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,blend,0,{alphaDarken:'hard',seed:0})
  expect(operation.kind).toBe('genericSCU8')
 })
+
+it('shares a coordinator deposition quantum while preserving raw pixel order and ownership',()=>{
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only'),clock=vi.spyOn(performance,'now').mockReturnValue(0),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  s.executor.enqueue(s.submit(decoded(2,0,false)));s.prepareStorage()
+  for(let i=0;i<100&&s.executor.pending;i++)s.executor.advanceDepositionWithinTurn(0)
+  expect(s.executor.pending).toBe(false);expect(draw.mock.calls.filter(([r])=>r.operation.kind==='alphaDarken32')).toHaveLength(2)
+  expect(s.executor.rawWashTiles()).toHaveLength(1);expect(s.executor.checkpointReady).toBe(false)
+  for(const start of[NaN,Infinity,1])expect(()=>s.executor.advanceDepositionWithinTurn(start)).toThrow('Invalid deposition turn budget')
+ }finally{clock.mockRestore();s.close()}
+})
+it('never enables coordinator deposition scheduling on a normal layer writer',()=>{
+ const s=setup();try{expect(()=>s.executor.advanceDepositionWithinTurn(performance.now())).toThrow('Invalid deposition turn budget')}finally{s.close()}
+})
