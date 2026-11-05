@@ -17,5 +17,5 @@ class PreviewTests(unittest.TestCase):
         data = base64.b64decode(preset_preview(image).split(',', 1)[1])
         result = Image.open(io.BytesIO(data))
         self.assertEqual(result.size, (64, 32))
-        self.assertEqual(result.getpixel((0, 0)), (30, 70, 120, 255))
+        self.assertEqual(result.convert('RGBA').getpixel((0, 0)), (30, 70, 120, 255))
         self.assertNotIn('preset', result.info)

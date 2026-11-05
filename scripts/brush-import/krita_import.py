@@ -30,7 +30,7 @@ def preset_preview(image):
     clean = Image.new('RGBA', preview.size)
     clean.paste(preview)
     output = io.BytesIO()
-    clean.save(output, format='PNG', optimize=True)
+    clean.quantize(colors=128, method=Image.Quantize.FASTOCTREE).save(output, format='PNG', optimize=True)
     encoded = base64.b64encode(output.getvalue()).decode('ascii')
     if len(encoded) > 90000:
         raise ValueError('Krita preview exceeds display limit')
