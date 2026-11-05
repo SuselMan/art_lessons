@@ -14,11 +14,11 @@ it.each(['brush','size','tool'])('seals a held pen with the normal partial-close
  const {engine,session,cancel}=fixture();if(kind==='brush')engine.setPencil('new');else if(kind==='size')engine.setSize(24);else engine.setTool('hand');expect(cancel).toHaveBeenCalledExactlyOnceWith(session)
 })
 it('does not cancel the queued tail of a lifted pen when settings change',()=>{
- const {engine,session,cancel}=fixture(true);engine.setPencil('new');engine.setSize(24);engine.setTool('hand');engine._authorCameraAngle=1;engine._brushPreparationGeneration=2;engine._locked=true;engine._ruler={};expect(cancel).not.toHaveBeenCalled();expect(()=>engine._assertCanonicalSource(session)).not.toThrow()
+ const {engine,session,cancel}=fixture(true);engine.setPencil('new');engine.setSize(24);engine.setTool('hand');engine._authorCameraAngle=1;engine._brushPreparationGeneration=2;engine._locked=true;engine._ruler={};engine._activeId='other';expect(cancel).not.toHaveBeenCalled();expect(()=>engine._assertCanonicalSource(session)).not.toThrow()
 })
 it('continues to reject a live pen whose captured selection changed unexpectedly',()=>{
  const {engine,session}=fixture();engine._authorCameraAngle=1;expect(()=>engine._assertCanonicalSource(session)).toThrow('Canonical pointer lifetime changed')
 })
-it.each(['closed','context','layer'])('does not exempt an ended source from %s lifetime failure',kind=>{
- const {engine,session}=fixture(true);if(kind==='closed')session.source.closed=true;else if(kind==='context')engine._contextLost=true;else engine._activeId='other';expect(()=>engine._assertCanonicalSource(session)).toThrow('Canonical pointer lifetime changed')
+it.each(['closed','context','owner'])('does not exempt an ended source from %s lifetime failure',kind=>{
+ const {engine,session}=fixture(true);if(kind==='closed')session.source.closed=true;else if(kind==='context')engine._contextLost=true;else engine._assertCanonicalLayerCurrent=()=>{throw Error('Canonical pointer lifetime changed')};expect(()=>engine._assertCanonicalSource(session)).toThrow('Canonical pointer lifetime changed')
 })

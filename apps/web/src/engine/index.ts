@@ -3353,7 +3353,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setActiveLayer(id: string): void {
-    if (id !== this._activeId) this._clearWash()
+    if (id !== this._activeId) {this._endCanonicalSelectionInput();this._clearWash()}
     this._activeId = id
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
@@ -9118,7 +9118,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._assertCanonicalPreparedRole(prepared)
     this._assertCanonicalLayerCurrent(prepared.owner)
     this._assertCanonicalPreparedRole(prepared)
-    if(source.closed||this._activeId!==session.snapshot.layerId||this._contextLost||!session.ended&&(this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._opts.size!==(prepared.selectedSizePx??prepared.nativeSizePx)||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null))throw new Error('Canonical pointer lifetime changed')
+    if(source.closed||this._contextLost||!session.ended&&(this._activeId!==session.snapshot.layerId||this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._opts.size!==(prepared.selectedSizePx??prepared.nativeSizePx)||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null))throw new Error('Canonical pointer lifetime changed')
   }
   private _retireCanonicalSource(session:TimedAuthorSession):void {
     const source=session.source!

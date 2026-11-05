@@ -225,7 +225,7 @@ it('drains a lifted pen in its captured context when brush, size and camera chan
  try{
   await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner']
   engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
-  engine.setPencil('next-selection');engine.setSize(80);engine.setViewport(0,0,1,.1);engine.setLocked(true)
+  engine.setPencil('next-selection');engine.setSize(80);engine.setViewport(0,0,1,.1);engine.setActiveLayer('background');engine.setLocked(true)
   await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
   expect(operations.length).toBeGreaterThan(0);expect(operations.every(op=>op.type==='canonical_stroke')).toBe(true)
   expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(repair).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']).toBe(owner)
