@@ -246,7 +246,7 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
       [`${toolId}:${cfg.brush}`]: { size: cfg.size as number, opacity: cfg.opacity as number },
     } : state.brushPreferences
     const source = brushChange ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults : undefined
-    const preference = brushChange ? memory[`${toolId}:${next}`] ?? (source ? { size: source.sizePx, opacity: toolId === 'digitalBrush' ? cfg.opacity as number : 1 } : toolId !== 'digitalBrush' && next !== 'native' ? { size: cfg.size as number, opacity: 1 } : undefined) : undefined
+    const preference = brushChange ? memory[`${toolId}:${next}`] ?? (next === 'native' ? { size: defaultToolSettings()[toolId].size as number, opacity: defaultToolSettings()[toolId].opacity as number } : source ? { size: source.sizePx, opacity: toolId === 'digitalBrush' ? cfg.opacity as number : 1 } : toolId !== 'digitalBrush' && next !== 'native' ? { size: cfg.size as number, opacity: 1 } : undefined) : undefined
     return { brushPreferences: memory, toolSettings: {
       ...state.toolSettings,
       [toolId]: { ...cfg, [key]: next, ...preference },

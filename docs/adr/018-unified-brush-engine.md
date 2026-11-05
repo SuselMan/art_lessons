@@ -64,7 +64,8 @@ preset to the same `digitalBrush` operation/preset token already used online.
 UI selection and hotkey return behavior remain eraser/smudge. This adds no wire
 format, replay or tile renderer. Native erase-through-layers remains native-only.
 The cursor uses the compiled render tool, matching the selected preset geometry.
-Size and strength are remembered per selected preset during the room session.
+Size and strength are remembered per selected preset in the existing per-room
+settings envelope, including native values when returning after a reload.
 Stored imported IDs survive metadata loading; unavailable resources block drawing
 through the existing preparation gate rather than falling back to another brush.
 

@@ -1,3 +1,4 @@
+import { loadBrushPreferences, saveBrushPreferences } from '../../lib/tools/brushPreferences'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -346,7 +347,9 @@ function RoomEditor() {
   // shared by whatever tool happened to be active; it now lives at
   // `toolSettings.pencil.color` — the schema's per-tool slot — same value,
   // same behavior, just no longer a second parallel place settings live.
-  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
+  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? ''), brushPreferences: loadBrushPreferences(localStorage, id ?? '') }))
+  const brushPreferences = useRoomStore(s => s.brushPreferences)
+  useEffect(() => { if (id) saveBrushPreferences(localStorage, id, brushPreferences) }, [id, brushPreferences])
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
