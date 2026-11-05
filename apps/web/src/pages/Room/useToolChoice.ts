@@ -154,7 +154,7 @@ export function useToolChoice(roomId: string | undefined) {
   // what it wears (see drawingGroupToolFor), and whether it is lit.
   const drawingGroupOptions = useMemo<PickerOption[]>(() => {
     const native = PRIMARY_DRAWING_TOOLS.filter(id => id !== 'digitalBrush' && toolOffered(id)).map(id => ({
-      value: id, label: t(TOOL_DISPLAY[id].labelKey), photo: TOOL_PHOTOS[id], group: '',
+      value: id, label: t(TOOL_DISPLAY[id].labelKey), photo: TOOL_PHOTOS[id],
     }))
     if (!toolOffered('digitalBrush')) return native
     const descriptor = TOOL_SCHEMAS.digitalBrush.brush
@@ -164,14 +164,14 @@ export function useToolChoice(roomId: string | undefined) {
     return [...native, ...descriptor.valueType.options.filter(id => !DIGITAL_BRUSHES.some(b => b.id === id && brushRole(b) !== 'drawing')).map(id => ({
       value: 'digital:' + id, label: imported.get(id)?.name ?? (keys?.[id] ? t(keys[id]) : labels?.[id] ?? id),
       photo: KRITA_TOOL_PHOTOS[id] ?? (imported.has(id) ? undefined : TOOL_PHOTOS.digitalBrush),
-      thumbnail: imported.get(id)?.preview, group: '',
+      thumbnail: imported.get(id)?.preview,
     }))]
   }, [toolOffered, t, brushRevision])
   const roleOptions = (role: 'eraser' | 'smudge'): PickerOption[] => toolOffered(role) ? [
-    { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role], group: '' },
-    ...(toolOffered('digitalBrush') ? DIGITAL_BRUSHES : []).filter(b => brushRole(b) === role).map(b => ({ value: b.id, label: t(TOOL_SCHEMAS.digitalBrush.brush.optionLabelKeys![b.id]), photo: TOOL_PHOTOS.digitalBrush, group: '' })),
+    { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role] },
+    ...(toolOffered('digitalBrush') ? DIGITAL_BRUSHES : []).filter(b => brushRole(b) === role).map(b => ({ value: b.id, label: t(TOOL_SCHEMAS.digitalBrush.brush.optionLabelKeys![b.id]), photo: TOOL_PHOTOS.digitalBrush })),
     ...(toolOffered('digitalBrush') ? pickerImportedBrushes(role) : []).map(b => ({ value: b.descriptor.id, label: b.name,
-      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview, group: '' })),
+      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview })),
   ] : []
   const eraserGroupOptions = roleOptions('eraser')
   const smudgeGroupOptions = roleOptions('smudge')
