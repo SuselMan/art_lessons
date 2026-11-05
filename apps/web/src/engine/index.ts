@@ -9182,9 +9182,13 @@ export class PencilEngine implements PencilEngineAPI {
       &&(![input.tiltX,input.tiltY].every(Number.isFinite)||Math.abs(input.tiltX)>90||Math.abs(input.tiltY)>90))throw new Error('Invalid canonical tilt input')
   }
   private _canonicalPacket(session:TimedAuthorSession,input:PointerData):SourceAuthorPacket {
-    const source=session.source!,t=Math.floor(input.timeStamp-source.timestamp)
+    const source=session.source!,elapsed=Math.floor(input.timeStamp-source.timestamp)
     this._assertCanonicalTiltInput(source.prepared,input)
-    if(!Number.isFinite(t)||t<session.lastTime)throw new Error('Invalid canonical pointer timestamp')
+    if(!Number.isFinite(elapsed))throw new Error('Invalid canonical pointer timestamp')
+    // Native coalesced samples can precede DOWN (Samsung: -0.2ms) or overlap
+    // the preceding batch. Keep their pressure/position in dispatch order,
+    // at the last logical stroke time; hardware jitter is not history damage.
+    const t=Math.max(session.lastTime,elapsed)
     session.lastTime=t
     return{...this._canonicalAirbrushSample(session,input),t}
   }
