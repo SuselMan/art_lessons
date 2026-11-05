@@ -90,6 +90,9 @@ export interface OutboxDeps {
   // socket.io ack has none. See sendOperationWithTimeout.
   send: (op: Operation, onEmitted?: () => void) => Promise<SendResult>
   getCanonicalSendLineage?: () => CanonicalSendLineage | undefined
+  /** Scheduling ceiling only; every extra slot still requires an actual
+   * contiguous emit on the same original gesture/connection lineage. */
+  canonicalPipelineWindow?: 2 | 4
   // Fires exactly once per operation, the moment it gets a real SendResult
   // (never for a timeout/retry) — Room/index.tsx uses this for the same
   // watermark/pendingIds/confirmation bookkeeping onLocalOperation's ack
@@ -140,6 +143,7 @@ export class Outbox {
   private readonly roomId: string
   private readonly send: OutboxDeps['send']
   private readonly getCanonicalSendLineage?: OutboxDeps['getCanonicalSendLineage']
+  private readonly canonicalPipelineWindow: 2 | 4
   private readonly onSettled?: (op: Operation, result: SendResult, context?:OutboxDeliveryContext) => void
   private readonly canSend?: () => boolean
   private readonly onStalled?: (op: Operation, context?:OutboxDeliveryContext) => void
@@ -173,6 +177,9 @@ export class Outbox {
   private disposed = false
 
   constructor(deps: OutboxDeps) {
+    const canonicalWindow = deps.canonicalPipelineWindow ?? 2
+    if (canonicalWindow !== 2 && canonicalWindow !== 4) throw new TypeError('Invalid canonical pipeline window')
+    this.canonicalPipelineWindow = canonicalWindow
     this.storage = deps.storage
     this.roomId = deps.roomId
     this.send = deps.send
@@ -407,10 +414,14 @@ export class Outbox {
       if(group.bad)invalid.push(...group.entries)
       else if(group.head){
         eligible.add(group.head.op.id)
-        const head=this.inFlight.get(group.head.op.id),order=canonicalOrder(group.head.op),lineage=this.currentLineage()
-        if(head?.phase==='emitted'&&head.pipeline&&!head.canonicalSerialOnly&&!head.entry.canonicalSerialOnly&&sameLineage(head.lineage,lineage)){
+        const lineage=this.currentLineage()
+        let previous=group.head
+        for(let slot=1;slot<this.canonicalPipelineWindow;slot++){
+          const attempt=this.inFlight.get(previous.op.id),order=canonicalOrder(previous.op)
+          if(attempt?.phase!=='emitted'||!attempt.pipeline||attempt.canonicalSerialOnly||attempt.entry.canonicalSerialOnly||!sameLineage(attempt.lineage,lineage))break
           const next=group.entries.find(e=>{const o=canonicalOrder(e.op);return o?.kind==='frame'&&o.ordinal===order!.ordinal!+1})
-          if(next&&!next.canonicalSerialOnly&&!next.attempts)eligible.add(next.op.id)
+          if(!next||next.canonicalSerialOnly||next.attempts&&!this.inFlight.has(next.op.id))break
+          eligible.add(next.op.id);previous=next
         }
       }
       else if(group.close)eligible.add(group.close.op.id)
@@ -440,21 +451,36 @@ export class Outbox {
     let write=0
     for(const id of this.waiting)if(this.pending.has(id)&&!this.inFlight.has(id))this.waiting[write++]=id
     this.waiting.length=write
-    while (this.inFlight.size < MAX_CONCURRENT_SENDS && this.waiting.length > 0) {
+    while (this.inFlight.size < this.canonicalPipelineWindow && this.waiting.length > 0) {
       const {eligible,invalid}=this.canonicalHeads()
       const notified=this.stallEntries(invalid)
       // Stall callbacks can reenter. Recompute from the actual pending owner.
       if(notified)continue
       if (this.canSend && !this.canSend() || this.disposed) return
-      const at=this.waiting.findIndex(id=>this.pending.has(id)&&!this.inFlight.has(id)&&!this.stalled.has(id)&&eligible.has(id))
+      const at=this.waiting.findIndex(id=>this.pending.has(id)&&!this.inFlight.has(id)&&!this.stalled.has(id)&&eligible.has(id)&&this.hasSendCapacity(this.pending.get(id)!))
       if(at<0)return
       const [opId]=this.waiting.splice(at,1)
       const entry=this.pending.get(opId)!,order=canonicalOrder(entry.op),lineage=this.currentLineage()
+      if(this.disposed||this.pending.get(opId)!==entry||this.inFlight.has(opId))continue
+      if(this.inFlight.size>=MAX_CONCURRENT_SENDS&&(!lineage||!this.hasSendCapacity(entry,lineage))){this.waiting.unshift(opId);return}
       const prior=order?.kind==='frame'&&order.key?Array.from(this.inFlight.values()).find(a=>{const o=canonicalOrder(a.entry.op);return o?.kind==='frame'&&o.key===order.key&&o.ordinal===order.ordinal!-1&&a.phase==='emitted'&&a.pipeline&&!a.canonicalSerialOnly&&sameLineage(a.lineage,lineage)}):undefined
       const attempt:Attempt={entry,phase:'reserved',lineage,pipeline:!!lineage&&!entry.canonicalSerialOnly&&(!!entry.canonicalFreshStart||sameLineage(entry.canonicalPredecessor,lineage)||!!prior),canonicalSerialOnly:entry.canonicalSerialOnly}
       this.inFlight.set(opId,attempt)
       void this.runAttempt(opId,attempt)
     }
+  }
+
+  /** Extra capacity belongs only to one actually emitted canonical chain.
+   * Legacy, controls, mixed gestures, retries and storage settlement retain2. */
+  private hasSendCapacity(entry:PendingEntry,lineage?:CanonicalSendLineage):boolean {
+    if(this.inFlight.size<MAX_CONCURRENT_SENDS)return true
+    if(this.inFlight.size>=this.canonicalPipelineWindow)return false
+    const order=canonicalOrder(entry.op)
+    if(order?.kind!=='frame'||!order.key||entry.canonicalSerialOnly)return false
+    return [...this.inFlight.values()].every(attempt=>{
+      const active=canonicalOrder(attempt.entry.op)
+      return active?.kind==='frame'&&active.key===order.key&&attempt.phase==='emitted'&&attempt.pipeline&&!attempt.canonicalSerialOnly&&!attempt.entry.canonicalSerialOnly&&(!lineage||sameLineage(attempt.lineage,lineage))
+    })
   }
 
   private currentLineage():CanonicalSendLineage|undefined {

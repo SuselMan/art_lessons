@@ -50,6 +50,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
   // lesson with one board.
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
+    canonicalPipelineWindow: 4,
     // (#358) Binds this queue to this board, in storage as well as in memory.
     // `boardId` is in the dep list below for the same reason: a queue holding
     // one board's unconfirmed strokes must not survive into another — that is
