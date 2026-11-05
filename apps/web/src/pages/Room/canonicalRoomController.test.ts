@@ -728,3 +728,13 @@ it.each([false,true])('plainTilt service author flag is captured only from origi
  await expect(service.begin({layerId:'L',brush:'brush:imported-67f65bbe3ded26b41e1b77ef@27',strokeId:'S',pigmentRgb8:[1,2,3],outerResourceOpacity:1,alphaDarken:'hard'},{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:'150b8c503e3b48136332a583172f3ec59a895c1ca86efa790debd80b8d0e97af'})).rejects.toThrow('Stale')
  expect(socket.emit).not.toHaveBeenCalled()
 })
+it('invalidates an idle BEGIN reuse predicate on disconnect, socket replacement, engine replacement and original read retirement',async()=>{
+ const {createCanonicalRoomAuthor}=await import('./canonicalRoomController'),f=state()
+ const socket={connected:true,emit:vi.fn(),on:vi.fn(),off:vi.fn()};let active:typeof socket|null=socket,current=true
+ const author=createCanonicalRoomAuthor(f.stash.canonicalRead,socket,()=>active,()=>current)
+ expect(author.isCurrent?.()).toBe(true)
+ socket.connected=false;expect(author.isCurrent?.()).toBe(false);socket.connected=true
+ active=null;expect(author.isCurrent?.()).toBe(false);active=socket
+ current=false;expect(author.isCurrent?.()).toBe(false);current=true
+ f.expire();expect(author.isCurrent?.()).toBe(false);expect(socket.emit).not.toHaveBeenCalled()
+})

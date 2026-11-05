@@ -443,3 +443,89 @@ it.each(['wash','buildup'] as const)('prepares the real derived browser dual %s 
   expect(frames.flatMap(frame=>frame.draws).length).toBeGreaterThan(0);expect(frames.flatMap(frame=>frame.fences).filter(fence=>fence.kind==='gestureEnd')).toHaveLength(1)
  }finally{engine.destroy();restoreFetch();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
+
+async function warmBeginHarness(){
+ let h!:Awaited<ReturnType<typeof setup>>
+ const replies=new Map<string,CanonicalStrokeSnapshotV2>(),discard=vi.fn()
+ const begin=vi.fn(async(request:CanonicalStrokeBegin,lifetime:Parameters<CanonicalSourceAuthorService['begin']>[1]):Promise<CanonicalStrokeBeginResult>=>{
+  const material=lifetime.expectedSourceMaterialContext2,composition=canonicalPixelSourceComposition(h.descriptor,B)
+  if(!material||!composition)throw Error('Prepared source2 required')
+  const snapshot=canonicalSourceStrokeSnapshotV2({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,boardEpoch:2,descriptorSha256:lifetime.expectedDescriptorSha256,rasterProfile:B,pigmentRgb8:request.pigmentRgb8,composition:{...composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:material.assets,materialVersion:2,material},2,B)
+  replies.set(request.strokeId,snapshot);lifetime.onBeginAccepted?.()
+  return{ok:true,snapshot,recordedNext:0,liveNext:0,ended:false}
+ })
+ h=await setup('bitmap-auto',begin)
+ h.engine['_canonicalAuthorService']={...h.engine['_canonicalAuthorService']!,isCurrent:()=>true,discardEmpty:discard}
+ return{...h,begin,discard,replies}
+}
+it('prepares one empty BEGIN without pixels and adopts its exact source nonce on real pen input',async()=>{
+ const h=await warmBeginHarness(),{engine}=h
+ try{
+  expect(await engine.prepareBrush(h.preset)).toEqual({status:'ready'})
+  await vi.waitFor(()=>expect(h.begin).toHaveBeenCalledOnce())
+  const warm=engine['_canonicalPreparedBegin']!;expect(warm).toBeDefined();await warm.promise
+  expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations).toEqual([])
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(8,112))
+  await vi.waitFor(()=>{if(engine['_authorInputError'])throw engine['_authorInputError'];expect(h.operations.length).toBeGreaterThan(0)})
+  expect(h.begin).toHaveBeenCalledOnce()
+  engine['_onEnd'](packet(8,124))
+  await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
+  const frames=h.operations.map(op=>{if(op.type!=='canonical_stroke'||op.frame.strokeId!==warm.request.strokeId)throw Error('Prepared nonce not adopted');return decodeCanonicalRecordedSnapshotFrameV8(op.frame,h.replies.get(warm.request.strokeId)!,op.frame.frameOrdinal).frame})
+  expect(frames.flatMap(f=>f.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  expect(frames.reduce((n,f)=>n+f.draws.length,0)).toBeGreaterThan(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+it('retires an unused accepted BEGIN on color change and keeps all actual frames on the new request',async()=>{
+ const h=await warmBeginHarness(),{engine}=h
+ try{
+  await engine.prepareBrush(h.preset);const warm=engine['_canonicalPreparedBegin']!;await warm.promise
+  engine.setColor([.7,.2,.1]);engine['_onStart'](packet(2,100));engine['_onMove'](packet(8,112));engine['_onEnd'](packet(8,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError'])throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)})
+  expect(h.discard).toHaveBeenCalledWith(warm.request)
+  expect(h.begin.mock.calls.some(([request])=>request.strokeId!==warm.request.strokeId&&request.pigmentRgb8[0]===179)).toBe(true)
+  expect(h.operations.every(op=>op.type==='canonical_stroke'&&op.frame.strokeId!==warm.request.strokeId)).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+it('aborts an unused pending BEGIN on destruction without retaining the engine or charging a pointer lifetime',async()=>{
+ const h=await warmBeginHarness(),{engine}=h
+ const begin=vi.fn<CanonicalSourceAuthorService['begin']>(()=>new Promise(()=>{}))
+ engine['_canonicalAuthorService']={...engine['_canonicalAuthorService']!,begin}
+ try{
+  await engine.prepareBrush(h.preset);await vi.waitFor(()=>expect(begin).toHaveBeenCalledOnce())
+  const lifetime=begin.mock.calls[0][1]
+  expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations).toEqual([])
+  engine.destroy();expect(lifetime.signal.aborted).toBe(true);expect(lifetime.isCurrent()).toBe(false);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{if(!engine['_destroyed'])engine.destroy()}
+},15000)
+it('adopts one still-pending prepared BEGIN and preserves every queued input through its original reply',async()=>{
+ const h=await warmBeginHarness(),{engine}=h,original=h.begin.getMockImplementation()!
+ let resolve!:()=>void;const ready=new Promise<void>(done=>{resolve=done})
+ h.begin.mockImplementationOnce(async(request,lifetime)=>{await ready;return original(request,lifetime)})
+ try{
+  await engine.prepareBrush(h.preset);const warm=engine['_canonicalPreparedBegin']!
+  expect(h.begin).toHaveBeenCalledOnce();engine['_onStart'](packet(2,100));
+  engine['_onMove'](packet(8,112));engine['_onEnd'](packet(8,124));expect(h.operations).toEqual([])
+  resolve();await vi.waitFor(()=>{if(engine['_authorInputError'])throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)})
+  expect(h.begin.mock.calls.filter(([request])=>request.strokeId===warm.request.strokeId)).toHaveLength(1)
+  expect(h.operations.every(op=>op.type==='canonical_stroke'&&op.frame.strokeId===warm.request.strokeId)).toBe(true)
+ }finally{resolve();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+it('immediately discards one accepted empty BEGIN when leaving the selected Pixel tool',async()=>{
+ const h=await warmBeginHarness(),{engine}=h
+ try{
+  await engine.prepareBrush(h.preset);const warm=engine['_canonicalPreparedBegin']!;await warm.promise
+  engine.setTool('pencil');expect(h.discard).toHaveBeenCalledExactlyOnceWith(warm.request)
+  expect(engine['_canonicalPreparedBegin']).toBeUndefined();expect(h.operations).toEqual([]);expect(engine.hasActiveCanonicalAuthor()).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+it('does not adopt a prepared BEGIN from a replaced connection service even when the brush is unchanged',async()=>{
+ const h=await warmBeginHarness(),{engine}=h
+ try{
+  await engine.prepareBrush(h.preset);const warm=engine['_canonicalPreparedBegin']!;await warm.promise
+  engine['_canonicalAuthorService']={...engine['_canonicalAuthorService']!}
+  engine['_onStart'](packet(2,100));engine['_onMove'](packet(8,112));engine['_onEnd'](packet(8,124))
+  await vi.waitFor(()=>{if(engine['_authorInputError'])throw engine['_authorInputError'];expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(h.operations.length).toBeGreaterThan(0)})
+  expect(h.discard).toHaveBeenCalledWith(warm.request)
+  expect(h.operations.every(op=>op.type==='canonical_stroke'&&op.frame.strokeId!==warm.request.strokeId)).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)

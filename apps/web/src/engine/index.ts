@@ -315,6 +315,8 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 /** Explicit CPU author transport. Recorded delivery remains the only paint grant. */
 export interface CanonicalSourceAuthorService {
+  /** Captured original connection predicate; required only for idle BEGIN reuse. */
+  readonly isCurrent?:()=>boolean
   /** Retire an emitted but locally unadmitted BEGIN on its captured transport. */
   discardEmpty?(input:CanonicalStrokeBegin):void
   readonly authorImageMaterialSource?:'pixel-image-material-v1'
@@ -1422,12 +1424,27 @@ function canonicalScalarAtlasStyles(composition:{readonly mode:string},material:
 function canonicalPreparedSourceComposition(prepared:CanonicalPreparedAuthor){
  return prepared.sourceContext2||prepared.material.kind==='pixelTexture'?canonicalPixelSourceComposition(prepared.descriptor,prepared.owner.plan.profile):canonicalSourceComposition(prepared.descriptor,prepared.owner.plan.profile)
 }
+interface CanonicalPreparedBegin {
+ readonly prepared:CanonicalPreparedAuthor;readonly service:CanonicalSourceAuthorService;readonly request:CanonicalStrokeBegin;readonly seeds:BrushRandomSeeds
+ readonly controller:AbortController;promise?:Promise<CanonicalStrokeBeginResult>;readonly release:()=>void
+ readonly discardEmpty:()=>void;current?:()=>boolean;accepted:boolean;failed:boolean;onAccepted?:()=>void
+}
+interface CanonicalPreparedBeginCell {warm?:CanonicalPreparedBegin}
+/** Promise reactions retain a detachable cell, never an engine/prepared owner. */
+function startCanonicalPreparedBegin(service:CanonicalSourceAuthorService,cell:CanonicalPreparedBeginCell,sha:string,context:CanonicalMaterialContextV2):Promise<CanonicalStrokeBeginResult>{
+ const value=cell.warm!
+ const promise=service.begin(value.request,{signal:value.controller.signal,isCurrent:()=>cell.warm?.current?.()===true,onBeginAccepted:()=>{const value=cell.warm;if(value){value.accepted=true;value.onAccepted?.()}},expectedDescriptorSha256:sha,expectedSourceMaterialContext2:context})
+ const failed=()=>{const value=cell.warm;if(!value)return;value.failed=true;value.current=undefined;try{value.controller.abort()}finally{value.release()}}
+ void promise.then(result=>{if(!result.ok)failed()},failed).catch(error=>console.error('Prepared BEGIN cleanup failed',error))
+ return promise
+}
 interface CanonicalSourceSession {
   readonly prepared:CanonicalPreparedAuthor;readonly controller:AbortController;readonly request:CanonicalStrokeBegin
   readonly release:()=>void;readonly seeds:BrushRandomSeeds;readonly timestamp:number
   references:number;closed:boolean;released:boolean;emitted:number;beginAccepted?:boolean;discardEmpty?:()=>void;partialCancel?:Error;closeIssued?:boolean;firstEmittedId?:string;lastEmittedId?:string;lastEmittedEnded?:boolean;localAdmitted?:boolean;reason?:{error:unknown}
   airbrush?:CanonicalAirbrushProducer
   localAuthor?:CanonicalLocalWashAuthor
+  preparedBegin?:CanonicalPreparedBegin
   readonly authorColors?:Readonly<{foregroundRGB:readonly[number,number,number];backgroundRGB:readonly[number,number,number];gradient?:SourceGradientResource;spatialColor?:Readonly<{noiseSeed?:number;pattern?:CanonicalSourcePatternResource}>}>
   root7?:CanonicalMaskSourceLease;readonly context2?:CanonicalMaterialContextV2;readonly context7?:CanonicalMaterialContextV7;readonly context8?:CanonicalMaterialContextV8;author?:SourceStrokeAuthor;state?:SourceStrokeAuthorState;adapter?:SourcePrimaryGrainMaterialAdapter|SourceTexturedAutoMaterialAdapter|SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3|SourceStrokeMaterialContextV4|SourceStrokeMaterialContextV5|SourceStrokeMaterialContextV6>;encoder?:SourcePrimaryGrainFrameEncoder|SourceTexturedAutoFrameEncoder|SourceCanonicalFrameEncoder<import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV2|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV3|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV4|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV5|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV6>
 }
@@ -2884,6 +2901,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _sourcePatternRelease?:()=>void
   private _sourcePatternUpdating=false
   private _canonicalPreparedAuthor?:CanonicalPreparedAuthor
+  private _canonicalPreparedBegin?:CanonicalPreparedBegin
   private _authorInputError: unknown
   private readonly _authorTasks = new AuthorTaskScheduler({
     createChannel:typeof window!=='undefined' && typeof window.MessageChannel==='function' ? ()=>new window.MessageChannel():undefined,
@@ -3365,8 +3383,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setLocked(locked: boolean): void {
+    const wasLocked=this._locked
     if(locked)this._endCanonicalSelectionInput()
     this._locked = locked || this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION&&!this._canonicalAuthorService
+    if(wasLocked&&!this._locked)this._primeCanonicalSimpleBegin()
   }
 
   setPaperFillThreshold(threshold: number): void {
@@ -4354,7 +4374,9 @@ export class PencilEngine implements PencilEngineAPI {
         try{await recovery.promise}catch(error){if(obsolete())return{status:'cancelled'};throw error}
         if(obsolete())return{status:'cancelled'}
       }
-      return this._prepareCanonicalAuthorBrush(preset,options)
+      const result=await this._prepareCanonicalAuthorBrush(preset,options)
+      if(result.status==='ready')this._primeCanonicalSimpleBegin()
+      return result
     }
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
@@ -4400,6 +4422,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** A lifted pen drains its captured FIFO before new preparation can replace
    * resources. A still-held pen seals its emitted prefix like pointercancel. */
   private _endCanonicalSelectionInput():void {
+    this._dropCanonicalPreparedBegin()
     const session=this._authorProducer
     if(session?.source&&!session.ended)this._cancelCanonicalPointer(session)
   }
@@ -4411,13 +4434,13 @@ export class PencilEngine implements PencilEngineAPI {
     if (tool !== this._opts.tool) this._clearWash()
     this._opts.tool = tool
   }
-  setOpacity(v: number): void    { this._opts.opacity = v }
+  setOpacity(v: number): void    { if(this._canonicalPreparedBegin?.request.outerResourceOpacity!==v)this._dropCanonicalPreparedBegin();this._opts.opacity = v }
   setSize(px: number): void      { if(px!==this._opts.size)this._endCanonicalSelectionInput();this._opts.size = px }
 
   // Only the *next* stroke picks this up — _onStart() copies it into
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
-  setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+  setColor(rgb: [number, number, number]): void { if(this._canonicalPreparedBegin&&rgb.some((v,i)=>Math.round(v*255)!==this._canonicalPreparedBegin!.request.pigmentRgb8[i]))this._dropCanonicalPreparedBegin();this._opts.graphiteColor = rgb }
   /** Explicit selected paint pattern, independent of paper and brush texture.
    * Existing strokes keep their captured resource; only a later START uses it. */
   setSourcePattern(resource:CanonicalSourcePatternResource|undefined):void {
@@ -8654,7 +8677,55 @@ export class PencilEngine implements PencilEngineAPI {
   /** Native timing policy v1 uses elapsed dispatch time. Hardware/coalesced
    * samples may arrive after a hold tick; recorded past requests stay immutable.
    */
+  private _dropCanonicalPreparedBegin():void {
+    const warm=this._canonicalPreparedBegin;this._canonicalPreparedBegin=undefined
+    if(!warm)return
+    warm.current=undefined;warm.onAccepted=undefined
+    try{warm.controller.abort();if(warm.accepted)warm.discardEmpty()}finally{warm.release()}
+  }
+  private _canonicalSimpleBeginCurrent(warm:CanonicalPreparedBegin):boolean {
+    const prepared=warm.prepared,request=warm.request
+    if(warm.failed||warm.controller.signal.aborted||this._destroyed||this._contextLost
+      ||this._canonicalPreparedAuthor!==prepared||this._canonicalAuthorService!==warm.service||prepared.generation!==this._brushPreparationGeneration
+      ||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._locked
+      ||this._activeId!==request.layerId||this._opts.size!==(prepared.selectedSizePx??prepared.nativeSizePx)
+      ||this._opts.opacity!==request.outerResourceOpacity||this._ruler!==null
+      ||this._opts.graphiteColor.some((v,i)=>Math.round(v*255)!==request.pigmentRgb8[i]))return false
+    try{if(warm.service.isCurrent?.()!==true)return false;this._assertCanonicalPreparedRole(prepared);this._assertCanonicalLayerCurrent(prepared.owner);return true}catch{return false}
+  }
+  /** One empty, nonce-protected BEGIN for a selected plain source. No pointer,
+   * pixels, history operation or local author is created before pen contact. */
+  private _primeCanonicalSimpleBegin():void {
+    const previous=this._canonicalPreparedBegin
+    if(previous&&this._canonicalSimpleBeginCurrent(previous))return
+    this._dropCanonicalPreparedBegin()
+    const prepared=this._canonicalPreparedAuthor,service=this._canonicalAuthorService
+    if(!prepared||!service?.discardEmpty||!service.isCurrent||this._destroyed||this._contextLost||this._locked
+      ||this._canonicalSourceLifetimeHolds||this._authorInput.pending||this._authorProducer||!this._activeId
+      ||prepared.material.kind!=='auto'||!prepared.sourceContext2||prepared.sourceContext2.maskSource
+      ||prepared.sourceContext2.roleTextures||prepared.sourceContext2.sourceColorFields
+      ||prepared.program.roles.some(role=>!!sourceSpatialRoleProvider(role)||role.sourceColorProvider==='gradient')
+      ||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._ruler!==null)return
+    let release:undefined|(()=>void),warm:CanonicalPreparedBegin|undefined
+    try{
+      this._assertCanonicalPreparedRole(prepared);this._assertCanonicalLayerCurrent(prepared.owner)
+      release=this._brushMipCache.reserve(4096+JSON.stringify(prepared.sourceContext2).length*2)
+      const controller=new AbortController(),seeds=createBrushRandomContext('digitalBrush')!
+      const request:CanonicalStrokeBegin=Object.freeze({...prepared.sourceScale!==undefined?{sourceScale:prepared.sourceScale}:{},emptyDiscardNonce:nanoid(),layerId:this._activeId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(this._opts.graphiteColor.map(v=>Math.round(v*255))) as readonly[number,number,number],outerResourceOpacity:this._opts.opacity,alphaDarken:'creamy'})
+      let released=false;const drop=()=>{if(!released){released=true;release!()}}
+      // Only the detachable cell reaches asynchronous service callbacks.
+      // Publication follows the completed synchronous request setup.
+      const cell:CanonicalPreparedBeginCell={}
+      warm={prepared,service,request,seeds,controller,discardEmpty:()=>service.discardEmpty!(request),release:()=>{cell.warm=undefined;drop()},accepted:false,failed:false}
+      warm.current=()=>this._canonicalSimpleBeginCurrent(warm!)
+      cell.warm=warm
+      warm.promise=startCanonicalPreparedBegin(service,cell,prepared.sha,prepared.sourceContext2)
+      if(!warm.current?.()){try{controller.abort();if(warm.accepted)warm.discardEmpty()}finally{warm.release()};return}
+      this._canonicalPreparedBegin=warm
+    }catch{if(warm){if(this._canonicalPreparedBegin===warm)this._canonicalPreparedBegin=undefined;warm.current=undefined;try{warm.controller.abort();if(warm.accepted)warm.discardEmpty()}finally{warm.release()}}else release?.()}
+  }
   private _releaseCanonicalPreparedAuthor():void {
+    this._dropCanonicalPreparedBegin()
     const prepared=this._canonicalPreparedAuthor;this._canonicalPreparedAuthor=undefined
     this._retireCanonicalPreparedAuthor(prepared)
   }
@@ -9127,7 +9198,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(session.ended&&!source.encoder?.ended){source.closed=true;source.reason??={error:new Error('Canonical source ended before author completion')}}
     let failed=false,primary:unknown
     try{
-      for(const cleanup of [()=>source.controller.abort(),()=>{if(source.beginAccepted&&!source.localAdmitted&&source.emitted===0)try{source.discardEmpty?.()}catch(error){console.error('Canonical empty discard cleanup failed',error)}},()=>{const root=source.root7;source.root7=undefined;root?.release()},()=>{
+      for(const cleanup of [()=>source.controller.abort(),()=>{source.preparedBegin?.release();source.preparedBegin=undefined},()=>{if(source.beginAccepted&&!source.localAdmitted&&source.emitted===0)try{source.discardEmpty?.()}catch(error){console.error('Canonical empty discard cleanup failed',error)}},()=>{const root=source.root7;source.root7=undefined;root?.release()},()=>{
         const pending=source.prepared.owner.indexedLocalSource
         if(pending&&pending.author===source.localAuthor){source.prepared.owner.indexedLocalSource=undefined;pending.lease.release()}
       },source.release])try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}
@@ -9155,7 +9226,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(cut&&!source.closed&&source.encoder?.ended){for(const input of owner.inputs)input.delivery.assertCurrent(input)}
         this._assertCanonicalLayerCurrent(owner)
         if(cut&&!source.closed&&source.encoder?.ended&&source.released&&this._canonicalSourceLifetimeHolds===0&&!this._authorInput.pending&&!owner.coordinator?.hasPendingLocal&&!owner.accepting&&!owner.resourceCandidate&&this._canonicalLayerOwner===owner&&owner.indexedCut===cut&&owner.proof===proof&&generation===this._physicalGeneration&&canonicalJournalValid(proof,this._log,owner.inputs))this._canonicalRecoveryDirty=false
-        if(!owner.failed&&!owner.retiring&&this._canonicalSourceLifetimeHolds===0)this._onCanonicalAuthorIdle?.()
+        if(!owner.failed&&!owner.retiring&&this._canonicalSourceLifetimeHolds===0){this._onCanonicalAuthorIdle?.();this._authorTasks.schedule(()=>this._primeCanonicalSimpleBegin())}
       }catch{/* A UI wakeup cannot poison healthy source retirement. */}
     }
     if(failed)throw primary
@@ -9358,7 +9429,10 @@ export class PencilEngine implements PencilEngineAPI {
     const snapshot=this._captureAuthorStart(input,input.dispatchTime??performance.now())
     if(!snapshot)return
     if(this._authorProducer&&!this._authorProducer.ended)throw new Error('Canonical pointer gesture already active')
-    const captured={...input},seeds=createBrushRandomContext('digitalBrush')!,controller=new AbortController()
+    const candidate=this._canonicalPreparedBegin
+    const preparedBegin=candidate&&this._canonicalSimpleBeginCurrent(candidate)?candidate:undefined
+    if(candidate&&!preparedBegin)this._dropCanonicalPreparedBegin()
+    const captured={...input},seeds=preparedBegin?.seeds??createBrushRandomContext('digitalBrush')!,controller=preparedBegin?.controller??new AbortController()
     if(![captured.x,captured.y,captured.pressure,captured.tiltX,captured.tiltY,captured.timeStamp,snapshot.opts.opacity,...snapshot.opts.graphiteColor].every(Number.isFinite)||captured.pressure<0||captured.pressure>1||snapshot.opts.opacity<0||snapshot.opts.opacity>1||snapshot.opts.graphiteColor.some(v=>v<0||v>1))throw new Error('Invalid canonical captured input')
     // Same adapter pending owner, precharged BEFORE its allocation/BEGIN:
     // material7 <=8 DRAWs (legacy <=2), two recipe trees per draw, projected
@@ -9421,10 +9495,17 @@ export class PencilEngine implements PencilEngineAPI {
     }catch(error){try{releasePrepared?.()}finally{releaseCpu()}throw error}
     let releaseDone=false;const release=()=>{if(releaseDone)return;releaseDone=true;let failure:unknown;try{releasePrepared?.()}catch(e){failure=e}try{releaseCpu()}catch(e){failure??=e}if(failure)throw failure}
     try{
-    const request:CanonicalStrokeBegin=Object.freeze({...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureNeedsGradient&&textureGradient?{textureGradient}:{},...prepared.sourceScale!==undefined?{sourceScale:prepared.sourceScale}:{},emptyDiscardNonce:nanoid(),layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...(context8||context7)?{texturePhase:(context8??context7)!.primaryTexture.phase}:{}})
+    const request:CanonicalStrokeBegin=preparedBegin?.request??Object.freeze({...sourceTipGradient?{sourceTipGradient}:{},...sourceRoleTextureInputs?{sourceRoleTextureInputs}:{},...sourceColorFields?{sourceColorFields}:{},...textureNeedsGradient&&textureGradient?{textureGradient}:{},...prepared.sourceScale!==undefined?{sourceScale:prepared.sourceScale}:{},emptyDiscardNonce:nanoid(),layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...(context8||context7)?{texturePhase:(context8??context7)!.primaryTexture.phase}:{}})
     const capturedService=this._canonicalAuthorService
     const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,...context2?{context2}:{},...authorColors?{authorColors}:{},...context8?{context8}:{},...context7?{context7}:{},...capturedService.discardEmpty?{discardEmpty:()=>capturedService.discardEmpty!(request)}:{},timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}
     assertStart7()
+    if(preparedBegin){
+      if(!this._canonicalSimpleBeginCurrent(preparedBegin))throw Error('Prepared BEGIN changed before adoption')
+      this._canonicalPreparedBegin=undefined
+      session.source!.preparedBegin=preparedBegin;session.source!.beginAccepted=preparedBegin.accepted
+      preparedBegin.onAccepted=()=>{session.source!.beginAccepted=true}
+      preparedBegin.current=()=>{try{this._assertCanonicalSource(session);return true}catch{return false}}
+    }
     this._canonicalSourceLifetimeHolds++
     this._authorProducer=session;this._authorSnapshot=snapshot
     const owner=this,service=this._canonicalAuthorService
@@ -9456,7 +9537,7 @@ export class PencilEngine implements PencilEngineAPI {
           }finally{preparedOutcome.active=false;preparedOutcome.value=undefined;localLease.lease?.release()}
         }
         owner._assertCanonicalSource(session)
-        const promise=service.begin(request,{signal:controller.signal,isCurrent,onBeginAccepted:()=>{source.beginAccepted=true},expectedDescriptorSha256:prepared.sha,...source.context2?{expectedSourceMaterialContext2:source.context2}:{},...source.context8?{expectedMaterialContext8:source.context8}:{},...source.context7?{expectedMaterialContext7:source.context7}:{}})
+        const promise=source.preparedBegin?.promise??service.begin(request,{signal:controller.signal,isCurrent,onBeginAccepted:()=>{source.beginAccepted=true},expectedDescriptorSha256:prepared.sha,...source.context2?{expectedSourceMaterialContext2:source.context2}:{},...source.context8?{expectedMaterialContext8:source.context8}:{},...source.context7?{expectedMaterialContext7:source.context7}:{}})
         observeCanonicalBegin(promise,outcome)
         yield {kind:'author-input-wait',promise,deadline:performance.now()+5000,timeoutError:new Error('Canonical BEGIN timed out')}
         owner._assertCanonicalSource(session)

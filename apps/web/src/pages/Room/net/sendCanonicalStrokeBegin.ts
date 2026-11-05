@@ -12,6 +12,7 @@ import {canonicalAuthorTexturedAutoSource,canonicalAuthorSoftPressureTexturedSou
 
 /** Captured typed socket; disconnect invalidates this one request. */
 export interface CanonicalBeginEmitter {
+ readonly connected?:boolean
  emit(event:'canonical_stroke_begin',input:CanonicalStrokeBegin,ack:(result:CanonicalStrokeBeginResult)=>void):unknown
  on(event:'disconnect',listener:()=>void):unknown
  off(event:'disconnect',listener:()=>void):unknown
