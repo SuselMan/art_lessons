@@ -678,7 +678,7 @@ export const en = {
   'tool.watercolor.dryAll': 'Dry everything',
   'tool.watercolor': 'Watercolor',
   'tool.watercolorTitle': 'Watercolor \u2014 transparent wash; glaze a second pass over a dry one to deepen it  {hotkey}',
-  'tool.digitalBrush': 'Digital brush',
+  'tool.digitalBrush': 'Krita brush',
   'tool.digitalBrushTitle': 'Digital brush — round, textured, bristle, mixing and scatter brushes; the only tool here that imitates no real material  {hotkey}',
   'tool.field.brush': 'Brush',
   'tool.field.sizeFromPressure': 'Pressure changes size',

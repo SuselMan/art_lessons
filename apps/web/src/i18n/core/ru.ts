@@ -542,7 +542,7 @@ export const ru: Dictionary = {
   'tool.linerTitle': 'Линер — чернильная ручка, почти постоянная толщина линии  {hotkey}',
   'tool.marker': 'Маркер',
   'tool.markerTitle': 'Маркер — два наконечника (круглый/скошенный)  {hotkey}',
-  'tool.digitalBrush': 'Цифровая кисть',
+  'tool.digitalBrush': 'Кисть Krita',
   'tool.digitalBrushTitle': 'Цифровая кисть — круглые, фактурные, щетина, смешивающая и разброс; единственный инструмент здесь, который не изображает настоящий материал  {hotkey}',
   'tool.field.brush': 'Кисть',
   'tool.field.sizeFromPressure': 'Нажим меняет размер',

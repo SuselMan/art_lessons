@@ -1,4 +1,4 @@
-import { brushRole, pickerImportedBrushes } from './brushCatalog'
+import { pickerImportedBrushes } from './brushCatalog'
 
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
@@ -7,7 +7,6 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
-  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, type BrushCategory,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
@@ -21,7 +20,6 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../br
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
-import { DIGITAL_BRUSH_IMAGES } from './toolTypeImages'
 import { TRANSFORM_MODES, type TransformMode } from '../transform/transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionShapes'
 import type { TranslationKey } from '../../i18n/core/en'
@@ -382,66 +380,20 @@ const linerSchema = (): ToolSchema => ({
 // draws differently on the student's screen and after the next retune.
 //
 // So the tool's real control is which brush is in hand, and that is one field.
-/** (#573) The picker's group headings, one per BrushCategory. */
-const BRUSH_GROUP_LABEL_KEYS: Readonly<Record<BrushCategory, TranslationKey>> = {
-  line: 'tool.brushGroup.line',
-  paint: 'tool.brushGroup.paint',
-  wet: 'tool.brushGroup.wet',
-  soft: 'tool.brushGroup.soft',
-  texture: 'tool.brushGroup.texture',
-  scatter: 'tool.brushGroup.scatter',
-}
-
 const digitalBrushSchema = (): ToolSchema => ({
   // First, and in quick access, because for this tool it is *the* choice — the
   // equivalent of picking a pencil out of the stack, not of adjusting one.
   brush: {
     nameKey: 'tool.field.brush',
     brushReference: true,
-    get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...pickerImportedBrushes().map(b => b.descriptor.id)] } },
+    get valueType() { return { kind: 'enumOptions' as const, options: pickerImportedBrushes().map(b => b.descriptor.id) } },
     get optionDescriptions() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
     get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : /\.(kpp|bundle)$/i.test(b.source) ? 'Krita' : /\.brush(set)?$/i.test(b.source) ? 'Procreate' : 'Grafetto'} · ${b.name}`])) },
-    optionLabelKeys: {
-      'soft-round': 'tool.brush.softRound',
-      'medium-round': 'tool.brush.mediumRound',
-      'hard-round': 'tool.brush.hardRound',
-      'ink-round': 'tool.brush.inkRound',
-      'opaque-paint': 'tool.brush.opaquePaint',
-      'flat': 'tool.brush.flat',
-      'textured-paint': 'tool.brush.texturedPaint',
-      'bristle': 'tool.brush.bristle',
-      'mixer': 'tool.brush.mixer',
-      'airbrush': 'tool.brush.airbrush',
-      'chalk': 'tool.brush.chalk',
-      'grain': 'tool.brush.grain',
-      'screentone': 'tool.brush.screentone',
-      'splatter': 'tool.brush.splatter',
-      'grass': 'tool.brush.grass',
-      'foliage': 'tool.brush.foliage',
-      'wet-wash': 'tool.brush.wetWash',
-      'wet-on-wet': 'tool.brush.wetOnWet',
-      'wet-edge': 'tool.brush.wetEdge',
-      'granulating': 'tool.brush.granulating',
-      'dry-wash': 'tool.brush.dryWash',
-      'wet-bands': 'tool.brush.wetBands',
-      'sponge': 'tool.brush.sponge',
-      'gouache': 'tool.brush.gouache',
-    },
-    get optionGroups() { return Object.fromEntries(
-      [...DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]), ...pickerImportedBrushes().map(b => [b.descriptor.id, 'tool.brushGroup.imported'])],
-    ) },
-    // A sample stroke, like a pencil grade's — not the plotted falloff this
-    // shipped with first. The curve was honest and still wrong for the job: it
-    // showed the tool's insides where the question is "what does this leave on
-    // the paper", and a brush is chosen by its mark. Baked by the engine itself
-    // (`npm run bake:brush-samples`), so it cannot drift from the brush the way
-    // a hand-drawn or re-implemented preview would.
-    optionImages: DIGITAL_BRUSH_IMAGES,
     get optionThumbnails() { return Object.fromEntries(pickerImportedBrushes().filter(b => b.preview).map(b => [b.descriptor.id, b.preview!])) },
     uiControls: ['select'],
     quickAccess: false,
     visibleWhen: () => false,
-    default: DEFAULT_DIGITAL_BRUSH,
+    default: '',
   },
   size: {
     nameKey: 'tool.field.size',
@@ -1085,7 +1037,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     brush: {
       nameKey: 'tool.field.brush',
     brushReference: true,
-      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...DIGITAL_BRUSHES.filter(b => brushRole(b) === 'eraser').map(b => b.id), ...pickerImportedBrushes('eraser').map(b => b.descriptor.id)] } },
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...pickerImportedBrushes('eraser').map(b => b.descriptor.id)] } },
       uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
     },
     size: {
@@ -1154,7 +1106,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     brush: {
       nameKey: 'tool.field.brush',
     brushReference: true,
-      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...DIGITAL_BRUSHES.filter(b => brushRole(b) === 'smudge').map(b => b.id), ...pickerImportedBrushes('smudge').map(b => b.descriptor.id)] } },
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...pickerImportedBrushes('smudge').map(b => b.descriptor.id)] } },
       uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
     },
     size: {

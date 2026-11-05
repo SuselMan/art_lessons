@@ -6,9 +6,7 @@ import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingTool
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../lib/tools/toolSchemas'
-import { brushRole, pickerImportedBrushes } from '../../lib/tools/brushCatalog'
-import { DIGITAL_BRUSHES } from '../../engine'
-import { TOOL_SCHEMAS } from '../../lib/tools/toolSchemas'
+import { pickerImportedBrushes } from '../../lib/tools/brushCatalog'
 import { TOOL_PHOTOS, KRITA_TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
@@ -51,15 +49,19 @@ export function useToolChoice(roomId: string | undefined) {
   const toolSettings = useRoomStore(s => s.toolSettings)
   const brushRevision = useRoomStore(s => s.brushLibraryRevision)
 
-  // Existing selections made in the former all-in-one picker keep their preset,
-  // but move into the matching tool. Returning to drawing then picks a paint brush.
+  // Native digital presets are replay-only. A fresh selection uses the
+  // standard Krita basic brush when available, otherwise the first paint preset.
   useEffect(() => {
+    const paint = pickerImportedBrushes()
+    const defaultId = (paint.find(b => b.source === 'b)_Basic-5_Size.kpp') ?? paint[0])?.descriptor.id
+    const selected = toolSettings.digitalBrush.brush as string
+    if (!selected.startsWith('imported-') && defaultId) setToolSetting('digitalBrush', 'brush', defaultId)
     if (tool !== 'digitalBrush') return
     for (const role of ['eraser', 'smudge'] as const) {
-      if (pickerImportedBrushes(role).some(b => b.descriptor.id === toolSettings.digitalBrush.brush) || DIGITAL_BRUSHES.some(b => b.id === toolSettings.digitalBrush.brush && brushRole(b) === role)) {
+      if (pickerImportedBrushes(role).some(b => b.descriptor.id === selected)) {
         if (!isToolEnabledInRoom(enabledTools, role)) return
-        setToolSetting(role, 'brush', toolSettings.digitalBrush.brush)
-        setToolSetting('digitalBrush', 'brush', 'medium-round')
+        setToolSetting(role, 'brush', selected)
+        setToolSetting('digitalBrush', 'brush', defaultId ?? '')
         setTool(role)
         return
       }
@@ -157,19 +159,13 @@ export function useToolChoice(roomId: string | undefined) {
       value: id, label: t(TOOL_DISPLAY[id].labelKey), photo: TOOL_PHOTOS[id],
     }))
     if (!toolOffered('digitalBrush')) return native
-    const descriptor = TOOL_SCHEMAS.digitalBrush.brush
-    if (descriptor.valueType.kind !== 'enumOptions') return native
-    const labels = descriptor.optionLabels, keys = descriptor.optionLabelKeys
-    const imported = new Map(pickerImportedBrushes().map(b => [b.descriptor.id, b]))
-    return [...native, ...descriptor.valueType.options.filter(id => !DIGITAL_BRUSHES.some(b => b.id === id && brushRole(b) !== 'drawing')).map(id => ({
-      value: 'digital:' + id, label: imported.get(id)?.name ?? (keys?.[id] ? t(keys[id]) : labels?.[id] ?? id),
-      photo: KRITA_TOOL_PHOTOS[id] ?? (imported.has(id) ? undefined : TOOL_PHOTOS.digitalBrush),
-      thumbnail: imported.get(id)?.preview,
+    return [...native, ...pickerImportedBrushes().map(b => ({
+      value: 'digital:' + b.descriptor.id, label: b.name,
+      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview,
     }))]
   }, [toolOffered, t, brushRevision])
   const roleOptions = (role: 'eraser' | 'smudge'): PickerOption[] => toolOffered(role) ? [
     { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role] },
-    ...(toolOffered('digitalBrush') ? DIGITAL_BRUSHES : []).filter(b => brushRole(b) === role).map(b => ({ value: b.id, label: t(TOOL_SCHEMAS.digitalBrush.brush.optionLabelKeys![b.id]), photo: TOOL_PHOTOS.digitalBrush })),
     ...(toolOffered('digitalBrush') ? pickerImportedBrushes(role) : []).map(b => ({ value: b.descriptor.id, label: b.name,
       photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview })),
   ] : []

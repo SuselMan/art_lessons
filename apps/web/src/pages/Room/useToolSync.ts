@@ -35,7 +35,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
   const toolSettings = useRoomStore(s => s.toolSettings)
   const uiDrawingTool = useRoomStore(s => s.drawingTool)
   const allowsImported = useRoomStore(s => isToolEnabledInRoom(s.room?.enabledTools, 'digitalBrush'))
-  const roleBrush = allowsImported && (uiDrawingTool === 'eraser' || uiDrawingTool === 'smudge') && toolSettings[uiDrawingTool].brush !== 'native'
+  const roleBrush = allowsImported && (uiDrawingTool === 'eraser' || uiDrawingTool === 'smudge') && (toolSettings[uiDrawingTool].brush as string)?.startsWith('imported-')
     ? toolSettings[uiDrawingTool].brush as string : undefined
   const drawingTool = roleBrush ? 'digitalBrush' : uiDrawingTool
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
@@ -75,6 +75,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
   const digitalBrushSizeFromPressure = roleBrush ? true : toolSettings.digitalBrush.sizeFromPressure as boolean
   const digitalBrushOpacityFromPressure = roleBrush ? true : toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
+    if (!digitalBrushId.startsWith('imported-')) return undefined
     let brush
     try { brush = digitalBrushFromPreset(digitalBrushId) } catch { return undefined }
     return digitalBrushPreset(brush.id, brush.version, {
@@ -99,7 +100,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
   const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}`
   const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
   useEffect(() => {
-    if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
+    if (drawingTool !== 'digitalBrush' || !digitalBrushPresetName) { setPreparedKey(''); return }
     const engine = engineRef.current
     if (!engine) return
     const controller = new AbortController()
