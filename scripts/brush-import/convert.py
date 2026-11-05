@@ -485,12 +485,13 @@ def validate_portable_mixer(descriptor):
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if (descriptor['model']!='mixer' or not isinstance(mixer,dict)
-            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground'}
+            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','algorithm'}
             or any(not finite(mixer.get(key)) for key in ('load','pickup','strength'))
             or ('initialLoad' in mixer and not finite(mixer['initialLoad']))
             or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
             or ('source' in mixer and mixer['source']!='previousCanvas')):
         raise ValueError('Invalid portable mixer')
+    if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source')!='previousCanvas'): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source')=='previousCanvas' and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
         raise ValueError('Invalid portable previous-canvas source')
@@ -498,8 +499,9 @@ def validate_portable_mixer(descriptor):
     if 'sampling' in mixer:
         sampling=mixer['sampling']
         if (not isinstance(sampling,dict) or set(sampling)-{'mode','radius','radiusDynamics'}
-                or mixer.get('source')!='previousCanvas' or sampling.get('mode')!='uniformMean' or not finite(sampling.get('radius'),0,3)):
+                or mixer.get('source')!='previousCanvas' or sampling.get('mode') not in ('uniformMean','adaptiveMean','maskMean') or not finite(sampling.get('radius'),0,3)):
             raise ValueError('Invalid portable mixer sampling')
+        if sampling.get('mode')=='maskMean' and mixer.get('algorithm') not in ('krita-mask','krita-stamp'): raise ValueError('Mask-weighted sampling requires Color Smudge')
         if 'radiusDynamics' in sampling: validate_portable_dynamics(sampling['radiusDynamics'])
     if 'foreground' in mixer:
         foreground=mixer['foreground']
@@ -647,6 +649,18 @@ def portable_bundle(path,catalog):
             frames=animation['frames']
             if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
             if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
+        if 'color' in tip:
+            color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
+            def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
+            if (d.get('model')!='mixer' or d.get('mixer',{}).get('algorithm')!='krita-stamp' or tip.get('kind')!='bitmap'
+                    or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict) or set(color)-{'planes','frames'} or not tuple_ids(color.get('planes'))):
+                raise ValueError('Invalid portable RGB material')
+            colors=color.get('frames',[color['planes']])
+            if (('animation' in tip and ('frames' not in color or not isinstance(colors,list) or len(colors)!=len(frames) or colors[0]!=color['planes']))
+                    or ('animation' not in tip and 'frames' in color) or not all(tuple_ids(frame) for frame in colors)):
+                raise ValueError('Invalid portable RGB frames')
+            paired=frames+[aid for frame in colors for aid in frame]
+            if len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable RGB plane sizes differ')
         if 'material' in tip:
             material=tip['material']
             if (d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict)

@@ -38,7 +38,7 @@ void main(){
       vec2 p=lo+floor(vec2(inverseRadical(count,2.0),inverseRadical(count,3.0))*(size-1.0)+0.5);
       vec4 pixel=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));
       vec2 uv=u_maskMapping.xy+(p+0.5)*u_maskMapping.z;
-      float weight=texture2D(u_mask,vec2(uv.x,1.0-uv.y)).a;
+      float weight=u_maskMapping.w>0.5 ? texture2D(u_mask,vec2(uv.x,1.0-uv.y)).a : 1.0;
       sum+=pixel*weight;weights+=weight;
       if(count==initial || count>initial && mod(count-initial,16.0)<0.5 || count==limit){
         mean=weights>0.0?sum/weights:vec4(0.0);

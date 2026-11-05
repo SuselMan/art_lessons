@@ -270,7 +270,7 @@ export interface BrushDescriptor {
     /** New mask strategy: feedback composition precedes foreground and mask. */
     algorithm?: 'krita-mask' | 'krita-stamp'
     /** Uniform previous-canvas area mean. Fixed64 sample cap. */
-    sampling?: { mode: 'uniformMean' | 'maskMean'; radius: number; radiusDynamics?: BrushDynamic[] }
+    sampling?: { mode: 'uniformMean' | 'adaptiveMean' | 'maskMean'; radius: number; radiusDynamics?: BrushDynamic[] }
     /** Source-over foreground added to sampled canvas before masked transfer.
      * Rate and its input responses multiply effective dab opacity once here;
      * transfer independently applies pickup and effective opacity. No reservoir. */
@@ -515,7 +515,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
       || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas')
       || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || d.mixer.source !== 'previousCanvas'))
-      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || !['uniformMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
+      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))
       || (d.mixer.foreground !== undefined && (!record(d.mixer.foreground) || d.mixer.source !== 'previousCanvas' || !numberIn(d.mixer.foreground.rate,0,1)

@@ -19,3 +19,14 @@ it('rejects weighted reservoir mixing and unknown source algorithms',()=>{
  m.algorithm='krita-mask';delete m.source;expect(isBrushLibrary(l)).toBe(false)
  m.source='previousCanvas';Reflect.set(m,'algorithm','native-ish');expect(isBrushLibrary(l)).toBe(false)
 })
+
+it('requires every RGB frame plane to exist and match alpha dimensions',()=>{
+ const l=library(),d=l.brushes[0].descriptor
+ const ids=Array.from({length:4},(_,i)=>('asset:'+String(i+1).repeat(64)) as `asset:${string}`)
+ d.tip={kind:'bitmap',mask:ids[0],hardness:1,aspect:1,angle:0,rotation:'fixed',color:{planes:[ids[1],ids[2],ids[3]]}}
+ d.mixer!.algorithm='krita-stamp'
+ l.assets=ids.map(id=>({id,size:16,file:id.slice(6)+'.bin'}))
+ expect(isBrushLibrary(l)).toBe(true)
+ l.assets[3].size=32;expect(isBrushLibrary(l)).toBe(false)
+ l.assets.pop();expect(isBrushLibrary(l)).toBe(false)
+})

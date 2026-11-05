@@ -14,9 +14,9 @@ class DullingImportTests(unittest.TestCase):
             c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c);self.assertEqual(c.skipped,[]);return c.brushes[0]
     def test_legacy_percent_migration_and_pure_guards(self):
         b=self.brush({});m=b['descriptor']['mixer']
-        self.assertEqual(m['source'],'previousCanvas');self.assertEqual(m['sampling']['mode'],'uniformMean');self.assertAlmostEqual(m['sampling']['radius'],.0041)
+        self.assertEqual(m['source'],'previousCanvas');self.assertEqual(m['sampling']['mode'],'adaptiveMean');self.assertAlmostEqual(m['sampling']['radius'],.0041)
         self.assertEqual((m['load'],m['initialLoad']),(0,0))
-        self.assertTrue(any('fixed64' in n['detail'] and '512px' in n['detail'] for n in b['compatibility']))
+        self.assertTrue(any('1024-tap' in n['detail'] and '512px' in n['detail'] for n in b['compatibility']))
         self.assertEqual(self.brush({'SmudgeRadiusValue':'.5'})['descriptor']['mixer']['sampling']['radius'],.005)
     def test_new_radius_version_disabled_and_clamp(self):
         self.assertEqual(self.brush({'SmudgeRadiusVersion':'2'})['descriptor']['mixer']['sampling']['radius'],.41)

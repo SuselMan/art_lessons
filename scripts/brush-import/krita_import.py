@@ -921,11 +921,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 radius=numeric(params.get('SmudgeRadiusValue'),3)
                 if numeric(params.get('SmudgeRadiusVersion'),1)<2: radius/=100
                 radius=clamp(radius,0,3) if enabled(params.get('PressureSmudgeRadius')) else 0
-                d['mixer']['sampling']={'mode':'maskMean' if modern else 'uniformMean','radius':min(radius,1) if modern else radius}
+                d['mixer']['sampling']={'mode':'maskMean' if modern else 'adaptiveMean','radius':min(radius,1) if modern else radius}
                 if enabled(params.get('PressureSmudgeRadius')):
                     controls=size_like_controls(params,'SmudgeRadius',notes,allow_time=timed_input)
                     if controls: d['mixer']['sampling']['radiusDynamics']=controls
-                notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK dulling uses previous-canvas uniform mean and optional foreground: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
+                notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK dulling uses adaptive uniform Halton sampling and optional foreground:1024-tap cap, bounded512px gather and premultiplied RGBA8/convergence metric differ from native colours.'))
             else:
                 notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK smearing samples previous canvas with optional foreground; native mask/byte quantization require calibration.'))
             if modern:
@@ -1046,6 +1046,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if isinstance(value,dict):return value.get('control')=='time' or 'timing'in value or any(source_clock(v)for v in value.values())
         return isinstance(value,list) and any(source_clock(v)for v in value)
     if source_clock(behavior):d['version']=35
+    if d.get('mixer',{}).get('algorithm') or d.get('mixer',{}).get('sampling',{}).get('mode')=='adaptiveMean': d['version']=max(d['version'],36)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

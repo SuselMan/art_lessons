@@ -3493,6 +3493,7 @@ export class PencilEngine implements PencilEngineAPI {
     const programJobs = [...capabilities].map(painter => () => {
       if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
+      else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
       else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
       else if (painter === 'stamp') this._brush.prepareProcedural()
