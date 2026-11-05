@@ -2,6 +2,7 @@ import {isSourceCapturedCompositeMode} from './src/raster/sourceCompositeProgram
 import {isSourceScalarPowerMode} from './src/presets/sourceScalarPowerTable'
 import {setGlClearColor,setGlColorMask,registerGlClearState,type GlClearStateOwner} from './src/raster/GlClearState'
 import {brushPreparationSteps} from './src/dabs/BrushPreparation'
+import {CanonicalWorkspaceBusyError,createCanonicalPreparationProgress,waitCanonicalPreparationProgress,type CanonicalPreparationProgress} from './src/dabs/CanonicalPreparationProgress'
 import {canonicalPixelSourceOuterCompositionLaw,canonicalStrokeCompositionExtensions,isCanonicalStrokeComposition} from '@grafetto/shared'
 import {canonicalSourceMaterialTipGradient} from '@grafetto/shared'
 import {canonicalPixelDualSourcePreparationContext,canonicalPixelDualSourceMaterialContext,canonicalSourceRoleTexturesInput,type CanonicalSourceRoleTexturesInput} from '@grafetto/shared'
@@ -1909,6 +1910,7 @@ interface CanonicalLayerOwner {
  resourceCandidate?:{cancel(lost:boolean):void}
  recordedCapacity?:{readonly promise:Promise<void>;readonly resolve:()=>void;readonly release:()=>void}
  localCapacity?:{readonly coordinator:CanonicalWashLayerCoordinator;readonly revision:number;readonly promise:Promise<void>;readonly resolve:()=>void;readonly release:()=>void}
+ preparationProgress?:CanonicalPreparationProgress
  releaseResources?:()=>void
  indexedCandidate?:CanonicalEmptyJob;indexedCut?:CanonicalAcceptedCut;indexedCarry?:Map<string,CanonicalIndexedActiveRoot>;historySelecting?:boolean;exporting?:boolean;indexedFollowing?:boolean;mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
  derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
@@ -2885,7 +2887,7 @@ export class PencilEngine implements PencilEngineAPI {
     cancelFrame:handle=>cancelAnimationFrame(handle),
   })
   private readonly _authorInput = new AuthorInputFIFO({
-    schedule: callback => this._authorTasks.schedule(callback),
+    schedule: callback => this._authorTasks.schedule(()=>{try{callback()}finally{const owner=this._canonicalLayerOwner;if(owner)this._wakeCanonicalPreparation(owner)}}),
     unschedule: handle => this._authorTasks.unschedule(handle),
     now: () => performance.now(),
     failed: error => { this._authorInputError=error; this._stopAirbrush(); this._diagLog('[engine] author input failed',error) },
@@ -6909,6 +6911,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{for(const [key,root]of source){const release=this._reserveIndexedRoot(root.snapshot,root.firstInput);result.set(key,{...root,release})}return result}catch(error){for(const root of result.values())try{root.release()}catch{/* Preserve reservation failure. */}throw error}
   }
   private _notifyCanonicalIndexedReadIdle(owner:CanonicalLayerOwner):void {
+    this._wakeCanonicalPreparation(owner)
     if(this._canonicalLayerOwner!==owner||this._destroyed||this._contextLost||owner.failed||owner.retiring||owner.historySelecting||owner.exporting||owner.indexedFollowing)return
     try{this._onCanonicalIndexedReadIdle?.()}catch{/* A read-slot wakeup cannot change completed cleanup/publication. */}
   }
@@ -7669,7 +7672,7 @@ export class PencilEngine implements PencilEngineAPI {
     const patternData=texture?canonicalPatternRecord(texture):undefined,assets=[...imageMaterialPlan?.assets??imageAssets,...patternData?patternData.alphaAsset?[patternData.asset,patternData.alphaAsset]:[patternData.asset]:[]]
     const assertAssets=()=>{for(const asset of assets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')}
     assertAssets()
-    if(growing&&!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+    if(growing&&!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new CanonicalWorkspaceBusyError()
     const key='recorded-image:'+JSON.stringify([imagePins,texture,imageMaterial,composition])
     while(!this._brushPreparation.canRunWithoutReplacing(key)){
       // Passive work completion only: no candidate, author ownership, timer,
@@ -7848,6 +7851,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _canonicalWorkspaceIdle(owner:CanonicalLayerOwner):boolean {
     return !this._canonicalSourceLifetimeHolds&&!this._authorInput.pending&&!this._authorProducer&&!owner.accepting&&!owner.job&&owner.wake===undefined&&!owner.orderParked&&!owner.coordinator&&!owner.derived&&!owner.outstanding&&(!this._rebuildJobs.has(INITIAL_LAYER_ID)||!!owner.indexedCandidate&&this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical===owner.indexedCandidate)
   }
+  private _wakeCanonicalPreparation(owner:CanonicalLayerOwner,retired=false):void {
+    const cell=owner.preparationProgress
+    if(cell&&(retired||this._canonicalLayerOwner!==owner||owner.failed||this._destroyed||this._contextLost||this._canonicalWorkspaceIdle(owner))){owner.preparationProgress=undefined;cell.resolve()}
+  }
   /** Optional preparation for one actual page tile. No gesture, coordinator or
    * pixel admission is created; all physical owners remain the existing layer/pool. */
   private _prewarmCanonicalLayerStorage(owner:CanonicalLayerOwner,stage:'stable'|'scratch',available:()=>boolean):void {
@@ -7954,7 +7961,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots&&(!requested.spatialColors||owner.mask.spatialColors)&&(!requested.tipGradient||owner.mask.tipGradient))return
     const oldPrepared=owner.prepared,growing=owner.prepared||owner.prepass.isReady()&&owner.composite.isReady()
     if(growing){
-      if(!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+      if(!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new CanonicalWorkspaceBusyError()
       const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}),sources=owner.bank?.preparedResources()??[]
       let update:CanonicalPreparedCapacityUpdate|undefined,companions:CanonicalPreparedResourceUpdate|undefined,release:undefined|(()=>void),published=false
       const capturedMask=owner.mask,capturedResources=owner.releaseResources
@@ -7993,7 +8000,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the owners actually retired below; companion storage is never charged twice.
     if(cost.gpuBytes+compositeCost.gpuBytes>owner.cache.budgetBytes||this._brushMipCache.reservedBytes-oldMaskCpu-oldAuthorCpu+cost.cpuBytes+(compositeReady?0:compositeCost.cpuBytes)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
     const assertIdle=()=>{
-      if(!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+      if(!this._canonicalWorkspaceIdle(owner))throw new CanonicalWorkspaceBusyError()
     }
     if(replacing){
       assertIdle()
@@ -8133,6 +8140,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{attempt(()=>ticket.finish());if(closed&&stable!==previous)attempt(()=>stable.destroy())}
     finally{owner.retiring=retiring}
     if(failed)throw primary
+    if(!('transaction'in owner))this._wakeCanonicalPreparation(owner)
   }
   private _wakeCanonicalLayer(owner:CanonicalLayerOwner):void {
     if(!owner.job){
@@ -8237,7 +8245,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Matching confirmations can drain without changing the published raw
         // wash. Retirement still switches the display from derived to stable.
         if(changed||retired){owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision;this._invalidateSplitCache();this._displayIfNotSuspended()}
-        this._authorTasks.resetIfIdle();return
+        this._authorTasks.resetIfIdle();this._wakeCanonicalPreparation(owner);return
       }
       if(coordinator!.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision){
         owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision
@@ -8269,6 +8277,7 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=expectedOwner??this._canonicalLayerOwner;if(!owner)return []
     if(this._canonicalLayerOwner===owner)this._canonicalLayerOwner=undefined
     owner.failed=true
+    this._wakeCanonicalPreparation(owner,true)
     const errors:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){errors.push(error)}}
     if(owner.wake!==undefined){const wake=owner.wake;owner.wake=undefined;attempt(()=>this._authorTasks.unschedule(wake))}
     if(owner.job&&this._rebuildJobs.get(INITIAL_LAYER_ID)===owner.job)this._rebuildJobs.delete(INITIAL_LAYER_ID)
@@ -8772,7 +8781,7 @@ export class PencilEngine implements PencilEngineAPI {
     }finally{if(!accepted)try{try{lease?.release()}finally{localLease.lease?.release()}}finally{releaseCpu()}}
   }
   private async _prepareCanonicalAuthorBrush(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
-    const result=await this._prepareCanonicalAuthorBrushCore(preset,options)
+    const result=await this._prepareCanonicalAuthorBrushWhenAvailable(preset,options)
     if(result.status!=='ready')return result
     const prepared=this._canonicalPreparedAuthor
     if(!prepared||prepared.preset!==preset)throw new Error('Scalar author preparation changed')
@@ -8799,6 +8808,31 @@ export class PencilEngine implements PencilEngineAPI {
       }catch(primary){if(this._canonicalPreparedAuthor===prepared)this._releaseCanonicalPreparedAuthor();throw primary}
     }
     return result
+  }
+  /** Resource growth waits for genuine progress of this SAME owner. Safe
+   * non-growing preparation can still finish while another participant paints. */
+  private async _prepareCanonicalAuthorBrushWhenAvailable(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
+    const owner=this._canonicalLayerOwner
+    if(!owner)return this._prepareCanonicalAuthorBrushCore(preset,options)
+    const size=this._opts.size,pattern=this._sourcePattern,angle=this._authorCameraAngle,generation=this._physicalGeneration
+    const current=()=>!this._destroyed&&!this._contextLost&&!owner.failed&&!owner.retiring&&this._canonicalLayerOwner===owner&&owner.generation===generation&&this._physicalGeneration===generation&&!options.signal?.aborted&&this._opts.pencilType===preset&&this._opts.size===size&&this._sourcePattern===pattern&&this._authorCameraAngle===angle
+    for(;;){
+      const progress=owner.preparationProgress??=createCanonicalPreparationProgress();progress.references++
+      try{
+        const result=await this._prepareCanonicalAuthorBrushCore(preset,options)
+        if(result.status!=='cancelled'||!current())return result
+        if(!this._canonicalWorkspaceIdle(owner)){
+          if(!await waitCanonicalPreparationProgress(progress.promise,options.signal))return{status:'cancelled'}
+        }else if(!this._brushPreparation.canRunWithoutReplacing()){
+          if(!await waitCanonicalPreparationProgress(this._brushPreparation.whenIdle(),options.signal))return{status:'cancelled'}
+        }else if(!progress.settled)return result
+      }catch(error){
+        if(!(error instanceof CanonicalWorkspaceBusyError))throw error
+        if(!current())return{status:'cancelled'}
+        if(!this._canonicalWorkspaceIdle(owner)&&!await waitCanonicalPreparationProgress(progress.promise,options.signal))return{status:'cancelled'}
+      }finally{if(--progress.references===0&&owner.preparationProgress===progress)owner.preparationProgress=undefined}
+      if(!current())return{status:'cancelled'}
+    }
   }
   private async _prepareCanonicalAuthorBrushCore(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
     const owner=this._canonicalLayerOwner,originalDescriptor=importedBrushFromPreset(preset)
@@ -8903,7 +8937,7 @@ export class PencilEngine implements PencilEngineAPI {
     const pattern=grain?.patternAsset??generic?.patternAsset??softPressure?.patternAsset??pressure?.patternAsset??fixed?.patternAsset??(texture?canonicalPattern(texture):undefined),sourceAssets=[...image?.assets??[],...grain?.alphaAsset?[grain.alphaAsset]:[],...pattern?[pattern]:[]],resources=!deferredTextureGradient&&(!!grain||!!image||!!fixed||!!pressure||!!softPressure)
     const initializing=resources&&!owner.prepared
     const growing=owner.prepared&&(requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots||!!requested.spatialColors&&!owner.mask.spatialColors)
-    if(growing&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+    if(growing&&!this._canonicalWorkspaceIdle(owner))throw new CanonicalWorkspaceBusyError()
     if(initializing&&(owner.inputs.length||owner.bank||!this._canonicalWorkspaceIdle(owner)))throw new Error('Canonical initial image preparation requires an empty idle owner')
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),materialCpu=generic?sourceTexturedAutoProgramCpuBytes(generic.program):softPressure?sourceNativeDefaultMaterialProgramCpuBytes(softPressure.program):pressure?sourcePressureMaterialProgramCpuBytes(pressure.program):0,charge=plainCharge||bytes.length*8+8192+materialCpu
     const mask=owner.prepared?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots),...owner.mask.spatialColors||requested.spatialColors?{spatialColors:true as const}:{},...owner.mask.tipGradient||requested.tipGradient?{tipGradient:true as const}:{}}):requested,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(canonicalHsyCompositeLimits(owner.plan.composite,originalComposition?.outerBlend==='colorHsyBrowser'))
