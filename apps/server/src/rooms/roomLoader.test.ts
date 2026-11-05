@@ -40,6 +40,15 @@ function row(id: string) {
 }
 
 const base = (seq: number, userId = OWNER) => ({ id: `op-${nextId++}`, userId, timestamp: 0, seq })
+
+it('does not load archived pixels into the common renderer or read their operations', async () => {
+  const id = `archived-${nextId++}`
+  mockPrisma.room.findUnique.mockResolvedValueOnce({...row(id), rasterVersion: 'straight-rgba8-v1'})
+  const reads = mockPrisma.operation.findMany.mock.calls.length
+  expect(await ensureRoomLoaded(id)).toBe(false)
+  expect(mockPrisma.operation.findMany.mock.calls.length).toBe(reads)
+  expect(rooms.has(id)).toBe(false)
+})
 const stroke = (seq: number, layerId = 'layer-1'): Operation => ({
   ...base(seq), type: 'stroke', layerId, tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [],
 })

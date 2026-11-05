@@ -4,6 +4,7 @@ import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 import { prisma } from '../db/prisma.js'
 import { toWireRoom } from './roomMapper.js'
 import { rooms } from './roomRegistry.js'
+import { supportsRoomStorage } from './roomStoragePolicy.js'
 import { persistPalette } from './roomPersistence.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
@@ -70,7 +71,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     // into the heap. See loadResidentOperations.
     include: { thumbnail: { select: { updatedAt: true } } },
   })
-  if (!dbRoom) return false
+  // Never interpret archived experimental pixels as ordinary Grafetto data.
+  if (!dbRoom || !supportsRoomStorage(dbRoom.rasterVersion)) return false
 
   // (#176) Lesson first, always: the board's join gate, freeze and
   // participants are all read off the lesson's record, so a board resident
