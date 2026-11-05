@@ -114,6 +114,17 @@ topics:
     modules: [apps/web/src/engine/src/input, apps/web/src/engine/src/dabs, apps/web/src/engine/src/presets]
     flows: [stroke]
 
+  - id: unified-brush-models
+    level: 2
+    parent: engine
+    title: Общий движок и модели кистей
+    issue: 810
+    why: >-
+      Конфигурация хранит параметры и версию формул. Модель кисти исполняется
+      внутри общего ввода, слоёв, тайлов, истории и онлайна Grafetto.
+    modules: [apps/web/src/engine/src/presets, shared-contract]
+    adr: [018-unified-brush-engine]
+
   - id: layers-and-tiles
     level: 2
     parent: engine

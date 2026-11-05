@@ -107,7 +107,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
         await mkdir(output,{mode:0o700})
         await new Promise<void>((resolveJob,reject)=> {
           const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
-          const script=fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
+          const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
           const child=spawn('prlimit',['--as=1073741824','--cpu=110','--fsize=536870912','--',python,script,input,'--output',output],{stdio:['ignore','ignore','ignore'],env:{PATH:process.env.PATH,PYTHONHASHSEED:'0'}})
           activeChild=child
           const timer=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Brush import timed out'))},120000)

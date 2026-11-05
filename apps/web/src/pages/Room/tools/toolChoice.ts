@@ -11,7 +11,7 @@ type EnabledTools = readonly ToggleableTool[] | undefined
  *  (sanitizeEnabledTools refuses the ones that don't), so this cannot come up
  *  empty; the pencil is the fallback for the unrestricted room. */
 export function fallbackToolFor(enabledTools: EnabledTools): EditorTool {
-  return enabledTools?.find(candidate => TOOLSET_MATERIAL_TOOLS.includes(candidate)) ?? 'pencil'
+  return enabledTools?.find(candidate => TOOLSET_MATERIAL_TOOLS.includes(candidate) && isToolEnabledInRoom(enabledTools, candidate)) ?? 'pencil'
 }
 
 /** (#544) What the rail's one drawing button wears and what a plain tap takes.

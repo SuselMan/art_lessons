@@ -4,7 +4,7 @@ import { evaluateBrushCurve as curveAt } from '@grafetto/shared'
 import { normalizeBrush } from './brushNormalization'
 import { importedBrushFromPreset } from './importedBrushes'
 
-import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import { tiltOrPathAngle, type DabShapingProfile } from './brushGeometry'
 import type { PencilPreset } from './pencilPresets'
 import type { BrushCurve, TipRotation, BrushTip, BrushCategory, BrushDescriptor, TipMaskId } from '@grafetto/shared'
 export type { BrushCurve, TipRotation, BrushTip, BrushScatter, BrushCategory, BrushModel, BrushDescriptor } from '@grafetto/shared'
@@ -724,8 +724,12 @@ export function digitalBrushPresetFor(presetName: string | undefined): PencilPre
  *  speedContact. Those model a physical nib bending, and this brush has no
  *  fibres to bend. */
 export function shapingForDigitalBrushPreset(presetName: string | undefined): DabShapingProfile {
-  const { tip, sizeByPressure, pressureSmoothingPx } = digitalBrushFromPreset(presetName)
-  const { size: sizeFromPressure } = digitalBrushPressureFromPreset(presetName)
+  return shapingForDigitalBrush(digitalBrushFromPreset(presetName), digitalBrushPressureFromPreset(presetName))
+}
+
+export function shapingForDigitalBrush(brush: BrushDescriptor, pressureSettings: Readonly<BrushPressureSettings>): DabShapingProfile {
+  const { tip, sizeByPressure, pressureSmoothingPx } = brush
+  const { size: sizeFromPressure } = pressureSettings
   return {
     // (#573) Switched off, the dab is the size on the slider at every pressure
     // — the top of every curve here, since they all end at [1, 1]. Recorded in
