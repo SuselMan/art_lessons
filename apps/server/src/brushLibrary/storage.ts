@@ -30,7 +30,8 @@ export function merge(...libraries: BrushLibrary[]): BrushLibrary {
     for (const brush of library.brushes) {
       const existing = result.brushes.find(b => b.descriptor.id === brush.descriptor.id && b.descriptor.version === brush.descriptor.version)
       if (existing && !isDeepStrictEqual(wireDescriptor(existing.descriptor), wireDescriptor(brush.descriptor))) throw Error('Immutable brush conflict')
-      if (!existing) result.brushes.push(brush)
+      if (!existing) result.brushes.push({ ...brush })
+      else if (!existing.preview && brush.preview) existing.preview = brush.preview
     }
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)
     for (const item of library.skipped) if (!result.skipped.some(previous => previous.name === item.name && JSON.stringify(previous.reasons) === JSON.stringify(item.reasons))) result.skipped.push(item)

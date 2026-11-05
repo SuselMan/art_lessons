@@ -66,6 +66,10 @@ export function OptionPreview({ option, shape }: OptionPreviewProps) {
       />
     )
   }
+  if (option.thumbnail) {
+    return <img className={clsx(styles.preview, styles.previewThumbnail, shape === 'dot' && styles.previewThumbnailDot)}
+      src={option.thumbnail} alt="" loading="lazy" decoding="async" />
+  }
   if (!option.image) return null
   return (
     <span

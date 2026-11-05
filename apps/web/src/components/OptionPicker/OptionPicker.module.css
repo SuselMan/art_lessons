@@ -273,3 +273,7 @@
   top: 8px;
   right: 9px;
 }
+
+/* Preserve the complete artwork embedded in a Krita preset. */
+.previewThumbnail { width: 56px; height: 56px; object-fit: contain; border-radius: var(--radius-sm); }
+.previewThumbnailDot { width: 30px; height: 30px; }

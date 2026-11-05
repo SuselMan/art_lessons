@@ -127,6 +127,8 @@ export interface SettingDescriptor {
    *  the entire basis for choosing one and which no amount of labelling
    *  conveys. Keyed by option value; see toolTypeImages.ts. */
   optionImages?: Readonly<Record<string, string>>
+  /** Original author preview, fitted whole rather than cropped as a stroke. */
+  optionThumbnails?: Readonly<Record<string, string>>
   /** (#335) Icon name per `enumOptions` value, for options whose difference is
    *  a *shape* rather than a tone — the marker's two nibs. Mutually exclusive
    *  with `optionImages` in practice; a descriptor carrying both would render
@@ -448,6 +450,7 @@ const digitalBrushSchema = (): ToolSchema => ({
     // (`npm run bake:brush-samples`), so it cannot drift from the brush the way
     // a hand-drawn or re-implemented preview would.
     optionImages: DIGITAL_BRUSH_IMAGES,
+    get optionThumbnails() { return Object.fromEntries(pickerImportedBrushes().filter(b => b.preview).map(b => [b.descriptor.id, b.preview!])) },
     uiControls: ['select'],
     quickAccess: true,
     default: DEFAULT_DIGITAL_BRUSH,

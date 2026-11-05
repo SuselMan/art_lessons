@@ -23,6 +23,20 @@ from krita_lightness import compile_lightness_planes
 MAX_XML = 32 * 1024 * 1024
 
 
+def preset_preview(image):
+    """Author's artwork only; strip preset XML and resources from display PNG."""
+    preview = image.convert('RGBA')
+    preview.thumbnail((64, 64), Image.Resampling.LANCZOS)
+    clean = Image.new('RGBA', preview.size)
+    clean.paste(preview)
+    output = io.BytesIO()
+    clean.save(output, format='PNG', optimize=True)
+    encoded = base64.b64encode(output.getvalue()).decode('ascii')
+    if len(encoded) > 90000:
+        raise ValueError('Krita preview exceeds display limit')
+    return 'data:image/png;base64,' + encoded
+
+
 def xml(data):
     if len(data) > MAX_XML or '<!ENTITY' in data.upper():
         raise ValueError('Krita XML exceeds limit or declares entities')
@@ -383,6 +397,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if image.format != 'PNG' or image.width*image.height > MAX_PIXELS:
         raise ValueError('KPP must be a bounded PNG')
     image.load() # PNG permits preset text after IDAT as well as before it.
+    author_preview = preset_preview(image)
     text = image.info.get('preset')
     if not isinstance(text, str):
         raise ValueError('KPP has no preset XML; its PNG is only a thumbnail')
@@ -1012,6 +1027,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return isinstance(value,list) and any(source_clock(v)for v in value)
     if source_clock(behavior):d['version']=35
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
+    result['preview'] = author_preview
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result

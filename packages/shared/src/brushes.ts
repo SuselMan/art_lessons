@@ -282,6 +282,8 @@ export interface ImportedBrush {
   descriptor: BrushDescriptor
   name: string
   source: string
+  /** Original author artwork, sanitized PNG at most 128px; display only. */
+  preview?: string
   /** Source editor defaults; opacity/flow already contribute to descriptor rendering. */
   sourceDefaults?: { sizePx: number; opacity: number; flow: number }
   warnings: string[]
@@ -304,6 +306,17 @@ function numberIn(value: unknown, min: number, max: number): value is number {
 const ASSET = /^asset:[a-f0-9]{64}$/
 /** Validate untrusted conversion output at both ends of the wire. Imported
  * presets currently target the stamp model, with explicit conversion warnings. */
+/** PNG display payloads never become brush resources or execution inputs. */
+function isBrushPreview(value: unknown): boolean {
+  if (typeof value !== 'string' || value.length > 90022 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) return false
+  try {
+    const bytes = atob(value.slice(22))
+    if (bytes.slice(0, 8) !== '\x89PNG\r\n\x1a\n' || bytes.slice(12, 16) !== 'IHDR') return false
+    const dimension = (offset: number) => [...bytes.slice(offset, offset + 4)].reduce((n, c) => n * 256 + c.charCodeAt(0), 0)
+    return bytes.length >= 33 && dimension(16) > 0 && dimension(16) <= 128 && dimension(20) > 0 && dimension(20) <= 128
+  } catch { return false }
+}
+
 export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxBrushes?: number; maxAssets?: number } = {}): value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
     || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
@@ -327,6 +340,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || Object.keys(b.sourceDefaults).some(key => !['sizePx','opacity','flow'].includes(key))
       || !numberIn(b.sourceDefaults.sizePx, 0.01, 10000)
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
+    if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
     const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false

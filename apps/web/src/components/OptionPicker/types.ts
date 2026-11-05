@@ -10,6 +10,8 @@ export interface PickerOption {
   label: string
   /** URL of a sample-stroke image (`assets/tool-types/…`). */
   image?: string
+  /** Author artwork shown whole, independently from rendered stroke samples. */
+  thumbnail?: string
   /** (#544) URL of a photograph of the *tool itself* (`assets/tools/…`) —
    *  what the drawing-tool chooser shows, where the options are materials
    *  rather than settings of one material.

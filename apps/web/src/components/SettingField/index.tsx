@@ -155,10 +155,12 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
     // nothing to show about 0.3mm that "0.3" doesn't already say.
     if (descriptor.uiControls[0] === 'select') {
       const optionGroups = descriptor.optionGroups
+      const optionThumbnails = descriptor.optionThumbnails
       const options: PickerOption[] = valueType.options.map(option => ({
         value: option,
         label: optionLabel(option),
         image: descriptor.optionImages?.[option],
+        thumbnail: optionThumbnails?.[option],
         icon: descriptor.optionIcons?.[option],
         curve: descriptor.optionCurves?.[option],
         group: optionGroups?.[option] !== undefined ? t(optionGroups[option]) : undefined,
