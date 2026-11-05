@@ -125,6 +125,17 @@ topics:
     modules: [apps/web/src/engine/src/presets, shared-contract]
     adr: [018-unified-brush-engine]
 
+  - id: brush-read-dependencies
+    level: 2
+    parent: engine
+    title: Историческое чтение других слоёв кистью
+    issue: 812
+    why: >-
+      Штрих хранит порядок и непрозрачность источников. Повтор читает их
+      содержимое перед операцией; отмена источника затрагивает зависимые
+      штрихи, а сетевой снимок не подменяет необходимую историю источника.
+    modules: [shared-contract, apps/web/src/engine/src/oplog, apps/server/src/rooms]
+
   - id: brush-material-state
     level: 2
     parent: engine

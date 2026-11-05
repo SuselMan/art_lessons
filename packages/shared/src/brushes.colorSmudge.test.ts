@@ -41,3 +41,9 @@ it('requires paired material planes for persistent paint thickness',()=>{
  d.mixer!.paintThickness.value=2;expect(isBrushLibrary(l)).toBe(false)
  d.mixer!.paintThickness.value=.6;delete d.tip.material;expect(isBrushLibrary(l)).toBe(false)
 })
+
+it('admits the explicit merged-canvas source without adding a reservoir',()=>{
+ const l=library(),m=l.brushes[0].descriptor.mixer!;m.source='projectionCanvas'
+ expect(isBrushLibrary(l)).toBe(true)
+ m.load=.1;expect(isBrushLibrary(l)).toBe(false)
+})

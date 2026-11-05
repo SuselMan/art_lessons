@@ -25,6 +25,7 @@ import { deletableOperations } from './snapshotCoverage.js'
 // below, which need to assert *whether* deleteMany fired — a fire-and-forget
 // call rooms.test.ts's plain style has no way to observe.
 const mockPrisma = vi.hoisted(() => ({
+  $queryRaw:vi.fn().mockResolvedValue([]),
   roomLayerSnapshot: {
     create: vi.fn(),
     createMany: vi.fn(),
@@ -722,6 +723,14 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
 // exactly the operations that window excludes, so it has to query Postgres.
 describe('getOperationsBefore', () => {
   beforeEach(() => { mockPrisma.operation.findMany.mockReset() })
+
+  it('loads merged-brush source history from small read headers without downloading all dab bodies',async()=>{
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{data:{type:'stroke',layerId:'L',brushSource:{version:1,projection:[{id:'S',opacity:1},{id:'L',opacity:1}]}}}])
+    mockPrisma.operation.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    await getOperationsBefore('room',20,100,['L'])
+    expect(mockPrisma.operation.findMany.mock.calls[1][0].where.OR[0].layerId.in).toEqual(['L','S'])
+    expect(mockPrisma.$queryRaw).toHaveBeenCalled()
+  })
 
   it('scopes a pinned inclusive prefix and recursively closes merge/copy source history', async () => {
     mockPrisma.operation.findMany.mockResolvedValueOnce([

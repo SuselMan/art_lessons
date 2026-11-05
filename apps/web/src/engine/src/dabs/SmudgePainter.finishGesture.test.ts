@@ -69,3 +69,23 @@ describe('SmudgePainter confirmed end lifecycle', () => {
     expect(f.replayChunks.get('owner')?.strokeId).toBe('open')
   })
 })
+
+it('keeps a peer gesture on another target when a layer is replayed',()=>{
+ const f=fixture(),other={} as import('../buffers/ILayerBuffer').ILayerBuffer,target={} as import('../buffers/ILayerBuffer').ILayerBuffer
+ Reflect.set(f.replayChunks.get('owner')!,'target',other)
+ f.painter.dropReplayChunks({userId:'local',strokeId:null},target)
+ expect(f.replayChunks.has('owner')).toBe(true)
+ f.painter.dropReplayChunks({userId:'local',strokeId:null},other)
+ expect(f.replayChunks.has('owner')).toBe(false)
+})
+it('restores live transient maps after a nested historical read throws',()=>{
+ const f=fixture(),before=f.imprints.get('owner')
+ expect(()=>f.painter.withIsolatedGestures(()=>{
+  expect(f.imprints.size).toBe(0);f.imprints.set('temporary',{buf:{marker:'temp'},strokeId:'temp'});throw Error('read failed')
+ })).toThrow('read failed')
+ expect(f.imprints.get('owner')).toBe(before)
+ expect(f.wetGestures.has('owner')).toBe(true)
+ expect(f.replayChunks.get('owner')?.lastDab).toBe(f.previous)
+ expect(f.release).toHaveBeenCalledWith({marker:'temp'})
+ expect(f.release).not.toHaveBeenCalledWith(f.buf)
+})

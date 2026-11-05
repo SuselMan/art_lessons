@@ -12,7 +12,7 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { operationLayerIds } from '@grafetto/shared'
+import { operationReadLayerIds,operationLayerIds } from '@grafetto/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 
@@ -73,9 +73,7 @@ export function pixelWriteLayerIds(op: Operation): string[] {
  *  order is baked into its result, so something landing on them *earlier* in
  *  the order changes that result. */
 export function pixelReadLayerIds(op: Operation): string[] {
-  if (op.type === 'layer_merge') return op.sources.map(s => s.id)
-  if (op.type === 'layer_duplicate') return [op.sourceId]
-  return []
+  return operationReadLayerIds(op)
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its

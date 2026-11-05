@@ -266,7 +266,7 @@ export interface BrushDescriptor {
     /** Include transparent canvas pixels in pickup; absent preserves opaque pickup. */
     smearAlpha?: boolean
     /** Sample the previous placed dab's canvas neighbourhood instead of a reservoir. */
-    source?: 'previousCanvas'
+    source?: 'previousCanvas'|'projectionCanvas'
     /** New mask strategy: feedback composition precedes foreground and mask. */
     algorithm?: 'krita-mask' | 'krita-stamp'
     /** Uniform previous-canvas area mean. Fixed64 sample cap. */
@@ -515,21 +515,21 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
-      || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas')
-      || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || d.mixer.source !== 'previousCanvas'))
-      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
+      || (d.mixer.source !== undefined && !isBrushCanvasSource(d.mixer.source))
+      || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || !isBrushCanvasSource(d.mixer.source)))
+      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || !isBrushCanvasSource(d.mixer.source) || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))
-      || (d.mixer.foreground !== undefined && (!record(d.mixer.foreground) || d.mixer.source !== 'previousCanvas' || !numberIn(d.mixer.foreground.rate,0,1)
+      || (d.mixer.foreground !== undefined && (!record(d.mixer.foreground) || !isBrushCanvasSource(d.mixer.source) || !numberIn(d.mixer.foreground.rate,0,1)
         || (d.mixer.foreground.dynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.foreground.dynamics } }))))
       || (d.mixer.pickupDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.pickupDynamics } })))) return false
     // Canvas feedback has no carried reservoir or wet charge. Foreground is
     // opt-in only through its independent pre-transfer composition contract.
-    if (d.mixer?.source === 'previousCanvas' && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
+    if (isBrushCanvasSource(d.mixer?.source) && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
     if(d.mixer?.paintThickness!==undefined) {
       const t=d.mixer.paintThickness
-      if(d.mixer.algorithm!=='krita-mask'||!d.tip.material||!record(t)||Object.keys(t).some(k=>!['value','mode','dynamics'].includes(k))
+      if(d.mixer.algorithm!=='krita-mask'||d.mixer.source!=='previousCanvas'||!d.tip.material||!record(t)||Object.keys(t).some(k=>!['value','mode','dynamics'].includes(k))
         ||!numberIn(t.value,0,1)||!['overlay','overwrite'].includes(String(t.mode))
         ||t.dynamics!==undefined&&!isBrushBehavior({version:2,modulations:{flow:t.dynamics}}))return false
     }
@@ -633,3 +633,9 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
       &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1))
   return dabs.every(valid)&&(!endpoint||valid(endpoint))
 }
+
+/** Both feedback sources use the same rate and dab pipeline. */
+export function isBrushCanvasSource(value:unknown):value is 'previousCanvas'|'projectionCanvas' {
+  return value==='previousCanvas'||value==='projectionCanvas'
+}
+export function brushSamplesCanvas(brush:BrushDescriptor|undefined):brush is BrushDescriptor & {mixer:NonNullable<BrushDescriptor['mixer']> & {source:'previousCanvas'|'projectionCanvas'}} {return isBrushCanvasSource(brush?.mixer?.source)}

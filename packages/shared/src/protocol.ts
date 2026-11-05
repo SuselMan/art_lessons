@@ -1,3 +1,4 @@
+import type { BrushSourceContext } from './brushSource.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
 import type {
@@ -115,6 +116,7 @@ export type CursorMoveData = {
 export type StrokeLiveData = {
   /** Same recorded context as the authoritative operation, repeated per packet. */
   brushRandom?: BrushRandomSeeds
+  brushSource?: BrushSourceContext
   strokeId: string
   layerId: string
   tool: ToolType

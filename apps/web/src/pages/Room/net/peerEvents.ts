@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import { hasValidBrushRandomContext, unpackDabs, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { hasValidBrushRandomContext,hasValidBrushSourceContext,copyBrushSourceContext, unpackDabs, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { noteLivePacketPainted } from '../../../lib/observability/liveLatency'
@@ -71,7 +71,7 @@ export function createPeerEventHandlers({
       // wholesale loses the ink and, worse here, leaves a claim behind saying
       // it was painted — so the operation would skip repainting it too.
       if (!roomContentReadyRef.current) return
-      if (!hasValidBrushRandomContext(data)) { requestFullResync(); return }
+      if (!hasValidBrushRandomContext(data)||!hasValidBrushSourceContext(data)) { requestFullResync(); return }
       try {
         engineRef.current?.appendPeerLiveDabs(data.userId, {
           strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
@@ -79,7 +79,7 @@ export function createPeerEventHandlers({
           dabs: unpackDabs(data.dabsPacked),
           washId: data.washId,
           wet: data.wet,
-          ...(data.brushRandom ? { brushRandom: { ...data.brushRandom } } : {}),
+          ...(data.brushRandom ? { brushRandom: { ...data.brushRandom } } : {}),...(data.brushSource ? {brushSource:copyBrushSourceContext(data.brushSource)} : {}),
         })
       } catch { requestFullResync(); return }
       // (#432) Timed on the frame that composites it — see liveLatency.

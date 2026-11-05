@@ -1,3 +1,4 @@
+import {CanvasProjectionSampler,type ProjectionReadSession,type ProjectionSampleLayer} from '../raster/CanvasProjectionSampler'
 import {COLOR_SMUDGE_MATERIAL_FRAG} from '../raster/colorSmudgeMaterialShader'
 import { COLOR_SMUDGE_MEAN_FRAG } from '../raster/colorSmudgeMeanShader'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
@@ -32,7 +33,7 @@ import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeas
 
 import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
-import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
+import { brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -54,7 +55,7 @@ import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } fr
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
 type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
-interface WetStamp { coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetStamp { projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -112,6 +113,8 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  openProjection?(source:NonNullable<BrushExecutionContext['brushSource']>,target:ILayerBuffer):ProjectionReadSession
+
   readonly brushMipCache?: BrushMipCache
   createBrushScratch(): RibbonStrokeScratch
   paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number,execution?:BrushExecutionContext):void
@@ -204,6 +207,7 @@ export class SmudgePainter {
   // smudge state is per-user by construction — two peers' chunked strokes
   // interleaving in the log would otherwise each reset the other.
   private readonly wetGestures = new Map<string, WetGesture>()
+  private readonly projectionSampler:CanvasProjectionSampler
   private readonly wetTextures: BrushTextureCache
   private readonly imageMips: BrushMipCache
   private readonly ownsMipCache: boolean
@@ -212,7 +216,7 @@ export class SmudgePainter {
   private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
-  private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
+  private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab;target?:ILayerBuffer }>()
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
@@ -238,6 +242,7 @@ export class SmudgePainter {
   constructor(ctx: SmudgeContext) {
     this.ctx = ctx
     this.gl = ctx.gl
+    this.projectionSampler=new CanvasProjectionSampler(ctx.gl,()=>ctx.screenBuf())
     this.wetTextures = new BrushTextureCache(ctx.gl)
     this.imageMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
@@ -248,6 +253,7 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.projectionSampler.forget()
     this.maximumImageSide = undefined
     this.wetTextures.clear(true)
     this.proceduralTransfer = undefined
@@ -272,6 +278,7 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.projectionSampler.forget()
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
@@ -287,6 +294,7 @@ export class SmudgePainter {
   }
 
   destroy(): void {
+    this.projectionSampler.destroy()
     const { gl } = this
     this.scratchPool.destroy()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
@@ -345,10 +353,11 @@ export class SmudgePainter {
   /** (#554) The smudge half of the engine's _dropCarriedGestureState: every
    *  user's replay chunk goes except `live`'s — the local gesture actually
    *  in progress, still being painted by paint() and not to be reset under
-   *  it by, say, a peer's undo arriving mid-stroke. Per user with no target
-   *  to compare, unlike the ribbon's entries. */
-  dropReplayChunks(live: LiveGesture): void {
+   *  it by, say, a peer's undo arriving mid-stroke. A target-scoped replay
+   *  leaves continuing peer gestures on other layers intact. */
+  dropReplayChunks(live: LiveGesture,target?:ILayerBuffer): void {
     for (const [userId, chunk] of this.replayChunks) {
+      if(target && chunk.target && chunk.target!==target)continue
       const isLive = userId === live.userId && !!live.strokeId && chunk.strokeId === live.strokeId
       if (!isLive) this.replayChunks.delete(userId)
     }
@@ -380,6 +389,9 @@ export class SmudgePainter {
     // the engine's _paintDabs doc comment on this parameter).
     if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs) }
     if (target instanceof AccumulationBuffer) return
+    const projectionRead=paint?.brush?.mixer?.source==='projectionCanvas' ? this.ctx.openProjection?.(execution!.brushSource!,target) : undefined
+    const projection=projectionRead?.layers
+    if(paint?.brush?.mixer?.source==='projectionCanvas' && !projection)throw Error('Projection source reader unavailable')
     const materialOwners=new WeakMap<AccumulationBuffer,PaintTarget>()
     const material=!!paint?.brush?.mixer?.paintThickness
     const layer:SmudgeLayer=material ? {
@@ -397,10 +409,10 @@ export class SmudgePainter {
     if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
     const releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : () => {}
     try {
-    let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs)
+    let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs,target)
     for (const dab of dabs) {
       if (paint?.brush) {
-        this.paintBehaviorDab(layer, dab, prev, userId, paint,execution)
+        this.paintBehaviorDab(layer, dab, prev, userId, paint,execution,projection)
         prev = dab
         continue
       }
@@ -412,12 +424,30 @@ export class SmudgePainter {
       else this.applyDab(layer, dab, 0, userId, paint)
       prev = dab
     }
-    } finally { releaseTextures() }
+    } finally { releaseTextures();projectionRead?.release() }
   }
+
+  /** A historical read must not consume another participant's live gesture.
+   * Only transient solver maps are isolated; programs, textures and bounded
+   * scratch pools remain shared. The callback is synchronous. */
+  withIsolatedGestures<T>(work:()=>T):T {
+    const imprints=[...this.imprints],gestures=[...this.wetGestures],chunks=[...this.replayChunks]
+    this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
+    try{return work()}finally{
+      for(const value of this.imprints.values())if(value.buf)this.releaseScratch(value.buf)
+      for(const value of this.wetGestures.values())value.secondary?.destroy()
+      this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
+      for(const [key,value]of imprints)this.imprints.set(key,value)
+      for(const [key,value]of gestures)this.wetGestures.set(key,value)
+      for(const [key,value]of chunks)this.replayChunks.set(key,value)
+    }
+  }
+
+  prepareProjectionSource():void {this.projectionSampler.prepare()}
 
   /** Each logical dab advances dynamics exactly once, independent of live batches.
    * The imprint survives only the same user's same gesture/chunks. */
-  private paintBehaviorDab(target: SmudgeLayer, dab: Dab, prev: Dab | undefined, userId: string, paint: MixerPaint,execution?:BrushExecutionContext): void {
+  private paintBehaviorDab(target: SmudgeLayer, dab: Dab, prev: Dab | undefined, userId: string, paint: MixerPaint,execution?:BrushExecutionContext,projection?:readonly ProjectionSampleLayer[]): void {
     const brush = paint.brush!
     let state = this.wetGestures.get(userId)
     if (!state || !prev) {
@@ -427,7 +457,7 @@ export class SmudgePainter {
     }
     assertSameBrushExecutionContext(state.behavior.execution,execution)
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
-    if (!brush.behavior?.strokeInput && prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
+    if (!brush.behavior?.strokeInput && prev && travel < 1e-6 && !brushSamplesCanvas(brush)) { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
     const dual=brush.behavior?.dual
     let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
     if(dual?.sampling==='independent') {
@@ -452,13 +482,13 @@ export class SmudgePainter {
       // The descriptor's zero load means a pure blender. The legacy mixer's
       // fixed .85 prime would inject foreground paint even with load=0.
       load: !prev ? brush.mixer?.initialLoad ?? MIXER_PRIME_LOAD : clampNum(paint.load * travel,0,1),
-      pickup: brush.mixer?.source === 'previousCanvas' ? paint.pickup : !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
+      pickup: brushSamplesCanvas(brush) ? paint.pickup : !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
     }
     step.pickup = clampNum(step.pickup*pickupFactor,0,1)
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       let shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      const wetStamp: WetStamp = {thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
-      if (brush.mixer?.source === 'previousCanvas') {
+      const wetStamp: WetStamp = {projection,thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
+      if (brushSamplesCanvas(brush)) {
         if (this.radiusOf(shaped,paint) < 0.5) continue
         const mean=brush.mixer.sampling
         const previousPlaced = mean ? state.previousMeanPlaced : state.previousPlaced
@@ -502,10 +532,10 @@ export class SmudgePainter {
    *  stroke, a replay that begins mid-gesture because the earlier chunk is
    *  already inside a restored snapshot) correctly starts clean instead of
    *  smearing from wherever this user's tool last happened to be. */
-  private resumeGesture(userId: string, strokeId: string | undefined, dabs: Dab[]): Dab | undefined {
+  private resumeGesture(userId: string, strokeId: string | undefined, dabs: Dab[],target?:ILayerBuffer): Dab | undefined {
     const imprint = this.imprintFor(userId)
     const chunk = strokeId ? this.replayChunks.get(userId) : undefined
-    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId
+    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId && (!target || !chunk.target || chunk.target===target)
     if (!continuing) {
       if (imprint.buf) this.releaseScratch(imprint.buf)
       imprint.buf = null
@@ -513,7 +543,7 @@ export class SmudgePainter {
       this.wetGestures.delete(userId)
     }
     imprint.strokeId = strokeId ?? null
-    if (strokeId) this.replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1] })
+    if (strokeId) this.replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1],...(target ? {target} : {}) })
     else this.replayChunks.delete(userId)
     return continuing ? chunk?.lastDab : undefined
   }
@@ -675,6 +705,7 @@ export class SmudgePainter {
   private paintPreviousCanvas(target: SmudgeLayer, dab: Dab, radius: number, footprint: WorldRect, rect: WorldRect, patchSize: number, span: number, previous: {x:number;y:number}, paint: MixerPaint, wet: WetStamp): void {
     let source:AccumulationBuffer|undefined
     let original: AccumulationBuffer | undefined
+    let actual:AccumulationBuffer|undefined
     try {
       original = this.acquireScratch(patchSize)
       const shift=wet.smearPlacement ? smearSourceShift(previous,wet.smearPlacement) : undefined
@@ -702,17 +733,21 @@ export class SmudgePainter {
             this.drawTransferDab({buffer:mask,originX:rect.minX,originY:rect.minY,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
           }
           const sourceBase=canvasMeanSourceRect(previous,current,1)
-          source=this.meanPreviousCanvas(target,mask?sourceBase:sampleRect,mask ? {buffer:mask,x:(current.minX-rect.minX)/span,y:(current.minY-rect.minY)/span,inverseSpan:1/span,radius:Math.min(1,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)} : paint.brush.mixer.sampling.mode==='adaptiveMean' ? {x:0,y:0,inverseSpan:0,radius:1} : undefined)
+          source=this.meanPreviousCanvas(target,mask?sourceBase:sampleRect,mask ? {buffer:mask,x:(current.minX-rect.minX)/span,y:(current.minY-rect.minY)/span,inverseSpan:1/span,radius:Math.min(1,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)} : paint.brush.mixer.sampling.mode==='adaptiveMean' ? {x:0,y:0,inverseSpan:0,radius:1} : undefined,wet.projection)
         } finally { if(mask)this.releaseScratch(mask) }
-      }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,(target.resolveForRead?.(sourceRect) ?? target.resolveForPaint(sourceRect)),sourceRect,patchSize,span)}
+      }else {source=this.acquireScratch(patchSize);if(wet.projection)this.projectionSampler.gather(source,sourceRect,wet.projection);else this.gatherPatch(source,(target.resolveForRead?.(sourceRect) ?? target.resolveForPaint(sourceRect)),sourceRect,patchSize,span)}
+      const projectedBlend=wet.projection && !!paint.brush?.mixer?.algorithm
+      if(projectedBlend)this.projectionSampler.gather(original,rect,wet.projection!)
       const targets = target.resolveForPaint(rect)
       if (!targets.length) return
-      this.gatherPatch(original,targets,rect,patchSize,span)
+      if(projectedBlend){
+        actual=this.acquireScratch(patchSize);this.gatherPatch(actual,targets,rect,patchSize,span)
+      }else this.gatherPatch(original,targets,rect,patchSize,span)
       const strength = (paint.brush?.mixer?.algorithm ? 1 : wet.step.pickup) * paint.strength * (paint.pressure ? curveAt(paint.curve,dab.pressure) : 1) * dab.opacity * wet.stamp.opacityScale
       if (strength <= 0) return
       for (const tile of targets) {
         if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX+tile.buffer.width || footprint.maxY <= tile.originY || footprint.minY >= tile.originY+tile.buffer.height) continue
-        this.drawTransferDab(tile,dab,radius,source,rect.minX-tile.originX,tile.buffer.height-(rect.minY-tile.originY)-span,span,'lay',strength,wet,original)
+        this.drawTransferDab(tile,dab,radius,source,rect.minX-tile.originX,tile.buffer.height-(rect.minY-tile.originY)-span,span,'lay',strength,wet,original,actual)
         const owner=target.materialOwner?.(tile.buffer)
         if(owner) {
           const height=owner.buffer.colorSmudge!.height
@@ -721,20 +756,21 @@ export class SmudgePainter {
         }
       }
       target.markContentPainted(footprint)
-    } finally { if(source)this.releaseScratch(source); if (original) this.releaseScratch(original) }
+    } finally { if(source)this.releaseScratch(source); if (original) this.releaseScratch(original);if(actual)this.releaseScratch(actual) }
   }
 
   /** Fixed64 nearest-centre samples, no CPU readback or persistent reservoir.
    * Samples larger than512px use the bounded gather's existing downsampling;
    * importer reports both this and native adaptive-count approximation. */
-  private meanPreviousCanvas(target:SmudgeLayer,rect:WorldRect,mask?:{buffer?:AccumulationBuffer;x:number;y:number;inverseSpan:number;radius:number}):AccumulationBuffer {
+  private meanPreviousCanvas(target:SmudgeLayer,rect:WorldRect,mask?:{buffer?:AccumulationBuffer;x:number;y:number;inverseSpan:number;radius:number},projection?:readonly ProjectionSampleLayer[]):AccumulationBuffer {
     if(mask)this.prepareColorSmudgeMean()
     const width=rect.maxX-rect.minX,height=rect.maxY-rect.minY,span=Math.max(width,height)
     const size=Math.min(SMUDGE_MAX_PATCH_SIZE,span),sample=this.acquireScratch(size)
     let mean:AccumulationBuffer|undefined
     try {
       const square={...rect,maxX:rect.minX+span,maxY:rect.minY+span}
-      this.gatherPatch(sample,(target.resolveForRead?.(square) ?? target.resolveForPaint(square)),square,size,span)
+      if(projection)this.projectionSampler.gather(sample,square,projection)
+      else this.gatherPatch(sample,(target.resolveForRead?.(square) ?? target.resolveForPaint(square)),square,size,span)
       mean=this.acquireScratch(1)
       const {gl}=this,binding=mask?this.colorMean:undefined,u=binding?.uniforms ?? this.meanUni
       mean.beginReplaceDraw()
@@ -895,7 +931,7 @@ export class SmudgePainter {
     if(this.colorSmudgeTransfer)return
     const gl=this.gl,program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true,true,true))
     this.colorSmudgeTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
-      'u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
   }
 
@@ -970,7 +1006,7 @@ export class SmudgePainter {
    *  itself in the imprint. */
   private drawTransferDab(
     tile: PaintTarget, dab: Dab, radius: number, carried: AccumulationBuffer,
-    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay' | 'mask' | 'height', strength: number, wet?: WetStamp, original?: AccumulationBuffer,
+    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay' | 'mask' | 'height', strength: number, wet?: WetStamp, original?: AccumulationBuffer, actual?:AccumulationBuffer,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -1062,8 +1098,10 @@ export class SmudgePainter {
     gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
     gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
+    gl.bindTexture(gl.TEXTURE_2D, actual?.texture ?? paper.texture)
     gl.uniform1i(u.u_paperHeightMap, 0)
+    // Feedback returns before the paper pass: reuse sampler0 for actual layer.
+    if(brush?.mixer?.algorithm)gl.uniform1f(u.u_projectionCanvas,actual?1:0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)
     gl.uniform1i(u.u_carried, 1)
@@ -1073,7 +1111,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
     // Foreground source-over precedes masked transfer. Dab opacity belongs
     // to both native stages; pickup belongs only to final transfer.
-    let foregroundOpacity=brush?.mixer?.source==='previousCanvas' && wet?.foregroundRate !== undefined
+    let foregroundOpacity=brushSamplesCanvas(brush) && wet?.foregroundRate !== undefined
       ? clampNum(wet.foregroundRate*(wet.paint.strength)*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
     const modern=!!brush?.mixer?.algorithm
     const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
@@ -1086,7 +1124,7 @@ export class SmudgePainter {
     gl.uniform4f(u.u_colorSmudge,modern?1:0,rates.smear,modern && brush?.mixer?.sampling && !brush.mixer.smearAlpha ? 1:0,mode==='height'?2:mode==='mask'?1:0)
     const foregroundColor=wet?.stamp.color ?? [0,0,0]
     gl.uniform4f(u.u_previousCanvasForeground,foregroundColor[0],foregroundColor[1],foregroundColor[2],foregroundOpacity)
-    gl.uniform1f(u.u_previousCanvas,brush?.mixer?.source === 'previousCanvas' ? brush.mixer.smearAlpha ? 1 : 2 : 0)
+    gl.uniform1f(u.u_previousCanvas,brushSamplesCanvas(brush) ? brush?.mixer?.smearAlpha ? 1 : 2 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
     const threshold=brush?.tip.alphaThreshold, dualThreshold=brush?.behavior?.dual?.brush.tip.alphaThreshold

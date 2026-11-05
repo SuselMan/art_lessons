@@ -36,3 +36,7 @@ export * from './brushCurves.js'
 export * from './strokeEndSample.js'
 
 export * from './brushRandom.js'
+
+export * from './brushSource.js'
+
+export * from './pixelReadDependencies.js'

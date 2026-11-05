@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { Operation } from '@grafetto/shared'
+import {operationReadLayerIds,type Operation} from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
@@ -11,6 +11,7 @@ import { permitsSnapshotWatermark } from './firstSnapshotPolicy.js'
 import { isCoveredBySnapshot, layerStateIdsOf } from './snapshotCoverage.js'
 import { deriveLayerIds } from './structuralLog.js'
 import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
+import {projectionReadMetadata} from './projectionReadMetadata.js'
 
 /** (#612) Where a room's client-baked snapshots live (#149 epic, per layer
  *  since #371): storing an upload after checking its structure against the
@@ -375,13 +376,13 @@ export async function getOperationsBefore(roomId: string, beforeSeq: number, lim
     const metadata = await prisma.operation.findMany({
       where: { roomId, seq: { lt: beforeSeq }, type: { in: ['layer_merge', 'layer_duplicate'] } }, select: { data: true },
     })
+    const reads=[...metadata.map(row=>row.data as Operation),...await projectionReadMetadata(roomId,beforeSeq)]
     let changed = true
     while (changed) {
       changed = false
-      for (const row of metadata) {
-        const op = row.data as Operation
-        if ((op.type !== 'layer_merge' && op.type !== 'layer_duplicate') || !needed.has(op.layerId)) continue
-        for (const id of op.type === 'layer_merge' ? op.sources.map(s => s.id) : [op.sourceId]) {
+      for (const op of reads) {
+        if (!('layerId' in op) || typeof op.layerId!=='string' || !needed.has(op.layerId)) continue
+        for (const id of operationReadLayerIds(op)) {
           if (!needed.has(id)) { needed.add(id); changed = true }
         }
       }

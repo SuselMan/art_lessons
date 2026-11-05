@@ -5,7 +5,7 @@ export function colorSmudgeTransferFragment(source: string): string {
     source = source.replace(before, after)
   }
   replace("  uniform float u_previousCanvas; //",
-`  uniform vec2 u_colorSmudgeHeight; uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
+`  uniform float u_projectionCanvas; uniform vec2 u_colorSmudgeHeight; uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
   uniform float u_previousCanvas; //`)
   replace(" float wetGrainBlend(float b,float s,float m)",
 ` vec4 colorSmudgePaint(vec4 destination,vec4 pigment) {
@@ -40,7 +40,8 @@ export function colorSmudgeTransferFragment(source: string): string {
           mixed=u_previousCanvas<1.5 ? mix(destination,source,a) : source*a+destination*(1.0-source.a*a);
           mixed=colorSmudgePaint(mixed,pigment);
         }
-        gl_FragColor=mix(destination,mixed,clamp(shape,0.0,1.0));
+        vec4 actualDestination=u_projectionCanvas>0.5 ? texture2D(u_paperHeightMap,uv) : destination;
+        gl_FragColor=mix(actualDestination,mixed,clamp(shape,0.0,1.0));
         return;
       }
       if(u_previousCanvasForeground.a>0.0) {`)

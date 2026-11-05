@@ -142,7 +142,7 @@ export function splitBrushTail(stamps: BehaviorPlaced[], distance: number, end: 
 }
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
 export function beginBrushBehavior(dab: Dab, execution?: BrushExecutionContext): BrushBehaviorState {
-  return { ...(execution ? {execution:brushExecutionContext(execution.brushRandom)} : {}), charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
+  return { ...(execution ? {execution:brushExecutionContext(execution.brushRandom,execution.brushSource)} : {}), charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
 }
 /** PointerEvent tilt axes describe slopes, not independent polar angles. */
 function penTilt(dab:Dab): {angle:number;azimuth:number} {

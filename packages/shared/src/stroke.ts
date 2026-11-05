@@ -1,3 +1,4 @@
+import type { BrushSourceContext } from './brushSource.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { OperationBase } from './operationBase.js'
 
@@ -61,6 +62,7 @@ export type StrokeOperation = OperationBase & {
   type: 'stroke'
   /** Explicit two-source context, shared by all chunks/layers of one gesture. */
   brushRandom?: BrushRandomSeeds
+  brushSource?: BrushSourceContext
   layerId: string
   tool: ToolType
   // 'HB'/'2B' etc for pencil, the liner's own size label, `${nib}:${size}`

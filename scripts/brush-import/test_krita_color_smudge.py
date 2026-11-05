@@ -58,6 +58,13 @@ class ColorSmudgeImportTests(LegacyForegroundTests):
         self.assertEqual(b['descriptor']['mixer']['source'],'previousCanvas')
         self.assertIn('paintThickness',b['descriptor']['mixer'])
         self.assertTrue(any(n['feature']=='materialMergedPaint' and n['status']=='supported' for n in b['compatibility']))
+    def test_merged_paint_keeps_legacy_and_modern_rate_models(self):
+        for modern in ['false','true']:
+            d=self.brush({'MergedPaint':'true','SmudgeRateUseNewEngine':modern}).brushes[0]['descriptor']
+            self.assertEqual(d['mixer']['source'],'projectionCanvas')
+            self.assertEqual(d['version'],38)
+            self.assertEqual(d['mixer'].get('algorithm'),'krita-mask' if modern=='true' else None)
+            self.assertAlmostEqual(d['mixer']['foreground']['rate'],.7 if modern=='true' else .14)
     def test_legacy_contract_unchanged(self):
         m=self.brush({'SmudgeRateValue':'1'}).brushes[0]['descriptor']['mixer']
         self.assertNotIn('algorithm',m)

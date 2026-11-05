@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { BrushDynamic } from '@grafetto/shared'
 import { beginBrushBehavior, brushDynamicValue, behaviorStampsForDab } from './brushBehavior'
-import { brushExecutionContext, assertBrushExecutionContext } from './brushExecutionContext'
+import { brushExecutionContext, assertBrushExecutionContext,assertSameBrushExecutionContext } from './brushExecutionContext'
 import { digitalBrushFromPreset } from './digitalBrushPresets'
 import { dab } from '../../testing/engineTestUtils'
 import { DabSystem } from '../dabs/DabSystem'
@@ -55,4 +55,18 @@ it('bounds cached keyed values without changing overflow results or aliasing clo
   expect(state.strokeRandomCache?.values).toHaveLength(64)
   const overflow = { ...keyed, randomSource: { kind: 'qt5Taus88' as const, key: 'key-69' } }
   expect(brushDynamicValue(overflow, dab(1, 2), structuredClone(state), .1)).toBe(brushDynamicValue(overflow, dab(1, 2), state, .1))
+})
+
+it('requires recorded merged sources and keeps them stable across preview clones',()=>{
+ const brush=structuredClone(digitalBrushFromPreset('hard-round'));brush.model='mixer';brush.mixer={source:'projectionCanvas',load:0,initialLoad:0,pickup:1,strength:1}
+ expect(()=>assertBrushExecutionContext(brush)).toThrow('projection sources')
+ const source={version:1 as const,projection:[{id:'lower',opacity:.5}]},context=brushExecutionContext(undefined,source)
+ expect(()=>assertBrushExecutionContext(brush,context)).not.toThrow()
+ source.projection[0].opacity=1
+ expect(context?.brushSource?.projection?.[0].opacity).toBe(.5)
+ const sys=new DabSystem({spacingFactor:.2});sys.brushExecution=context
+ expect(sys.forkForPreview().brushExecution?.brushSource).toEqual(context?.brushSource)
+ expect(()=>assertSameBrushExecutionContext(context,structuredClone(context))).not.toThrow()
+ expect(()=>assertSameBrushExecutionContext(context,brushExecutionContext(undefined,source))).toThrow('sources changed')
+ expect(()=>assertSameBrushExecutionContext(context,undefined)).toThrow('sources changed')
 })

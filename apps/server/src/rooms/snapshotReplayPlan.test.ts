@@ -65,3 +65,15 @@ describe('structural coverage independently from pixel candidates', () => {
     expect(planSnapshotReplay([snapshot(5)], [stroke('s', 3), change('undo6', 6, 's')], undefined, 5).replayStructure).toBeUndefined()
   })
 })
+
+
+it('loads projected source history when a source snapshot is newer than its reader',()=>{
+ const read:Operation={...stroke('read',5,'T'),type:'stroke',layerId:'T',tool:'digitalBrush',preset:'brush:imported-0123456789abcdef@38',color:[0,0,0],dabs:[],brushSource:{version:1,projection:[{id:'S',opacity:1},{id:'T',opacity:1}]}}
+ const plan=planSnapshotReplay([snapshot(7,'S')],[stroke('s',3,'S'),read],new Set(['S','T']))
+ expect(plan.historyLayers).toContain('S');expect(plan.coverage.has('S')).toBe(false)
+})
+it('invalidates a snapshot of a projected reader when an earlier source stroke is undone later',()=>{
+ const source=stroke('source',2,'S'),read:Operation={...stroke('read',4,'T'),type:'stroke',layerId:'T',tool:'digitalBrush',preset:'test',color:[0,0,0],dabs:[],brushSource:{version:1,projection:[{id:'S',opacity:1}]}}
+ const plan=planSnapshotReplay([snapshot(5,'T'),snapshot(5,'S')],[source,read,change('undo',6,'source')],new Set(['S','T']))
+ expect(plan.coverage.has('T')).toBe(false);expect(plan.historyLayers).toContain('T');expect(plan.historyLayers).toContain('S')
+})

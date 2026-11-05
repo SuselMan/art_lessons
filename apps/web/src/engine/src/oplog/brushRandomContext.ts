@@ -1,4 +1,4 @@
-import { hasValidBrushRandomContext, type BrushRandomSeeds, type ToolType } from '@grafetto/shared'
+import { hasValidBrushRandomContext,hasValidBrushSourceContext,copyBrushSourceContext,type BrushSourceContext, type BrushRandomSeeds, type ToolType } from '@grafetto/shared'
 
 /** Author-owned immutable-by-copy gesture metadata, never renderer RNG state. */
 export function createBrushRandomContext(tool: ToolType): BrushRandomSeeds | undefined {
@@ -7,11 +7,11 @@ export function createBrushRandomContext(tool: ToolType): BrushRandomSeeds | und
   return { version: 1, sequentialSeed: words[0], strokeSeed: words[1] }
 }
 
-export function brushRandomMetadata(seeds: BrushRandomSeeds | undefined): { brushRandom?: BrushRandomSeeds } {
-  return seeds ? { brushRandom: { ...seeds } } : {}
+export function brushRandomMetadata(seeds: BrushRandomSeeds | undefined,source?:BrushSourceContext): { brushRandom?: BrushRandomSeeds;brushSource?:BrushSourceContext } {
+  return {...(seeds ? {brushRandom:{...seeds}} : {}),...(source ? {brushSource:copyBrushSourceContext(source)} : {})}
 }
 
 /** Canonical gesture IDs bind both seed words; no mutable receiver ledger. */
 export function assertBrushRandomContext(packet: unknown): void {
-  if (!hasValidBrushRandomContext(packet)) throw new Error('Invalid brush random context')
+  if (!hasValidBrushRandomContext(packet)||!hasValidBrushSourceContext(packet)) throw new Error('Invalid brush random context')
 }

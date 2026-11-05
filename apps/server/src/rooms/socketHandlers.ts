@@ -2,7 +2,7 @@ import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLib
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { canonicalStrokeStorage, hasValidBrushRandomContext,hasValidBrushSourceContext,copyBrushSourceContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
@@ -667,13 +667,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // the void" failure of #254, with the void now visible to the whole room.
     // Keep packed source inputs for capability admission; permission checks do not decode them.
     socket.on('stroke_live', data => {
-      if (!hasValidBrushRandomContext(data)) return
+      if (!hasValidBrushRandomContext(data)||!hasValidBrushSourceContext(data)) return
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabsPacked: data.dabsPacked,
-        strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),
+        strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),...(data.brushSource ? {brushSource:copyBrushSourceContext(data.brushSource)} : {}),
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
       try {

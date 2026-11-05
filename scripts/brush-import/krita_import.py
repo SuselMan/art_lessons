@@ -903,10 +903,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
-                         and (application==0 or 'color' in d['tip'] or 'material' in d['tip']) and (not enabled(params.get('MergedPaint','false')) or 'material' in d['tip'])
+                         and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
                          and (params.get('CompositeOp','normal')=='normal' or (modern and mode in modes)))
         if previous_canvas:
-            d['mixer'].update(source='previousCanvas',load=0,initialLoad=0)
+            d['mixer'].update(source='projectionCanvas' if enabled(params.get('MergedPaint','false')) and 'material' not in d['tip'] else 'previousCanvas',load=0,initialLoad=0)
+            if d['mixer']['source']=='projectionCanvas':notes.append(compatibility('mergedPaint','Captured visible-layer order/opacity and historical source reads; bounded live projection is recomposited per dab rather than native cached image overlay.'))
             if modern: d['mixer']['algorithm']='krita-stamp' if 'color' in d['tip'] else 'krita-mask'
             if 'material' in d['tip']:
                 checked=enabled(params.get('PressurePaintThickness'))
@@ -951,7 +952,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1060,6 +1061,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if source_clock(behavior):d['version']=35
     if d.get('mixer',{}).get('algorithm') or d.get('mixer',{}).get('sampling',{}).get('mode')=='adaptiveMean': d['version']=max(d['version'],36)
     if d.get('mixer',{}).get('paintThickness'): d['version']=max(d['version'],37)
+    if d.get('mixer',{}).get('source')=='projectionCanvas':d['version']=max(d['version'],38)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

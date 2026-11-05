@@ -563,7 +563,7 @@ export class DabSystem {
     fork.strokeInput = this.strokeInput ? structuredClone(this.strokeInput) : undefined
     fork.initialDirection = this.initialDirection
     fork._sourcePrevious = this._sourcePrevious ? { ...this._sourcePrevious } : undefined
-    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom)
+    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom,this.brushExecution?.brushSource)
     fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
     fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined

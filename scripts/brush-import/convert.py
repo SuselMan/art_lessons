@@ -489,15 +489,15 @@ def validate_portable_mixer(descriptor):
             or any(not finite(mixer.get(key)) for key in ('load','pickup','strength'))
             or ('initialLoad' in mixer and not finite(mixer['initialLoad']))
             or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
-            or ('source' in mixer and mixer['source']!='previousCanvas')):
+            or ('source' in mixer and mixer['source'] not in ('previousCanvas','projectionCanvas'))):
         raise ValueError('Invalid portable mixer')
-    if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source')!='previousCanvas'): raise ValueError('Invalid Color Smudge algorithm')
+    if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
-    if mixer.get('source')=='previousCanvas' and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
+    if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
         raise ValueError('Invalid portable previous-canvas source')
     if 'paintThickness' in mixer:
         t=mixer['paintThickness']
-        if (mixer.get('algorithm')!='krita-mask' or not descriptor.get('tip',{}).get('material') or not isinstance(t,dict)
+        if (mixer.get('source')!='previousCanvas' or mixer.get('algorithm')!='krita-mask' or not descriptor.get('tip',{}).get('material') or not isinstance(t,dict)
                 or set(t)-{'value','mode','dynamics'} or not finite(t.get('value')) or t.get('mode') not in ('overlay','overwrite')):
             raise ValueError('Invalid portable paint thickness')
         if 'dynamics' in t: validate_portable_dynamics(t['dynamics'])
@@ -505,13 +505,13 @@ def validate_portable_mixer(descriptor):
     if 'sampling' in mixer:
         sampling=mixer['sampling']
         if (not isinstance(sampling,dict) or set(sampling)-{'mode','radius','radiusDynamics'}
-                or mixer.get('source')!='previousCanvas' or sampling.get('mode') not in ('uniformMean','adaptiveMean','maskMean') or not finite(sampling.get('radius'),0,3)):
+                or mixer.get('source') not in ('previousCanvas','projectionCanvas') or sampling.get('mode') not in ('uniformMean','adaptiveMean','maskMean') or not finite(sampling.get('radius'),0,3)):
             raise ValueError('Invalid portable mixer sampling')
         if sampling.get('mode')=='maskMean' and mixer.get('algorithm') not in ('krita-mask','krita-stamp'): raise ValueError('Mask-weighted sampling requires Color Smudge')
         if 'radiusDynamics' in sampling: validate_portable_dynamics(sampling['radiusDynamics'])
     if 'foreground' in mixer:
         foreground=mixer['foreground']
-        if (not isinstance(foreground,dict) or set(foreground)-{'rate','dynamics'} or mixer.get('source')!='previousCanvas'
+        if (not isinstance(foreground,dict) or set(foreground)-{'rate','dynamics'} or mixer.get('source') not in ('previousCanvas','projectionCanvas')
                 or not finite(foreground.get('rate'))):
             raise ValueError('Invalid portable mixer foreground')
         if 'dynamics' in foreground: validate_portable_dynamics(foreground['dynamics'])
