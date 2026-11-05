@@ -23,6 +23,8 @@ export interface PickerOption {
    *  of a pencil. Folding both into one field would mean a boolean beside it
    *  saying which — which is the same fork with a worse name. */
   photo?: string
+  /** Enlarge a full-length tool photograph and crop around its working tip. */
+  photoTip?: boolean
   /** Icon name for `<Icon>`, for options a photo of a stroke doesn't suit —
    *  the marker's two nibs, which differ in tip shape, not in tone. */
   icon?: IconName

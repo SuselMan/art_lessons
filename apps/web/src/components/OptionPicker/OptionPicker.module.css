@@ -281,3 +281,19 @@
 /* Tool photographs load only near the viewport in large imported catalogs. */
 .previewPhoto { object-fit: contain; object-position: left center; }
 .previewPhotoDot { object-fit: cover; object-position: left center; }
+
+/* New full-length photographs use the same close-up framing as the original
+   native tool tips. Keep the row footprint fixed and crop the handle. */
+.photoTipFrame {
+  display: block;
+  overflow: hidden;
+}
+.photoTipImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+  transform: scale(1.7);
+  transform-origin: left center;
+}

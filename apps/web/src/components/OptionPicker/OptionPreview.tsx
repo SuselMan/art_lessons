@@ -57,6 +57,11 @@ export function OptionPreview({ option, shape }: OptionPreviewProps) {
       </span>
     )
   }
+  if (option.photo && option.photoTip) {
+    return <span className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto, styles.photoTipFrame)}>
+      <img className={styles.photoTipImage} src={option.photo} alt="" loading="lazy" decoding="async" />
+    </span>
+  }
   if (option.photo) {
     return <img className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto)}
       src={option.photo} alt="" loading="lazy" decoding="async" />

@@ -161,13 +161,13 @@ export function useToolChoice(roomId: string | undefined) {
     if (!toolOffered('digitalBrush')) return native
     return [...native, ...pickerImportedBrushes().map(b => ({
       value: 'digital:' + b.descriptor.id, label: b.name,
-      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview,
+      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], photoTip: true, thumbnail: b.preview,
     }))]
   }, [toolOffered, t, brushRevision])
   const roleOptions = (role: 'eraser' | 'smudge'): PickerOption[] => toolOffered(role) ? [
-    { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role] },
+    { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role], photoTip: true },
     ...(toolOffered('digitalBrush') ? pickerImportedBrushes(role) : []).map(b => ({ value: b.descriptor.id, label: b.name,
-      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview })),
+      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], photoTip: true, thumbnail: b.preview })),
   ] : []
   const eraserGroupOptions = roleOptions('eraser')
   const smudgeGroupOptions = roleOptions('smudge')
