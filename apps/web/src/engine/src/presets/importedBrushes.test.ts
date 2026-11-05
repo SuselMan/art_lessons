@@ -44,3 +44,13 @@ describe('immutable imported rendering data', () => {
     expect(registry.importedBrushes()[0]).toBe(previous)
   })
 })
+
+it.each([false,true])('resolves a picker id to its latest version without changing recorded tokens: reverse%s',async reverse=>{
+ const registry=await import('./importedBrushes'),old=library(),next=structuredClone(old)
+ next.brushes[0].descriptor.version=2;next.brushes[0].descriptor.opacity=.4
+ const id=old.brushes[0].descriptor.id
+ registry.installBrushLibrary(reverse ? next : old);registry.installBrushLibrary(reverse ? old : next)
+ expect(registry.importedBrushFromPreset(id)?.version).toBe(2)
+ expect(registry.importedBrushFromPreset('brush:'+id+'@1')?.opacity).toBe(1)
+ expect(registry.importedBrushFromPreset('brush:'+id+'@2')?.opacity).toBe(.4)
+})

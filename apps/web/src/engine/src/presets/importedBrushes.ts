@@ -39,7 +39,10 @@ export function importedBrushFromPreset(preset: string | undefined): BrushDescri
     if (!brush) throw new Error(`Imported brush unavailable: ${token[1]}@${token[2]}`)
     return brush.descriptor
   }
-  const found = [...brushes.values()].find(b => b.descriptor.id === preset)?.descriptor
+  let found: BrushDescriptor | undefined
+  for (const { descriptor } of brushes.values()) {
+    if (descriptor.id === preset && (!found || descriptor.version > found.version)) found = descriptor
+  }
   if (!found && preset.startsWith('imported-')) throw new Error(`Imported brush unavailable: ${preset}`)
   return found
 }
