@@ -3,6 +3,7 @@ import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, isBrushLibrary, type CanonicalMat
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
 import { cachedBrushAsset, cacheBrushAsset, readExactBrushAssetBody } from './brushAssetCache'
+import { readBrushAsset } from './brushAssetReads'
 
 let library: BrushLibrary | null = null
 let roomScope: string | undefined
@@ -122,9 +123,9 @@ async function fetchAsset(id: string): Promise<void> {
   const key = `${scope ?? 'personal'}:${id}`
   const existing = pending.get(key)
   if (existing) return existing
-  const work = (async () => {
-    const asset = library?.assets.find(a => a.id === id)
-    if (!asset) throw new Error(`Unknown brush asset: ${id}`)
+  const asset = library?.assets.find(a => a.id === id)
+  if (!asset) throw new Error(`Unknown brush asset: ${id}`)
+  const work = readBrushAsset(asset.size * asset.size, async () => {
     const hash = id.slice(6)
     const expectedBytes = asset.size * asset.size
     let data = await cachedBrushAsset(hash, expectedBytes)
@@ -140,7 +141,7 @@ async function fetchAsset(id: string): Promise<void> {
     }
     if (scopedLibraries.get(scope)?.assets.some(a => a.id === id)) installBrushPixels(id, data)
     void cacheBrushAsset(hash, data)
-  })().finally(() => pending.delete(key))
+  }).finally(() => pending.delete(key))
   pending.set(key, work)
   return work
 }
@@ -233,11 +234,28 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[]): P
     })()
   }
   if (!needed.size) return null
-  return (async () => { for (const id of needed) await fetchAsset(id) })()
+  return fetchAssets(needed)
 }
 function prepareBrushPresetsKnown(presets: readonly (string | undefined)[]): Promise<void> | null {
   const needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id)))
-  return needed.size ? (async () => { for (const id of needed) await fetchAsset(id) })() : null
+  return needed.size ? fetchAssets(needed) : null
+}
+
+async function fetchAssets(needed: ReadonlySet<string>): Promise<void> {
+  const ids = [...needed], scope = roomScope
+  let next = 0, failed = false, primary: unknown
+  const worker = async () => {
+    while (!failed && next < ids.length) {
+      const id = ids[next++]
+      try {
+        if (scope !== roomScope) throw new DOMException('Brush room changed during preparation', 'AbortError')
+        await fetchAsset(id)
+      } catch (error) { if (!failed) { failed = true; primary = error } }
+    }
+  }
+  // Join outstanding workers on failure, and do not start the remaining IDs.
+  await Promise.all(Array.from({ length: Math.min(4, ids.length) }, worker))
+  if (failed) throw primary
 }
 
 /** Bind before a local stroke can be streamed. Read-only restore never needs a

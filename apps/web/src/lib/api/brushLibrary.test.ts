@@ -24,6 +24,29 @@ beforeEach(() => { vi.resetModules(); request.mockReset() })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('lazy brush API resources', () => {
+  it('bounds concurrent multi-preset downloads globally and keeps duplicate requests shared', async () => {
+    const f = fixture(), bodies = Array.from({ length: 6 }, (_, i) => new Uint8Array([i + 1, 50, 150, 255]))
+    const assets = bodies.map(pixels => { const hash = createHash('sha256').update(pixels).digest('hex'); return { id: `asset:${hash}`, size: 2, file: `${hash}.bin` } })
+    const brushes = assets.map((asset, i) => ({ ...f.manifest.brushes[0], descriptor: { ...f.manifest.brushes[0].descriptor, id: 'imported-' + 'b'.repeat(15) + i, tip: { ...f.manifest.brushes[0].descriptor.tip, mask: asset.id } } }))
+    request.mockResolvedValue({ ...f.manifest, assets, brushes })
+    const releases: (() => void)[] = []
+    const fetch = vi.fn((url: string) => new Promise<Response>(resolve => {
+      const i = assets.findIndex(asset => url.endsWith(asset.id.slice(6)))
+      releases.push(() => resolve(new Response(new Uint8Array(bodies[i]))))
+    }))
+    vi.stubGlobal('fetch', fetch)
+    const api = await import('./brushLibrary')
+    await api.loadBrushLibrary()
+    const tokens = brushes.map(brush => `brush:${brush.descriptor.id}@1`)
+    const work = Promise.all([api.prepareBrushPresets(tokens.slice(0, 3)), api.prepareBrushPresets(tokens.slice(3)), api.prepareBrushPresets(tokens.slice(0, 3))])
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
+    for (const release of releases) release()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(6))
+    for (const release of releases) release()
+    await work
+    expect(fetch).toHaveBeenCalledTimes(6)
+    expect(api.prepareBrushPresets(tokens)).toBeNull()
+  })
   it('loads empty metadata without making resource requests', async () => {
     request.mockResolvedValue({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
     const fetch = vi.fn()
