@@ -1,7 +1,8 @@
+import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
@@ -583,6 +584,17 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           return
         }
 
+        // Normalize new finite-F64 inputs before any pin, room mutation or relay.
+        try { op=canonicalStrokeStorage(op) } catch {
+          ack?.({ ok: false, reason: 'invalid_operation' })
+          return
+        }
+        if (!hasRequiredOperationBrushContext(roomId, userId, op)) {
+          ack?.({ ok: false, reason: 'invalid_operation' })
+          return
+        }
+        pinOperationBrush(roomId, userId, op)
+
         // (#254/#258) Keeps the server's owner-lock mirror in sync the
         // instant this op is accepted, so the very next operation on this
         // socket connection already sees it — must run before
@@ -653,15 +665,21 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // author's ink would still appear live on every peer's canvas and only
     // disappear once their operation came back rejected — the "drawing into
     // the void" failure of #254, with the void now visible to the whole room.
-    // The stand-in carries no dabs: nothing in that gate reads them.
+    // Keep packed source inputs for capability admission; permission checks do not decode them.
     socket.on('stroke_live', data => {
+      if (!hasValidBrushRandomContext(data)) return
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
-        layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
+        layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabsPacked: data.dabsPacked,
+        strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
+      try {
+        if (!hasRequiredOperationBrushContext(roomId, userId, standIn)) return
+        pinOperationBrush(roomId,userId,standIn)
+      } catch { return }
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 

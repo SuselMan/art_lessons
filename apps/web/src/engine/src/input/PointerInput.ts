@@ -70,18 +70,25 @@ export type PressureMap = (raw: number) => number
 //    batch's honest average speed, not an infinity to be clamped away.
 
 export interface PointerData {
+  /** Latched at native dispatch entry, before extracting/coalesced work. */
+  dispatchTime?: number
   x: number
   y: number
   pressure: number
   tiltX: number
   tiltY: number
   speed: number
+  /** CSS/widget view-coordinate units/ms, independent of canvas zoom/DPR. */
+  viewSpeed?: number
+  /** Explicit normalized fixture/input override; zero is meaningful. */
+  normalizedSpeed?: number
   pointerType: string
   // Real DOMHighResTimeStamp the browser/OS recorded for this sample
   // (PointerEvent.timeStamp), NOT performance.now() at handler-entry — by
   // the time our handler runs there's already browser/OS event-dispatch
   // buffering between the two (#104). This is the correct clock to measure
   // genuine end-to-end input-to-paint latency against.
+  cancelled?:boolean
   timeStamp: number
 }
 
@@ -127,11 +134,14 @@ export function smoothSpeed(prev: number, raw: number, dtMs: number): number {
 type PointerEventName = 'start' | 'move' | 'end'
 type PointerHandler = (data: PointerData) => void
 type PredictHandler = (data: PointerData[]) => void
+export interface CursorObservation { x: number; y: number; pointerType: string }
+type CursorObserver = (point: CursorObservation) => void
 
 export class PointerInput {
   private canvas: HTMLCanvasElement
   private _handlers: Partial<Record<PointerEventName, PointerHandler>>
   private _predictHandler?: PredictHandler
+  private _cursorObserver?: CursorObserver
   private _active: boolean
   // The last sample used as the speed reference: its own `timeStamp` (#532 —
   // not performance.now(), see this file's Speed section) and its canvas
@@ -143,6 +153,9 @@ export class PointerInput {
   // Smoothed speed in px/ms (smoothSpeed above); -1 until this stroke has a
   // first real measurement to seed it with.
   private _speed: number
+  private _viewSpeed = -1
+  private _lastClientX = 0
+  private _lastClientY = 0
   private _transform: ((clientX: number, clientY: number) => { x: number; y: number }) | null
 
   // (#187) Which pointer actually started/owns the in-progress stroke.
@@ -246,6 +259,17 @@ export class PointerInput {
     return this
   }
 
+  /** Real cursor motion only: no pressure/speed extraction, no predictions. */
+  onCursor(fn: CursorObserver): this {
+    this._cursorObserver = fn
+    return this
+  }
+
+  private _observeCursor(e: PointerEvent): void {
+    if (!this._cursorObserver || (e.pointerType !== 'mouse' && e.pointerType !== 'pen')) return
+    this._cursorObserver({ ...this._toCanvasCoords(e), pointerType: e.pointerType })
+  }
+
   // (#475) Installs the person's pressure calibration, already compiled to a
   // raw → corrected function (null: none). Takes effect on the next sample,
   // including mid-stroke — which is what makes the settings panel's curve
@@ -281,7 +305,7 @@ export class PointerInput {
     }
   }
 
-  private _toPointerData(e: PointerEvent, x: number, y: number, speed: number): PointerData {
+  private _toPointerData(e: PointerEvent, x: number, y: number, speed: number, viewSpeed=this._viewSpeed): PointerData {
     let pressure = e.pressure ?? 0.5
     if (e.pointerType === 'mouse' && pressure === 0) pressure = 0.5
     // (#475) Pen only. A mouse has no pressure to correct (it sits at the
@@ -290,7 +314,7 @@ export class PointerInput {
     // would apply a correction measured for a stylus to an input that never
     // produced the problem.
     else if (e.pointerType === 'pen' && this._pressureMap) pressure = this._pressureMap(pressure)
-    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, pointerType: e.pointerType, timeStamp: e.timeStamp }
+    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 
   private _extract(e: PointerEvent): PointerData {
@@ -302,6 +326,8 @@ export class PointerInput {
     // zero-duration run in one honest quotient.
     if (dt > 0) {
       this._speed = smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
+      this._viewSpeed=smoothSpeed(this._viewSpeed,Math.hypot(e.clientX-this._lastClientX,e.clientY-this._lastClientY)/dt,dt)
+      this._lastClientX=e.clientX;this._lastClientY=e.clientY
       this._lastT = e.timeStamp
       this._lastX = x
       this._lastY = y
@@ -321,8 +347,8 @@ export class PointerInput {
     const speed = dt > 0
       ? smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
       : this._speed
-
-    return this._toPointerData(e, x, y, Math.max(speed, 0))
+    const viewSpeed=dt>0 ? smoothSpeed(this._viewSpeed,Math.hypot(e.clientX-this._lastClientX,e.clientY-this._lastClientY)/dt,dt) : this._viewSpeed
+    return this._toPointerData(e, x, y, Math.max(speed, 0),viewSpeed)
   }
 
   /** (#517) The fix for strokes that vanished on iPad, and a listener that
@@ -381,6 +407,7 @@ export class PointerInput {
    *  move; the move-path probes only speak when something is actually
    *  wrong. */
   private _handleDown(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     // (#517) Both of these used to return in silence, which is exactly the
     // shape of the iPad report they exist for: a stroke that leaves *nothing*
     // cannot be an engine bug — DabSystem.startStroke unconditionally returns
@@ -430,11 +457,16 @@ export class PointerInput {
     this._lastX = down.x
     this._lastY = down.y
     this._speed = -1
-    this._emit('start', this._extract(e))
+    this._viewSpeed=-1
+    this._lastClientX=e.clientX;this._lastClientY=e.clientY
+    this._emit('start', {...this._extract(e),dispatchTime})
   }
 
   private _handleMove(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     if (!this._active) {
+      const events = e.getCoalescedEvents?.()
+      for (const ev of events?.length ? events : [e]) this._observeCursor(ev)
       // (#517) A pen dragging across the canvas with its tip pressed
       // (buttons !== 0) while no stroke is open means the pointerdown that
       // should have opened one never reached this handler — the browser
@@ -463,13 +495,15 @@ export class PointerInput {
       return
     }
     // A hover may precede pointerup; it is not another contact sample.
-    if (e.buttons === 0 && e.pressure === 0) return
+    if (e.buttons === 0 && e.pressure === 0) { this._observeCursor(e); return }
     this._moveCount++
     const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
     for (const ev of events) {
-      if (ev.pointerId !== this._activePointerId || (ev.buttons === 0 && ev.pressure === 0)) continue
-      this._emit('move', this._extract(ev))
+      if (ev.pointerId !== this._activePointerId) continue
+      this._observeCursor(ev)
+      if (ev.buttons === 0 && ev.pressure === 0) continue
+      this._emit('move', {...this._extract(ev),dispatchTime})
     }
     // A big time gap since the last real sample, or an implausibly large
     // jump in canvas-pixel coordinates, could independently produce a
@@ -501,6 +535,7 @@ export class PointerInput {
   }
 
   private _handleUp(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     if (!this._active) {
       // (#517) Same reasoning as the orphan-move probe: an up for a pen whose
       // down was never seen is the signature of a lost pointerdown.
@@ -538,7 +573,7 @@ export class PointerInput {
     this._active = false
     this._activePointerId = null
     this._activePointerType = null
-    this._emit('end', this._extract(e))
+    this._emit('end', {...this._extract(e),dispatchTime,...(e.type==='pointercancel'?{cancelled:true}: {})})
   }
 
   destroy(): void {

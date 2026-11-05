@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "kritaVersion": "5.3.4.1",
+  "sourceTag": "v6.0.4.1",
+  "sourceCommit": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "repository": "https://github.com/KDE/krita",
+  "files": [
+    {
+      "path": "krita/data/bundles/Krita_3_Default_Resources.bundle",
+      "bytes": 16137844,
+      "gitBlobSha1": "643ccd81256a98f118ab2eb23444daf043528347",
+      "group": "legacy",
+      "sha256": "60f472f2c05c17f1dc56961a0d524aebb3aa06578c70dc8f2d95c84f7939dd0b"
+    },
+    {
+      "path": "krita/data/bundles/Krita_4_Default_Resources.bundle",
+      "bytes": 17454102,
+      "gitBlobSha1": "337d0e4168ac4eb82727adfbec97099b09518490",
+      "group": "default",
+      "sha256": "4180f474052305e9de6eaac1d832c1ddeb0654142bcde2eb2460629cf23796d0"
+    },
+    {
+      "path": "krita/data/bundles/RGBA_brushes.bundle",
+      "bytes": 1826102,
+      "gitBlobSha1": "318d2861adfe3a5eff9f2d4ab5064e944fd8a2ff",
+      "group": "default",
+      "sha256": "b3eb46d7b71de1ec3aeecc0c2b522b9666c75d83f063722615cf6182eeddd0f0"
+    },
+    {
+      "path": "krita/data/paintoppresets/a)_Eraser_Circle.kpp",
+      "bytes": 24264,
+      "gitBlobSha1": "fc7611e35a1d3063265cdbe8adfc923dd3e095c6",
+      "group": "default",
+      "sha256": "37c95280c64768eda01855d27b62b3e15ffe405dd461d6096ee42c0aa61c6f0f"
+    },
+    {
+      "path": "krita/data/paintoppresets/b)_Basic-5_Size_default.kpp",
+      "bytes": 22572,
+      "gitBlobSha1": "7c7f640d18c8a2f0be18cc5e65c60794342634b8",
+      "group": "default",
+      "sha256": "901959e9c7e663062083deb091b72d083538cf3fb9d2c5364e397777f9e0019e"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Lines-Dry.kpp",
+      "bytes": 385952,
+      "gitBlobSha1": "196f206e80eb3b50b870c96f11aea4888fbaa953",
+      "group": "default",
+      "sha256": "3a7898519c197343a85aa013df1d6ef78a30e8a584b1b8baac71c383c18fade7"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Lines-Wet-Pattern.kpp",
+      "bytes": 274506,
+      "gitBlobSha1": "8286e5518e8060155ae06818444316bfdaecacad",
+      "group": "default",
+      "sha256": "a8a9d4df1a5049353ef6643f03284c38248f8a9aaa0bd2cd4ec2e9c5f0ee1e05"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Lines-Wet.kpp",
+      "bytes": 386525,
+      "gitBlobSha1": "f49ba2a34956a8947a45bb15396b48a2308b3bdd",
+      "group": "default",
+      "sha256": "b9fd5d327f73bd6bd362f674d08057b936c668a0cf67f8b5f756c01f3af5cfbc"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Round-Fringe_02.kpp",
+      "bytes": 22365,
+      "gitBlobSha1": "ae7dabec0b7bea2a2730c94d8a3bd6879aa175b2",
+      "group": "default",
+      "sha256": "af2336e4fce4295e17fc3b3a4ff2f7f467384c84cb55bbbc2fc0a4a45c600f4b"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Round-Grain.kpp",
+      "bytes": 31139,
+      "gitBlobSha1": "2a058dd82073e5b6c01fbda6bbf27ef030c2c58c",
+      "group": "default",
+      "sha256": "5ee0a95e46ef7c59833fd85d7391416a99513dfd7996795efde55f39d14b42fb"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Basic_Round-Grunge.kpp",
+      "bytes": 29670,
+      "gitBlobSha1": "91b016426e1e227f2b91b3aa7e0fa31442b5e6d3",
+      "group": "default",
+      "sha256": "18d6a6a56f6a6d16f197592a6e24bb739c936f84af8cb5b8a1ce8ad033d3e6ee"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Flat_Big-Grain_Tilt.kpp",
+      "bytes": 232783,
+      "gitBlobSha1": "8605e2683a52b0d9e072a5666e1c51f0a09fd461",
+      "group": "default",
+      "sha256": "419dcd488838268c183d94b185622efbec30aecaa81d157f100f569e6f67775a"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Flat_Decay_Tilt.kpp",
+      "bytes": 30601,
+      "gitBlobSha1": "377badc8b0e7c0192bda4ef6f6d088983f1017ed",
+      "group": "default",
+      "sha256": "a826d0e9e0fa26010d63f86381a64463b5e1f7c6302a89872c5a99808fb3a0e1"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Special_Blobs.kpp",
+      "bytes": 46157,
+      "gitBlobSha1": "34209bf11caffed75cba2daef61b9d914fe9a142",
+      "group": "default",
+      "sha256": "445ad684c2b81f60386513bebe1f92a37646d4c4c4e237a7abf81e0480aa91db"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Special_Splats.kpp",
+      "bytes": 32820,
+      "gitBlobSha1": "bea892fb9db6056c3f4060a2afa7488392bc78ae",
+      "group": "default",
+      "sha256": "e50e58cca16f7fa3c83f01389c86bea3ff3dcbfc326e035c02f623690e28390e"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Spread-Pattern.kpp",
+      "bytes": 286168,
+      "gitBlobSha1": "1d5f196c8e1909a8d87df85d87d95b162b64f8ab",
+      "group": "default",
+      "sha256": "1f7380094851eb97a79a677e08a9c52bb8e817055c787d4ad0761cb2ba048d12"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Spread.kpp",
+      "bytes": 31381,
+      "gitBlobSha1": "08341e429ac26290a7c49162d123f25059cfc45b",
+      "group": "default",
+      "sha256": "14315c2cac9a68e71a02bb9f69092dea0b87637b323d3612caaadfb94c760990"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Spread_WideArea.kpp",
+      "bytes": 42093,
+      "gitBlobSha1": "4a52574d5ea1b52c0c38728cc331519f68a738a5",
+      "group": "default",
+      "sha256": "be7f70d7e4972efc4fc0d5d551728d7aac780e7cb4c6fc56be89ea66c15e5cb8"
+    },
+    {
+      "path": "krita/data/paintoppresets/j)_WaterC_Water-Pattern.kpp",
+      "bytes": 241061,
+      "gitBlobSha1": "5604e25eb7607f200bffa0f4847337010c30a214",
+      "group": "default",
+      "sha256": "4774ef595a46ddef95700695c03c49bddc1615dc151690d1fd0e914091ec4b59"
+    }
+  ]
+}

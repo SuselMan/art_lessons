@@ -24,6 +24,7 @@ import { packTilePixels } from '../buffers/pinnedTiles'
 import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
 import { OperationLog, type PixelOperation } from './OperationLog'
+import { hasOpenBrushStroke } from './openBrushStroke'
 import type { SnapshotRestoreAudit } from './snapshotAudit'
 import { encodeLayerTiles, type SnapshotTile } from './snapshotCodec'
 import type { SnapshotLedger } from './snapshotLedger'
@@ -243,7 +244,7 @@ export class SnapshotIO {
    *  historical ops eventually get backfilled in front of it: their presence
    *  shifts the current `ops` prefix, and the id-based prefix match in
    *  `CheckpointStore.best` stops matching this checkpoint on its own. */
-  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, installOnly = false): void {
     const { gl, ledger } = this.ctx
     // (#474) Counted before anything can return early, so a dropped restore
     // still reports the size of what it dropped.
@@ -292,12 +293,15 @@ export class SnapshotIO {
     // all-transparent tile is *doing* something: clearing what is under it.
     // Nothing clears the layer ahead of this, so that distinction is ours to
     // make, and one cheap check makes it without asking per tile.
-    const uploads = buf.allResident().length === 0 ? painted : retiled
+    // A late restore may have a known or still-unrecorded live tail. Install
+    // its authoritative replay base without replacing those visible pixels;
+    // the engine settles the tail through its ordinary guarded rebuild path.
+    const uploads = installOnly ? [] : buf.allResident().length === 0 ? painted : retiled
     // (#474) Any error already pending is drained first, so what this reads
     // afterward is this restore's own — the same discipline generatePaperMipmaps
     // uses, and for the same reason: an inherited error would accuse the wrong
     // code, and inheriting *silence* is impossible, so only draining can be wrong.
-    this._drainGlErrors()
+    if (!installOnly) this._drainGlErrors()
     for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
       // (#425) See the same call in the engine's _replayInto: the payload
@@ -309,7 +313,7 @@ export class SnapshotIO {
     // report has to answer is "did this layer land", and a per-tile scan would
     // add a GPU sync point per tile to a path that runs at join time on the
     // slowest devices we have.
-    const glError = gl.getError()
+    const glError = installOnly ? 0 : gl.getError()
     const resident = buf.allResident()
     this._restoreAudit.push({
       layerId, known: true, tilesIn: tiles.length, tilesUploaded: uploads.length, bytes, glError,
@@ -322,7 +326,7 @@ export class SnapshotIO {
     // immediately marked as known to the server. Otherwise every joining
     // client would re-bake and re-upload the whole room it just downloaded.
     ledger.markDirty(layerId)
-    ledger.markPublished(layerId)
+    if (!installOnly) ledger.markPublished(layerId)
     // The *painted* set, not what arrived: a checkpoint restore clears the
     // buffer before replaying its tiles (see the engine's _rebuildLayerFromLog),
     // so a blank tile there can only ever cost memory, never carry meaning.
@@ -369,7 +373,26 @@ export class SnapshotIO {
     }))
     // Replaces any snapshot checkpoint this layer already had — see
     // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.
+    const previous = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    const preserved = previous?.coveredSeq !== undefined && coveredSeq !== undefined && previous.coveredSeq <= coveredSeq
+      ? [...(previous.covered ?? [])].map(id => ({ id, seq: previous.coveredSeq })) : []
     this.ctx.checkpoints().pinSnapshot(layerId, held, coveredSeq)
+    this.ctx.checkpoints().markCovered(preserved)
+    // Reconnect/concurrent restore can replace this checkpoint AFTER history
+    // backfill has landed. Its pixels still contain that prefix. Reconcile
+    // from retained authoritative server ordering, never op.seq (local index).
+    this.ctx.checkpoints().markCovered(this.ctx.log().entries
+      .filter(entry => !entry.pending && entry.serverSeq !== undefined)
+      .map(entry => ({ id: entry.op.id, seq: entry.serverSeq })))
+    this._invalidateSplitBrushSnapshots()
+  }
+
+  /** An ACK can resolve whether an optimistic operation was already baked.
+   * No historical log merge is needed: this ID is already retained. */
+  confirmCoverage(id: string, seq: number): void {
+    if (!this.ctx.checkpoints().all().some(cp => cp.fromSnapshot && cp.coveredSeq !== undefined && seq <= cp.coveredSeq)) return
+    this.ctx.checkpoints().markCovered([{ id, seq }])
+    this._invalidateSplitBrushSnapshots()
   }
 
   /** PencilEngineAPI.absorbHistoricalOperations — see its doc comment and
@@ -382,6 +405,9 @@ export class SnapshotIO {
    *  then merges them into the real log in one step. */
   absorbHistorical(pageOps: Operation[]): void {
     const log = this.ctx.log()
+    // Even an entirely duplicate page can follow a second snapshot restore.
+    // Coverage reconciliation must precede the no-new-IDs early return.
+    this.ctx.checkpoints().markCovered(pageOps)
     // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
     // but since #372 the join tail is judged per layer: a layer with no pixel
     // snapshot of its own gets its whole history in the tail. So a page can
@@ -390,7 +416,10 @@ export class SnapshotIO {
     // twice by every later rebuild: undo darkened the layer it rebuilt.
     const held = new Set(log.entries.map(e => e.op.id))
     const ops = pageOps.filter(op => !held.has(op.id))
-    if (ops.length === 0) return
+    if (ops.length === 0) {
+      this._invalidateSplitBrushSnapshots()
+      return
+    }
     const scratch = new OperationLog()
     for (const op of ops) {
       scratch.append(op, op.seq === undefined ? undefined : { serverSeq: op.seq })
@@ -400,19 +429,29 @@ export class SnapshotIO {
     }
     log.prependHistorical(scratch.entries)
     this._historicalEntryCount += scratch.entries.length
-    // (#479) These operations are now in the log, and a restored layer's
-    // pinned checkpoint already holds the pixels of whichever of them predate
-    // its snapshot — record them so a later rebuild skips rather than repaints
-    // them. Read from `ops` rather than the log because only these copies
-    // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see SnapshotLedger.isCovered's own comment), so once they
-    // are in, "is this older than the snapshot?" is no longer answerable.
-    this.ctx.checkpoints().markCovered(ops)
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
     // deliberately not awaited, since backfill itself never blocks anything.
     this.ctx.preloadImages(ops)
+    this._invalidateSplitBrushSnapshots()
+  }
+
+  /** A legacy snapshot may end inside a carried brush gesture. Pixels cannot
+   * restore its scratch/coverage or RNG cursor. Recover the complete original
+   * prefix, then rebuild the gesture through the ordinary replay pipeline. */
+  private _invalidateSplitBrushSnapshots(): void {
+    const entries = this.ctx.log().entries
+    for (const snapshot of this.ctx.checkpoints().all()) {
+      if (!snapshot.fromSnapshot || snapshot.coveredSeq === undefined) continue
+      const coveredSeq = snapshot.coveredSeq
+      const prefix = entries.filter(entry => !entry.pending && entry.serverSeq !== undefined && entry.serverSeq <= coveredSeq)
+        .sort((a, b) => a.serverSeq! - b.serverSeq!).map(entry => entry.op)
+      if (!hasOpenBrushStroke(prefix, snapshot.layerId)) continue
+      this.historyRepairs.set(snapshot.layerId, coveredSeq)
+      this.ctx.ledger.markDirty(snapshot.layerId)
+      this.ctx.ledger.refusePublishing(snapshot.layerId)
+    }
   }
 
   /** A covered history mutation cannot be subtracted from a baked tile.
@@ -431,6 +470,16 @@ export class SnapshotIO {
 
   historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
 
+  /** Until an ACK or historical ID resolves membership, a pending stroke may
+   * already be baked into the downloaded prefix. Preserve visible pixels;
+   * replaying it over that prefix would double its pigment. */
+  hasAmbiguousPending(layerId: string): boolean {
+    const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    if (!snapshot) return false
+    const pixels = new Set(this.ctx.log().layerPixelOps(layerId).map(op => op.id))
+    return this.ctx.log().entries.some(entry => entry.pending && pixels.has(entry.op.id) && !snapshot.covered?.has(entry.op.id))
+  }
+
   invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
     for (const layerId of layerIds) {
       const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
@@ -442,10 +491,12 @@ export class SnapshotIO {
   }
 
   /** Resolve only from a complete server prefix; metadata survives lost GL. */
-  resolveHistoryRepairs(): string[] {
+  resolveHistoryRepairs(canRebuild: (layerId: string) => boolean = () => true): string[] {
+    if (!this.historyRepairs.size) return []
     const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq).filter((n): n is number => n !== undefined && n > 0))
     const ready: string[] = []
     for (const [layerId, coveredSeq] of this.historyRepairs) {
+      if (!canRebuild(layerId)) continue
       if (sequences.size < coveredSeq) continue
       let complete = true
       for (let seq = 1; seq <= coveredSeq; seq++) if (!sequences.has(seq)) { complete = false; break }

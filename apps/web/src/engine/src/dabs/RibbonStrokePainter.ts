@@ -1,3 +1,4 @@
+import type { BrushExecutionContext } from '../presets/brushExecutionContext'
 import { canonicalMinorRadius, canonicalMajorRadius } from '../watercolor/canonicalRadius'
 import { advanceSolventSource } from '../watercolor/solventSource'
 import { selectedForeignWaterSources } from '../watercolor/foreignWater'
@@ -58,7 +59,7 @@ export interface RibbonStrokePainterContext {
   nibDrawCost(tile: PaintTarget, dab: Dab, preset: PencilPreset): number
   nibTouchesTile(tile: PaintTarget, dab: Dab, preset: PencilPreset): boolean
   pageSize(): { w: number; h: number }
-  paintBrushStroke(target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings }, color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined): void
+  paintBrushStroke(target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings }, color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,execution?:BrushExecutionContext): void
   resolveWithinSheet(target: ILayerBuffer, r: { minX: number; minY: number; maxX: number; maxY: number }): PaintTarget[]
   revealAfterBatch(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }, prev: AccumulationBuffer | null): void
   revealBeforeBatch(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }): AccumulationBuffer | null
@@ -391,7 +392,7 @@ export class RibbonStrokePainter {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
-    mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
+    mode: Readonly<{ waterOnly: boolean; segmented: boolean; sourceCopySlices?: boolean; brushExecution?:BrushExecutionContext; deferMaterial?: (request: PreparedRibbonMaterial) => void }> = { waterOnly: false, segmented: false },
   ): Generator<number, void, void> {
     const sourceCopySlices = pieceTris > 0 && (mode.sourceCopySlices ?? this.diagnosticSourceCopySlices)
     if (mode.deferMaterial) {
@@ -473,7 +474,10 @@ export class RibbonStrokePainter {
     // one dropped - by how many were dropped before it in THIS call, so a live
     // stroke and its one-batch replay read different paper under the same dab.
     const wetIndex = new Map<Dab, number>()
-    let drawable = floorPx === null
+    const nativeRequest = !!profile.brushStamp?.brush.behavior?.sequentialRandom
+    let drawable = nativeRequest
+      ? dabs.map((d,i)=>{wetIndex.set(d,i);return d})
+      : floorPx === null
       ? dabs.filter((d, i) => { wetIndex.set(d, i); return d.size * 0.5 * preset.sizeMultiplier >= 0.5 })
       : dabs.map((d, i) => {
         const half = d.size * 0.5 * preset.sizeMultiplier
@@ -505,7 +509,7 @@ export class RibbonStrokePainter {
     // #573 — a digital brush on the stamp model keeps this machinery's scratch
     // (the frozen layer, the stroke's coverage) and nothing else of it.
     if (profile.brushStamp) {
-      this.ctx.paintBrushStroke(target, drawable, preset, profile.brushStamp, color, scratch, prevDab)
+      this.ctx.paintBrushStroke(target, drawable, preset, profile.brushStamp, color, scratch, prevDab,mode.brushExecution)
       return
     }
 

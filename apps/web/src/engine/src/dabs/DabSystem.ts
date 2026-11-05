@@ -1,3 +1,7 @@
+import {SourceDistanceTiming,sourceTimingInterval} from './sourceDistanceTiming'
+import { sourceDrawingDirection, sourceFanRequests, type SourcePaintInformation } from '../input/kritaStrokeInput'
+import { captureBrushSourceSize } from '../presets/brushRequestGeometry'
+import { assertBrushExecutionContext, brushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 // Converts a pointer path into a series of brush dabs spaced along the stroke.
 // Uses a centripetal Catmull-Rom spline (see #91) with 1-event lag for true
 // C1 continuity (no kinks at sample points).
@@ -7,11 +11,13 @@
 //   With extrapolated P3 the tangent at P2 doesn't match the next segment → visible kinks.
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
-import type { Dab } from '@grafetto/shared'
+import type { BrushDescriptor, BrushDynamic, Dab } from '@grafetto/shared'
+import { beginBrushBehavior, brushDynamicValue, brushSourceSpacingAxes, brushSpacingStep, type BrushBehaviorState } from '../presets/brushBehavior'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from '../presets/dabShaping'
 import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
+import { codecDab } from './codecDab'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
   type TipFootprint, type TipState,
@@ -19,6 +25,8 @@ import {
 import { tiltNormFrom } from '../presets/tiltMath'
 
 interface ControlPoint {
+  time?: number
+  normalizedSpeed?: number
   x: number
   y: number
   pressure: number
@@ -141,6 +149,23 @@ const MAX_PRESSURE_FILTER_STEP = 0.9
 
 export class DabSystem {
   spacingFactor: number
+  /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
+  autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x:number; y:number }; angleOffset?:number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  /** New source-request policies capture constructor size before F32/sensors. */
+  captureSourceSize = false
+  captureSourceTime = false
+  timing?: NonNullable<BrushDescriptor['behavior']>['timing']
+  private _timingState=new SourceDistanceTiming()
+  private _timingPoint?: SourcePaintInformation
+  private _timingInterval?: number
+  private _timingStreamActive=false
+  strokeInput?: NonNullable<BrushDescriptor['behavior']>['strokeInput']
+  initialDirection = 0
+  private _sourcePrevious?: SourcePaintInformation
+  brushExecution?: BrushExecutionContext
+  private _spacingBehavior?: BrushBehaviorState
+  private _spacingAxes?: { x: number; y: number; angle: number }
+  private _pathAngle = 0
   /**
    * #330 stage 3 — marker only, null for every other tool (which keeps plain
    * `baseSize * spacingFactor` spacing, unchanged).
@@ -358,6 +383,13 @@ export class DabSystem {
     // no dab to take a footprint from at that point, and the very first dab of
     // a stroke lands at arc length 0 regardless.
     this._pendingSpacing = 0
+    this._spacingBehavior = undefined
+    this._spacingAxes = undefined
+    this._pathAngle = 0
+    this._sourcePrevious = undefined
+    this._timingState=new SourceDistanceTiming()
+    this._timingPoint=undefined
+    this._timingInterval=undefined
     // Cleared, not zeroed: _filterTilt seeds itself from the stroke's first
     // real sample. Zeroing would instead start every stroke at "perfectly
     // upright" and let the shape swing up to the true tilt over the first
@@ -515,9 +547,27 @@ export class DabSystem {
   }
 
   forkForPreview(): DabSystem {
+    if(this._timingStreamActive)throw Error('Cannot fork an incomplete source input')
+    return this._forkPreview()
+  }
+  private _forkPreview():DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
+    fork.captureSourceSize = this.captureSourceSize
+    fork.captureSourceTime=this.captureSourceTime
+    fork.timing=this.timing?structuredClone(this.timing):undefined
+    fork._timingState=this._timingState.clone()
+    fork._timingPoint=this._timingPoint?{...this._timingPoint}:undefined
+    fork._timingInterval=this._timingInterval
+    fork.strokeInput = this.strokeInput ? structuredClone(this.strokeInput) : undefined
+    fork.initialDirection = this.initialDirection
+    fork._sourcePrevious = this._sourcePrevious ? { ...this._sourcePrevious } : undefined
+    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom)
+    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
+    fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
+    fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
+    fork._pathAngle = this._pathAngle
     fork.cameraAngle = this.cameraAngle
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
@@ -546,17 +596,24 @@ export class DabSystem {
   }
 
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
-  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0): Dab[] {
+  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
+    if(this._timingStreamActive)throw Error('Cannot start before source input completes')
     this._reset()
     this._speed = speed
     // Seeds the filter (a no-op for every profile without one) — the first
     // sample of a stroke is taken at face value, exactly as the tilt filter
     // seeds itself from its own first sample.
     const p = this._filterPressure(pressure, 0)
-    this._buf = [{ x, y, pressure: p, tiltX, tiltY }]
+    this._buf = [{ x, y, pressure: p, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) }]
     // ds = 0: nothing has been dragged yet, so a bent-nib profile leaves this
     // dab round rather than pointing it along the placeholder angle below.
-    const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0, 0)
+    const initialAngle = this.strokeInput ? this.initialDirection : 0
+    const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, initialAngle, 0, normalizedSpeed)
+    if(this.captureSourceTime){first.sourceTime=time;first.t=time}
+    if (this.strokeInput) {
+      first.t = time
+      this._sourcePrevious = {x,y,pressure:p,tiltX,tiltY,angle:initialAngle,t:time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
+    }
     // #478: the touch-down dab is emitted here rather than through
     // _splineDabs, and it is still a dab — so it owes the next one a step just
     // like any other. Without this the stroke's first *gap* would be a full
@@ -566,13 +623,20 @@ export class DabSystem {
     // a segment's curvature limit, because there is no segment yet; the first
     // _splineDabs call re-caps it against its own.
     this._pendingSpacing = this._spacingAfter(first, baseSize, nominalDabSpacing(baseSize, this.spacingFactor))
+    if(this.timing){
+      first.t=time;first.sourceTime=time
+      this._timingPoint={x,y,pressure:p,tiltX,tiltY,t:time,angle:initialAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
+      this._sourcePrevious={...this._timingPoint}
+      this._timingInterval=this._timingAfter(first)
+    }
     return [first]
   }
 
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
-  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0): Dab[] {
+  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     this._speed = speed
+    if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time)]
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
     // see _filterPressure on why that case is the whole reason this sits here.
@@ -592,10 +656,12 @@ export class DabSystem {
       prev.pressure = pressure
       prev.tiltX = tiltX
       prev.tiltY = tiltY
+      if(this.strokeInput || this.captureSourceTime)prev.time=time
+      if(normalizedSpeed!==undefined)prev.normalizedSpeed=normalizedSpeed
       return []
     }
 
-    this._buf.push({ x, y, pressure, tiltX, tiltY })
+    this._buf.push({ x, y, pressure, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) })
     const n = this._buf.length
 
     if (n < 3) return [] // need at least 3 pts to define a segment
@@ -611,8 +677,23 @@ export class DabSystem {
   }
 
   // Must be called on pointerup to flush the last pending segment.
+  peekEndSample(baseSize: number, speed = 0): Dab | undefined {
+    const last=this._buf.at(-1)
+    if(!last)return undefined
+    const fork=this.forkForPreview()
+    fork._speed=speed
+    const before=this._buf.at(-2)
+    const angle=this.strokeInput && this._sourcePrevious ? sourceDrawingDirection(this._sourcePrevious,last,this._sourcePrevious.angle) : before ? Math.atan2(last.y-before.y,last.x-before.x) : this._pathAngle
+    const dab=fork._makeDab(last.x,last.y,last.pressure,last.tiltX,last.tiltY,baseSize,angle,0,last.normalizedSpeed)
+    if(this.strokeInput || this.captureSourceTime)dab.t=last.time ?? 0
+    if(this.captureSourceTime)dab.sourceTime=last.time??0
+    return dab
+  }
+
   endStroke(baseSize: number, speed = 0): Dab[] {
+    if(this._timingStreamActive)throw Error('Cannot end before source input completes')
     this._speed = speed
+    if(this.timing)return []
     const n = this._buf.length
     if (n < 2) return []
 
@@ -620,7 +701,7 @@ export class DabSystem {
     const p2 = this._buf[n - 1]
     const p0 = n >= 3 ? this._buf[n - 3] : mirrorBefore(p1, p2)
     // Extrapolate P3 only at end — no alternative here
-    const p3: ControlPoint = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y, pressure: p2.pressure, tiltX: p2.tiltX, tiltY: p2.tiltY }
+    const p3: ControlPoint = { ...p2, x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y }
 
     // Defensive only: continueStroke's own deadband already guarantees any two
     // consecutive buffered points are at least this far apart, so this can no
@@ -649,6 +730,7 @@ export class DabSystem {
   // output discarded/repainted (not accumulated) on every subsequent call —
   // see PencilEngine's _tipBuf/_refreshTip.
   peekTipDabs(baseSize: number, speed = 0): Dab[] {
+    if(this.strokeInput) return this.forkForPreview().endStroke(baseSize,speed)
     this._speed = speed
     const n = this._buf.length
     if (n < 2) return []
@@ -656,7 +738,7 @@ export class DabSystem {
     const p1 = this._buf[n - 2]
     const p2 = this._buf[n - 1]
     const p0 = n >= 3 ? this._buf[n - 3] : mirrorBefore(p1, p2)
-    const p3: ControlPoint = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y, pressure: p2.pressure, tiltX: p2.tiltX, tiltY: p2.tiltY }
+    const p3: ControlPoint = { ...p2, x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y }
 
     // Defensive only — same reasoning as endStroke's own copy of this check.
     const dx = p2.x - p1.x, dy = p2.y - p1.y
@@ -667,6 +749,9 @@ export class DabSystem {
     // a peeked tip must not leave the real stroke owing a step measured off a
     // dab that was only ever speculative.
     const savedPending = this._pendingSpacing
+    const savedSpacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
+    const savedSpacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
+    const savedPathAngle = this._pathAngle
     // #472: the bent nib's orientation is stroke state too, and this method is
     // defined to leave stroke state alone — advancing it here would bend the
     // nib along a *guessed* tangent, and the real segment arriving a moment
@@ -676,6 +761,9 @@ export class DabSystem {
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
     this._remainder = savedRemainder
     this._pendingSpacing = savedPending
+    this._spacingBehavior = savedSpacingBehavior
+    this._spacingAxes = savedSpacingAxes
+    this._pathAngle = savedPathAngle
     assignTipState(this._tip, savedTip)
     return dabs
   }
@@ -730,7 +818,7 @@ export class DabSystem {
     // The loosest step this segment allows: the nominal size-proportional rule
     // and, for a ribbon tool, its curvature limit. #478's footprint rule can
     // only tighten it further, per dab — see _spacingAfter.
-    const maxSpacing = Math.max(MIN_DAB_SPACING_PX, Math.min(
+    const maxSpacing = this.autoSpacing ? Infinity : Math.max(MIN_DAB_SPACING_PX, Math.min(
       baseSize * this.spacingFactor,
       this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen, baseSize),
     ))
@@ -742,7 +830,10 @@ export class DabSystem {
     // caps it, because this segment's curvature limit is this segment's to
     // impose. Falls back to the nominal step before a stroke has emitted
     // anything at all.
-    let step = Math.min(this._pendingSpacing || maxSpacing, maxSpacing)
+    const tangentAtStart = this.autoSpacing ? hermiteTangent(p1, p2, m1, m2, 0) : null
+    let step = tangentAtStart && this._spacingAxes
+      ? this._autoSpacingStep(Math.atan2(tangentAtStart.y, tangentAtStart.x))
+      : Math.min(this._pendingSpacing || maxSpacing, maxSpacing)
     // Clamped at 0, and that clamp is load-bearing for any tool whose spacing
     // is not constant across a stroke — the marker via _curvatureSpacingLimit,
     // and since #478 every footprint-spaced tool, whose step changes with
@@ -790,15 +881,22 @@ export class DabSystem {
       const tiltY    = crScalar(p0.tiltY, p1.tiltY, p2.tiltY, p3.tiltY, t)
       const tan      = hermiteTangent(p1, p2, m1, m2, t)
 
-      const dab = this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap)
-      dabs.push(dab)
+      const normalizedSpeed=p1.normalizedSpeed===undefined || p2.normalizedSpeed===undefined ? undefined : Math.fround(clamp(p1.normalizedSpeed+(p2.normalizedSpeed-p1.normalizedSpeed)*t,0,1))
+      const requests = this.strokeInput
+        ? this._sourceRequests({x:pos.x,y:pos.y,pressure,tiltX,tiltY,t:(p1.time??0)+((p2.time??0)-(p1.time??0))*t,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
+        : [this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap,normalizedSpeed)]
+      if(this.captureSourceTime)for(const request of requests){request.sourceTime??=(p1.time??0)+((p2.time??0)-(p1.time??0))*t;request.t=request.sourceTime}
+      dabs.push(...requests)
+      const dab=requests[requests.length-1]
       // #478: this dab decides how far the next one may sit, so the step is
       // read back off the dab that was just made rather than fixed for the
       // whole segment. That also makes it recomputable downstream from
       // `Dab.size` alone, which is what lets the engine hold the mark's tone
       // (dabSpacing.ts's dabDepositScale) without threading spacing through
       // the dab or the wire format.
-      step = this._spacingAfter(dab, baseSize, maxSpacing)
+      if(this.strokeInput) {
+        for(const request of requests) { this._pathAngle=request.angle; step=this._spacingAfter(request,baseSize,maxSpacing) }
+      } else step = this._spacingAfter(dab, baseSize, maxSpacing)
       this._pendingSpacing = step
       arcPos += step
       gap = step
@@ -819,7 +917,24 @@ export class DabSystem {
    *  which is the entire pre-#478 behaviour — see dabSpacing.ts for why the
    *  nominal brush size is the wrong thing to space off, and which tools want
    *  this and which are already normalized some other way. */
+  private _autoSpacingStep(pathAngle: number): number {
+    return brushSpacingStep(this._spacingAxes!,pathAngle)
+  }
+
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
+    if (this.autoSpacing) {
+      const { brush, sizeMultiplier } = this.autoSpacing
+      assertBrushExecutionContext(brush,this.brushExecution)
+      const state = this._spacingBehavior ??= beginBrushBehavior(dab,this.brushExecution)
+      const previous = state.previous
+      // Input speed is canvas px/ms, already latched for this pointer batch.
+      // Historical sensors used a synthetic local clock. New captured-speed
+      // dabs keep their actual pacing time and never consult that clock.
+      const t = this.strokeInput || this.captureSourceTime || dab.normalizedSpeed!==undefined ? dab.t : previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
+      const input=codecDab({ ...dab, t })
+      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle)
+      return this._autoSpacingStep(this._pathAngle)
+    }
     const fp = this.footprint
     const sc = this.nibScallop
     // The same number either way (both are set from the engine's own
@@ -893,9 +1008,77 @@ export class DabSystem {
     return Math.min(pathLimit, nibLimit)
   }
 
+  /** Fans are authored before the selected normal request, never at render/replay.
+   * State tracks unscattered source information; a t=0 coincident fan is retained.
+   */
+  private _sourceRequests(sample: SourcePaintInformation, baseSize: number): Dab[] {
+    return [...this._sourceRequestStream(sample,baseSize)]
+  }
+  private *_sourceRequestStream(sample:SourcePaintInformation,baseSize:number):Generator<Dab,void> {
+    const previous=this._sourcePrevious
+    const next={...sample,angle:previous ? sourceDrawingDirection(previous,sample,previous.angle) : this.initialDirection}
+    const fans=previous && this.strokeInput?.fanCorners
+      ? sourceFanRequests(previous,next,this.strokeInput.fanCorners.stepDegrees) : []
+    for(const request of [...fans,next]) {
+      const prior=this._sourcePrevious
+      const distance=prior ? Math.hypot(request.x-prior.x,request.y-prior.y) : 0
+      const dab=this._makeDab(request.x,request.y,request.pressure,request.tiltX,request.tiltY,baseSize,request.angle,distance,request.normalizedSpeed)
+      dab.t=request.t
+      if(this.captureSourceTime)dab.sourceTime=request.t
+      this._sourcePrevious={...request}
+      yield dab
+    }
+  }
+
+  private _timingAfter(dab:Dab):number {
+    const state=this._spacingBehavior ?? beginBrushBehavior(dab,this.brushExecution)
+    const factor=this.timing?.rateDynamics?.reduce((value,control)=>value*brushDynamicValue(control,dab,state,0),1)??1
+    return sourceTimingInterval(this.timing!.rate,factor)
+  }
+
+  /** One serial author input. Pump in bounded batches; do not interleave inputs
+   * or prediction forks while a stream is suspended. Replay never calls this.
+   */
+  *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0):Generator<Dab,void> {
+    if(!this.timing)throw Error('Timed source policy required')
+    if(this._timingStreamActive)throw Error('Cannot interleave source inputs')
+    this._timingStreamActive=true
+    this._speed=speed
+    try{yield* this._timedContinue({x,y,pressure,tiltX,tiltY,t:time,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)}
+    finally{this._timingStreamActive=false}
+  }
+  private *_timedContinue(next:SourcePaintInformation,baseSize:number):Generator<Dab,void> {
+    const previous=this._timingPoint
+    if(!previous)return
+    if(next.t<previous.t)throw Error('Source timing input moved backwards')
+    let current={...previous}
+    while(true){
+      const axes=this._spacingAxes??{x:this._pendingSpacing,y:this._pendingSpacing,angle:0}
+      const factor=this._timingState.next(current,next,{...axes,enabled:!this.timing!.ignoreDistanceSpacing,isotropic:this.autoSpacing?.isotropic??true},this._timingInterval)
+      if(factor<0)break
+      const mix=(a:number,b:number)=>(1-factor)*a+factor*b
+      const point:SourcePaintInformation={x:mix(current.x,next.x),y:mix(current.y,next.y),pressure:mix(current.pressure,next.pressure),tiltX:mix(current.tiltX,next.tiltX),tiltY:mix(current.tiltY,next.tiltY),t:mix(current.t,next.t),angle:0,
+        ...(current.normalizedSpeed===undefined||next.normalizedSpeed===undefined?{}:{normalizedSpeed:mix(current.normalizedSpeed,next.normalizedSpeed)})}
+      for(const request of this._sourceRequestStream(point,baseSize)){
+        this._pathAngle=request.angle
+        this._pendingSpacing=this._spacingAfter(request,baseSize,this.autoSpacing?Infinity:nominalDabSpacing(baseSize,this.spacingFactor))
+        this._timingInterval=this._timingAfter(request)
+        yield request
+      }
+      current=point
+    }
+    if(this._timingState.spacingElapsed>=50 || this._timingState.timingElapsed>=50){
+      const refresh: Dab={...this._forkPreview()._makeDab(next.x,next.y,next.pressure,next.tiltX,next.tiltY,baseSize,sourceDrawingDirection(previous,next,this._sourcePrevious?.angle??previous.angle),0,next.normalizedSpeed),t:next.t,sourceTime:next.t}
+      if(this._timingState.spacingElapsed>=50){this._pendingSpacing=this._spacingAfter(refresh,baseSize,this.autoSpacing?Infinity:nominalDabSpacing(baseSize,this.spacingFactor));this._timingState.updateSpacing()}
+      if(this._timingState.timingElapsed>=50){this._timingInterval=this._timingAfter(refresh);this._timingState.updateTiming()}
+    }
+    this._timingPoint={...next}
+    this._buf=[{x:next.x,y:next.y,pressure:next.pressure,tiltX:next.tiltX,tiltY:next.tiltY,time:next.t,...(next.normalizedSpeed===undefined?{}:{normalizedSpeed:next.normalizedSpeed})}]
+  }
+
   private _makeDab(
     x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number,
-    baseSize: number, pathAngle: number, ds: number,
+    baseSize: number, pathAngle: number, ds: number,normalizedSpeed?:number,
   ): Dab {
     // #305: the *filtered* tilt is what gets stored on the Dab, not just what
     // feeds the shaping below. Everything downstream that reads Dab.tiltX/Y —
@@ -909,6 +1092,7 @@ export class DabSystem {
     // #482: the footprint itself is worked out in exactly one place now
     // (tipFootprint.ts) — this method's job is the two things that are *not*
     // geometry: running the input filters, and assembling the wire record.
+    this._pathAngle = pathAngle
     const fp = tipFootprint(this._shaping, {
       x, y, pressure, tiltX, tiltY, baseSize, pathAngle, ds,
       speed: this._speed, cameraAngle: this.cameraAngle,
@@ -923,14 +1107,17 @@ export class DabSystem {
     // is the only place that knows elapsed wall-clock time.
     return {
       x: fp.x, y: fp.y, pressure, tiltX, tiltY,
-      size: fp.size, aspectRatio: fp.aspectRatio, angle: fp.angle, opacity: 1, t: 0,
+      size: fp.size, aspectRatio: fp.aspectRatio, angle: this.strokeInput ? pathAngle : fp.angle, opacity: 1, t: 0,
+      ...(this.strokeInput ? {sourceAngle:pathAngle} : {}),
+      ...(this.captureSourceSize ? {sourceSize:captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
+      ...(normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(normalizedSpeed)}),
     }
   }
 }
 
 // Ghost point mirrored before p1 (used when no real predecessor exists)
 function mirrorBefore(p1: ControlPoint, p2: ControlPoint): ControlPoint {
-  return { x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y, pressure: p1.pressure, tiltX: p1.tiltX, tiltY: p1.tiltY }
+  return { ...p1, x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y }
 }
 
 function crScalar(a: number, b: number, c: number, d: number, t: number): number {

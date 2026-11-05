@@ -1,4 +1,8 @@
-import { useEffect, useMemo, type RefObject } from 'react'
+import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
+import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
+import { notifyError } from '../../stores/noticeStore'
+import { useT } from '../../i18n'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
 
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import {
@@ -15,6 +19,7 @@ export interface ToolSyncDeps {
   engineRef: RefObject<PencilEngineAPI | null>
   /** Bumped when a new engine exists to sync to — see engineEpoch in Room. */
   engineEpoch: number
+  canvasRef: RefObject<HTMLCanvasElement | null>
 }
 
 /** (#493) The tool in hand, pushed into the engine: preset, tool, size and
@@ -25,7 +30,7 @@ export interface ToolSyncDeps {
  *
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
-export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
+export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
   const drawingTool = useRoomStore(s => s.drawingTool)
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
@@ -57,6 +62,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   // one it was actually drawn with so a later retune of that brush cannot
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
+  useRoomStore(s => s.brushLibraryRevision)
   const digitalBrushId = toolSettings.digitalBrush.brush as string
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
@@ -64,11 +70,53 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
   const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
-    const brush = digitalBrushFromPreset(digitalBrushId)
+    let brush
+    try { brush = digitalBrushFromPreset(digitalBrushId) } catch { return undefined }
     return digitalBrushPreset(brush.id, brush.version, {
       size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
     })
   })()
+  const [preparationEpoch, preparationChanged] = useState(0)
+  const [preparedKey, setPreparedKey] = useState('')
+  const t = useT()
+  // Loss and restore both invalidate readiness, including a loss shorter than
+  // the overlay's grace period. The engine cancels the corresponding GPU job.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const invalidate = () => preparationChanged(v => v + 1)
+    canvas?.addEventListener('webglcontextlost', invalidate)
+    canvas?.addEventListener('webglcontextrestored', invalidate)
+    return () => {
+      canvas?.removeEventListener('webglcontextlost', invalidate)
+      canvas?.removeEventListener('webglcontextrestored', invalidate)
+    }
+  }, [canvasRef, engineEpoch])
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}`
+  const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
+  useEffect(() => {
+    if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
+    const engine = engineRef.current
+    if (!engine) return
+    const controller = new AbortController()
+    const roomId = useRoomStore.getState().boardId
+    const preset = digitalBrushPresetName ?? digitalBrushId
+    const pending = (async () => {
+      const resources = prepareBrushPresets([preset])
+      if (resources) await resources
+      if (controller.signal.aborted) return
+      if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [preset])
+      if (controller.signal.aborted) return
+      const result = await engine.prepareBrush(preset, { signal: controller.signal })
+      if (!controller.signal.aborted && result.status !== 'cancelled') setPreparedKey(preparationKey)
+    })()
+    pending.catch(error => {
+      if (!controller.signal.aborted) {
+        console.error('Selected brush unavailable', error)
+        notifyError(t('brushLibrary.error'))
+      }
+    })
+    return () => controller.abort()
+  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey, engineEpoch, engineRef, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
@@ -103,7 +151,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
-    : drawingTool === 'digitalBrush' ? digitalBrushPresetName
+    : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
     : pencilGrade
   // #278/#279 → #482, ADR 012 §3. The frame the chisel's angle is measured in
   // is now named and lives on the tool, so the engine resolves it (dabShaping's
@@ -180,13 +228,14 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     // §2) — they still do, but the nib no longer does, so the same slot now
     // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
+    if (drawingTool === 'digitalBrush' && digitalBrushPresetName === undefined) return
     engine?.setPencil(
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
-        : drawingTool === 'digitalBrush' ? digitalBrushPresetName
+        : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
         : pencilGrade,
     )
   }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef])
@@ -219,5 +268,5 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     engine?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
   }, [sizePx, activeCfg, engineEpoch, engineRef])
 
-  return { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
+  return { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
 }

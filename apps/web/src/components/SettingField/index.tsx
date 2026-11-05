@@ -1,3 +1,7 @@
+import { useEffect, useRef, useState } from 'react'
+import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
+import { useRoomStore } from '../../stores/roomStore'
+import { pushNotice } from '../../stores/noticeStore'
 import { PrecisionSlider } from '../PrecisionSlider'
 import { NumberField } from '../NumberField'
 import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
@@ -28,10 +32,41 @@ const ENUM_TRACK_HEIGHT = 128
  *  full "Tool settings" panel tab, switching purely on
  *  `descriptor.valueType.kind`. Adding a new tool/setting is a data change in
  *  toolSchemas.ts; this file does not grow per tool. */
-export function SettingField({ descriptor, value, onChange, layout, onExpand }: SettingFieldProps) {
+export function SettingField({ descriptor, value, onChange: commitChange, layout, onExpand }: SettingFieldProps) {
   const t = useT()
+  useRoomStore(s => s.brushLibraryRevision)
+  const [loading, setLoading] = useState(false)
+  const requestVersion = useRef(0)
+  useEffect(() => {
+    setLoading(false)
+    return () => { requestVersion.current++ }
+  }, [descriptor, value])
+  const onChange = (next: SettingDescriptor['default']) => {
+    if (loading) return
+    const version = requestVersion.current
+    let pending: Promise<void> | null
+    try {
+      pending = typeof next === 'string' ? prepareBrushPresets([next]) : null
+      const roomId = useRoomStore.getState().boardId
+      if (roomId && typeof next === 'string' && next.startsWith('imported-')) {
+        const resources = pending
+        pending = (async () => { if (resources) await resources; await publishBrushPresets(roomId, [next]) })()
+      }
+    } catch {
+      if (version === requestVersion.current) pushNotice({ variant: 'error', message: t('brushLibrary.error') }); return
+    }
+    if (!pending) { commitChange(next); return }
+    setLoading(true)
+    pending.then(() => { if (version === requestVersion.current) commitChange(next) }).catch(error => {
+      console.error('Brush loading failed', error)
+      if (version === requestVersion.current) pushNotice({ variant: 'error', message: t('brushLibrary.error') })
+    }).finally(() => { if (version === requestVersion.current) setLoading(false) })
+  }
   const { valueType } = descriptor
-  const label = t(descriptor.nameKey)
+  // Schemas may compute imported metadata in getters. Snapshot once per
+  // render, rather than rebuilding the whole catalog for every option.
+  const optionLabels = valueType.kind === 'enumOptions' ? descriptor.optionLabels : undefined
+  const label = loading ? t('common.loading') : t(descriptor.nameKey)
 
   /** An enum option's display text: its own translation where the schema
    *  provides one (nib, charcoal type), a literal name where the schema
@@ -42,7 +77,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
   const optionLabel = (option: string): string => {
     const key = descriptor.optionLabelKeys?.[option]
     if (key) return t(key)
-    return descriptor.optionLabels?.[option] ?? option
+    return optionLabels?.[option] ?? option
   }
 
   if (valueType.kind === 'numberRange') {
@@ -119,13 +154,14 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     // a single number on a scale, which is what a slider is, and there's
     // nothing to show about 0.3mm that "0.3" doesn't already say.
     if (descriptor.uiControls[0] === 'select') {
+      const optionGroups = descriptor.optionGroups
       const options: PickerOption[] = valueType.options.map(option => ({
         value: option,
         label: optionLabel(option),
         image: descriptor.optionImages?.[option],
         icon: descriptor.optionIcons?.[option],
         curve: descriptor.optionCurves?.[option],
-        group: descriptor.optionGroups?.[option] !== undefined ? t(descriptor.optionGroups[option]) : undefined,
+        group: optionGroups?.[option] !== undefined ? t(optionGroups[option]) : undefined,
       }))
       return layout === 'toolbar' ? (
         // Same block shape as the toolbar's other fields: the control, with
@@ -136,10 +172,18 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
           <span className={styles.toolbarValue}>{optionLabel(strValue)}</span>
         </div>
       ) : (
-        <div className={styles.panelRow}>
-          <span className={styles.panelLabel}>{label}</span>
-          <OptionSelect options={options} value={strValue} onChange={onChange} label={label} />
-        </div>
+        <>
+          <div className={styles.panelRow}>
+            <span className={styles.panelLabel}>{label}</span>
+            <OptionSelect options={options} value={strValue} onChange={onChange} label={label} />
+          </div>
+          {descriptor.optionDescriptions?.[strValue] && (
+            <details className={styles.importDescription}>
+              <summary>{t('brushLibrary.approximation')}</summary>
+              <p>{descriptor.optionDescriptions[strValue]}</p>
+            </details>
+          )}
+        </>
       )
     }
 

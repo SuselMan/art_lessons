@@ -1,3 +1,4 @@
+import type { BrushRandomSeeds } from './brushRandom.js'
 import type { OperationBase } from './operationBase.js'
 
 /** (#613) The stroke: which tool, which dabs. Reading a stroke's dabs
@@ -23,6 +24,21 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Author elapsed milliseconds before float32 narrowing. Time-periodic sensors
+   * can cross a discontinuity if replay reconstructs this from the legacy t. */
+  sourceTime?: number
+  /** Exact author-side raw direction (radians). Float64 preserves fan override
+   * angles whose float32 rounding changes integer source allocation. */
+  sourceAngle?: number
+  /** Source allocation size before sensor dynamics, statically quantized by the
+   * opted-in source model before float32 recording. Not the visible diameter. */
+  sourceSize?: number
+  /** Recorded deterministic Size response, including user pressure override,
+   * before renderer minimum-size filters. Zero is an admitted recorded input. */
+  sourceScale?: number
+  /** Captured input sensor, already normalized and rounded to float32.
+   * Absent on historical strokes; zero is a real measurement. */
+  normalizedSpeed?: number
   x: number
   y: number
   pressure: number
@@ -35,14 +51,16 @@ export type Dab = {
   // speed). Replay has no live pointer speed, so it must not recompute this.
   opacity: number
   // Milliseconds since the stroke's first dab (always 0 for that first dab).
-  // Undo/redo/checkpoint replay ignore it (paints the whole array at once),
-  // but a peer's live-stroke reveal (#37 follow-up v2) uses it to play the
-  // recorded dabs back at the original pacing instead of all at once.
+  // A peer's live reveal uses this pacing clock. Captured speed dynamics use
+  // normalizedSpeed instead; only historical dabs without that field retain
+  // the old distance/time approximation on replay.
   t: number
 }
 
 export type StrokeOperation = OperationBase & {
   type: 'stroke'
+  /** Explicit two-source context, shared by all chunks/layers of one gesture. */
+  brushRandom?: BrushRandomSeeds
   layerId: string
   tool: ToolType
   // 'HB'/'2B' etc for pencil, the liner's own size label, `${nib}:${size}`
@@ -97,6 +115,13 @@ export type StrokeOperation = OperationBase & {
    *  Absent on strokes recorded before this existed; they replay as they
    *  always did, each chunk standing alone. */
   strokeId?: string
+  /** Explicit pen-up for v2 brush tail effects across chunk operations. */
+  strokeEnd?: true
+  /** Canonical centreline endpoint for independent secondary sampling only.
+   * Not a primary dab. baseSize retains nominal size even at zero pressure. */
+  strokeEndSample?: Dab & { baseSize: number }
+  /** Versioned binary endpoint; mutually exclusive with the legacy plain field. */
+  strokeEndSamplePacked?: string
   /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
    *
    *  A wash is several strokes laid in quick succession with the same paint on

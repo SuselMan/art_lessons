@@ -5,6 +5,8 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 
 import type { PencilEngineAPI } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
+import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
+import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
 import { createConfirmedStreamHandler, type ConfirmedStreamDeps } from './confirmedStream'
 import { createJoinFlow, type JoinFlowDeps } from './joinFlow'
@@ -12,6 +14,7 @@ import { createPeerEventHandlers, type PeerEventDeps } from './peerEvents'
 import { createRoomControlEventHandlers, type RoomControlEventDeps } from './roomControlEvents'
 import { createRoomStateHandler, type RoomStateDeps } from './roomStateHandler'
 import { createSocketRevival } from './socketRevival'
+import { createOrderedBrushGate } from './orderedBrushGate'
 
 export type RoomSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 
@@ -72,6 +75,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // navigation into another lesson (takeRoomCopy) learns that lesson's name
   // and paper instead of keeping the previous one's.
   firstRoomStateReceivedRef.current = false
+  setBrushRoomScope(id)
 
   const socket = openSocket()
   socketRef.current = socket
@@ -144,34 +148,75 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   const board = createBoardEventHandlers({ ...deps, maybeFollow })
   const control = createRoomControlEventHandlers({ ...deps, sessionId: id, requestFullResync })
 
-  socket.on('lesson_state',               board.lesson_state)
-  socket.on('participant_hand_changed',   board.participant_hand_changed)
-  socket.on('board_thumbnail_updated',    board.board_thumbnail_updated)
-  socket.on('peer_board_changed',         board.peer_board_changed)
-  socket.on('active_board_changed',       board.active_board_changed)
-  socket.on('board_created',              board.board_created)
-  socket.on('board_renamed',              board.board_renamed)
-  socket.on('boards_reordered',           board.boards_reordered)
-  socket.on('board_deleted',              board.board_deleted)
+  let disposed = false
+  let brushFailed = false
+  let brushNotice: string | undefined
+  const retryBrushes = () => {
+    if (disposed || !brushFailed) return
+    brushFailed = false
+    // Failed gates deliberately discard their stream. Reconnect requests a
+    // fresh room_state; never resume a partially admitted old event queue.
+    brushes = createBrushGate()
+    if (brushNotice) dismissNotice(brushNotice)
+    brushNotice = undefined
+    socket.connect()
+  }
+  const createBrushGate = () => createOrderedBrushGate(prepareBrushPresets, error => {
+    console.error('Imported brush preparation failed', error instanceof Error ? `${error.name}: ${error.message}` : error)
+    brushFailed = true
+    revival.cancel()
+    onConnectionChange(false)
+    deps.engineRef.current?.setLocked(true)
+    deps.setRoomContentReady(false)
+    brushNotice = notifyError(deps.tRef.current('brushLibrary.error'), {
+      key: 'brush-library', durationMs: null,
+      action: { label: deps.tRef.current('common.retry'), onClick: retryBrushes },
+    })
+    socket.disconnect()
+  })
+  let brushes = createBrushGate()
+  const ordered = <Args extends unknown[]>(
+    apply: (...args: Args) => void | Promise<void>,
+    presets: (...args: Args) => (string | undefined)[] = () => [],
+  ) => (...args: Args): void => { brushes.dispatch(presets(...args), () => apply(...args)) }
+  const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
+
+  socket.on('lesson_state',               ordered(board.lesson_state))
+  socket.on('participant_hand_changed',   ordered(board.participant_hand_changed))
+  socket.on('board_thumbnail_updated',    ordered(board.board_thumbnail_updated))
+  socket.on('peer_board_changed',         ordered(board.peer_board_changed))
+  socket.on('active_board_changed',       ordered(board.active_board_changed))
+  socket.on('board_created',              ordered(board.board_created))
+  socket.on('board_renamed',              ordered(board.board_renamed))
+  socket.on('boards_reordered',           ordered(board.boards_reordered))
+  socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
-  socket.on('room_state',                 handleRoomState)
-  socket.on('operation_confirmed',        handleOperationConfirmed)
-  socket.on('peer_joined',                peer.peer_joined)
-  socket.on('peer_left',                  peer.peer_left)
-  socket.on('peer_stroke_live',           peer.peer_stroke_live)
-  socket.on('peer_stroke_live_end',       peer.peer_stroke_live_end)
-  socket.on('palette_updated',            control.palette_updated)
-  socket.on('room_frozen_changed',        control.room_frozen_changed)
-  socket.on('room_tools_changed',         control.room_tools_changed)
-  socket.on('room_closed_changed',        control.room_closed_changed)
-  socket.on('participant_frozen_changed', control.participant_frozen_changed)
-  socket.on('join_request_created',       control.join_request_created)
-  socket.on('join_request_resolved',      control.join_request_resolved)
-  socket.on('kicked',                     control.kicked)
+  socket.on('room_state',                 ordered(handleRoomState, state => {
+    setBrushRoomScope(state.room.id)
+    void loadBrushLibrary().catch(error => console.warn('Room brush metadata unavailable', error))
+    return state.tailOperations.map(presetFor)
+  }))
+  socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)]))
+  socket.on('peer_joined',                ordered(peer.peer_joined))
+  socket.on('peer_left',                  ordered(peer.peer_left))
+  socket.on('peer_stroke_live',           ordered(peer.peer_stroke_live, data => [data.preset]))
+  socket.on('peer_stroke_live_end',       ordered(peer.peer_stroke_live_end))
+  socket.on('palette_updated',            ordered(control.palette_updated))
+  socket.on('room_frozen_changed',        ordered(control.room_frozen_changed))
+  socket.on('room_tools_changed',         ordered(control.room_tools_changed))
+  socket.on('room_closed_changed',        ordered(control.room_closed_changed))
+  socket.on('participant_frozen_changed', ordered(control.participant_frozen_changed))
+  socket.on('join_request_created',       ordered(control.join_request_created))
+  socket.on('join_request_resolved',      ordered(control.join_request_resolved))
+  socket.on('kicked',                     ordered(control.kicked))
   socket.on('disconnect',                 handleDisconnect)
   socket.on('connect_error',              handleConnectError)
 
   return () => {
+    disposed = true
+    if (brushNotice) dismissNotice(brushNotice)
+    brushes.cancel()
+    setBrushRoomScope(undefined)
     // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
     // сокет комнаты, которую уже покинули.
     revival.cancel()

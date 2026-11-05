@@ -1,3 +1,8 @@
+import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
+import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import { BrushStorage, empty, setBrushStorage } from '../brushLibrary/storage.js'
 import { createServer, type Server as HttpServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { FastifyBaseLogger } from 'fastify'
@@ -5,7 +10,7 @@ import { Server } from 'socket.io'
 import { io as connect, type Socket as ClientSocket } from 'socket.io-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ClientToServerEvents, ServerToClientEvents, StrokeOperation } from '@grafetto/shared'
+import { createBrushRandomStrokeId, packDabs, type Dab, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation, type SendResult } from '@grafetto/shared'
 
 // (#176, ADR 014 §3) A real socket.io server + client pair, like
 // shutdown.test.ts and for the same reason: what is under test is which
@@ -294,5 +299,368 @@ describe('explicit cancellation of an ephemeral live tail', () => {
       teacher.emit('stroke_live_end', { strokeId, ...(marker === undefined ? {} : { cancelled: marker }) } as never)
       expect(await received).toEqual({ userId: 'teacher', strokeId, ...(expected === true ? { cancelled: true } : {}) })
     }
+  })
+})
+
+describe('explicit independent brush seeds transport', () => {
+  const brushRandom = { version: 1 as const, sequentialSeed: 0, strokeSeed: 0xffffffff }
+  const gestureId = createBrushRandomStrokeId('seed-gesture', brushRandom)
+  const packet = { strokeId: gestureId, layerId: 'layer-1', tool: 'digitalBrush' as const,
+    preset: 'brush:ink-round@2', color: [0, 0, 0] as [number, number, number], packetSeq: 0, dabsPacked: '', brushRandom }
+  it('forwards exact uint32 endpoints and keeps legacy packets without seeds', async () => {
+    const { teacher, student } = await classroom()
+    const received = next(student, 'peer_stroke_live')
+    teacher.emit('stroke_live', packet)
+    expect(await received).toMatchObject({ ...packet, userId: 'teacher' })
+    const { brushRandom: _unused, ...legacy } = packet
+    void _unused
+    const old = next(student, 'peer_stroke_live')
+    teacher.emit('stroke_live', { ...legacy, strokeId: 'legacy-gesture' })
+    expect(await old).not.toHaveProperty('brushRandom')
+  })
+  it('drops malformed original live metadata before constructing the stripped permission stand-in', async () => {
+    const { teacher, student } = await classroom()
+    for (const extra of [
+      { brushRandom: undefined }, { brushRandom: { ...brushRandom, sequentialSeed: 1 } },
+      { brushRandom: null }, { brushRandom: { ...brushRandom, strokeSeed: 0x100000000 } },
+      { brushRandom: { ...brushRandom, sequentialSeed: -1 } }, { brushRandom: { ...brushRandom, strokeSeed: true } },
+      { brushRandom: { ...brushRandom, extra: 1 } }, { strokeId: '' }, { tool: 'pencil' },
+    ]) {
+      const quiet = silent(student, 'peer_stroke_live', 35)
+      teacher.emit('stroke_live', { ...packet, ...extra } as never)
+      await quiet
+    }
+  })
+  it('confirms, persists and rejoins with seed metadata on every chunk including empty pen-up', async () => {
+    const { teacher, student, lessonId } = await classroom()
+    for (const [index, extra] of [{}, { strokeEnd: true as const, strokeEndSample: { x: 1, y: 2, size: 3, opacity: 1, pressure: 0, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, baseSize: 4, t: 0 } }].entries()) {
+      const op: StrokeOperation = { ...stroke(`seed-op-${index}`, 'teacher'), tool: 'digitalBrush',
+        preset: 'brush:ink-round@2', strokeId: gestureId, brushRandom, dabsPacked: '', ...extra }
+      const confirmed = next(student, 'operation_confirmed')
+      const result = await new Promise(resolve => teacher.emit('operation', op, resolve))
+      expect(result).toMatchObject({ ok: true })
+      expect((await confirmed).operation).toMatchObject({ id: op.id, brushRandom })
+    }
+    await _flushPendingWrites(lessonId)
+    const saved = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      .filter((op: StrokeOperation) => op.strokeId === gestureId)
+    expect(saved).toHaveLength(2)
+    expect(saved.every((op: StrokeOperation) => JSON.stringify(op.brushRandom) === JSON.stringify(brushRandom))).toBe(true)
+    const late = client('seed-late')
+    const state = next(late, 'room_state')
+    await join(late, lessonId, 'Later')
+    const history = (await state).tailOperations.filter(op => op.type === 'stroke' && op.strokeId === gestureId)
+    expect(history).toHaveLength(2)
+    for (const op of history) expect(op).toHaveProperty('brushRandom', brushRandom)
+    const bad = { ...stroke('bad-final', 'teacher'), tool: 'digitalBrush', strokeId: gestureId, brushRandom: { ...brushRandom, strokeSeed: 1 }, dabsPacked: '', strokeEnd: true,
+      strokeEndSample: { x: 1, y: 2, size: 3, opacity: 1, pressure: 0, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, baseSize: 4, t: 0 } }
+    const rejected = await new Promise(resolve => teacher.emit('operation', bad as never, resolve))
+    expect(rejected).toEqual({ ok: false, reason: 'invalid_operation' })
+    const missing = await new Promise(resolve => teacher.emit('operation', { ...bad, id: 'missing-final', brushRandom: undefined, strokeEnd: true } as never, resolve))
+    expect(missing).toEqual({ ok: false, reason: 'invalid_operation' })
+  })
+})
+
+it('preserves explicit seeds from stored operation JSON on cold board history load', async () => {
+  const { teacher, boardId } = await classroom()
+  expect(isRoomResident(boardId)).toBe(false)
+  const saved: StrokeOperation = { ...stroke('stored-seeds', 'teacher'), seq: 1,
+    tool: 'digitalBrush', strokeId: createBrushRandomStrokeId('stored-gesture', { version: 1, sequentialSeed: 0xffffffff, strokeSeed: 0 }),
+    brushRandom: { version: 1, sequentialSeed: 0xffffffff, strokeSeed: 0 }, dabsPacked: '', strokeEnd: true }
+  mockPrisma.operation.findMany.mockResolvedValue([{ data: JSON.parse(JSON.stringify(saved)) }])
+  mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: 1 } })
+  const state = next(teacher, 'room_state')
+  await join(teacher, boardId, 'Teacher')
+  const tail = (await state).tailOperations
+  expect(tail).toContainEqual(saved)
+  expect(tail.find(op => op.id === saved.id)).toHaveProperty('brushRandom', saved.brushRandom)
+})
+
+
+describe('native brush capability admission', () => {
+  it.each([false, true])('rejects seedless native writes/live before pins and sequence allocation (child=%s)', async child => {
+    const { lessonId, teacher, student } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-brush-gate-'))
+    const storage = new BrushStorage(directory), library = empty()
+    const descriptor = {
+      id: 'imported-' + 'a'.repeat(16), version: 1, model: 'stamp' as const, category: 'paint' as const,
+      tip: { kind: 'round' as const, hardness: 1, aspect: 1, rotation: 'fixed' as const, angle: 0 },
+      paperInteraction: 0, spacing: .1, flow: 1, flowPer: 'pass' as const, opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 0], [1, 1]] as const, flowByPressure: [[0, 0], [1, 1]] as const, opacityByPressure: [[0, 0], [1, 1]] as const,
+    }
+    const native = { version: 2 as const, dynamics: { angle: { control: 'strokeRandom' as const, minimum: 0, jitter: 0,
+      randomSource: { kind: 'qt5Taus88' as const, key: 'RotationFuzzyStrokeКлюч😀' } } } }
+    library.brushes.push({ name: 'native', source: 'qa', warnings: [], descriptor: { ...descriptor,
+      behavior: child ? { version: 2, dual: { brush: { ...descriptor, id: 'imported-' + 'b'.repeat(16), behavior: native }, blendMode: 'multiply' } } : native } })
+    library.brushes.push({ name: 'legacy', source: 'qa', warnings: [], descriptor: { ...descriptor, id: 'imported-' + 'c'.repeat(16),
+      behavior: { version: 2, dynamics: { angle: { control: 'strokeRandom', minimum: 0, jitter: 0, randomStream: 4 } } } } })
+    setBrushStorage(storage, library)
+    const preset = 'brush:' + descriptor.id + '@1'
+    const op: StrokeOperation = { ...stroke(fresh('native-bad'), 'teacher'), tool: 'digitalBrush', preset, strokeId: 'legacy-identity' }
+    try {
+      const quiet = silent(student, 'operation_confirmed', 45)
+      const result = await new Promise<SendResult>(resolve => teacher.emit('operation', op, resolve))
+      expect(result).toEqual({ ok: false, reason: 'invalid_operation' })
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 45)
+      teacher.emit('stroke_live', { strokeId: op.strokeId!, layerId: op.layerId, tool: op.tool, preset, color: op.color, dabsPacked: '', packetSeq: 0 })
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const brushRandom = { version: 1 as const, sequentialSeed: 0xffffffff, strokeSeed: 0 }
+      const strokeId = createBrushRandomStrokeId('native-seeded-valid', brushRandom)
+      const received = next(student, 'peer_stroke_live')
+      teacher.emit('stroke_live', { strokeId, layerId: op.layerId, tool: op.tool, preset, color: op.color, dabsPacked: '', packetSeq: 1, brushRandom })
+      expect(await received).toMatchObject({ strokeId, brushRandom })
+      const good = { ...op, id: fresh('native-good'), strokeId, brushRandom }
+      const accepted = await new Promise<SendResult>(resolve => teacher.emit('operation', good, resolve))
+      expect(accepted).toMatchObject({ ok: true, seq: 1 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      expect(stored).toContainEqual(expect.objectContaining({ id: good.id, brushRandom }))
+      const pinned = storage.library('rooms', lessonId)
+      expect(pinned.brushes[0].descriptor).toEqual(library.brushes[0].descriptor)
+      const legacy = { ...stroke(fresh('legacy-good'), 'teacher'), tool: 'digitalBrush' as const, preset: 'brush:imported-' + 'c'.repeat(16) + '@1', strokeId: 'legacy-no-context' }
+      expect(await new Promise<SendResult>(resolve => teacher.emit('operation', legacy, resolve))).toMatchObject({ ok: true, seq: 2 })
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+})
+
+
+describe('native XY source input admission', () => {
+  it('validates all plain/packed batch dabs, live packets and endpoint-only finals before mutation', async () => {
+    const { lessonId, teacher, student } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-xy-input-'))
+    const storage = new BrushStorage(directory), library = empty()
+    library.brushes.push({ name: 'generic xy', source: 'qa', warnings: [], descriptor: {
+      id: 'imported-' + 'e'.repeat(16), version: 1, model: 'stamp', category: 'paint',
+      tip: { kind: 'round', profile: { kind: 'gaussian', fade: .85, antialias: false }, hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+      paperInteraction: 0, spacing: .2, flow: 1, flowPer: 'stamp', opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 0], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]],
+      scatter: { count: 1, radius: .09, scale: 1, sizeJitter: 0, angleJitter: 0, flowJitter: 0 },
+      behavior: { version: 2, sequentialRandom: { version: 1, kind: 'qt5Taus88', policy: 'scatterXY' }, scatter: { countJitter: 0, bothAxes: true, placement: 'xyUniform' } },
+    } })
+    setBrushStorage(storage, library)
+    const brushRandom = { version: 1 as const, sequentialSeed: 1, strokeSeed: 2 }
+    const base: StrokeOperation = { ...stroke(fresh('xy'), 'teacher'), tool: 'digitalBrush', preset: 'brush:' + library.brushes[0].descriptor.id + '@1',
+      strokeId: createBrushRandomStrokeId('native-xy-sources', brushRandom), brushRandom }
+    const dab: Dab = { x: 1, y: 2, size: 10, pressure: 1, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, opacity: 1, t: 0 }
+    const valid: Dab = { ...dab, sourceSize: 16, sourceScale: .5 }
+    const badOps: StrokeOperation[] = [
+      { ...base, dabs: [dab] },
+      { ...base, dabs: [valid, dab] },
+      { ...base, dabs: [{ ...valid, sourceSize: 1.5 }] },
+      { ...base, dabs: [{ ...valid, sourceSize: 0 }] },
+      { ...base, dabs: [{ ...valid, sourceScale: 1.01 }] },
+      { ...base, dabs: [{ ...valid, sourceScale: undefined }] },
+      { ...base, dabs: [{ ...valid, sourceScale: NaN }] },
+      { ...base, dabs: undefined, dabsPacked: packDabs([dab]) },
+      { ...base, dabs: undefined, dabsPacked: packDabs([valid, dab]) },
+      { ...base, dabs: undefined, dabsPacked: 'malformed' },
+      { ...base, dabs: [], strokeEnd: true, strokeEndSample: { ...dab, baseSize: 16 } },
+    ]
+    try {
+      const quiet = silent(student, 'operation_confirmed', 120)
+      for (const operation of badOps) {
+        const result = await new Promise<SendResult>(resolve => teacher.emit('operation', { ...operation, id: fresh('bad-xy') }, resolve))
+        expect(result).toEqual({ ok: false, reason: 'invalid_operation' })
+      }
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 70)
+      for (const dabsPacked of [packDabs([dab]), packDabs([valid, dab]), 'malformed']) {
+        teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked, packetSeq: 0, brushRandom })
+      }
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const live = next(student, 'peer_stroke_live'), packed = packDabs([valid, { ...valid, sourceSize: 32, sourceScale: 0 }])
+      teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked: packed, packetSeq: 1, brushRandom })
+      expect(await live).toMatchObject({ dabsPacked: packed })
+      const accepted: StrokeOperation[] = [
+        { ...base, id: fresh('plain-xy'), dabs: [valid] },
+        { ...base, id: fresh('packed-xy'), dabs: undefined, dabsPacked: packed },
+        { ...base, id: fresh('endpoint-xy'), dabs: [], strokeEnd: true, strokeEndSample: { ...valid, baseSize: 16 } },
+        { ...base, id: fresh('empty-final-xy'), dabs: [], strokeEnd: true },
+      ]
+      for (const [index, operation] of accepted.entries()) expect(await new Promise<SendResult>(resolve => teacher.emit('operation', operation, resolve))).toMatchObject({ ok: true, seq: index + 1 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[0])))
+      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[1].id, dabsPacked: packed }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[2])))
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+})
+
+describe.each([false, true])('native direction source input admission (sequential=%s)', sequential => {
+  it('validates all plain/packed batch dabs, live packets and endpoint-only finals before mutation', async () => {
+    const { lessonId, teacher, student } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-direction-input-'))
+    const storage = new BrushStorage(directory), library = empty()
+    library.brushes.push({ name: 'generic direction', source: 'qa', warnings: [], descriptor: {
+      id: 'imported-' + 'e'.repeat(16), version: 1, model: 'stamp', category: 'paint',
+      tip: { kind: 'round', profile: { kind: 'gaussian', fade: .85, antialias: false }, hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+      paperInteraction: 0, spacing: .2, flow: 1, flowPer: 'stamp', opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 0], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]],
+      scatter: { count: 1, radius: .09, scale: 1, sizeJitter: 0, angleJitter: 0, flowJitter: 0 },
+      behavior: { version: 2, strokeInput: { version: 1, initialDirection: 'cursorHistory' }, ...(sequential ? { sequentialRandom: { version: 1 as const, kind: 'qt5Taus88' as const, policy: 'scatterXY' as const } } : {}), scatter: { countJitter: 0, bothAxes: true, placement: 'xyUniform' } },
+    } })
+    setBrushStorage(storage, library)
+    const brushRandom = { version: 1 as const, sequentialSeed: 1, strokeSeed: 2 }
+    const base: StrokeOperation = { ...stroke(fresh('xy'), 'teacher'), tool: 'digitalBrush', preset: 'brush:' + library.brushes[0].descriptor.id + '@1',
+      strokeId: sequential ? createBrushRandomStrokeId('native-direction-sources', brushRandom) : 'direction-without-random-context', ...(sequential ? { brushRandom } : {}) }
+    const dab: Dab = { x: 1, y: 2, size: 10, pressure: 1, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, opacity: 1, t: 0 }
+    const allocation: Dab = { ...dab, sourceSize: 16, sourceScale: .5 }
+    const valid: Dab = { ...(sequential ? allocation : dab), sourceAngle: -.803928256 }
+    const encoded = packDabs([valid])
+    const bytes = Buffer.from(encoded.slice(2), 'base64')
+    bytes.writeDoubleLE(NaN, 52)
+    const corrupt = '4:' + bytes.toString('base64')
+    const badOps: StrokeOperation[] = [
+      { ...base, dabs: [dab] },
+      { ...base, dabs: [valid, dab] },
+      { ...base, dabs: [{ ...valid, sourceAngle: NaN }] },
+      { ...base, dabs: [{ ...valid, sourceAngle: Infinity }] },
+      { ...base, dabs: undefined, dabsPacked: packDabs([allocation]) },
+      { ...base, dabs: undefined, dabsPacked: packDabs([dab]) },
+      { ...base, dabs: undefined, dabsPacked: packDabs([valid, dab]) },
+      { ...base, dabs: undefined, dabsPacked: 'malformed' },
+      { ...base, dabs: undefined, dabsPacked: corrupt },
+      { ...base, dabs: [], strokeEnd: true, strokeEndSample: { ...dab, baseSize: 16 } },
+      { ...base, dabs: [], strokeEnd: true, strokeEndSample: { ...valid, sourceAngle: NaN, baseSize: 16 } },
+    ]
+    if (sequential) badOps.push(
+      { ...base, brushRandom: undefined, dabs: [valid] },
+      { ...base, dabs: [{ ...dab, sourceAngle: 0 }] },
+      { ...base, dabs: undefined, dabsPacked: packDabs([{ ...dab, sourceAngle: 0 }]) },
+    )
+    try {
+      const quiet = silent(student, 'operation_confirmed', 120)
+      for (const operation of badOps) {
+        const result = await new Promise<SendResult>(resolve => teacher.emit('operation', { ...operation, id: fresh('bad-xy') }, resolve))
+        expect(result).toEqual({ ok: false, reason: 'invalid_operation' })
+      }
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 70)
+      for (const dabsPacked of [packDabs([dab]), packDabs([allocation]), packDabs([valid, dab]), corrupt, 'malformed']) {
+        teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked, packetSeq: 0, ...(sequential ? { brushRandom } : {}) })
+      }
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const live = next(student, 'peer_stroke_live'), packed = packDabs([valid, { ...valid, sourceSize: 32, sourceScale: 0 }])
+      teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked: packed, packetSeq: 1, ...(sequential ? { brushRandom } : {}) })
+      expect(await live).toMatchObject({ dabsPacked: packed })
+      const accepted: StrokeOperation[] = [
+        { ...base, id: fresh('plain-xy'), dabs: [valid] },
+        { ...base, id: fresh('packed-xy'), dabs: undefined, dabsPacked: packed },
+        { ...base, id: fresh('endpoint-xy'), dabs: [], strokeEnd: true, strokeEndSample: { ...valid, baseSize: 16 } },
+        { ...base, id: fresh('empty-final-xy'), dabs: [], strokeEnd: true },
+      ]
+      for (const [index, operation] of accepted.entries()) expect(await new Promise<SendResult>(resolve => teacher.emit('operation', operation, resolve))).toMatchObject({ ok: true, seq: index + 1 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[0])))
+      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[1].id, dabsPacked: packed }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[2])))
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+})
+
+
+describe('lossless source-angle operation storage',()=>{
+ it('relays and stores opaque binary endpoints and canonicalizes new plain dabs',async()=>{
+  const {teacher,student,lessonId}=await classroom()
+  for(const [i,angle] of [3.1415927410125732,Math.PI/2,Math.PI,0,-0].entries()){
+   const sample={x:1,y:2,size:24,pressure:1,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:1,sourceAngle:angle}
+   const op:StrokeOperation={...stroke('lossless-'+i,'teacher'),tool:'digitalBrush',preset:'ink-round',strokeId:'exact-'+i,strokeEnd:true,dabs:[sample],strokeEndSample:{...sample,baseSize:24}}
+   const wire=Object.is(angle,-0)?canonicalStrokeStorage(op):op
+   const confirmed=next(student,'operation_confirmed')
+   expect(await new Promise<SendResult>(resolve=>teacher.emit('operation',wire,resolve))).toMatchObject({ok:true})
+   const peer=(await confirmed).operation as StrokeOperation
+   expect(peer.dabs).toBeUndefined();expect(peer.strokeEndSample).toBeUndefined()
+   await _flushPendingWrites(lessonId)
+   const saved=mockPrisma.operation.create.mock.calls.map(call=>call[0].data.data).find(value=>value.id===op.id) as StrokeOperation
+   // Opaque strings bypass the numeric JSON channel; a real DB check remains device QA.
+   const cold=JSON.parse(JSON.stringify(saved)) as StrokeOperation
+   for(const value of [peer,cold]){
+    expect(Object.is(strokeEndSample(value)?.sourceAngle,angle)).toBe(true)
+    expect(Object.is(strokeDabs(value)[0].sourceAngle,angle)).toBe(true)
+    expect(value.strokeEndSamplePacked).toBe(packStrokeEndSample(op.strokeEndSample!))
+   }
+  }
+ })
+ it('rejects malformed/dual binary endpoint before storage and relay',async()=>{
+  const {teacher,student}=await classroom()
+  const sample={x:1,y:2,size:24,pressure:1,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:1,baseSize:24,sourceAngle:Math.PI}
+  const packed=packStrokeEndSample(sample)
+  const quiet=silent(student,'operation_confirmed',100)
+  for(const [i,extra] of [{strokeEndSamplePacked:packed.slice(0,-1)},{strokeEndSamplePacked:packed,strokeEndSample:sample}].entries()){
+   expect(await new Promise<SendResult>(resolve=>teacher.emit('operation',{...stroke('bad-bin-'+i,'teacher'),tool:'digitalBrush',strokeId:'bad-bin',strokeEnd:true,...extra},resolve))).toEqual({ok:false,reason:'invalid_operation'})
+  }
+  await quiet
+  expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+ })
+})
+
+describe.each(['timing', 'time', 'childTime'] as const)('author clock source admission (%s)', mode => {
+  it('guards missing/corrupt source time before pin, persistence and live relay', async () => {
+    const { teacher, student, lessonId } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-clock-input-'))
+    const storage = new BrushStorage(directory), library = empty()
+    const descriptor: import('@grafetto/shared').BrushDescriptor = {
+      id: 'imported-' + 'f'.repeat(16), version: 1, model: 'stamp', category: 'paint',
+      tip: { kind: 'round', hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+      paperInteraction: 0, spacing: .2, flow: 1, flowPer: 'stamp', opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 1], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]],
+    }
+    const clock: import('@grafetto/shared').BrushDynamic = { control: 'time', period: 1470, periodic: true, jitter: 0, minimum: 0 }
+    descriptor.behavior = mode === 'timing' ? { version: 2, timing: { version: 1, rate: 20, ignoreDistanceSpacing: false } }
+      : mode === 'time' ? { version: 2, dynamics: { size: clock } }
+        : { version: 2, dual: { brush: { ...descriptor, behavior: { version: 2, dynamics: { size: clock } } }, sampling: 'independent', blendMode: 'normal' } }
+    library.brushes.push({ name: 'generic author clock', source: 'qa', warnings: [], descriptor })
+    setBrushStorage(storage, library)
+    const base: StrokeOperation = { ...stroke(fresh('clock'), 'teacher'), tool: 'digitalBrush', preset: 'brush:' + descriptor.id + '@1', strokeId: fresh('clock-gesture') }
+    const dab: Dab = { x: 1, y: 2, size: 24, pressure: 1, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, opacity: 1, t: 1470 }
+    const valid: Dab = { ...dab, sourceTime: 1469.99999 }, packed = packDabs([valid])
+    const bytes = Buffer.from(packed.slice(2), 'base64'); bytes.writeDoubleLE(NaN, 60)
+    const corrupt = '5:' + bytes.toString('base64')
+    try {
+      const quiet = silent(student, 'operation_confirmed', 100)
+      for (const extra of [
+        { dabs: [dab] }, { dabs: [valid, dab] }, { dabs: undefined, dabsPacked: packDabs([dab]) },
+        { dabs: undefined, dabsPacked: packDabs([valid, dab]) }, { dabs: undefined, dabsPacked: corrupt },
+        { dabs: [], strokeEnd: true as const, strokeEndSample: { ...dab, baseSize: 24 } },
+      ]) {
+        expect(await new Promise<SendResult>(resolve => teacher.emit('operation', { ...base, ...extra, id: fresh('invalid-clock') }, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      }
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 70)
+      for (const dabsPacked of [packDabs([dab]), packDabs([valid, dab]), corrupt]) {
+        teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, packetSeq: 0, dabsPacked })
+      }
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const live = next(student, 'peer_stroke_live')
+      teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, packetSeq: 1, dabsPacked: packed })
+      expect(await live).toMatchObject({ dabsPacked: packed })
+      const confirmed = next(student, 'operation_confirmed')
+      const op: StrokeOperation = { ...base, id: fresh('valid-clock'), dabs: [valid], strokeEnd: true, strokeEndSample: { ...valid, baseSize: 24 } }
+      expect(await new Promise<SendResult>(resolve => teacher.emit('operation', op, resolve))).toMatchObject({ ok: true, seq: 1 })
+      const peer = (await confirmed).operation as StrokeOperation
+      expect(peer.dabs).toBeUndefined(); expect(peer.strokeEndSample).toBeUndefined()
+      expect(strokeDabs(peer)[0].sourceTime).toBe(valid.sourceTime)
+      expect(strokeEndSample(peer)?.sourceTime).toBe(valid.sourceTime)
+      expect(await new Promise<SendResult>(resolve => teacher.emit('operation', { ...base, id: fresh('empty-clock'), dabs: [], strokeEnd: true }, resolve))).toMatchObject({ ok: true, seq: 2 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data).find(value => value.id === op.id) as StrokeOperation
+      expect(stored.dabsPacked).toBe(packed)
+      expect(strokeEndSample(JSON.parse(JSON.stringify(stored)))?.sourceTime).toBe(valid.sourceTime)
+    } finally { rmSync(directory, { recursive: true, force: true }) }
   })
 })

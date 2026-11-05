@@ -1,3 +1,4 @@
+import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
 import type {
   AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, Room, RoomAccessMode, RoomJoinRequest,
@@ -112,6 +113,8 @@ export type CursorMoveData = {
  *  belongs — the sender coalesces dabs into one packet per interval instead of
  *  emitting per frame. */
 export type StrokeLiveData = {
+  /** Same recorded context as the authoritative operation, repeated per packet. */
+  brushRandom?: BrushRandomSeeds
   strokeId: string
   layerId: string
   tool: ToolType
@@ -235,6 +238,7 @@ export type RejectReason =
   // place a server-side failure could happen with nothing visible anywhere
   // but a log line. See socketHandlers.ts's 'operation' handler.
   | 'server_error'
+  | 'invalid_operation'
 
 /** (#495) The reasons that are not verdicts on the operation.
  *

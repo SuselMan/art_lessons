@@ -1,0 +1,121 @@
+"""Reproduce the pinned official Krita stock catalog; no silent engine fallback."""
+import argparse
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+import urllib.parse
+import urllib.request
+import zipfile
+import subprocess
+from contextlib import ExitStack
+from brush_contract import Catalog
+from krita_import import convert_krita
+
+LOCK = Path(__file__).with_name('krita-stock-sources.json')
+
+
+def stock_svg(data):
+    """Bounded subprocess accepts only one immutable audited SVG SHA256."""
+    result=subprocess.run(['node','--max-old-space-size=96',str(Path(__file__).with_name('rasterize_stock_svg.mjs'))],
+                          input=data,capture_output=True,timeout=20,check=True)
+    if len(result.stdout)>4_000_000:
+        raise ValueError('Stock SVG raster exceeds limit')
+    return result.stdout
+
+
+def verified_source(entry, commit, cache):
+    relative = PurePosixPath(entry['path'])
+    if relative.is_absolute() or '..' in relative.parts or '\\' in entry['path']:
+        raise ValueError('Unsafe stock source path')
+    target = cache.joinpath(*relative.parts)
+    if target.exists():
+        data = target.read_bytes()
+    else:
+        url = 'https://raw.githubusercontent.com/KDE/krita/'+commit+'/'+urllib.parse.quote(entry['path'], safe='/')
+        with urllib.request.urlopen(url, timeout=60) as response:
+            data = response.read(entry['bytes']+1)
+    blob = hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+    if len(data) != entry['bytes'] or hashlib.sha256(data).hexdigest() != entry['sha256'] or blob != entry['gitBlobSha1']:
+        raise ValueError('Stock source integrity mismatch: '+entry['path'])
+    if not target.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    return target
+
+
+def build(lock, cache, output, include_legacy=False, *, sequential_xy=False, stroke_input=False, timed_input=False):
+    policies={'sequential_xy':sequential_xy,'stroke_input':stroke_input,'timed_input':timed_input}
+    if any(type(value)is not bool for value in policies.values()):raise ValueError('Stock source policy flags must be explicit booleans')
+    convert_options={key:value for key,value in policies.items()if value}
+    catalog = Catalog(output)
+    sources = []
+    duplicates = []
+    seen = set()
+    # Loose installed presets resolve resources from installed default bundles.
+    # Keep those bundles open while lazy readers serve the per-preset converter.
+    with ExitStack() as stack:
+        external = {}
+        selected = [entry for entry in lock['files'] if entry['group']!='legacy' or include_legacy]
+        paths = {entry['path']:verified_source(entry,lock['sourceCommit'],cache) for entry in selected}
+        for entry in selected:
+            path=paths[entry['path']]
+            if path.suffix!='.bundle':
+                continue
+            archive=stack.enter_context(zipfile.ZipFile(path))
+            for name in archive.namelist():
+                if entry['group']=='default' and path.name=='Krita_4_Default_Resources.bundle' and name=='brushes/leaves-scattered.svg':
+                    # The bundle was integrity-checked; helper independently
+                    # verifies the one SVG hash before invoking any renderer.
+                    external[path.name+'/'+name]=stock_svg(archive.read(name))
+                if name.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')):
+                    external[path.name+'/'+name]=lambda z=archive,n=name:z.read(n)
+        return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external,convert_options)
+
+
+def _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external,convert_options=None):
+    for entry in selected:
+        path = paths[entry['path']]
+        before, skipped = len(catalog.brushes), len(catalog.skipped)
+        convert_krita(path, catalog, external,**(convert_options or {}))
+        incoming = catalog.brushes[before:]
+        del catalog.brushes[before:]
+        for brush in incoming:
+            identity = (brush['descriptor']['id'], brush['descriptor']['version'])
+            if identity in seen:
+                duplicates.append({'source':entry['path'], 'name':brush['name'], 'id':identity[0]})
+            else:
+                seen.add(identity)
+                catalog.brushes.append(brush)
+        sources.append({**entry, 'imported':len(catalog.brushes)-before,
+                        'skipped':len(catalog.skipped)-skipped})
+    manifest = catalog.write()
+    # Preserve every double and historical field while fitting the server file
+    # envelope. Pretty-print whitespace alone can exceed its2MiB quota.
+    (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n')
+    report = {'schemaVersion':1, 'kritaVersion':lock['kritaVersion'],
+              'sourceCommit':lock['sourceCommit'], 'includeLegacy':include_legacy,
+              'sources':sources, 'duplicates':duplicates,
+              'imported':len(manifest['brushes']), 'skipped':manifest['skipped'],
+              'assets':len(manifest['assets']),
+              'fidelity':'Translation only; unsupported engines/tips are skipped. Imported presets retain compatibility warnings.'}
+    (output/'stock-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--cache', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--include-legacy', action='store_true')
+    args = parser.parse_args()
+    report = build(json.loads(LOCK.read_text()), args.cache, args.output, args.include_legacy)
+    # Python parsing is not sufficient: validate recursive dual descriptors and
+    # all asset references with the application's authoritative TS contract.
+    subprocess.run(['node',str(Path(__file__).with_name('validate_catalog.mjs')),
+                    str(args.output/'manifest.json'),str(args.output/'validation.json')],check=True)
+    print(json.dumps({key:report[key] for key in ('imported','assets')}, ensure_ascii=False))
+    print('Skipped:', len(report['skipped']))
+
+
+if __name__ == '__main__':
+    main()

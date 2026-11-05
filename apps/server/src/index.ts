@@ -22,6 +22,7 @@ import { prisma } from './db/prisma.js'
 import { identityHook } from './auth/identity.js'
 import { startEventLoopMonitor } from './health/eventLoop.js'
 import { registerHealthRoutes } from './health/healthRoutes.js'
+import { registerBrushLibraryRoutes } from './brushLibrary/routes.js'
 import { registerRateLimit } from './auth/rateLimit.js'
 import { registerAuthRoutes } from './auth/authRoutes.js'
 import { isEmailConfigured } from './auth/email.js'
@@ -139,6 +140,7 @@ registerRoomHandlers(io, app.log)
 // с момента, когда кто-то впервые пришёл спросить.
 startEventLoopMonitor()
 registerHealthRoutes(app)
+await registerBrushLibraryRoutes(app)
 registerAuthRoutes(app)
 // (#176) Closing is a fact about the lesson, so the lesson channel: it has to
 // reach people on every board, and the route only ever accepts a lesson id.

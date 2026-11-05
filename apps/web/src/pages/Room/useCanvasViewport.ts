@@ -71,7 +71,8 @@ export function useCanvasViewport(
       // two come to disagree.
       const { x, y } = viewCentreWorld(el.clientWidth, el.clientHeight, vp, pageW, pageH)
       const nz = backingStoreZoom(infinite, el.clientWidth, el.clientHeight)
-      engineRef.current?.setInfiniteCamera(x, y, vp.zoom / nz, vp.angle)
+      // Input history uses the authored CSS zoom, independently of rounded backing pixels.
+      engineRef.current?.setInfiniteCamera(x, y, vp.zoom / nz, vp.angle, vp.zoom)
     }
   }, [vp, vpRef])
 

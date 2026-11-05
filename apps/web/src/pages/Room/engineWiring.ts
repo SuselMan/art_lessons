@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
+import { retainBrushRoomResources } from '../../lib/api/brushLibrary'
 import { diagLog } from '../../lib/observability/diagLog'
 import type { PencilSound } from '../../lib/sound/PencilSound'
 import { computeCompositeOrder } from '../../lib/layers/layers'
@@ -74,7 +75,10 @@ export function wireLocalStrokeEvents(
 /** Gives a new engine the layer structure the store already holds. For a
  *  fresh room that is the initial layer set; anything a `room_state` brings is
  *  applied later, by restoreRoomState. */
-export function initLayersFromStore(engine: PencilEngineAPI): void {
+const brushResourceLeases = new WeakMap<PencilEngineAPI, () => void>()
+
+export function initEngineFromStore(engine: PencilEngineAPI, boardId: string): void {
+  brushResourceLeases.set(engine, retainBrushRoomResources(boardId))
   const ls = useRoomStore.getState().layerState
   for (const id of ls.rootOrder) {
     if (ls.items[id]?.kind === 'layer') engine.initLayer(id)
@@ -119,6 +123,9 @@ export function retireEngine(
   unhookPageHide?: () => void,
 ): void {
   unhookPageHide?.()
+  const destroy = (): void => {
+    try { engine.destroy() } finally { brushResourceLeases.get(engine)?.(); brushResourceLeases.delete(engine) }
+  }
   if (!replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {
@@ -130,11 +137,12 @@ export function retireEngine(
           })
         }
       })
-      .finally(() => engine.destroy())
+      .finally(destroy)
   } else {
-    engine.destroy()
+    destroy()
   }
 }
+
 
 export interface ParkedRoomState<Engine> {
   /** The `room_state` that arrived before this engine did, if any. Consumed. */

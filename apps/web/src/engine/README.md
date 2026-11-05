@@ -61,3 +61,59 @@ GPU-проходы акварельного поля находятся в `rast
 сборки кадра остаются у движка; после resize и восстановления контекста
 композит получает их актуальные экземпляры через контекст. Экранный проход,
 камера, запись операций и жизненный цикл акварельных reveal остаются в движке.
+
+`brushLibrary.ts` — установка неизменяемых описаний импортированных кистей и проверенных CPU-ресурсов до их применения движком (ADR017).
+
+Для версионных кистей с `behavior.strokeInput` авторский ввод хранит историю
+реального курсора в image/world coordinates между жестами. `input/kritaStrokeInput`
+задаёт pure history/fan laws; `PointerInput.onCursor` наблюдает реальные hover/contact
+события без изменения скорости. Камерный viewport передаёт явный CSS/image zoom
+пятым аргументом `setInfiniteCamera`, до округления размеров backing store. История
+принадлежит экземпляру движка, а source
+paint-information/fan continuation — `DabSystem`; preview копирует его целиком.
+Fan — отдельный paint request, включая первый при t=0 на прежней позиции.
+
+`Dab.sourceAngle` хранит каноническое raw direction в Float64 до преобразования
+в brush rotation. `Dab.angle` сохраняет прежний Float32 формат; fixed tip shaping,
+position-derived direction и mixer controls не заменяют sourceAngle у новой policy.
+Fan insertion выполняется при авторском планировании, до source geometry/RNG,
+а peer/history/undo/rebuild исполняют уже записанные requests. Per-request время
+также сохраняется. Отсутствие policy оставляет прежний ввод и wire output.
+
+Opt-in не включён в stock-каталоге. Копия C++ source-law receipts проверяет history
+и fan math, но не полную Krita GUI/smoothing/distance pipeline. `sourceAtan2F32` задаёт переносимый закон AOSP13/FreeBSD binary32 без FMA и
+проверен независимыми C++ fixtures. Он устраняет прежний host-Math.atan2 residual;
+точное совпадение с произвольным установленным libm binary не обещается.
+Independent-child input policy и native tool sampling требуют отдельной проверки.
+
+`behavior.timing` — отдельный opt-in native line request planner. Он не требует
+cursorHistory и не меняет legacy spline/deadband. `sourceDistanceTiming` вычисляет
+сначала spatial, потом temporal factor с общими изменяемыми accumulators: успешная
+ветка сбрасывает оба. Интервал ограничен исходными0.5ms/LONG_TIME; Rate и spacing
+обновляются после каждого request и через50ms без даба. Допустимые Rate controls
+пока pressure/off; generic random Rate и per-dab random Size/Rotation/Spacing
+в50ms refresh требуют отдельного контракта RNG queries между paint requests.
+Импортер не включает timing для этих комбинаций; их unsupported gaps остаются явными.
+
+`DabSystem.continueTimedStroke` отдаёт raw requests по одному через generator,
+включая coincident fan. Author queue должна выполнять inputs последовательно и
+помещать finish после завершения предыдущего generator. Пока input приостановлен,
+interleave/start/end/fork запрещены; prediction допустим между завершёнными inputs.
+Совместимый `continueStroke` полностью собирает generator для синхронных клиентов;
+не использовать его для неблокирующего большого catch-up.
+
+`sourceTime` — исходное время F64; `t` сохраняет старую F32 кодировку. Time sensor
+использует `sourceTime` и собственные period(ms)/periodic; independent child наследует
+тот же clock с собственным period, интерполируя F64. Time-only кисть сохраняет прежний
+spatial sampler с новым captured clock. Не заменять время batch timestamp: округление
+1469.99999→1470 меняет фазу periodic1470 с почти1 на0. Renderer/replay не заводят timers.
+128 fixtures скомпилированы из pinned native distance/timing methods с минимальными
+Qt/data shims; rotation/map классификация сверена с Qt5.15.2 source. Это source-law
+проверка, не полная Krita GUI/smoothing/libm/raster совместимость. Native stationary
+fixtures сохраняют реальные weighted-mix координаты/времена, включая ULP drift.
+
+Импортер включает timing/time controls только явным `timed_input=True`; stock builder
+передаёт только явно включённые boolean policies. Старые defaults и CLI остаются OFF.
+Canonical native keys не подменяются legacy AirbrushOption aliases. Активный Softness
+sensor (например stock51) пока unsupported: его нельзя объявлять поддержанным через
+произвольный Sharpness target. Каталог активируется отдельно после native/device QA.

@@ -1,3 +1,4 @@
+import { copyRoomBrushes } from '../brushLibrary/storage.js'
 import { createHash, randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
@@ -375,6 +376,8 @@ export function registerForkRoutes(app: FastifyInstance): void {
     // those fired at once would contend with every live room's own writes.
     const seeds = new Map<string, BoardSeed>()
     for (const board of sourceBoards) seeds.set(board.id, await prepareSeed(board.id, forkIdOf.get(board.id)!))
+
+    for (const board of sourceBoards) copyRoomBrushes(board.id, forkIdOf.get(board.id)!)
 
     // Palette is the lesson's (a board has none), and so is the folder — the
     // one from the caller's own participant row on the lesson.

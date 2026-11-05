@@ -86,3 +86,23 @@ describe('Camera', () => {
     expect(translateDabs(dabs, { x: 0, y: 0 })).toBe(dabs)
   })
 })
+
+it('expresses cursor-history zoom in CSS/image units independently of DPR and view angle',()=>{
+  const one=makeCamera({width:800,height:600,rect:{left:0,top:0,width:800,height:600}}).camera
+  const two=makeCamera({width:1600,height:1200,rect:{left:0,top:0,width:800,height:600}}).camera
+  one.set(100,200,2,Math.PI/3);two.set(100,200,4,Math.PI/3)
+  expect(one.effectiveInputZoom()).toBe(2)
+  expect(two.effectiveInputZoom()).toBe(2)
+  expect(two.pointerTransform()(420,310)).toEqual(one.pointerTransform()(420,310))
+  const stretched=makeCamera({width:1600,height:1200,rect:{left:0,top:0,width:800,height:500}}).camera
+  expect(stretched.effectiveInputZoom()).toBeUndefined()
+})
+
+it('uses explicit nominal viewport zoom across fractional CSS/backing-store rounding without averaging anisotropy',()=>{
+ const {camera,measures}=makeCamera({width:Math.round(333.3*1.5),height:Math.round(211.1*1.5),rect:{left:0,top:0,width:333.3,height:211.1}})
+ camera.set(0,0,2*1.5,.3)
+ expect(camera.effectiveInputZoom(2)).toBe(2)
+ expect(measures()).toBe(0)
+ expect(camera.effectiveInputZoom()).toBeUndefined()
+ expect(camera.effectiveInputZoom(NaN)).toBeUndefined()
+})

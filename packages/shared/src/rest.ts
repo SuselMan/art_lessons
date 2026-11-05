@@ -1,3 +1,5 @@
+import type { BrushImportJob } from './brushBehavior.js'
+import type { BrushLibrary } from './brushes.js'
 import type {
   AdminActionList, AdminIpBanList, AdminIpDetail, AdminLessonList, AdminOverview, AdminUserDetail, AdminUserFilter,
   AdminUserList, ClientEnvironment, IpBanDurationHours,
@@ -122,6 +124,14 @@ export interface SnapshotUploadResult {
 /** The routes. `response` is the success body; a route with `noContent` may
  *  answer 204, which the client reads as `null`. */
 export interface ApiRoutes {
+  'GET /api/brush-library': { query: { roomId?: string }; response: BrushLibrary }
+  'GET /api/brush-library/assets/:hash': { params: { hash: string }; query: { roomId?: string }; response: ApiBinary }
+
+  'POST /api/brush-library/imports': { body: ApiBinary; response: BrushImportJob }
+  'GET /api/brush-library/imports/:id': { params: { id: string }; response: BrushImportJob }
+  'POST /api/rooms/:id/brush-library': { params: { id: string }; body: { presets: string[] }; response: { ok: true } }
+  'GET /api/rooms/:id/brush-library/export': { params: { id: string }; response: ApiBinary }
+
   // ── identity (authRoutes.ts, sessions.ts) ──────────────────────────────
   'GET /api/me': { response: Me }
   'POST /api/auth/code/request': { body: { email: string; locale?: string }; response: RequestedLoginCode }
