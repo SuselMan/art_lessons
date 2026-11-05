@@ -297,3 +297,6 @@
   transform: scale(1.7);
   transform-origin: left center;
 }
+.previewPhotoDot .photoTipImage {
+  object-fit: cover;
+}
