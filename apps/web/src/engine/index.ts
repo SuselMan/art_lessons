@@ -5759,6 +5759,9 @@ export class PencilEngine implements PencilEngineAPI {
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
     if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
+    // A watcher may already hold live dabs above its confirmed watermark,
+    // before the first stroke operation exists. Never publish that partial ink.
+    if (this._hasUnrecordedInk(layerId)) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.

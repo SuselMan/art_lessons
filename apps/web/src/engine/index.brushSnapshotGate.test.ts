@@ -58,3 +58,18 @@ describe('network snapshot gate for carried brush gestures', () => {
     } finally { engine.destroy() }
   })
 })
+
+
+it.each([...cases,{name:'pencil',tool:'pencil' as const,preset:'soft'}])('does not bake live-only $name dabs before their operation arrives',({tool,preset})=>{
+ const engine=setup()
+ try{
+  const dabs=[dab(12,16,{size:12,pressure:1,opacity:1}),dab(20,16,{size:12,pressure:1,opacity:1})]
+  const strokeId='alice-live-gesture',resolved=token(tool,preset)
+  engine.appendPeerLiveDabs('alice',{strokeId,layerId:'ink',tool,preset:resolved,color:[0,0,0],packetSeq:0,dabs})
+  expect(engine.bakeNetworkSnapshot('ink')).toBeNull()
+  engine.endPeerLiveStroke('alice',strokeId)
+  expect(engine.bakeNetworkSnapshot('ink')).toBeNull()
+  engine.appendOperation(makeStroke('alice','ink',dabs,{tool,preset:resolved,strokeId,strokeEnd:true}),'remote')
+  expect(engine.bakeNetworkSnapshot('ink')).not.toBeNull()
+ }finally{engine.destroy()}
+})
