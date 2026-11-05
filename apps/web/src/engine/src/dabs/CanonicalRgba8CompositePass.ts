@@ -749,7 +749,9 @@ export class CanonicalRgba8CompositePass {
     private batchInfoFor(modes:readonly SourceScalarPowerMode[]=[]):BrushGlBatchInfo {
         if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
         return { gl: this.gl, cache: this.cache, cpu: this.cpu, contextOwner:this.contextOwner, epoch: this.workspace,
-            attributes: [...this.workspace.programs.values()].map(info => info.attribute), instancing: this.instancing, vertexArrays: this.vertexArrays,
+            // Programs share physical attribute slots. Batch bounds apply to
+            // those slots, not the number of prepared blend/style variants.
+            attributes: [...new Set([...this.workspace.programs.values()].map(info => info.attribute))], instancing: this.instancing, vertexArrays: this.vertexArrays,
             ownedPointSamplers:modes.map(mode=>({...this.scalarAtlas.sampler(mode),epoch:this.workspace!})),
             textureUnits:modes.length?5:[...this.workspace.programs.keys()].some(k=>k.includes('pixel-color-texture-v1'))?4:3,
             resources: [...this.companions, ...this.preparedResources(),...modes.flatMap(mode=>this.scalarAtlasResources(mode))] };

@@ -651,6 +651,21 @@ it('prepares only selected captured mode/styles, charges each program once, and 
   expect(s.gl.useProgram).toHaveBeenCalledWith(selected);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3);
  }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
 })
+it('batches shared physical attribute slots after more than32 blend/style programs are prepared',async()=>{
+ const s=setup();
+ s.gl.getShaderPrecisionFormat=()=>({precision:23,rangeMax:127,rangeMin:127});
+ try{
+  s.pass.prepare({width:16,height:16,operations:['genericSCU8'],imageMaterialOperations:['genericSCU8'],primaryGrainPrograms:[{operation:'genericSCU8',law:'pixel-texture-u8-v1'}]},s.companion);
+  for(const mode of ['colorHsv','colorHsi','tint','increaseSaturation','decreaseSaturation','increaseLuminosity','decreaseLuminosity','colorHsl','hueHsl','saturationHsl'] as const)await s.pass.prepareCapturedComposite(mode,undefined,undefined,['plain','image','grain']);
+  const programs=s.gl.createProgram.mock.calls.length,before=s.snapshot();
+  expect(programs).toBeGreaterThan(32);expect(s.pass.brushGlBatchInfo().attributes).toEqual([0]);
+  const lifetime={kind:'external' as const,owner:{},lease:()=>()=>{}};
+  runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>{
+   expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target:{...s.target,lifetime},operation:{kind:'genericSCU8',control:{mode:'saturationHsl',profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:1}}},frame)).toBe('painted');
+  });
+  expect(s.gl.createProgram).toHaveBeenCalledTimes(programs);expect(s.snapshot()).toEqual(before);
+ }finally{s.pass.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)}
+})
 it('rolls back unpublished captured variants on cancellation and retains the original workspace',async()=>{
  const s=setup();try{
   s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion);const before=s.snapshot(),cpu=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length,deletes=s.gl.deleteProgram.mock.calls.length,abort=new AbortController();let checks=0;
