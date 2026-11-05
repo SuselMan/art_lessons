@@ -93,6 +93,7 @@ export interface BehaviorStamp extends BrushStamp {
   sourceDiameter?: number
   mask?: BrushDescriptor['tip']['mask']
   dualMask?: BrushDescriptor['tip']['mask']
+  colorPlanes?: readonly [string,string,string]
   gray?: string
   dualGray?: string
   wetGrade: number
@@ -262,6 +263,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const dualIndex=behavior?.dual ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1) : undefined
   const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
   const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]
+  const colorPlanes=(index===undefined ? undefined : brush.tip.color?.frames?.[index]) ?? brush.tip.color?.planes
   const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
   const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous
@@ -345,7 +347,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       ...(behavior?.dynamics?.sharpness || behavior?.modulations?.sharpness?.length

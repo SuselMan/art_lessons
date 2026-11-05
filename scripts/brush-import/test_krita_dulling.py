@@ -25,7 +25,7 @@ class DullingImportTests(unittest.TestCase):
     def test_foreground_newengine_and_dynamic_radius_honest_limits(self):
         foreground=self.brush({'PressureColorRate':'true'})['descriptor']['mixer']
         self.assertEqual(foreground['source'],'previousCanvas');self.assertAlmostEqual(foreground['foreground']['rate'],.1)
-        self.assertNotIn('source',self.brush({'SmudgeRateUseNewEngine':'true'})['descriptor']['mixer'])
+        self.assertEqual(self.brush({'SmudgeRateUseNewEngine':'true'})['descriptor']['mixer']['algorithm'],'krita-mask')
         b=self.brush({'SmudgeRadiusUseCurve':'true','SmudgeRadiusSensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
         self.assertEqual(b['descriptor']['mixer']['sampling']['radiusDynamics'][0]['control'],'pressure')
     def test_spatial_mode_does_not_accidentally_gain_mean(self):

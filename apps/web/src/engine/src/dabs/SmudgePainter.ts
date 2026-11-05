@@ -45,6 +45,8 @@ import { createProgram, getUniforms } from '../raster/utils'
 
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
+import { colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
+import { colorSmudgeRates } from '../presets/colorSmudge'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
@@ -140,7 +142,7 @@ const TRANSFER_UNIFORMS = [
   'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_hardness',
   'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
   'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap', 'u_previousCanvasForeground',
-  'u_previousCanvas', 'u_edgeBleed', 'u_wetEnabled', 'u_tipKind', 'u_tip',
+  'u_previousCanvas', 'u_colorSmudge', 'u_colorSmudgeTip', 'u_edgeBleed', 'u_wetEnabled', 'u_tipKind', 'u_tip',
   'u_wetGrain', 'u_grainStrength', 'u_grainPeriod', 'u_grainTransform', 'u_grainTone',
   'u_wetRoundPhase', 'u_wetWorldOrigin', 'u_flip', 'u_grainBlend', 'u_dual',
   'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_wetOriginal', 'u_wetRender',
@@ -203,6 +205,7 @@ export class SmudgePainter {
   private readonly imageMips: BrushMipCache
   private readonly ownsMipCache: boolean
   private maximumImageSide?: number
+  private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
@@ -243,13 +246,14 @@ export class SmudgePainter {
     this.maximumImageSide = undefined
     this.wetTextures.clear(true)
     this.proceduralTransfer = undefined
+    this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
     const { gl } = this
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
     this.meanProg = createProgram(gl, DISPLAY_VERT, CANVAS_MEAN_FRAG)
-    this.meanUni = getUniforms(gl,this.meanProg,['u_source','u_geometry'])
+    this.meanUni = getUniforms(gl,this.meanProg,['u_source','u_geometry','u_mask','u_maskMapping'])
     this.meanPosLoc = gl.getAttribLocation(this.meanProg,'a_position')
     this.transferUni = getUniforms(gl, this.transferProg, TRANSFER_UNIFORMS)
     this.pickupUni = getUniforms(gl, this.pickupProg, [
@@ -262,6 +266,7 @@ export class SmudgePainter {
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
     this.proceduralTransfer = undefined
+    this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
@@ -284,8 +289,10 @@ export class SmudgePainter {
     if (this.ownsMipCache) this.imageMips.clear()
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
+    if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
     if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
+    this.colorSmudgeTransfer = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
     if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
@@ -655,14 +662,27 @@ export class SmudgePainter {
         // square gather retains original texel centres up to512 world pixels.
         const native=brushFootprintBounds(dab.x,dab.y,radius,wet.stamp.aspect,wet.stamp.angle)!
         const current=canvasMeanDabRect(dab.x,dab.y,native.maxX-native.minX,native.maxY-native.minY)
-        const sampleRect=canvasMeanSourceRect(previous,current,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)
-        const mean=this.meanPreviousCanvas(target,sampleRect)
-        source=mean
+        const sampleRect=canvasMeanSourceRect(previous,current,Math.min(paint.brush.mixer.sampling.mode==='maskMean' ? 1 : 3,wet.samplingRadius ?? paint.brush.mixer.sampling.radius))
+        let mask: AccumulationBuffer | undefined
+        try {
+          if(paint.brush.mixer.sampling.mode==='maskMean') {
+            mask=this.acquireScratch(patchSize)
+            mask.clear()
+            // The mask shares the same bounded world square as transfer.
+            // Scale geometry only for the existing >512px gather budget.
+            const scale=patchSize/span
+            const maskDab={...dab,x:(dab.x-rect.minX)*scale,y:(dab.y-rect.minY)*scale}
+            const maskWet={...wet,secondary:undefined,smearPlacement:undefined,stamp:{...wet.stamp,x:maskDab.x,y:maskDab.y,size:wet.stamp.size*scale}}
+            this.drawTransferDab({buffer:mask,originX:0,originY:0,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
+          }
+          const sourceBase=canvasMeanSourceRect(previous,current,1)
+          source=this.meanPreviousCanvas(target,sampleRect,mask ? {buffer:mask,x:(sampleRect.minX+current.minX-sourceBase.minX-rect.minX)/span,y:(sampleRect.minY+current.minY-sourceBase.minY-rect.minY)/span,inverseSpan:1/span} : undefined)
+        } finally { if(mask)this.releaseScratch(mask) }
       }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)}
       const targets = target.resolveForPaint(rect)
       if (!targets.length) return
       this.gatherPatch(original,targets,rect,patchSize,span)
-      const strength = wet.step.pickup * paint.strength * (paint.pressure ? curveAt(paint.curve,dab.pressure) : 1) * dab.opacity * wet.stamp.opacityScale
+      const strength = (paint.brush?.mixer?.algorithm ? 1 : wet.step.pickup) * paint.strength * (paint.pressure ? curveAt(paint.curve,dab.pressure) : 1) * dab.opacity * wet.stamp.opacityScale
       if (strength <= 0) return
       for (const tile of targets) {
         if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX+tile.buffer.width || footprint.maxY <= tile.originY || footprint.minY >= tile.originY+tile.buffer.height) continue
@@ -675,7 +695,7 @@ export class SmudgePainter {
   /** Fixed64 nearest-centre samples, no CPU readback or persistent reservoir.
    * Samples larger than512px use the bounded gather's existing downsampling;
    * importer reports both this and native adaptive-count approximation. */
-  private meanPreviousCanvas(target:ILayerBuffer,rect:WorldRect):AccumulationBuffer {
+  private meanPreviousCanvas(target:ILayerBuffer,rect:WorldRect,mask?:{buffer:AccumulationBuffer;x:number;y:number;inverseSpan:number}):AccumulationBuffer {
     const width=rect.maxX-rect.minX,height=rect.maxY-rect.minY,span=Math.max(width,height)
     const size=Math.min(SMUDGE_MAX_PATCH_SIZE,span),sample=this.acquireScratch(size)
     let mean:AccumulationBuffer|undefined
@@ -688,7 +708,10 @@ export class SmudgePainter {
       try {
       gl.useProgram(this.meanProg)
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sample.texture)
-      gl.uniform1i(u.u_source,0);gl.uniform4f(u.u_geometry,width,height,span,Math.min(64,width*height))
+      gl.uniform1i(u.u_source,0)
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.buffer.texture ?? sample.texture);gl.uniform1i(u.u_mask,1)
+      gl.uniform4f(u.u_maskMapping,mask?.x ?? 0,mask?.y ?? 0,mask?.inverseSpan ?? 0,mask?1:0)
+      gl.uniform4f(u.u_geometry,width,height,span,Math.min(64,width*height))
       gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(this.meanPosLoc)
       gl.vertexAttribPointer(this.meanPosLoc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)
       }finally{mean.endDraw()}
@@ -824,6 +847,15 @@ export class SmudgePainter {
     return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
   }
 
+  prepareColorSmudge(): void {
+    this.imageDimensionLimit()
+    if(this.colorSmudgeTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true,true,true))
+    this.colorSmudgeTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
   prepareRadialCurves(): void {
     this.imageDimensionLimit()
     if (this.curveTransfer) return
@@ -870,7 +902,7 @@ export class SmudgePainter {
    *  itself in the imprint. */
   private drawTransferDab(
     tile: PaintTarget, dab: Dab, radius: number, carried: AccumulationBuffer,
-    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay', strength: number, wet?: WetStamp, original?: AccumulationBuffer,
+    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay' | 'mask', strength: number, wet?: WetStamp, original?: AccumulationBuffer,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -886,8 +918,9 @@ export class SmudgePainter {
     const imageRatio = dual && brush ? Math.max(.01,curveAt(dual.brush.sizeByPressure,dab.pressure)/Math.max(.01,curveAt(brush.sizeByPressure,dab.pressure))*(dual.brush.scatter?.scale ?? 1)) : 1
     const imageChildRx = Math.fround(Math.fround(Math.fround(radius)*Math.fround(wet?.stamp.aspect ?? 1))*imageRatio/(1+(wet?.stamp.edgeSoftness ?? 0)*.15))
     const childImage = dualTip && dual?.brush.tip.imageSampling ? nativeImageResource(dualTip,dual.brush.tip,2*imageChildRx) : undefined
-    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,nativeImage:mainImage,lookup32:brush?.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
-    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage,brush?.tip.profile?.kind==='radialCurve'?true:undefined) : paper.texture
+    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes:wet?.stamp.colorPlanes,nativeImage:mainImage,lookup32:brush?.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
+    const colorPlanes=wet?.stamp.colorPlanes
+    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage,brush?.tip.profile?.kind==='radialCurve'?true:undefined,colorPlanes) : paper.texture
     const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true,!!brush.texture.application) : paper.texture
     const dualTexture=dualTip ? this.wetTexture(dualTip,false,false,childImage,dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined) : paper.texture
     const dualGrainTexture=dualGrain ? this.wetTexture(dualGrain.id,true,true) : paper.texture
@@ -899,7 +932,10 @@ export class SmudgePainter {
     const childProfile = !wet?.secondary && (dual?.brush.tip.profile?.kind === 'standard' || dual?.brush.tip.profile?.kind === 'radialCurve')
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
-    if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
+    if (!!brush?.mixer?.algorithm) {
+      this.prepareColorSmudge()
+      binding=this.colorSmudgeTransfer
+    } else if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
       this.prepareRadialCurves()
       binding=this.curveTransfer
     } else if (mainImage || childImage) {
@@ -939,7 +975,7 @@ export class SmudgePainter {
       gl.uniform1f(u.u_wickPx, wick)
       gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
     }
-    if ((binding === this.imageTransfer || binding === this.curveTransfer) && binding) {
+    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer) && binding) {
       gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
       gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
       const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
@@ -968,8 +1004,14 @@ export class SmudgePainter {
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
     // Foreground source-over precedes masked transfer. Dab opacity belongs
     // to both native stages; pickup belongs only to final transfer.
-    const foregroundOpacity=brush?.mixer?.source==='previousCanvas' && wet?.foregroundRate !== undefined
+    let foregroundOpacity=brush?.mixer?.source==='previousCanvas' && wet?.foregroundRate !== undefined
       ? clampNum(wet.foregroundRate*(wet.paint.strength)*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
+    const modern=!!brush?.mixer?.algorithm
+    const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
+    const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
+    if(modern)foregroundOpacity=rates.color
+    gl.uniform1f(u.u_colorSmudgeTip,colorPlanes?1:0)
+    gl.uniform4f(u.u_colorSmudge,modern?1:0,rates.smear,modern && brush?.mixer?.sampling && !brush.mixer.smearAlpha ? 1:0,mode==='mask'?1:0)
     const foregroundColor=wet?.stamp.color ?? [0,0,0]
     gl.uniform4f(u.u_previousCanvasForeground,foregroundColor[0],foregroundColor[1],foregroundColor[2],foregroundOpacity)
     gl.uniform1f(u.u_previousCanvas,brush?.mixer?.source === 'previousCanvas' ? brush.mixer.smearAlpha ? 1 : 2 : 0)
@@ -1072,13 +1114,20 @@ export class SmudgePainter {
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     if(group.some(entry=>entry.nativeImage || entry.lookup32)) assertNativeImageAdmission(group,this.imageDimensionLimit())
     this.wetTextures.protect(group.map(brushTextureResourceKey))
-    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage,resource.lookup32)
+    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage,resource.lookup32,resource.colorPlanes)
   }
 
   /** Byte-bounded residency; active samplers remain protected across draws. */
-  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true): WebGLTexture {
-    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32}), cached = this.wetTextures.get(key)
+  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true, colorPlanes?:readonly [string,string,string]): WebGLTexture {
+    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32,colorPlanes}), cached = this.wetTextures.get(key)
     if(cached)return cached
+    if(colorPlanes){
+      const alpha=importedAssetPixels(id),side=Math.sqrt(alpha.length)
+      const pixels=colorSmudgeTipPixels(alpha,colorPlanes.map(importedAssetPixels))
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side})
+      this.wetTextures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
     if (lookup32) {
       const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
       this.wetTextures.put(key,entry.texture,entry.bytes)

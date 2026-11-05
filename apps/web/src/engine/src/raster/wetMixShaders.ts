@@ -1,3 +1,4 @@
+import { colorSmudgeTransferFragment } from './colorSmudgeShader'
 import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
@@ -306,23 +307,37 @@ export const WET_TRANSFER_FRAG = `
 export const CANVAS_MEAN_FRAG = `
 precision highp float;
 uniform sampler2D u_source;
-// Native integer sample width/height, gathered square world span, sample count.
+uniform sampler2D u_mask;
+// Weighted mode maps source sample pixels back into the current dab mask.
+uniform vec4 u_maskMapping; // offset UV, inverse world span, enabled
 uniform vec4 u_geometry;
 void main() {
-  vec4 sum=vec4(0.0);
-  ${CANVAS_MEAN_TAPS.map(([x,y],i)=>`if(u_geometry.w>${i}.0){vec2 p=floor(vec2(${x.toFixed(12)},${y.toFixed(12)})*(u_geometry.xy-1.0)+0.5);sum+=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));}`).join('\n')}
-  gl_FragColor=sum/u_geometry.w;
+  vec4 sum=vec4(0.0),plain=vec4(0.0);
+  float weights=0.0;
+  ${CANVAS_MEAN_TAPS.map(([x,y],i)=>`if(u_geometry.w>${i}.0){
+    vec2 p=floor(vec2(${x.toFixed(12)},${y.toFixed(12)})*(u_geometry.xy-1.0)+0.5);
+    vec4 pixel=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));
+    float weight=1.0;
+    if(u_maskMapping.w>0.5){
+      vec2 uv=u_maskMapping.xy+(p+0.5)*u_maskMapping.z;
+      weight=texture2D(u_mask,vec2(uv.x,1.0-uv.y)).a;
+    }
+    sum+=pixel*weight; weights+=weight; plain+=pixel;
+  }`).join('\n')}
+  // A sparse mask can miss all bounded taps; retain canvas colour rather
+  // than injecting transparent black. Native retries with a larger radius.
+  gl_FragColor=u_maskMapping.w<0.5 ? sum/u_geometry.w : weights>0.0 ? sum/weights : plain/u_geometry.w;
 }
 `
 
 /** Separate compiler input: legacy transfer must remain byte-identical. */
-export function wetTransferFragment(procedural = false, integerImages = false, radialCurves = false): string {
-  if (!procedural && !integerImages && !radialCurves) return WET_TRANSFER_FRAG
+export function wetTransferFragment(procedural = false, integerImages = false, radialCurves = false, colorSmudge = false): string {
+  if (!procedural && !integerImages && !radialCurves) return colorSmudge ? colorSmudgeTransferFragment(WET_TRANSFER_FRAG) : WET_TRANSFER_FRAG
   const replace = (source: string, from: string, to: string): string => {
     if (source.split(from).length !== 2) throw new Error('Wet procedural shader anchor changed')
     return source.replace(from, to)
   }
-  let source = replace(WET_TRANSFER_FRAG, ' void main() {', `
+  let source = replace(colorSmudge ? colorSmudgeTransferFragment(WET_TRANSFER_FRAG) : WET_TRANSFER_FRAG, ' void main() {', `
  uniform vec2 u_dabCenter;
  uniform float u_angle;
  uniform vec4 u_tipProcedural;

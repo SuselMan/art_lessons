@@ -59,6 +59,8 @@ export interface BrushTip {
   animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
+  /** Straight RGB planes paired with mask alpha; one tuple per image-pipe frame. */
+  color?: { planes: [AssetId, AssetId, AssetId]; frames?: [AssetId, AssetId, AssetId][] }
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -265,8 +267,10 @@ export interface BrushDescriptor {
     smearAlpha?: boolean
     /** Sample the previous placed dab's canvas neighbourhood instead of a reservoir. */
     source?: 'previousCanvas'
+    /** New mask strategy: feedback composition precedes foreground and mask. */
+    algorithm?: 'krita-mask' | 'krita-stamp'
     /** Uniform previous-canvas area mean. Fixed64 sample cap. */
-    sampling?: { mode: 'uniformMean'; radius: number; radiusDynamics?: BrushDynamic[] }
+    sampling?: { mode: 'uniformMean' | 'maskMean'; radius: number; radiusDynamics?: BrushDynamic[] }
     /** Source-over foreground added to sampled canvas before masked transfer.
      * Rate and its input responses multiply effective dab opacity once here;
      * transfer independently applies pickup and effective opacity. No reservoir. */
@@ -445,6 +449,15 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (sizes.size !== 1) return false
     }
+    if(d.tip.color !== undefined) {
+      const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
+      const tuple=(v:unknown):v is AssetId[]=>Array.isArray(v)&&v.length===3&&v.every(ref)
+      if(d.model!=='mixer'||(d.mixer as {algorithm?:string}|undefined)?.algorithm!=='krita-stamp'||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined
+        ||!record(color)||Object.keys(color).some(k=>!['planes','frames'].includes(k))||!tuple(color.planes)
+        ||(d.tip.animation ? !Array.isArray(color.frames)||color.frames.length!==frames.length||!color.frames.every(tuple)||JSON.stringify(color.frames[0])!==JSON.stringify(color.planes) : color.frames!==undefined))return false
+      const ids=[...frames,...((color.frames ?? [color.planes]) as unknown[][]).flat()]
+      if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false
+    }
     if (d.tip.material !== undefined) {
       const material = d.tip.material
       if (d.model !== 'stamp' || d.tip.kind !== 'bitmap' || !record(material)
@@ -501,7 +514,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
       || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas')
-      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || d.mixer.sampling.mode !== 'uniformMean' || !numberIn(d.mixer.sampling.radius,0,3)))
+      || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || d.mixer.source !== 'previousCanvas'))
+      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || !['uniformMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
+      || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))
       || (d.mixer.foreground !== undefined && (!record(d.mixer.foreground) || d.mixer.source !== 'previousCanvas' || !numberIn(d.mixer.foreground.rate,0,1)
         || (d.mixer.foreground.dynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.foreground.dynamics } }))))
@@ -528,6 +543,8 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     visited.add(value)
     add(value.tip.mask)
     for(const id of value.tip.animation?.frames ?? [])add(id)
+    for(const id of value.tip.color?.planes ?? [])add(id)
+    for(const frame of value.tip.color?.frames ?? [])for(const id of frame)add(id)
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id)

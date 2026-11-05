@@ -4,11 +4,11 @@ import {installBrushLibrary,installBrushPixels} from '../../brushLibrary'
 import {createTestEngine,dab,makeLayerAdd,makeStroke,paperReady} from '../../testing/engineTestUtils'
 import {digitalBrushFromPreset} from '../presets/digitalBrushPresets'
 let serial=0x3500
-function fixture(image:boolean,mean=false){
+function fixture(image:boolean,mean=false,modern=false){
  const id=`asset:${(++serial).toString(16).padStart(64,'0')}` as const
  const descriptor:BrushDescriptor={...digitalBrushFromPreset('hard-round'),id:'imported-'+(++serial).toString(16).padStart(24,'0'),version:35,model:'mixer',paperInteraction:0,
  tip:image?{kind:'bitmap',mask:id,hardness:1,aspect:1,angle:0,rotation:'fixed',imageSampling:{kind:'integer-pyramid',signal:'inverse-gray',sourceRect:{x:1,y:1,width:3,height:5}}}:{kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'rectangle',horizontalFade:1,verticalFade:1,antialias:true}},
- sizeByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2},mixer:{load:0,initialLoad:0,pickup:1,strength:1,source:'previousCanvas',smearAlpha:true,...(mean?{sampling:{mode:'uniformMean' as const,radius:1}}:{})}}
+ sizeByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2},mixer:{load:0,initialLoad:0,pickup:1,strength:1,source:'previousCanvas',smearAlpha:true,...(modern?{algorithm:'krita-mask' as const}:{}),...(mean?{sampling:{mode:modern?'maskMean' as const:'uniformMean' as const,radius:1}}:{})}}
  installBrushLibrary({schemaVersion:1,brushes:[{name:'Authored smearing',source:'qa',warnings:[],descriptor}],assets:image?[{id,size:8,file:'authored.bin'}]:[],skipped:[]});if(image)installBrushPixels(id,new Uint8Array(64).fill(255));return `brush:${descriptor.id}@35`
 }
 it.each([false,true])('keeps actual mask/source placement deterministic across whole and chunk replay: bitmap%s',async image=>{
@@ -50,5 +50,19 @@ it('retains dulling fractional frame and never attaches the smearing clip contra
   const p=engine['_smudge'] as unknown as {drawTransferDab:(...args:unknown[])=>void},draw=vi.spyOn(p,'drawTransferDab')
   engine.appendOperation(makeStroke('peer','ink',[dab(20.25,30.25,{size:5}),dab(30.75,30.75,{size:5})],{tool:'digitalBrush',preset,strokeEnd:true}),'remote')
   expect(draw).toHaveBeenCalled();for(const call of draw.mock.calls){expect((call[1] as Dab).x).toBe(30.75);expect((call[9] as {smearPlacement?:unknown}).smearPlacement).toBeUndefined()}
+ }finally{engine.destroy()}
+})
+
+it.each([false,true])('modern mask path keeps per-gesture state across chunks: dulling%s',async mean=>{
+ const preset=fixture(false,mean,true),{engine}=createTestEngine({}, {width:80,height:64})
+ try{
+  await paperReady(engine);engine.appendOperation(makeLayerAdd('peer','ink'))
+  const painter=engine['_smudge'] as unknown as {drawTransferDab:(...args:unknown[])=>void}
+  const draw=vi.spyOn(painter,'drawTransferDab')
+  engine.appendOperation(makeStroke('peer','ink',[dab(20,30,{size:5})],{tool:'digitalBrush',preset,strokeId:'modern'}),'remote')
+  expect(draw).not.toHaveBeenCalled()
+  engine.appendOperation(makeStroke('peer','ink',[dab(30,30,{size:5})],{tool:'digitalBrush',preset,strokeId:'modern',strokeEnd:true}),'remote')
+  expect(draw.mock.calls.filter(c=>c[7]==='lay')).toHaveLength(1)
+  expect(draw.mock.calls.filter(c=>c[7]==='mask')).toHaveLength(mean?1:0)
  }finally{engine.destroy()}
 })

@@ -5,10 +5,10 @@ import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } fr
 import { importedAssetPixels } from '../presets/importedBrushes'
 import type { BrushDescriptor, BrushTip, BrushTextureId, TipMaskId } from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
 export interface BrushPreparationOptions { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'>): string => (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'>): string => (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
 export function brushTipSamplerId(tip?: BrushTip): TipMaskId | undefined {
@@ -42,11 +42,12 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge'>()
+  if(brush.mixer?.algorithm)capabilities.add('colorSmudge')
   const resources = new Map<string, BrushPreparationResource>()
-  const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip) => {
+  const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip, colorPlanes?:readonly [string,string,string]) => {
     if (id) {
       if (!grain && tip?.imageSampling) {
         for (const nativeImage of nativeImageBank(id as TipMaskId, tip)) {
@@ -55,7 +56,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
         }
         return
       }
-      const resource:BrushPreparationResource={painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
+      const resource:BrushPreparationResource=colorPlanes ? {painter,id,grain:false,colorPlanes} : {painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
   }
@@ -78,7 +79,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       }
     }
     const frames=b.tip.animation?.frames ?? (brushTipSamplerId(b.tip) ? [brushTipSamplerId(b.tip)!] : [])
-    frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip))
+    frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip,b.tip.color?.frames?.[index] ?? b.tip.color?.planes))
     add(painter, b.texture?.id, true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }
     const dual = b.behavior?.dual
@@ -102,6 +103,7 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
   return resources.reduce((total, resource) => {
+    if (resource.colorPlanes) return total + size(resource.id) ** 2 * 4
     if (resource.lookup32) return total + size(resource.id) ** 2
     if (resource.nativeImage) return total + resource.nativeImage.width * resource.nativeImage.height * 4
     if(resource.materialGroup)return total+materialGroupBytes(resource.materialGroup).gpu

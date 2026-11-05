@@ -530,15 +530,18 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
-        material_gray=[]
+        material_gray=[]; stamp_images=[]
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
+            if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
             if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 material_gray=[gray for gray,alpha in planes]
                 frames=[alpha for gray,alpha in planes]
+            elif stamp_images:
+                frames=[frame.getchannel('A') for frame in stamp_images]
             else:
                 frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
             if len({frame.size for frame in frames})!=1:
@@ -551,19 +554,22 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
-            if pipe['coloured'] and application!=0 and not material_gray:
+            if pipe['coloured'] and application!=0 and not material_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
+            if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[image.convert('RGBA')]
             if application==2 and engine=='paintbrush' and adjustment_active:
                 gray,mask=lightness_planes(image,definition)
                 material_gray=[gray]
+            elif stamp_images:
+                mask=stamp_images[0].getchannel('A')
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
-            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray:
+            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not stamp_images:
                 sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:
                     d['tip']['imageSampling']=sampling
@@ -574,7 +580,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         source_metric=mask.size
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
-        if material_gray:
+        if stamp_images:
+            channels=[]
+            for frame in stamp_images:
+                planes=[tip_asset(frame.getchannel(channel),catalog,warnings) for channel in 'RGB']
+                if any(bounds!=d['tip']['maskBounds'] for asset,bounds in planes):raise ValueError('Colour/alpha bounds differ')
+                channels.append([asset for asset,bounds in planes])
+            d['tip']['color']={'planes':channels[0]}
+            if len(channels)>1:d['tip']['color']['frames']=channels
+            notes.append(compatibility('colorSmudgeStamp','Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.'))
+        elif material_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
                 raise ValueError('Lightness/alpha plane bounds mismatch')
@@ -885,19 +900,20 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1,
                                     'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
         # Both pure and foreground canvas paths require this same native
-        # legacy ALPHAMASK strategy. New/lightness/stamp/overlay stay fallback.
-        previous_canvas=(not enabled(params.get('SmudgeRateUseNewEngine','false'))
-                         and numeric(params.get('SmudgeRateMode'),0) in (0,1)
-                         and application==0 and not enabled(params.get('MergedPaint','false'))
-                         and params.get('CompositeOp','normal')=='normal')
+        # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
+        modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip']
+        previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
+                         and (application==0 or 'color' in d['tip']) and not enabled(params.get('MergedPaint','false'))
+                         and (params.get('CompositeOp','normal')=='normal' or (modern and mode in modes)))
         if previous_canvas:
             d['mixer'].update(source='previousCanvas',load=0,initialLoad=0)
+            if modern: d['mixer']['algorithm']='krita-stamp' if 'color' in d['tip'] else 'krita-mask'
             # Native has no FlowOption in Color Smudge. Opacity is already in
             # dab.opacity, and is used in two distinct native composition stages.
             d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
             behavior.get('modulations',{}).pop('flow',None)
             if color_rate>0:
-                foreground={'rate':clamp(max(1-raw_smudge_rate,.2)*color_rate)}
+                foreground={'rate':color_rate if modern else clamp(max(1-raw_smudge_rate,.2)*color_rate)}
                 controls=size_like_controls(params,'ColorRate',notes,allow_time=timed_input)
                 if controls: foreground['dynamics']=controls
                 d['mixer']['foreground']=foreground
@@ -905,15 +921,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 radius=numeric(params.get('SmudgeRadiusValue'),3)
                 if numeric(params.get('SmudgeRadiusVersion'),1)<2: radius/=100
                 radius=clamp(radius,0,3) if enabled(params.get('PressureSmudgeRadius')) else 0
-                d['mixer']['sampling']={'mode':'uniformMean','radius':radius}
+                d['mixer']['sampling']={'mode':'maskMean' if modern else 'uniformMean','radius':min(radius,1) if modern else radius}
                 if enabled(params.get('PressureSmudgeRadius')):
                     controls=size_like_controls(params,'SmudgeRadius',notes,allow_time=timed_input)
                     if controls: d['mixer']['sampling']['radiusDynamics']=controls
                 notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK dulling uses previous-canvas uniform mean and optional foreground: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
             else:
                 notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK smearing samples previous canvas with optional foreground; native mask/byte quantization require calibration.'))
+            if modern:
+                notes=[note for note in notes if note.get('feature')!='colorSmudge']
+                notes.append(compatibility('colorSmudge','New ALPHAMASK feedback composition, squared dynamic Color Rate, Smearing/Dulling and mask-weighted mean. Bounded64-tap/512px gather and sparse-mask fallback differ from native adaptive sampling and high-precision colour space.'))
         else:
-            notes.append(compatibility('colorSmudge','Unsupported native new-engine, non-ALPHAMASK, overlay, non-normal or unknown-mode strategy; carried-pigment approximation retained.','unsupported'))
+            d['tip'].pop('color',None)
+            notes.append(compatibility('colorSmudge','Unsupported native non-ALPHAMASK, overlay, non-normal or unknown-mode strategy; carried-pigment approximation retained.','unsupported'))
         if enabled(params.get('PressureSmudgeRate')):
             controls=size_like_controls(params,'SmudgeRate',notes,allow_time=timed_input)
             if controls:

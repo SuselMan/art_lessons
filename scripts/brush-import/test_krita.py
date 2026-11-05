@@ -206,7 +206,7 @@ class KritaTests(unittest.TestCase):
 
     def test_previous_canvas_selection_is_semantic_and_defaults_legacy(self):
         cases=[({},True),({'SmudgeRateUseNewEngine':'false','SmudgeRateMode':'0'},True),
-               ({'SmudgeRateUseNewEngine':'true'},False),({'SmudgeRateMode':'1'},True),
+               ({'SmudgeRateUseNewEngine':'true'},True),({'SmudgeRateMode':'1'},True),
                ({'PressureColorRate':'true','ColorRateValue':'.25'},True),
                ({'PressureColorRate':'true','ColorRateValue':'0'},True),
                ({'PressureColorRate':'false','ColorRateValue':'.9'},True)]
