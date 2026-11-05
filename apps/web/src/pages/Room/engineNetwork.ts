@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import { packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
+import { copyBrushSourceContext, packDabs, type ClientToServerEvents, type Operation } from '@grafetto/shared'
 
 import type { PencilEngineAPI, PencilEngineOptions } from '../../engine'
 import { liveTiming } from '../../lib/observability/liveLatency'
@@ -98,6 +98,7 @@ export function createEngineNetworkCallbacks({
         preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
         dabsPacked: packDabs(packet.dabs),
         ...(packet.brushRandom ? { brushRandom: { ...packet.brushRandom } } : {}),
+        ...(packet.brushSource ? { brushSource: copyBrushSourceContext(packet.brushSource) } : {}),
         // (#468) Watercolor only. Without it a peer groups this gesture by
         // its stroke id alone and paints a wash the author never made — see
         // StrokeLiveData.washId.
