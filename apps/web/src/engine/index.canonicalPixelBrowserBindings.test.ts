@@ -529,3 +529,8 @@ it('does not adopt a prepared BEGIN from a replaced connection service even when
   expect(h.operations.every(op=>op.type==='canonical_stroke'&&op.frame.strokeId!==warm.request.strokeId)).toBe(true)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
+it('retains the original connection predicate through the actual engine constructor adapter',()=>{
+ const provider={current:true,begin:vi.fn<CanonicalSourceAuthorService['begin']>(()=>new Promise(()=>{})),isCurrent(){return this.current}}
+ const {engine}=createTestEngine({canonicalAuthor:provider})
+ try{expect(engine['_canonicalAuthorService']?.isCurrent?.()).toBe(true);provider.current=false;expect(engine['_canonicalAuthorService']?.isCurrent?.()).toBe(false)}finally{engine.destroy()}
+})
