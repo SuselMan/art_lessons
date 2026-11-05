@@ -59,7 +59,8 @@ export class AuthorInputFIFO {
   private readonly context:AuthorInputFIFOContext
   private readonly budgetMs:number
   private readonly maxSteps:number
-  constructor(context:AuthorInputFIFOContext,budgetMs=4,maxSteps=32){this.context=context;this.budgetMs=budgetMs;this.maxSteps=maxSteps}
+  private readonly maxCalls:number
+  constructor(context:AuthorInputFIFOContext,budgetMs=4,maxSteps=32,maxCalls=32){if(!Number.isSafeInteger(maxCalls)||maxCalls<1||maxCalls>128)throw new RangeError('Invalid author call quantum');this.context=context;this.budgetMs=budgetMs;this.maxSteps=maxSteps;this.maxCalls=maxCalls}
   get pending():boolean{return !!this.work||this.jobs.length>0}
   /** release owns captured data even if cancellation precedes generator start. */
   enqueue(job:()=>Generator<AuthorInputYield,void,void>,release?:()=>void):void{
@@ -188,7 +189,7 @@ export class AuthorInputFIFO {
             }
           }else steps++
         }
-        if(epoch!==this.epoch||steps>=this.maxSteps||calls>=32||this.context.now()-start>=this.budgetMs)break
+        if(epoch!==this.epoch||steps>=this.maxSteps||calls>=this.maxCalls||this.context.now()-start>=this.budgetMs)break
         current=undefined
       }
     }catch(error){

@@ -379,3 +379,15 @@ it('retires a capacity-parked cut when its concurrent service wait rejects with 
  expect(failed).toHaveBeenCalledExactlyOnceWith(undefined);expect(events).toEqual(['cut-return','source-return','release']);expect(fifo.pending).toBe(false)
  capacity.resolve();await Promise.resolve();await Promise.resolve();expect(frames).toHaveLength(0)
 })
+
+it.each([0,.1])('uses the larger native call allowance only inside the original four millisecond time bound (cost=%s)',cost=>{
+ const frames:Array<()=>void>=[];let at=0,calls=0
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>at,failed:e=>{throw e}},4,128,128)
+ fifo.enqueue(function*(){for(let i=0;i<300;i++){calls++;at+=cost;yield}})
+ expect(calls).toBe(cost?40:128);expect(fifo.pending).toBe(true)
+ while(frames.length)frames.shift()!()
+ expect(calls).toBe(300);expect(fifo.pending).toBe(false)
+})
+it.each([0,129,NaN,Infinity])('rejects an unbounded or invalid author call allowance %s',calls=>{
+ expect(()=>new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:()=>{}},4,128,calls)).toThrow('quantum')
+})

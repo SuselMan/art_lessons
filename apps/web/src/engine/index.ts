@@ -2895,7 +2895,7 @@ export class PencilEngine implements PencilEngineAPI {
     unschedule: handle => this._authorTasks.unschedule(handle),
     now: () => performance.now(),
     failed: error => { this._authorInputError=error; this._stopAirbrush(); this._diagLog('[engine] author input failed',error) },
-  })
+  },4,128,128)
 
   private _timedClockStart=0
   private _timedClockLast=0
