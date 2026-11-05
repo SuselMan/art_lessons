@@ -148,6 +148,7 @@ export class PointerInput {
   private readonly _canonicalSpeed=new CanonicalPointerSpeed()
   private canvas: HTMLCanvasElement
   private _handlers: Partial<Record<PointerEventName, PointerHandler>>
+  private _moveBatchHandler?: (samples:readonly PointerData[])=>void
   private _predictHandler?: PredictHandler
   private _cursorObserver?: CursorObserver
   private _active: boolean
@@ -270,6 +271,12 @@ export class PointerInput {
 
   on(event: PointerEventName, fn: PointerHandler): this {
     this._handlers[event] = fn
+    return this
+  }
+  /** Canonical author consumes every sample, with bounded shared transport
+   * fences. Legacy move subscribers retain their original per-sample path. */
+  onMoveBatch(fn:(samples:readonly PointerData[])=>void):this {
+    this._moveBatchHandler=fn
     return this
   }
 
@@ -538,14 +545,22 @@ export class PointerInput {
     this._moveCount++
     const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
+    let batch:PointerData[]=[]
     for (const ev of events) {
       if (this._destroyed) return
       if (ev.pointerId !== this._activePointerId) continue
       this._observeCursor(ev)
       if (this._destroyed) return
       if (ev.buttons === 0 && ev.pressure === 0) continue
-      this._emit('move', {...this._extract(ev),dispatchTime})
+      const data={...this._extract(ev),dispatchTime}
+      if(this._moveBatchHandler){
+        batch.push(data)
+        // Three inputs need at most nine structural fences; the existing
+        // author pending-metadata reservation covers ten. No sample is dropped.
+        if(batch.length===3){const ready=batch;batch=[];this._moveBatchHandler(ready)}
+      }else this._emit('move',data)
     }
+    if(!this._destroyed&&batch.length)this._moveBatchHandler?.(batch)
     if (this._destroyed) return
     // A big time gap since the last real sample, or an implausibly large
     // jump in canvas-pixel coordinates, could independently produce a
@@ -634,6 +649,7 @@ export class PointerInput {
     this._activePointerId = null
     this._activePointerType = null
     this._handlers = {}
+    this._moveBatchHandler=undefined
     this._predictHandler = undefined
     this._cursorObserver = undefined
     this._pressureMap = null

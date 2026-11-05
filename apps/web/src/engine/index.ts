@@ -1440,6 +1440,10 @@ interface TimedAuthorSession {
   ended: boolean
   hold?: { times: number[]; input: PointerData; cameraAngle:number }
 }
+interface CanonicalSourceInputBatch {
+  firstMaterial:boolean;pendingMaterials:number;final:boolean;remainderDeadline?:number
+  flush?:()=>Generator<AuthorInputBackpressure,void,void>
+}
 
 // One peer's live-stroke reveal state (#37 follow-up v2, see
 // PencilEngineAPI.previewOperation). `queue[0]` is the op currently being
@@ -3267,6 +3271,7 @@ export class PencilEngine implements PencilEngineAPI {
         const zoom=this._sourceInputZoom()
         if(zoom!==undefined)pushCursorHistory(this._sourceCursorHistory,point,zoom)
       })
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)this._pointer.onMoveBatch(samples=>this._onCanonicalMoveBatch(samples))
 
     // Only registered when enabled — PointerInput never calls
     // getPredictedEvents() unless a 'predict' handler exists (see
@@ -9304,7 +9309,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }finally{release()}
   }
-  private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<AuthorInputYield,void,void> {
+  private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>,batch?:CanonicalSourceInputBatch):Generator<AuthorInputYield,void,void> {
     const source=session.source!,owner=this
     const material=source.prepared.material
     // Only bodies created by the named Pixel START factories opt in. A browser
@@ -9314,11 +9319,11 @@ export class PencilEngine implements PencilEngineAPI {
     const neutralTexture8=material.kind==='pixelTexture'&&source.context8?.version===8
       &&(source.context8.primaryTexture.law==='pixel-texture-u8-v1'||source.context8.primaryTexture.law==='pixel-color-texture-v1')
     const coalesced=material.kind==='texturedAuto'||namedSource2||neutralTexture8
-    let firstMaterial=true,pendingMaterials=0,remainderDeadline:number|undefined
+    const progress=batch??{firstMaterial:true,pendingMaterials:0,final:true}
     // The existing adapter remains the only pending material owner. A lazy cut
     // captures packed bytes only when this SAME FIFO job can hand them off.
-    const flush=function*(){
-      try{owner._assertCanonicalSource(session);const cut=source.adapter!.flush();if(cut)yield* owner._acceptCanonicalChunks(session,[cut]);pendingMaterials=0;remainderDeadline=undefined}
+    const flush=progress.flush??=function*(){
+      try{owner._assertCanonicalSource(session);const cut=source.adapter!.flush();if(cut)yield* owner._acceptCanonicalChunks(session,[cut]);progress.pendingMaterials=0;progress.remainderDeadline=undefined}
       catch(error){if(!source.partialCancel||error!==source.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     }
     const checkpoint={kind:'author-input-checkpoint' as const,flush},immediate={...checkpoint,immediate:true as const}
@@ -9329,16 +9334,16 @@ export class PencilEngine implements PencilEngineAPI {
         if(next.done){source.state=next.value;return}
         source.state=next.value.state;yield* this._acceptCanonicalChunks(session,source.adapter!.accept(next.value))
         if(next.value.kind==='material'){
-          pendingMaterials++
-          // First material of EACH captured input is still handed off before
-          // another source next(). Only its remainder may span FIFO turns.
-          if(firstMaterial){yield* flush();firstMaterial=false}
-          else if(coalesced&&remainderDeadline===undefined)remainderDeadline=performance.now()+32
+          progress.pendingMaterials++
+          // First material is immediate. Remaining native samples share the
+          // SAME pending owner, without altering author input/role/RNG order.
+          if(progress.firstMaterial){yield* flush();progress.firstMaterial=false}
+          else if(coalesced&&progress.remainderDeadline===undefined)progress.remainderDeadline=performance.now()+(batch?8:32)
         }
         // K8 is conservative across automatic adapter cuts: only our completed
         // flush resets the count. Query-only yields never extend its deadline.
-        yield next.value.kind==='inputComplete'||coalesced&&pendingMaterials>=8?immediate
-          :coalesced?{...checkpoint,deadline:remainderDeadline??performance.now()+32}:checkpoint
+        yield next.value.kind==='inputComplete'&&progress.final||coalesced&&progress.pendingMaterials>=8?immediate
+          :coalesced?{...checkpoint,deadline:progress.remainderDeadline??performance.now()+(batch?8:32)}:checkpoint
       }
     }finally{iterator.return(source.state!)}
   }
@@ -9519,6 +9524,22 @@ export class PencilEngine implements PencilEngineAPI {
     this._enqueueCanonicalSource(session,function*(){
       try{owner._assertCanonicalSource(session);const source=session.source!;yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!));yield* owner._consumeCanonicalSource(session,source.author!.plan(source.state!,owner._canonicalPacket(session,captured)))}
       catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
+    })
+  }
+  private _onCanonicalMoveBatch(inputs:readonly PointerData[]):void {
+    if(inputs.length===0)return
+    if(inputs.length>3)throw new RangeError('Canonical native input batch exceeds three samples')
+    const session=this._authorProducer;if(!session?.source||session.ended)return
+    if(session.source.airbrush){for(const input of inputs)this._onCanonicalMove(input);return}
+    const captured=inputs.map(input=>({...input})),owner=this
+    this._enqueueCanonicalSource(session,function*(){
+      const batch:CanonicalSourceInputBatch={firstMaterial:session.source!.emitted===0,pendingMaterials:0,final:false}
+      try{for(let i=0;i<captured.length;i++){
+        owner._assertCanonicalSource(session);batch.final=i===captured.length-1
+        const source=session.source!
+        yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!))
+        yield* owner._consumeCanonicalSource(session,source.author!.plan(source.state!,owner._canonicalPacket(session,captured[i])),batch)
+      }}catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     })
   }
   private _onCanonicalEnd(input:PointerData):void {

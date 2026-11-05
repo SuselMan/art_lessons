@@ -193,3 +193,17 @@ describe('smoothSpeed (#532)', () => {
     expect(smoothSpeed(1, 1000, 0.1)).toBeLessThan(5)
   })
 })
+
+it('delivers every native coalesced sample in bounded batches with the same event time, speed and pressure',()=>{
+ const a=fakeCanvas(),b=fakeCanvas(),individual:PointerData[]=[],batches:PointerData[][]=[]
+ const plain=new PointerInput(a.canvas).on('move',input=>individual.push(input))
+ const batched=new PointerInput(b.canvas).onMoveBatch(inputs=>batches.push([...inputs]))
+ try{
+  const start=sampleEvent({x:0,t:0}),samples=Array.from({length:7},(_,i)=>({x:(i+1)*2,t:(i+1)*3}))
+  a.fake.dispatch('pointerdown',start);b.fake.dispatch('pointerdown',start)
+  const move=sampleEvent(samples.at(-1)!,samples);a.fake.dispatch('pointermove',move);b.fake.dispatch('pointermove',move)
+  expect(batches.map(batch=>batch.length)).toEqual([3,3,1])
+  const values=(inputs:PointerData[])=>inputs.map(p=>({x:p.x,y:p.y,pressure:p.pressure,timeStamp:p.timeStamp,speed:p.speed,sourceSpeed:p.sourceSpeed}))
+  expect(values(batches.flat())).toEqual(values(individual))
+ }finally{plain.destroy();batched.destroy()}
+})

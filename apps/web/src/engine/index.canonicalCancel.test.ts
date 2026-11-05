@@ -1,6 +1,6 @@
 import {afterEach,expect,it,vi} from 'vitest'
 import {createHash} from 'node:crypto'
-import {parseCanonicalStrokeCloseOperation,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
+import {decodeCanonicalStrokeFrame,parseCanonicalStrokeCloseOperation,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {installBrushLibrary} from './src/presets/importedBrushes'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
@@ -232,4 +232,31 @@ it('drains a lifted pen in its captured context when brush, size and camera chan
   for(let i=0;i<operations.length;i++)engine.appendOriginalRecorded(confirmed(h,operations[i],i+1))
   await vi.waitFor(()=>expect(owner?.coordinator).toBeUndefined(),{timeout:5000});expect(repair).not.toHaveBeenCalled()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('keeps every source input fence and rendered draw when three real samples share a transport batch',async()=>{
+ async function capture(batched:boolean){
+  const h=await harness(async r=>verdict(r)),{engine,operations}=h
+  const clock=vi.spyOn(performance,'now').mockReturnValue(1)
+  try{
+   await engine.prepareBrush(preset);engine['_onStart'](packet(1,100))
+   const inputs=[packet(2,103),packet(3,106),packet(4,109)]
+   if(batched)engine['_onCanonicalMoveBatch'](inputs);else for(const input of inputs)engine['_onMove'](input)
+   engine['_onEnd'](packet(4,120));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+   const draws:unknown[]=[],fences:unknown[]=[]
+   for(const op of operations){
+    if(op.type!=='canonical_stroke')throw Error('Unexpected partial close')
+    const snapshot=h.snapshots.get(op.frame.strokeId)!
+    if(snapshot.materialVersion!==2)throw Error('Original source2 fixture required')
+    const {frame}=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,materialVersion:2,material:snapshot.material,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition})
+    const offset=draws.length
+    fences.push(...frame.fences.map(f=>({...f,at:f.at+offset})))
+    draws.push(...frame.draws.map(({definition,...d})=>({...d,recipe:frame.definitions[definition]})))
+   }
+   return{count:operations.length,draws,fences}
+  }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ }
+ const a=await capture(false),b=await capture(true)
+ expect(b.draws).toEqual(a.draws);expect(b.fences).toEqual(a.fences)
+ expect(b.count).toBeLessThanOrEqual(a.count)
 })
