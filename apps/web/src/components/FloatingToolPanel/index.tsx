@@ -742,7 +742,7 @@ export function FloatingToolPanel({
           </div>
         )}
       </div>
-      {brushGroup && <OptionPopup options={groups[brushGroup].members} value={groups[brushGroup].value}
+      {brushGroup && <OptionPopup options={groups[brushGroup].members.map(member => ({ ...member, icon: undefined }))} value={groups[brushGroup].value}
         onSelect={value => chooseGroupMember(brushGroup, value)} onDismiss={() => onFlyoutChange(null)}
         label={t(brushGroup === 'drawing' ? 'tool.drawing' : brushGroup === 'eraser' ? 'tool.eraser' : 'tool.smudge')}
         popupRef={picker.popupRef} style={picker.style} />}

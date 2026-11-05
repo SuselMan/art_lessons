@@ -63,6 +63,13 @@ describe('service worker precache', () => {
     expect(anyPatternTakes('assets/index-BHj3OlKJ.js')).toBe(true)
   })
 
+  it('loads optional imported tool photographs on demand', () => {
+    expect(isPrecached('assets/imported-abcdef0123456789-ABCD.png')).toBe(false)
+    const route = routeMatching('https://example.test/assets/imported-abcdef0123456789-ABCD.png')
+    expect(route?.cacheName).toBe('brush-tool-photos')
+    expect(route?.maxEntries).toBe(48)
+  })
+
   it('never takes a baked paper texture', () => {
     // ~4 MB each, three of them. This is the whole reason the precache is
     // enumerated instead of inherited.

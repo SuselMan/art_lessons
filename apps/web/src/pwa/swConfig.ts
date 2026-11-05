@@ -42,6 +42,8 @@ export const precacheConfig: Pick<InjectManifestConfig, 'globPatterns' | 'globIg
     // The bake's textures. `paper/*.paper` rather than `paper/**` — the
     // previews matched above are wanted, these are not.
     'paper/*.paper',
+    // Optional preset photographs belong to the picker, not the initial app download.
+    '**/imported-*.png',
     // Dev-only grain-variant bake (69 MB, gitignored, never built in CI).
     // Listed even though CI never produces it: `npm run build` locally and in
     // CI yield different file sets, and a rule debugged against the local
@@ -86,6 +88,13 @@ export interface RuntimeRoute {
 }
 
 export const runtimeRoutes: RuntimeRoute[] = [
+  {
+    // Content-hashed optional photographs: keep only recently viewed tools offline.
+    cacheName: 'brush-tool-photos',
+    match: url => /^\/assets\/imported-[a-f0-9]+-[A-Za-z0-9_-]+\.png$/.test(url.pathname),
+    strategy: 'CacheFirst',
+    maxEntries: 48,
+  },
   {
     // CacheFirst is only safe here because #322 made these names
     // content-hashed: a byte-identical URL can no longer change meaning, so

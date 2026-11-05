@@ -105,6 +105,13 @@ export function useToolChoice(roomId: string | undefined) {
     } else selectTool(value as EditorTool)
   }, [selectTool, setToolSetting])
 
+  useEffect(() => {
+    if (isToolEnabledInRoom(enabledTools, 'digitalBrush')) return
+    for (const role of ['eraser', 'smudge'] as const) {
+      if (toolSettings[role].brush !== 'native') setToolSetting(role, 'brush', 'native')
+    }
+  }, [enabledTools, toolSettings.eraser.brush, toolSettings.smudge.brush, setToolSetting])
+
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
   // press E again" is a real one-handed affordance that a key can offer and a
   // button cannot: the finger is already there, and there is no visual state
