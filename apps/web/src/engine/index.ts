@@ -3360,7 +3360,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setLocked(locked: boolean): void {
-    if(locked&&this._authorProducer?.source)this._cancelOwnedAuthor(false)
+    if(locked)this._endCanonicalSelectionInput()
     this._locked = locked || this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION&&!this._canonicalAuthorService
   }
 
@@ -4392,16 +4392,22 @@ export class PencilEngine implements PencilEngineAPI {
     return result
   }
 
-  setPencil(type: string): void  { if(type!==this._opts.pencilType&&this._authorProducer?.source)this._cancelOwnedAuthor(false);this._opts.pencilType = type }
+  /** A lifted pen drains its captured FIFO before new preparation can replace
+   * resources. A still-held pen seals its emitted prefix like pointercancel. */
+  private _endCanonicalSelectionInput():void {
+    const session=this._authorProducer
+    if(session?.source&&!session.ended)this._cancelCanonicalPointer(session)
+  }
+  setPencil(type: string): void  { if(type!==this._opts.pencilType)this._endCanonicalSelectionInput();this._opts.pencilType = type }
   setTool(tool: ToolType): void  {
     // (#468 v7) Reaching for another tool ends the wash: whatever is on the
     // paper stops being something the next stroke can pool into.
-    if(tool!==this._opts.tool&&this._authorProducer?.source)this._cancelOwnedAuthor(false)
+    if(tool!==this._opts.tool)this._endCanonicalSelectionInput()
     if (tool !== this._opts.tool) this._clearWash()
     this._opts.tool = tool
   }
   setOpacity(v: number): void    { this._opts.opacity = v }
-  setSize(px: number): void      { if(px!==this._opts.size&&this._authorProducer?.source)this._cancelOwnedAuthor(false);this._opts.size = px }
+  setSize(px: number): void      { if(px!==this._opts.size)this._endCanonicalSelectionInput();this._opts.size = px }
 
   // Only the *next* stroke picks this up — _onStart() copies it into
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
@@ -4690,6 +4696,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
+    if(angle!==this._authorCameraAngle)this._endCanonicalSelectionInput()
     this._boundedInputZoom=zoom
     this._inputUsesCamera=false
     this._sourceNominalZoom=undefined
@@ -4705,6 +4712,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Camera.pointerTransform. */
   setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number, cssZoom?: number): void {
     if(cssZoom!==undefined && (!Number.isFinite(cssZoom)||cssZoom<=0))throw Error('Invalid source input CSS zoom')
+    if(angle!==this._authorCameraAngle)this._endCanonicalSelectionInput()
     this._inputUsesCamera=true
     this._sourceNominalZoom=cssZoom
     this._camera.set(wx, wy, zoom, angle)
@@ -8819,6 +8827,12 @@ export class PencilEngine implements PencilEngineAPI {
     for(;;){
       const progress=owner.preparationProgress??=createCanonicalPreparationProgress();progress.references++
       try{
+        // Retained source resources belong to the captured gesture, including
+        // its queued tail after UP. A later selection must not retire them.
+        if(this._canonicalSourceLifetimeHolds){
+          if(!await waitCanonicalPreparationProgress(progress.promise,options.signal)||!current())return{status:'cancelled'}
+          continue
+        }
         const result=await this._prepareCanonicalAuthorBrushCore(preset,options)
         if(result.status!=='cancelled'||!current())return result
         if(!this._canonicalWorkspaceIdle(owner)){
@@ -9099,7 +9113,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._assertCanonicalPreparedRole(prepared)
     this._assertCanonicalLayerCurrent(prepared.owner)
     this._assertCanonicalPreparedRole(prepared)
-    if(source.closed||this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._activeId!==session.snapshot.layerId||this._opts.size!==(prepared.selectedSizePx??prepared.nativeSizePx)||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null||this._contextLost)throw new Error('Canonical pointer lifetime changed')
+    if(source.closed||this._activeId!==session.snapshot.layerId||this._contextLost||!session.ended&&(this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._opts.size!==(prepared.selectedSizePx??prepared.nativeSizePx)||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null))throw new Error('Canonical pointer lifetime changed')
   }
   private _retireCanonicalSource(session:TimedAuthorSession):void {
     const source=session.source!

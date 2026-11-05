@@ -8,7 +8,7 @@ function fixture(idle=false){
  const owner:Owner={generation:1},state={idle},core=vi.fn<Preparation>()
  const engine=Object.create(PencilEngine.prototype) as {
   _canonicalLayerOwner:Owner;_opts:{pencilType:string;size:number};_sourcePattern:undefined;_authorCameraAngle:number;_physicalGeneration:number;
-  _destroyed:boolean;_contextLost:boolean;_canonicalWorkspaceIdle:()=>boolean;_prepareCanonicalAuthorBrushCore:Preparation;
+  _canonicalSourceLifetimeHolds?:number;_destroyed:boolean;_contextLost:boolean;_canonicalWorkspaceIdle:()=>boolean;_prepareCanonicalAuthorBrushCore:Preparation;
   _brushPreparation:{canRunWithoutReplacing:()=>boolean;whenIdle:()=>Promise<void>};
   _prepareCanonicalAuthorBrushWhenAvailable:Preparation;_wakeCanonicalPreparation:(owner:Owner,retired?:boolean)=>void;
  }
@@ -69,4 +69,12 @@ it('preserves cancellation without progress and propagates ordinary errors witho
  expect(await s.prepare()).toEqual({status:'cancelled'});expect(s.core).toHaveBeenCalledOnce()
  const error=new Error('Unavailable original source');s.core.mockRejectedValueOnce(error)
  await expect(s.prepare()).rejects.toBe(error);expect(s.core).toHaveBeenCalledTimes(2);expect(s.owner.preparationProgress).toBeUndefined()
+})
+
+it('does not prepare a new selection while a captured source tail still owns resources',async()=>{
+ const s=fixture();s.engine._canonicalSourceLifetimeHolds=1;s.core.mockResolvedValue({status:'ready'})
+ const result=s.prepare();await tick();expect(s.core).not.toHaveBeenCalled()
+ s.engine._wakeCanonicalPreparation(s.owner);await tick();expect(s.core).not.toHaveBeenCalled()
+ s.engine._canonicalSourceLifetimeHolds=0;s.state.idle=true;s.engine._wakeCanonicalPreparation(s.owner)
+ expect(await result).toEqual({status:'ready'});expect(s.core).toHaveBeenCalledOnce()
 })

@@ -207,3 +207,29 @@ it('does not present an earlier raw wash over its partially committed stable pix
   expect(engine['_log'].entries.map(e=>e.op.id)).toEqual(operations.map(op=>op.id));expect(engine['_canonicalPixelsReady']).toBe(true)
  }finally{hold=false;engine['_stepCanonicalLayer']=step;now.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+it('seals a held pen on brush selection without poisoning the canonical layer',async()=>{
+ const {engine,operations}=await harness(async r=>verdict(r)),repair=vi.fn()
+ engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  const count=operations.length,owner=engine['_canonicalLayerOwner'];expect(count).toBeGreaterThan(0)
+  engine.setPencil('next-selection')
+  expect(operations).toHaveLength(count+1);expect(operations.at(-1)?.type).toBe('canonical_stroke_close')
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(repair).not.toHaveBeenCalled();expect(engine.hasActiveCanonicalAuthor()).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('drains a lifted pen in its captured context when brush, size and camera change before its queued BEGIN',async()=>{
+ const h=await harness(async r=>verdict(r)),{engine,operations}=h,repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner']
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  engine.setPencil('next-selection');engine.setSize(80);engine.setViewport(0,0,1,.1);engine.setLocked(true)
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  expect(operations.length).toBeGreaterThan(0);expect(operations.every(op=>op.type==='canonical_stroke')).toBe(true)
+  expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(repair).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']).toBe(owner)
+  for(let i=0;i<operations.length;i++)engine.appendOriginalRecorded(confirmed(h,operations[i],i+1))
+  await vi.waitFor(()=>expect(owner?.coordinator).toBeUndefined(),{timeout:5000});expect(repair).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
