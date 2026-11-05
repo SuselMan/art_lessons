@@ -643,7 +643,24 @@ export function overlayLocalFields(derived: LayerState, current: LayerState): La
       items[id] = item
     }
   }
-  return sanitizeSelection({ ...derived, items, activeId: current.activeId, selectedIds: current.selectedIds })
+  const next = sanitizeSelection({ ...derived, items, activeId: current.activeId, selectedIds: current.selectedIds })
+  // Paint acknowledgements change the journal, not the layer panel. Preserve
+  // the existing view identity when the complete replay has the same values.
+  const sameArray = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((value, index) => value === b[index])
+  const ids = Object.keys(next.items)
+  if (next.activeId !== current.activeId || !sameArray(next.rootOrder, current.rootOrder)
+    || !sameArray(next.selectedIds, current.selectedIds) || ids.length !== Object.keys(current.items).length) return next
+  for (const id of ids) {
+    const a = next.items[id], b = current.items[id]
+    if (!b) return next
+    const fields = Object.keys(a) as (keyof typeof a)[]
+    if (fields.length !== Object.keys(b).length || fields.some(key => {
+      if (!Object.hasOwn(b, key)) return true
+      const left = a[key], right = b[key]
+      return Array.isArray(left) && Array.isArray(right) ? !sameArray(left, right) : left !== right
+    })) return next
+  }
+  return current
 }
 
 /** Removes the given ids everywhere: from the items map, from rootOrder and

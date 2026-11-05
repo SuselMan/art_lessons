@@ -1284,3 +1284,16 @@ describe('soloKeepSet / isVisibleUnderSolo', () => {
     expect(soloKeepSet(state(), ['inner', 'loose'])).toEqual(new Set(['inner', 'loose']))
   })
 })
+
+it('reuses an unchanged replay view but publishes ordered folder children and shared field changes', () => {
+  const initial: LayerState = {items:{a:layer('a'),b:layer('b'),f:{kind:'folder',id:'f',name:'Folder',opacity:1,visible:true,collapsed:true,children:['a','b']}},rootOrder:['f'],activeId:'a',selectedIds:['a']}
+  const clone = ():LayerState => JSON.parse(JSON.stringify(initial))
+  expect(overlayLocalFields(clone(),initial)).toBe(initial)
+  const reordered=clone();(reordered.items.f as LayerFolder).children.reverse()
+  expect(overlayLocalFields(reordered,initial)).not.toBe(initial)
+  for(const item of [layer('a',{locked:true}),layer('a',{ownerLocked:true}),layer('a',{name:'Renamed'}),layer('a',{opacity:.5}),layer('a',{visible:false})]){
+    const changed=clone();changed.items.a=item
+    expect(overlayLocalFields(changed,initial).items.a).toEqual(item)
+    expect(overlayLocalFields(changed,initial)).not.toBe(initial)
+  }
+})

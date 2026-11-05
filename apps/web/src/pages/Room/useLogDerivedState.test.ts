@@ -32,3 +32,16 @@ it('coalesces bursts and derives from the engine current when the microtask runs
  expect(next.getRoomDerivedState).toHaveBeenCalledOnce()
  expect(next.getOperations).not.toHaveBeenCalled()
 })
+
+it('keeps the layer view stable across paint-only indexed acknowledgements but repairs changed shared locks',()=>{
+ const initial=makeInitialLayerState()
+ useRoomStore.setState({layerState:initial})
+ const engine=indexedEngine(),state=useLogDerivedState({engineRef:{current:engine as unknown as PencilEngineAPI}})
+ state.syncFromLogNow();state.syncFromLogNow()
+ expect(useRoomStore.getState().layerState).toBe(initial)
+ const locked={...initial,items:{...initial.items,'layer-1':{...initial.items['layer-1'],locked:true}}}
+ useRoomStore.setState({layerState:locked})
+ state.syncFromLogNow()
+ expect(useRoomStore.getState().layerState).not.toBe(locked)
+ expect(useRoomStore.getState().layerState.items['layer-1'].locked).toBeUndefined()
+})
