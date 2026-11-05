@@ -52,7 +52,7 @@ import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
-interface WetStamp { smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetStamp { maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -677,9 +677,9 @@ export class SmudgePainter {
             // The mask shares the same bounded world square as transfer.
             // Scale geometry only for the existing >512px gather budget.
             const scale=patchSize/span
-            const maskDab={...dab,x:(dab.x-rect.minX)*scale,y:(dab.y-rect.minY)*scale}
-            const maskWet={...wet,secondary:undefined,smearPlacement:undefined,stamp:{...wet.stamp,x:maskDab.x,y:maskDab.y,size:wet.stamp.size*scale}}
-            this.drawTransferDab({buffer:mask,originX:0,originY:0,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
+            const maskDab={...dab,x:rect.minX+(dab.x-rect.minX)*scale,y:rect.minY+(dab.y-rect.minY)*scale}
+            const maskWet={...wet,maskScale:scale,maskSourceDab:dab,secondary:undefined,smearPlacement:undefined,stamp:{...wet.stamp,x:maskDab.x,y:maskDab.y,size:wet.stamp.size*scale}}
+            this.drawTransferDab({buffer:mask,originX:rect.minX,originY:rect.minY,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
           }
           const sourceBase=canvasMeanSourceRect(previous,current,1)
           source=this.meanPreviousCanvas(target,mask?sourceBase:sampleRect,mask ? {buffer:mask,x:(current.minX-rect.minX)/span,y:(current.minY-rect.minY)/span,inverseSpan:1/span,radius:Math.min(1,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)} : paint.brush.mixer.sampling.mode==='adaptiveMean' ? {x:0,y:0,inverseSpan:0,radius:1} : undefined)
@@ -1064,6 +1064,10 @@ export class SmudgePainter {
     gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
     const primaryApplication=brushTextureApplication(brush?.texture,wet?.seed ?? 0,tile.originX,tile.originY)
     const secondaryApplication=brushTextureApplication(dualGrain,wet?.seed ?? 0,tile.originX,tile.originY,1)
+    const maskScale=wet?.maskScale ?? 1
+    if(maskScale!==1)for(const {mapping} of [primaryApplication,secondaryApplication]){
+      mapping[0]*=maskScale;mapping[2]*=maskScale;mapping[3]*=maskScale
+    }
     gl.uniform4f(u.u_textureApplication,...primaryApplication.application);gl.uniform4f(u.u_textureMapping,...primaryApplication.mapping)
     gl.uniform4f(u.u_dualTextureApplication,...secondaryApplication.application);gl.uniform4f(u.u_dualTextureMapping,...secondaryApplication.mapping)
     gl.uniform1f(u.u_dualGrainStrength,dualGrain?.strength ?? 0)
@@ -1076,14 +1080,15 @@ export class SmudgePainter {
     const g=brush?.behavior?.grain
     const period=Math.max(0.5,(brush?.texture?.periodPx ?? 1)*(g ? 0.1+g.zoom*1.9 : 1))
     const depth=(brush?.texture?.strength ?? 0)*(wet?.stamp.grainDepth ?? 1)
-    gl.uniform1f(u.u_grainPeriod,period)
+    gl.uniform1f(u.u_grainPeriod,period*maskScale)
     const random=(i:number):number=>brushDabRandom(wet?.seed ?? 0,i)
     gl.uniform1f(u.u_grainStrength,clampNum(Math.max(g?.depthMinimum ?? 0,depth)*(1-(g?.depthJitter ?? 0)*random(43)),0,1))
     gl.uniform1f(u.u_grainBlend,g ? Math.max(0,BRUSH_BLEND_MODES.indexOf(g.blendMode)) : 1)
     const movement=g?.mode === 'moving' ? 1-g.movement : 0
     const angle=(g?.rotation ?? 0)*Math.PI
     const jitter=g?.offsetJitter ? random(42)*period : 0
-    gl.uniform4f(u.u_grainTransform,-dab.x*movement+jitter,-dab.y*movement+jitter,Math.cos(angle),Math.sin(angle))
+    const grainDab=wet?.maskSourceDab ?? dab
+    gl.uniform4f(u.u_grainTransform,(-grainDab.x*movement+jitter)*maskScale+tile.originX*(maskScale-1),(-grainDab.y*movement+jitter)*maskScale+tile.originY*(maskScale-1),Math.cos(angle),Math.sin(angle))
     gl.uniform2f(u.u_grainTone,g?.brightness ?? 0,clampNum((g?.contrast ?? 0)+(wet?.stamp.wetGrade ?? 0),-1,1))
     gl.uniform2f(u.u_wetWorldOrigin,tile.originX,tile.originY+buffer.height)
     const phase=brushDabSeed(dab.x,dab.y,dab.pressure)

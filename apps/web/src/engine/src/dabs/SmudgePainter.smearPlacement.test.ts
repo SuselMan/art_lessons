@@ -64,5 +64,12 @@ it.each([false,true])('modern mask path keeps per-gesture state across chunks: d
   engine.appendOperation(makeStroke('peer','ink',[dab(30,30,{size:5})],{tool:'digitalBrush',preset,strokeId:'modern',strokeEnd:true}),'remote')
   expect(draw.mock.calls.filter(c=>c[7]==='lay')).toHaveLength(1)
   expect(draw.mock.calls.filter(c=>c[7]==='mask')).toHaveLength(mean?1:0)
+  if(mean){
+   const mask=draw.mock.calls.find(c=>c[7]==='mask')!,lay=draw.mock.calls.find(c=>c[7]==='lay')!
+   // Weighting and transfer must see one world-anchored texture phase.
+   expect((mask[1] as Dab).x).toBe((lay[1] as Dab).x)
+   expect((mask[1] as Dab).y).toBe((lay[1] as Dab).y)
+   expect((mask[0] as {originX:number}).originX).not.toBe(0)
+  }
  }finally{engine.destroy()}
 })
