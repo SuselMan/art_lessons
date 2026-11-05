@@ -16,7 +16,7 @@ export function colorSmudgeTransferFragment(source: string): string {
  float wetGrainBlend(float b,float s,float m)`)
   replace("    if (u_previousCanvas > 0.5) {",
 `    if(u_colorSmudge.w>1.5){
-      vec4 tip=texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw);
+      vec4 tip=texture2D(u_tip, u_tipBounds.xy + (v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw);
       float gray=floor(tip.r/max(tip.a,0.000001)*255.0+0.5)-127.0;
       gray=sign(gray)*floor((abs(gray)*floor(u_colorSmudgeHeight.x*255.0+0.5)+127.0)/255.0);
       gray=clamp(gray+127.0,0.0,255.0)/255.0;
