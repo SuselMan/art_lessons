@@ -80,7 +80,7 @@ class LightnessImportTests(unittest.TestCase):
                 self.assertEqual(c.skipped,[]);brush=c.brushes[0]
                 if engine=='colorsmudge':
                     self.assertEqual(brush['descriptor']['tip']['material']['kind'],'lightness')
-                    self.assertEqual(brush['descriptor']['mixer']['paintThickness'],{'value':1,'mode':'overlay'})
+                    self.assertEqual(brush['descriptor']['mixer']['paintThickness'],{'value':1,'mode':'overwrite'})
                 else:
                     self.assertEqual(brush['descriptor']['tip']['material']['strength'],.5)
                     self.assertTrue(any(x['feature']=='lightnessStrength' and x['status']=='unsupported' for x in brush['compatibility']))

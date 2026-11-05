@@ -903,7 +903,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
-                         and (application==0 or 'color' in d['tip'] or 'material' in d['tip']) and not enabled(params.get('MergedPaint','false'))
+                         and (application==0 or 'color' in d['tip'] or 'material' in d['tip']) and (not enabled(params.get('MergedPaint','false')) or 'material' in d['tip'])
                          and (params.get('CompositeOp','normal')=='normal' or (modern and mode in modes)))
         if previous_canvas:
             d['mixer'].update(source='previousCanvas',load=0,initialLoad=0)
@@ -912,10 +912,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 checked=enabled(params.get('PressurePaintThickness'))
                 thickness=numeric(params.get('PaintThicknessValue'),1) if checked else 1
                 if not 0<=thickness<=1:raise ValueError('Native Paint Thickness outside0..1')
-                d['mixer']['paintThickness']={'value':thickness,'mode':'overwrite' if numeric(params.get('PaintThicknessThicknessMode'),2)==1 else 'overlay'}
+                d['mixer']['paintThickness']={'value':thickness,'mode':'overwrite' if not checked or numeric(params.get('PaintThicknessThicknessMode'),2)==1 else 'overlay'}
                 if checked:
                     controls=size_like_controls(params,'PaintThickness',notes,allow_time=timed_input)
                     if controls:d['mixer']['paintThickness']['dynamics']=controls
+                if enabled(params.get('MergedPaint','false')):notes.append(compatibility('materialMergedPaint','Native LIGHTNESSMAP ignores the MergedPaint option and reads its own unshaded layer.','supported'))
                 notes.append(compatibility('colorSmudgeMaterial','Separate unshaded colour and height persist in tile state, checkpoints and network snapshots; native16-bit colour, height/mask byte rounding and colour profile differ.'))
 
             # Native has no FlowOption in Color Smudge. Opacity is already in

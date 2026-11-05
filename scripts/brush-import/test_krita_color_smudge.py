@@ -52,12 +52,12 @@ class ColorSmudgeImportTests(LegacyForegroundTests):
         self.assertFalse(any(n['status']=='unsupported' and 'PaintThickness' in n['feature'] for n in c.brushes[0]['compatibility']))
     def test_lightness_overlay_without_checkbox_uses_full_thickness(self):
         d=self.brush({'PaintThicknessValue':'.2'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]['descriptor']
-        self.assertEqual(d['mixer']['paintThickness'],{'value':1,'mode':'overlay'})
-    def test_overlay_lightness_stays_explicitly_unsupported(self):
+        self.assertEqual(d['mixer']['paintThickness'],{'value':1,'mode':'overwrite'})
+    def test_lightness_ignores_merged_paint_as_native_strategy_does(self):
         b=self.brush({'MergedPaint':'true'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]
-        self.assertNotIn('material',b['descriptor']['tip'])
-        self.assertNotIn('paintThickness',b['descriptor']['mixer'])
-        self.assertTrue(any(n['status']=='unsupported' for n in b['compatibility']))
+        self.assertEqual(b['descriptor']['mixer']['source'],'previousCanvas')
+        self.assertIn('paintThickness',b['descriptor']['mixer'])
+        self.assertTrue(any(n['feature']=='materialMergedPaint' and n['status']=='supported' for n in b['compatibility']))
     def test_legacy_contract_unchanged(self):
         m=self.brush({'SmudgeRateValue':'1'}).brushes[0]['descriptor']['mixer']
         self.assertNotIn('algorithm',m)
