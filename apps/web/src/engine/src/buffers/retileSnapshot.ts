@@ -68,6 +68,11 @@ export function isFullyTransparent(pixels: Uint8Array): boolean {
   return true
 }
 
+/** Invisible height still influences a later material stroke. */
+export function isEmptySnapshotTile(tile:SnapshotTile):boolean {
+  return isFullyTransparent(tile.pixels)&&(!tile.colorSmudge || isFullyTransparent(tile.colorSmudge.color)&&isFullyTransparent(tile.colorSmudge.height))
+}
+
 /** Re-slices `tiles` onto the `tileW` x `tileH` grid rooted at world origin.
  *
  *  The row arithmetic is the part worth reading twice. A tile's pixel array is
@@ -118,6 +123,9 @@ export function retileSnapshotTiles(
         built.set(key, dest)
         out.push(dest)
       }
+      // A dry region's material colour starts from its visible pixels. This
+      // also handles material and ordinary source fragments sharing one cell.
+      if (src.colorSmudge && !dest.colorSmudge) dest.colorSmudge={color:dest.pixels.slice(),height:new Uint8Array(dest.pixels.length)}
 
       const rowBytes = (x1 - x0) * 4
       for (let y = y0; y < y1; y++) {
@@ -126,6 +134,11 @@ export function retileSnapshotTiles(
         const srcOff = (srcRow * src.width + (x0 - src.originX)) * 4
         const dstOff = (dstRow * tileW + (x0 - originX)) * 4
         dest.pixels.set(src.pixels.subarray(srcOff, srcOff + rowBytes), dstOff)
+        if (dest.colorSmudge) {
+          dest.colorSmudge.color.set((src.colorSmudge?.color ?? src.pixels).subarray(srcOff,srcOff+rowBytes),dstOff)
+          if (src.colorSmudge) dest.colorSmudge.height.set(src.colorSmudge.height.subarray(srcOff,srcOff+rowBytes),dstOff)
+          else dest.colorSmudge.height.fill(0,dstOff,dstOff+rowBytes)
+        }
       }
     }
   }

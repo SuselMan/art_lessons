@@ -21,7 +21,8 @@
 import type { Operation } from '@grafetto/shared'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
-import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
+import {packColorSmudge} from './materialCheckpoint'
+import { isEmptySnapshotTile, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
 import { OperationLog, type PixelOperation } from './OperationLog'
 import { hasOpenBrushStroke } from './openBrushStroke'
@@ -118,8 +119,9 @@ export class SnapshotIO {
       const pixels = width === buffer.width && height === buffer.height
         ? buffer.readPixels()
         : buffer.readPixelsRegion(0, buffer.height - height, width, height)
-      const tile = { originX, originY, width, height, pixels }
-      return isFullyTransparent(tile.pixels) ? [] : [tile]
+      const material=buffer.readColorSmudgePixels(width,height)
+      const tile:SnapshotTile = { originX, originY, width, height, pixels,...(material ? {colorSmudge:material} : {}) }
+      return isEmptySnapshotTile(tile) ? [] : [tile]
     })
   }
 
@@ -248,7 +250,7 @@ export class SnapshotIO {
     const { gl, ledger } = this.ctx
     // (#474) Counted before anything can return early, so a dropped restore
     // still reports the size of what it dropped.
-    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength, 0)
+    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength + (t.colorSmudge ? t.colorSmudge.color.byteLength+t.colorSmudge.height.byteLength : 0), 0)
     const buf = this.ctx.layer(layerId)
     if (!buf) {
       this._restoreAudit.push({
@@ -286,7 +288,7 @@ export class SnapshotIO {
     // The scan is not free, but it is cheap against what it prevents: it exits
     // on the first non-zero alpha, and a tile it does not exit early on is one
     // whose 4 MiB upload it has just cancelled.
-    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
+    const painted = retiled.filter(t => !isEmptySnapshotTile(t))
     // Blank tiles are dropped from the upload only while the layer is
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
@@ -306,7 +308,10 @@ export class SnapshotIO {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
       // (#425) See the same call in the engine's _replayInto: the payload
       // carries its own size because edge tiles are clipped to the sheet.
-      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+      for (const target of buf.resolveForPaint(rect)) {
+        target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+        target.buffer.restoreColorSmudgePixels(t.width, t.height, t.colorSmudge)
+      }
       buf.restoreTileContent(rect, t.pixels)
     }
     // One getError for the whole layer rather than one per tile: the question a
@@ -370,6 +375,7 @@ export class SnapshotIO {
     const held = tiles.map(t => ({
       originX: t.originX, originY: t.originY, width: t.width, height: t.height,
       packed: packTilePixels(t.pixels),
+      colorSmudge:packColorSmudge(t.colorSmudge),
     }))
     // Replaces any snapshot checkpoint this layer already had — see
     // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.

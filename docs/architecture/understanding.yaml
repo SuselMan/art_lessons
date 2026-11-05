@@ -125,6 +125,17 @@ topics:
     modules: [apps/web/src/engine/src/presets, shared-contract]
     adr: [018-unified-brush-engine]
 
+  - id: brush-material-state
+    level: 2
+    parent: engine
+    title: Цвет и высота рельефной краски между штрихами
+    issue: 811
+    why: >-
+      Видимый RGBA — проекция; продолжение LIGHTNESSMAP читает отдельный цвет
+      и накапливает высоту. Все поля принадлежат тайлу и сохраняются вместе
+      в истории и снимках, с общим учётом памяти.
+    modules: [apps/web/src/engine/src/buffers, apps/web/src/engine/src/oplog]
+
   - id: layers-and-tiles
     level: 2
     parent: engine

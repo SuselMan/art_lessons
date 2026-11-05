@@ -22,6 +22,8 @@ export interface CheckpointTile {
    *  `_replayInto`, one tile at a time, and dropped again with the iteration
    *  that read it. `width * height * 4` is the size to unpack back to. */
   packed: Uint8Array
+  /** Same synchronous packing as projected pixels; both planes or neither. */
+  colorSmudge?: {color:Uint8Array;height:Uint8Array}
 }
 
 export interface Checkpoint {
@@ -69,7 +71,7 @@ export interface Checkpoint {
   dispose?: () => void
 }
 
-const bytesOf = (cp: Checkpoint): number => cp.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
+const bytesOf = (cp: Checkpoint): number => cp.tiles.reduce((sum, t) => sum + t.packed.byteLength + (t.colorSmudge ? t.colorSmudge.color.byteLength+t.colorSmudge.height.byteLength : 0), 0)
 
 export class CheckpointStore {
   private list: Checkpoint[] = []

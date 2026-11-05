@@ -130,6 +130,7 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
 import { TILE_SIZE, tilesOverlappingRect, tileWorldRect, type WorldRect } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
+import { packColorSmudge, restoreCheckpointMaterial } from './src/oplog/materialCheckpoint'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
 import { brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample } from '@grafetto/shared'
@@ -4607,7 +4608,10 @@ export class PencilEngine implements PencilEngineAPI {
       for (const t of best.cp.tiles) {
         const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
         const pixels = unpackTilePixels(t.packed, t.width * t.height * 4)
-        for (const target of fresh.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
+        for (const target of fresh.resolveForPaint(rect)) {
+          target.buffer.restorePixelsRect(t.width, t.height, pixels)
+          restoreCheckpointMaterial(target.buffer, t)
+        }
         fresh.restoreTileContent(rect, pixels)
       }
     }
@@ -4890,7 +4894,10 @@ export class PencilEngine implements PencilEngineAPI {
           // after #425 clips whatever hangs off the sheet, so an edge tile's
           // payload can be smaller than the tile it restores into. A tile
           // stored before that is the same call with nothing clipped.
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
+          for (const target of buf.resolveForPaint(rect)) {
+            target.buffer.restorePixelsRect(t.width, t.height, pixels)
+            restoreCheckpointMaterial(target.buffer, t)
+          }
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
@@ -5123,6 +5130,7 @@ export class PencilEngine implements PencilEngineAPI {
           const found = scratch.resolveVisible(rect)[0]
           return found ? found.buffer.readPixels() : null
         },
+        readColorSmudgePixels:rect=>scratch.resolveVisible(rect)[0]?.buffer.readColorSmudgePixels(),
         destroy: () => scratch.destroy(),
       }
     }
@@ -5538,6 +5546,7 @@ export class PencilEngine implements PencilEngineAPI {
         const tiles = copies.map(({ buffer, originX, originY }) => ({
           originX, originY, width: buffer.width, height: buffer.height,
           packed: packTilePixels(buffer.readPixels()),
+          colorSmudge: packColorSmudge(buffer.readColorSmudgePixels()),
         }))
         if (washes.length) {
           // One checkpoint carrying washes per layer: the textures are dear.
@@ -5624,6 +5633,7 @@ export class PencilEngine implements PencilEngineAPI {
     const read = ({ buffer, originX, originY }: PaintTarget) => ({
       originX, originY, width: buffer.width, height: buffer.height,
       packed: packTilePixels(buffer.readPixels()),
+      colorSmudge:packColorSmudge(buffer.readColorSmudgePixels()),
     })
     const opIds = ops.map(o => o.id)
     if (resident.length === 1 || typeof document === 'undefined') {

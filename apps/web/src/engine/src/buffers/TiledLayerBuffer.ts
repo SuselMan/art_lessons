@@ -82,6 +82,7 @@ export interface TileRebuildSession {
    *  represents — the same "nothing here" meaning as a tile that was never
    *  created at all. */
   readPixels(rect: WorldRect): Uint8Array | null
+  readColorSmudgePixels?(rect:WorldRect):{color:Uint8Array;height:Uint8Array}|undefined
   /** Releases whatever scratch resources this session used internally. */
   destroy(): void
 }
@@ -166,6 +167,13 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // key to bump it to the most-recently-used (last) position, so the first
   // key in Map iteration order is always the least-recently-used one.
   private readonly tiles = new Map<string, AccumulationBuffer>()
+  private materialPlaneUnits=0
+
+  private createFineTile():AccumulationBuffer {
+    const tile=new AccumulationBuffer(this.gl,this.tileW,this.tileH)
+    tile.onMaterialStorageChange=delta=>{this.materialPlaneUnits+=delta}
+    return tile
+  }
   // Tile keys this instance has evicted (destroyed the GPU texture for) but
   // not forgotten — recoverable on demand via rebuildTile. Never populated
   // when rebuildTile is undefined (see class docstring).
@@ -471,7 +479,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   private evictIfOverBudget(inUse?: ReadonlySet<string>): void {
     if (!this.rebuildTile || this.evictionSuspendDepth > 0) return
 
-    let overBudget = this.tiles.size - this.maxResidentTiles
+    let overBudget = this.tiles.size + this.materialPlaneUnits - this.maxResidentTiles
     if (overBudget <= 0) return
     // Iterates a snapshot rather than the live Map: unlike the old loop this
     // can skip a key (leaving it in place) instead of always deleting the
@@ -482,12 +490,13 @@ export class TiledLayerBuffer implements ILayerBuffer {
       if (overBudget <= 0) break
       if (inUse?.has(key)) continue
       const victim = this.tiles.get(key)!
+      const storageUnits=victim.baseBytes/(this.tileW*this.tileH*4)
       // (#367) Its last chance to reach the levels — see foldBeforeEviction.
       this.foldBeforeEviction(key, victim)
       victim.destroy()
       this.tiles.delete(key)
       this.evicted.add(key)
-      overBudget--
+      overBudget-=storageUnits
     }
   }
 
@@ -509,7 +518,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const key of keys) {
       const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+      const tile = this.createFineTile()
       tile.clear()
       const pixels = session.readPixels(rect)
       // (#155 Tier 2) Recovery already has this tile's exact historical
@@ -519,6 +528,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
       // reads the result back for free instead of re-scanning.
       if (pixels) {
         tile.restorePixels(pixels)
+        const material=session.readColorSmudgePixels?.(rect)
+        if(material)tile.restoreColorSmudgePixels(this.tileW,this.tileH,material)
         this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH)))
       } else {
         this.contentRects.set(key, null)
@@ -548,7 +559,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // called — see resolveForPaint) already recovered it, so it wouldn't
     // still be missing from `tiles`. Either way, a plain blank tile is
     // correct here.
-    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+    const tile = this.createFineTile()
     tile.clear()
     this.tiles.set(key, tile)
     // A genuinely brand-new tile (never seen this key before) starts with

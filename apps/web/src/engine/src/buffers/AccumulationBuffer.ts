@@ -15,6 +15,57 @@ export class AccumulationBuffer {
   // Prefixed _ but not private — internal methods use _fbo directly; public getter `fbo` is used externally.
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
+  private _colorSmudge?: {color:AccumulationBuffer;height:AccumulationBuffer}
+  /** Owning tiled buffer accounts extra base-level planes without scanning
+   * its resident map on every input event. */
+  onMaterialStorageChange?: (planeDelta:number)=>void
+
+  get colorSmudge(): Readonly<{color:AccumulationBuffer;height:AccumulationBuffer}> | undefined { return this._colorSmudge }
+
+  /** Allocate only when a material brush first touches this tile. The visible
+   * projection remains the dry baseline until the caller changes the fields. */
+  ensureColorSmudge(): Readonly<{color:AccumulationBuffer;height:AccumulationBuffer}> {
+    if(this._colorSmudge)return this._colorSmudge
+    const color=new AccumulationBuffer(this.gl,this.width,this.height)
+    let height:AccumulationBuffer|undefined
+    try {
+      height=new AccumulationBuffer(this.gl,this.width,this.height)
+      height.clear()
+      this.copyTo(color)
+      this._colorSmudge={color,height}
+      this.onMaterialStorageChange?.(2)
+      return this._colorSmudge
+    } catch(error) {color.destroy();height?.destroy();throw error}
+  }
+
+  dryColorSmudge():void {
+    if(!this._colorSmudge)return
+    this._colorSmudge?.color.destroy()
+    this._colorSmudge?.height.destroy()
+    this._colorSmudge=undefined
+    this.onMaterialStorageChange?.(-2)
+  }
+
+  /** Base-level storage, including optional material; mip storage is accounted
+   * separately by the existing display machinery. */
+  get baseBytes():number {return this.width*this.height*4*(this._colorSmudge ? 3 : 1)}
+
+  readColorSmudgePixels(w=this.width,h=this.height):{color:Uint8Array;height:Uint8Array}|undefined {
+    const material=this._colorSmudge
+    if(!material)return undefined
+    const read=(b:AccumulationBuffer)=>w===this.width&&h===this.height ? b.readPixels() : b.readPixelsRegion(0,this.height-h,w,h)
+    return {color:read(material.color),height:read(material.height)}
+  }
+
+  restoreColorSmudgePixels(w:number,h:number,planes?:{color:Uint8Array;height:Uint8Array}):void {
+    if(planes&&(!Number.isInteger(w)||!Number.isInteger(h)||w<0||h<0||w>this.width||h>this.height||planes.color.length!==w*h*4||planes.height.length!==w*h*4)) throw new Error('Incomplete material restore')
+    this.dryColorSmudge()
+    if(!planes)return
+    const material=this.ensureColorSmudge()
+    material.color.clear();material.height.clear()
+    material.color.restorePixelsRect(w,h,planes.color)
+    material.height.restorePixelsRect(w,h,planes.height)
+  }
 
   // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
   // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
@@ -309,6 +360,7 @@ export class AccumulationBuffer {
   }
 
   clear(): void {
+    this.dryColorSmudge()
     this._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -454,6 +506,7 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
+    this.dryColorSmudge()
     this.gl.deleteTexture(this._texture)
     this.gl.deleteFramebuffer(this._fbo)
   }
