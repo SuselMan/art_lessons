@@ -30,3 +30,14 @@ it('requires every RGB frame plane to exist and match alpha dimensions',()=>{
  l.assets[3].size=32;expect(isBrushLibrary(l)).toBe(false)
  l.assets.pop();expect(isBrushLibrary(l)).toBe(false)
 })
+
+it('requires paired material planes for persistent paint thickness',()=>{
+ const l=library(),d=l.brushes[0].descriptor
+ const ids=['asset:'+'a'.repeat(64),'asset:'+'b'.repeat(64)] as const
+ l.assets=ids.map(id=>({id,size:16,file:id.slice(6)+'.bin'}))
+ d.tip={kind:'bitmap',mask:ids[0],hardness:1,aspect:1,angle:0,rotation:'fixed',material:{kind:'lightness',gray:ids[1],strength:1}}
+ d.mixer!.paintThickness={value:.6,mode:'overlay',dynamics:[{control:'pressure',minimum:0,jitter:0,curve:[[0,0],[1,1]]}]}
+ expect(isBrushLibrary(l)).toBe(true)
+ d.mixer!.paintThickness.value=2;expect(isBrushLibrary(l)).toBe(false)
+ d.mixer!.paintThickness.value=.6;delete d.tip.material;expect(isBrushLibrary(l)).toBe(false)
+})

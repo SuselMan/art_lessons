@@ -47,7 +47,7 @@ class LegacyForegroundTests(unittest.TestCase):
 
     def test_strategy_gate_applies_to_pure_and_foreground(self):
         gates=[({'MergedPaint':'true'},None),({'CompositeOp':'multiply'},None),({'SmudgeRateMode':'2'},None)]
-        gates += [({},'<Brush type="png_brush" filename="tip.png" brushApplication="'+str(mode)+'"/>') for mode in [2,3]]
+        gates += [({},'<Brush type="png_brush" filename="tip.png" brushApplication="'+str(mode)+'"/>') for mode in [3]]
         for color in ['0','.7']:
             for extra,definition in gates:
                 with self.subTest(color=color,extra=extra,definition=definition):

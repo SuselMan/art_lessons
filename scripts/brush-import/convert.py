@@ -485,7 +485,7 @@ def validate_portable_mixer(descriptor):
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if (descriptor['model']!='mixer' or not isinstance(mixer,dict)
-            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','algorithm'}
+            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','algorithm','paintThickness'}
             or any(not finite(mixer.get(key)) for key in ('load','pickup','strength'))
             or ('initialLoad' in mixer and not finite(mixer['initialLoad']))
             or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
@@ -495,6 +495,12 @@ def validate_portable_mixer(descriptor):
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source')=='previousCanvas' and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
         raise ValueError('Invalid portable previous-canvas source')
+    if 'paintThickness' in mixer:
+        t=mixer['paintThickness']
+        if (mixer.get('algorithm')!='krita-mask' or not descriptor.get('tip',{}).get('material') or not isinstance(t,dict)
+                or set(t)-{'value','mode','dynamics'} or not finite(t.get('value')) or t.get('mode') not in ('overlay','overwrite')):
+            raise ValueError('Invalid portable paint thickness')
+        if 'dynamics' in t: validate_portable_dynamics(t['dynamics'])
     if 'pickupDynamics' in mixer: validate_portable_dynamics(mixer['pickupDynamics'])
     if 'sampling' in mixer:
         sampling=mixer['sampling']
@@ -663,7 +669,7 @@ def portable_bundle(path,catalog):
             if len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable RGB plane sizes differ')
         if 'material' in tip:
             material=tip['material']
-            if (d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict)
+            if ((d['model']!='stamp' and not (d['model']=='mixer' and d.get('mixer',{}).get('algorithm')=='krita-mask' and d.get('mixer',{}).get('paintThickness'))) or tip.get('kind')!='bitmap' or not isinstance(material,dict)
                     or set(material)-{'kind','gray','grayFrames','strength'} or material.get('kind')!='lightness'
                     or not isinstance(material.get('gray'),str) or material['gray'] not in ids
                     or type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1):

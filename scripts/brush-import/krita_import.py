@@ -536,7 +536,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
             if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
-            if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
+            if application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames']):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 material_gray=[gray for gray,alpha in planes]
                 frames=[alpha for gray,alpha in planes]
@@ -561,7 +561,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
             if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[image.convert('RGBA')]
-            if application==2 and engine=='paintbrush' and adjustment_active:
+            if application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active:
                 gray,mask=lightness_planes(image,definition)
                 material_gray=[gray]
             elif stamp_images:
@@ -901,13 +901,23 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                                     'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
         # Both pure and foreground canvas paths require this same native
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
-        modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip']
+        modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
-                         and (application==0 or 'color' in d['tip']) and not enabled(params.get('MergedPaint','false'))
+                         and (application==0 or 'color' in d['tip'] or 'material' in d['tip']) and not enabled(params.get('MergedPaint','false'))
                          and (params.get('CompositeOp','normal')=='normal' or (modern and mode in modes)))
         if previous_canvas:
             d['mixer'].update(source='previousCanvas',load=0,initialLoad=0)
             if modern: d['mixer']['algorithm']='krita-stamp' if 'color' in d['tip'] else 'krita-mask'
+            if 'material' in d['tip']:
+                checked=enabled(params.get('PressurePaintThickness'))
+                thickness=numeric(params.get('PaintThicknessValue'),1) if checked else 1
+                if not 0<=thickness<=1:raise ValueError('Native Paint Thickness outside0..1')
+                d['mixer']['paintThickness']={'value':thickness,'mode':'overwrite' if numeric(params.get('PaintThicknessThicknessMode'),2)==1 else 'overlay'}
+                if checked:
+                    controls=size_like_controls(params,'PaintThickness',notes,allow_time=timed_input)
+                    if controls:d['mixer']['paintThickness']['dynamics']=controls
+                notes.append(compatibility('colorSmudgeMaterial','Separate unshaded colour and height persist in tile state, checkpoints and network snapshots; native16-bit colour, height/mask byte rounding and colour profile differ.'))
+
             # Native has no FlowOption in Color Smudge. Opacity is already in
             # dab.opacity, and is used in two distinct native composition stages.
             d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
@@ -933,13 +943,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('colorSmudge','New ALPHAMASK feedback composition, squared dynamic Color Rate, Smearing/Dulling and mask-weighted mean. Adaptive mask-weighted Halton sampling with64/2% initial batch,16-tap convergence and radius retries;1024 taps/attempt and512px gather cap plus RGBA8 colour-space differences remain.'))
         else:
             d['tip'].pop('color',None)
+            d['tip'].pop('material',None)
             notes.append(compatibility('colorSmudge','Unsupported native non-ALPHAMASK, overlay, non-normal or unknown-mode strategy; carried-pigment approximation retained.','unsupported'))
         if enabled(params.get('PressureSmudgeRate')):
             controls=size_like_controls(params,'SmudgeRate',notes,allow_time=timed_input)
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1047,6 +1058,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return isinstance(value,list) and any(source_clock(v)for v in value)
     if source_clock(behavior):d['version']=35
     if d.get('mixer',{}).get('algorithm') or d.get('mixer',{}).get('sampling',{}).get('mode')=='adaptiveMean': d['version']=max(d['version'],36)
+    if d.get('mixer',{}).get('paintThickness'): d['version']=max(d['version'],37)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

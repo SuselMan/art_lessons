@@ -266,6 +266,11 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  something" from "never grew past budget in the first place"). */
   get evictedTileCount(): number { return this.evicted.size }
 
+  dryColorSmudge():void {
+    if(!this.materialPlaneUnits)return
+    for(const tile of this.tiles.values())tile.dryColorSmudge()
+  }
+
   clear(): void {
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()

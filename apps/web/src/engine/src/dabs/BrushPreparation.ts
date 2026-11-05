@@ -67,7 +67,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       capabilities.add('stampCircleBand')
     }
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
-    if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
+    if(b.tip.material && painter==='wet' && !b.mixer?.paintThickness) throw Error('Lightness tip material requires a material renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (!covered) {
       const curve = b.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurve'
@@ -80,7 +80,11 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       }
     }
     const frames=b.tip.animation?.frames ?? (brushTipSamplerId(b.tip) ? [brushTipSamplerId(b.tip)!] : [])
-    frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip,b.tip.color?.frames?.[index] ?? b.tip.color?.planes))
+    frames.forEach((id,index)=>{
+      const gray=b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray
+      const colorPlanes=painter==='wet' && b.mixer?.paintThickness && gray ? [gray,gray,gray] as const : b.tip.color?.frames?.[index] ?? b.tip.color?.planes
+      add(painter,id,false,false,gray,b.tip,colorPlanes)
+    })
     add(painter, b.texture?.id, true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }
     const dual = b.behavior?.dual

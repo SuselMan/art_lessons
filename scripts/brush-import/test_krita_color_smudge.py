@@ -39,6 +39,25 @@ class ColorSmudgeImportTests(LegacyForegroundTests):
             p.write_text(json.dumps(bad));out=convert.Catalog(Path(tmp)/'bad')
             with self.assertRaises(ValueError):convert.portable_bundle(p,out)
             self.assertEqual(list(out.output.iterdir()),[])
+    def test_lightness_creates_persistent_height_and_dynamic_thickness(self):
+        c=self.brush({'PressurePaintThickness':'true','PaintThicknessValue':'.4','PaintThicknessThicknessMode':'1','PaintThicknessUseCurve':'true','PaintThicknessSensor':'<params id="pressure"/>'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>')
+        self.assertEqual(c.skipped,[])
+        d=c.brushes[0]['descriptor']
+        self.assertEqual(d['version'],37)
+        self.assertEqual(d['tip']['material']['kind'],'lightness')
+        self.assertEqual(d['mixer']['algorithm'],'krita-mask')
+        self.assertEqual(d['mixer']['paintThickness']['value'],.4)
+        self.assertEqual(d['mixer']['paintThickness']['mode'],'overwrite')
+        self.assertEqual(d['mixer']['paintThickness']['dynamics'][0]['control'],'pressure')
+        self.assertFalse(any(n['status']=='unsupported' and 'PaintThickness' in n['feature'] for n in c.brushes[0]['compatibility']))
+    def test_lightness_overlay_without_checkbox_uses_full_thickness(self):
+        d=self.brush({'PaintThicknessValue':'.2'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]['descriptor']
+        self.assertEqual(d['mixer']['paintThickness'],{'value':1,'mode':'overlay'})
+    def test_overlay_lightness_stays_explicitly_unsupported(self):
+        b=self.brush({'MergedPaint':'true'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]
+        self.assertNotIn('material',b['descriptor']['tip'])
+        self.assertNotIn('paintThickness',b['descriptor']['mixer'])
+        self.assertTrue(any(n['status']=='unsupported' for n in b['compatibility']))
     def test_legacy_contract_unchanged(self):
         m=self.brush({'SmudgeRateValue':'1'}).brushes[0]['descriptor']['mixer']
         self.assertNotIn('algorithm',m)

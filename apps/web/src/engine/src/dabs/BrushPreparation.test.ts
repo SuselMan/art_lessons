@@ -87,7 +87,7 @@ it('plans one packed variant for each alpha/gray pair, not duplicate old-format 
   expect(first.materialChannels).toBe('rg');expect(second.materialChannels).toBe('ba')
   expect(brushPreparationBytes(resources,()=>2)).toBe(20)
   brush.model='mixer'
-  expect(()=>brushPreparationResources(brush)).toThrow('stamp renderer')
+  expect(()=>brushPreparationResources(brush)).toThrow('material renderer')
 })
 
 it('rejects procedural masks on wet samplers before scheduling any upload',()=>{

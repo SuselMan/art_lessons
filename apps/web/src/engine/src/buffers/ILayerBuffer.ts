@@ -40,6 +40,9 @@ export interface PaintTarget {
 }
 
 export interface ILayerBuffer {
+  /** A different paint model dries the whole layer, retaining its projection. */
+  dryColorSmudge?():void
+
   /** Wipes all content — destroys every resident tile (a fresh tile painted
    *  on demand afterward starts cleared, same as AccumulationBuffer's own
    *  constructor+clear). */

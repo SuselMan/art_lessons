@@ -4951,6 +4951,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+    if(op.type!=='stroke')buf.dryColorSmudge?.()
     switch (op.type) {
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -7454,6 +7455,7 @@ export class PencilEngine implements PencilEngineAPI {
       assertBrushExecutionContext(brush,execution)
     }
     if (!dabs.length && !strokeEndSample) return undefined
+    if(!(tool==='digitalBrush' && digitalBrushFromPreset(presetName).mixer?.paintThickness))target.dryColorSmudge?.()
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
     if (tool === 'digitalBrush') {
       dabs = dabs.map(codecDab)

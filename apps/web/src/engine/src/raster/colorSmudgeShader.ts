@@ -5,7 +5,7 @@ export function colorSmudgeTransferFragment(source: string): string {
     source = source.replace(before, after)
   }
   replace("  uniform float u_previousCanvas; //",
-`  uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
+`  uniform vec2 u_colorSmudgeHeight; uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
   uniform float u_previousCanvas; //`)
   replace(" float wetGrainBlend(float b,float s,float m)",
 ` vec4 colorSmudgePaint(vec4 destination,vec4 pigment) {
@@ -15,7 +15,15 @@ export function colorSmudgeTransferFragment(source: string): string {
  }
  float wetGrainBlend(float b,float s,float m)`)
   replace("    if (u_previousCanvas > 0.5) {",
-`    if(u_colorSmudge.w>0.5){gl_FragColor=vec4(shape);return;}
+`    if(u_colorSmudge.w>1.5){
+      vec4 tip=texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw);
+      float gray=floor(tip.r/max(tip.a,0.000001)*255.0+0.5)-127.0;
+      gray=sign(gray)*floor((abs(gray)*floor(u_colorSmudgeHeight.x*255.0+0.5)+127.0)/255.0);
+      gray=clamp(gray+127.0,0.0,255.0)/255.0;
+      float a=clamp(shape*u_colorSmudgeHeight.y,0.0,1.0);
+      gl_FragColor=vec4(vec3(gray*a),a);return;
+    }
+    if(u_colorSmudge.w>0.5){gl_FragColor=vec4(shape);return;}
     if (u_previousCanvas > 0.5) {`)
   replace("      if(u_previousCanvasForeground.a>0.0) {",
 `      if(u_colorSmudge.x>0.5) {

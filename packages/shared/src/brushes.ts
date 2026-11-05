@@ -275,6 +275,8 @@ export interface BrushDescriptor {
      * Rate and its input responses multiply effective dab opacity once here;
      * transfer independently applies pickup and effective opacity. No reservoir. */
     foreground?: { rate: number; dynamics?: BrushDynamic[] }
+    /** LIGHTNESSMAP stores unshaded colour and accumulated height per tile. */
+    paintThickness?: {value:number;mode:'overlay'|'overwrite';dynamics?:BrushDynamic[]}
     /** Multiplicative input responses for the pickup/transfer amount. */
     pickupDynamics?: BrushDynamic[]
     /** How strongly the carried paint is laid down per radius travelled. */
@@ -460,7 +462,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if (d.tip.material !== undefined) {
       const material = d.tip.material
-      if (d.model !== 'stamp' || d.tip.kind !== 'bitmap' || !record(material)
+      if ((d.model !== 'stamp' && !(d.model==='mixer' && record(d.mixer) && d.mixer.algorithm==='krita-mask' && d.mixer.paintThickness)) || d.tip.kind !== 'bitmap' || !record(material)
         || Object.keys(material).some(key => !['kind','gray','grayFrames','strength'].includes(key))
         || material.kind !== 'lightness' || !ref(material.gray) || !ref(d.tip.mask)
         || !numberIn(material.strength,0,1)) return false
@@ -525,6 +527,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     // opt-in only through its independent pre-transfer composition contract.
     if (d.mixer?.source === 'previousCanvas' && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
+    if(d.mixer?.paintThickness!==undefined) {
+      const t=d.mixer.paintThickness
+      if(d.mixer.algorithm!=='krita-mask'||!d.tip.material||!record(t)||Object.keys(t).some(k=>!['value','mode','dynamics'].includes(k))
+        ||!numberIn(t.value,0,1)||!['overlay','overwrite'].includes(String(t.mode))
+        ||t.dynamics!==undefined&&!isBrushBehavior({version:2,modulations:{flow:t.dynamics}}))return false
+    }
     if (d.model !== 'mixer' && d.mixer !== undefined) return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
     if (d.screentonePx !== undefined) return false
@@ -563,7 +571,7 @@ function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
     ...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
     ...(v?.rotation?.composition?.additive??[]),...(v?.rotation?.composition?.scaling??[]),
     ...groups.flatMap(g=>Object.values(g??{}).flat()),
-    ...(b.mixer?.sampling?.radiusDynamics??[]),...(b.mixer?.foreground?.dynamics??[]),...(b.mixer?.pickupDynamics??[]),
+    ...(b.mixer?.sampling?.radiusDynamics??[]),...(b.mixer?.foreground?.dynamics??[]),...(b.mixer?.pickupDynamics??[]),...(b.mixer?.paintThickness?.dynamics??[]),
   ]
 }
 

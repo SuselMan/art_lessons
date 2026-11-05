@@ -71,7 +71,7 @@ class LightnessImportTests(unittest.TestCase):
             self.assertEqual(brush['descriptor']['tip']['material']['strength'],.25)
             self.assertFalse(any(x['status']=='unsupported' and ('lightnessStrength'==x['feature'] or 'PressureLightnessStrength' in x['detail']) for x in brush['compatibility']))
 
-    def test_mixer_lightness_remains_explicitly_unsupported_and_strength_sensor_is_honest(self):
+    def test_mixer_lightness_keeps_material_and_strength_sensor_is_honest(self):
         for engine in ['colorsmudge','paintbrush']:
             with self.subTest(engine=engine),tempfile.TemporaryDirectory() as tmp:
                 definition='<Brush type="png_brush" filename="tip.png" preserveLightness="1" AdjustmentVersion="2"/>'
@@ -79,8 +79,8 @@ class LightnessImportTests(unittest.TestCase):
                 c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'tip.png':png(Image.new('RGBA',(2,2),(128,128,128,64)))})
                 self.assertEqual(c.skipped,[]);brush=c.brushes[0]
                 if engine=='colorsmudge':
-                    self.assertNotIn('material',brush['descriptor']['tip'])
-                    self.assertTrue(any(x['feature']=='brushApplication' and x['status']=='unsupported' for x in brush['compatibility']))
+                    self.assertEqual(brush['descriptor']['tip']['material']['kind'],'lightness')
+                    self.assertEqual(brush['descriptor']['mixer']['paintThickness'],{'value':1,'mode':'overlay'})
                 else:
                     self.assertEqual(brush['descriptor']['tip']['material']['strength'],.5)
                     self.assertTrue(any(x['feature']=='lightnessStrength' and x['status']=='unsupported' for x in brush['compatibility']))
