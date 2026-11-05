@@ -206,12 +206,17 @@ export class CanonicalRoomTransport {
             rows.push(operation);if(operation.type==='canonical_stroke')sourceRows.push(row)
             return rows.length-1
           }
-          const firstRef=add(first,firstRow)
-          const terminalRef=terminal?add(terminal,prefix.close?.row??prefix.lastRow!):null
-          const ref=(role:'lastMetadata'|'latestRedo'|'firstUndoAfterLatestRedo'|'ownBranchAfterUndo')=>{
-            const row=effects.effects[role]
-            return row?add(projectCanonicalIndexedHistoryRow(roomId,row),row):null
-          }
+          // Semantic roles are not chronological: the latest undo may follow
+          // latestRedo. Serialize the already captured ORIGINAL rows by seq;
+          // this grants no evidence and leaves duplicate/binding verification
+          // with add() and the original capability verifier below.
+          const roles=['lastMetadata','latestRedo','firstUndoAfterLatestRedo','ownBranchAfterUndo'] as const
+          const captured=[{operation:first,row:firstRow},...terminal?[{operation:terminal,row:prefix.close?.row??prefix.lastRow!}]:[],
+            ...roles.flatMap(role=>{const row=effects.effects[role];return row?[{operation:projectCanonicalIndexedHistoryRow(roomId,row),row}]:[]})]
+          const references=new Map<string,number>()
+          for(const item of captured.sort((a,b)=>a.operation.seq!-b.operation.seq!))references.set(item.operation.id,add(item.operation,item.row))
+          const firstRef=references.get(first.id)!,terminalRef=terminal?references.get(terminal.id)!:null
+          const ref=(role:typeof roles[number])=>{const row=effects.effects[role];return row?references.get(row.id)!:null}
           const lastMetadata=ref('lastMetadata'),latestRedo=ref('latestRedo'),firstUndoAfterLatestRedo=ref('firstUndoAfterLatestRedo'),ownBranchAfterUndo=ref('ownBranchAfterUndo')
           const capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations:rows,rows:sourceRows},bindingScope)
           if(Buffer.byteLength(JSON.stringify({rows,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('canonical_repair_required')

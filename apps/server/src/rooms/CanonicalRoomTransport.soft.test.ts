@@ -1896,3 +1896,28 @@ it('reads recorded-only plain geometry independently from unsupported author opt
  const cap=reader.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row});expect(cap.descriptorSha256).not.toBe(snap.descriptorSha256);expect(cap.material.primarySource.kind).toBe('defaultAuto');expect(reader.size).toBe(0);expect(canonicalBrushDescriptorJSON(variant)).not.toBe(canonicalBrushDescriptorJSON(f.descriptor))
  const off=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...plainTiltPolicy,plainTiltSource:false,authorPlainTiltSource:false,maxGestures:4});expect(()=>off.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row})).toThrow('plain-tilt recorded policy disabled')
 })
+it.each([3,5])('serializes genuine indexed root evidence chronologically after %s alternating undo/redo controls',async count=>{
+ const f=await indexedReadFixture(),writer=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ try{
+  const first=f.persisted[0].data as import('@grafetto/shared').CanonicalStrokeOperation
+  let target=first.id
+  const controls:string[]=[]
+  for(let index=0;index<count;index++){
+   const id='ordered-history-'+index,type=index%2?'operation_redo' as const:'operation_undo' as const
+   expect(await writer.metadata(identity,{type,id,userId:'author',timestamp:100+index,targetOpId:target},()=>true)).toMatchObject({result:{ok:true}})
+   controls.push(id);target=id
+  }
+  await flushRoomWrites('board')
+  const seat=captureCurrentRoomSeat('board','author','indexed-source-seat');if(!seat)throw Error('Actual seat missing')
+  const reader=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),read=await reader.openIndexedHistory(identity,reader.createIndexedHistoryOffer('board'),seat,()=>true)
+  let after=0;while(true){const page=await read.next(after);after=page.nextAfterSeq;if(page.terminal)break}
+  const evidence=await read.evidence({originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!})
+  const sequences=evidence.rows.map(row=>row.seq!);expect(sequences).toEqual([...sequences].sort((a,b)=>a-b))
+  expect(evidence.rows[evidence.first].id).toBe(first.id)
+  expect(evidence.lastMetadata).not.toBeNull();expect(evidence.latestRedo).not.toBeNull();expect(evidence.firstUndoAfterLatestRedo).not.toBeNull()
+  expect(evidence.rows[evidence.lastMetadata!].id).toBe(controls.at(-1))
+  expect(evidence.rows[evidence.latestRedo!].id).toBe(controls.at(-2))
+  expect(evidence.firstUndoAfterLatestRedo).toBe(evidence.lastMetadata)
+  expect(evidence.canonicalCapabilities?.bindings.length).toBeGreaterThan(0)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+})
