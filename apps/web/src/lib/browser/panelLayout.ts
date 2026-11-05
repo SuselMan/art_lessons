@@ -71,7 +71,7 @@ export type FloatingPanelTool = (typeof FLOATING_TOOLS)[number]
  *  added above lands here automatically unless it belongs to a group. */
 export const SLOT_FIXED_TOOLS = FLOATING_TOOLS.filter(
   (tool): tool is FloatingPanelTool =>
-    !(FLOATING_PRIMARY_TOOLS as readonly string[]).includes(tool) && tool !== 'shape',
+    !(FLOATING_PRIMARY_TOOLS as readonly string[]).includes(tool) && tool !== 'shape' && tool !== 'eraser' && tool !== 'smudge',
 )
 
 /** Narrows an arbitrary editor tool to the ones this panel can show as
@@ -104,9 +104,9 @@ export const SLOT_COUNT = 8
  *  The secondary role has no successor and needs none: the eraser, the smudge
  *  and the eyedropper are three separate buttons in the rail too, so a slot
  *  that wants the eraser holds the eraser. */
-export type SlotGroup = 'drawing' | 'shape'
+export type SlotGroup = 'drawing' | 'shape' | 'eraser' | 'smudge'
 
-export const SLOT_GROUPS = ['drawing', 'shape'] as const satisfies readonly SlotGroup[]
+export const SLOT_GROUPS = ['drawing', 'eraser', 'smudge', 'shape'] as const satisfies readonly SlotGroup[]
 
 /** The two things the panel does that are not tools. They sit in slots like
  *  everything else so that "move undo somewhere my thumb reaches" is a layout
@@ -144,7 +144,7 @@ export const DEFAULT_PANEL_LAYOUT: PanelLayout = [
   // "the eraser, or the smudge, or the eyedropper — whichever you touched
   // last", and what it did in practice was be the eraser while occasionally
   // being something else without warning.
-  { kind: 'tool', tool: 'eraser' },
+  { kind: 'group', group: 'eraser' },
   null,
   { kind: 'action', action: 'undo' },
   null,
@@ -198,7 +198,7 @@ function migrateSlotContent(value: unknown): SlotContent | null {
   const v = value as { kind?: unknown; tool?: unknown; role?: unknown }
   if (v.kind === 'role') {
     if (v.role === 'drawing') return { kind: 'group', group: 'drawing' }
-    if (v.role === 'secondary') return { kind: 'tool', tool: 'eraser' }
+    if (v.role === 'secondary') return { kind: 'group', group: 'eraser' }
     return null
   }
   if (v.kind === 'tool') {
@@ -206,6 +206,7 @@ function migrateSlotContent(value: unknown): SlotContent | null {
       return { kind: 'group', group: 'drawing' }
     }
     if (v.tool === 'shape') return { kind: 'group', group: 'shape' }
+    if (v.tool === 'eraser' || v.tool === 'smudge') return { kind: 'group', group: v.tool }
   }
   return null
 }

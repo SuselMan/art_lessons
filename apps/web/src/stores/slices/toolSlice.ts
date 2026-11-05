@@ -186,6 +186,8 @@ export interface ToolSlice {
   // setAllToolSettings (the store itself has no concept of "room id" to
   // load from automatically).
   toolSettings: ToolSettingsMap
+  /** Preserve each chosen preset's size/strength during this room session. */
+  brushPreferences: Record<string, { size: number; opacity: number }>
   setToolSetting: (
     toolId: UiToolId,
     key: string,
@@ -233,23 +235,22 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     }
   }),
   toolSettings: defaultToolSettings(),
+  brushPreferences: {},
   setToolSetting: (toolId, key, value) => set(state => {
     const next = typeof value === 'function'
       ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
       : value
-    const defaults = toolId === 'digitalBrush' && key === 'brush' && next !== state.toolSettings.digitalBrush.brush
-      ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults
-      : undefined
-    return { toolSettings: {
+    const brushChange = ['digitalBrush', 'eraser', 'smudge'].includes(toolId) && key === 'brush' && next !== state.toolSettings[toolId].brush
+    const cfg = state.toolSettings[toolId]
+    const memory = brushChange ? { ...state.brushPreferences,
+      [`${toolId}:${cfg.brush}`]: { size: cfg.size as number, opacity: cfg.opacity as number },
+    } : state.brushPreferences
+    const source = brushChange ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults : undefined
+    const preference = brushChange ? memory[`${toolId}:${next}`] ?? (source ? { size: source.sizePx, opacity: toolId === 'digitalBrush' ? cfg.opacity as number : 1 } : toolId !== 'digitalBrush' && next !== 'native' ? { size: cfg.size as number, opacity: 1 } : undefined) : undefined
+    return { brushPreferences: memory, toolSettings: {
       ...state.toolSettings,
-      [toolId]: {
-        ...state.toolSettings[toolId],
-        [key]: next,
-        // Source opacity/flow already live in the descriptor. Applying them
-        // here again would multiply the preset's paint strength twice.
-        ...(defaults ? { size: defaults.sizePx } : {}),
-      },
+      [toolId]: { ...cfg, [key]: next, ...preference },
     } }
   }),
-  setAllToolSettings: settings => set({ toolSettings: settings }),
+  setAllToolSettings: settings => set({ toolSettings: settings, brushPreferences: {} }),
 })

@@ -6,7 +6,10 @@ import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingTool
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../lib/tools/toolSchemas'
-import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
+import { brushRole, pickerImportedBrushes } from '../../lib/tools/brushCatalog'
+import { DIGITAL_BRUSHES } from '../../engine'
+import { TOOL_SCHEMAS } from '../../lib/tools/toolSchemas'
+import { TOOL_PHOTOS, KRITA_TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
 import { notifyWarning } from '../../stores/noticeStore'
@@ -46,6 +49,22 @@ export function useToolChoice(roomId: string | undefined) {
   const setTool = useRoomStore(s => s.setTool)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   const toolSettings = useRoomStore(s => s.toolSettings)
+  const brushRevision = useRoomStore(s => s.brushLibraryRevision)
+
+  // Existing selections made in the former all-in-one picker keep their preset,
+  // but move into the matching tool. Returning to drawing then picks a paint brush.
+  useEffect(() => {
+    if (tool !== 'digitalBrush') return
+    for (const role of ['eraser', 'smudge'] as const) {
+      if (pickerImportedBrushes(role).some(b => b.descriptor.id === toolSettings.digitalBrush.brush) || DIGITAL_BRUSHES.some(b => b.id === toolSettings.digitalBrush.brush && brushRole(b) === role)) {
+        if (!isToolEnabledInRoom(enabledTools, role)) return
+        setToolSetting(role, 'brush', toolSettings.digitalBrush.brush)
+        setToolSetting('digitalBrush', 'brush', 'medium-round')
+        setTool(role)
+        return
+      }
+    }
+  }, [tool, toolSettings.digitalBrush.brush, brushRevision, enabledTools, setTool, setToolSetting])
 
   /** Whether the room offers this tool at all. The toolbar asks it per button
    *  (a tool the room does not offer has no button). */
@@ -74,9 +93,16 @@ export function useToolChoice(roomId: string | undefined) {
   // taken as well. Routed through `selectTool` like every other path into a
   // hand, so the toolset gate applies here too.
   const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
-    if (group === 'drawing') { selectTool(value as EditorTool); return }
-    setToolSetting('shape', 'kind', value)
-    selectTool('shape')
+    if (group === 'shape') { setToolSetting('shape', 'kind', value); selectTool('shape'); return }
+    if (group === 'eraser' || group === 'smudge') {
+      setToolSetting(group, 'brush', value === group ? 'native' : value)
+      selectTool(group)
+      return
+    }
+    if (value.startsWith('digital:')) {
+      setToolSetting('digitalBrush', 'brush', value.slice(8))
+      selectTool('digitalBrush')
+    } else selectTool(value as EditorTool)
   }, [selectTool, setToolSetting])
 
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
@@ -119,14 +145,31 @@ export function useToolChoice(roomId: string | undefined) {
 
   // (#544) The three things the rail's one drawing button needs: its options,
   // what it wears (see drawingGroupToolFor), and whether it is lit.
-  const drawingGroupOptions = useMemo<PickerOption[]>(
-    () => PRIMARY_DRAWING_TOOLS.filter(toolOffered).map(id => ({
-      value: id,
-      label: t(TOOL_DISPLAY[id].labelKey),
-      photo: TOOL_PHOTOS[id],
-    })),
-    [toolOffered, t],
-  )
+  const drawingGroupOptions = useMemo<PickerOption[]>(() => {
+    const native = PRIMARY_DRAWING_TOOLS.filter(id => id !== 'digitalBrush' && toolOffered(id)).map(id => ({
+      value: id, label: t(TOOL_DISPLAY[id].labelKey), photo: TOOL_PHOTOS[id], group: '',
+    }))
+    if (!toolOffered('digitalBrush')) return native
+    const descriptor = TOOL_SCHEMAS.digitalBrush.brush
+    if (descriptor.valueType.kind !== 'enumOptions') return native
+    const labels = descriptor.optionLabels, keys = descriptor.optionLabelKeys
+    const imported = new Map(pickerImportedBrushes().map(b => [b.descriptor.id, b]))
+    return [...native, ...descriptor.valueType.options.filter(id => !DIGITAL_BRUSHES.some(b => b.id === id && brushRole(b) !== 'drawing')).map(id => ({
+      value: 'digital:' + id, label: imported.get(id)?.name ?? (keys?.[id] ? t(keys[id]) : labels?.[id] ?? id),
+      photo: KRITA_TOOL_PHOTOS[id] ?? (imported.has(id) ? undefined : TOOL_PHOTOS.digitalBrush),
+      thumbnail: imported.get(id)?.preview, group: '',
+    }))]
+  }, [toolOffered, t, brushRevision])
+  const roleOptions = (role: 'eraser' | 'smudge'): PickerOption[] => toolOffered(role) ? [
+    { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role], group: '' },
+    ...(toolOffered('digitalBrush') ? DIGITAL_BRUSHES : []).filter(b => brushRole(b) === role).map(b => ({ value: b.id, label: t(TOOL_SCHEMAS.digitalBrush.brush.optionLabelKeys![b.id]), photo: TOOL_PHOTOS.digitalBrush, group: '' })),
+    ...(toolOffered('digitalBrush') ? pickerImportedBrushes(role) : []).map(b => ({ value: b.descriptor.id, label: b.name,
+      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], thumbnail: b.preview, group: '' })),
+  ] : []
+  const eraserGroupOptions = roleOptions('eraser')
+  const smudgeGroupOptions = roleOptions('smudge')
+  const eraserGroupValue = toolSettings.eraser.brush === 'native' ? 'eraser' : toolSettings.eraser.brush as string
+  const smudgeGroupValue = toolSettings.smudge.brush === 'native' ? 'smudge' : toolSettings.smudge.brush as string
   const drawingGroupTool = useMemo<PrimaryDrawingTool>(
     () => drawingGroupToolFor(lastDrawingTool, enabledTools),
     [lastDrawingTool, enabledTools],
@@ -135,6 +178,7 @@ export function useToolChoice(roomId: string | undefined) {
   // one the button is wearing. The eraser and the smudge are their own buttons
   // beside it and must not light this one.
   const drawingGroupActive = isPrimaryDrawingTool(tool)
+  const drawingGroupValue = drawingGroupTool === 'digitalBrush' ? 'digital:' + toolSettings.digitalBrush.brush : drawingGroupTool
   // (#544) The same three things for the shapes, with one difference that
   // matters: these options are values of one tool's `kind` setting, not tools.
   // The chooser therefore reads and writes the setting — and the labels and
@@ -162,13 +206,16 @@ export function useToolChoice(roomId: string | undefined) {
     drawing: {
       tool: drawingGroupTool,
       icon: TOOL_DISPLAY[drawingGroupTool].icon,
-      value: drawingGroupTool,
+      value: drawingGroupValue,
       members: drawingGroupOptions.map(option => ({
         value: option.value,
         label: option.label,
-        icon: TOOL_DISPLAY[option.value as PrimaryDrawingTool].icon,
+        icon: TOOL_DISPLAY.digitalBrush.icon,
+        photo: option.photo, thumbnail: option.thumbnail, group: option.group,
       })),
     },
+    eraser: { tool: 'eraser', icon: 'ink_eraser', value: eraserGroupValue, members: eraserGroupOptions.map(o => ({ ...o, icon: 'ink_eraser' as const })) },
+    smudge: { tool: 'smudge', icon: 'smudge', value: smudgeGroupValue, members: smudgeGroupOptions.map(o => ({ ...o, icon: 'smudge' as const })) },
     shape: {
       tool: 'shape',
       icon: SHAPE_KIND_ICONS[shapeKind],
@@ -181,7 +228,7 @@ export function useToolChoice(roomId: string | undefined) {
         }))
         : [],
     },
-  }), [drawingGroupTool, drawingGroupOptions, shapeKind, shapeKindOptions, toolOffered])
+  }), [drawingGroupTool, drawingGroupValue, drawingGroupOptions, eraserGroupValue, smudgeGroupValue, eraserGroupOptions, smudgeGroupOptions, shapeKind, shapeKindOptions, toolOffered])
   // Which slots light up. Deliberately null for the tools no slot can name —
   // which, now that every toolbar tool can sit in a slot, means only the
   // annotation set, and the panel is not on screen alongside those anyway.
@@ -189,7 +236,7 @@ export function useToolChoice(roomId: string | undefined) {
 
   return {
     toolOffered, selectTool, selectGroupMember, toggleTool,
-    drawingGroupOptions, drawingGroupTool, drawingGroupActive, shapeKind, shapeKindOptions,
+    drawingGroupOptions, drawingGroupTool, drawingGroupValue, drawingGroupActive, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue, shapeKind, shapeKindOptions,
     panelGroups, floatingSlotTool,
   }
 }

@@ -7,6 +7,8 @@ import { useDraggablePosition } from '../../lib/input/useDraggablePosition'
 import { useLongPress } from '../../lib/input/useLongPress'
 import { useT, type TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
+import { OptionPopup } from '../OptionPicker/OptionPopup'
+import { usePopupAnchor } from '../../lib/input/usePopupAnchor'
 import { ColorWell } from '../ColorWell'
 import type { ColorPairControls } from '../ColorFlyout'
 import { hexToRgb } from '../../lib/browser/color'
@@ -500,7 +502,7 @@ export function FloatingToolPanel({
   const memberItems = useMemo(() => {
     if (flyout?.kind !== 'group') return []
     const content = layout[flyout.index]
-    if (content?.kind !== 'group') return []
+    if (content?.kind !== 'group' || content.group !== 'shape') return []
     const { members } = groups[content.group]
     return layoutAroundPanel(members.length)
       .map((pos, i) => ({ ...pos, group: content.group, member: members[i] }))
@@ -514,6 +516,10 @@ export function FloatingToolPanel({
     return `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`
   }, [animateIn])
 
+  const content = flyout?.kind === 'group' ? layout[flyout.index] : null
+  const brushGroup = content?.kind === 'group' && content.group !== 'shape' ? content.group : null
+  const picker = usePopupAnchor<HTMLDivElement, HTMLDivElement>(!!brushGroup, () => onFlyoutChange(null),
+    { align: 'left', remeasureKey: brushGroup ? groups[brushGroup].members.length : 0 })
   const openSlot = flyout?.kind === 'slot' ? flyout.index : null
   // Which slot has *some* fan hanging off it — the two are drawn as open the
   // same way, since from the outside the button is equally "the one that is
@@ -539,6 +545,7 @@ export function FloatingToolPanel({
         <div className={styles.flyoutBackdrop} onPointerDown={() => onFlyoutChange(null)} />
       )}
       <div
+        ref={picker.triggerRef}
         id={PANEL_DOM_ID}
         className={clsx(
           styles.panel,
@@ -713,7 +720,7 @@ export function FloatingToolPanel({
             current one is marked rather than hidden, for the reason the slot
             chooser above gives: a chooser that hides what you have makes you
             work out which of the rest you are holding. */}
-        {flyout?.kind === 'group' && (
+        {flyout?.kind === 'group' && !brushGroup && (
           <div className={styles.flyout}>
             {memberItems.map(({ group, member, ...pos }) => {
               const current = member.value === groups[group].value
@@ -735,6 +742,10 @@ export function FloatingToolPanel({
           </div>
         )}
       </div>
+      {brushGroup && <OptionPopup options={groups[brushGroup].members} value={groups[brushGroup].value}
+        onSelect={value => chooseGroupMember(brushGroup, value)} onDismiss={() => onFlyoutChange(null)}
+        label={t(brushGroup === 'drawing' ? 'tool.drawing' : brushGroup === 'eraser' ? 'tool.eraser' : 'tool.smudge')}
+        popupRef={picker.popupRef} style={picker.style} />}
     </>
   )
 }

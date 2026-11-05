@@ -49,3 +49,25 @@ Undo/Redo, snapshots и онлайн принадлежат Grafetto. Модел
 После функциональной приёмки начинается отдельный этап производительности
 Krita, с обычным карандашом как ориентиром. Документ не утверждает, что эта
 приёмка или оптимизация уже завершены.
+
+### Tool choice by purpose
+
+The UI offers flat drawing, eraser and smudge catalogs. Preset purpose derives
+from its execution semantics: explicit erase wins, then mixer, otherwise paint.
+The source filename is never used to infer purpose. Each category retains its
+native Grafetto tool and offers matching Krita presets beside it. Imported and
+built-in digital presets keep their original descriptor and version.
+
+`eraser.brush` and `smudge.brush` select the preset; `native` retains the calibrated
+native formula. The existing tool-sync boundary compiles a selected digital
+preset to the same `digitalBrush` operation/preset token already used online.
+UI selection and hotkey return behavior remain eraser/smudge. This adds no wire
+format, replay or tile renderer. Native erase-through-layers remains native-only.
+The cursor uses the compiled render tool, matching the selected preset geometry.
+Size and strength are remembered per selected preset during the room session.
+Stored imported IDs survive metadata loading; unavailable resources block drawing
+through the existing preparation gate rather than falling back to another brush.
+
+The floating panel opens the same image picker for the three brush catalogs;
+shape selection and other tools keep their existing behavior. Original KPP
+artwork is preserved separately from generated photographs of physical tools.

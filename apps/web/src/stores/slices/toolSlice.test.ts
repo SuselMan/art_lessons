@@ -251,3 +251,24 @@ describe('imported source size on brush selection', () => {
     } finally { retainImportedBrushResources([]) }
   })
 })
+
+describe('eraser and smudge preset preferences', () => {
+  beforeEach(() => { resetRoomStore() })
+  it.each(['eraser', 'smudge'] as const)('keeps native and imported %s size and strength independent', async role => {
+    const { installBrushLibrary, retainImportedBrushResources } = await import('../../engine/brushLibrary')
+    const { DIGITAL_BRUSHES } = await import('../../engine')
+    const descriptor = { ...structuredClone(DIGITAL_BRUSHES[0]), id: 'imported-abcd1234abcd1234', version: 1 }
+    try {
+      installBrushLibrary({ schemaVersion: 1, assets: [], skipped: [], brushes: [{ descriptor, name: 'Preset', source: 'preset.kpp', warnings: [], sourceDefaults: { sizePx: 40, opacity: .6, flow: .4 } }] })
+      const set = useRoomStore.getState().setToolSetting
+      set(role, 'size', 88); set(role, 'opacity', .3)
+      set(role, 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings[role]).toMatchObject({ size: 40, opacity: 1 })
+      set(role, 'size', 63); set(role, 'opacity', .7)
+      set(role, 'brush', 'native')
+      expect(useRoomStore.getState().toolSettings[role]).toMatchObject({ size: 88, opacity: .3 })
+      set(role, 'brush', descriptor.id)
+      expect(useRoomStore.getState().toolSettings[role]).toMatchObject({ size: 63, opacity: .7 })
+    } finally { retainImportedBrushResources([]) }
+  })
+})

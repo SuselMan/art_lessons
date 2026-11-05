@@ -1,3 +1,4 @@
+import { isToolEnabledInRoom } from '@grafetto/shared'
 import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { notifyError } from '../../stores/noticeStore'
@@ -32,11 +33,15 @@ export interface ToolSyncDeps {
  *  what the brush-ring cursor draws with. */
 export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
-  const drawingTool = useRoomStore(s => s.drawingTool)
+  const uiDrawingTool = useRoomStore(s => s.drawingTool)
+  const allowsImported = useRoomStore(s => isToolEnabledInRoom(s.room?.enabledTools, 'digitalBrush'))
+  const roleBrush = allowsImported && (uiDrawingTool === 'eraser' || uiDrawingTool === 'smudge') && toolSettings[uiDrawingTool].brush !== 'native'
+    ? toolSettings[uiDrawingTool].brush as string : undefined
+  const drawingTool = roleBrush ? 'digitalBrush' : uiDrawingTool
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
   // engine is configured with, and while the ruler or the gizmo is selected
   // `tool` names something that has no such fields at all.
-  const activeCfg = toolSettings[drawingTool]
+  const activeCfg = toolSettings[uiDrawingTool]
   const pencilGrade = toolSettings.pencil.grade as PencilGradeName
   const linerSize = toolSettings.liner.size as string
   const markerNib = toolSettings.marker.nib as string
@@ -63,12 +68,12 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
   useRoomStore(s => s.brushLibraryRevision)
-  const digitalBrushId = toolSettings.digitalBrush.brush as string
+  const digitalBrushId = roleBrush ?? toolSettings.digitalBrush.brush as string
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
   // stroke has their own switches in whatever position they left them.
-  const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
-  const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
+  const digitalBrushSizeFromPressure = roleBrush ? true : toolSettings.digitalBrush.sizeFromPressure as boolean
+  const digitalBrushOpacityFromPressure = roleBrush ? true : toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
     let brush
     try { brush = digitalBrushFromPreset(digitalBrushId) } catch { return undefined }
@@ -268,5 +273,5 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
     engine?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
   }, [sizePx, activeCfg, engineEpoch, engineRef])
 
-  return { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
+  return { renderTool: drawingTool, brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
 }

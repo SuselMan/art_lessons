@@ -321,7 +321,7 @@ function RoomEditor() {
   // (#493) The toolset gate, every way a tool gets into a hand, and the two
   // groups the rail and the floating panel show — see useToolChoice.
   const {
-    toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool,
+    toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool, drawingGroupValue, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue,
     drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
   } = useToolChoice(id)
   // (#405) The one selected tool — a drawing tool, or one of the four that
@@ -1046,7 +1046,7 @@ function RoomEditor() {
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
-  const { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
+  const { renderTool, brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
     useToolSync({ engineRef, engineEpoch, canvasRef })
   useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
@@ -1450,7 +1450,7 @@ function RoomEditor() {
       config={config} vp={vp} vpRef={vpRef} socket={socketRef.current}
       dabPreview={cursor.dabPreview}
       brush={{
-        presetName: cursorPresetName, baseSize: sizePx, nibAngleRadians: nibCanvasAngleRadians, nibAnchor,
+        tool: renderTool, presetName: cursorPresetName, baseSize: sizePx, nibAngleRadians: nibCanvasAngleRadians, nibAnchor,
         tiltResponse,
       }}
       rulerVisible={rulerVisible} rulerMeasuring={rulerMeasuring}
@@ -1543,6 +1543,8 @@ function RoomEditor() {
           railWellRef={railWellRef} well={well} wellLabel={wellLabel}
           colorExpanded={colorFlyoutAt === 'rail'} openRailColorSurface={openRailColorSurface}
           drawingGroupTool={drawingGroupTool} drawingGroupOptions={drawingGroupOptions}
+          drawingGroupValue={drawingGroupValue} eraserGroupOptions={eraserGroupOptions} smudgeGroupOptions={smudgeGroupOptions}
+          eraserGroupValue={eraserGroupValue} smudgeGroupValue={smudgeGroupValue} selectGroupMember={selectGroupMember}
           drawingGroupActive={drawingGroupActive} gradeHotkeyLabels={gradeHotkeyLabels}
           shapeKind={shapeKind} shapeKindOptions={shapeKindOptions}
           hasTransformTargets={transformTargetIds.length > 0}

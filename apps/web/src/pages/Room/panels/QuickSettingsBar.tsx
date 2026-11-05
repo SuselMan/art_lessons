@@ -69,7 +69,7 @@ export function QuickSettingsBar({
       styles.strokeBlockable,
     )}>
       {Object.entries(TOOL_SCHEMAS[settingsToolId])
-        .filter(([, descriptor]) => descriptor.quickAccess)
+        .filter(([, descriptor]) => descriptor.quickAccess && (!descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId])))
         // (#542) No colour in this column at all any more — every colour a
         // tool carries is drawn by the pinned well in the rail to the left.
         // Filtered here rather than by clearing `quickAccess` in ten

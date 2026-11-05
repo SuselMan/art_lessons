@@ -65,3 +65,11 @@ export const DIGITAL_BRUSH_IMAGES = imagesFor('digitalBrush')
  *  drawn glyph does. The sample strokes still exist under
  *  `assets/tool-types/marker/` and are what the icons were drawn from. */
 export const MARKER_NIB_ICONS = { bullet: 'bullet-tip', chisel: 'chisel-tip' } as const
+
+/** One generated physical tool per imported preset; original KPP artwork stays separate. */
+const kritaToolFiles = import.meta.glob('../../assets/tools/krita/*.png', {
+  eager: true, query: '?url', import: 'default',
+}) as Record<string, string>
+export const KRITA_TOOL_PHOTOS: Record<string, string> = Object.fromEntries(
+  Object.entries(kritaToolFiles).map(([path, url]) => [path.split('/').pop()!.slice(0, -4), url]),
+)

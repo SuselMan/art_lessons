@@ -54,7 +54,7 @@ describe('the default layout', () => {
       null,
       { kind: 'action', action: 'redo' },
       null,
-      { kind: 'tool', tool: 'eraser' },
+      { kind: 'group', group: 'eraser' },
       null,
       { kind: 'action', action: 'undo' },
       null,
@@ -69,7 +69,7 @@ describe('the default layout', () => {
 describe('pinnedTools', () => {
   it('ignores groups and actions when deciding what is pinned', () => {
     const layout = assignSlot(DEFAULT_PANEL_LAYOUT, 1, { kind: 'action', action: 'undo' })
-    expect(pinnedTools(layout)).toEqual(new Set(['eraser']))
+    expect(pinnedTools(layout)).toEqual(new Set())
   })
 })
 
@@ -77,6 +77,8 @@ describe('pinnedTools', () => {
 // marker, the shape group on the ellipse, and both carry the members their
 // fans would offer.
 const GROUPS: PanelGroups = {
+  eraser: { tool: 'eraser', icon: 'ink_eraser', value: 'eraser', members: [] },
+  smudge: { tool: 'smudge', icon: 'smudge', value: 'smudge', members: [] },
   drawing: {
     tool: 'marker',
     icon: 'ink_highlighter',
@@ -148,7 +150,7 @@ describe('slotFace', () => {
 describe('the chooser', () => {
   it('offers clear, both groups, every pinnable tool and both actions', () => {
     expect(SLOT_CHOICES.map(slotChoiceKey)).toEqual([
-      'clear', 'group:drawing', 'group:shape',
+      'clear', 'group:drawing', 'group:eraser', 'group:smudge', 'group:shape',
       ...SLOT_FIXED_TOOLS.map(tool => `tool:${tool}`),
       'action:undo', 'action:redo',
     ])

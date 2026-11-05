@@ -1,4 +1,4 @@
-import { importedBrushes } from '../../engine/brushLibrary'
+import { brushRole, pickerImportedBrushes } from './brushCatalog'
 
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
@@ -42,22 +42,6 @@ import type { IconName } from '../../icons/iconNames'
 // (toolSlice.ts) is built from: everything selectable is a UiToolId, so the
 // selected tool always has a schema to show, but not every UiToolId is
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
-// Historical versions remain resolvable for replay; the picker offers the latest import.
-const pickerImportedBrushes = () => {
-  // Focus the selectable library on Krita while matching its reference renderer.
-  // Keep every imported descriptor available to existing strokes and replay.
-  const all = importedBrushes().filter(b => !/\.(abr|brush|brushset)$/i.test(b.source))
-  const latest = new Map<string, { version: number; behavior: boolean }>()
-  const key = (source: string, name: string) => JSON.stringify([source, name])
-  for (const brush of all) {
-    const id = key(brush.source, brush.name), previous = latest.get(id)
-    latest.set(id, { version: Math.max(previous?.version ?? 0, brush.descriptor.version), behavior: !!brush.descriptor.behavior || !!previous?.behavior })
-  }
-  return all.filter(brush => {
-    const next = latest.get(key(brush.source, brush.name))!
-    return next.version === brush.descriptor.version && (!!brush.descriptor.behavior || !next.behavior)
-  })
-}
 
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
@@ -127,6 +111,8 @@ export interface SettingDescriptor {
    *  the entire basis for choosing one and which no amount of labelling
    *  conveys. Keyed by option value; see toolTypeImages.ts. */
   optionImages?: Readonly<Record<string, string>>
+  /** Keep a stored imported brush id while its library metadata is loading. */
+  brushReference?: boolean
   /** Original author preview, fitted whole rather than cropped as a stroke. */
   optionThumbnails?: Readonly<Record<string, string>>
   /** (#335) Icon name per `enumOptions` value, for options whose difference is
@@ -411,6 +397,7 @@ const digitalBrushSchema = (): ToolSchema => ({
   // equivalent of picking a pencil out of the stack, not of adjusting one.
   brush: {
     nameKey: 'tool.field.brush',
+    brushReference: true,
     get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...pickerImportedBrushes().map(b => b.descriptor.id)] } },
     get optionDescriptions() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
     get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : /\.(kpp|bundle)$/i.test(b.source) ? 'Krita' : /\.brush(set)?$/i.test(b.source) ? 'Procreate' : 'Grafetto'} · ${b.name}`])) },
@@ -452,7 +439,8 @@ const digitalBrushSchema = (): ToolSchema => ({
     optionImages: DIGITAL_BRUSH_IMAGES,
     get optionThumbnails() { return Object.fromEntries(pickerImportedBrushes().filter(b => b.preview).map(b => [b.descriptor.id, b.preview!])) },
     uiControls: ['select'],
-    quickAccess: true,
+    quickAccess: false,
+    visibleWhen: () => false,
     default: DEFAULT_DIGITAL_BRUSH,
   },
   size: {
@@ -1094,6 +1082,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   digitalBrush: digitalBrushSchema(),
   watercolor: watercolorSchema(),
   eraser: {
+    brush: {
+      nameKey: 'tool.field.brush',
+    brushReference: true,
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...DIGITAL_BRUSHES.filter(b => brushRole(b) === 'eraser').map(b => b.id), ...pickerImportedBrushes('eraser').map(b => b.descriptor.id)] } },
+      uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
+    },
     size: {
       nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
@@ -1127,6 +1121,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // Default off. It is destructive across layers a person cannot see the
     // effect on without scrolling the panel, so it has to be asked for.
     throughLayers: {
+      visibleWhen: settings => settings.brush === 'native',
       nameKey: 'tool.field.eraseThroughLayers',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
@@ -1156,6 +1151,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // blending stump does (Ilya, on the deployed build). The knob still
   // reaches its old range; this is where a stroke starts.
   smudge: {
+    brush: {
+      nameKey: 'tool.field.brush',
+    brushReference: true,
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...DIGITAL_BRUSHES.filter(b => brushRole(b) === 'smudge').map(b => b.id), ...pickerImportedBrushes('smudge').map(b => b.descriptor.id)] } },
+      uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
+    },
     size: {
       nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
@@ -1763,6 +1764,7 @@ function coerceSettingValue(descriptor: SettingDescriptor, value: unknown): Sett
     return typeof value === 'boolean' ? value : descriptor.default
   }
   if (valueType.kind === 'enumOptions') {
+    if (descriptor.brushReference && typeof value === 'string' && /^imported-[a-f0-9]{8,64}$/.test(value)) return value
     return typeof value === 'string' && (valueType.options as readonly string[]).includes(value)
       ? value : descriptor.default
   }

@@ -112,6 +112,9 @@ export interface SlotGroupMember {
   value: string
   icon: IconName
   label: string
+  photo?: string
+  thumbnail?: string
+  group?: string
 }
 
 export type PanelGroups = Record<SlotGroup, SlotGroupState>
@@ -154,6 +157,8 @@ const ACTION_FACE: Record<SlotAction, SlotFace> = {
 
 const GROUP_LABEL: Record<SlotGroup, TranslationKey> = {
   drawing: 'tool.drawing',
+  eraser: 'tool.eraser',
+  smudge: 'tool.smudge',
   shape: 'tool.shape',
 }
 

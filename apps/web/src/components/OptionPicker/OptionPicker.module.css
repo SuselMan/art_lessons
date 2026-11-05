@@ -277,3 +277,7 @@
 /* Preserve the complete artwork embedded in a Krita preset. */
 .previewThumbnail { width: 56px; height: 56px; object-fit: contain; border-radius: var(--radius-sm); }
 .previewThumbnailDot { width: 30px; height: 30px; }
+
+/* Tool photographs load only near the viewport in large imported catalogs. */
+.previewPhoto { object-fit: contain; object-position: left center; }
+.previewPhotoDot { object-fit: cover; object-position: left center; }
