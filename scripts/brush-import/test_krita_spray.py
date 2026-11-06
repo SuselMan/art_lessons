@@ -13,7 +13,16 @@ class SprayTest(unittest.TestCase):
     def convert(self,extra=''):
         with tempfile.TemporaryDirectory() as d:return preset(self.make(extra),'test.kpp',Catalog(Path(d)),{})
     def test_separate_area_and_particle(self):
-        b=self.convert();self.assertEqual(b['descriptor']['version'],42);self.assertEqual(b['sourceDefaults']['sizePx'],100);self.assertEqual(b['descriptor']['spray']['particle'],{'shape':'ellipse','width':6,'height':4,'proportional':False})
+        b=self.convert();self.assertEqual(b['descriptor']['version'],43);self.assertEqual(b['sourceDefaults']['sizePx'],100);self.assertEqual(b['descriptor']['spray']['particle'],{'shape':'ellipse','width':6,'height':4,'proportional':False})
+    def test_soft_spray_tip_keeps_its_curve_with_aa_and_random_coverage(self):
+        import xml.etree.ElementTree as ET
+        im=Image.open(io.BytesIO(self.make()));im.load();root=ET.fromstring(im.info['preset'])
+        next(p for p in root.findall('param') if p.get('name')=='SprayShape/enabled').text='false'
+        ET.SubElement(root,'param',{'name':'brush_definition'}).text='<Brush type="auto_brush" density="0.5" randomness="0.23"><MaskGenerator id="soft" diameter="80" ratio="1" type="circle" spikes="2" antialiasEdges="1" softness_curve="0,0;0.8,1;1,0;"/></Brush>'
+        info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=info)
+        with tempfile.TemporaryDirectory() as d:b=preset(out.getvalue(),'ring.kpp',Catalog(Path(d)),{})
+        self.assertEqual(b['descriptor']['tip']['profile']['kind'],'radialCurve')
+        self.assertTrue(any(n['feature']=='sprayTipRandomness' for n in b['compatibility']))
     def test_distribution_encodings(self):
         b=self.convert();s=b['descriptor']['spray'];self.assertEqual(len(s['radial']['samples']),1028);self.assertEqual(len(s['angular']),1028)
     def test_area_uniform_pdf(self):

@@ -66,6 +66,7 @@ export class BrushPainter {
     return this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
+  prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }

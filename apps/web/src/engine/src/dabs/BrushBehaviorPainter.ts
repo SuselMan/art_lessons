@@ -133,6 +133,8 @@ export class BrushBehaviorPainter {
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareProcedural(): void { this.stampFor(true) }
 
+  prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
+
   prepareCircleBand(): void { this.circleProgram() }
 
   private circleProgram(): { program: WebGLProgram; uniforms: Uniforms; position: number } {
@@ -192,6 +194,12 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
+    // Bound expanded populations independently of network/author batch size.
+    // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
+    if(brush.spray && dabs.length>4){
+      for(let i=0;i<dabs.length;i+=4){const last=i+4>=dabs.length;this.paint(target,dabs.slice(i,i+4),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
+      return
+    }
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
     assertSameBrushExecutionContext(scratch.brushBehavior?.execution,execution)

@@ -33,11 +33,12 @@ export class SprayShapeBatch {
  constructor(gl:WebGLRenderingContext){this.gl=gl}
  reset():void{this.program=undefined;this.buffer=undefined}
  destroy():void{if(this.program)this.gl.deleteProgram(this.program);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
+ prepare():void{this.program??=createProgram(this.gl,VERT,FRAG);this.buffer??=this.gl.createBuffer()!}
  paint(list:readonly BehaviorPlaced[],shape:BrushSpray['particle']['shape'],x:number,y:number,width:number,height:number):void{
   const gl=this.gl
-  this.program??=createProgram(gl,VERT,FRAG);this.buffer??=gl.createBuffer()!
-  const program=this.program
-  gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer)
+  this.prepare()
+  const program=this.program!
+  gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!)
   gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),width,height)
   gl.uniform1f(gl.getUniformLocation(program,'u_shape'),shape==='ellipse'?0:shape==='rectangle'?1:shape==='pixel'?2:3)
   const attributes=[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_radius',2,8]] as const

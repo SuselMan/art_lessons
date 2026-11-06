@@ -49,6 +49,18 @@ def spray_preset(data,root,params,name,catalog,external):
         definition=ET.Element('Brush',{'type':'auto_brush','spacing':'0.1','useAutoSpacing':'0','angle':'0'})
         ET.SubElement(definition,'MaskGenerator',{'diameter':str(max(width,height)),'type':'rect' if shape_id in (1,3) else 'circle','ratio':str(min(width,height)/max(width,height)),'id':'default','hfade':'1','vfade':'1','spikes':'2','antialiasEdges':'1'})
         base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
+    source_randomness=False
+    source_curve_aa=False
+    if not shape:
+        definition=xml(base_params.get('brush_definition',''))
+        source_randomness=numeric(definition.get('randomness'),0)!=0 or numeric(definition.get('density'),1)!=1
+        # Preserve the authored mask profile even when its secondary stochastic
+        # coverage controls cannot yet be lowered. Do not replace a ring by a disc.
+        definition.set('randomness','0');definition.set('density','1')
+        generator=definition.find('MaskGenerator')
+        if generator is not None and generator.get('id')=='soft' and enabled(generator.get('antialiasEdges')):
+            source_curve_aa=True;generator.set('antialiasEdges','0')
+        base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
     # Spray uses its own accumulation, not Pixel Wash/BuildUp selection.
     base_params['PaintOpAction']='1'
     for node in transformed.findall('param'):transformed.remove(node)
@@ -97,9 +109,11 @@ def spray_preset(data,root,params,name,catalog,external):
            'dynamics':{'randomSize':flag('randomSize'),'fixedAngle':angle_value('fixedRotation','fixedAngle'),'randomAngle':number(prefix+'randomRotationWeight',.5,0,1) if flag('randomRotation') else 0,'radialAngle':number(prefix+'followCursorWeigth',1,0,1) if flag('followCursor') else 0,'pathAngle':number(prefix+'followDrawingAngleWeigth',1,0,1) if flag('followDrawingAngle') else 0},
            'color':{'perParticle':enabled(params.get('ColorOption/colorPerParticle','true')),'hue':number('ColorOption/hue',0,-180,180)/180 if color else 0,'saturation':number('ColorOption/saturation',0,-100,100)/100 if color else 0,'value':number('ColorOption/value',0,-100,100)/100 if color else 0,'randomOpacity':enabled(params.get('ColorOption/useRandomOpacity'))}}
     if enabled(params.get('Spray/useDensity')):spray['density']=number('Spray/coverage',.3,0,100)/100
-    d['spray']=spray;d['version']=42
+    d['spray']=spray;d['version']=43
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
+    if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
+    if source_randomness:result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']
     return result
