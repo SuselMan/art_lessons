@@ -1,3 +1,5 @@
+import{GridCellBatch}from'./GridCellBatch'
+import{gridCells}from'../presets/brushGrid'
 import {CanvasProjectionSampler,type ProjectionReadSession,type ProjectionSampleLayer} from '../raster/CanvasProjectionSampler'
 import {COLOR_SMUDGE_MATERIAL_FRAG} from '../raster/colorSmudgeMaterialShader'
 import { COLOR_SMUDGE_MEAN_FRAG } from '../raster/colorSmudgeMeanShader'
@@ -156,6 +158,8 @@ const TRANSFER_UNIFORMS = [
 ]
 
 export class SmudgePainter {
+  private gridBatch?:GridCellBatch
+  prepareGrid():void{(this.gridBatch??=new GridCellBatch(this.gl)).prepare()}
   private readonly gl: WebGLRenderingContext
   private readonly ctx: SmudgeContext
 
@@ -253,6 +257,7 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.gridBatch?.reset()
     this.projectionSampler.forget()
     this.maximumImageSide = undefined
     this.wetTextures.clear(true)
@@ -278,6 +283,7 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.gridBatch?.reset()
     this.projectionSampler.forget()
     this.proceduralTransfer = undefined
     this.colorMean = undefined
@@ -294,6 +300,7 @@ export class SmudgePainter {
   }
 
   destroy(): void {
+    this.gridBatch?.destroy()
     this.projectionSampler.destroy()
     const { gl } = this
     this.scratchPool.destroy()
@@ -456,6 +463,11 @@ export class SmudgePainter {
       this.wetGestures.set(userId,state)
     }
     assertSameBrushExecutionContext(state.behavior.execution,execution)
+    if(brush.grid){
+      this.paintGridDab(target,dab,paint,state.behavior)
+      state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1
+      return
+    }
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
     if (!brush.behavior?.strokeInput && prev && travel < 1e-6 && !brushSamplesCanvas(brush)) { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
     const dual=brush.behavior?.dual
@@ -511,6 +523,24 @@ export class SmudgePainter {
         if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
       } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
     }
+  }
+
+  /** One bounded source image before the first cell write; never GPU readback.
+   * Source dependencies/replay ordering are the common canvas mixer contract. */
+  private paintGridDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
+    const g=paint.brush!.grid!,cells=gridCells(g,dab,state.seed^Math.imul((state.dabSequence??0)+1,0x9e3779b9))
+    if(!cells.length)return
+    const pad=g.shape===4?6:1,bounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity}
+    for(const c of cells){bounds.minX=Math.min(bounds.minX,c.x-c.width/2-pad);bounds.maxX=Math.max(bounds.maxX,c.x+c.width/2+pad);bounds.minY=Math.min(bounds.minY,c.y-c.height/2-pad);bounds.maxY=Math.max(bounds.maxY,c.y+c.height/2+pad)}
+    const span=Math.max(8,Math.ceil(Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))+2),rect={minX:Math.floor(bounds.minX)-1,minY:Math.floor(bounds.minY)-1,maxX:0,maxY:0};rect.maxX=rect.minX+span;rect.maxY=rect.minY+span
+    const size=g.sampleInput?Math.min(512,span):8,source=this.acquireScratch(size)
+    try{
+      if(g.sampleInput)this.gatherPatch(source,target.resolveForRead?.(rect)??target.resolveForPaint(rect),rect,size,span)
+      const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity,0,1)
+      const batch=this.gridBatch??=new GridCellBatch(this.gl)
+      for(const tile of target.resolveForPaint(bounds))batch.paint(cells,tile.buffer,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,opacity)
+      target.markContentPainted(bounds)
+    }finally{this.releaseScratch(source)}
   }
 
   /** Optical mask belongs to one gesture, not the user's carried reservoir. */
@@ -1123,7 +1153,7 @@ export class SmudgePainter {
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1
-    const heightAdjustment=brush?.mixer?.paintThickness?.mode==='overwrite' ? 1 : (wet?.step.pickup ?? 1)-.01+(1-((wet?.step.pickup ?? 1)-.01))*thickness
+    const heightAdjustment=!modern?1:brush?.mixer?.paintThickness?.mode==='overwrite' ? 1 : (wet?.step.pickup ?? 1)-.01+(1-((wet?.step.pickup ?? 1)-.01))*thickness
     if(modern)gl.uniform2f(u.u_colorSmudgeHeight,thickness,clampNum(opacity*heightAdjustment,0,1))
     gl.uniform4f(u.u_colorSmudge,modern?1:0,rates.smear,modern && brush?.mixer?.sampling && !brush.mixer.smearAlpha ? 1:0,mode==='height'?2:mode==='mask'?1:0)
     const foregroundColor=wet?.stamp.color ?? [0,0,0]

@@ -3518,8 +3518,9 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if(painter === 'hatching')this._brush.prepareHatching()
-      if(painter === 'sketchLines')this._brush.prepareSketchLines()
+      if(painter === 'grid')this._smudge.prepareGrid()
+      else if(painter === 'hatching')this._brush.prepareHatching()
+      else if(painter === 'sketchLines')this._brush.prepareSketchLines()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
@@ -6555,7 +6556,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
-    const sourceSpacing = spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
+    const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,this._physicalSize),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     this._dabs.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, snapshot.opts.pencilType) }
       : null
