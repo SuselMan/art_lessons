@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Operation } from '@grafetto/shared'
+import type { Operation, StrokeOperation } from '@grafetto/shared'
 
 const mocks = vi.hoisted(() => ({
   rooms: new Map(), flush: vi.fn().mockResolvedValue(undefined),
@@ -12,7 +12,7 @@ vi.mock('../db/prisma.js', () => ({ prisma: {
 } }))
 import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
 
-const stroke = (id: string, seq: number): Operation => ({ id, seq, timestamp: seq, userId: 'A', type: 'stroke', layerId: 'L', tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [] })
+const stroke = (id: string, seq: number): StrokeOperation => ({ id, seq, timestamp: seq, userId: 'A', type: 'stroke', layerId: 'L', tool: 'pencil', preset: 'HB', color: [0, 0, 0], dabs: [] })
 const undo: Operation = { id: 'undo5', seq: 5, timestamp: 5, userId: 'A', type: 'operation_undo', targetOpId: 'colour3' }
 const redo: Operation = { id: 'redo6', seq: 6, timestamp: 6, userId: 'A', type: 'operation_redo', targetOpId: 'colour3' }
 const original = [stroke('water1', 1), stroke('pigment2', 2), stroke('colour3', 3), { id: 'dry4', seq: 4, timestamp: 4, userId: 'A', type: 'paper_dry' } as Operation, undo, redo]
@@ -155,4 +155,48 @@ it('loads gesture siblings after resolving a cold chain of control targets', asy
   expect(plan.coverage.has('L')).toBe(false)
   expect(plan.historicalIds.has('first')).toBe(true)
   expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ type: 'stroke', seq: { lte: 5 } }) }))
+})
+
+describe('structural dependencies discovered after pixel-history expansion', () => {
+  function configure(kind: 'stroke' | 'layer_clear' | 'paper_dry', hasOriginalBase: boolean) {
+    const target: Operation = kind === 'stroke'
+      ? { ...stroke('target3', 3), layerId: 'layer-1' }
+      : kind === 'layer_clear'
+        ? { id: 'target3', type: 'layer_clear', layerId: 'layer-1', seq: 3, timestamp: 3, userId: 'A' }
+        : { id: 'target3', type: 'paper_dry', seq: 3, timestamp: 3, userId: 'A' }
+    const undoTarget: Operation = { id: 'undo6', type: 'operation_undo', targetOpId: target.id, seq: 6, timestamp: 6, userId: 'A' }
+    const del: Operation = { id: 'delete4', type: 'layer_delete', layerIds: ['S'], seq: 4, timestamp: 4, userId: 'A' }
+    const undoDel: Operation = { id: 'undoDelete7', type: 'operation_undo', targetOpId: del.id, seq: 7, timestamp: 7, userId: 'A' }
+    const add: Operation = { id: 'add1', type: 'layer_add', layerId: 'S', name: 'S', seq: 1, timestamp: 1, userId: 'A' }
+    const all = [...(hasOriginalBase ? [add] : []), target, del, undoTarget, undoDel]
+    mocks.rooms.set('room', { nextSeq: 8, operations: [target, undoTarget], aliveIds: new Set(['layer-1', 'background', 'S']) })
+    mocks.state.mockResolvedValue({ seq: 5, state: { items: { 'layer-1': {}, background: {} } } })
+    mocks.snapshots.mockResolvedValue([{ layerId: 'layer-1', seq: 5, hash: 'layer' }, { layerId: 'background', seq: 5, hash: 'background' }])
+    mocks.operations.mockImplementation(async ({ where }) => (where.id ? all.filter(op => where.id.in.includes(op.id)) : all).map(data => ({ data })))
+  }
+
+  it.each(['stroke', 'layer_clear'] as const)('loads and validates the structural prefix after %s history reveals it', async kind => {
+    configure(kind, true)
+    const plan = await prepareSnapshotReplay('room')
+    expect(plan.replayStructure).toBe(true)
+    expect(plan.historyLayers).toContain('S')
+    expect(plan.historicalIds).toContain('add1')
+    expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ seq: { lte: 7 }, type: { in: expect.arrayContaining(['layer_add', 'layer_delete']) } }) }))
+    expect(mocks.operations.mock.calls.filter(([{ where }]) => Array.isArray(where.type?.in) && where.seq?.lte === 7)).toHaveLength(1)
+  })
+
+  it.each(['stroke', 'layer_clear'] as const)('refuses a missing structural base discovered after %s history expansion', async kind => {
+    configure(kind, false)
+    await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
+  })
+
+  it('keeps global Dry as a replay barrier without inventing a layer-specific Undo dependency', async () => {
+    configure('paper_dry', false)
+    const plan = await prepareSnapshotReplay('room')
+    expect(plan.replayStructure).toBeUndefined()
+    expect(plan.coverage.get('layer-1')).toBe(5)
+    expect(plan.coverage.get('background')).toBe(5)
+    expect(mocks.operations).not.toHaveBeenCalled()
+  })
+
 })
