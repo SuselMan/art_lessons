@@ -234,7 +234,7 @@ export class BrushBehaviorPainter {
     }
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
-    assertSameBrushExecutionContext(scratch.brushBehavior?.execution,execution)
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     if (!dabs.length && !scratch.brushBehavior)
       return
