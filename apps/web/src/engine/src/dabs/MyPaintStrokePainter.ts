@@ -50,15 +50,15 @@ export class MyPaintStrokePainter{
    const key=tx+','+ty;let tile=tiles.get(key)
    if(!tile){
     if(used>=512)throw Error('MyPaint transaction exceeds tile budget')
-    const pointer=this.pool[used]??(this.pool[used]=k.grafetto_alloc(64*64*8));used++
+    const pointer=this.pool[used]??(this.pool[used]=k.grafetto_alloc(64*64*12));used++
     if(!pointer)throw Error('MyPaint tile allocation failed')
     tile={pointer,dirty:false,written:false,tx,ty};tiles.set(key,tile)
-    const pixels=new Uint16Array(k.memory.buffer,pointer,64*64*4);pixels.fill(0)
+    const rgba=new Uint8Array(k.memory.buffer,pointer+64*64*8,64*64*4)
     const rect={minX:tx*64,minY:ty*64,maxX:(tx+1)*64,maxY:(ty+1)*64}
     const existing=target.resolveExistingForPaint?.(rect)??target.resolveVisible?.(rect)??target.resolveForPaint(rect)
     const cached=state!.mirror.get(key)
     if(cached&&cached.sources.length===existing.length&&cached.sources.every((r,i)=>r.buffer===existing[i].buffer&&r.revision===r.buffer.contentRevision)){
-     for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(cached.pixels[i]*32768/255)
+     rgba.set(cached.pixels);k.grafetto_unpack(pointer)
     }else{
      // Fetch a256px neighbourhood once, rather than synchronizing the GPU
      // separately for every64px native page reached by a moving brush.
@@ -78,12 +78,12 @@ export class MyPaintStrokePainter{
       state!.mirror.set(cellKey,{pixels:bytes,sources:refs.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
      }
      const cached=state!.mirror.get(key)!
-     for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(cached.pixels[i]*32768/255)
+     rgba.set(cached.pixels);k.grafetto_unpack(pointer)
     }
    }
    if(!readonly){tile.dirty=true;tile.written=true}return tile.pointer
   }
-  const quantize=()=>{for(const t of tiles.values())if(t.dirty){const pixels=new Uint16Array(k.memory.buffer,t.pointer,64*64*4);for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(Math.round(clamp(pixels[i]/32768)*255)*32768/255);t.dirty=false}}
+  const quantize=()=>{for(const t of tiles.values())if(t.dirty){k.grafetto_quantize(t.pointer);t.dirty=false}}
   const apply=(dab:Dab,final=false)=>{
    const previous=state!.previous,dt=previous?Math.max(0,dab.sourceTime!-previous.sourceTime!)/1000:.015
    k.grafetto_base(state!.handle,3,Math.log(Math.max(.2,dab.size/2)))
@@ -100,11 +100,11 @@ export class MyPaintStrokePainter{
   })
   const changed=new Map<AccumulationBuffer,number>()
   for(const t of tiles.values())if(t.written){
-   const rect={minX:t.tx*64,minY:t.ty*64,maxX:(t.tx+1)*64,maxY:(t.ty+1)*64},pixels=new Uint16Array(k.memory.buffer,t.pointer,64*64*4)
+   const rect={minX:t.tx*64,minY:t.ty*64,maxX:(t.tx+1)*64,maxY:(t.ty+1)*64},pixels=new Uint8Array(k.memory.buffer,t.pointer+64*64*8,64*64*4)
    for(const dst of target.resolveForPaint(rect)){
     const x=Math.max(rect.minX,dst.originX),y=Math.max(rect.minY,dst.originY),right=Math.min(rect.maxX,dst.originX+dst.buffer.width),bottom=Math.min(rect.maxY,dst.originY+dst.buffer.height),w=right-x,h=bottom-y;if(w<=0||h<=0)continue
     const bytes=new Uint8Array(w*h*4)
-    for(let row=0;row<h;row++)for(let column=0;column<w;column++)for(let c=0;c<4;c++)bytes[((h-1-row)*w+column)*4+c]=Math.round(pixels[((y-rect.minY+row)*64+x-rect.minX+column)*4+c]*255/32768)
+    for(let row=0;row<h;row++)for(let column=0;column<w;column++)for(let c=0;c<4;c++)bytes[((h-1-row)*w+column)*4+c]=pixels[((y-rect.minY+row)*64+x-rect.minX+column)*4+c]
     if(!changed.has(dst.buffer))changed.set(dst.buffer,dst.buffer.contentRevision)
     dst.buffer.writePixelsRegion(x-dst.originX,dst.buffer.height-(y-dst.originY)-h,w,h,bytes)
    }
@@ -114,8 +114,7 @@ export class MyPaintStrokePainter{
   // A foreign write leaves its old revision intact, forcing a GPU refresh.
   for(const cached of state.mirror.values())for(const ref of cached.sources)if(ref.revision===changed.get(ref.buffer))ref.revision=ref.buffer.contentRevision
   for(const [key,t]of tiles)if(t.written){
-   const pixels=new Uint16Array(k.memory.buffer,t.pointer,64*64*4),bytes=new Uint8Array(pixels.length)
-   for(let i=0;i<bytes.length;i++)bytes[i]=Math.round(pixels[i]*255/32768)
+   const pixels=new Uint8Array(k.memory.buffer,t.pointer+64*64*8,64*64*4),bytes=new Uint8Array(pixels)
    const rect={minX:t.tx*64,minY:t.ty*64,maxX:(t.tx+1)*64,maxY:(t.ty+1)*64},sources=target.resolveExistingForPaint?.(rect)??target.resolveVisible?.(rect)??target.resolveForPaint(rect)
    state.mirror.delete(key);state.mirror.set(key,{pixels:bytes,sources:sources.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
   }

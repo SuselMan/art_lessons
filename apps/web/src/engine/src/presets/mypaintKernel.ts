@@ -5,6 +5,8 @@ export interface MyPaintKernel{
  grafetto_destroy(handle:number):void
  grafetto_alloc(bytes:number):number
  grafetto_free(pointer:number):void
+ grafetto_quantize(pointer:number):void
+ grafetto_unpack(pointer:number):void
  grafetto_base(handle:number,id:number,value:number):void
  grafetto_mapping(handle:number,id:number,input:number,count:number):void
  grafetto_point(handle:number,id:number,input:number,index:number,x:number,y:number):void

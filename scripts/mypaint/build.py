@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix='grafetto-mypaint-')as temp:
     (work/'config.h').write_text('#define MYPAINT_CONFIG_USE_GLIB 0\n#define MYPAINT_CONFIG_USE_INTROSPECTION 0\n#define MYPAINT_CONFIG_USE_OPENMP 0\n')
     shutil.copyfile(root/'scripts/mypaint/bridge.c',work/'bridge.c')
     subprocess.run(['python3','generate.py','mypaint-brush-settings-gen.h','brushsettings-gen.h'],cwd=work,check=True)
-    exports=['create','destroy','base','mapping','point','stroke','begin','end','alloc','free']
+    exports=['create','destroy','base','mapping','point','stroke','begin','end','alloc','free','quantize','unpack']
     c=['kernel.c','bridge.c','mypaint-mapping.c','mypaint-surface.c','mypaint-brush-settings.c','rng-double.c','helpers.c','mypaint-tiled-surface.c','operationqueue.c','tilemap.c','fifo.c','brushmodes.c','mypaint-matrix.c','mypaint-symmetry.c','mypaint-rectangle.c']
     args=['emcc',*c,'-O3','-I.','--no-entry','-sSTANDALONE_WASM=1','-sFILESYSTEM=0','-sMALLOC=emmalloc','-sALLOW_MEMORY_GROWTH=1','-sINITIAL_MEMORY=2097152','-sMAXIMUM_MEMORY=67108864','-sTOTAL_STACK=65536','-sERROR_ON_UNDEFINED_SYMBOLS=0',*['-Wl,--export=grafetto_'+e for e in exports],'-o','kernel.wasm']
     subprocess.run(args,cwd=work,check=True)

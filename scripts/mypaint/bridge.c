@@ -16,3 +16,13 @@ void grafetto_point(Kernel*k,int setting,int input,int index,float x,float y){my
 void grafetto_begin(Kernel*k){mypaint_surface_begin_atomic(&k->surface.parent);}
 void grafetto_end(Kernel*k){MyPaintRectangle roi;mypaint_surface_end_atomic(&k->surface.parent,&roi);}
 int grafetto_stroke(Kernel*k,float x,float y,float p,float tx,float ty,double dt){return mypaint_brush_stroke_to(k->brush,&k->surface.parent,x,y,p,tx,ty,dt);}
+/* Preserve Grafetto's exact per-input RGBA8 boundary using integer math.
+ * One page contains Q15RGBA followed by its canonical RGBA8 mirror. */
+void grafetto_quantize(unsigned address){
+    guint16 *pixels=(guint16*)address;unsigned char *bytes=(unsigned char*)(address+64*64*8);
+    for(unsigned i=0;i<64*64*4;i++){unsigned value=pixels[i]>32768?32768:pixels[i];unsigned byte=(value*255+16384)>>15;bytes[i]=byte;pixels[i]=(byte*32768+127)/255;}
+}
+void grafetto_unpack(unsigned address){
+    guint16 *pixels=(guint16*)address;unsigned char *bytes=(unsigned char*)(address+64*64*8);
+    for(unsigned i=0;i<64*64*4;i++)pixels[i]=(bytes[i]*32768+127)/255;
+}
