@@ -4371,6 +4371,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  the tail of its done pixel operations. */
   private _rebuildLayer(layerId: string): void {
     if (this._snapshotIO.historyRepairPending(layerId) || this._snapshotDependentLayers.has(layerId)) return
+    // Unrecorded physical ink has no replayable operation yet. Keep it visible
+    // and settle only after its owning gesture commits or is cancelled.
+    if (this._hasUnrecordedInk(layerId)) { this._unsettledLayers.add(layerId); return }
     const buf = this._layers.get(layerId)
     if (!buf) return
     // (#536, §17.53) A watercolour replay settles every operation: 5 s on the
@@ -4497,7 +4500,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!valid) { this._startRebuildJob(job.layerId); return }
     // Never under this user's own pen: one watercolour operation replays in
     // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
-    if (this._strokeLayerId) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
+    if (this._strokeLayerId || this._hasUnrecordedInk(job.layerId)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
     // (§17.72) Nor over somebody else's settle still spreading: the next
     // operation's finish would land it here in one piece (0.5 s on the Surface).
     if (this._settle && !this._jobOwnsSettle(job)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 16); return }
