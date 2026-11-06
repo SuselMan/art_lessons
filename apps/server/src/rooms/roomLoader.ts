@@ -47,7 +47,15 @@ const pendingLoads = new Set<PendingRoomLoad>()
 /** A completed DELETE must supersede reads started before the cascade. Only
  * active loads retain tokens; deleted ids do not accumulate as tombstones. */
 export function cancelRoomLoads(lessonId: string): void {
-  for (const load of pendingLoads) if (load.roomId === lessonId || load.lessonId === lessonId) load.cancelled = true
+  for (const load of pendingLoads) if (load.roomId === lessonId || load.lessonId === lessonId || rooms.get(load.roomId)?.lessonId === lessonId) load.cancelled = true
+}
+
+/** Keep DELETE cancellation alive through access/replay awaits and until
+ * the admission seats its socket. A cache load alone ends earlier. */
+export function retainRoomLoadIntent(roomId: string): { isCancelled: () => boolean; release: () => void } {
+  const load: PendingRoomLoad = { roomId, cancelled: false }
+  pendingLoads.add(load)
+  return { isCancelled: () => load.cancelled, release: () => { pendingLoads.delete(load) } }
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
