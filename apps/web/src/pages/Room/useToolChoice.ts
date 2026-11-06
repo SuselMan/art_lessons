@@ -6,7 +6,7 @@ import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingTool
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
 import { shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../lib/tools/toolSchemas'
-import { pickerImportedBrushes } from '../../lib/tools/brushCatalog'
+import { pickerImportedBrushes, importedBrushPhotoLookup } from '../../lib/tools/brushCatalog'
 import { TOOL_PHOTOS, KRITA_TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
@@ -154,6 +154,9 @@ export function useToolChoice(roomId: string | undefined) {
 
   // (#544) The three things the rail's one drawing button needs: its options,
   // what it wears (see drawingGroupToolFor), and whether it is lit.
+  // The immutable brush registry is outside React; this revision is its subscription key.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  const brushPhoto=useMemo(()=>importedBrushPhotoLookup(KRITA_TOOL_PHOTOS),[brushRevision])
   const drawingGroupOptions = useMemo<PickerOption[]>(() => {
     const native = PRIMARY_DRAWING_TOOLS.filter(id => id !== 'digitalBrush' && toolOffered(id)).map(id => ({
       value: id, label: t(TOOL_DISPLAY[id].labelKey), photo: TOOL_PHOTOS[id],
@@ -161,13 +164,13 @@ export function useToolChoice(roomId: string | undefined) {
     if (!toolOffered('digitalBrush')) return native
     return [...native, ...pickerImportedBrushes().map(b => ({
       value: 'digital:' + b.descriptor.id, label: b.name,
-      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], photoTipScale: 1.7, thumbnail: b.preview,
+      photo: brushPhoto(b), photoTipScale: 1.7, thumbnail: b.preview,
     }))]
-  }, [toolOffered, t, brushRevision])
+  }, [toolOffered, t, brushPhoto])
   const roleOptions = (role: 'eraser' | 'smudge'): PickerOption[] => toolOffered(role) ? [
     { value: role, label: t(TOOL_DISPLAY[role].labelKey), photo: TOOL_PHOTOS[role], photoTipScale: role === 'smudge' ? 1.15 : 1.7 },
     ...(toolOffered('digitalBrush') ? pickerImportedBrushes(role) : []).map(b => ({ value: b.descriptor.id, label: b.name,
-      photo: KRITA_TOOL_PHOTOS[b.descriptor.id], photoTipScale: 1.7, thumbnail: b.preview })),
+      photo: brushPhoto(b), photoTipScale: 1.7, thumbnail: b.preview })),
   ] : []
   const eraserGroupOptions = roleOptions('eraser')
   const smudgeGroupOptions = roleOptions('smudge')

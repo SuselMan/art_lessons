@@ -1,7 +1,19 @@
-import type { BrushDescriptor } from '@grafetto/shared'
+import type { BrushDescriptor, ImportedBrush } from '@grafetto/shared'
 import { importedBrushes } from '../../engine/brushLibrary'
 
 export type BrushRole = 'drawing' | 'eraser' | 'smudge'
+
+/** A rendering revision changes immutable descriptor IDs, not the physical
+ * tool illustration. Reuse artwork only for the same source/name pair. */
+export function importedBrushPhotoLookup(photos:Readonly<Record<string,string>>):(brush:ImportedBrush)=>string|undefined {
+  const key=(brush:ImportedBrush)=>JSON.stringify([brush.source,brush.name])
+  const previous=new Map<string,{version:number;photo:string}>()
+  for(const brush of importedBrushes()){
+    const photo=photos[brush.descriptor.id],old=previous.get(key(brush))
+    if(photo&&(!old||old.version<brush.descriptor.version))previous.set(key(brush),{version:brush.descriptor.version,photo})
+  }
+  return brush=>photos[brush.descriptor.id]??previous.get(key(brush))?.photo
+}
 
 /** Preset semantics, never filename heuristics. Erase takes precedence over mixing. */
 export function brushRole(brush: BrushDescriptor): BrushRole {
@@ -24,4 +36,3 @@ export const pickerImportedBrushes = (role: BrushRole = 'drawing') => {
     return brushRole(brush.descriptor) === role && next.version === brush.descriptor.version && (!!brush.descriptor.behavior || !next.behavior)
   })
 }
-

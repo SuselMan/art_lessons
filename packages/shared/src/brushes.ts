@@ -663,6 +663,14 @@ function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
   return controls.flatMap(d=>[d,...(d.combine?[...d.combine.scaling,...d.combine.additive]:[])])
 }
 
+const distanceTraits=new WeakMap<BrushDescriptor,boolean>()
+/** Geometry-only sensor; does not request a timer or additional wire channels. */
+export function brushUsesDistanceControl(brush:BrushDescriptor):boolean {
+  const known=distanceTraits.get(brush);if(known!==undefined)return known
+  const value=brushDynamicInputs(brush).some(d=>d.control==='distance')
+  distanceTraits.set(brush,value);return value
+}
+
 /** Time is resolved by the author once, including the clock inherited by a child. */
 export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
   const seen=new Set<BrushDescriptor>()

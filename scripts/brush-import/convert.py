@@ -463,13 +463,13 @@ def validate_portable_dynamics(controls):
             for child in children:validate_portable_dynamics([child])
             continue
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
-                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time')
+                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time','distance')
                 or (control.get('control')=='strokeRandom' and not (
                     ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
                     or ('randomStream' not in control and keyed(control.get('randomSource')))))
                 or (control.get('control')!='strokeRandom' and ('randomStream' in control or 'randomSource' in control))
-                or (control.get('control')in('dabProgress','time') and (type(control.get('period')) is not int or not 1<=control['period']<=(2147483647 if control['control']=='time'else 1000000) or type(control.get('periodic')) is not bool))
-                or (control.get('control')not in('dabProgress','time') and ('period' in control or 'periodic' in control))
+                or (control.get('control')in('dabProgress','time','distance') and (type(control.get('period')) is not int or not 1<=control['period']<=(2147483647 if control['control']!='dabProgress'else 1000000) or type(control.get('periodic')) is not bool))
+                or (control.get('control')not in('dabProgress','time','distance') and ('period' in control or 'periodic' in control))
                 or not finite(control.get('minimum')) or not finite(control.get('jitter'))
                 or ('strength' in control and not finite(control['strength'],-1,1))
                 or ('fade' in control and not finite(control['fade'],.001,100000))):

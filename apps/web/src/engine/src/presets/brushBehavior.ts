@@ -1,3 +1,4 @@
+import{brushUsesDistanceControl}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
@@ -34,6 +35,8 @@ export interface BrushBehaviorState {
   seed: number
   charge: number
   distance: number
+  worldDistance?:number
+  worldDistancePoint?:{x:number;y:number}
   firstAngle: number
   directionSet?: boolean
   opacity: number
@@ -185,6 +188,12 @@ function keyedStrokeValue(key: string, state: BrushBehaviorState): number {
   if(cache.values.length<64)cache.values.push([key,value])
   return value
 }
+/** Pure before/after admission: all option consumers see the same current
+ * centreline length, regardless of which one evaluates before the stamp. */
+function worldDistanceForDab(dab:Dab,state:BrushBehaviorState):number {
+  const p=state.worldDistancePoint
+  return (state.worldDistance??0)+(p?Math.hypot(dab.x-p.x,dab.y-p.y):0)
+}
 export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
   if (!d)
     return 1
@@ -216,6 +225,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? dab.normalizedSpeed ?? clamp(speed / 2)
         : d.control === 'time' ? d.periodic ? ((dab.sourceTime! % d.period!) / d.period!) : Math.min(dab.sourceTime!,d.period!)/d.period!
+        : d.control === 'distance' ? (d.periodic?worldDistanceForDab(dab,state)%d.period!:Math.min(worldDistanceForDab(dab,state),d.period!))/d.period!
         : d.control === 'dabProgress' ? (d.periodic ? ((state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.dabSequence ?? 0) / d.period!))
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)
@@ -307,6 +317,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
   const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous
+  if(brushUsesDistanceControl(brush)){
+    state.worldDistance=worldDistanceForDab(dab,state)
+    state.worldDistancePoint={x:dab.x,y:dab.y}
+  }
   if (prev)
     state.distance += Math.hypot(dab.x - prev.x, dab.y - prev.y) / Math.max(0.5, (dab.size + prev.size) * 0.5)
   const direction = behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y - prev.y, dab.x - prev.x) : dab.angle

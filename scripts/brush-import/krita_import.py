@@ -337,17 +337,17 @@ def sensor_controls(params, option, notes, *, allow_time=False):
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
     source_ids=[]
-    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress'}
+    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress','distance':'distance'}
     if allow_time:supported['time']='time'
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
-        if name in ('fade','time'):
+        if name in ('fade','time','distance'):
             raw=node.get('duration','30') if name=='time' else node.get('length','1000')
             try: period=int(raw)
             except (ValueError,OverflowError): period=0
-            if not 1<=period<=(2147483647 if name=='time' else 1000000) or (not re.fullmatch(r'[+-]?[0-9]+',raw.strip())if name=='time'else str(period)!=raw.strip()):
+            if not 1<=period<=(2147483647 if name in('time','distance') else 1000000) or (not re.fullmatch(r'[+-]?[0-9]+',raw.strip())if name in('time','distance')else str(period)!=raw.strip()):
                 notes.append(compatibility(option+'Sensor','Invalid or out-of-range '+name+' duration/length; sensor unsupported.','unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
@@ -355,9 +355,9 @@ def sensor_controls(params, option, notes, *, allow_time=False):
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         source_ids.append(name)
         controls.append({'control':('tiltDirection'if compound and name=='ascension'else supported[name]),'minimum':0,'jitter':0,'curve':transfer})
-        if name in ('fade','time'):
+        if name in ('fade','time','distance'):
             periodic=enabled(node.get('periodic','0'))
-            if name=='time':
+            if name in('time','distance'):
                 try:periodic=int(node.get('periodic','0').strip())!=0
                 except(ValueError,TypeError):periodic=False
             controls[-1].update(period=period,periodic=periodic)
@@ -369,7 +369,7 @@ def sensor_controls(params, option, notes, *, allow_time=False):
         if name!='pressure':
             notes.append(compatibility(option+'Sensor',
                 'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
-                else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
+                else 'Distance follows canonical centreline length in world pixels; native input-curve subdivision may differ.'if name=='distance'else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
     if compound and controls:
         constant=numeric(params.get(option+'Value'),1)
         if not 0<=constant<=1 or option=='ColorRate'and constant!=1:
@@ -865,7 +865,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if (not rotation_decoded and enabled(params.get('PressureRotation'))
             and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
             and -1<=strength<=1 and 1<=len(rotation_sensors)<=16
-            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade') for node in rotation_sensors)):
+            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance') for node in rotation_sensors)):
         controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input)
         if len(controls)==len(rotation_sensors):
             additive=[{**c,**({'control':'tiltDirection'}if node.get('id')=='ascension'else{})} for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke','ascension')]
@@ -878,7 +878,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if (not rotation_decoded and depth==0 and enabled(params.get('PressureRotation'))and enabled(params.get('RotationUseCurve','true'))
             and -1<=strength<=1 and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
             and 1<=len(rotation_sensors)<=16 and sum(node.get('id')=='drawingangle'for node in rotation_sensors)==1
-            and all(node.get('id')in('drawingangle','fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade')for node in rotation_sensors)):
+            and all(node.get('id')in('drawingangle','fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')for node in rotation_sensors)):
         local=[];controls=sensor_controls(params,'Rotation',local,allow_time=timed_input)
         if len(controls)==len(rotation_sensors)and not any(n['status']=='unsupported'for n in local):
             index=next(i for i,node in enumerate(rotation_sensors)if node.get('id')=='drawingangle');node=rotation_sensors[index]
@@ -1206,6 +1206,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if rotation_static:d['version']=max(d['version'],60)
     if behavior.get('rotation',{}).get('composition',{}).get('absolute'):d['version']=max(d['version'],61)
     if absolute_combination:d['version']=max(d['version'],62)
+    def has_distance_control(v):
+        if isinstance(v,dict):return v.get('control')=='distance'or any(has_distance_control(x)for x in v.values())
+        return isinstance(v,list)and any(has_distance_control(x)for x in v)
+    if has_distance_control(d):d['version']=max(d['version'],63)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:
