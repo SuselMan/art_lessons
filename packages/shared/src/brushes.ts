@@ -1,3 +1,5 @@
+import { isBrushSpray, type BrushSpray } from './brushSpray.js'
+export type { BrushSpray } from './brushSpray.js'
 import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
@@ -232,6 +234,7 @@ export interface BrushDescriptor {
   opacity: number
   /** (#573) Several stamps per dab, each jittered. Absent = one stamp exactly
    *  on the dab. */
+  spray?: BrushSpray
   scatter?: BrushScatter
   /** (#573) The brush's own grain, anchored to the canvas rather than to the
    *  stamp — see tipMasks.ts on why only that survives the overlap of a
@@ -346,7 +349,7 @@ function isBrushPreview(value: unknown): boolean {
   try {
     const bytes = atob(value.slice(22))
     if (bytes.slice(0, 8) !== '\x89PNG\r\n\x1a\n' || bytes.slice(12, 16) !== 'IHDR') return false
-    const dimension = (offset: number) => [...bytes.slice(offset, offset + 4)].reduce((n, c) => n * 256 + c.charCodeAt(0), 0)
+    const dimension = (offset: number) => bytes.slice(offset, offset + 4).reduce((n, c) => n * 256 + c.charCodeAt(0), 0)
     return bytes.length >= 33 && dimension(16) > 0 && dimension(16) <= 128 && dimension(20) > 0 && dimension(20) <= 128
   } catch { return false }
 }
@@ -376,7 +379,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
-    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer']
+    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
       || !Number.isInteger(d.version) || !['stamp','mixer'].includes(String(d.model)) || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
@@ -387,6 +390,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if(d.spray!==undefined&&(!isBrushSpray(d.spray)||d.model!=='stamp'||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2))return false
     if (d.tip.kind === 'procedural' && d.tip.profile === undefined) return false
     if (d.tip.profile !== undefined) {
       const profile=d.tip.profile

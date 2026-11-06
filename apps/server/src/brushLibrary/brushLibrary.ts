@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto'
 import { join, resolve, parse } from 'node:path'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
-const MAX_MANIFEST = 2 * 1024 * 1024
+// Versioned stock presets retain replay definitions and previews alongside new engines.
+// Count, per-field and CAS byte limits remain independently enforced.
+const MAX_MANIFEST = 4 * 1024 * 1024
 const MAX_ASSETS = 256 * 1024 * 1024
 const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 function fail(): never { throw new Error('Invalid brush library') }

@@ -1,3 +1,4 @@
+import { sprayStamps } from './brushSpray'
 import {brushTipColorPlanes} from '@grafetto/shared'
 import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
 import { brushExecutionContext, assertBrushExecutionContext, assertBrushSourceInputs, type BrushExecutionContext } from './brushExecutionContext'
@@ -37,6 +38,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number):BrushSpacingAxes {
+  if(brush.spray){const diameter=input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
   const seed=brushDabSeed(input.x,input.y,input.pressure)
   const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,{...input,angle:pathAngle},state,brushDabRandom(seed,0xa0000+index)),1) ?? 1
@@ -323,7 +325,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
-  const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
+  const bases = brush.spray ? sprayStamps(brush,{...dab,angle,size:dab.size*sizeScale},state.seed,state.dabSequence??0,direction) : brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale })
+  const out = bases.map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
     const placement=behavior?.scatter?.placement
     if(native) {
@@ -346,6 +349,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
       y = dab.y + Math.cos(angle) * offset
     }
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
+    const spray=brush.spray?.color
+    const spraySeed=(state.seed^Math.imul((state.dabSequence??0)+1,0x9e3779b9))>>>0
+    const colorIndex=spray?.perParticle?i:0
+    const sprayColor=spray ? hsvAdjustColor(adjustedColor,spray.hue*brushDabRandom(spraySeed,16+colorIndex*16+4),spray.saturation*brushDabRandom(spraySeed,16+colorIndex*16+5),spray.value*brushDabRandom(spraySeed,16+colorIndex*16+6)) : adjustedColor
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
       ...stamp, ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
@@ -357,7 +364,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
         ? { dualSharpnessScale: dynamic('sharpness', 8192 + i * 8, behavior.dual.brush.behavior) } : {}),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
       flipY: rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1,
-      color: hasColor ? shiftColor(adjustedColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : adjustedColor,
+      color: hasColor ? shiftColor(sprayColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : sprayColor,
       distance: state.distance,
     }
   })

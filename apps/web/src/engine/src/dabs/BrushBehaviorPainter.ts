@@ -1,3 +1,4 @@
+import { SprayShapeBatch } from './SprayShapeBatch'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
@@ -74,6 +75,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private sprayBatch?:SprayShapeBatch
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
   private bindings = new WeakMap<BehaviorScratch, {
@@ -112,6 +114,7 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
+    this.sprayBatch?.reset()
     this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.curveStamp = undefined
@@ -171,6 +174,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    this.sprayBatch?.destroy()
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
     this.circleStamp = undefined
@@ -518,6 +522,11 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
+        if(brush.spray && brush.spray.particle.shape!=='tip' && accumulation==='directOver' && !secondary && !brush.texture && !brush.tip.material && !brush.tip.color && !brush.paperInteraction && !behavior.edgeBleed && !behavior.wetMix){
+          coverage.beginDraw()
+          ;(this.sprayBatch??=new SprayShapeBatch(gl)).paint(list,brush.spray.particle.shape,tile.originX,tile.originY,coverage.width,coverage.height)
+          coverage.endDraw();return
+        }
         const copy=circleBand || accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? ceiling : undefined
         let fastBound=false, lastAverage:number|undefined
         // Preserve one uninterrupted render pass for ordinary OVER and rising
