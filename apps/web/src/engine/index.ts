@@ -7290,6 +7290,12 @@ export class PencilEngine implements PencilEngineAPI {
       }
       return originalKeys
     }
+    // #560: the live marker must build the same CPU bands as its recorded
+    // float32 dabs. At pi/2, rounding can flip which box face supplies support.
+    if (tool === 'marker') {
+      dabs = dabs.map(codecDab)
+      if (prevDab) prevDab = codecDab(prevDab)
+    }
     if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
     this._stamps.paint(target, dabs, tool, presetName, color)

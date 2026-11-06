@@ -30,3 +30,23 @@ it('native watercolor enters ribbon geometry with codec inputs and returns stand
     expect(dab.x).toBe(100.123456789)
   } finally { spy.mockRestore(); scratch.destroy(); engine.destroy() }
 })
+
+for (const preset of ['bullet:8', 'chisel:15']) {
+  for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
+    it(`${preset} angle ${angle} uses codec precision for geometry and the previous packet dab`, () => {
+      const { engine } = createTestEngine({}, { width: 64, height: 64 })
+      const samples = [{ ...dab, angle }, { ...dab, x: dab.x + 12.3456789, angle }]
+      const previous = { ...dab, x: dab.x - 10.123456789, angle }
+      const seam = engine as unknown as { _paintRibbonDabs: (...args: unknown[]) => undefined }
+      const spy = vi.spyOn(seam, '_paintRibbonDabs').mockReturnValue(undefined)
+      try {
+        engine['_paintDabs'](engine['_compositeFBO'], samples, 'marker', preset, [0.1, 0.2, 0.3], 'A', previous)
+        const args = spy.mock.calls[0] as unknown[]
+        expect(args[1]).toEqual(unpackDabs(packDabs(samples)))
+        expect(args[6]).toEqual(unpackDabs(packDabs([previous]))[0])
+        expect(samples[0].angle).toBe(angle)
+        expect(previous.x).toBe(dab.x - 10.123456789)
+      } finally { spy.mockRestore(); engine.destroy() }
+    })
+  }
+}
