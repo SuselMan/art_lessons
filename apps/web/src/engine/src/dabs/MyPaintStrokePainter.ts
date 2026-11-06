@@ -60,13 +60,25 @@ export class MyPaintStrokePainter{
     if(cached&&cached.sources.length===existing.length&&cached.sources.every((r,i)=>r.buffer===existing[i].buffer&&r.revision===r.buffer.contentRevision)){
      for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(cached.pixels[i]*32768/255)
     }else{
-    for(const t of existing){
-     const x=Math.max(rect.minX,t.originX),y=Math.max(rect.minY,t.originY),right=Math.min(rect.maxX,t.originX+t.buffer.width),bottom=Math.min(rect.maxY,t.originY+t.buffer.height),w=right-x,h=bottom-y;if(w<=0||h<=0)continue
-     const bytes=t.buffer.readPixelsRegion(x-t.originX,t.buffer.height-(y-t.originY)-h,w,h)
-     for(let row=0;row<h;row++)for(let column=0;column<w;column++)for(let c=0;c<4;c++)pixels[((y-rect.minY+row)*64+x-rect.minX+column)*4+c]=Math.round(bytes[((h-1-row)*w+column)*4+c]*32768/255)
-    }
-    const bytes=new Uint8Array(pixels.length);for(let i=0;i<bytes.length;i++)bytes[i]=Math.round(pixels[i]*255/32768)
-    state!.mirror.set(key,{pixels:bytes,sources:existing.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
+     // Fetch a256px neighbourhood once, rather than synchronizing the GPU
+     // separately for every64px native page reached by a moving brush.
+     const px=Math.floor(tx/4)*256,py=Math.floor(ty/4)*256,area={minX:px,minY:py,maxX:px+256,maxY:py+256},patch=new Uint8Array(256*256*4)
+     const sources=target.resolveExistingForPaint?.(area)??target.resolveVisible?.(area)??target.resolveForPaint(area)
+     for(const t of sources){
+      const x=Math.max(px,t.originX),y=Math.max(py,t.originY),right=Math.min(px+256,t.originX+t.buffer.width),bottom=Math.min(py+256,t.originY+t.buffer.height),w=right-x,h=bottom-y;if(w<=0||h<=0)continue
+      const bytes=t.buffer.readPixelsRegion(x-t.originX,t.buffer.height-(y-t.originY)-h,w,h)
+      for(let row=0;row<h;row++)patch.set(bytes.subarray((h-1-row)*w*4,(h-row)*w*4),((y-py+row)*256+x-px)*4)
+     }
+     for(let cy=0;cy<4;cy++)for(let cx=0;cx<4;cx++){
+      const cellX=px+cx*64,cellY=py+cy*64,cellKey=cellX/64+','+cellY/64
+      if(cellKey!==key&&tiles.has(cellKey))continue
+      const bytes=new Uint8Array(64*64*4)
+      for(let row=0;row<64;row++)bytes.set(patch.subarray(((cy*64+row)*256+cx*64)*4,((cy*64+row)*256+cx*64+64)*4),row*64*4)
+      const refs=sources.filter(t=>t.originX<cellX+64&&t.originX+t.buffer.width>cellX&&t.originY<cellY+64&&t.originY+t.buffer.height>cellY)
+      state!.mirror.set(cellKey,{pixels:bytes,sources:refs.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
+     }
+     const cached=state!.mirror.get(key)!
+     for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(cached.pixels[i]*32768/255)
     }
    }
    if(!readonly){tile.dirty=true;tile.written=true}return tile.pointer
