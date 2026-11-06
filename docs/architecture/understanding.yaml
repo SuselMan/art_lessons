@@ -221,6 +221,14 @@ topics:
     why: CI → образ → VPS, миграции до старта сервера, бэкапы, и почему старый прогон откатывает прод.
     modules: [build-dist, apps/web]
 
+  - id: carried-ink-ownership
+    level: 2
+    parent: engine
+    title: Переносимая краска и время жизни буферов
+    issue: 834
+    why: Изоляция состояния мазка по участнику и буферу; освобождение GPU imprint вместе с владельцем.
+    layers: [engine-internals]
+
   - id: dependency-direction
     level: 2
     parent: client

@@ -212,6 +212,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // suspendEviction's own doc comment for why engine/index.ts needs this.
   private evictionSuspendDepth = 0
 
+  private readonly onDestroy?: (buffer: TiledLayerBuffer) => void
+
   constructor(
     gl: WebGLRenderingContext, tileW: number = TILE_SIZE, tileH: number = TILE_SIZE,
     rebuildTile?: TileRebuilder,
@@ -235,8 +237,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // and thrown away, so neither has a coarse level to keep. Without one,
     // every coarse path below short-circuits.
     downsampleTile?: TileDownsampler,
+    onDestroy?: (buffer: TiledLayerBuffer) => void,
   ) {
     this.gl = gl
+    this.onDestroy = onDestroy
     this.tileW = tileW
     this.tileH = tileH
     this.rebuildTile = rebuildTile
@@ -267,6 +271,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   destroy(): void {
+    this.onDestroy?.(this)
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()

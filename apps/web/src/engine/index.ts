@@ -993,10 +993,9 @@ export interface PencilEngineAPI {
   // screen before awaiting it.
   computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null>
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
-  // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
-  // preview buffer (composited on top in _display(), never written into any
-  // real layer) at their original recorded pacing (Dab.t), queueing if that
-  // peer already has one in flight. Fires onPreviewApplied with the exact
+  // StrokeOperation arrives. Reveals dabs at their recorded pacing (Dab.t),
+  // queueing per peer. Marker/smudge use the real layer as their source and
+  // protect that provisional ink until commit; other tools use an overlay. Fires onPreviewApplied with the exact
   // same op once every dab has played, so the caller can commit it for real.
   // `rate` (#108) scales that pacing — 2 plays the dabs twice as fast, 0.5
   // half as fast; defaults to 1 (real recorded speed, what the live-room
@@ -1268,7 +1267,7 @@ interface PeerPreviewState {
   // queue — this is walked on every timer tick as the reveal plays out, and
   // unpacking the whole array per tick would turn a cheap read into real work
   // proportional to the stroke's length.
-  queue: Array<{ op: StrokeOperation; rate: number; dabs: Dab[] }>
+  queue: Array<{ op: StrokeOperation; rate: number; dabs: Dab[]; painted?: number; claimed?: boolean; delivered?: boolean }>
   buf: AccumulationBuffer
   // (#138) World point this buffer's own pixel (0,0) represents — see
   // PencilEngine._cameraCenteredOrigin's doc comment for why this has to be
@@ -1764,8 +1763,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Live remote-stroke reveal (#37 follow-up v2) — one dedicated preview
   // AccumulationBuffer + FIFO queue of not-yet-committed StrokeOperations per
-  // peer, keyed by userId. Never accumulated into any real layer: the queue
-  // head's dabs are painted progressively at their recorded pacing (Dab.t)
+  // peer, keyed by userId. Source-dependent tools reveal directly in their
+  // layer, protected as unrecorded ink until the accepted operation claims it.
+  // Other tools keep their overlay. Dabs reveal at their recorded pacing (Dab.t)
   // by _stepPeerPreview, and only handed to onPreviewApplied — for the
   // caller to actually commit — once every dab has played. See
   // previewOperation/dropPendingPreview/flushPeerPreview below.
@@ -3216,6 +3216,11 @@ export class PencilEngine implements PencilEngineAPI {
       if (live.layerId !== layerId || live.paintedTotal <= live.committedOffset) continue
       if (!own(live.peerId, live.strokeId)) return true
     }
+    for (const state of this._peerPreviews.values()) {
+      const head = state.queue[0]
+      if (head?.painted && !head.claimed && head.op.layerId === layerId
+        && head.op.id !== op.id && !own(head.op.userId, head.op.strokeId)) return true
+    }
     return false
   }
 
@@ -3739,6 +3744,33 @@ export class PencilEngine implements PencilEngineAPI {
     this._area.clearLayerTransformPreview()
   }
 
+  private _statefulPeerPreview(op: StrokeOperation): boolean {
+    return op.tool === 'marker' || op.tool === 'smudge'
+  }
+
+  private _releaseLegacyPreviewCarrier(op: StrokeOperation): void {
+    if (op.strokeId) return // A later accepted chunk may continue this gesture.
+    const lost = this._contextLost || this.gl.isContextLost()
+    const chunk = this._replayRibbonChunks.get(op.id)
+    if (chunk && chunk.target === this._layers.get(op.layerId)) {
+      if (lost) { chunk.scratch.forget(); this._replayRibbonChunks.delete(op.id) }
+      else this._evictChunk(op.id, false) // Also cancels an in-progress spill.
+    }
+    const parked = this._spilledWashes.get(op.id)
+    if (parked && parked.target === this._layers.get(op.layerId)) {
+      parked.spill.dispose(); this._spilledWashes.delete(op.id)
+    }
+    if (this._lostWashes.get(op.id) === this._layers.get(op.layerId)) this._lostWashes.delete(op.id)
+    this._chunkAuthors.delete(op.id)
+    this._smudge.releaseGesture(op.userId, op.id, lost)
+  }
+
+  private _retirePeerPreviewInk(state: PeerPreviewState): void {
+    for (const head of state.queue) {
+      if (head.painted && !head.claimed) this._unsettledLayers.add(head.op.layerId)
+    }
+  }
+
   /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
@@ -3746,6 +3778,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
+      this._onPreviewApplied?.(op)
+      return
+    }
+    if (this._statefulPeerPreview(op) && op.strokeId
+      && this._peerLiveStrokes.has(liveStrokeKey(op.userId, op.strokeId, op.layerId))) {
       this._onPreviewApplied?.(op)
       return
     }
@@ -3781,6 +3818,7 @@ export class PencilEngine implements PencilEngineAPI {
       const idx = state.queue.findIndex(item => item.op.id === opId)
       if (idx === -1) continue
       const [removed] = state.queue.splice(idx, 1)
+      if (removed.painted && !removed.claimed) this._unsettledLayers.add(removed.op.layerId)
       if (idx === 0) {
         // It was the one actually animating — stop it and either move on to
         // whatever's queued behind it or tear this peer down entirely.
@@ -3789,6 +3827,8 @@ export class PencilEngine implements PencilEngineAPI {
         if (state.queue.length) this._startPeerPreviewHead(peerId)
         else { state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
       }
+      this._settleLayers()
+      this._releaseLegacyPreviewCarrier(removed.op)
       return removed.op
     }
     return null
@@ -3799,8 +3839,11 @@ export class PencilEngine implements PencilEngineAPI {
     const state = this._peerPreviews.get(peerId)
     if (!state) return []
     if (state.timer !== null) clearTimeout(state.timer)
+    this._retirePeerPreviewInk(state)
     state.buf.destroy()
     this._peerPreviews.delete(peerId)
+    this._settleLayers()
+    for (const head of state.queue) this._releaseLegacyPreviewCarrier(head.op)
     this._display()
     return state.queue.map(item => item.op)
   }
@@ -3811,6 +3854,15 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
     if (!canonicalExecution && this._wcAsyncFinish && packet.tool !== 'watercolor' && this._wcCanonical.pending && this._queueAsyncPeerLive(peerId, packet)) return
+    const revealing = this._peerPreviews.get(peerId)?.queue[0]
+    if (revealing && this._statefulPeerPreview(revealing.op) && !revealing.claimed && revealing.op.strokeId === packet.strokeId
+      && revealing.op.layerId === packet.layerId) {
+      // A reentrant callback is already handing this accepted operation to
+      // the canonical path. Later packets can fall back to that whole op.
+      if (revealing.delivered) return
+      const confirmed = this.flushPeerPreview(peerId)
+      for (const op of confirmed) this._onPreviewApplied?.(op)
+    }
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
@@ -3821,9 +3873,17 @@ export class PencilEngine implements PencilEngineAPI {
       // is not on the layer and the operations would then skip painting it.
       // Better to let this gesture arrive the old way, whole, and stream the
       // next one.
+      // Late packet zero can follow an already accepted fallback operation.
+      // Those dabs are accounted for even when their pixels were later undone.
+      const known = packet.packetSeq === 0 ? this._log.entries.reduce((count, entry) => {
+        const op = entry.op
+        return !entry.pending && entry.goneReason !== 'reject' && op.type === 'stroke'
+          && op.userId === peerId && op.strokeId === packet.strokeId && op.layerId === packet.layerId
+          ? count + strokeDabs(op).length : count
+      }, 0) : 0
       live = {
         peerId, strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
-        paintedTotal: 0, liveOffset: 0, committedOffset: 0, nextPacketSeq: 0,
+        paintedTotal: known, liveOffset: 0, committedOffset: known, nextPacketSeq: 0,
         desynced: packet.packetSeq !== 0, ended: false,
       }
       this._peerLiveStrokes.set(key, live)
@@ -3985,7 +4045,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  isn't involved, which is every stroke in a room where nobody is streaming
    *  — including this client's own, since it never streams to itself. */
   private _claimLivePaintedDabs(op: StrokeOperation, dabCount: number): number {
-    if (!op.strokeId) return 0
+    const preview = this._peerPreviews.get(op.userId)?.queue[0]
+    const revealed = preview?.op.id === op.id ? Math.min(preview.painted ?? 0, dabCount) : 0
+    if (revealed && preview) preview.claimed = true
+    if (!op.strokeId) return revealed
     const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     // Deliberately still claims for a desynced gesture. `desynced` stops
     // *further* live painting, and painting stops at the first missing packet
@@ -3993,7 +4056,7 @@ export class PencilEngine implements PencilEngineAPI {
     // prefix of the gesture. Ignoring it because the stream later broke would
     // repaint that prefix on top of itself and leave the first part of the
     // mark darker than the rest.
-    if (!live) return 0
+    if (!live) return revealed
     // Mirror image of the live path: this operation's dabs sit at
     // [committedOffset, committedOffset + dabCount), and whatever of that is
     // below paintedTotal is already drawn.
@@ -4003,7 +4066,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (live.ended && live.committedOffset >= live.paintedTotal) {
       this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     }
-    return skip
+    return Math.max(skip, revealed)
   }
 
   // Starts (or restarts, for the next queued op) animating peerId's queue
@@ -4026,7 +4089,7 @@ export class PencilEngine implements PencilEngineAPI {
     const state = this._peerPreviews.get(peerId)
     if (!state) return
     if (this._contextLost || this.gl.isContextLost()) {
-      const queued = [...state.queue]
+      const queued = state.queue.filter(head => !head.delivered)
       this._peerPreviews.delete(peerId)
       for (const head of queued) this._onPreviewApplied?.(head.op)
       return
@@ -4043,6 +4106,16 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     const { op, rate, dabs } = head
+    const direct = this._statefulPeerPreview(op)
+    if (direct && !head.delivered && !head.painted && (this._wcCanonical.pending || this._opQueue.length
+      || (state.waitingCanonical && (this._rebuildJobs.size || this._pendingRebuilds.size)))) {
+      state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+      return
+    }
+    if (direct && state.waitingCanonical) {
+      state.buf.clear()
+      state.waitingCanonical = false
+    }
 
     const elapsed = (performance.now() - state.startTime) * rate
     const due: Dab[] = []
@@ -4053,7 +4126,16 @@ export class PencilEngine implements PencilEngineAPI {
     if (due.length) {
       // #138: translated into this peer's buffer's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      if (this._wcAsyncFinish && op.tool === 'watercolor') {
+      if (direct) {
+        const target = this._layers.get(op.layerId)
+        if (target) {
+          this._paintDabs(target, due, op.tool, op.preset, op.color, op.userId,
+            undefined, undefined, op.strokeId ?? op.id)
+          head.painted = (head.painted ?? 0) + due.length
+          this._snapshots.markDirty(op.layerId)
+          if (op.layerId !== this._activeId) this._invalidateSplitCache()
+        }
+      } else if (this._wcAsyncFinish && op.tool === 'watercolor') {
         // Peer reveal is transient: no shared canonical scratch/solver here.
         const waterOnly = watercolorMixFromPreset(op.preset).pigment <= 0
         const marks = due.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
@@ -4065,8 +4147,23 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     if (state.dabIdx >= dabs.length) {
-      this._onPreviewApplied?.(op)
+      if (!head.delivered) {
+        head.delivered = true
+        this._onPreviewApplied?.(op)
+      }
+      if (this._peerPreviews.get(peerId) !== state) return
+      // An accepted callback may have queued its canonical application behind
+      // an async finish. Keep the claim alive until that FIFO has applied it.
+      if (head.painted && !head.claimed && this._opQueue.some(item => item.op.id === op.id)) {
+        state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+        return
+      }
       state.queue.shift()
+      if (head.painted && !head.claimed) {
+        this._unsettledLayers.add(op.layerId)
+        this._settleLayers()
+      }
+      this._releaseLegacyPreviewCarrier(op)
       const hold = this._wcAsyncFinish && (op.tool === 'watercolor' || state.waitingCanonical) && (this._wcCanonical.pending || this._opQueue.length > 0 || this._rebuildJobs.size > 0 || this._pendingRebuilds.size > 0)
       state.waitingCanonical = hold
       if (!hold) state.buf.clear()
@@ -4808,10 +4905,8 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  Ribbon entries are dropped for this buffer only: another layer's replay
    *  (a merge's temp buffer, a full-replay bake) holds its own and is not this
-   *  replay's business. Smudge's are per user with no target to compare, so
-   *  they all go except the local gesture actually in progress — that one is
-   *  still being painted live by SmudgePainter.paint and must not have its imprint
-   *  reset under it by, say, a peer's undo arriving mid-stroke. */
+   *  replay's business. Smudge carriers are scoped to the target buffer too,
+   *  so another layer or temporary replay cannot replace a live imprint. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
     if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
@@ -4819,7 +4914,7 @@ export class PencilEngine implements PencilEngineAPI {
       chunk.scratch.destroy()
       this._replayRibbonChunks.delete(key)
     }
-    this._smudge.dropReplayChunks({ userId: this._userId, strokeId: this._strokeId })
+    this._smudge.dropReplayChunks(buf)
   }
 
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
@@ -4965,6 +5060,7 @@ export class PencilEngine implements PencilEngineAPI {
       this.gl, w, h,
       layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined,
       undefined, downsample,
+      target => this._smudge.releaseTarget(target, this._contextLost || this.gl.isContextLost()),
     )
   }
 
@@ -5072,7 +5168,7 @@ export class PencilEngine implements PencilEngineAPI {
     // A confirmed preview must not depend on its timer running before restore
     // forgets the old buffers. Detach first: commit callbacks can be reentrant.
     const previews = [...this._peerPreviews.values()]
-    const confirmed = previews.flatMap(state => state.queue.map(head => head.op))
+    const confirmed = previews.flatMap(state => state.queue.filter(head => !head.delivered).map(head => head.op))
     for (const state of previews) if (state.timer !== null) clearTimeout(state.timer)
     this._peerPreviews.clear()
     for (const op of confirmed) this._onPreviewApplied?.(op)
@@ -5224,6 +5320,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._strokeExtraLayerIds.includes(layerId)) return true
     for (const live of this._peerLiveStrokes.values()) {
       if (live.layerId === layerId && live.paintedTotal > live.committedOffset) return true
+    }
+    for (const state of this._peerPreviews.values()) {
+      const head = state.queue[0]
+      if (head?.painted && !head.claimed && head.op.layerId === layerId) return true
     }
     return false
   }
@@ -5544,7 +5644,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
-    if (this._deferredSnapshotInstalls.has(layerId) || this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
+    if (this._deferredSnapshotInstalls.has(layerId) || this._strokeLayerId || this._hasUnrecordedInk(layerId) || this._destroyed || this.gl.isContextLost()) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
