@@ -95,4 +95,4 @@ understands it" are tracked separately. Before an architectural decision, check 
 
 Operational rules for Claude — coding conventions, quality gates, Git workflow, and issue tracking — live in `.claude/rules.md`.
 
-**Release track:** issue #314 (pinned) is the single list of what must be covered before the first release. Before starting non-trivial work, check it against #314 and name the item it unblocks; if it maps to nothing there, say so to Ilya before doing it, and decide together whether it belongs in the track. Full rule in `.claude/rules.md` → "Release track".
+**Release track:** issue #825 is the single active list of functional work required for the first release. It includes full Krita brush support and excludes the experimental Grafetto watercolor model. A separate polishing stage will be planned after this track is closed and completed before release; closing #825 does not authorize a deploy. Before starting non-trivial work, check it against #825 and name the item it unblocks. If it maps to nothing there, discuss whether it belongs before starting. Issue #314 is archived and redirects to #825. Full rule in `.claude/rules.md` → "Release track".

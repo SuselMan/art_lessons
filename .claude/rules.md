@@ -42,25 +42,30 @@
   добавить второго разработчика строкой. Темы ссылаются на модули, слои, каналы, потоки и ADR
   с карты, и `map:check` падает, если ссылка устарела; покрытие он только печатает.
 
-## Release track (issue #314)
+## Release track (issue #825)
 
-Issue **#314 — «Трек к первому релизу»** is the single list of what must be 100% covered
-before the first release. It is pinned. Treat it as the definition of "does this matter now".
+Issue **#825 — «Первый релиз: функциональный трек»** is the single active list of
+functional deliverables required for the first release. It replaces archived #314.
+Full Krita brush support is included; the experimental Grafetto watercolor model
+is excluded. General polishing is a separate stage, to be planned after this track
+closes and completed before release. Closing the track does not authorize a deploy.
 
-- **Before starting any non-trivial task, check it against #314.** Which numbered item does
-  it unblock? Say so explicitly when picking the task up — one line is enough
-  ("двигает §3, #308").
-- **If the task maps to nothing in the track, say so to Ilya before doing it.** Don't quietly
-  do it anyway, and don't quietly refuse either. State plainly: this doesn't move us toward
-  the release. Then decide together, with an argument, whether it belongs in the track or
-  gets deferred. The point of this rule is to catch work that feels productive but isn't —
-  including work Ilya himself proposed.
-- **The track changes only on real need**, never by drift. Any change to #314 (adding,
-  removing, or re-scoping an item) is posted as a comment on #314 with the reasoning: what
-  changed in our understanding, not what we felt like building. Update the item counter in
-  the body when the count changes.
-- Exempt from the check: bugfixes for things broken in production right now, and small
-  mechanical chores (typo, lint, dependency bump). Everything else gets checked.
+- **Before starting any non-trivial task, check it against #825.** Name the concrete
+  issue or criterion it unblocks. A shared history/network bug found during watercolor
+  work can belong here; watercolor-only development does not.
+- **If the task maps to nothing in the track, say so to Ilya before doing it.**
+  Decide whether it belongs instead of silently expanding or refusing the work.
+- **Track completion is finite.** Each checkbox names an issue to close after its
+  implementation is merged and its relevant checks pass. Local work is not a completed
+  delivery. Necessary regression/device correctness checks belong to the task; the
+  general polishing stage is not a hidden prerequisite for closing this track.
+- **Scope changes require an explicit decision from Ilya.** Record the reason in a
+  comment on #825 and update its checklist/count. Discovering a missing part of the
+  already-required full Krita compatibility is tracked under #820 rather than treated
+  as permission to reduce that compatibility.
+- Exempt from the scope check: fixes for production failures and small mechanical
+  chores (typos, lint, dependency bumps). Their normal checks still apply.
+- Do not use archived #314's percentages or section numbers as current scope.
 
 ## Code style
 
@@ -306,12 +311,12 @@ Every issue must have exactly one `kind:*` and one `area:*`.
 3. Link PRs to issues with `Closes #N` or `Refs #N`.
 4. Close issues only when the fix/feature is merged and verified.
 5. Do not put full implementation plans in issue bodies — keep them short; long plans live in ADRs or design docs linked from the issue.
-6. Check the issue against the release track (#314) before starting — see "Release track" above.
+6. Check the issue against the release track (#825) before starting — see "Release track" above.
 
 ### Naming issues in conversation
 
 Never refer to an issue by bare number when writing to Ilya. Always give the number
-a short handle: `#314 (релиз-трек)`, `#308 (Undo вешает поток)`, `#154 (dpr в
+a short handle: `#825 (релиз-трек)`, `#308 (Undo вешает поток)`, `#154 (dpr в
 бесконечном холсте)`. A few words are enough — it only has to be recognizable, not
 the real title.
 
