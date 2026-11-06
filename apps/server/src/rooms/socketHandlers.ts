@@ -10,7 +10,7 @@ import {
 } from './classroom.js'
 import {
   addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
-  leaveRoom, releaseRoomIfUnused, removePaletteColor,
+  leaveRoom, retainRoomForJoin, removePaletteColor,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
 import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
@@ -235,8 +235,6 @@ export async function announceBoardThumbnail(
 const personalBoardsInFlight = new Set<string>()
 
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
-  // Pending requests share cold residency until the last waiter settles.
-  const pendingJoins = new Map<string, number>()
   // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
@@ -321,8 +319,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     const beginSeatIntent = (roomId: string, ack: (result: JoinResult) => void) => {
       const generation = ++joinGeneration
       const loadIntent = retainRoomLoadIntent(roomId)
-      pendingJoins.set(roomId, (pendingJoins.get(roomId) ?? 0) + 1)
+      const residency = retainRoomForJoin(roomId)
       return {
+        residency,
         obsolete: () => {
           if (socket.connected && generation === joinGeneration && !loadIntent.isCancelled()) return false
           ack({ ok: false, error: 'server_busy' })
@@ -330,12 +329,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         },
         finish: () => {
           loadIntent.release()
-          const remaining = (pendingJoins.get(roomId) ?? 1) - 1
-          if (remaining) pendingJoins.set(roomId, remaining)
-          else {
-            pendingJoins.delete(roomId)
-            releaseRoomIfUnused(roomId)
-          }
+          residency.release()
         },
       }
     }
@@ -388,7 +382,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           ack({ ok: false, error: 'server_busy' })
           return
         }
-        await ensureRoomLoaded(room.id)
+        await ensureRoomLoaded(room.id, intent.residency)
         if (intent.obsolete()) return
         // No one else is in the room yet, so there's no peer_joined broadcast
         // to make — unlike join_room below, the returned participant is unused.
@@ -446,7 +440,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // first time this process has touched it this session — a cold server
         // start, or the room went idle and was evicted (see leaveRoom). A
         // no-op, synchronously fast, when the room's already live.
-        await ensureRoomLoaded(roomId)
+        await ensureRoomLoaded(roomId, intent.residency)
         if (intent.obsolete()) return
 
         const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME
