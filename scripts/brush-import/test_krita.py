@@ -160,7 +160,7 @@ class KritaTests(unittest.TestCase):
             self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1)
             self.assertEqual(c.brushes[0]['sourceDefaults']['sizePx'],6)
     def test_missing_resources_and_unsupported_engines_skip_honestly(self):
-        for data in [kpp('<Brush type="gbr_brush" filename="absent.gbr"/>'),kpp(engine='particlebrush')]:
+        for data in [kpp('<Brush type="gbr_brush" filename="absent.gbr"/>'),kpp(engine='unknown-paintop-fixture')]:
             with tempfile.TemporaryDirectory() as tmp:
                 p=Path(tmp)/'QA.kpp';p.write_bytes(data);c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertFalse(c.brushes);self.assertEqual(len(c.skipped),1)

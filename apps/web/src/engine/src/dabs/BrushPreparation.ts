@@ -52,6 +52,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid')[]
 } {
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'>()
+  if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.grid)capabilities.add('grid')
   if(brush.hatching)capabilities.add('hatching')
   if(brush.sketch||brush.bristle||brush.curveTrace)capabilities.add('sketchLines')

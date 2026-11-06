@@ -1,3 +1,4 @@
+import type{SprayShapeBatch}from'./SprayShapeBatch'
 import type {BehaviorPlaced} from '../presets/brushBehavior'
 import type {AccumulationBuffer} from '../buffers/AccumulationBuffer'
 import {createProgram} from '../raster/utils'
@@ -9,7 +10,7 @@ const FRAG=`precision highp float;varying vec2 v_local;varying vec4 v_color;vary
 void main(){float d=length(vec2(max(abs(v_local.x)-v_extent.x,0.),v_local.y))-v_extent.y;
 float a=(u_aa>.5?clamp(.5-d,0.,1.):(d<=0.?1.:0.))*v_color.a;if(a<=0.)discard;gl_FragColor=vec4(v_color.rgb*a,a);}`
 const COPY_VERT=`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=(a_position+1.)*.5;gl_Position=vec4(a_position,0.,1.);}`
-const COPY_FRAG=`precision highp float;uniform sampler2D u_source;uniform float u_opacity;varying vec2 v_uv;void main(){gl_FragColor=texture2D(u_source,v_uv)*u_opacity;}`
+const COPY_FRAG=`precision highp float;uniform sampler2D u_source;uniform float u_opacity;uniform vec4 u_flatColor;varying vec2 v_uv;void main(){vec4 ink=texture2D(u_source,v_uv);gl_FragColor=(u_flatColor.a>.5?vec4(u_flatColor.rgb*ink.a,ink.a):ink)*u_opacity;}`
 /** One temporary request image preserves group opacity at intersecting lines.
  * Both images are the existing coverage/ceiling scratch; no new tile surfaces. */
 export class SketchLineBatch{
@@ -27,6 +28,21 @@ export class SketchLineBatch{
   this.program??=createProgram(gl,VERT,FRAG);this.composite??=createProgram(gl,COPY_VERT,COPY_FRAG);this.buffer??=gl.createBuffer()!
   if(!this.quad){this.quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,this.quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)}
  }
+ /** Native Particle adds bilinear point weights inside one request image,
+  * then composites that image OVER once. Reuses both existing batch programs. */
+ paintParticlePoints(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,shapes:SprayShapeBatch):void{
+  this.prepare();const gl=this.gl,program=this.composite!
+  for(let first=0;first<stamps.length;){
+   let end=first+1;while(end<stamps.length&&stamps[end].group===stamps[first].group)end++
+   temporary.clear();temporary.beginDraw();gl.blendFunc(gl.ONE,gl.ONE)
+   try{shapes.paint(stamps.slice(first,end).map(s=>({...s,ceiling:1})),'bilinear',originX,originY,temporary.width,temporary.height)}finally{temporary.endDraw()}
+   coverage.beginDraw();gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,temporary.texture)
+   gl.uniform1i(gl.getUniformLocation(program,'u_source'),0);gl.uniform1f(gl.getUniformLocation(program,'u_opacity'),stamps[first].ceiling)
+   gl.uniform4f(gl.getUniformLocation(program,'u_flatColor'),...stamps[first].color,1)
+   gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);gl.disableVertexAttribArray(position);coverage.endDraw()
+   first=end
+  }
+ }
  /** Build each path with opaque geometry before applying its path opacity,
   * then apply request opacity once across connection/curve intersections.
   * The third image is the existing pooled brushCeilingCopy scratch. */
@@ -39,6 +55,7 @@ export class SketchLineBatch{
    const gl=this.gl,program=this.composite!
    coverage.beginDraw();gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,request.texture)
    gl.uniform1i(gl.getUniformLocation(program,'u_source'),0);gl.uniform1f(gl.getUniformLocation(program,'u_opacity'),stamps[first].ceiling)
+   gl.uniform4f(gl.getUniformLocation(program,'u_flatColor'),0,0,0,0)
    gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);gl.disableVertexAttribArray(position);coverage.endDraw()
    first=end
   }
@@ -65,6 +82,7 @@ export class SketchLineBatch{
    }finally{for(const loc of locations)gl.disableVertexAttribArray(loc);temporary.endDraw()}
    coverage.beginDraw();gl.useProgram(composite);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,temporary.texture)
    gl.uniform1i(gl.getUniformLocation(composite,'u_source'),0);gl.uniform1f(gl.getUniformLocation(composite,'u_opacity'),stamps[first].ceiling)
+   gl.uniform4f(gl.getUniformLocation(composite,'u_flatColor'),0,0,0,0)
    gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(composite,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);gl.disableVertexAttribArray(position);coverage.endDraw()
    first=end
   }

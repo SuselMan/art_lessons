@@ -6552,7 +6552,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
     this._dabs.timing=spacingBrush?.behavior?.timing
-    this._dabs.inputKnots=!!(spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace)
+    this._dabs.inputKnots=!!(spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle)
     this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
