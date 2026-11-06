@@ -4224,7 +4224,7 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── History / replay ────────────────────────────────────────────────────────
 
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
-  private _applyHistoryChange(op: Operation, cause?: Operation): void {
+  private _applyHistoryChange(op: Operation, cause?: Operation, historicalCause = false): void {
     if (this._wcAsyncFinish) {
       this._cancelSettle()
       // These previews already committed their callbacks. History removes
@@ -4237,7 +4237,7 @@ export class PencilEngine implements PencilEngineAPI {
         else { state.buf.destroy(); this._peerPreviews.delete(peerId) }
       }
     }
-    this._noteSnapshotHistoryMutation(op, cause)
+    this._noteSnapshotHistoryMutation(op, cause, historicalCause)
     if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
@@ -5713,7 +5713,32 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
-  private _noteSnapshotHistoryMutation(op: Operation, cause?: Operation): void {
+  /** Positive cause for a state changed by historical union refolding. Never
+   * infer a cause from state alone: identify the last valid addressed event. */
+  private _historicalMutationCause(op: Operation): Operation | undefined {
+    const entries = this._log.entries
+    const byId = new Map(entries.map(entry => [entry.op.id, entry]))
+    const state = byId.get(op.id)
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i], change = entry.op
+      if (entry.goneReason === 'reject') continue
+      if (change.type !== 'operation_undo' && change.type !== 'operation_redo' && change.type !== 'operation_revoke') continue
+      const target = byId.get(change.targetOpId)?.op
+      if (!target || (op.seq ?? 0) >= (change.seq ?? 0)
+        || (change.type !== 'operation_revoke' && target.userId !== change.userId)) continue
+      const same = target.id === op.id || (change.type !== 'operation_revoke' && op.type === 'stroke'
+        && target.type === 'stroke' && !!op.strokeId && target.strokeId === op.strokeId && target.userId === op.userId)
+      if (!same) continue
+      const matches = change.type === 'operation_undo'
+        ? state?.state === 'undone' || (state?.state === 'gone' && state.goneReason === 'branch')
+        : change.type === 'operation_redo' ? state?.state === 'done'
+          : state?.state === 'gone' && state.goneReason === 'revoke'
+      return matches ? change : undefined
+    }
+    return undefined
+  }
+
+  private _noteSnapshotHistoryMutation(op: Operation, cause?: Operation, historicalCause = false): void {
     const entries = this._log.entries
     const targetEntry = entries.find(entry => entry.op.id === op.id)
     const causeEntry = cause ? entries.find(entry => entry.op.id === cause.id) : undefined
@@ -5722,8 +5747,10 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = grouped && op.type === 'stroke' ? entries.filter(entry => entry.op.type === 'stroke'
       && entry.op.userId === op.userId && entry.op.strokeId === op.strokeId
       && (entry.op.seq ?? 0) < (causeEntry?.op.seq ?? Infinity)).map(entry => entry.op) : [op]
+    const mutation = causeEntry?.serverSeq !== undefined && !causeEntry.pending
+      ? { serverSeq: causeEntry.serverSeq, historical: historicalCause } : undefined
     for (const target of targets) {
-      this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(target), target.id)
+      this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(target), target.id, mutation)
     }
     this._resolveSnapshotHistoryRepairs()
     if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
@@ -5786,7 +5813,7 @@ export class PencilEngine implements PencilEngineAPI {
   absorbHistoricalOperations(pageOps: Operation[]): void {
     const changed = this._snapshotIO.absorbHistorical(pageOps)
     for (const op of changed) {
-      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op, this._historicalMutationCause(op), true)
     }
     this._resolveSnapshotHistoryRepairs()
   }

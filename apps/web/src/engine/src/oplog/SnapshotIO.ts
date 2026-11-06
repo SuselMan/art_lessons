@@ -435,10 +435,24 @@ export class SnapshotIO {
     this.ctx.ledger.refusePublishing(layerId)
   }
 
-  invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
+  invalidateCoveredHistory(layerIds: readonly string[], targetId: string, mutation?: { serverSeq: number; historical: boolean }): void {
     for (const layerId of layerIds) {
       const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
       if (!snapshot || snapshot.coveredSeq === undefined) continue
+      if (mutation && mutation.serverSeq <= snapshot.coveredSeq) {
+        // The bitmap already includes this accepted control. An unresolved
+        // newer control can still address an unknown sibling, so fail closed.
+        const log = this.ctx.log()
+        const uncertain = mutation.historical && log.entries.some(entry => {
+          const op = entry.op
+          if (entry.goneReason === 'reject'
+            || (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke')
+            || (!entry.pending && entry.serverSeq !== undefined && entry.serverSeq <= snapshot.coveredSeq!)) return false
+          const target = log.entries.find(other => other.op.id === op.targetOpId)?.op
+          return !target || log.gestureLayerIds(target).includes(layerId)
+        })
+        if (!uncertain) continue
+      }
       this.historyRepairs.set(layerId, snapshot.coveredSeq)
       this.ctx.ledger.markDirty(layerId)
       this.ctx.ledger.refusePublishing(layerId)
