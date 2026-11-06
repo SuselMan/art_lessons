@@ -316,7 +316,7 @@ def raster(data, name, brush=False):
 
 
 def sensor_controls(params, option, notes, *, allow_time=False):
-    """Read Krita's single sensor or ChildSensor list into the shared product."""
+    """Read native sensor groups; preserve legacy products or emit a bounded expression."""
     if not enabled(params.get(option+'UseCurve','true')):
         return []
     sensor_definition=params.get(option+'Sensor') or '<params id="pressure"/>'
@@ -328,7 +328,7 @@ def sensor_controls(params, option, notes, *, allow_time=False):
     mode=numeric(params.get(option+'curveMode'))
     additive_ids=('fuzzy','fuzzystroke','ascension')
     scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
-    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids)
+    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids or 'drawingangle'in ids)
     if mode not in (0,1,2,3,4):
         notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
@@ -375,20 +375,26 @@ def sensor_controls(params, option, notes, *, allow_time=False):
         if not 0<=constant<=1 or option=='ColorRate'and constant!=1:
             notes.append(compatibility(option+'SensorCombination','Nonunit option strength with a combined response requires constant-before-clamp execution; not approximated.','unsupported'))
             return []
-        scaling=[control for control,name in zip(controls,source_ids)if name not in additive_ids]
+        scaling=[control for control,name in zip(controls,source_ids)if name not in additive_ids and name!='drawingangle']
         additive=[control for control,name in zip(controls,source_ids)if name in additive_ids]
         notes.append(compatibility(option+'SensorCombination','Native scaling product/sum/max/min/difference and signed additive sum retained; constant applied before the final size-like clamp; external multiplier is retained exactly once.','supported'))
-        return [{'control':'off','minimum':0,'jitter':0,'combine':{'mode':{0:'product',1:'sum',2:'max',3:'min',4:'difference'}[int(mode)],'scaling':scaling,'additive':additive,**({'constant':constant}if constant!=1 else {})}}]
+        combine={'mode':{0:'product',1:'sum',2:'max',3:'min',4:'difference'}[int(mode)],'scaling':scaling,'additive':additive,**({'constant':constant}if constant!=1 else {})}
+        if 'drawingangle'in source_ids:
+            control=controls[source_ids.index('drawingangle')];node=next(n for n in sensors if n.get('id')=='drawingangle')
+            offset=numeric(node.get('angleOffset'),0)
+            if not -360<=offset<=360:raise ValueError('Invalid size-like DrawingAngle offset')
+            combine['absolute']={'locked':enabled(node.get('lockedAngleMode')),'angleOffset':offset,'curve':control['curve']}
+        return [{'control':'off','minimum':0,'jitter':0,'combine':combine}]
     return controls
 
 
 def size_like_controls(params, option, notes, *, allow_time=False):
-    """Product-only subset; additive/absolute native sensors need other math."""
+    """Size-like expression; stylus rotation waits for a recorded twist channel."""
     if not enabled(params.get(option+'UseCurve','true')): return []
     sensor=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
     sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
-    if any(node.get('id') in ('ascension','rotation','drawingangle') for node in sensors):
-        notes.append(compatibility(option+'SensorCombination','Additive or absolute native size-like sensor cannot be compiled as a product; constant rate retained.','unsupported'))
+    if any(node.get('id')=='rotation' for node in sensors):
+        notes.append(compatibility(option+'SensorCombination','Stylus rotation requires a recorded twist channel; constant rate retained.','unsupported'))
         return []
     return sensor_controls(params,option,notes,allow_time=allow_time)
 
@@ -869,6 +875,30 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if curve_mode:behavior['rotation']['composition']['scalingMode']={1:'sum',2:'max',3:'min',4:'difference'}[curve_mode]
             rotation_decoded=True
             notes.append(compatibility('RotationComposition','Native signed additive minus scaling rotation retained; per-stroke random is option-keyed, deterministic Grafetto random sequences differ from Krita.'))
+    if (not rotation_decoded and depth==0 and enabled(params.get('PressureRotation'))and enabled(params.get('RotationUseCurve','true'))
+            and -1<=strength<=1 and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
+            and 1<=len(rotation_sensors)<=16 and sum(node.get('id')=='drawingangle'for node in rotation_sensors)==1
+            and all(node.get('id')in('drawingangle','fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade')for node in rotation_sensors)):
+        local=[];controls=sensor_controls(params,'Rotation',local,allow_time=timed_input)
+        if len(controls)==len(rotation_sensors)and not any(n['status']=='unsupported'for n in local):
+            index=next(i for i,node in enumerate(rotation_sensors)if node.get('id')=='drawingangle');node=rotation_sensors[index]
+            offset=numeric(node.get('angleOffset'),0);locked=enabled(node.get('lockedAngleMode'))
+            if not -360<=offset<=360:raise ValueError('Invalid DrawingAngle offset')
+            composition={'strength':strength,'additive':[],'scaling':[],'absolute':{'locked':locked,'angleOffset':offset,'curve':controls[index]['curve']}}
+            for n,c in zip(rotation_sensors,controls):
+                if n.get('id')=='drawingangle':continue
+                additive=n.get('id')in('fuzzy','fuzzystroke','ascension')
+                composition['additive'if additive else'scaling'].append({**c,**({'control':'tiltDirection'}if n.get('id')=='ascension'else{})})
+            mode=int(numeric(params.get('RotationcurveMode'),0))
+            if mode:composition['scalingMode']={1:'sum',2:'max',3:'min',4:'difference'}[mode]
+            policy={'version':1,'initialDirection':'cursorHistory'}
+            if enabled(node.get('fanCornersEnabled'))and not locked:
+                raw=node.get('fanCornersStep','30').strip()
+                if not re.fullmatch(r'[+-]?\d+',raw)or not 5<=int(raw)<=90:raise ValueError('Invalid DrawingAngle fan step')
+                policy['fanCorners']={'stepDegrees':int(raw)}
+            behavior['rotation']={'follow':0,'random':'none','composition':composition};behavior['strokeInput']=policy
+            rotation_decoded=True;notes.extend(local)
+            notes.append(compatibility('RotationAbsolute','Drawing-angle curve, offset and locked initial direction combine with additive/scaling groups. Author cursor history and optional raw-angle fan requests are recorded; replay never reads peer cursor/UI state.'))
     mirror_axes=[enabled(params.get(key))for key in ('HorizontalMirrorEnabled','VerticalMirrorEnabled')]
     if enabled(params.get('PressureMirror')) and any(mirror_axes):
         mirror_notes=[]
@@ -1144,6 +1174,13 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if isinstance(value,dict):
             return value.get('control')=='strokeRandom' and 'randomSource' in value or any(native_keyed(v) for v in value.values())
         return isinstance(value,list) and any(native_keyed(v) for v in value)
+    def has_absolute_combination(value):
+        if isinstance(value,dict):return bool(value.get('combine',{}).get('absolute'))or any(has_absolute_combination(v)for v in value.values())
+        return isinstance(value,list)and any(has_absolute_combination(v)for v in value)
+    absolute_combination=has_absolute_combination(d)
+    if absolute_combination:
+        if depth>0:raise ValueError('Independent child absolute size-like input is unsupported')
+        behavior.setdefault('strokeInput',{'version':1,'initialDirection':'cursorHistory'})
     if native_keyed(d): d['version']=32
     # Research readiness only: no CLI/stock default enables this capability.
     if sequential_xy and depth==0 and sequential_xy_compatible(d):
@@ -1167,6 +1204,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if behavior.get('mirror'):d['version']=max(d['version'],58)
     if behavior.get('rotation',{}).get('composition',{}).get('scalingMode'):d['version']=max(d['version'],59)
     if rotation_static:d['version']=max(d['version'],60)
+    if behavior.get('rotation',{}).get('composition',{}).get('absolute'):d['version']=max(d['version'],61)
+    if absolute_combination:d['version']=max(d['version'],62)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

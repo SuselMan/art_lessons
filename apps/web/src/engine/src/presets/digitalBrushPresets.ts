@@ -661,7 +661,7 @@ function compoundPressureBrush(base:BrushDescriptor,pressure:Readonly<BrushPress
   if(!key)return base
   let variants=compoundPressureVariants.get(base)
   const cached=variants?.get(key);if(cached)return cached
-  const adjust=(control:BrushDynamic):BrushDynamic=>!control.combine?control:{...control,combine:{...control.combine,
+  const adjust=(control:BrushDynamic,size:boolean):BrushDynamic=>!control.combine?control:{...control,combine:{...control.combine,...(size?{constant:1}:{}),
     scaling:control.combine.scaling.map(leaf=>leaf.control==='pressure'?{control:'off',minimum:0,jitter:0}:leaf),
     additive:control.combine.additive.map(leaf=>leaf.control==='pressure'?{control:'off',minimum:0,jitter:0}:leaf)}}
   const behavior=base.behavior
@@ -669,8 +669,8 @@ function compoundPressureBrush(base:BrushDescriptor,pressure:Readonly<BrushPress
   const modulations={...behavior?.modulations},dynamics={...behavior?.dynamics}
   for(const target of ['size','flow','opacity']as const){
     if(target==='size'?pressure.size:pressure.opacity)continue
-    if(modulations[target]?.some(c=>c.combine)){modulations[target]=modulations[target]!.map(adjust);changed=true}
-    if(dynamics[target]?.combine){dynamics[target]=adjust(dynamics[target]!);changed=true}
+    if(modulations[target]?.some(c=>c.combine)){modulations[target]=modulations[target]!.map(c=>adjust(c,target==='size'));changed=true}
+    if(dynamics[target]?.combine){dynamics[target]=adjust(dynamics[target]!,target==='size');changed=true}
   }
   const dual=behavior?.dual,child=dual?compoundPressureBrush(dual.brush,pressure):undefined
   if(child&&child!==dual!.brush)changed=true

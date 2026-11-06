@@ -81,8 +81,12 @@ class LegacyForegroundTests(unittest.TestCase):
             extra={'SmudgeRateMode':'1','PressureSmudgeRadius':'true',option+'UseCurve':'true',option+'Sensor':'<params id="ascension"/>'}
             c=self.brush(extra);b=c.brushes[0];m=b['descriptor']['mixer']
             target=m['foreground'] if option=='ColorRate' else m['sampling']
-            self.assertNotIn('dynamics' if option=='ColorRate' else 'radiusDynamics',target)
-            self.assertTrue(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported' for n in b['compatibility']))
+            if option=='ColorRate':
+                self.assertNotIn('dynamics',target)
+                self.assertTrue(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported' for n in b['compatibility']))
+            else:
+                self.assertEqual(target['radiusDynamics'][0]['combine']['additive'][0]['control'],'tiltDirection')
+                self.assertFalse(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported'for n in b['compatibility']))
         c=self.brush({'ColorRateUseCurve':'true','ColorRatecurveMode':'1','ColorRateSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
         self.assertNotIn('dynamics',c.brushes[0]['descriptor']['mixer']['foreground'])
         self.assertTrue(any(n['feature']=='ColorRateSensorCombination' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))

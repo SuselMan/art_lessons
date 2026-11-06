@@ -617,6 +617,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         ||t.dynamics!==undefined&&!isBrushBehavior({version:2,modulations:{flow:t.dynamics}}))return false
     }
     if (d.model !== 'mixer' && d.mixer !== undefined) return false
+    if(brushDynamicInputs(d as unknown as BrushDescriptor).some(c=>c.combine?.absolute)&&(!record(d.behavior)||!d.behavior.strokeInput))return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
     if (d.screentonePx !== undefined) return false
   }

@@ -89,10 +89,15 @@ switches Grafetto отключают только pressure-листья Size/Opa
 product-профили не переписываются. Новый формат57; обычный Mirror58 использует
 один порог0.5 для обеих включённых осей, включая дочерние маски.
 
-Остаются: absolute/drawing-angle в size-like параметрах; twist/pressure-in/
-прочие отсутствующие датчики; locked-angle и absolute сочетания Rotation; ColorRate с
+Остаются: twist/pressure-in и прочие отсутствующие датчики; ColorRate с
 неединичной константой и новым выражением (нелинейное преобразование требует
 отдельной проверки); native non-painting RNG/timer-события (пункт4). Для специальных
 растеризаторов без mirror-pass активный Mirror отклоняется. Сам пункт1 ещё не закрыт.
 
 Rotation: scaling-группа теперь поддерживает все5 способов объединения без size-like clamp перед переводом в угол. Additive tilt-direction и до16 листьев; стандартный product-путь сохранён.
+
+Следующий блок: native checked Rotation без кривой (constant half-turn), absolute
+DrawingAngle с собственной кривой/offset/Lock и смешанными датчиками. В size-like
+выражениях absoluteOffset сохраняет отдельный множитель. Новый input-policy нужен
+только новым форматам61/62; исторические product-профили не переписываются.
+Независимый child absolute input остаётся пунктом3.

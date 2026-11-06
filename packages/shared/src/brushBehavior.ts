@@ -6,7 +6,7 @@ export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'dar
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time'
 export interface BrushDynamic {
   /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
-  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number}
+  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number;absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve}}
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
@@ -53,7 +53,7 @@ export interface BrushBehavior {
   erase?: boolean
   falloff?: number
   mirror?: {horizontal:boolean;vertical:boolean;value:number;dynamics?:BrushDynamic[]}
-  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[]; scalingMode?:'product'|'sum'|'max'|'min'|'difference' } }
+  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[]; scalingMode?:'product'|'sum'|'max'|'min'|'difference'; absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve} } }
   scatter?: {
     countJitter: number; bothAxes: boolean; roundnessJitter?: number
     /** Uniform signed displacement over a full diameter-scaled radius.
@@ -136,10 +136,12 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection','composition']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   if(obj(r) && r.composition!==undefined) {
     const c=r.composition
-    if(!obj(c)||!keys(c,['strength','additive','scaling','scalingMode'])||!n(c.strength,-1,1)||!Array.isArray(c.additive))return false
+    if(!obj(c)||!keys(c,['strength','additive','scaling','scalingMode','absolute'])||!n(c.strength,-1,1)||!Array.isArray(c.additive))return false
     if(c.scaling!==undefined&&!Array.isArray(c.scaling))return false
     const scaling=Array.isArray(c.scaling)?c.scaling:[],children=[...c.additive,...scaling]
-    if(children.length<1||children.length>16||(c.scalingMode!==undefined&&!['product','sum','max','min','difference'].includes(String(c.scalingMode)))||!children.every(d=>isBrushBehavior({version:2,dynamics:{angle:d}})))return false
+    if((children.length<1&&c.absolute===undefined)||children.length>16||(c.scalingMode!==undefined&&!['product','sum','max','min','difference'].includes(String(c.scalingMode)))||!children.every(d=>isBrushBehavior({version:2,dynamics:{angle:d}})))return false
+    const absolute=c.absolute
+    if(absolute!==undefined&&(value.strokeInput===undefined||!obj(absolute)||!keys(absolute,['locked','angleOffset','curve'])||typeof absolute.locked!=='boolean'||!n(absolute.angleOffset,-360,360)||!isBrushCurve(absolute.curve,1,256,true)))return false
   }
   const s=value.scatter
   if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter','placement']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter))
@@ -170,8 +172,10 @@ function isCombinedBrushDynamic(value:unknown):boolean {
   const keys=(v:Record<string,unknown>,allowed:string[]):boolean=>Object.keys(v).every(k=>allowed.includes(k))
   if(!obj(value)||!keys(value,['control','minimum','jitter','combine'])||value.control!=='off'||value.minimum!==0||value.jitter!==0||!obj(value.combine))return false
   const c=value.combine
-  if(!keys(c,['mode','scaling','additive','constant'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
+  if(!keys(c,['mode','scaling','additive','constant','absolute'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
   if(c.constant!==undefined&&(typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>1))return false
+  const absolute=c.absolute
+  if(absolute!==undefined&&(!obj(absolute)||!keys(absolute,['locked','angleOffset','curve'])||typeof absolute.locked!=='boolean'||typeof absolute.angleOffset!=='number'||!Number.isFinite(absolute.angleOffset)||Math.abs(absolute.angleOffset)>360||!isBrushCurve(absolute.curve,1,256,true)))return false
   const children=[...c.scaling,...c.additive]
-  return children.length>=1&&children.length<=16&&children.every(child=>obj(child)&&child.combine===undefined&&isBrushBehavior({version:2,dynamics:{size:child}}))
+  return (children.length>=1||absolute!==undefined)&&children.length<=16&&children.every(child=>obj(child)&&child.combine===undefined&&isBrushBehavior({version:2,dynamics:{size:child}}))
 }

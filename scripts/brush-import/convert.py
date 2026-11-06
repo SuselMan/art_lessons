@@ -450,12 +450,16 @@ def validate_portable_dynamics(controls):
         if isinstance(control,dict) and 'combine'in control:
             c=control['combine']
             if (set(control)!={'control','minimum','jitter','combine'} or control.get('control')!='off' or not finite(control.get('minimum'),0,0) or not finite(control.get('jitter'),0,0)
-                    or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant'} or c.get('mode')not in('product','sum','max','min','difference')
+                    or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute'} or c.get('mode')not in('product','sum','max','min','difference')
                     or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
                 raise ValueError('Invalid portable combined dynamic')
             if 'constant'in c and not finite(c['constant']):raise ValueError('Invalid combined dynamic constant')
             children=c['scaling']+c['additive']
-            if not 1<=len(children)<=16 or any(not isinstance(child,dict)or'combine'in child for child in children):raise ValueError('Invalid portable combined dynamic leaves')
+            absolute=c.get('absolute')
+            if absolute is not None:
+                if (not isinstance(absolute,dict)or set(absolute)!={'locked','angleOffset','curve'}or type(absolute.get('locked'))is not bool or not finite(absolute.get('angleOffset'),-360,360)):raise ValueError('Invalid combined absolute angle')
+                validate_portable_dynamics([{'control':'off','minimum':0,'jitter':0,'curve':absolute['curve']}])
+            if not (1<=len(children)<=16 or len(children)==0 and absolute is not None) or any(not isinstance(child,dict)or'combine'in child for child in children):raise ValueError('Invalid portable combined dynamic leaves')
             for child in children:validate_portable_dynamics([child])
             continue
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
@@ -640,6 +644,10 @@ def portable_bundle(path,catalog):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        def has_absolute_response(v):
+            if isinstance(v,dict):return isinstance(v.get('combine'),dict)and bool(v['combine'].get('absolute'))or any(has_absolute_response(x)for x in v.values())
+            return isinstance(v,list)and any(has_absolute_response(x)for x in v)
+        if has_absolute_response(d)and 'strokeInput'not in behavior:raise ValueError('Absolute response requires recorded source input')
         mirror=behavior.get('mirror')
         if mirror is not None:
             if (not isinstance(mirror,dict)or set(mirror)-{'horizontal','vertical','value','dynamics'}

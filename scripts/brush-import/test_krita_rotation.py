@@ -140,5 +140,16 @@ class RotationImportTests(unittest.TestCase):
                 self.assertEqual([d['control']for d in c['scaling']],['pressure','speed'])
                 self.assertFalse(any(x['feature']=='activeDynamics'and'PressureRotation'in x['detail']for x in b['compatibility']))
 
+    def test_locked_and_curved_absolute_direction_records_author_input(self):
+        for locked in ['true','false']:
+            sensor='<params id="drawingangle" lockedAngleMode="'+locked+'" angleOffset="45" fanCornersEnabled="true" fanCornersStep="30"><curve>0,0;.5,.2;1,1;</curve></params>'
+            with tempfile.TemporaryDirectory()as tmp:
+                b=self.brush(tmp,'.5',sensor)
+                d=b['descriptor'];p=d['behavior']['rotation']['composition']
+                self.assertEqual(d['version'],61);self.assertEqual(p['absolute']['locked'],locked=='true');self.assertEqual(p['absolute']['angleOffset'],45)
+                self.assertLess(p['absolute']['curve']['samples'][128],.3)
+                self.assertEqual('fanCorners'in d['behavior']['strokeInput'],locked=='false')
+                self.assertFalse(any(x['feature']=='activeDynamics'and'PressureRotation'in x['detail']for x in b['compatibility']))
+
 
 if __name__=='__main__':unittest.main()

@@ -52,7 +52,10 @@ class StrokeInputTests(unittest.TestCase):
         p={**PARAMS,'RotationUseSameCurve':'false','RotationcommonCurve':'0,.2;1,1;'}
         b=self.brush(p,stroke_input=True);self.assertEqual(b['descriptor']['behavior']['strokeInput'],POLICY)
         p.update(RotationcommonCurve='0,0;1,1;',RotationSensor='<params id="drawingangle"><curve>0,.2;1,1;</curve></params>')
-        self.assertNotIn('strokeInput',self.brush(p,stroke_input=True)['descriptor']['behavior'])
+        curved=self.brush(p,stroke_input=True)['descriptor']
+        self.assertEqual(curved['version'],61)
+        self.assertEqual(curved['behavior']['strokeInput'],POLICY)
+        self.assertIn('absolute',curved['behavior']['rotation']['composition'])
     def test_enabled_child_never_emits_policy_and_reports_gap(self):
         for childsensor in ('<params id="drawingangle"/>','<params id="drawingangle" fanCornersEnabled="1" fanCornersStep="91"/>'):
             p={**PARAMS,'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':'<Brush type="auto_brush"><MaskGenerator type="circle" diameter="30" ratio="1"/></Brush>','MaskingBrush/Preset/PressureRotation':'true','MaskingBrush/Preset/RotationSensor':childsensor}

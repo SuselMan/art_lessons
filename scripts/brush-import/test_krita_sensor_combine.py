@@ -14,6 +14,9 @@ class SensorCombineTests(unittest.TestCase):
         controls,_=self.controls(0,('pressure','fuzzy','fuzzystroke','ascension'));c=controls[0]['combine'];self.assertEqual(len(c['scaling']),1);self.assertEqual([x['control']for x in c['additive']],['random','strokeRandom','tiltDirection']);self.assertEqual(c['additive'][1]['randomSource']['key'],'SizeFuzzyStroke');validate_portable_dynamics(controls)
     def test_legacy_product_is_unchanged(self):
         controls,_=self.controls();self.assertEqual([x['control']for x in controls],['pressure','tiltElevation'])
+    def test_absolute_group_is_not_multiplied_as_scaling(self):
+        controls,_=self.controls(0,('pressure','drawingangle'))
+        c=controls[0]['combine'];self.assertEqual([x['control']for x in c['scaling']],['pressure']);self.assertEqual(c['absolute']['angleOffset'],0);validate_portable_dynamics(controls)
     def test_nonunit_constant_does_not_use_wrong_clamp_order(self):
         controls,notes=self.controls(1,extra={'SizeValue':'.5'});self.assertEqual(controls[0]['combine']['constant'],.5);self.assertFalse(any(n['status']=='unsupported'for n in notes));validate_portable_dynamics(controls)
     def test_bounded_validation(self):

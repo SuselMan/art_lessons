@@ -196,8 +196,10 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i))-1,0)):1
     // Callers already multiply the option constant. Return its normalized
     // factor, allowing >1 when needed: .5 * (clamp(.5 * 1.5)/.5) = .75.
-    const constant=c.constant??1
-    return constant===0?0:clamp(constant*scaling*additive)/constant
+    const constant=c.constant??1,a=c.absolute
+    const direction=(a?.locked?state.firstAngle:dab.sourceAngle??dab.angle)/(2*Math.PI)+(a?.angleOffset??0)/360
+    const absolute=a?((curveAt(a.curve,((direction%1)+1)%1)+.5)%1):1
+    return constant===0?0:clamp(constant*absolute*scaling*additive)/constant
   }
   const prev = state.previous
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
@@ -231,7 +233,10 @@ export function brushRotationOffset(profile:NonNullable<NonNullable<BrushDescrip
   const values=profile.scaling?.map((control,i)=>brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0100+i)))??[]
   const factor=!values.length?1:values.length===1?values[0]:profile.scalingMode==='sum'?values.reduce((a,b)=>a+b,0):profile.scalingMode==='max'?Math.max(...values):profile.scalingMode==='min'?Math.min(...values):profile.scalingMode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
   const scaling=values.length?2*factor-1:0
-  return Math.PI*(-1+profile.strength*(additive-scaling))
+  const absolute=profile.absolute
+  const direction=(absolute?.locked?state.firstAngle:input.sourceAngle??input.angle)/(2*Math.PI)+(absolute?.angleOffset??0)/360
+  const base=absolute?2*Math.PI*curveAt(absolute.curve,((direction%1)+1)%1):-Math.PI
+  return base+Math.PI*profile.strength*(additive-scaling)
 }
 /** RGB/HSV conversion on CPU, before rasterisation, shared by all participants. */
 function shiftColor(rgb: [

@@ -33,6 +33,28 @@ it('keeps rotation scaling unbounded before converting to signed angle',()=>{
  }
  expect(isBrushBehavior({version:2,rotation:{follow:0,random:'none',composition:{...profile,scalingMode:'sum'}}})).toBe(true)
 })
+it('curves absolute direction, locks its initial angle, and keeps offset separate from strength',()=>{
+ const state=beginBrushBehavior({...dab,angle:.3}),profile={strength:.5,additive:[],absolute:{locked:false,angleOffset:90,curve:[[0,0],[1,1]]as [number,number][]}}
+ const next={...dab,sourceAngle:1.2}
+ const angle=brushRotationOffset(profile,next,state)
+ expect(Math.cos(angle)).toBeCloseTo(Math.cos(1.2+Math.PI/2),12)
+ profile.absolute.locked=true
+ const locked=brushRotationOffset(profile,next,state)
+ expect(Math.cos(locked)).toBeCloseTo(Math.cos(.3+Math.PI/2),12)
+ expect(Math.sin(locked)).toBeCloseTo(Math.sin(.3+Math.PI/2),12)
+ profile.absolute.curve=[[0,.2],[1,.2]]
+ expect(brushRotationOffset(profile,next,state)).toBeCloseTo(.4*Math.PI,12)
+})
+it('retains absolute angle as an offset for size-like controls',()=>{
+ const c=combined('product',[])
+ c.combine!.absolute={locked:false,angleOffset:0,curve:[[0,0],[1,1]]}
+ expect(evaluate(c)).toBe(.5)
+ expect(brushDynamicValue(c,{...dab,sourceAngle:Math.PI/2},beginBrushBehavior(dab),.4)).toBe(.75)
+ c.combine!.absolute.locked=true
+ const state=beginBrushBehavior({...dab,angle:Math.PI/4})
+ expect(brushDynamicValue(c,{...dab,sourceAngle:Math.PI},state,.4)).toBeCloseTo(.625,12)
+ expect(isBrushBehavior({version:2,modulations:{size:[c]}})).toBe(true)
+})
 it('validates bounded, flat expressions and rejects hidden timer randomness',()=>{
  const c=combined('max',[constant(.2),constant(.5)])
  expect(isBrushBehavior({version:2,modulations:{size:[c]}})).toBe(true)
@@ -58,4 +80,12 @@ it('preserves user pressure switches in author spacing and replay resolution',()
  expect(brushDynamicValue(fixed.behavior!.modulations!.size![0],low,beginBrushBehavior(low),.4)).toBeCloseTo(.6,12)
  expect(fixed).toBe(digitalBrushFromPreset(digitalBrushPreset(descriptor.id,57,{size:false,opacity:false})))
  expect(active.behavior!.modulations!.size![0].combine!.scaling[0].control).toBe('pressure')
+ const scaled=combined('sum',[{control:'pressure',minimum:0,jitter:0},constant(.6)])
+ scaled.combine!.constant=.5
+ const second={...descriptor,id:'imported-fedcba9876543210',behavior:{version:2 as const,modulations:{size:[scaled]}}}
+ installBrushLibrary({schemaVersion:1,assets:[],skipped:[],brushes:[{descriptor:second,name:'Scaled compound QA',source:'self-authored',warnings:[]}]})
+ const resolved=digitalBrushFromPreset(digitalBrushPreset(second.id,57,{size:false}))
+ // Fixed size already bypasses the canonical .5 SizeValue curve; do not
+ // retain its inverse compensation and grow the tip to twice the slider.
+ expect(brushDynamicValue(resolved.behavior!.modulations!.size![0],low,beginBrushBehavior(low),.4)).toBe(1)
 })
