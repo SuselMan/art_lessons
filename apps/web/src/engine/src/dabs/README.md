@@ -144,3 +144,8 @@ brushCeilingCopy/ceiling с раздельной path/request opacity; coverage 
 Hatching — opt-in вариант общего stamp shader: до3 мировых семейств линий,
 CPU phase reduction на тайлах, общая маска/динамика/composite. Новых framebuffer
 нет. Формулы и границы: `docs/brush-reference/hatching.md`.
+
+Grid — специальная геометрия общего mixer/source конвейера: перед записью
+ячеек собирается один GPU source patch, GridCellBatch рисует до1024 ячеек за
+upload без CPU readback. Всего запрос допускает4096 ячеек. Source dependency,
+история и scratch pooling общие. См. `docs/brush-reference/grid.md`.
