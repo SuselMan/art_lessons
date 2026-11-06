@@ -144,3 +144,10 @@ class ForegroundGradientTests(unittest.TestCase):
         d=self.brush({'PressureLightnessStrength':'true','LightnessStrengthValue':'.2','LightnessStrengthUseCurve':'true'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]['descriptor']
         self.assertEqual(d['tip']['material']['strength'],1)
         self.assertEqual(d['version'],40)
+
+    def test_saved_pixel_softness_does_not_disable_color_smudge_native_profile(self):
+        c=self.brush({'PressureSoftness':'true','SoftnessValue':'.2','SoftnessUseCurve':'true','PressureLightnessStrength':'true','PressurePaintThickness':'true','PressureSmudgeRadius':'true','SmudgeRateMode':'0'})
+        d=c.brushes[0]['descriptor']
+        self.assertEqual(d['tip']['profile']['kind'],'standard')
+        self.assertEqual(d['version'],41)
+        self.assertFalse(any(note['feature']=='activeDynamics' for note in c.brushes[0]['compatibility']))

@@ -488,7 +488,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
             # Even an enabled constant option is outside this first capability.
-            procedural_soft=(not enabled(params.get('PressureSoftness'))
+            procedural_soft=((engine=='colorsmudge' or not enabled(params.get('PressureSoftness')))
                              and not enabled(params.get('PressureSharpness')))
             if procedural_soft:
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
@@ -500,12 +500,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 mask=soft_circle(curve,source_size)
                 d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
                 notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
-            if enabled(params.get('PressureSoftness')):
+            if engine!='colorsmudge' and enabled(params.get('PressureSoftness')):
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
         if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         default_generator=generator.get('id','default')=='default'
-        softness_checked=enabled(params.get('PressureSoftness'))
+        softness_checked=engine!='colorsmudge' and enabled(params.get('PressureSoftness'))
         constant_softness=(not softness_checked or
             (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
         standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
@@ -974,7 +974,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
+        notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and engine=='colorsmudge') and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1086,6 +1088,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d.get('mixer',{}).get('source')=='projectionCanvas':d['version']=max(d['version'],38)
     if 'gradient' in d.get('mixer',{}).get('foreground',{}) or 'gradient' in d['tip'].get('color',{}):d['version']=max(d['version'],39)
     if d.get('mixer',{}).get('paintThickness') and enabled(params.get('PressureLightnessStrength')) and clamp(numeric(params.get('LightnessStrengthValue'),1))!=1:d['version']=max(d['version'],40)
+    if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):d['version']=max(d['version'],41)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:
