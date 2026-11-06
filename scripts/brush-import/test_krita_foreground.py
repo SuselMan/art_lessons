@@ -139,3 +139,8 @@ class ForegroundGradientTests(unittest.TestCase):
         self.assertNotIn('material',d['tip'])
         self.assertNotIn('imageSampling',d['tip'])
         self.assertIn(d['tip']['color']['gradient']['gray'],c.assets)
+
+    def test_color_smudge_ignores_saved_pixel_lightness_strength(self):
+        d=self.brush({'PressureLightnessStrength':'true','LightnessStrengthValue':'.2','LightnessStrengthUseCurve':'true'},'<Brush type="png_brush" filename="tip.png" brushApplication="2"/>').brushes[0]['descriptor']
+        self.assertEqual(d['tip']['material']['strength'],1)
+        self.assertEqual(d['version'],40)

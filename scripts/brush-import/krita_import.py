@@ -601,10 +601,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
                 raise ValueError('Lightness/alpha plane bounds mismatch')
-            strength=clamp(numeric(params.get('LightnessStrengthValue'),1)) if enabled(params.get('PressureLightnessStrength')) else 1
+            strength=clamp(numeric(params.get('LightnessStrengthValue'),1)) if engine!='colorsmudge' and enabled(params.get('PressureLightnessStrength')) else 1
             d['tip']['material']={'kind':'lightness','gray':gray_assets[0][0],'strength':strength}
             if len(gray_assets)>1: d['tip']['material']['grayFrames']=[asset for asset,bounds in gray_assets]
-            if enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
+            if engine=='colorsmudge' and enabled(params.get('PressureLightnessStrength')):
+                notes.append(compatibility('lightnessStrength','Native Color Smudge uses Paint Thickness and projects accumulated height with strength1; the saved Pixel Lightness Strength option is ignored.','supported'))
+            elif enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
                 notes.append(compatibility('lightnessStrength','Active native lightness-strength sensors are not applied; constant strength retained.','unsupported'))
             notes.append(compatibility('lightnessMaterial','Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
         elif application!=0:
@@ -1083,6 +1085,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d.get('mixer',{}).get('paintThickness'): d['version']=max(d['version'],37)
     if d.get('mixer',{}).get('source')=='projectionCanvas':d['version']=max(d['version'],38)
     if 'gradient' in d.get('mixer',{}).get('foreground',{}) or 'gradient' in d['tip'].get('color',{}):d['version']=max(d['version'],39)
+    if d.get('mixer',{}).get('paintThickness') and enabled(params.get('PressureLightnessStrength')) and clamp(numeric(params.get('LightnessStrengthValue'),1))!=1:d['version']=max(d['version'],40)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

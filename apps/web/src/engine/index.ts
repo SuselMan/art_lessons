@@ -822,7 +822,9 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
-  /** Canvas gradient resource; omitted uses foreground to white at pen-down. */
+  /** Canvas gradient resource; omitted uses foreground to white at pen-down.
+   * Changes affect the next gesture. Prepare the brush after changing a
+   * gradient-map resource to keep its texture upload outside pen input. */
   setBrushGradient(lut?:string):void
   // #278/#489: the angle setting of whichever nib the active tool is wearing.
   // angleRadians is always canvas-space (the caller resolves the local

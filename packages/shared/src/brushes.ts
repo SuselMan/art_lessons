@@ -59,7 +59,7 @@ export interface BrushTip {
   animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
-  /** Straight RGB planes paired with mask alpha; one tuple per image-pipe frame. */
+  /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
   color?: { planes: [AssetId, AssetId, AssetId]; frames?: [AssetId, AssetId, AssetId][] }
     | {gradient:{gray:AssetId;grayFrames?:AssetId[]}}
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
@@ -78,13 +78,7 @@ export interface BrushTip {
   angle: number
 }
 
-/** How one recorded dab becomes several stamps, and how much each stamp is
- *  allowed to differ from the dab it came from.
- *
- *  Every value is a *spread*, never a direction, and every draw comes out of
- *  brushDabRandom seeded by the dab itself (see brushDabSeed) — so the teacher's
- *  splatter lands on the student's screen drop for drop. None of it is
- *  recorded: the dab is, and the stamps are a pure function of it. */
+/** Independent foreground colour rate and its sensor responses. */
 export interface BrushForegroundRate {rate:number;dynamics?:BrushDynamic[]}
 /** A gradient variant omits the outer rate, so older validators reject it. */
 export type BrushForeground=BrushForegroundRate|{gradient:BrushForegroundRate & {value:number;positionDynamics?:BrushDynamic[]}}
@@ -111,6 +105,13 @@ function isBrushForeground(value:unknown):boolean {
  return !gradient || numberIn(rate.value,0,1) && (rate.positionDynamics===undefined||isBrushBehavior({version:2,modulations:{flow:rate.positionDynamics}}))
 }
 
+/** How one recorded dab becomes several stamps, and how much each stamp is
+ *  allowed to differ from the dab it came from.
+ *
+ *  Every value is a *spread*, never a direction, and every draw comes out of
+ *  brushDabRandom seeded by the dab itself (see brushDabSeed) — so the teacher's
+ *  splatter lands on the student's screen drop for drop. None of it is
+ *  recorded: the dab is, and the stamps are a pure function of it. */
 export interface BrushScatter {
   /** Stamps per dab. */
   count: number
