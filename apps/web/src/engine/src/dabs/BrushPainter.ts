@@ -66,6 +66,7 @@ export class BrushPainter {
     return this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
+  prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }

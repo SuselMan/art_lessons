@@ -1,3 +1,4 @@
+import {sketchStamps,type SketchState} from './brushSketch'
 import { sprayStamps } from './brushSpray'
 import {brushTipColorPlanes} from '@grafetto/shared'
 import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
@@ -7,6 +8,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  sketch?:SketchState
   execution?: BrushExecutionContext
   /** Mutable source represented only by a cloneable value snapshot. */
   sequentialRandom?: KritaRandomSnapshot
@@ -92,6 +94,8 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  group?:number
+  segmentLength?:number
   /** Native source metric for sampling; not the continuous rendered diameter. */
   sourceDiameter?: number
   mask?: BrushDescriptor['tip']['mask']
@@ -325,6 +329,13 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  if(brush.sketch){
+    const sketch=state.sketch??={points:[],cells:new Map(),ordinal:0,color:[...adjustedColor],alpha:1}
+    const factor=(key:'width'|'offset'|'probability',salt:number)=>(brush.sketch!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(salt+i)),1)
+    const stamps=sketchStamps(brush,{...dab,size:dab.size*sizeScale},sketch,adjustedColor,state.seed,{width:factor('width',0xf1000),offset:factor('offset',0xf2000),probability:factor('probability',0xf3000)},1)
+    state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
+    return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
+  }
   const bases = brush.spray ? sprayStamps(brush,{...dab,angle,size:dab.size*sizeScale},state.seed,state.dabSequence??0,direction) : brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale })
   const out = bases.map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y

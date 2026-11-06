@@ -1,3 +1,4 @@
+import {SketchLineBatch} from './SketchLineBatch'
 import { SprayShapeBatch } from './SprayShapeBatch'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
@@ -75,6 +76,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private sketchBatch?:SketchLineBatch
   private sprayBatch?:SprayShapeBatch
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
@@ -114,6 +116,7 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
+    this.sketchBatch?.reset()
     this.sprayBatch?.reset()
     this.circleStamp = undefined
     this.proceduralStamp = undefined
@@ -133,6 +136,7 @@ export class BrushBehaviorPainter {
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareProcedural(): void { this.stampFor(true) }
 
+  prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl)).prepare()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
 
   prepareCircleBand(): void { this.circleProgram() }
@@ -176,6 +180,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    this.sketchBatch?.destroy()
     this.sprayBatch?.destroy()
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
@@ -196,7 +201,7 @@ export class BrushBehaviorPainter {
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if(brush.spray && dabs.length>4){
+    if((brush.spray||brush.sketch) && dabs.length>4){
       for(let i=0;i<dabs.length;i+=4){const last=i+4>=dabs.length;this.paint(target,dabs.slice(i,i+4),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
@@ -530,6 +535,10 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
+        if(brush.sketch){
+          (this.sketchBatch??=new SketchLineBatch(gl)).paint(list,coverage,ceiling,tile.originX,tile.originY,brush.sketch.antialias)
+          return
+        }
         if(brush.spray && brush.spray.particle.shape!=='tip' && accumulation==='directOver' && !secondary && !brush.texture && !brush.tip.material && !brush.tip.color && !brush.paperInteraction && !behavior.edgeBleed && !behavior.wetMix){
           coverage.beginDraw()
           ;(this.sprayBatch??=new SprayShapeBatch(gl)).paint(list,brush.spray.particle.shape,tile.originX,tile.originY,coverage.width,coverage.height)

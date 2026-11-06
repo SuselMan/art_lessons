@@ -49,9 +49,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'>()
+  if(brush.sketch)capabilities.add('sketchLines')
   if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
   if(brush.mixer?.algorithm)capabilities.add('colorSmudge')
   if(brush.mixer?.source==='projectionCanvas')capabilities.add('projectionCanvas')

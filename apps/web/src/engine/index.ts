@@ -3518,7 +3518,8 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
+      if(painter === 'sketchLines')this._brush.prepareSketchLines()
+      else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
@@ -6549,6 +6550,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
     this._dabs.timing=spacingBrush?.behavior?.timing
+    this._dabs.inputKnots=!!spacingBrush?.sketch
     this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom

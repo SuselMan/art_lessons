@@ -150,6 +150,8 @@ const MAX_PRESSURE_FILTER_STEP = 0.9
 export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
+  /** Sketch consumes canonical input knots, without spline-created neighbours. */
+  inputKnots=false
   autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x:number; y:number }; angleOffset?:number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
   /** New source-request policies capture constructor size before F32/sensors. */
   captureSourceSize = false
@@ -554,6 +556,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
+    fork.inputKnots=this.inputKnots
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
     fork.timing=this.timing?structuredClone(this.timing):undefined
@@ -610,7 +613,7 @@ export class DabSystem {
     const initialAngle = this.strokeInput ? this.initialDirection : 0
     const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, initialAngle, 0, normalizedSpeed)
     if(this.captureSourceTime){first.sourceTime=time;first.t=time}
-    if (this.strokeInput) {
+    if (this.strokeInput || this.inputKnots) {
       first.t = time
       this._sourcePrevious = {x,y,pressure:p,tiltX,tiltY,angle:initialAngle,t:time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
     }
@@ -645,6 +648,11 @@ export class DabSystem {
     const prev = this._buf[this._buf.length - 1]
     const travel = prev ? Math.hypot(x - prev.x, y - prev.y) : 0
     pressure = this._filterPressure(pressure, travel)
+    if(this.inputKnots){
+      if(prev && travel===0)return []
+      this._buf=[{x,y,pressure,tiltX,tiltY,time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}]
+      return this._sourceRequests({x,y,pressure,tiltX,tiltY,t:time,angle:this._pathAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
+    }
     // Deadband (see MIN_CONTROL_POINT_DISTANCE): a sample that hasn't cleared
     // half a pixel since the last control point collapses *into* that point
     // rather than becoming one of its own. Its pressure/tilt still count —
@@ -693,7 +701,7 @@ export class DabSystem {
   endStroke(baseSize: number, speed = 0): Dab[] {
     if(this._timingStreamActive)throw Error('Cannot end before source input completes')
     this._speed = speed
-    if(this.timing)return []
+    if(this.timing||this.inputKnots)return []
     const n = this._buf.length
     if (n < 2) return []
 
@@ -730,6 +738,7 @@ export class DabSystem {
   // output discarded/repainted (not accumulated) on every subsequent call —
   // see PencilEngine's _tipBuf/_refreshTip.
   peekTipDabs(baseSize: number, speed = 0): Dab[] {
+    if(this.inputKnots)return []
     if(this.strokeInput) return this.forkForPreview().endStroke(baseSize,speed)
     this._speed = speed
     const n = this._buf.length
