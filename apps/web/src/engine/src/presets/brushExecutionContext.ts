@@ -15,7 +15,7 @@ const requiresContext = new WeakMap<BrushDescriptor, boolean>()
 export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   const known = requiresContext.get(brush)
   if(known !== undefined) return known
-  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)
+  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone
   requiresContext.set(brush, result)
   return result
 }
@@ -24,6 +24,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(brushRequiresRandomContext(brush) && !context?.brushRandom) throw Error('Keyed brush source requires an explicit gesture context')
   if(context?.brushSource!==undefined && !isBrushSourceContext(context.brushSource))throw Error('Invalid brush source context')
   if(brush.mixer?.source==='projectionCanvas' && !context?.brushSource?.projection)throw Error('Merged brush requires recorded projection sources')
+  if(brush.clone&&!context?.brushSource?.clone)throw Error('Clone requires a recorded source')
   if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
 }
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {

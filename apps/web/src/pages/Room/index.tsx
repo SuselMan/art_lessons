@@ -1560,6 +1560,7 @@ function RoomEditor() {
           paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
           copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
           pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
+          onCloneSourcePick={() => engineRef.current?.requestCloneSourcePick()}
           onWatercolorDry={() => { dispatchOp({ type: 'paper_dry' }) }}
         />
         </div>

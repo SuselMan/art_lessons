@@ -1,3 +1,4 @@
+import{CloneBrushPass}from'./CloneBrushPass'
 import{curveInputRequests,finishCurveInput}from'../presets/curveInput'
 import{FilterBrushPass}from'./FilterBrushPass'
 import{PolygonFillBatch}from'./PolygonFillBatch'
@@ -122,9 +123,12 @@ export class BrushBehaviorPainter {
     const resource=brushTipResource(id,gray,tip)
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
+  private clonePass?:CloneBrushPass
+  prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
+    this.clonePass?.forget()
     this.filterPass?.forget()
     this.polygonBatch?.reset()
     this.sketchBatch?.reset()
@@ -198,6 +202,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    this.clonePass?.destroy()
     this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
     this.polygonBatch?.destroy()
@@ -223,8 +228,8 @@ export class BrushBehaviorPainter {
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if((brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle?1:4)){
-      for(let i=0;i<dabs.length;i+=(brush.particle?1:4)){const last=i+(brush.particle?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
+    if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle||brush.clone?1:4)){
+      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
     assertBrushSourceInputs(brush,dabs,endpoint)
@@ -355,6 +360,7 @@ export class BrushBehaviorPainter {
       const original = scratch.getOrCreate(tile.buffer).original
       let coverage = scratch.getOrCreate(tile.buffer).coverage
       let ceiling = scratch.brushCeiling(tile.buffer)
+      if(brush.clone)coverage.clear()
       coverage.beginDraw()
       gl.useProgram(selected.program)
       const u = selected.uniforms
@@ -633,6 +639,12 @@ export class BrushBehaviorPainter {
         coverage.beginDraw()
         if(accumulation)drawPhysical(tail.preview)
         else {drawStamps(tail.preview,false);coverage.endDraw();drawCeilings(tail.preview)}
+      }
+      if(brush.clone){
+        const source=execution?.brushSource?.clone
+        if(!source)throw Error('Clone requires a recorded source')
+        ;(this.clonePass??=new CloneBrushPass(gl)).paint(tile,bounds,coverage,scratch,target,source,dabs[0],brush.clone.moveSourcePoint,state.opacity)
+        continue
       }
       if(brush.filter){
         (this.filterPass??=new FilterBrushPass(gl)).paint(brush.filter,tile,bounds,coverage,scratch,target)

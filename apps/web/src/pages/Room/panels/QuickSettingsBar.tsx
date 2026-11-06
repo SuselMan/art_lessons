@@ -1,3 +1,4 @@
+import{digitalBrushFromPreset}from'../../../engine'
 import clsx from 'clsx'
 
 import type { ShapeFrame } from '@grafetto/shared'
@@ -27,6 +28,7 @@ export interface QuickSettingsBarProps {
   deleteSelectionContents: () => void
   /** (#536, §17.47/48) "Высушить всё" - sends `paper_dry` (see
    *  WatercolorDryButton). */
+  onCloneSourcePick: () => void
   onWatercolorDry: () => void
 }
 
@@ -46,7 +48,7 @@ export interface QuickSettingsBarProps {
  *  selection and the clipboard are read from the stores. */
 export function QuickSettingsBar({
   uiHidden, compact, onShapeFrameChange, paintTargetId, paintTargetLocked,
-  copySelection, cutSelection, pasteClipboard, deleteSelectionContents, onWatercolorDry,
+  copySelection, cutSelection, pasteClipboard, deleteSelectionContents, onWatercolorDry, onCloneSourcePick,
 }: QuickSettingsBarProps): React.JSX.Element {
   const t = useT()
   // Every `EditorTool` is a `UiToolId` by construction — see settingsToolId
@@ -61,6 +63,7 @@ export function QuickSettingsBar({
   // paste" without reading the raster out of IndexedDB.
   const clipboardMeta = useClipboardStore(s => s.meta)
   const selectionActive = settingsToolId === 'selection'
+  const cloneActive=(()=>{if(settingsToolId!=='digitalBrush')return false;try{return !!digitalBrushFromPreset(toolSettings.digitalBrush.brush as string).clone}catch{return false}})()
 
   return (
     <aside className={clsx(
@@ -68,6 +71,7 @@ export function QuickSettingsBar({
       uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
       styles.strokeBlockable,
     )}>
+      {cloneActive&&<button className={styles.toolIconBtn} title={t('brush.cloneSource')} aria-label={t('brush.cloneSource')} onClick={onCloneSourcePick}><Icon name="colorize" /></button>}
       {Object.entries(TOOL_SCHEMAS[settingsToolId])
         .filter(([, descriptor]) => descriptor.quickAccess && (!descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId])))
         // (#542) No colour in this column at all any more — every colour a

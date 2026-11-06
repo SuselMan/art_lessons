@@ -16,6 +16,7 @@ import type { Message, PluralForms } from './types'
 // read by whoever is developing the thing they measure.
 export const en = {
   // ── shared vocabulary ──────────────────────────────────────────────────
+  'brush.cloneSource': 'Set clone source: tap the canvas',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.save': 'Save',

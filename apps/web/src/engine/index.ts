@@ -825,6 +825,7 @@ export interface PencilEngineAPI {
   /** Canvas gradient resource; omitted uses foreground to white at pen-down.
    * Changes affect the next gesture. Prepare the brush after changing a
    * gradient-map resource to keep its texture upload outside pen input. */
+  requestCloneSourcePick():void
   setBrushGradient(lut?:string):void
   // #278/#489: the angle setting of whichever nib the active tool is wearing.
   // angleRadians is always canvas-space (the caller resolves the local
@@ -1689,6 +1690,9 @@ export class PencilEngine implements PencilEngineAPI {
   // along the way as well as on the final op.
   private _strokeBrushRandom?: BrushRandomSeeds
   private _strokeBrushSource?:BrushSourceContext
+  private _clonePickArmed=false
+  private _cloneSource?:{x:number;y:number}
+  private _cloneOffset?:{x:number;y:number}
   private _canvasBrushGradient?:string
   private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number}}
   private _strokeId: string | null = null
@@ -3518,7 +3522,8 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if(painter === 'filterBrush')this._brush.prepareFilter()
+      if(painter === 'cloneBrush')this._brush.prepareClone()
+      else if(painter === 'filterBrush')this._brush.prepareFilter()
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid')this._smudge.prepareGrid()
@@ -3574,6 +3579,7 @@ export class PencilEngine implements PencilEngineAPI {
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+  requestCloneSourcePick():void {this._clonePickArmed=true}
   setBrushGradient(lut?:string):void {
     if(lut!==undefined&&!isBrushGradient(lut))throw Error('Invalid canvas brush gradient')
     this._canvasBrushGradient=lut
@@ -6266,13 +6272,17 @@ export class PencilEngine implements PencilEngineAPI {
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
     const projection=brush?.mixer?.source==='projectionCanvas' ? this._compositeOrder.map(item=>({...item})) : undefined
     const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
-    const brushSource:BrushSourceContext|undefined=projection||gradient ? copyBrushSourceContext({version:1,...(projection?{projection}:{}),...(gradient?{gradient}:{})}) : undefined
+    if(brush?.clone&&!this._cloneSource)return
+    if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
+    const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
+    const brushSource:BrushSourceContext|undefined=projection||gradient||clone ? copyBrushSourceContext({version:1,...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
       cameraAngle:this._authorCameraAngle,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,tiltResponse:this._tiltResponse,
       extraLayerIds:[...this._eraseThroughIds],dispatchNow:now}
   }
   private _onStart(e:PointerData):void {
+    if(this._clonePickArmed&&this._opts.tool==='digitalBrush'&&digitalBrushFromPreset(this._opts.pencilType).clone){this._cloneSource={x:e.x,y:e.y};this._cloneOffset=undefined;this._clonePickArmed=false;return}
     const now=e.dispatchTime ?? performance.now(),snapshot=this._captureAuthorStart(e,now)
     if(!snapshot)return
     const input={...e,...this._snapPoint(e.x,e.y)}
