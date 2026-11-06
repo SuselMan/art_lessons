@@ -349,7 +349,7 @@ function isBrushPreview(value: unknown): boolean {
   try {
     const bytes = atob(value.slice(22))
     if (bytes.slice(0, 8) !== '\x89PNG\r\n\x1a\n' || bytes.slice(12, 16) !== 'IHDR') return false
-    const dimension = (offset: number) => bytes.slice(offset, offset + 4).reduce((n, c) => n * 256 + c.charCodeAt(0), 0)
+    const dimension = (offset: number) => Array.from(bytes.slice(offset, offset + 4)).reduce((n, c) => n * 256 + c.charCodeAt(0), 0)
     return bytes.length >= 33 && dimension(16) > 0 && dimension(16) <= 128 && dimension(20) > 0 && dimension(20) <= 128
   } catch { return false }
 }
