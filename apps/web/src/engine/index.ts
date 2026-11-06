@@ -1,3 +1,4 @@
+import { cancelRestoreGeneration } from './restoreGeneration'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -716,7 +717,10 @@ export interface PencilEngineAPI {
   // isCoveredBySnapshot).
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
+  // A held ordinary gesture defers installation until physical UP/end. Await
+  // its completion before reusing tile views or decoding another layer (#467).
+  // Cancellation rejects; coverage and installed audit appear only on install.
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void>
   // (#474) What the restoreLayerFromSnapshot calls since the last drain
   // actually did — one record per call, in call order, emptied by reading.
   //
@@ -743,7 +747,7 @@ export interface PencilEngineAPI {
   absorbHistoricalOperations(ops: Operation[]): void
   /** Inclusive snapshot prefix plus dependency source history; seeds the log
    * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
-  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void>
+  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void>
   // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
@@ -1168,7 +1172,18 @@ export interface PeerLivePacket {
  *  simply paint the rest. `ended` records that the author's pen came up, so the
  *  entry can be disposed once the operations have caught up to what was painted
  *  rather than at pen-up, when they are still in flight. */
+interface DeferredSnapshotInstall {
+  target: ILayerBuffer
+  tiles: SnapshotTile[] | null
+  coveredSeq?: number
+  signal?: AbortSignal
+  resolve: () => void
+  reject: (error: unknown) => void
+  abort: () => void
+}
+
 interface PeerLiveStroke {
+  tool?: StrokeOperation['tool']
   peerId: string
   strokeId: string
   layerId: string
@@ -2097,6 +2112,7 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _diagLog: DiagLog
 
   // Layer management
+  private _deferredSnapshotInstalls = new Map<string, DeferredSnapshotInstall>()
   private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
   // (#373, #374, #522) Each layer's standing with the room's stored snapshot —
@@ -3207,6 +3223,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it began. Each of those clears on its own (pen-up, the operation
    *  arriving, the wash drying), and each of those moments calls this again. */
   private _settleLayers(): void {
+    this._flushDeferredSnapshots()
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
     if (!this._unsettledLayers.size || this._strokeLayerId) return
@@ -3679,6 +3696,7 @@ export class PencilEngine implements PencilEngineAPI {
   resizeCanvas(width: number, height: number): void {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
+    this._cancelDeferredSnapshots()
     this._clearAsyncPresentations(this._contextLost || gl.isContextLost())
     canvas.width = width
     canvas.height = height
@@ -3797,7 +3815,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Better to let this gesture arrive the old way, whole, and stream the
       // next one.
       live = {
-        peerId, strokeId: packet.strokeId, layerId: packet.layerId,
+        peerId, strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
         paintedTotal: 0, liveOffset: 0, committedOffset: 0, nextPacketSeq: 0,
         desynced: packet.packetSeq !== 0, ended: false,
       }
@@ -3859,7 +3877,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._wetFromForeignStroke(packet.layerId, packet.tool, packet.preset, dabs, null, standing)
     this._snapshots.markDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
-    this._displayIfNotSuspended()
+    if (this._deferredSnapshotInstalls.has(packet.layerId)) this._scheduleDisplay()
+    else this._displayIfNotSuspended()
   }
 
   /** See PencilEngineAPI's doc comment. */
@@ -3912,6 +3931,7 @@ export class PencilEngine implements PencilEngineAPI {
       // painted. Once the operations have caught up, the entry has no job left.
       if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId, live.layerId))
     }
+    this._flushDeferredSnapshots()
     return outstanding
   }
 
@@ -4090,6 +4110,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._cancelDeferredSnapshots()
+    cancelRestoreGeneration(this)
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -5029,6 +5051,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true
+    this._cancelDeferredSnapshots()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
     // checkpoint: retaining its prefix without open wash state loses the tail.
@@ -5467,6 +5490,7 @@ export class PencilEngine implements PencilEngineAPI {
       packed: packTilePixels(buffer.readPixels()),
     })
     const opIds = ops.map(o => o.id)
+    const snapshotBase = this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
     if (resident.length === 1 || typeof document === 'undefined') {
       this._checkpoints.add({ layerId, opIds, tiles: resident.map(read) })
       return
@@ -5477,6 +5501,9 @@ export class PencilEngine implements PencilEngineAPI {
     const tiles: ReturnType<typeof read>[] = []
     const last = opIds[opIds.length - 1]
     const step = (): void => {
+      // A replacement can keep the same buffer and journal while retiring
+      // these captured tiles. Never publish a checkpoint from that old base.
+      if (this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot) !== snapshotBase) return
       if (this._destroyed || this._contextLost || this._layers.get(layerId) !== buf) return
       if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
       const now = this._log.layerPixelOps(layerId)
@@ -5505,7 +5532,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
-    if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
+    if (this._deferredSnapshotInstalls.has(layerId) || this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
@@ -5537,6 +5564,7 @@ export class PencilEngine implements PencilEngineAPI {
    *     any watermark this client can have seen, so a joiner restoring these
    *     pixels would then receive the same operations and paint them twice. */
   private _snapshotSettled(layerId: string): boolean {
+    if (this._deferredSnapshotInstalls.has(layerId)) return false
     if (this._log.hasPendingPaperDry()) return false
     if (this._unsettledLayers.has(layerId)) this._settleLayers()
     if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return false
@@ -5548,8 +5576,92 @@ export class PencilEngine implements PencilEngineAPI {
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+  /** Deferred completion must be awaited before decoding another layer (#467).
+   * Tiles remain immutable caller-owned views; no copy or early coverage/audit. */
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void> {
+    signal?.throwIfAborted()
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) throw new DOMException('Snapshot target unavailable', 'AbortError')
+    this._cancelDeferredSnapshot(layerId)
+    const target = this._layers.get(layerId)
+    if (!target || !this._hasPhysicalOrdinaryInk(layerId)) {
+      this._restoreLayerFromSnapshotNow(layerId, tiles, coveredSeq)
+      return
+    }
+    let item!: DeferredSnapshotInstall
+    const completion = new Promise<void>((resolve, reject) => {
+      item = { target, tiles, coveredSeq, signal, resolve, reject,
+        abort: () => this._cancelDeferredSnapshot(layerId) }
+    })
+    // Existing fire-and-forget callers must not create an unhandled rejection
+    // on teardown; awaiting the original promise still receives cancellation.
+    void completion.catch(() => {})
+    this._deferredSnapshotInstalls.set(layerId, item)
+    signal?.addEventListener('abort', item.abort, { once: true })
+    if (signal?.aborted) item.abort()
+    return completion
+  }
+
+  private _hasPhysicalOrdinaryInk(layerId: string): boolean {
+    if (this._strokeLayerId && this._strokeTool !== 'watercolor'
+      && (this._strokeLayerId === layerId || this._strokeExtraLayerIds.includes(layerId))) return true
+    return [...this._peerLiveStrokes.values()].some(live => live.layerId === layerId && live.tool !== 'watercolor' && !live.ended && live.paintedTotal > 0)
+  }
+
+  private _cancelDeferredSnapshot(layerId: string): void {
+    const item = this._deferredSnapshotInstalls.get(layerId)
+    if (!item) return
+    this._deferredSnapshotInstalls.delete(layerId)
+    item.signal?.removeEventListener('abort', item.abort)
+    item.tiles = null
+    item.reject(new DOMException('Snapshot installation retired', 'AbortError'))
+  }
+
+  private _cancelDeferredSnapshots(): void {
+    for (const id of this._deferredSnapshotInstalls.keys()) this._cancelDeferredSnapshot(id)
+  }
+
+  private _flushDeferredSnapshots(): void {
+    for (const [id, item] of this._deferredSnapshotInstalls) {
+      if (item.signal?.aborted || this._destroyed || this._contextLost || this.gl.isContextLost() || this._layers.get(id) !== item.target) {
+        this._cancelDeferredSnapshot(id); continue
+      }
+      if (this._hasPhysicalOrdinaryInk(id)) continue
+      this._deferredSnapshotInstalls.delete(id)
+      item.signal?.removeEventListener('abort', item.abort)
+      const tiles = item.tiles!
+      item.tiles = null
+      try { this._restoreLayerFromSnapshotNow(id, tiles, item.coveredSeq); item.resolve() }
+      catch (error) { item.reject(error) }
+    }
+  }
+
+  private _restoreLayerFromSnapshotNow(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+    const target=this._layers.get(layerId)
+    if(target){
+      this._sweepReveals(performance.now(), layerId)
+      this._cancelRebuildJob(layerId)
+      this._forgetWashesOf(target) // Authoritative handover, never commit an obsolete wet goal.
+      this._paperWet.forgetLayer(layerId)
+      for(const cp of [...this._checkpoints.all()])if(cp.layerId===layerId && !cp.fromSnapshot)this._checkpoints.remove(cp)
+    }
     this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    // Peer END can precede its durable operation; repair overwritten live
+    // dabs once the operation arrives, without waiting for ACK to install.
+    if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
+    if (!target || coveredSeq === undefined) return
+    this._checkpoints.markCovered(this._log.entries
+      .filter(entry => !entry.pending && entry.serverSeq !== undefined)
+      .map(entry => ({ id: entry.op.id, seq: entry.serverSeq })))
+    const covered = this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot)?.covered
+    const tail = this._log.layerPixelOps(layerId).filter(op => !covered?.has(op.id))
+    if (tail.some(op => this._log.entries.some(entry => entry.op.id === op.id && !entry.pending && entry.serverSeq === undefined))) {
+      this._snapshotIO.requireHistory(layerId)
+      this._onSnapshotHistoryRepairNeeded?.()
+      return
+    }
+    // A replacement bitmap must preserve accepted newer and pending local
+    // operations. Local array indices are never proof of server coverage.
+    if (tail.length) this._rebuildLayerOrDefer(layerId)
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
@@ -5659,7 +5771,8 @@ export class PencilEngine implements PencilEngineAPI {
    * The original prefix fold (including boundary undo) precedes tail redo. */
   private _replayRestoredStructure = false
 
-  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
+  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
       if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
@@ -5674,18 +5787,34 @@ export class PencilEngine implements PencilEngineAPI {
       this._syncBuffersToLog(false)
     }
     await this.preloadImages(ops)
+    signal?.throwIfAborted()
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
     if (replayStructure) return
     // Tail merge/copy reads live source buffers. Deferring these until the
     // eventual resumeDisplay would let that tail copy an empty source. Run
     // the existing rebuild machinery now, preserving its GPU slicing.
-    for (const id of affected) {
-      this._pendingRebuilds.delete(id)
-      this._rebuildLayer(id)
+    const ownedJobs = new Map<string, RebuildJob>()
+    const cancelOwned = () => {
+      for (const [id, job] of ownedJobs) if (this._rebuildJobs.get(id) === job) this._cancelRebuildJob(id)
     }
-    while ([...affected].some(id => this._rebuildJobs.has(id))) {
-      if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
-      await new Promise<void>(resolve => setTimeout(resolve, 16))
+    signal?.addEventListener('abort', cancelOwned, { once: true })
+    try {
+      for (const id of affected) {
+        this._pendingRebuilds.delete(id)
+        const before = this._rebuildJobs.get(id)
+        this._rebuildLayer(id)
+        const job = this._rebuildJobs.get(id)
+        if (job && job !== before) ownedJobs.set(id, job)
+      }
+      while ([...affected].some(id => this._rebuildJobs.has(id))) {
+        if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+        await new Promise<void>(resolve => setTimeout(resolve, 16))
+        signal?.throwIfAborted()
+      }
+      signal?.throwIfAborted()
+    } finally {
+      signal?.removeEventListener('abort', cancelOwned)
+      if (signal?.aborted) cancelOwned()
     }
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
   }
@@ -5704,6 +5833,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    this._cancelDeferredSnapshot(id)
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)

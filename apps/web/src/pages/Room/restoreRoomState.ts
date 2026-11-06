@@ -3,6 +3,8 @@ import * as Sentry from '@sentry/react'
 
 import type { Operation, Participant } from '@grafetto/shared'
 
+import { beginRestoreGeneration, finishRestoreGeneration, isRestoreCancelled } from '../../engine/restoreGeneration'
+
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { useRoomStore } from '../../stores/roomStore'
@@ -39,7 +41,7 @@ export interface RestoreRoomStateDeps {
   boardId: string
   /** Default OFF until full-journal material/lifecycle hardware gates. */
   diagnosticClearPrefixElision?: boolean
-  restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string) => Promise<SnapshotRestoreOutcome['status']>
+  restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string, signal?: AbortSignal) => Promise<SnapshotRestoreOutcome['status']>
   /** fromSeq is an exclusive beforeSeq cursor, not an inclusive snapshot watermark. */
   backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
   applyRemoteOp: (op: Operation) => void
@@ -93,6 +95,10 @@ export async function restoreRoomState(
   { mode, alreadyHadSeq }: { mode: RestoreMode; alreadyHadSeq: number },
   deps: RestoreRoomStateDeps,
 ): Promise<void> {
+  const owner = engine ?? deps.replayGate
+  const generation = beginRestoreGeneration(owner)
+  const { signal } = generation
+  const checkCurrent = () => signal.throwIfAborted()
   const { latestSnapshotSeq, tailOperations } = state
   const openTimer = mode === 'join' ? deps.openTimerRef.current : null
 
@@ -101,6 +107,7 @@ export async function restoreRoomState(
   // express that — `finally` runs on the way out either way — so the exit has
   // to be flagged rather than jumped to.
   let restoreFailedHere = false
+  let restoreCancelledHere = false
   // (#538) Держится ровно до входа в `resumeDisplay`, а не до его возврата, и
   // это не мелочь: глубина там уменьшается первым же оператором, до
   // `_flushPendingRebuilds`, который и бросает в отчётах `JAVASCRIPT-D/E/G`
@@ -109,6 +116,19 @@ export async function restoreRoomState(
   // из `catch` по второму поводу заново позвал бы `_display()` на той же
   // нехватке памяти, уже внутри обработчика.
   let displaySuspended = false
+  let gateHeld = true
+  const release = () => {
+    if (!gateHeld && !displaySuspended) return
+    const endGate = gateHeld, resume = displaySuspended
+    gateHeld = false; displaySuspended = false
+    try { engine?.setUnpaintedInBatch(null) } finally {
+      try { if (endGate) deps.replayGate.end() } finally { if (resume) engine?.resumeDisplay() }
+    }
+  }
+  // The gate is boolean: retire the old generation synchronously BEFORE the
+  // new one closes it, rather than let an old finally open the new gate.
+  const retire = () => { try { release() } catch { /* retired cleanup must not throw from an AbortSignal listener */ } }
+  signal.addEventListener('abort', retire, { once: true })
   deps.replayGate.begin()
   try {
     // (#147) A room's history can be hundreds/thousands of ops — without this,
@@ -127,7 +147,8 @@ export async function restoreRoomState(
     // the join path used to check directly.
     let restoredFromSnapshot = false
     if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-      const status = await deps.restoreFromSnapshot(engine, deps.boardId)
+      const status = await deps.restoreFromSnapshot(engine, deps.boardId, signal)
+      checkCurrent()
       // (#533) The one branch that must not fall through to the replay below.
       // `tailOperations` is only what the snapshot did *not* cover — 69
       // operations of a 53 836-operation room, on the day this was found — so
@@ -170,12 +191,12 @@ export async function restoreRoomState(
       ? tailOperations.filter(op => (op.seq ?? 0) <= latestSnapshotSeq) : []
     const replayOperations = historicalPrefix.length
       ? tailOperations.filter(op => (op.seq ?? 0) > latestSnapshotSeq!) : tailOperations
-    if (engine && historicalPrefix.length) await engine.restoreHistoricalOperations(historicalPrefix)
+    if (engine && historicalPrefix.length) { await engine.restoreHistoricalOperations(historicalPrefix, undefined, signal); checkCurrent() }
 
     // (#398) Reference images decoded before the loop, not inside it — see
     // PencilEngineAPI.preloadImages. Without this, the operations recorded
     // *after* an import replay against a layer whose image has not landed yet.
-    if (engine) await engine.preloadImages(replayOperations)
+    if (engine) { await engine.preloadImages(replayOperations); checkCurrent() }
 
     // (#385) Per-operation, not around the whole loop. One operation that
     // throws used to abandon every operation after it — and in the real case
@@ -222,11 +243,12 @@ export async function restoreRoomState(
         applyOne(op)
         if (performance.now() - sliceStart > REPLAY_YIELD_MS) {
           await yieldToEventLoop()
+          checkCurrent()
           sliceStart = performance.now()
         }
       }
     } finally {
-      engine?.setUnpaintedInBatch(null)
+      if (!signal.aborted) engine?.setUnpaintedInBatch(null)
     }
 
     if (failed > 0) {
@@ -242,9 +264,8 @@ export async function restoreRoomState(
       deps.replayIncompleteRef.current = true
       deps.notifyReplayIncomplete()
     }
-    deps.replayGate.end()
-    displaySuspended = false
-    engine?.resumeDisplay()
+    release()
+    checkCurrent()
     // (#386) Now, not on the next microtask: the bootstrap below reads the
     // store back in this same task. See syncFromLogNow.
     deps.syncFromLogNow()
@@ -284,6 +305,7 @@ export async function restoreRoomState(
       )
     }
   } catch (error) {
+    if (signal.aborted || isRestoreCancelled(error)) { restoreCancelledHere = true; return }
     // (#538) Everything between `resumeDisplay()` and here runs once per
     // restore and nowhere else. A throw on its first line cancels the rest,
     // and the `finally` without a flag would still announce the room as open:
@@ -308,9 +330,11 @@ export async function restoreRoomState(
       // Its own try: if the canvas has stopped answering, a second throw from
       // here would put us back in an unhandled rejection — and leave the
       // person without the failure screen they have by now earned.
-      try { engine?.resumeDisplay() } catch { /* the failure screen matters more */ }
+      try { displaySuspended = false; engine?.resumeDisplay() } catch { /* the failure screen matters more */ }
     }
   } finally {
+    signal.removeEventListener('abort', retire)
+    try { release() } finally { finishRestoreGeneration(owner, generation) }
     // Runs even if the restore or replay throws — a failed restore must still
     // unblock drawing rather than leave the canvas permanently inert. A
     // snapshot that brought back *nothing* is the exception (#533): there is
@@ -319,7 +343,7 @@ export async function restoreRoomState(
     //
     // A condition rather than an early `return`: a `return` in a `finally`
     // would also swallow whatever the `try` threw.
-    if (!restoreFailedHere) {
+    if (!signal.aborted && !restoreCancelledHere && !restoreFailedHere) {
       deps.setRoomContentReady(true)
       // (#487) Same `finally`, same reason: "ready" is the moment the
       // preloader left and the pencil started working, which happens even

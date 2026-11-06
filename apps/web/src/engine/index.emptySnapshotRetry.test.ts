@@ -20,7 +20,7 @@ function setup() {
     for (const target of internal._layers.get('A')!.allResident()) target.buffer.clear()
     internal._snapshots.markDirty('A')
   }
-  engine.appendOperation(fillStroke('a', 'A', 4, 4, 6), 'remote')
+  engine.appendOperation({ ...fillStroke('a', 'A', 4, 4, 6), seq: 2 }, 'remote')
   clear()
   const reads = vi.spyOn(internal.gl, 'readPixels')
   return { engine, internal, ledger: internal._snapshots, reads, clear }

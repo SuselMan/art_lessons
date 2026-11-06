@@ -290,9 +290,12 @@ export class SnapshotIO {
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
     // all-transparent tile is *doing* something: clearing what is under it.
-    // Nothing clears the layer ahead of this, so that distinction is ours to
-    // make, and one cheap check makes it without asking per tile.
+    // Preserve explicit transparent uploads in the restore audit on a live
+    // layer, while omitting their allocation for an initially empty layer.
     const uploads = buf.allResident().length === 0 ? painted : retiled
+    // A snapshot replaces the whole layer, including tiles absent from its
+    // sparse payload. Retaining old tiles would resurrect cleared content.
+    buf.clear()
     // (#474) Any error already pending is drained first, so what this reads
     // afterward is this restore's own — the same discipline generatePaperMipmaps
     // uses, and for the same reason: an inherited error would accuse the wrong
@@ -350,13 +353,14 @@ export class SnapshotIO {
   /** See restore's own doc comment for why this exists. Replaces (rather than
    *  adds to) any pinned checkpoint this layer already had — only relevant if
    *  restore is ever called twice for the same layer in one engine lifetime
-   *  (e.g. a reconnect re-restoring a still-mounted engine); the newer restore
-   *  is always a superset, and `CheckpointStore.best`'s "first checkpoint of
+   *  (e.g. a reconnect re-restoring a still-mounted engine). A newer snapshot
+   *  may also remove pixels; `CheckpointStore.best`'s "first checkpoint of
    *  the longest matching length wins" tie-break would otherwise let a stale
    *  one linger and win ties against the newer, more complete one at the same
    *  (empty) opIds length. */
   private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    if (!tiles.length) return
+    // Empty snapshots replace old bitmap checkpoints too: later Undo must
+    // restore the new empty baseline rather than the previous image.
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
     this.ctx.ledger.allowPublishing(layerId)
@@ -430,6 +434,16 @@ export class SnapshotIO {
   }
 
   historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
+
+  /** Existing legacy entries without server order cannot prove whether a
+   *  replacement bitmap covers them. Keep the bitmap, request an exact prefix. */
+  requireHistory(layerId: string): void {
+    const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    if (snapshot?.coveredSeq === undefined) return
+    this.historyRepairs.set(layerId, snapshot.coveredSeq)
+    this.ctx.ledger.markDirty(layerId)
+    this.ctx.ledger.refusePublishing(layerId)
+  }
 
   invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
     for (const layerId of layerIds) {
