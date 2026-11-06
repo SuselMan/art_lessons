@@ -1,3 +1,4 @@
+import{hatchingPlacement,type HatchingPlacement}from'./brushHatching'
 import {curveTraceStamps,type CurveTraceState}from'./brushCurveTrace'
 import {bristleStamps,type BristleState} from './brushBristle'
 import {sketchStamps,type SketchState} from './brushSketch'
@@ -98,6 +99,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  hatching?:HatchingPlacement
   requestGroup?:number
   pathOpacity?:number
   group?:number
@@ -387,6 +389,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     return {
       ...stamp, ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
+      ...(brush.hatching?{hatching:hatchingPlacement(brush.hatching,Object.fromEntries((['angle','cross','separation','thickness']as const).map((key,j)=>[key,(brush.hatching!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(0xf6000+j*16+i)),1)]))as {angle:number;cross:number;separation:number;thickness:number})}:{}),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       ...(behavior?.dynamics?.sharpness || behavior?.modulations?.sharpness?.length
         ? { sharpnessScale: dynamic('sharpness', 4096 + i * 8) } : {}),

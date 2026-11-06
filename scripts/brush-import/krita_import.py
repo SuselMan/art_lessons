@@ -405,7 +405,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if root.tag != 'Preset':
         raise ValueError('Invalid Krita preset root')
     engine = root.get('paintopid')
-    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush'):
+    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
     # XML bytearray properties have an outer serialization layer. The embedded
@@ -433,6 +433,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if any(value != matches[0][1] for _, value in matches):
             raise ValueError('Ambiguous Krita resource: '+filename)
         return matches[0][1]
+    if engine == 'hatchingbrush':
+        from krita_hatching import hatching_preset
+        return hatching_preset(data,root,params,name,catalog,external)
     if engine == 'curvebrush':
         from krita_curve import curve_preset
         return curve_preset(data,root,params,name,catalog,external)

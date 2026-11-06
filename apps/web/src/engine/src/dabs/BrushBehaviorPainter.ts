@@ -1,3 +1,5 @@
+import{hatchingStampFragment}from'../raster/brushHatchingShader'
+import{hatchingPlane}from'../presets/brushHatching'
 import {SketchLineBatch} from './SketchLineBatch'
 import { SprayShapeBatch } from './SprayShapeBatch'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
@@ -24,7 +26,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
-const STAMP_UNIFORMS = [
+const STAMP_UNIFORMS = [ 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
   'u_wickCap', 'u_tipPacking', 'u_dualTipPacking', 'u_lightnessMaterial',
@@ -76,6 +78,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private hatchingStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private sketchBatch?:SketchLineBatch
   private sprayBatch?:SprayShapeBatch
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
@@ -118,6 +121,7 @@ export class BrushBehaviorPainter {
   initGL(): void {
     this.sketchBatch?.reset()
     this.sprayBatch?.reset()
+    this.hatchingStamp=undefined
     this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.curveStamp = undefined
@@ -134,6 +138,11 @@ export class BrushBehaviorPainter {
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
+  prepareHatching():void{this.hatchingProgram()}
+  private hatchingProgram():{program:WebGLProgram;uniforms:Uniforms;position:number}{
+    if(!this.hatchingStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,hatchingStampFragment(createBrushStampFragment(true,true,true)));this.hatchingStamp={program,uniforms:getUniforms(gl,program,STAMP_UNIFORMS),position:gl.getAttribLocation(program,'a_position')}}
+    return this.hatchingStamp
+  }
   prepareProcedural(): void { this.stampFor(true) }
 
   prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl)).prepare()}
@@ -180,10 +189,12 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
     this.sketchBatch?.destroy()
     this.sprayBatch?.destroy()
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
+    this.hatchingStamp=undefined
     this.circleStamp = undefined
     gl.deleteProgram(this.stamp)
     gl.deleteProgram(this.composite)
@@ -312,8 +323,8 @@ export class BrushBehaviorPainter {
     const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),brush.texture?.id,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
-    const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles)
+    const procedural = !!brush.hatching || brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
+    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles)
     const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
@@ -359,7 +370,7 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_tipProfile,brush.tip.profile?.kind === 'gaussian' ? brush.tip.profile.fade : .5,brush.tip.profile?.antialias ? 1 : 0)
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
-      if (procedural && !circleBand) {
+      if ((procedural||brush.hatching) && !circleBand) {
         gl.uniform4f(u.u_tipProcedural, ...brushTipProfileUniforms(brush.tip))
         gl.uniform4f(u.u_dualProcedural, ...brushTipProfileUniforms(secondary?.tip))
       }
@@ -430,6 +441,11 @@ export class BrushBehaviorPainter {
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
+          if(brush.hatching&&s.hatching){
+            const h=s.hatching
+            gl.uniform2f(u.u_hatchStyle,h.thickness,brush.hatching.antialias?1:0)
+            for(let i=0;i<3;i++)gl.uniform4f(u['u_hatch'+i],...(i<h.angles.length?hatchingPlane(h.angles[i],h.separation,brush.hatching.origin,tile.originX,tile.originY,brush.hatching.subpixel):[0,0,0,0])as [number,number,number,number])
+          }
           if (s.sharpnessScale !== undefined) gl.uniform3f(u.u_alphaThreshold, brushAlphaThresholdValue(threshold, s.sharpnessScale), threshold?.softness ?? 0, threshold ? 1 : 0)
           if (s.dualSharpnessScale !== undefined) gl.uniform3f(u.u_dualAlphaThreshold, brushAlphaThresholdValue(dualThreshold, s.dualSharpnessScale), dualThreshold?.softness ?? 0, dualThreshold ? 1 : 0)
           if (circleBand) {
