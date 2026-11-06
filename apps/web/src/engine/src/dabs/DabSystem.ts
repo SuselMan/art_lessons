@@ -932,7 +932,7 @@ export class DabSystem {
       // dabs keep their actual pacing time and never consult that clock.
       const t = this.strokeInput || this.captureSourceTime || dab.normalizedSpeed!==undefined ? dab.t : previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
       const input=codecDab({ ...dab, t })
-      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle)
+      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle,baseSize)
       return this._autoSpacingStep(this._pathAngle)
     }
     const fp = this.footprint
