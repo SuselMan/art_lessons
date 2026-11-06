@@ -66,6 +66,7 @@ export class BrushPainter {
     return this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
+  prepareFilter():void{this.behavior.prepareFilter()}
   preparePolygon():void{this.behavior.preparePolygon()}
   prepareHatching():void{this.behavior.prepareHatching()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}

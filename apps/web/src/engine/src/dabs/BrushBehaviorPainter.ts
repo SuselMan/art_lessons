@@ -1,3 +1,4 @@
+import{FilterBrushPass}from'./FilterBrushPass'
 import{PolygonFillBatch}from'./PolygonFillBatch'
 import{hatchingStampFragment}from'../raster/brushHatchingShader'
 import{hatchingPlane}from'../presets/brushHatching'
@@ -48,7 +49,7 @@ const STAMP_UNIFORMS = [ 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
   'u_tipImageEnabled', 'u_dualImageEnabled', 'u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain', 'u_dualImageDomain',
 ]
-type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>
+type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>
 export interface BehaviorScratch extends BrushScratch {
   brushSecondary(): {scratch:BehaviorScratch;sampling:SecondarySamplingState;tile:(source:AccumulationBuffer)=>AccumulationBuffer}
   brushBehavior?: BrushBehaviorState
@@ -120,7 +121,10 @@ export class BrushBehaviorPainter {
     const resource=brushTipResource(id,gray,tip)
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
+  private filterPass?:FilterBrushPass
+  prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl,this.ctx.quadBuf)).prepare()}
   initGL(): void {
+    this.filterPass?.forget()
     this.polygonBatch?.reset()
     this.sketchBatch?.reset()
     this.sprayBatch?.reset()
@@ -193,6 +197,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
     this.polygonBatch?.destroy()
     this.sketchBatch?.destroy()
@@ -217,7 +222,7 @@ export class BrushBehaviorPainter {
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if((brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle?1:4)){
+    if((brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle?1:4)){
       for(let i=0;i<dabs.length;i+=(brush.particle?1:4)){const last=i+(brush.particle?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
@@ -622,6 +627,10 @@ export class BrushBehaviorPainter {
         coverage.beginDraw()
         if(accumulation)drawPhysical(tail.preview)
         else {drawStamps(tail.preview,false);coverage.endDraw();drawCeilings(tail.preview)}
+      }
+      if(brush.filter){
+        (this.filterPass??=new FilterBrushPass(gl,this.ctx.quadBuf)).paint(brush.filter,tile,bounds,coverage,scratch,target)
+        continue
       }
       tile.buffer.beginReplaceDraw()
       gl.useProgram(this.composite)

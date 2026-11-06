@@ -865,7 +865,7 @@ export function digitalBrushMixer(
   presetName: string | undefined, color: [number, number, number],
 ): MixerPaint | null {
   const brush = digitalBrushFromPreset(presetName)
-  if (brush.model !== 'mixer' || !brush.mixer) return null
+  if (brush.filter || brush.model !== 'mixer' || !brush.mixer) return null
   return {
     color,
     brush,

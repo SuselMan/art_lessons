@@ -1,0 +1,41 @@
+"""Filter brush imports common mask/sensors and explicit filter settings."""
+import io,math
+import xml.etree.ElementTree as ET
+from PIL import Image,PngImagePlugin
+from brush_contract import finalize_identity,compatibility
+
+
+def filter_preset(data,root,params,name,catalog,external):
+    from krita_import import preset,enabled,numeric,xml
+    kind={'gaussian blur':'gaussian','unsharp':'unsharp'}.get(params.get('Filter/id'))
+    if kind is None:raise ValueError('Unsupported brush filter: '+str(params.get('Filter/id')))
+    if enabled(params.get('Filter/smudgeMode')):raise ValueError('Filter smudge mode is unsupported')
+    if enabled(params.get('EraserMode'))or params.get('CompositeOp','copy')!='copy':raise ValueError('Filter requires COPY compositing')
+    if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Filter timed input is unsupported')
+    config={}
+    if params.get('Filter/configuration'):
+        cfg=xml(params['Filter/configuration'])
+        config={p.get('name'):p.text or ''for p in cfg.iter('param')}
+        if len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
+    allowed={'horizRadius','vertRadius','lockAspect'}if kind=='gaussian'else{'halfSize','amount','threshold','lightnessOnly'}
+    if set(config)-allowed:raise ValueError('Unknown Filter configuration setting')
+    def number(key,default,lo,hi):
+        value=numeric(config.get(key),default)
+        if not math.isfinite(value)or not lo<=value<=hi:raise ValueError('Filter setting outside bounded range: '+key)
+        return value
+    radiusX=number('horizRadius',5,0,16)if kind=='gaussian'else number('halfSize',1,0,16)
+    radiusY=number('vertRadius',5,0,16)if kind=='gaussian'else radiusX
+    transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    for node in list(transformed):
+        if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
+    ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
+    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
+    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d.update(version=52,model='mixer',category='wet',paperInteraction=0,flow=1)
+    for key in ('scatter','texture','wet'):d.pop(key,None)
+    d['flowByPressure']=[[0,1],[1,1]]
+    d['mixer']={'load':0,'initialLoad':0,'pickup':1,'strength':1,'source':'previousCanvas'}
+    d['filter']={'version':1,'kind':kind,'radiusX':radiusX,'radiusY':radiusY,'amount':number('amount',.5,0,5),'threshold':number('threshold',0,0,255),'lightnessOnly':enabled(config.get('lightnessOnly','true'))}
+    d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
+    note=compatibility('filter','Frozen pre-stroke source reuses ordinary original tiles, common brush mask/sensors and COPY coverage. Separable Gaussian radius-to-sigma/support retained; radius0 is identity. Unsharp threshold/amount retained; lightness uses weighted RGB luminance rather than native colour-space conversion. RGBA8 intermediate quantization differs. Radius<=16; other filters, smudgeMode, non-COPY and timers rejected.')
+    result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
+    return result
