@@ -27,6 +27,10 @@ class SprayTest(unittest.TestCase):
         b=self.convert();s=b['descriptor']['spray'];self.assertEqual(len(s['radial']['samples']),1028);self.assertEqual(len(s['angular']),1028)
     def test_area_uniform_pdf(self):
         a=inverse_cdf(lambda x:2*x);self.assertAlmostEqual(a[64],.5,places=5)
+    def test_curve_distributions_accept_identity_transfer(self):
+        for axis in ['radial','angular']:
+            b=self.convert('<param name="Spray/'+axis+'DistributionType">curveBased</param>')
+            self.assertEqual(b['descriptor']['version'],43)
     def test_missing_canvas_strategy_is_explicit(self):
         for key in ['sampleInputColor','mixBgColor','fillBackground']:
             with self.assertRaisesRegex(ValueError,'canvas colour'):self.convert('<param name="ColorOption/'+key+'">true</param>')

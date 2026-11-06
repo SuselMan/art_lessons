@@ -21,7 +21,7 @@ def inverse_cdf(pdf, upper=1):
     if not math.isfinite(cdf[-1]) or cdf[-1]<=0:raise ValueError('Spray distribution has no probability mass')
     total=cdf[-1];out=[]
     for j in range(257):
-        value=j*total/256;i=max(1,min(samples,bisect.bisect_left(cdf,value)))
+        value=j*total/256;i=max(1,min(samples,bisect.bisect_right(cdf,value)))
         fraction=(value-cdf[i-1])/(cdf[i]-cdf[i-1]) if cdf[i]>cdf[i-1] else 0
         out.append(xs[i-1]+fraction*(xs[i]-xs[i-1]))
     return out
@@ -80,7 +80,7 @@ def spray_preset(data,root,params,name,catalog,external):
     radial=params.get('Spray/radialDistributionType') or ('gaussian' if enabled(params.get('Spray/gaussianDistribution')) else 'uniform')
     def curve_pdf(prefix,polar):
         repeat=int(number(prefix+'CurveRepeat',1,1,32));transfer=native_transfer(params.get(prefix+'Curve','0,0;1,1;'),4097)
-        vals=transfer if isinstance(transfer,list) else transfer['samples']
+        vals=[i/4096 for i in range(4097)] if isinstance(transfer,list) else transfer['samples']
         def f(x):
             u=(x*repeat)%1;at=min(len(vals)-2,int(u*(len(vals)-1)));v=vals[at]+(vals[at+1]-vals[at])*(u*(len(vals)-1)-at)
             return v*(2*x if polar else 1)
