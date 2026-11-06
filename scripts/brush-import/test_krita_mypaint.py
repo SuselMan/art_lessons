@@ -1,9 +1,9 @@
 from pathlib import Path
-import tempfile,json,unittest,base64,math
+import tempfile,json,unittest,base64,math,zipfile
 from test_krita import kpp
 from brush_contract import Catalog
 from mypaint_import import mypaint_preset
-from krita_import import preset
+from krita_import import preset,convert_krita
 class MyPaintTests(unittest.TestCase):
     def convert(self,settings):
         with tempfile.TemporaryDirectory()as d:return mypaint_preset(json.dumps({'version':3,'settings':settings}).encode(),'a.myb',Catalog(Path(d)))
@@ -13,6 +13,12 @@ class MyPaintTests(unittest.TestCase):
         encoded=base64.b64encode(json.dumps({'version':3,'settings':{}}).encode()).decode();data=kpp(engine='mypaintbrush',resources='<param name="MyPaint/json" type="bytearray">'+encoded+'</param>')
         with tempfile.TemporaryDirectory()as d:out=preset(data,'a.kpp',Catalog(Path(d)),{})
         self.assertEqual(out['descriptor']['mypaint']['kernel'],'libmypaint-1.6.1')
+    def test_bundle_raw_json(self):
+        with tempfile.TemporaryDirectory()as tmp:
+            path=Path(tmp)/'test.bundle'
+            with zipfile.ZipFile(path,'w')as z:z.writestr('paintoppresets/test.myb',json.dumps({'version':3,'settings':{}}))
+            catalog=Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+            self.assertEqual(len(catalog.brushes),1);self.assertEqual(catalog.skipped,[])
     def test_rejections(self):
         for key,value in [('unknown',0),('paint_mode',1)]:
             with self.assertRaises(ValueError):self.convert({key:{'base_value':value,'inputs':{}}})

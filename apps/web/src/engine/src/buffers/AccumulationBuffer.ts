@@ -9,6 +9,9 @@ function isPowerOfTwo(n: number): boolean {
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 
 export class AccumulationBuffer {
+  private _contentRevision=0
+  /** Conservative write serial for transient CPU readers. */
+  get contentRevision():number{return this._contentRevision}
   readonly gl: WebGLRenderingContext
   readonly width: number
   readonly height: number
@@ -160,6 +163,7 @@ export class AccumulationBuffer {
    *  frame behind the stroke drawing it. Two texParameteri calls per write
    *  batch is nothing next to the draws around them. */
   private _invalidateMips(): void {
+    this._contentRevision++
     if (!this._mipCapable || !this._mipsValid) return
     const { gl } = this
     this._mipsValid = false

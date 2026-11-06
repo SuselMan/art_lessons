@@ -1156,8 +1156,13 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
             raise ValueError('Unsafe or duplicate Krita bundle member')
         resources=dict(external or {})
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
-        for name in sorted(n for n in names if n.lower().endswith('.kpp')):
+        for name in sorted(n for n in names if n.lower().endswith(('.kpp','.myb'))):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
+                if name.lower().endswith('.myb'):
+                    from mypaint_import import mypaint_preset
+                    preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
+                    catalog.brushes.append(mypaint_preset(archive.read(name),name,catalog,archive.read(preview)if preview in names else None))
+                else:
+                    catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})

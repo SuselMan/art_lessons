@@ -1,12 +1,14 @@
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
 import{MYPAINT_SCHEMA}from'@grafetto/shared'
+import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 import type{BehaviorScratch}from'./BrushBehaviorPainter'
 import type{BrushPressureSettings}from'../presets/digitalBrushPresets'
 import{mypaintKernel,withMyPaintTiles}from'../presets/mypaintKernel'
 import{assertSameBrushExecutionContext,type BrushExecutionContext}from'../presets/brushExecutionContext'
 type Target=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>&Partial<Pick<ILayerBuffer,'resolveExistingForPaint'|'resolveVisible'>>
-type State={handle:number;execution?:BrushExecutionContext;previous?:Dab;finished?:boolean;opacity:number;destroy():void}
+type Mirror={pixels:Uint8Array;sources:{buffer:AccumulationBuffer;revision:number}[]}
+type State={mirror:Map<string,Mirror>;handle:number;execution?:BrushExecutionContext;previous?:Dab;finished?:boolean;opacity:number;destroy():void}
 type Tile={pointer:number;dirty:boolean;written:boolean;tx:number;ty:number}
 const clamp=(x:number,a=0,b=1)=>Math.max(a,Math.min(b,x))
 /** Uses upstream brush dynamics AND tiled rasterizer. Q15 tile pages are
@@ -20,7 +22,7 @@ export class MyPaintStrokePainter{
   scratch.brushNative?.destroy()
   const k=mypaintKernel(),handle=k.grafetto_create(execution!.brushRandom!.strokeSeed)
   if(!handle)throw Error('MyPaint brush allocation failed')
-  const state:State={handle,execution,opacity:dab.opacity,destroy:()=>{if(state.handle){k.grafetto_destroy(state.handle);state.handle=0}}}
+  const state:State={mirror:new Map(),handle,execution,opacity:dab.opacity,destroy:()=>{if(state.handle){k.grafetto_destroy(state.handle);state.handle=0;state.mirror.clear()}}}
   try{
    k.grafetto_base(handle,0,state.opacity)
    for(const setting of brush.mypaint!.settings){
@@ -54,10 +56,17 @@ export class MyPaintStrokePainter{
     const pixels=new Uint16Array(k.memory.buffer,pointer,64*64*4);pixels.fill(0)
     const rect={minX:tx*64,minY:ty*64,maxX:(tx+1)*64,maxY:(ty+1)*64}
     const existing=target.resolveExistingForPaint?.(rect)??target.resolveVisible?.(rect)??target.resolveForPaint(rect)
+    const cached=state!.mirror.get(key)
+    if(cached&&cached.sources.length===existing.length&&cached.sources.every((r,i)=>r.buffer===existing[i].buffer&&r.revision===r.buffer.contentRevision)){
+     for(let i=0;i<pixels.length;i++)pixels[i]=Math.round(cached.pixels[i]*32768/255)
+    }else{
     for(const t of existing){
      const x=Math.max(rect.minX,t.originX),y=Math.max(rect.minY,t.originY),right=Math.min(rect.maxX,t.originX+t.buffer.width),bottom=Math.min(rect.maxY,t.originY+t.buffer.height),w=right-x,h=bottom-y;if(w<=0||h<=0)continue
      const bytes=t.buffer.readPixelsRegion(x-t.originX,t.buffer.height-(y-t.originY)-h,w,h)
      for(let row=0;row<h;row++)for(let column=0;column<w;column++)for(let c=0;c<4;c++)pixels[((y-rect.minY+row)*64+x-rect.minX+column)*4+c]=Math.round(bytes[((h-1-row)*w+column)*4+c]*32768/255)
+    }
+    const bytes=new Uint8Array(pixels.length);for(let i=0;i<bytes.length;i++)bytes[i]=Math.round(pixels[i]*255/32768)
+    state!.mirror.set(key,{pixels:bytes,sources:existing.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
     }
    }
    if(!readonly){tile.dirty=true;tile.written=true}return tile.pointer
@@ -77,15 +86,27 @@ export class MyPaintStrokePainter{
    for(const dab of dabs)apply(dab)
    if(finish){const last=endpoint??state!.previous;if(last)apply({...last,sourceTime:endpoint?.sourceTime??last.sourceTime!+15},true);state!.finished=true}
   })
+  const changed=new Map<AccumulationBuffer,number>()
   for(const t of tiles.values())if(t.written){
    const rect={minX:t.tx*64,minY:t.ty*64,maxX:(t.tx+1)*64,maxY:(t.ty+1)*64},pixels=new Uint16Array(k.memory.buffer,t.pointer,64*64*4)
    for(const dst of target.resolveForPaint(rect)){
     const x=Math.max(rect.minX,dst.originX),y=Math.max(rect.minY,dst.originY),right=Math.min(rect.maxX,dst.originX+dst.buffer.width),bottom=Math.min(rect.maxY,dst.originY+dst.buffer.height),w=right-x,h=bottom-y;if(w<=0||h<=0)continue
     const bytes=new Uint8Array(w*h*4)
     for(let row=0;row<h;row++)for(let column=0;column<w;column++)for(let c=0;c<4;c++)bytes[((h-1-row)*w+column)*4+c]=Math.round(pixels[((y-rect.minY+row)*64+x-rect.minX+column)*4+c]*255/32768)
+    if(!changed.has(dst.buffer))changed.set(dst.buffer,dst.buffer.contentRevision)
     dst.buffer.writePixelsRegion(x-dst.originX,dst.buffer.height-(y-dst.originY)-h,w,h,bytes)
    }
    target.markContentPainted(rect)
   }
+  // Only our own disjoint64px uploads may advance a previously valid mirror.
+  // A foreign write leaves its old revision intact, forcing a GPU refresh.
+  for(const cached of state.mirror.values())for(const ref of cached.sources)if(ref.revision===changed.get(ref.buffer))ref.revision=ref.buffer.contentRevision
+  for(const [key,t]of tiles)if(t.written){
+   const pixels=new Uint16Array(k.memory.buffer,t.pointer,64*64*4),bytes=new Uint8Array(pixels.length)
+   for(let i=0;i<bytes.length;i++)bytes[i]=Math.round(pixels[i]*255/32768)
+   const rect={minX:t.tx*64,minY:t.ty*64,maxX:(t.tx+1)*64,maxY:(t.ty+1)*64},sources=target.resolveExistingForPaint?.(rect)??target.resolveVisible?.(rect)??target.resolveForPaint(rect)
+   state.mirror.delete(key);state.mirror.set(key,{pixels:bytes,sources:sources.map(t=>({buffer:t.buffer,revision:t.buffer.contentRevision}))})
+  }
+  while(state.mirror.size>128)state.mirror.delete(state.mirror.keys().next().value!)
  }
 }
