@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import {
-  activeLayerId, contentBounds, createRoom, drawStroke, waitForOperations, waitForRoomReady,
+  activeLayerId, contentBounds, createRoom, drawStroke, hasLayerContent, joinRoom,
+  maxDarknessOverRect, operations, waitForOperations, waitForRoomReady,
 } from '../support/room'
 
 /** (#608) An imported reference lands with the transform gizmo already on it.
@@ -61,6 +62,47 @@ async function expectGizmoOnImport(page: Page, layerBefore: string): Promise<voi
 }
 
 test.describe('importing a reference image', () => {
+  test('Undo removes the imported image for author and peer, Redo restores it', { tag: '@two-browsers' }, async ({ page, browser }) => {
+    const roomId = await createRoom(page)
+    await waitForRoomReady(page)
+    const peer = await browser.newContext()
+    const peerPage = await peer.newPage()
+    try {
+      await joinRoom(peerPage, roomId)
+      const before = await activeLayerId(page)
+      await importWidePng(page)
+      await expectGizmoOnImport(page, before)
+      const layer = await activeLayerId(page)
+      await waitForOperations(peerPage, 'image_import')
+      await page.getByRole('button', { name: 'Hand', exact: true }).click()
+      await expect.poll(async () => (await state(page)).tool).toBe('hand')
+      const drawn = await contentBounds(page, layer)
+      expect(drawn).not.toBeNull()
+      // Keep samples inside the image: its full-width frame touches the
+      // page boundary, whose exterior is dark editor chrome, not ink.
+      const interior = {
+        x: drawn!.x + drawn!.width * 0.1, y: drawn!.y + drawn!.height * 0.1,
+        width: drawn!.width * 0.8, height: drawn!.height * 0.8,
+      }
+      const darkness = await maxDarknessOverRect(page, interior)
+      expect(darkness).toBeGreaterThan(0.8)
+      await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(true)
+
+      await page.keyboard.press('Control+z')
+      await expect.poll(() => hasLayerContent(page, layer)).toBe(false)
+      await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(false)
+      expect(await maxDarknessOverRect(page, interior)).toBeLessThan(0.2)
+
+      await page.keyboard.press('Control+Shift+z')
+      await expect.poll(() => hasLayerContent(page, layer)).toBe(true)
+      await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(true)
+      expect(await maxDarknessOverRect(page, interior)).toBeCloseTo(darkness, 3)
+      expect((await operations(page)).filter(op => op.type === 'image_import')).toHaveLength(1)
+    } finally {
+      await peer.close()
+    }
+  })
+
   test('opens the transform gizmo around the picture', async ({ page }) => {
     await createRoom(page)
     await waitForRoomReady(page)

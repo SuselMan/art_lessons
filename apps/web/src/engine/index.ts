@@ -4212,6 +4212,9 @@ export class PencilEngine implements PencilEngineAPI {
         for (const layerId of this._log.gestureLayerIds(op)) this._rebuildLayerOrDefer(layerId)
         break
       case 'layer_clear':
+      // (#447) Imports paint pixels too: flipping their journal state is
+      // insufficient until the layer is replayed without (or with) the image.
+      case 'image_import':
       // (#446) Single-layer pixel operations, same as the two above: undoing
       // or redoing one means replaying its layer's history without (or with)
       // it. Nothing here can be derived from the operation's own effect —
