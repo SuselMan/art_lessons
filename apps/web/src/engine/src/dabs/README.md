@@ -154,3 +154,8 @@ Particle использует solver gesture state и общий inputKnots. О�
 request расширяется за вызов; SprayShapeBatch складывает bilinear веса в
 существующий ceiling, SketchLineBatch переносит насыщенную alpha с постоянным
 цветом. Новых framebuffer нет; см. `docs/brush-reference/particle.md`.
+
+Experiment обновляет целый замкнутый контур в общем coverage/composite. Один
+PolygonFillBatch stencil renderbuffer обслуживает все тайлы и отсоединяется
+после прохода; soft edge4samples, winding/parity. Coverage заменяется, dirty
+область включает старый контур. См. `docs/brush-reference/experiment.md`.
