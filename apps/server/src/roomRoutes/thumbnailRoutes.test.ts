@@ -407,3 +407,28 @@ describe('the live class-grid preview (#595)', () => {
     expect((await app.inject({ method: 'GET', url: '/api/rooms/alice-board/thumbnail' })).statusCode).toBe(200)
   })
 })
+
+it('waits for queued room creation before inserting the initial live thumbnail', async () => {
+  const { enqueueWrite, flushRoomWrites } = await import('../rooms/roomRegistry.js')
+  const roomId = 'thumbnail-before-create'
+  let release!: () => void
+  let created = false
+  const gate = new Promise<void>(resolve => { release = resolve })
+  enqueueWrite(roomId, async () => { await gate; created = true })
+  mockGetParticipant.mockReturnValue({ userId: 'user-1', role: 'owner' })
+  mockPrisma.roomThumbnail.upsert.mockImplementation(async () => {
+    if (!created) throw new Error('RoomThumbnail_roomId_fkey')
+    return { updatedAt: new Date(1) }
+  })
+  const app = buildApp()
+  try {
+    let completed = false
+    const response = postThumbnail(app, roomId, pngHeader(200, 100)).then(result => { completed = true; return result })
+    await vi.waitFor(() => expect(mockGetParticipant).toHaveBeenCalled())
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+    expect(completed).toBe(false)
+    release()
+    expect((await response).statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.upsert).toHaveBeenCalledOnce()
+  } finally { release(); await flushRoomWrites(roomId); await app.close() }
+})
