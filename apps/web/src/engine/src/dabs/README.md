@@ -140,3 +140,7 @@ Curve использует исходные input knots и ограниченн�
 cubic пути разбиваются на <=256 сегментов. SketchLineBatch собирает их в pooled
 brushCeilingCopy/ceiling с раздельной path/request opacity; coverage остаётся
 общим. См. `docs/brush-reference/curve.md`.
+
+Hatching — opt-in вариант общего stamp shader: до3 мировых семейств линий,
+CPU phase reduction на тайлах, общая маска/динамика/composite. Новых framebuffer
+нет. Формулы и границы: `docs/brush-reference/hatching.md`.
