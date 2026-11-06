@@ -122,7 +122,7 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   private filterPass?:FilterBrushPass
-  prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl,this.ctx.quadBuf)).prepare()}
+  prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
     this.filterPass?.forget()
     this.polygonBatch?.reset()
@@ -629,7 +629,7 @@ export class BrushBehaviorPainter {
         else {drawStamps(tail.preview,false);coverage.endDraw();drawCeilings(tail.preview)}
       }
       if(brush.filter){
-        (this.filterPass??=new FilterBrushPass(gl,this.ctx.quadBuf)).paint(brush.filter,tile,bounds,coverage,scratch,target)
+        (this.filterPass??=new FilterBrushPass(gl)).paint(brush.filter,tile,bounds,coverage,scratch,target)
         continue
       }
       tile.buffer.beginReplaceDraw()

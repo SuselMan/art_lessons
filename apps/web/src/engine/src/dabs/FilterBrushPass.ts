@@ -4,7 +4,7 @@ import type{ILayerBuffer,PaintTarget}from'../buffers/ILayerBuffer'
 import type{BrushScratch}from'./BrushPainter'
 import type{WorldRect}from'../buffers/tileMath'
 import{CanvasProjectionSampler}from'../raster/CanvasProjectionSampler'
-import{createProgram}from'../raster/utils'
+import{createProgram,createFullscreenQuad}from'../raster/utils'
 import{filterKernel,filterReach}from'../presets/brushFilter'
 const VERT=`attribute vec2 a_position;uniform vec2 u_resolution;uniform vec4 u_rect;void main(){vec2 p=(u_rect.xy+(a_position*.5+.5)*u_rect.zw)/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
 const BLUR=`precision highp float;uniform sampler2D u_source;uniform vec2 u_resolution;uniform vec2 u_step;uniform float u_weights[37];void main(){vec2 uv=gl_FragCoord.xy/u_resolution;vec4 v=vec4(0.);for(int i=0;i<37;i++)if(u_weights[i]>0.)v+=texture2D(u_source,uv+float(i-18)*u_step)*u_weights[i];gl_FragColor=v;}`
@@ -22,11 +22,12 @@ export class FilterBrushPass{
  private vertical?:AccumulationBuffer
  private readonly sampler:CanvasProjectionSampler
  private readonly gl:WebGLRenderingContext
- private readonly quad:()=>WebGLBuffer
- constructor(gl:WebGLRenderingContext,quad:()=>WebGLBuffer){this.gl=gl;this.quad=quad;this.sampler=new CanvasProjectionSampler(gl,quad)}
- prepare():void{this.blur??=createProgram(this.gl,VERT,BLUR);this.composite??=createProgram(this.gl,VERT,COMPOSITE);this.sampler.prepare()}
- forget():void{this.blur=undefined;this.composite=undefined;this.source=undefined;this.horizontal=undefined;this.vertical=undefined;this.sampler.forget()}
- destroy():void{if(this.blur)this.gl.deleteProgram(this.blur);if(this.composite)this.gl.deleteProgram(this.composite);this.source?.destroy();this.horizontal?.destroy();this.vertical?.destroy();this.sampler.destroy();this.forget()}
+ private geometry?:WebGLBuffer
+ private readonly quad=()=>this.geometry!
+ constructor(gl:WebGLRenderingContext){this.gl=gl;this.sampler=new CanvasProjectionSampler(gl,this.quad)}
+ prepare():void{this.geometry??=createFullscreenQuad(this.gl);this.blur??=createProgram(this.gl,VERT,BLUR);this.composite??=createProgram(this.gl,VERT,COMPOSITE);this.sampler.prepare()}
+ forget():void{this.geometry=undefined;this.blur=undefined;this.composite=undefined;this.source=undefined;this.horizontal=undefined;this.vertical=undefined;this.sampler.forget()}
+ destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.blur)this.gl.deleteProgram(this.blur);if(this.composite)this.gl.deleteProgram(this.composite);this.source?.destroy();this.horizontal?.destroy();this.vertical?.destroy();this.sampler.destroy();this.forget()}
  private buffers(size:number):void{
   if(this.source?.width===size)return
   this.source?.destroy();this.horizontal?.destroy();this.vertical?.destroy()
