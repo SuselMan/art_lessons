@@ -168,3 +168,31 @@ describe('#699 blocking a gesture whose live ink was already painted', () => {
     expect(deps.requestFullResync).not.toHaveBeenCalled()
   })
 })
+
+
+describe('room freeze preserves the owner’s permitted live gesture', () => {
+  beforeEach(() => {
+    useRoomStore.getState().applyParticipantAction({
+      type: 'room_state', participants: [
+        {userId: 'owner', name: 'Owner', role: 'owner', color: '#000', frozen: false, boardId: 'L'},
+        {userId: 'student', name: 'Student', role: 'member', color: '#000', frozen: false, boardId: 'L'},
+      ],
+    })
+  })
+
+  it('retires blocked student ink without ending the owner or requesting a resync for that owner', () => {
+    const endPeerLiveStroke = vi.fn((id: string) => id === 'owner' ? 8 : 0)
+    const {deps, on} = setup({engineRef: {current: {endPeerLiveStroke}}})
+    on.room_frozen_changed({frozen: true})
+    expect(endPeerLiveStroke.mock.calls).toEqual([['student']])
+    expect(deps.requestFullResync).not.toHaveBeenCalled()
+  })
+
+  it('closing the lesson still retires the owner because closing blocks everyone', () => {
+    const endPeerLiveStroke = vi.fn((id: string) => id === 'owner' ? 8 : 0)
+    const {deps, on} = setup({engineRef: {current: {endPeerLiveStroke}}})
+    on.room_closed_changed({closedAt: '2026-10-17T00:00:00Z'})
+    expect(endPeerLiveStroke.mock.calls).toEqual([['owner'], ['student']])
+    expect(deps.requestFullResync).toHaveBeenCalledOnce()
+  })
+})
