@@ -116,3 +116,11 @@ codec-clock/directional inputs read the isolated spacing state before advancemen
 An isotropic option selects the largest characteristic axis with no tip rotation.
 Axes remain continuous rendered dimensions rather than native integer mask bounds.
 Preview forks deep-copy spacing controls; historical absent fields retain the old law.
+
+`SprayShapeBatch` исполняет простые формы Spray внутри общего coverage/composite
+прохода: упорядоченные треугольники, не более2048 частиц за upload/draw и
+фиксированный staging buffer. Кончики-изображения остаются на общем sampler.
+Расширение партий ограничено4 исходными дабами за вызов painter, состояние жеста
+сохраняется между срезами. Программа готовится общей BrushPreparation; context
+loss сбрасывает GPU handles, destroy освобождает их. Описание формата и границ:
+`docs/brush-reference/spray.md`.
