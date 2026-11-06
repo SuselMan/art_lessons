@@ -4094,7 +4094,10 @@ export class PencilEngine implements PencilEngineAPI {
     let outstanding = 0
     for (const live of entries) {
       const open = this._replayRibbonChunks.get(live.strokeId)
-      if (open) this._brush.finish(open.scratch)
+      // A live-end packet can precede the durable operation carrying points
+      // omitted from the throttled live stream. Curve's buffered input must
+      // stay open until that operation has supplied its final points.
+      if (open && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
       live.ended = true
       const owed = Math.max(0, live.paintedTotal - live.committedOffset)
       outstanding += owed
