@@ -228,7 +228,9 @@ export function brushRotationOffset(profile:NonNullable<NonNullable<BrushDescrip
   if(!profile)return 0
   const seed=brushDabSeed(input.x,input.y,input.pressure)
   const additive=profile.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0000+i))-1,0)
-  const scaling=profile.scaling?.length ? 2*profile.scaling.reduce((v,control,i)=>v*brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0100+i)),1)-1 : 0
+  const values=profile.scaling?.map((control,i)=>brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0100+i)))??[]
+  const factor=!values.length?1:values.length===1?values[0]:profile.scalingMode==='sum'?values.reduce((a,b)=>a+b,0):profile.scalingMode==='max'?Math.max(...values):profile.scalingMode==='min'?Math.min(...values):profile.scalingMode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
+  const scaling=values.length?2*factor-1:0
   return Math.PI*(-1+profile.strength*(additive-scaling))
 }
 /** RGB/HSV conversion on CPU, before rasterisation, shared by all participants. */

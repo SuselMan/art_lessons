@@ -110,8 +110,6 @@ class RotationImportTests(unittest.TestCase):
 
     def test_other_sensors_combinations_disabled_curve_and_outside_strength_stay_unsupported(self):
         cases=[
-               ('1','<params id="sensorslist"><ChildSensor id="ascension"/><ChildSensor id="pressure"/></params>',{}),
-               ('1','<params id="ascension"/>',{'RotationcurveMode':'1'}),
                ('1','<params id="ascension"/>',{'RotationUseCurve':'false'}),
                ('2','<params id="ascension"/>',{})]
         for strength,sensor,extra in cases:
@@ -123,6 +121,17 @@ class RotationImportTests(unittest.TestCase):
             b=self.brush(tmp,extra={'PressureRotation':'false'})
             self.assertNotIn('angle',b['descriptor']['behavior'].get('dynamics',{}))
             self.assertFalse(any('PressureRotation' in x['detail'] for x in b['compatibility']))
+
+    def test_scaling_modes_and_additive_tilt_direction(self):
+        sensor='<params id="sensorslist"><ChildSensor id="ascension"/><ChildSensor id="pressure"/><ChildSensor id="speed"/></params>'
+        for mode,name in [(0,None),(1,'sum'),(2,'max'),(3,'min'),(4,'difference')]:
+            with tempfile.TemporaryDirectory()as tmp:
+                b=self.brush(tmp,'.5',sensor,{'RotationcurveMode':str(mode)})
+                c=b['descriptor']['behavior']['rotation']['composition']
+                self.assertEqual(c.get('scalingMode'),name)
+                self.assertEqual(c['additive'][0]['control'],'tiltDirection')
+                self.assertEqual([d['control']for d in c['scaling']],['pressure','speed'])
+                self.assertFalse(any(x['feature']=='activeDynamics'and'PressureRotation'in x['detail']for x in b['compatibility']))
 
 
 if __name__=='__main__':unittest.main()

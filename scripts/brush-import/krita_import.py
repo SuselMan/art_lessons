@@ -329,7 +329,7 @@ def sensor_controls(params, option, notes, *, allow_time=False):
     additive_ids=('fuzzy','fuzzystroke','ascension')
     scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
     compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids)
-    if mode not in (0,1,2,3,4) or option=='Rotation' and mode!=0 and scaling_count>1:
+    if mode not in (0,1,2,3,4):
         notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
     legacy_curve=params.get('Curve'+option,'0,0;1,1;') if 'curve' not in sensor_definition and enabled(params.get('Custom'+option)) else '0,0;1,1;'
@@ -351,7 +351,7 @@ def sensor_controls(params, option, notes, *, allow_time=False):
                 notes.append(compatibility(option+'Sensor','Invalid or out-of-range '+name+' duration/length; sensor unsupported.','unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
-        if len(controls)>=(16 if compound else 4):
+        if len(controls)>=(16 if compound or option=='Rotation' else 4):
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         source_ids.append(name)
         controls.append({'control':('tiltDirection'if compound and name=='ascension'else supported[name]),'minimum':0,'jitter':0,'curve':transfer})
@@ -850,14 +850,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 rotation_decoded=True
                 notes.append(compatibility('RotationDrawingAngle','Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced.'))
     if (not rotation_decoded and enabled(params.get('PressureRotation'))
-            and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)==0
-            and -1<=strength<=1 and 1<=len(rotation_sensors)<=4
-            and all(node.get('id') in ('fuzzy','fuzzystroke','pressure','declination','xtilt','ytilt','speed') for node in rotation_sensors)):
+            and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
+            and -1<=strength<=1 and 1<=len(rotation_sensors)<=16
+            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade') for node in rotation_sensors)):
         controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input)
         if len(controls)==len(rotation_sensors):
-            additive=[c for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke')]
-            scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke')]
+            additive=[{**c,**({'control':'tiltDirection'}if node.get('id')=='ascension'else{})} for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke','ascension')]
+            scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke','ascension')]
             behavior['rotation']={'follow':0,'random':'none','composition':{'strength':strength,'additive':additive,**({'scaling':scaling} if scaling else {})}}
+            curve_mode=int(numeric(params.get('RotationcurveMode'),0))
+            if curve_mode:behavior['rotation']['composition']['scalingMode']={1:'sum',2:'max',3:'min',4:'difference'}[curve_mode]
             rotation_decoded=True
             notes.append(compatibility('RotationComposition','Native signed additive minus scaling rotation retained; per-stroke random is option-keyed, deterministic Grafetto random sequences differ from Krita.'))
     mirror_axes=[enabled(params.get(key))for key in ('HorizontalMirrorEnabled','VerticalMirrorEnabled')]
@@ -1156,6 +1158,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return isinstance(value,list)and any(has_combination(v)for v in value)
     if has_combination(d):d['version']=max(d['version'],57)
     if behavior.get('mirror'):d['version']=max(d['version'],58)
+    if behavior.get('rotation',{}).get('composition',{}).get('scalingMode'):d['version']=max(d['version'],59)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

@@ -53,7 +53,7 @@ export interface BrushBehavior {
   erase?: boolean
   falloff?: number
   mirror?: {horizontal:boolean;vertical:boolean;value:number;dynamics?:BrushDynamic[]}
-  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[] } }
+  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[]; scalingMode?:'product'|'sum'|'max'|'min'|'difference' } }
   scatter?: {
     countJitter: number; bothAxes: boolean; roundnessJitter?: number
     /** Uniform signed displacement over a full diameter-scaled radius.
@@ -136,7 +136,10 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection','composition']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   if(obj(r) && r.composition!==undefined) {
     const c=r.composition
-    if(!obj(c) || !keys(c,['strength','additive','scaling']) || !n(c.strength,-1,1) || !Array.isArray(c.additive) || c.additive.length>4 || (c.scaling!==undefined && (!Array.isArray(c.scaling) || c.scaling.length>4)) || c.additive.length+(Array.isArray(c.scaling)?c.scaling.length:0)<1 || !isBrushBehavior({version:2,modulations:{angle:c.additive}}) || (c.scaling!==undefined && !isBrushBehavior({version:2,modulations:{angle:c.scaling}}))) return false
+    if(!obj(c)||!keys(c,['strength','additive','scaling','scalingMode'])||!n(c.strength,-1,1)||!Array.isArray(c.additive))return false
+    if(c.scaling!==undefined&&!Array.isArray(c.scaling))return false
+    const scaling=Array.isArray(c.scaling)?c.scaling:[],children=[...c.additive,...scaling]
+    if(children.length<1||children.length>16||(c.scalingMode!==undefined&&!['product','sum','max','min','difference'].includes(String(c.scalingMode)))||!children.every(d=>isBrushBehavior({version:2,dynamics:{angle:d}})))return false
   }
   const s=value.scatter
   if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter','placement']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter))

@@ -1,6 +1,6 @@
 import{it,expect}from'vitest'
 import{isBrushBehavior,brushRequiresRandomContext,brushRequiresSourceTime,type BrushDynamic,type BrushDescriptor,type Dab}from'@grafetto/shared'
-import{beginBrushBehavior,brushDynamicValue}from'./brushBehavior'
+import{beginBrushBehavior,brushDynamicValue,brushRotationOffset}from'./brushBehavior'
 import{digitalBrushFromPreset,digitalBrushPreset,DIGITAL_BRUSHES}from'./digitalBrushPresets'
 import{installBrushLibrary}from'./importedBrushes'
 const dab:Dab={x:5,y:10,size:20,pressure:.8,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:0,sourceTime:250}
@@ -23,6 +23,15 @@ it('sums additive sensors in signed space, with absence neutral',()=>{
  expect(evaluate(combined('product',[],[constant(.75),constant(.75)]))).toBe(1)
  expect(evaluate(combined('product',[constant(.4)],[constant(.25),constant(.25)]))).toBe(0)
  expect(evaluate(combined('product',[constant(.4)],[]))).toBeCloseTo(.4,12)
+})
+it('keeps rotation scaling unbounded before converting to signed angle',()=>{
+ const state=beginBrushBehavior(dab),profile={strength:.5,additive:[constant(.75)],scaling:[constant(.8),constant(.7)]}
+ // sum1.5 -> signed2; additive.5; angle = pi*(-1 + .5*(.5-2)).
+ expect(brushRotationOffset({...profile,scalingMode:'sum'},dab,state)).toBeCloseTo(-1.75*Math.PI,12)
+ for(const[mode,value]of [['max',.8],['min',.7],['difference',.1],['product',.56]]as const){
+  expect(brushRotationOffset({...profile,scalingMode:mode},dab,state)).toBeCloseTo(Math.PI*(-1+.5*(.5-(2*value-1))),12)
+ }
+ expect(isBrushBehavior({version:2,rotation:{follow:0,random:'none',composition:{...profile,scalingMode:'sum'}}})).toBe(true)
 })
 it('validates bounded, flat expressions and rejects hidden timer randomness',()=>{
  const c=combined('max',[constant(.2),constant(.5)])
