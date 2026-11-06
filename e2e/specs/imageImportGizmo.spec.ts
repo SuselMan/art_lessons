@@ -87,16 +87,19 @@ test.describe('importing a reference image', () => {
       const darkness = await maxDarknessOverRect(page, interior)
       expect(darkness).toBeGreaterThan(0.8)
       await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(true)
+      await expect.poll(() => maxDarknessOverRect(peerPage, interior)).toBeGreaterThan(0.8)
 
       await page.keyboard.press('Control+z')
       await expect.poll(() => hasLayerContent(page, layer)).toBe(false)
       await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(false)
       expect(await maxDarknessOverRect(page, interior)).toBeLessThan(0.2)
+      await expect.poll(() => maxDarknessOverRect(peerPage, interior)).toBeLessThan(0.2)
 
       await page.keyboard.press('Control+Shift+z')
       await expect.poll(() => hasLayerContent(page, layer)).toBe(true)
       await expect.poll(() => hasLayerContent(peerPage, layer)).toBe(true)
       expect(await maxDarknessOverRect(page, interior)).toBeCloseTo(darkness, 3)
+      await expect.poll(() => maxDarknessOverRect(peerPage, interior)).toBeCloseTo(darkness, 3)
       expect((await operations(page)).filter(op => op.type === 'image_import')).toHaveLength(1)
     } finally {
       await peer.close()
