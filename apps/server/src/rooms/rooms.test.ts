@@ -10,7 +10,7 @@ import { INITIAL_LAYER_ID, WATERCOLOR_WET_DRY_MS } from '@grafetto/shared'
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, flushAllRoomWrites, pendingWriteCount,
   getParticipant, getRoomGate, getRoomSnapshot, hashRoomPassword, isRoomResident, joinRoom, leaveRoom,
-  releaseRoomIfUnused,
+  releaseRoomIfUnused, forgetDeletedLesson,
 } from './rooms.js'
 import { getResidentRoomStats } from './roomStats.js'
 import {
@@ -489,6 +489,20 @@ describe('leaveRoom', () => {
       // exact call that used to throw once the room had been wrongly
       // evicted by the stale disconnect.
       expect(() => recordOperation(roomId, stroke({ id: 'a' }))).not.toThrow()
+    })
+
+    it('#780 retains the owner gate when the latest socket leaves before the old live socket', () => {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
+      joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+      joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-new'))
+      setRoomFrozen(roomId, true)
+      expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-new'))).toBe(false)
+      expect(getParticipant(roomId, 'owner-1')?.role).toBe('owner')
+      expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBeNull()
+      expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_frozen')
+      expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-old'))).toBe(true)
+      expect(getParticipant(roomId, 'student-1')).toBeDefined()
     })
 
     it("the newer socket's own eventual disconnect still removes the participant normally", () => {
@@ -1807,4 +1821,16 @@ describe('flushAllRoomWrites (#497)', () => {
     // о чём выключение потом отчитывается числом, а не молчанием.
     expect(pendingWriteCount()).toBe(1)
   })
+})
+
+
+it('#780 deletion forgets every connection index before the same id is created again', async () => {
+  const roomId = freshRoomId()
+  createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
+  joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-new'))
+  forgetDeletedLesson(roomId)
+  createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-replacement'))
+  expect(leaveRoom(roomId, 'owner-1', sock('owner-1', '-replacement'))).toBe(true)
+  await _flushPendingWrites(roomId)
+  expect(isRoomResident(roomId)).toBe(false)
 })
