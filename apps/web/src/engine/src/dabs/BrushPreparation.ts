@@ -52,7 +52,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines')[]
 } {
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'>()
-  if(brush.sketch||brush.bristle)capabilities.add('sketchLines')
+  if(brush.sketch||brush.bristle||brush.curveTrace)capabilities.add('sketchLines')
   if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
   if(brush.mixer?.algorithm)capabilities.add('colorSmudge')
   if(brush.mixer?.source==='projectionCanvas')capabilities.add('projectionCanvas')

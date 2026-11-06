@@ -27,6 +27,22 @@ export class SketchLineBatch{
   this.program??=createProgram(gl,VERT,FRAG);this.composite??=createProgram(gl,COPY_VERT,COPY_FRAG);this.buffer??=gl.createBuffer()!
   if(!this.quad){this.quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,this.quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)}
  }
+ /** Build each path with opaque geometry before applying its path opacity,
+  * then apply request opacity once across connection/curve intersections.
+  * The third image is the existing pooled brushCeilingCopy scratch. */
+ paintCurves(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,request:AccumulationBuffer,path:AccumulationBuffer,originX:number,originY:number):void{
+  this.prepare()
+  for(let first=0;first<stamps.length;){
+   let end=first+1;while(end<stamps.length&&stamps[end].requestGroup===stamps[first].requestGroup)end++
+   request.clear()
+   this.paint(stamps.slice(first,end).map(s=>({...s,ceiling:s.pathOpacity??1,flow:1})),request,path,originX,originY,true)
+   const gl=this.gl,program=this.composite!
+   coverage.beginDraw();gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,request.texture)
+   gl.uniform1i(gl.getUniformLocation(program,'u_source'),0);gl.uniform1f(gl.getUniformLocation(program,'u_opacity'),stamps[first].ceiling)
+   gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);gl.disableVertexAttribArray(position);coverage.endDraw()
+   first=end
+  }
+ }
  paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,aa:boolean,additive=false):void{
   this.prepare();const gl=this.gl,program=this.program!,composite=this.composite!
   for(let first=0;first<stamps.length;){

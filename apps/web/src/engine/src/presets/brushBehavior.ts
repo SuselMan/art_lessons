@@ -1,3 +1,4 @@
+import {curveTraceStamps,type CurveTraceState}from'./brushCurveTrace'
 import {bristleStamps,type BristleState} from './brushBristle'
 import {sketchStamps,type SketchState} from './brushSketch'
 import { sprayStamps } from './brushSpray'
@@ -9,6 +10,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  curveTrace?:CurveTraceState
   bristle?:BristleState
   sketch?:SketchState
   execution?: BrushExecutionContext
@@ -96,6 +98,8 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  requestGroup?:number
+  pathOpacity?:number
   group?:number
   segmentLength?:number
   /** Native source metric for sampling; not the continuous rendered diameter. */
@@ -331,6 +335,13 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  if(brush.curveTrace){
+    const trace=state.curveTrace??={points:[],ordinal:0}
+    const factor=(key:'width'|'opacity',salt:number)=>(brush.curveTrace!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(salt+i)),1)
+    const stamps=curveTraceStamps(brush,dab,trace,adjustedColor,{width:factor('width',0xf4000),opacity:factor('opacity',0xf5000)})
+    state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
+    return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
+  }
   if(brush.bristle){
     const bristle=state.bristle??={ordinal:0,oldPressure:1,ends:[]}
     const stamps=bristleStamps(brush,{...dab,angle,size:dab.size*sizeScale},bristle,adjustedColor,state.seed)

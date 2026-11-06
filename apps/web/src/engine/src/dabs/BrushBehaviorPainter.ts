@@ -201,7 +201,7 @@ export class BrushBehaviorPainter {
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if((brush.spray||brush.sketch||brush.bristle) && dabs.length>4){
+    if((brush.spray||brush.sketch||brush.bristle||brush.curveTrace) && dabs.length>4){
       for(let i=0;i<dabs.length;i+=4){const last=i+4>=dabs.length;this.paint(target,dabs.slice(i,i+4),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
@@ -535,6 +535,10 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
+        if(brush.curveTrace){
+          (this.sketchBatch??=new SketchLineBatch(gl)).paintCurves(list,coverage,ceiling,scratch.brushCeilingCopy(tile.buffer),tile.originX,tile.originY)
+          return
+        }
         if(brush.sketch||brush.bristle){
           (this.sketchBatch??=new SketchLineBatch(gl)).paint(list,coverage,ceiling,tile.originX,tile.originY,brush.sketch?.antialias??brush.bristle!.antialias,!!brush.bristle&&!brush.bristle.compositing)
           return
