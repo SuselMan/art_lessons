@@ -41,8 +41,8 @@ vi.mock('../health/memory.js', () => ({
 }))
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
-const { registerRoomHandlers } = await import('./socketHandlers.js')
-const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
+const { registerRoomHandlers, removeDeletedLesson } = await import('./socketHandlers.js')
+const { _flushPendingWrites, isRoomResident, forgetDeletedLesson } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
@@ -294,5 +294,37 @@ describe('explicit cancellation of an ephemeral live tail', () => {
       teacher.emit('stroke_live_end', { strokeId, ...(marker === undefined ? {} : { cancelled: marker }) } as never)
       expect(await received).toEqual({ userId: 'teacher', strokeId, ...(expected === true ? { cancelled: true } : {}) })
     }
+  })
+})
+
+describe('deleted live lesson', () => {
+  it('removes owner and board viewer from channels, rejecting later operations', async () => {
+    const { lessonId, boardId, teacher, student } = await classroom()
+    await join(student, boardId, 'Alice')
+    const teacherKicked = next(teacher, 'kicked'), studentKicked = next(student, 'kicked')
+    forgetDeletedLesson(lessonId)
+    rows.delete(lessonId); rows.delete(boardId)
+    await removeDeletedLesson(io as never, lessonId)
+    expect(await teacherKicked).toEqual({ roomId: lessonId })
+    expect(await studentKicked).toEqual({ roomId: lessonId })
+    expect(isRoomResident(lessonId)).toBe(false)
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(teacher.connected).toBe(true)
+    expect(student.connected).toBe(true)
+    const result = await new Promise(resolve => student.emit('operation', stroke(fresh('late'), 'student'), resolve))
+    expect(result).toEqual({ ok: false, reason: 'not_joined' })
+    await expect(join(student, boardId, 'Alice')).rejects.toThrow('not_found')
+  })
+
+  it('does not remove a socket that switched lessons during adapter lookup', async () => {
+    let finish!: (value: unknown[]) => void
+    const socket = { data: { roomId: 'old-board', lessonId: 'old' }, emit: vi.fn(), leave: vi.fn() }
+    const adapter = { in: () => ({ fetchSockets: () => new Promise<unknown[]>(resolve => { finish = resolve }) }) }
+    const removal = removeDeletedLesson(adapter as never, 'old')
+    socket.data.roomId = 'new-board'; socket.data.lessonId = 'new'
+    finish([socket]); await removal
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(socket.leave).not.toHaveBeenCalled()
+    expect(socket.data).toEqual({ roomId: 'new-board', lessonId: 'new' })
   })
 })

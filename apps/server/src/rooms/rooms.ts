@@ -422,6 +422,17 @@ function evictNow(roomId: string): void {
   }
 }
 
+/** Forget a deleted lesson even while sockets are seated. Unlike idle
+ * eviction, deletion takes every resident board and all presence indexes. */
+export function forgetDeletedLesson(lessonId: string): void {
+  const lesson = rooms.get(lessonId)
+  const ids = new Set([lessonId])
+  for (const [id, record] of rooms) if (record.lessonId === lessonId) ids.add(id)
+  for (const [socketId, boardId] of boardOfSocket) if (ids.has(boardId)) boardOfSocket.delete(socketId)
+  for (const userId of lesson?.participants.keys() ?? []) currentSocketForParticipant.delete(participantKey(lessonId, userId))
+  for (const id of ids) rooms.delete(id)
+}
+
 /** (#292) Drops a room that was cold-loaded but never actually joined.
  *
  *  `ensureRoomLoaded` has to run *before* `joinRoom`, not after — the

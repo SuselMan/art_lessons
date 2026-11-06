@@ -41,6 +41,15 @@ async function loadResidentOperations(
   return rows.map(row => row.data as Operation)
 }
 
+interface PendingRoomLoad { roomId: string; lessonId?: string | null; cancelled: boolean }
+const pendingLoads = new Set<PendingRoomLoad>()
+
+/** A completed DELETE must supersede reads started before the cascade. Only
+ * active loads retain tokens; deleted ids do not accumulate as tombstones. */
+export function cancelRoomLoads(lessonId: string): void {
+  for (const load of pendingLoads) if (load.roomId === lessonId || load.lessonId === lessonId) load.cancelled = true
+}
+
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
  *  already there — called by socketHandlers.ts right before `createRoom`/
  *  `joinRoom` so those can stay synchronous. A no-op (returns immediately,
@@ -59,6 +68,13 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     return true
   }
 
+  const load: PendingRoomLoad = { roomId, cancelled: false }
+  pendingLoads.add(load)
+  try { return await loadRoom(roomId, load) }
+  finally { pendingLoads.delete(load) }
+}
+
+async function loadRoom(roomId: string, load: PendingRoomLoad): Promise<boolean> {
   const dbRoom = await prisma.room.findUnique({
     where: { id: roomId },
     // (#209) thumbnail narrowed to `updatedAt` only, same reasoning as
@@ -70,7 +86,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     // into the heap. See loadResidentOperations.
     include: { thumbnail: { select: { updatedAt: true } } },
   })
-  if (!dbRoom) return false
+  if (!dbRoom || load.cancelled) return false
+  load.lessonId = dbRoom.lessonId
 
   // (#176) Lesson first, always: the board's join gate, freeze and
   // participants are all read off the lesson's record, so a board resident
@@ -107,6 +124,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     ? await prisma.roomPalette.findUnique({ where: { roomId }, select: { colors: true } })
     : null
   const palette = existingPalette?.colors ?? (dbRoom.lessonId === null ? [...DEFAULT_PALETTE_COLORS] : [])
+  if (load.cancelled) return false
   if (!existingPalette && dbRoom.lessonId === null) persistPalette(roomId, palette)
 
   // (#176) The strip, for a lesson. A board's record keeps none: the list is
@@ -144,6 +162,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // replace a record the first has already seated someone in. (#176 made the
   // window wider — a board load awaits its lesson's — but the race predates
   // it.)
+  if (load.cancelled) return false
   if (rooms.has(roomId)) return true
 
   rooms.set(roomId, {

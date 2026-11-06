@@ -154,6 +154,21 @@ export async function removeUserFromRoom(io: AppServer, lessonId: string, userId
   }
 }
 
+/** DELETE has already removed durable and resident state. Keep the socket
+ * connected for other projects, but revoke every seat in this lesson. */
+export async function removeDeletedLesson(io: AppServer, lessonId: string): Promise<void> {
+  for (const socket of await io.in(lessonChannel(lessonId)).fetchSockets()) {
+    // A socket may have switched lessons while adapter lookup was pending.
+    if (socket.data.lessonId !== lessonId) continue
+    const boardId = socket.data.roomId ?? lessonId
+    socket.emit('kicked', { roomId: lessonId })
+    void socket.leave(boardId)
+    void socket.leave(lessonChannel(lessonId))
+    socket.data.roomId = undefined
+    socket.data.lessonId = undefined
+  }
+}
+
 /** (#176) Moves every socket on `boardId` back onto the lesson's own first
  *  board — the live half of `DELETE /api/rooms/:id/boards/:boardId`, run
  *  before the record is forgotten (see rooms.ts's noteBoardDeleted).

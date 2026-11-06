@@ -13,7 +13,7 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import {
-  announceBoardThumbnail, evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData,
+  announceBoardThumbnail, evacuateBoard, lessonChannel, registerRoomHandlers, removeUserFromRoom, removeDeletedLesson, userChannel, type SocketData,
 } from './rooms/socketHandlers.js'
 import { noteBoardThumbnail } from './rooms/classroom.js'
 import { flushAllRoomWrites, pendingWriteCount } from './rooms/rooms.js'
@@ -142,7 +142,7 @@ registerHealthRoutes(app)
 registerAuthRoutes(app)
 // (#176) Closing is a fact about the lesson, so the lesson channel: it has to
 // reach people on every board, and the route only ever accepts a lesson id.
-registerRoomRoutes(app, (roomId, closedAt) => io.to(lessonChannel(roomId)).emit('room_closed_changed', { closedAt }))
+registerRoomRoutes(app, (roomId, closedAt) => io.to(lessonChannel(roomId)).emit('room_closed_changed', { closedAt }), roomId => removeDeletedLesson(io, roomId))
 // (#227) The access endpoints move durable state; these two callbacks are how
 // the people affected find out without reloading. Fire-and-forget on purpose
 // — see RoomAccessNotifier's doc comment for why a missed notification is

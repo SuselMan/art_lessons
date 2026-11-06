@@ -144,3 +144,71 @@ describe('what it does not load', () => {
     expect(await ensureRoomLoaded('never-created')).toBe(false)
   })
 })
+
+it('does not publish a cold lesson whose deletion overtakes its pending load', async () => {
+  const { cancelRoomLoads } = await import('./roomLoader.js')
+  const id = seed([stroke(1)])
+  let finish!: (value: { _max: { seq: number } }) => void
+  mockPrisma.operation.aggregate.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const loading = ensureRoomLoaded(id)
+  await vi.waitFor(() => expect(mockPrisma.operation.aggregate).toHaveBeenCalled())
+  cancelRoomLoads(id)
+  finish({ _max: { seq: 1 } })
+  expect(await loading).toBe(false)
+  expect(rooms.has(id)).toBe(false)
+  // Cancellation is scoped to in-flight reads; it leaves no permanent id tombstone.
+  mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: 1 } })
+  expect(await ensureRoomLoaded(id)).toBe(true)
+})
+
+it('cancels a pending initial row read without loading or seeding its history', async () => {
+  const { cancelRoomLoads } = await import('./roomLoader.js')
+  const id = `deleted-before-row-${nextId++}`
+  let finish!: (value: ReturnType<typeof row>) => void
+  mockPrisma.room.findUnique.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const loading = ensureRoomLoaded(id)
+  cancelRoomLoads(id)
+  finish(row(id))
+  expect(await loading).toBe(false)
+  expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+  expect(rooms.has(id)).toBe(false)
+})
+
+it('cancels a board load when its lesson is deleted, without affecting another lesson', async () => {
+  const { cancelRoomLoads } = await import('./roomLoader.js')
+  const lesson = seed([])
+  expect(await ensureRoomLoaded(lesson)).toBe(true)
+  const board = `deleted-board-${nextId++}`
+  const boardRow = { ...row(board), lessonId: lesson }
+  mockPrisma.room.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => where.id === board ? boardRow : null)
+  let finish!: (value: { _max: { seq: number } }) => void
+  mockPrisma.operation.aggregate.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const loading = ensureRoomLoaded(board)
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+  cancelRoomLoads(lesson)
+  finish({ _max: { seq: 1 } })
+  expect(await loading).toBe(false)
+  expect(rooms.has(board)).toBe(false)
+  const other = seed([])
+  expect(await ensureRoomLoaded(other)).toBe(true)
+})
+
+it('forgets a live deleted lesson and every resident board, retaining unrelated lessons', async () => {
+  const { forgetDeletedLesson } = await import('./rooms.js')
+  const lesson = seed([stroke(1)])
+  await ensureRoomLoaded(lesson)
+  expect(joinRoom(lesson, OWNER, 'Teacher', 'deleted-owner').ok).toBe(true)
+  const board = `live-deleted-board-${nextId++}`
+  mockPrisma.room.findUnique.mockResolvedValue({ ...row(board), lessonId: lesson })
+  await ensureRoomLoaded(board)
+  expect(joinRoom(board, 'student', 'Student', 'deleted-student').ok).toBe(true)
+  const other = seed([])
+  await ensureRoomLoaded(other)
+  expect(joinRoom(other, 'other', 'Other', 'other-socket').ok).toBe(true)
+  forgetDeletedLesson(lesson)
+  expect(rooms.has(lesson)).toBe(false)
+  expect(rooms.has(board)).toBe(false)
+  expect(rooms.has(other)).toBe(true)
+  expect(() => recordOperation(board, stroke(2))).toThrow()
+  expect(getRoomSnapshot(other)?.participants.map(p => p.userId)).toEqual(['other'])
+})
