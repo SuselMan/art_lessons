@@ -12,5 +12,5 @@ class CurveTests(unittest.TestCase):
     def test_active_sensor_import(self):
         a=self.convert('<param name="PressureLine width">true</param><param name="Line widthUseCurve">false</param><param name="Line widthValue">0.5</param>');self.assertEqual(a['descriptor']['curveTrace']['dynamics']['width'][0]['curve'],[[0,.5],[1,.5]])
     def test_history_and_timer_are_bounded(self):
-        with self.assertRaisesRegex(ValueError,'history'):self.convert('<param name="Curve/strokeHistorySize">1</param>')
+        with self.assertRaisesRegex(ValueError,'[hH]istory'):self.convert('<param name="Curve/strokeHistorySize">1</param>')
         with self.assertRaisesRegex(ValueError,'timed'):self.convert('<param name="PaintOpSettings/isAirbrushing">true</param>')

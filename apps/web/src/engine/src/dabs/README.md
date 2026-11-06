@@ -135,3 +135,8 @@ Bristle использует общий `inputKnots` и `SketchLineBatch`: фи�
 живут в gesture state, AA без compositing складывает их покрытия в существующей
 временной поверхности. Отдельного онлайн/тайлового пути нет. См.
 `docs/brush-reference/bristle.md` для границ импортера и поддержанных механизмов.
+
+Curve использует исходные input knots и ограниченное окно истории. Quadratic/
+cubic пути разбиваются на <=256 сегментов. SketchLineBatch собирает их в pooled
+brushCeilingCopy/ceiling с раздельной path/request opacity; coverage остаётся
+общим. См. `docs/brush-reference/curve.md`.
