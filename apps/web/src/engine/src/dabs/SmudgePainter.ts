@@ -1,3 +1,5 @@
+import{CanvasEffectBatch}from'./CanvasEffectBatch'
+import{deformRequest}from'../presets/brushDeform'
 import{GridCellBatch}from'./GridCellBatch'
 import{gridCells}from'../presets/brushGrid'
 import {CanvasProjectionSampler,type ProjectionReadSession,type ProjectionSampleLayer} from '../raster/CanvasProjectionSampler'
@@ -56,7 +58,7 @@ import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
-type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
+type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveVisible?:ILayerBuffer['resolveVisible'];resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
 interface WetStamp { gradientLut?:string;foregroundAlpha?:number; projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
@@ -158,6 +160,8 @@ const TRANSFER_UNIFORMS = [
 ]
 
 export class SmudgePainter {
+  private effectBatch?:CanvasEffectBatch
+  prepareCanvasEffect():void{(this.effectBatch??=new CanvasEffectBatch(this.gl)).prepare()}
   private gridBatch?:GridCellBatch
   prepareGrid():void{(this.gridBatch??=new GridCellBatch(this.gl)).prepare()}
   private readonly gl: WebGLRenderingContext
@@ -257,6 +261,7 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.effectBatch?.reset()
     this.gridBatch?.reset()
     this.projectionSampler.forget()
     this.maximumImageSide = undefined
@@ -283,6 +288,7 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.effectBatch?.reset()
     this.gridBatch?.reset()
     this.projectionSampler.forget()
     this.proceduralTransfer = undefined
@@ -300,6 +306,7 @@ export class SmudgePainter {
   }
 
   destroy(): void {
+    this.effectBatch?.destroy()
     this.gridBatch?.destroy()
     this.projectionSampler.destroy()
     const { gl } = this
@@ -463,6 +470,7 @@ export class SmudgePainter {
       this.wetGestures.set(userId,state)
     }
     assertSameBrushExecutionContext(state.behavior.execution,execution)
+    if(brush.deform){this.paintDeformDab(target,dab,paint,state.behavior);return}
     if(brush.grid){
       this.paintGridDab(target,dab,paint,state.behavior)
       state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1
@@ -527,6 +535,22 @@ export class SmudgePainter {
 
   /** One bounded source image before the first cell write; never GPU readback.
    * Source dependencies/replay ordering are the common canvas mixer contract. */
+  private paintDeformDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
+    const brush=paint.brush!,g=brush.deform!,motion=state.deform??={counter:1}
+    for(const stamp of behaviorStampsForDab(brush,dab,state,paint.color)){
+      const request=deformRequest(g,dab,stamp,paint.sizeMultiplier,motion,state.seed)
+      if(!request)continue
+      const size=Math.min(512,request.span),source=this.acquireScratch(size)
+      try{
+        this.gatherPatch(source,target.resolveForRead?.(request.source)??target.resolveVisible?.(request.source)??target.resolveForPaint(request.source),request.source,size,request.span)
+        const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity*stamp.opacityScale,0,1)
+        const batch=this.effectBatch??=new CanvasEffectBatch(this.gl)
+        for(const tile of target.resolveForPaint(request.bounds))batch.paint(request,tile.buffer,tile.originX,tile.originY,source,opacity,!!brush.mixer?.smearAlpha)
+        target.markContentPainted(request.bounds)
+      }finally{this.releaseScratch(source)}
+    }
+  }
+
   private paintGridDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
     const g=paint.brush!.grid!,cells=gridCells(g,dab,state.seed^Math.imul((state.dabSequence??0)+1,0x9e3779b9))
     if(!cells.length)return

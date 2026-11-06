@@ -1,3 +1,4 @@
+import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
 import{hatchingPlacement,type HatchingPlacement}from'./brushHatching'
@@ -13,6 +14,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  deform?:DeformState
   experiment?:ExperimentState
   particle?:ParticleState
   curveTrace?:CurveTraceState
@@ -49,6 +51,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number):BrushSpacingAxes {
+  if(brush.deform){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*profile.coefficient);return{x:step,y:step,angle:0}}
   if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
   const seed=brushDabSeed(input.x,input.y,input.pressure)
