@@ -25,13 +25,13 @@ def curve_preset(data,root,params,name,catalog,external):
     ET.SubElement(transformed,'param',name='brush_definition').text='<Brush type="auto_brush" spacing="0.1" angle="0"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1" diameter="1"/></Brush>'
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d['version']=46
+    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d['version']=53
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('rotation','scatter','spacing'):d['behavior'].pop(key,None)
     d['sizeByPressure']=[[0,1],[1,1]]
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    trace={'version':1,'history':int(history),'smoothing':enabled(params.get('Curve/smoothing')),'connect':enabled(params.get('Curve/makeConnection')),'opacity':number('curvesOpacity',1,0,1)}
+    trace={'version':2,'history':int(history),'smoothing':enabled(params.get('Curve/smoothing')),'connect':enabled(params.get('Curve/makeConnection')),'opacity':number('curvesOpacity',1,0,1)}
     notes=[];dynamics={}
     for option,key in [('Line width','width'),('Curves opacity','opacity')]:
         if not enabled(params.get('Pressure'+option)):continue
@@ -48,7 +48,7 @@ def curve_preset(data,root,params,name,catalog,external):
     result['sourceDefaults']={'sizePx':width,'opacity':d['opacity'],'flow':1}
     ignored={'kritaEngine','standardMaskProfile','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]+notes
-    result['compatibility'].append(compatibility('curveTrace','Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
+    result['compatibility'].append(compatibility('curveTrace','Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

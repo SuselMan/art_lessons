@@ -657,7 +657,7 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
   const visit=(b: BrushDescriptor):boolean=>{
     if(seen.has(b))return false
     seen.add(b)
-    return !!b.behavior?.timing||brushDynamicInputs(b).some(d=>d.control==='time')||!!(b.behavior?.dual&&visit(b.behavior.dual.brush))
+    return b.curveTrace?.version===2||!!b.behavior?.timing||brushDynamicInputs(b).some(d=>d.control==='time')||!!(b.behavior?.dual&&visit(b.behavior.dual.brush))
   }
   return visit(brush)
 }

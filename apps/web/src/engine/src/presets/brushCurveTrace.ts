@@ -1,7 +1,8 @@
+import type{CurveInputState}from'./curveInput'
 import type {BrushDescriptor,Dab}from'@grafetto/shared'
 import type {SketchStamp}from'./brushSketch'
 interface Point{x:number;y:number}
-export interface CurveTraceState{points:Point[];previous?:Point;ordinal:number}
+export interface CurveTraceState{points:Point[];previous?:Point;ordinal:number;input?:CurveInputState}
 export interface CurveTraceStamp extends SketchStamp{requestGroup:number;pathOpacity:number}
 const mid=(a:Point,b:Point):Point=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2})
 /** Adaptive de Casteljau: bounded depth8/256 segments, <=.25px flatness

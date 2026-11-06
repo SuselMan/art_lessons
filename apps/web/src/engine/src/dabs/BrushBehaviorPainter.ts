@@ -1,3 +1,4 @@
+import{curveInputRequests,finishCurveInput}from'../presets/curveInput'
 import{FilterBrushPass}from'./FilterBrushPass'
 import{PolygonFillBatch}from'./PolygonFillBatch'
 import{hatchingStampFragment}from'../raster/brushHatchingShader'
@@ -236,6 +237,11 @@ export class BrushBehaviorPainter {
     try {
     this.bindings.set(scratch, { target, preset, brush, pressure, color, execution })
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
+    if(brush.curveTrace?.version===2){
+      const trace=state.curveTrace??={points:[],ordinal:0},input=trace.input??={}
+      dabs=dabs.flatMap(dab=>curveInputRequests(dab,input))
+      if(finish)dabs.push(...finishCurveInput(input))
+    }
     const independent = behavior.dual?.sampling === 'independent' ? behavior.dual.brush : undefined
     const secondaryState = independent ? scratch.brushSecondary() : undefined
     let secondaryDirty: BrushBounds | undefined
