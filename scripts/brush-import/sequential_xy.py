@@ -23,7 +23,7 @@ def compatible(brush):
     if not isinstance(v,dict) or not isinstance(s,dict) or not isinstance(tip,dict): return False
     if (not exact_number(brush.get('paperInteraction'),0) or truthy(v.get('erase')) or 'falloff' in v
             or brush.get('model')!='stamp' or any(truthy(brush.get(k)) for k in ('mixer','wet','texture'))
-            or any(truthy(v.get(k)) for k in ('dual','wetMix','grain','colorAdjustment','edgeBleed','taper'))): return False
+            or any(truthy(v.get(k)) for k in ('dual','wetMix','grain','colorAdjustment','edgeBleed','taper','mirror'))): return False
     p=tip.get('profile',{})
     if (tip.get('kind')!='round' or not isinstance(p,dict) or p.get('kind')!='gaussian' or truthy(p.get('antialias'))
             or not exact_number(tip.get('aspect'),1) or tip.get('rotation')!='fixed'
@@ -52,7 +52,7 @@ def compatible(brush):
     spacing_controls=spacing.get('dynamics') or []
     if not isinstance(spacing_controls,list) or any(not isinstance(d,dict) or d.get('control') not in ('pressure','off') for d in spacing_controls): return False
     controls.extend(spacing_controls)
-    return all(isinstance(d,dict) and d.get('control') not in ('random','strokeRandom') and exact_number(d.get('jitter'),0) for d in controls)
+    return all(isinstance(d,dict) and not d.get('combine') and d.get('control') not in ('random','strokeRandom') and exact_number(d.get('jitter'),0) for d in controls)
 
 
 def validate_policy(brush, depth=0):

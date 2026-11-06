@@ -5,6 +5,8 @@ import type { BrushDescriptor } from './brushes.js'
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time'
 export interface BrushDynamic {
+  /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
+  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number}
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
@@ -50,6 +52,7 @@ export interface BrushBehavior {
   edgeBleed?: { pressure: number; tilt: number; pressureCurve?: BrushCurve }
   erase?: boolean
   falloff?: number
+  mirror?: {horizontal:boolean;vertical:boolean;value:number;dynamics?:BrushDynamic[]}
   rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[] } }
   scatter?: {
     countJitter: number; bothAxes: boolean; roundnessJitter?: number
@@ -100,7 +103,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   const random=value.sequentialRandom
   if(random!==undefined && (!obj(random)||!keys(random,['version','kind','policy'])||random.version!==1||random.kind!=='qt5Taus88'||random.policy!=='scatterXY'))return false
   const input=value.strokeInput
@@ -113,7 +116,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if(timing!==undefined){
     if(!obj(timing)||!keys(timing,['version','rate','ignoreDistanceSpacing','rateDynamics'])||timing.version!==1||!n(timing.rate,0,1000)||typeof timing.ignoreDistanceSpacing!=='boolean')return false
     const factors=timing.rateDynamics
-    if(factors!==undefined&&(!Array.isArray(factors)||factors.length<1||factors.length>4||!factors.every(d=>obj(d)&&['pressure','off'].includes(String(d.control))&&d.jitter===0&&isBrushBehavior({version:2,dynamics:{size:d}}))))return false
+    if(factors!==undefined&&(!Array.isArray(factors)||factors.length<1||factors.length>4||!factors.every(d=>obj(d)&&d.combine===undefined&&['pressure','off'].includes(String(d.control))&&d.jitter===0&&isBrushBehavior({version:2,dynamics:{size:d}}))))return false
   }
   const speed=value.speedInput
   if(speed!==undefined && (!obj(speed)||!keys(speed,['version','space','maximum','estimator'])||speed.version!==1||speed.space!=='view'||!n(speed.maximum,.001,1000)||speed.estimator!=='grafettoEMA30ms'))return false
@@ -127,6 +130,8 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if(value.falloff !== undefined && !n(value.falloff)) return false
   const color=value.colorAdjustment
   if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.values(color).every(v=>isBrushBehavior({version:2,dynamics:{size:v}})))) return false
+  const mirror=value.mirror
+  if(mirror!==undefined&&(!obj(mirror)||!keys(mirror,['horizontal','vertical','value','dynamics'])||typeof mirror.horizontal!=='boolean'||typeof mirror.vertical!=='boolean'||!mirror.horizontal&&!mirror.vertical||!n(mirror.value)||(mirror.dynamics!==undefined&&(!Array.isArray(mirror.dynamics)||mirror.dynamics.length>4||!mirror.dynamics.every(d=>isBrushBehavior({version:2,dynamics:{size:d}}))))))return false
   const r=value.rotation
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection','composition']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   if(obj(r) && r.composition!==undefined) {
@@ -139,7 +144,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','randomSource','period','periodic','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time'].includes(String(v.control)) && (v.control==='strokeRandom' ? (v.randomSource===undefined ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined && obj(v.randomSource) && keys(v.randomSource,['kind','key']) && v.randomSource.kind==='qt5Taus88' && typeof v.randomSource.key==='string' && v.randomSource.key.length>=1 && v.randomSource.key.length<=128 && !v.randomSource.key.includes('\0')) : v.randomStream===undefined && v.randomSource===undefined) && (v.control==='dabProgress'||v.control==='time' ? n(v.period,1,v.control==='time'?2147483647:1000000) && Number.isInteger(v.period) && typeof v.periodic==='boolean' : v.period===undefined && v.periodic===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(d).every(v => isCombinedBrushDynamic(v) || obj(v) && keys(v,['control','randomStream','randomSource','period','periodic','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time'].includes(String(v.control)) && (v.control==='strokeRandom' ? (v.randomSource===undefined ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined && obj(v.randomSource) && keys(v.randomSource,['kind','key']) && v.randomSource.kind==='qt5Taus88' && typeof v.randomSource.key==='string' && v.randomSource.key.length>=1 && v.randomSource.key.length<=128 && !v.randomSource.key.includes('\0')) : v.randomStream===undefined && v.randomSource===undefined) && (v.control==='dabProgress'||v.control==='time' ? n(v.period,1,v.control==='time'?2147483647:1000000) && Number.isInteger(v.period) && typeof v.periodic==='boolean' : v.period===undefined && v.periodic===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain
@@ -154,4 +159,16 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if (t !== undefined && (!obj(t) || !keys(t,['start','end','size','opacity','pressure']) || !n(t.start) || !n(t.end) || !n(t.size) || !n(t.opacity) || typeof t.pressure !== 'boolean')) return false
   if (value.dual !== undefined && (!obj(value.dual) || !keys(value.dual,['brush','blendMode','sampling']) || !obj(value.dual.brush) || !blend(value.dual.blendMode) || (value.dual.sampling !== undefined && value.dual.sampling !== 'independent'))) return false
   return true
+}
+
+/** Nonrecursive expression contract; reject nested trees before validating leaves. */
+function isCombinedBrushDynamic(value:unknown):boolean {
+  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+  const keys=(v:Record<string,unknown>,allowed:string[]):boolean=>Object.keys(v).every(k=>allowed.includes(k))
+  if(!obj(value)||!keys(value,['control','minimum','jitter','combine'])||value.control!=='off'||value.minimum!==0||value.jitter!==0||!obj(value.combine))return false
+  const c=value.combine
+  if(!keys(c,['mode','scaling','additive','constant'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
+  if(c.constant!==undefined&&(typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>1))return false
+  const children=[...c.scaling,...c.additive]
+  return children.length>=1&&children.length<=16&&children.every(child=>obj(child)&&child.combine===undefined&&isBrushBehavior({version:2,dynamics:{size:child}}))
 }

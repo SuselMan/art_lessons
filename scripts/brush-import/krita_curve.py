@@ -26,6 +26,7 @@ def curve_preset(data,root,params,name,catalog,external):
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d['version']=53
+    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the curve adapter')
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('rotation','scatter','spacing'):d['behavior'].pop(key,None)

@@ -1,3 +1,4 @@
+import type{BrushDynamic}from'@grafetto/shared'
 import { clamp } from 'lodash-es'
 import { evaluateBrushCurve as curveAt } from '@grafetto/shared'
 
@@ -648,7 +649,35 @@ export function digitalBrushFlowFromPreset(presetName: string | undefined): bool
  *  unrecognised or missing token resolves to the default brush's current
  *  version rather than throwing, because this runs on the replay path where a
  *  hard failure would take out the whole room's history rather than one mark. */
-export function digitalBrushFromPreset(presetName: string | undefined): BrushDescriptor { return normalizeBrush(rawBrushFromPreset(presetName)) }
+const compoundPressureVariants=new WeakMap<BrushDescriptor,Map<number,BrushDescriptor>>()
+/** Preset modifiers disable pressure leaves, retaining the other sensor sources.
+ * This same resolved descriptor feeds author spacing and all replay painters. */
+export function digitalBrushFromPreset(presetName: string | undefined): BrushDescriptor {
+  const base=normalizeBrush(rawBrushFromPreset(presetName)),pressure=digitalBrushPressureFromPreset(presetName)
+  return compoundPressureBrush(base,pressure)
+}
+function compoundPressureBrush(base:BrushDescriptor,pressure:Readonly<BrushPressureSettings>):BrushDescriptor {
+  const key=(pressure.size?0:1)|(pressure.opacity?0:2)
+  if(!key)return base
+  let variants=compoundPressureVariants.get(base)
+  const cached=variants?.get(key);if(cached)return cached
+  const adjust=(control:BrushDynamic):BrushDynamic=>!control.combine?control:{...control,combine:{...control.combine,
+    scaling:control.combine.scaling.map(leaf=>leaf.control==='pressure'?{control:'off',minimum:0,jitter:0}:leaf),
+    additive:control.combine.additive.map(leaf=>leaf.control==='pressure'?{control:'off',minimum:0,jitter:0}:leaf)}}
+  const behavior=base.behavior
+  let changed=false
+  const modulations={...behavior?.modulations},dynamics={...behavior?.dynamics}
+  for(const target of ['size','flow','opacity']as const){
+    if(target==='size'?pressure.size:pressure.opacity)continue
+    if(modulations[target]?.some(c=>c.combine)){modulations[target]=modulations[target]!.map(adjust);changed=true}
+    if(dynamics[target]?.combine){dynamics[target]=adjust(dynamics[target]!);changed=true}
+  }
+  const dual=behavior?.dual,child=dual?compoundPressureBrush(dual.brush,pressure):undefined
+  if(child&&child!==dual!.brush)changed=true
+  const result=changed?{...base,behavior:{...behavior!,modulations,dynamics,...(dual&&child?{dual:{...dual,brush:child}}:{})}}:base
+  if(!variants){variants=new Map();compoundPressureVariants.set(base,variants)}variants.set(key,result)
+  return result
+}
 
 function rawBrushFromPreset(presetName: string | undefined): BrushDescriptor {
   const imported = importedBrushFromPreset(presetName)

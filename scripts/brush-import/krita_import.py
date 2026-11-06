@@ -325,21 +325,18 @@ def sensor_controls(params, option, notes, *, allow_time=False):
     if len(sensors)>32: raise ValueError('Krita sensor count limit')
     ids=[node.get('id') for node in sensors]
     if len(ids)!=len(set(ids)): raise ValueError('Duplicate Krita sensor')
-    if option!='Rotation' and sum(name in ('fuzzy','fuzzystroke','ascension','rotation') for name in ids)>1:
-        notes.append(compatibility(option+'SensorCombination','Multiple native additive sensors require a summed response; product approximation rejected.','unsupported'))
-        return []
     mode=numeric(params.get(option+'curveMode'))
-    # Native curveMode combines scaling sensors only. One pressure scaling
-    # sensor plus one additive fuzzy has the same result for product/max/min/
-    # sum/difference: Cpressure(p)*Cfuzzy(U), not max of those two responses.
+    additive_ids=('fuzzy','fuzzystroke','ascension')
     scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
-    if mode!=0 and not (mode in (1,2,3,4) and scaling_count<=1):
-        notes.append(compatibility(option+'SensorCombination','Non-multiplicative combination of multiple scaling sensors is unsupported.','unsupported'))
+    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids)
+    if mode not in (0,1,2,3,4) or option=='Rotation' and mode!=0 and scaling_count>1:
+        notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
     legacy_curve=params.get('Curve'+option,'0,0;1,1;') if 'curve' not in sensor_definition and enabled(params.get('Custom'+option)) else '0,0;1,1;'
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
+    source_ids=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress'}
     if allow_time:supported['time']='time'
     for node in sensors:
@@ -354,9 +351,10 @@ def sensor_controls(params, option, notes, *, allow_time=False):
                 notes.append(compatibility(option+'Sensor','Invalid or out-of-range '+name+' duration/length; sensor unsupported.','unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
-        if len(controls)>=4:
+        if len(controls)>=(16 if compound else 4):
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
-        controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
+        source_ids.append(name)
+        controls.append({'control':('tiltDirection'if compound and name=='ascension'else supported[name]),'minimum':0,'jitter':0,'curve':transfer})
         if name in ('fade','time'):
             periodic=enabled(node.get('periodic','0'))
             if name=='time':
@@ -372,6 +370,15 @@ def sensor_controls(params, option, notes, *, allow_time=False):
             notes.append(compatibility(option+'Sensor',
                 'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
                 else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
+    if compound and controls:
+        constant=numeric(params.get(option+'Value'),1)
+        if not 0<=constant<=1 or option=='ColorRate'and constant!=1:
+            notes.append(compatibility(option+'SensorCombination','Nonunit option strength with a combined response requires constant-before-clamp execution; not approximated.','unsupported'))
+            return []
+        scaling=[control for control,name in zip(controls,source_ids)if name not in additive_ids]
+        additive=[control for control,name in zip(controls,source_ids)if name in additive_ids]
+        notes.append(compatibility(option+'SensorCombination','Native scaling product/sum/max/min/difference and signed additive sum retained; constant applied before the final size-like clamp; external multiplier is retained exactly once.','supported'))
+        return [{'control':'off','minimum':0,'jitter':0,'combine':{'mode':{0:'product',1:'sum',2:'max',3:'min',4:'difference'}[int(mode)],'scaling':scaling,'additive':additive,**({'constant':constant}if constant!=1 else {})}}]
     return controls
 
 
@@ -853,6 +860,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior['rotation']={'follow':0,'random':'none','composition':{'strength':strength,'additive':additive,**({'scaling':scaling} if scaling else {})}}
             rotation_decoded=True
             notes.append(compatibility('RotationComposition','Native signed additive minus scaling rotation retained; per-stroke random is option-keyed, deterministic Grafetto random sequences differ from Krita.'))
+    mirror_axes=[enabled(params.get(key))for key in ('HorizontalMirrorEnabled','VerticalMirrorEnabled')]
+    if enabled(params.get('PressureMirror')) and any(mirror_axes):
+        mirror_notes=[]
+        controls=size_like_controls(params,'Mirror',mirror_notes,allow_time=timed_input)
+        notes.extend(mirror_notes)
+        value=numeric(params.get('MirrorValue'),1)
+        if not math.isfinite(value)or not 0<=value<=1:raise ValueError('Invalid MirrorValue')
+        if not enabled(params.get('MirrorUseCurve','true'))or controls and not any(n['status']=='unsupported'for n in mirror_notes):
+            behavior['mirror']={'horizontal':mirror_axes[0],'vertical':mirror_axes[1],'value':value}
+            if controls:behavior['mirror']['dynamics']=controls
+            notes.append(compatibility('mirror','One size-like response controls enabled horizontal/vertical mask flips at threshold0.5, before texture. Original mask/material channels retained; subpixel hot-spot rounding can differ.'))
     if enabled(params.get('PressureScatter')):
         amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
@@ -1020,7 +1038,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and engine=='colorsmudge') and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and engine=='colorsmudge') and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1078,7 +1096,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if value!=1:controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
             valid=not refresh_random and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
             valid=valid and (not enabled(params.get('PressureRate')) or not enabled(params.get('RateUseCurve','true')) or bool(controls))
-            valid=valid and all(c['control']in('pressure','off') and c.get('jitter',0)==0 for c in controls)
+            valid=valid and all(not c.get('combine') and c['control']in('pressure','off') and c.get('jitter',0)==0 for c in controls)
             if valid:
                 behavior['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':enabled(params.get('PaintOpSettings/ignoreSpacing'))}
                 if controls:behavior['timing']['rateDynamics']=controls
@@ -1133,6 +1151,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if 'gradient' in d.get('mixer',{}).get('foreground',{}) or 'gradient' in d['tip'].get('color',{}):d['version']=max(d['version'],39)
     if d.get('mixer',{}).get('paintThickness') and enabled(params.get('PressureLightnessStrength')) and clamp(numeric(params.get('LightnessStrengthValue'),1))!=1:d['version']=max(d['version'],40)
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):d['version']=max(d['version'],41)
+    def has_combination(value):
+        if isinstance(value,dict):return 'combine'in value or any(has_combination(v)for v in value.values())
+        return isinstance(value,list)and any(has_combination(v)for v in value)
+    if has_combination(d):d['version']=max(d['version'],57)
+    if behavior.get('mirror'):d['version']=max(d['version'],58)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

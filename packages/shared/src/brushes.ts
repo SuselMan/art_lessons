@@ -426,6 +426,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if(record(d.behavior)&&d.behavior.mirror!==undefined&&['sketch','bristle','curveTrace','hatching','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
@@ -648,16 +649,17 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
 /** Enumerate semantic sensor slots only; labels/compatibility notes are not input. */
 function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
   const v=b.behavior, groups=[v?.modulations,v?.wetMix?.dynamics]
-  return [
+  const controls:BrushDynamic[] = [
     ...Object.values(b.sketch?.dynamics??{}).flat(),
     ...Object.values(b.curveTrace?.dynamics??{}).flat(),
     ...Object.values(b.hatching?.dynamics??{}).flat(),
     ...Object.values(v?.dynamics??{}),...Object.values(v?.colorAdjustment??{}),
-    ...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
+    ...(v?.mirror?.dynamics??[]),...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
     ...(v?.rotation?.composition?.additive??[]),...(v?.rotation?.composition?.scaling??[]),
     ...groups.flatMap(g=>Object.values(g??{}).flat()),
     ...(b.mixer?.sampling?.radiusDynamics??[]),...(brushForegroundRate(b.mixer?.foreground)?.dynamics??[]),...(b.mixer?.foreground && 'gradient' in b.mixer.foreground ? b.mixer.foreground.gradient.positionDynamics??[] : []),...(b.mixer?.pickupDynamics??[]),...(b.mixer?.paintThickness?.dynamics??[]),
   ]
+  return controls.flatMap(d=>[d,...(d.combine?[...d.combine.scaling,...d.combine.additive]:[])])
 }
 
 /** Time is resolved by the author once, including the clock inherited by a child. */
@@ -692,7 +694,7 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
  * This is not a preset-name gate or a claim of input-path parity with another app. */
 export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
   const v=brush.behavior,s=brush.scatter,tip=brush.tip
-  if(brush.paperInteraction!==0||v?.erase||v?.falloff!==undefined||brush.model!=='stamp'||brush.mixer||brush.wet||brush.texture||!v||v.dual||v.wetMix||v.grain||v.colorAdjustment||v.edgeBleed||v.taper)return false
+  if(brush.paperInteraction!==0||v?.mirror||v?.erase||v?.falloff!==undefined||brush.model!=='stamp'||brush.mixer||brush.wet||brush.texture||!v||v.dual||v.wetMix||v.grain||v.colorAdjustment||v.edgeBleed||v.taper)return false
   if(tip.kind!=='round'||tip.profile?.kind!=='gaussian'||tip.profile.antialias||tip.aspect!==1||tip.rotation!=='fixed'||tip.mask||tip.animation||tip.material||tip.alphaThreshold)return false
   if(!s||s.count!==1||s.scale!==1||s.sizeJitter!==0||s.angleJitter!==0||s.flowJitter!==0)return false
   if(v.scatter?.placement!=='xyUniform'||!v.scatter.bothAxes||v.scatter.countJitter!==0||(v.scatter.roundnessJitter??0)!==0)return false
@@ -703,7 +705,7 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
   if(Object.keys(v.dynamics??{}).some(k=>!allowed.includes(k))||Object.keys(v.modulations??{}).some(k=>!allowed.includes(k)))return false
   if((v.spacing?.dynamics??[]).some(d=>d.control!=='pressure'&&d.control!=='off'))return false
   const dynamics=[...Object.values(v.dynamics??{}),...Object.values(v.modulations??{}).flat(),...(v.spacing?.dynamics??[])]
-  return dynamics.every(d=>d.control!=='random'&&d.control!=='strokeRandom'&&d.jitter===0)
+  return dynamics.every(d=>!d.combine&&d.control!=='random'&&d.control!=='strokeRandom'&&d.jitter===0)
 }
 
 /** Recorded allocation input is mandatory for each opted-in logical request.

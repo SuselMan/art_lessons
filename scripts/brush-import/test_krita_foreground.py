@@ -76,7 +76,7 @@ class LegacyForegroundTests(unittest.TestCase):
         self.assertAlmostEqual(sample['radius'],.0923);self.assertEqual(sample['radiusDynamics'][0]['curve'],[[0,0],[1,1]])
         self.assertAlmostEqual(sample['radius']*.75,.069225)
 
-    def test_additive_and_nonproduct_controls_remain_explicitly_unsupported(self):
+    def test_additive_and_nonunit_combination_remain_explicitly_unsupported(self):
         for option in ['ColorRate','SmudgeRadius']:
             extra={'SmudgeRateMode':'1','PressureSmudgeRadius':'true',option+'UseCurve':'true',option+'Sensor':'<params id="ascension"/>'}
             c=self.brush(extra);b=c.brushes[0];m=b['descriptor']['mixer']

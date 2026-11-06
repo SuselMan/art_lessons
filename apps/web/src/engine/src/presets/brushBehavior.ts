@@ -189,6 +189,16 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   if (!d)
     return 1
   if(d.control==='time' && (dab.sourceTime===undefined || !Number.isFinite(dab.sourceTime) || dab.sourceTime<0))throw Error('Missing or invalid sourceTime')
+  if(d.combine){
+    const c=d.combine,seed=Math.floor(clamp(random)*4294967295)>>>0
+    const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i)))
+    const scaling=!values.length?1:values.length===1?values[0]:c.mode==='sum'?values.reduce((a,b)=>a+b,0):c.mode==='max'?Math.max(...values):c.mode==='min'?Math.min(...values):c.mode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
+    const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i))-1,0)):1
+    // Callers already multiply the option constant. Return its normalized
+    // factor, allowing >1 when needed: .5 * (clamp(.5 * 1.5)/.5) = .75.
+    const constant=c.constant??1
+    return constant===0?0:clamp(constant*scaling*additive)/constant
+  }
   const prev = state.previous
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
@@ -303,6 +313,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const rand = (i: number): number => brushDabRandom(seed, i)
   const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i)) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
   const rotation = behavior?.rotation
+  const mirror=behavior?.mirror
+  const mirrorActive=!!mirror&&mirror.value*(mirror.dynamics??[]).reduce((factor,control,index)=>factor*brushDynamicValue(control,directionalDab,state,rand(0x53000+index)),1)>=.5
   const randomRotation = rotation?.random === 'stroke' ? brushDabRandom(state.seed, 9) : rand(9)
   const countScale = dynamic('count', 10) * (1 - (behavior?.scatter?.countJitter ?? 0) * rand(11))
   const count = Math.max(1, Math.round((brush.scatter?.count ?? 1) * countScale))
@@ -415,8 +427,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
         ? { sharpnessScale: dynamic('sharpness', 4096 + i * 8) } : {}),
       ...(behavior?.dual?.sampling !== 'independent' && (behavior?.dual?.brush.behavior?.dynamics?.sharpness || behavior?.dual?.brush.behavior?.modulations?.sharpness?.length)
         ? { dualSharpnessScale: dynamic('sharpness', 8192 + i * 8, behavior.dual.brush.behavior) } : {}),
-      flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
-      flipY: rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1,
+      flipX: (rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1)*(mirrorActive&&mirror?.horizontal?-1:1),
+      flipY: (rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1)*(mirrorActive&&mirror?.vertical?-1:1),
       color: hasColor ? shiftColor(sprayColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : sprayColor,
       distance: state.distance,
     }

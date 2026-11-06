@@ -447,6 +447,17 @@ def validate_portable_dynamics(controls):
                 and isinstance(source.get('key'),str) and '\0' not in source['key']
                 and 1<=len(source['key'].encode('utf-16-le','surrogatepass'))//2<=128)
     for control in controls:
+        if isinstance(control,dict) and 'combine'in control:
+            c=control['combine']
+            if (set(control)!={'control','minimum','jitter','combine'} or control.get('control')!='off' or not finite(control.get('minimum'),0,0) or not finite(control.get('jitter'),0,0)
+                    or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant'} or c.get('mode')not in('product','sum','max','min','difference')
+                    or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
+                raise ValueError('Invalid portable combined dynamic')
+            if 'constant'in c and not finite(c['constant']):raise ValueError('Invalid combined dynamic constant')
+            children=c['scaling']+c['additive']
+            if not 1<=len(children)<=16 or any(not isinstance(child,dict)or'combine'in child for child in children):raise ValueError('Invalid portable combined dynamic leaves')
+            for child in children:validate_portable_dynamics([child])
+            continue
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
                 or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time')
                 or (control.get('control')=='strokeRandom' and not (
@@ -629,6 +640,13 @@ def portable_bundle(path,catalog):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        mirror=behavior.get('mirror')
+        if mirror is not None:
+            if (not isinstance(mirror,dict)or set(mirror)-{'horizontal','vertical','value','dynamics'}
+                    or type(mirror.get('horizontal'))is not bool or type(mirror.get('vertical'))is not bool
+                    or not(mirror['horizontal']or mirror['vertical'])or type(mirror.get('value'))not in(int,float)
+                    or not math.isfinite(mirror['value'])or not 0<=mirror['value']<=1):raise ValueError('Invalid portable mirror')
+            if 'dynamics'in mirror:validate_portable_dynamics(mirror['dynamics'])
         timing=behavior.get('timing')
         if timing is not None:
             if (depth>0 or not isinstance(timing,dict) or set(timing)-{'version','rate','ignoreDistanceSpacing','rateDynamics'}
@@ -637,7 +655,7 @@ def portable_bundle(path,catalog):
                     or type(timing.get('ignoreDistanceSpacing'))is not bool):raise ValueError('Invalid portable timing policy')
             if 'rateDynamics'in timing:
                 validate_portable_dynamics(timing['rateDynamics'])
-                if not 1<=len(timing['rateDynamics'])<=4 or any(c['control']not in('pressure','off')or c['jitter']!=0 for c in timing['rateDynamics']):raise ValueError('Unsupported portable Rate controls')
+                if not 1<=len(timing['rateDynamics'])<=4 or any(c.get('combine')or c['control']not in('pressure','off')or c['jitter']!=0 for c in timing['rateDynamics']):raise ValueError('Unsupported portable Rate controls')
         def validate_times(value):
             if isinstance(value,dict):
                 if value.get('control')=='time':validate_portable_dynamics([value])

@@ -54,8 +54,8 @@ class PressureSpacingTests(unittest.TestCase):
         b=self.brush({'PressureSpacing':'false','SpacingValue':'.2','SpacingSensor':'<params id="pressure"><curve>0,1;1,0;</curve></params>'})
         self.assertEqual(b['descriptor']['behavior']['spacing'],{'mode':'diameter','coefficient':.06});self.assertEqual(b['descriptor']['spacing'],.06)
         b=self.brush({'PressureSpacing':'true','SpacingcurveMode':'1','SpacingSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
-        self.assertNotIn('dynamics',b['descriptor']['behavior']['spacing'])
-        self.assertTrue(any(x['feature']=='SpacingSensorCombination' and x['status']=='unsupported' for x in b['compatibility']))
+        self.assertEqual(b['descriptor']['behavior']['spacing']['dynamics'][0]['combine']['mode'],'sum')
+        self.assertFalse(any(x['feature']=='SpacingSensorCombination' and x['status']=='unsupported' for x in b['compatibility']))
 
     def test_portable_spacing_rejects_bad_dynamics_and_zero_auto_atomically(self):
         b=self.brush({'PressureSpacing':'true'})

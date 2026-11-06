@@ -22,6 +22,7 @@ def bristle_preset(data,root,params,name,catalog,external):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];tip=d['tip']
+    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the bristle adapter')
     if tip['kind']!='bitmap':raise ValueError('Bristle requires an authored bitmap tip')
     asset=catalog.assets[tip['mask']];mask=Image.frombytes('L',(asset['size'],asset['size']),(catalog.output/asset['file']).read_bytes())
     bounds=tip['maskBounds'];side=max(1,round(result['sourceDefaults']['sizePx']))

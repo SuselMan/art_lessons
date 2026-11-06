@@ -347,3 +347,14 @@ emitting/activating a new stock catalog with this capability.
 ### Tangent Normal
 
 `paintopid=tangentnormal` imports the ordinary alpha mask, size/opacity/scatter, tilt/drawing-direction/mixed normal colour, elevation sensitivity and all six RGB swizzles. Foreground colour is ignored. The author viewport rotation is recorded once per gesture; ordinary tiles/live packets/undo/replay render the same descriptor. RGB8 normals use regular layer composition, without implicit vector renormalization. Stylus Rotation mode is rejected until twist is recorded; canvas mirroring and changing viewport rotation during a gesture are not supported by this adapter. The stock `w)_Texture_Normal_Map` is supported.
+
+### Combined sensors and Mirror
+
+Size-like compound responses preserve scaling product/sum/max/min/difference,
+signed additive sums and each leaf curve. Flat expressions are bounded to16
+leaves; the option constant participates before clamping and remains applied
+once by the caller. Nonunit nonlinear ColorRate, absolute size-like sensors and
+unrecorded twist remain explicit limitations. Legacy product descriptors retain
+previous rendering. Mirror uses one response threshold>=0.5 for enabled axes;
+unchecked Mirror or two disabled axes never activates stored sensor settings.
+New source formats57/58; existing operation/dab protocol is unchanged.

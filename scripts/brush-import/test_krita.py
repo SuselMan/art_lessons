@@ -219,7 +219,7 @@ class KritaTests(unittest.TestCase):
                 self.assertEqual(catalog.brushes[0]['descriptor']['mixer'].get('source')=='previousCanvas',expected)
 
     def test_smudge_rate_dynamics_enabled_disabled_and_nonproduct(self):
-        cases=[('true','true',0,True),('false','true',0,False),('true','false',0,False),('true','true',1,False)]
+        cases=[('true','true',0,True),('false','true',0,False),('true','false',0,False),('true','true',1,True)]
         for checked,use_curve,mode,expected in cases:
             with self.subTest(checked=checked,use_curve=use_curve,mode=mode),tempfile.TemporaryDirectory() as tmp:
                 params={'PressureSmudgeRate':checked,'SmudgeRateUseCurve':use_curve,'SmudgeRatecurveMode':str(mode),'SmudgeRateSensor':'<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>'}
@@ -229,12 +229,14 @@ class KritaTests(unittest.TestCase):
                 catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
                 brush=catalog.brushes[0];controls=brush['descriptor']['mixer'].get('pickupDynamics',[])
                 self.assertEqual(bool(controls),expected)
-                if expected:
+                if expected and mode:
+                    self.assertEqual(controls[0]['combine']['mode'],'sum')
+                elif expected:
                     self.assertEqual(len(controls),1);self.assertEqual(controls[0]['control'],'pressure')
                     self.assertLess(controls[0]['curve']['samples'][191],191/255)
                     self.assertEqual(len(controls[0]['curve']['samples']),256)
                 if mode:
-                    self.assertTrue(any(x['feature']=='SmudgeRateSensorCombination' and x['status']=='unsupported' for x in brush['compatibility']))
+                    self.assertFalse(any(x['feature']=='SmudgeRateSensorCombination' and x['status']=='unsupported' for x in brush['compatibility']))
 
     def test_colorsmudge_smear_alpha_explicit_and_missing_defaults(self):
         for saved,expected in [(None,True),('true',True),('false',False),('0',False)]:
