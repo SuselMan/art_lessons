@@ -69,12 +69,17 @@ export function planSnapshotReplay(
       // Restoring its structure still requires its original pixels.
       for (const id of pixelLayers(target)) before(id, target.seq ?? 0)
     }
-    for (const layerId of pixelLayers(target)) {
-      // A mutation already represented in a candidate is not a reason to
-      // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
+    // Undo/redo apply to the author's whole gesture, including chunks baked
+    // before the named tail chunk. Revoke intentionally names only one op.
+    const targets = change.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId
+      ? operations.filter(op => op.type === 'stroke' && op.userId === target.userId
+        && op.strokeId === target.strokeId && (op.seq ?? 0) < (change.seq ?? Infinity))
+      : [target]
+    for (const materialTarget of targets) for (const layerId of pixelLayers(materialTarget)) {
+      // Controls already represented in the candidate do not invalidate it.
       if (candidates.some(s => s.layerId === layerId
-        && (target.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
-        before(layerId, target.seq ?? 0)
+        && (materialTarget.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
+        before(layerId, materialTarget.seq ?? 0)
       }
     }
   }

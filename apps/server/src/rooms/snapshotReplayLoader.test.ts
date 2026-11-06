@@ -101,3 +101,58 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
   mocks.operations.mockResolvedValue([{data:del},{data:u}])
   await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
 })
+
+it('loads old gesture siblings when Undo targets a tail chunk after the snapshot',async()=>{
+ const first={...stroke('first',1),strokeId:'gesture-G'} as Operation
+ const last={...stroke('last',3),strokeId:'gesture-G'} as Operation
+ const dry:Operation={id:'dry',type:'paper_dry',userId:'A',timestamp:2,seq:2}
+ const control:Operation={id:'undo',type:'operation_undo',targetOpId:'last',userId:'A',timestamp:4,seq:4}
+ const original=[first,dry,last,control]
+ mocks.rooms.set('room',{nextSeq:5,operations:[last,control],aliveIds:new Set(['L','safe'])})
+ mocks.state.mockResolvedValue({seq:2,state:{items:{L:{},safe:{}}}})
+ mocks.snapshots.mockResolvedValue([{layerId:'L',seq:2,hash:'bad-first-chunk'},{layerId:'safe',seq:2,hash:'safe'}])
+ mocks.operations.mockImplementation(async({where})=>{
+  if(where.type==='stroke')return [first,last].map(data=>({data}))
+  if(where.id)return original.filter(op=>where.id.in.includes(op.id)).map(data=>({data}))
+  return original.map(data=>({data}))
+ })
+ const plan=await prepareSnapshotReplay('room')
+ expect(plan.coverage.has('L')).toBe(false)
+ expect(plan.coverage.get('safe')).toBe(2)
+ expect(plan.historicalIds.has('first')).toBe(true)
+ expect(plan.operations.map(op=>op.id)).toEqual(original.map(op=>op.id))
+ expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({type:'stroke',OR:[{userId:'A',data:{path:['strokeId'],equals:'gesture-G'}}]})}))
+})
+
+it('does not load gesture siblings for a single-operation revoke', async () => {
+  const first = { ...stroke('first', 1), strokeId: 'G' } as Operation
+  const last = { ...stroke('last', 3), strokeId: 'G' } as Operation
+  const revoke: Operation = { id: 'revoke', type: 'operation_revoke', targetOpId: 'last', userId: 'A', timestamp: 4, seq: 4 }
+  mocks.rooms.set('room', { nextSeq: 5, operations: [last, revoke], aliveIds: new Set(['L']) })
+  mocks.state.mockResolvedValue({ seq: 2, state: { items: { L: {} } } })
+  mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 2, hash: 'first' }])
+  const plan = await prepareSnapshotReplay('room')
+  expect(plan.coverage.get('L')).toBe(2)
+  expect(plan.operations).not.toContainEqual(first)
+  expect(mocks.operations).not.toHaveBeenCalled()
+})
+
+it('loads gesture siblings after resolving a cold chain of control targets', async () => {
+  const first = { ...stroke('first', 1), strokeId: 'G' } as Operation
+  const last = { ...stroke('last', 3), strokeId: 'G' } as Operation
+  const undo: Operation = { id: 'undo', type: 'operation_undo', targetOpId: 'last', userId: 'A', timestamp: 4, seq: 4 }
+  const redo: Operation = { id: 'redo', type: 'operation_redo', targetOpId: 'undo', userId: 'A', timestamp: 5, seq: 5 }
+  const original = [first, last, undo, redo]
+  mocks.rooms.set('room', { nextSeq: 6, operations: [redo], aliveIds: new Set(['L']) })
+  mocks.state.mockResolvedValue({ seq: 2, state: { items: { L: {} } } })
+  mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 2, hash: 'first' }])
+  mocks.operations.mockImplementation(async ({ where }) => {
+    if (where.id) return original.filter(op => where.id.in.includes(op.id)).map(data => ({ data }))
+    if (where.type === 'stroke') return [first, last].map(data => ({ data }))
+    return original.map(data => ({ data }))
+  })
+  const plan = await prepareSnapshotReplay('room')
+  expect(plan.coverage.has('L')).toBe(false)
+  expect(plan.historicalIds.has('first')).toBe(true)
+  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ type: 'stroke', seq: { lte: 5 } }) }))
+})

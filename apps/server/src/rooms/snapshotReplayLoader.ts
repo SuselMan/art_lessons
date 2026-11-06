@@ -35,17 +35,46 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: null, operations: [...byId.values()], historicalIds: new Set(), watermark }
     }
     const queried = new Set<string>()
-    // Targets may have left resident RAM at snapshot upload/cold load. Resolve
-    // only referenced ids, not the room's heavy covered stroke population.
-    while (true) {
-      const missing = [...byId.values()].filter(op => HISTORY_TYPES.includes(op.type)
-        && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq))))
-        .flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId) && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
-      if (!missing.length) break
-      for (const id of missing) queried.add(id)
-      const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
-      for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+    const queriedGestures = new Set<string>()
+    // Only history controls that can change a candidate need covered strokes.
+    // Normal joins keep their fast path without loading the room's history.
+    const resolveHistoryTargets = async (): Promise<void> => {
+      while (true) {
+        const changes = [...byId.values()].filter(op => HISTORY_TYPES.includes(op.type)
+          && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq))))
+        const missing = changes.flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId)
+          && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
+        if (missing.length) {
+          for (const id of missing) queried.add(id)
+          const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
+          for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+          continue
+        }
+        const gestures: { userId: string; strokeId: string }[] = []
+        for (const change of changes) {
+          if (change.type === 'operation_revoke' || !('targetOpId' in change)) continue
+          let target = byId.get(change.targetOpId)
+          const seen = new Set<string>()
+          while (target && HISTORY_TYPES.includes(target.type) && 'targetOpId' in target && !seen.has(target.id)) {
+            seen.add(target.id)
+            target = byId.get(target.targetOpId)
+          }
+          if (target?.type !== 'stroke' || !target.strokeId) continue
+          const key = JSON.stringify([target.userId, target.strokeId])
+          if (queriedGestures.has(key)) continue
+          queriedGestures.add(key)
+          gestures.push({ userId: target.userId, strokeId: target.strokeId })
+        }
+        if (!gestures.length) break
+        const siblings = await prisma.operation.findMany({
+          where: { roomId, type: 'stroke', seq: { lte: watermark },
+            OR: gestures.map(({ userId, strokeId }) => ({ userId, data: { path: ['strokeId'], equals: strokeId } })) },
+          select: { data: true },
+        })
+        for (const { data } of siblings) { const op = data as Operation; byId.set(op.id, op) }
+      }
     }
+    await resolveHistoryTargets()
     let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     if (plan.replayStructure) {
       const prefix = await prisma.operation.findMany({
@@ -53,6 +82,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         orderBy: { seq: 'asc' }, select: { data: true },
       })
       for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
+      await resolveHistoryTargets()
       // Legacy snapshot-only roots have no recoverable original structural
       // base. Never guess that base from currently alive layers.
       const created = new Set(IMPLICIT_LAYER_IDS)
@@ -81,6 +111,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         byId.set(op.id, op)
         if ((op.seq ?? 0) <= (stored?.seq ?? 0)) historicalIds.add(op.id)
       }
+      await resolveHistoryTargets()
       plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     }
     if (plan.unresolvedTargets.size) throw new Error('Unresolved snapshot history dependency')

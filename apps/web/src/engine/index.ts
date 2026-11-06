@@ -2836,7 +2836,7 @@ export class PencilEngine implements PencilEngineAPI {
       const target = op.type === 'operation_revoke' ? this._log.revoke(op.targetOpId)
         : op.type === 'operation_undo' ? this._log.applyUndo(op.targetOpId, op.userId)
         : op.type === 'operation_redo' ? this._log.applyRedo(op.targetOpId, op.userId) : null
-      if (target) this._noteSnapshotHistoryMutation(target)
+      if (target) this._noteSnapshotHistoryMutation(target, op)
       this._noteSnapshotReadDependencies(op)
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
@@ -3100,7 +3100,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       case 'operation_revoke': {
         const target = this._log.revoke(op.targetOpId)
-        if (target) this._applyHistoryChange(target)
+        if (target) this._applyHistoryChange(target, op)
         break
       }
       // #103: broadcastable, addressed by id (not "whichever op is latest")
@@ -3114,12 +3114,15 @@ export class PencilEngine implements PencilEngineAPI {
         // (§17.49) A target this batch never painted has nothing to take out.
         // Only one it actually skipped: on a reconnect the tail can repeat a
         // stroke this engine painted before the drop, and that one must go.
-        if (target && !this._skippedInBatch.has(target.id)) this._applyHistoryChange(target)
+        const paintedSibling = target?.type === 'stroke' && target.strokeId && this._log.entries.some(entry =>
+          entry.op.type === 'stroke' && entry.op.userId === target.userId && entry.op.strokeId === target.strokeId
+          && entry.state === 'undone' && !this._skippedInBatch.has(entry.op.id))
+        if (target && (!this._skippedInBatch.has(target.id) || paintedSibling)) this._applyHistoryChange(target, op)
         break
       }
       case 'operation_redo': {
         const target = this._log.applyRedo(op.targetOpId, op.userId)
-        if (target) this._applyHistoryChange(target)
+        if (target) this._applyHistoryChange(target, op)
         break
       }
       default:
@@ -4216,7 +4219,7 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── History / replay ────────────────────────────────────────────────────────
 
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
-  private _applyHistoryChange(op: Operation): void {
+  private _applyHistoryChange(op: Operation, cause?: Operation): void {
     if (this._wcAsyncFinish) {
       this._cancelSettle()
       // These previews already committed their callbacks. History removes
@@ -4229,7 +4232,7 @@ export class PencilEngine implements PencilEngineAPI {
         else { state.buf.destroy(); this._peerPreviews.delete(peerId) }
       }
     }
-    this._noteSnapshotHistoryMutation(op)
+    this._noteSnapshotHistoryMutation(op, cause)
     if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
@@ -5701,8 +5704,18 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
-  private _noteSnapshotHistoryMutation(op: Operation): void {
-    this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
+  private _noteSnapshotHistoryMutation(op: Operation, cause?: Operation): void {
+    const entries = this._log.entries
+    const targetEntry = entries.find(entry => entry.op.id === op.id)
+    const causeEntry = cause ? entries.find(entry => entry.op.id === cause.id) : undefined
+    const grouped = op.type === 'stroke' && !!op.strokeId && (cause
+      ? cause.type === 'operation_undo' || cause.type === 'operation_redo' : targetEntry?.state !== 'gone')
+    const targets = grouped && op.type === 'stroke' ? entries.filter(entry => entry.op.type === 'stroke'
+      && entry.op.userId === op.userId && entry.op.strokeId === op.strokeId
+      && (entry.op.seq ?? 0) < (causeEntry?.op.seq ?? Infinity)).map(entry => entry.op) : [op]
+    for (const target of targets) {
+      this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(target), target.id)
+    }
     this._resolveSnapshotHistoryRepairs()
     if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
       if (!this._destroyed) this._onSnapshotHistoryRepairNeeded?.()
