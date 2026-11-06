@@ -40,6 +40,7 @@ export interface RestoreRoomStateDeps {
   /** Default OFF until full-journal material/lifecycle hardware gates. */
   diagnosticClearPrefixElision?: boolean
   restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string) => Promise<SnapshotRestoreOutcome['status']>
+  /** fromSeq is an exclusive beforeSeq cursor, not an inclusive snapshot watermark. */
   backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
   applyRemoteOp: (op: Operation) => void
   syncFromLogNow: () => void
@@ -267,7 +268,9 @@ export async function restoreRoomState(
     }
 
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
-      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
+      // (#789, #673) The snapshot head is undoable too; beforeSeq excludes
+      // its argument. Advance only the cursor, preserving the history budget.
+      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq > 0 ? latestSnapshotSeq + 1 : 0)
     }
     // A short room need not ever cross100. Request its first per-layer
     // snapshot at the real current watermark; useSnapshotPublishing retries
