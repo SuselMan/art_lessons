@@ -124,3 +124,9 @@ Preview forks deep-copy spacing controls; historical absent fields retain the ol
 сохраняется между срезами. Программа готовится общей BrushPreparation; context
 loss сбрасывает GPU handles, destroy освобождает их. Описание формата и границ:
 `docs/brush-reference/spray.md`.
+
+`SketchLineBatch` использует те же coverage/ceiling поверхности для двух стадий
+одного исходного запроса: линии с их собственной alpha, затем общая opacity
+группы. Это сохраняет прозрачность в пересечениях. Source knots выдаёт общий
+DabSystem; история соседей и пространственный индекс принадлежат gesture state,
+а не тайлам. Ограничения и проверка: `docs/brush-reference/sketch.md`.
