@@ -14,7 +14,7 @@
 // questions about that tool.
 import type { Dab, ToolType } from '@grafetto/shared'
 import { packDabs, strokeDabs, unpackDabs } from '@grafetto/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { PeerLivePacket } from './index'
 import {
@@ -408,4 +408,66 @@ describe('#699 retiring unrecorded live ink', () => {
     expectPixelsEqual(readLayerPixels(engine, 'L')!, readLayerPixels(reference, 'L')!)
     engine.destroy(); reference.destroy()
   })
+})
+
+
+it('sends a paused held stroke tail without requiring another pointer event or UP', async () => {
+  const packets: PeerLivePacket[] = []
+  const { engine } = createTestEngine({ userId: PEER, size: 12,
+    onLiveStrokeDabs: p => packets.push({ ...p, dabs: [...p.dabs] }),
+  }, CANVAS)
+  engine.appendOperation(makeLayerAdd(PEER, 'L'))
+  engine.setActiveLayer('L')
+  await paperReady(engine)
+  let clock = 1000
+  const now = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const { simulateStrokeStart, simulateStrokeMove } = await import('./testing/engineTestUtils')
+    simulateStrokeStart(engine, 14, 32)
+    expect(packets).toHaveLength(1)
+    clock += 10
+    simulateStrokeMove(engine, 54, 32)
+    simulateStrokeMove(engine, 94, 32)
+    const queued = engine['_liveDabQueue'].length
+    expect(queued).toBeGreaterThan(0)
+    expect(packets).toHaveLength(1)
+    const gesture = engine['_strokeId']
+    clock += 100
+    vi.advanceTimersByTime(100)
+    expect(engine['_strokeId']).toBe(gesture)
+    expect(packets).toHaveLength(2)
+    expect(packets[1].dabs).toHaveLength(queued)
+    expect(engine['_liveDabQueue']).toHaveLength(0)
+    expect(engine.getOperations().filter(op => op.type === 'stroke')).toHaveLength(0)
+  } finally { engine.destroy(); vi.useRealTimers(); now.mockRestore() }
+})
+
+
+it.each(['UP', 'destroy', 'context loss'] as const)('does not send an obsolete held tail after %s', async boundary => {
+  const packets: PeerLivePacket[] = []
+  const { engine } = createTestEngine({ userId: PEER, size: 12,
+    onLiveStrokeDabs: p => packets.push({ ...p, dabs: [...p.dabs] }),
+  }, CANVAS)
+  engine.appendOperation(makeLayerAdd(PEER, 'L'))
+  engine.setActiveLayer('L')
+  await paperReady(engine)
+  let clock = 1000
+  const now = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const { simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } = await import('./testing/engineTestUtils')
+    simulateStrokeStart(engine, 14, 32)
+    clock += 10
+    simulateStrokeMove(engine, 54, 32)
+    simulateStrokeMove(engine, 94, 32)
+    expect(engine['_liveDabQueue'].length).toBeGreaterThan(0)
+    if (boundary === 'UP') simulateStrokeEnd(engine, 94, 32)
+    else if (boundary === 'destroy') engine.destroy()
+    else engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    const before = packets.length
+    clock += 100
+    vi.advanceTimersByTime(100)
+    expect(packets).toHaveLength(before)
+  } finally { if (!engine['_destroyed']) engine.destroy(); vi.useRealTimers(); now.mockRestore() }
 })
