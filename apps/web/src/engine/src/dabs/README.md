@@ -149,3 +149,8 @@ Grid — специальная геометрия общего mixer/source к�
 ячеек собирается один GPU source patch, GridCellBatch рисует до1024 ячеек за
 upload без CPU readback. Всего запрос допускает4096 ячеек. Source dependency,
 история и scratch pooling общие. См. `docs/brush-reference/grid.md`.
+
+Particle использует solver gesture state и общий inputKnots. Один исходный
+request расширяется за вызов; SprayShapeBatch складывает bilinear веса в
+существующий ceiling, SketchLineBatch переносит насыщенную alpha с постоянным
+цветом. Новых framebuffer нет; см. `docs/brush-reference/particle.md`.
