@@ -101,3 +101,19 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
   mocks.operations.mockResolvedValue([{data:del},{data:u}])
   await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
 })
+
+it('resolves an undo target discovered only while loading another layer history',async()=>{
+ const other={...stroke('other2',2),layerId:'O'}
+ const otherUndo:Operation={id:'undoOther7',seq:7,timestamp:7,userId:'A',type:'operation_undo',targetOpId:other.id}
+ mocks.rooms.get('room').nextSeq=8
+ mocks.snapshots.mockResolvedValue([{layerId:'L',seq:5,hash:'L'},{layerId:'O',seq:5,hash:'O'}])
+ mocks.operations.mockImplementation(async({where})=>{
+  if(where.id)return [...original,other,otherUndo].filter(op=>where.id.in.includes(op.id)).map(data=>({data}))
+  const ids=where.OR?.find((v:{layerId?:unknown})=>v.layerId)?.layerId.in??[]
+  return [...original.filter(op=>!('layerId'in op)||ids.includes(op.layerId)),otherUndo,...(ids.includes('O')?[other]:[])].map(data=>({data}))
+ })
+ const result=await prepareSnapshotReplay('room')
+ expect(result.unresolvedTargets.size).toBe(0)
+ expect(result.operations.some(op=>op.id===other.id)).toBe(true)
+ expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:'room',id:{in:['other2']}}}))
+})

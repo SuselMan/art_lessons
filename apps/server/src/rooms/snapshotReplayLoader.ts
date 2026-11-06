@@ -63,10 +63,32 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       }
       plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     }
+    let structureLoaded=!!plan.replayStructure
     const loadedLayers = new Set<string>()
     const historicalIds = new Set<string>(plan.replayStructure
       ? [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq).map(op => op.id) : [])
     while (true) {
+      // A layer-prefix read also returns room history mutations. Their targets
+      // can belong to a different covered layer and were not visible in the
+      // resident-tail pass above. Resolve to a fixed point before publishing.
+      const missing=[...plan.unresolvedTargets].filter(id=>!queried.has(id)&&!byId.has(id))
+      if(missing.length){
+        for(const id of missing)queried.add(id)
+        const targets=await prisma.operation.findMany({where:{roomId,id:{in:missing}},select:{data:true}})
+        for(const {data} of targets){const op=data as Operation;byId.set(op.id,op);if((op.seq??0)<=stored.seq)historicalIds.add(op.id)}
+        plan=planSnapshotReplay(candidates,[...byId.values()],record?.aliveIds,stored.seq)
+        continue
+      }
+      if(plan.replayStructure&&!structureLoaded){
+        structureLoaded=true
+        const prefix=await prisma.operation.findMany({where:{roomId,type:{in:[...HISTORY_TYPES,...STRUCTURE_TYPES]},seq:{lte:watermark}},orderBy:{seq:'asc'},select:{data:true}})
+        for(const {data} of prefix){const op=data as Operation;byId.set(op.id,op);if((op.seq??0)<=stored.seq)historicalIds.add(op.id)}
+        const created=new Set(IMPLICIT_LAYER_IDS)
+        for(const op of byId.values())if((op.seq??0)<=stored.seq&&(op.type==='layer_add'||op.type==='folder_add'||op.type==='layer_merge'||op.type==='layer_duplicate'))created.add(op.layerId)
+        if([...(live??[]),...plan.historyLayers].some(id=>!created.has(id)))throw Error('Snapshot structural base cannot be reconstructed')
+        plan=planSnapshotReplay(candidates,[...byId.values()],record?.aliveIds,stored.seq)
+        continue
+      }
       const needed = new Set(plan.historyLayers)
       for (const row of candidates) if (plan.coverage.get(row.layerId) !== Math.max(...candidates.filter(s => s.layerId === row.layerId).map(s => s.seq))) needed.add(row.layerId)
       const next = [...needed].filter(id => !loadedLayers.has(id))
