@@ -1,4 +1,4 @@
-Pinned libmypaint1.6.1 (ISC), commit recorded in source-lock.json. Upstream
+Pinned libmypaint1.6.1 (ISC; bundled fastapprox uses BSD-3-Clause), commit recorded in source-lock.json. Upstream
 copyright/licence notices remain in every copied source and COPYING.
 
 Build: python3 scripts/mypaint/build.py (Emscripten3.1.6). Original sources are
