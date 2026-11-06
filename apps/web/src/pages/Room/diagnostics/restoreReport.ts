@@ -49,6 +49,8 @@ export interface RestoreReport {
    *  pushed into the engine before it did. */
   stage?: 'index' | 'blobs' | 'apply'
   appliedBeforeFailure?: number
+  errorName?: string
+  errorMessage?: string
   snapshotSeq?: number
   layers: RestoreReportLayer[]
   /** Blobs downloaded for layers the room no longer has, and their compressed
@@ -88,6 +90,25 @@ function problemFor(
   if (audit.tilesIn > 0 && audit.withContentAfter === 0) return 'blank-after-restore'
   if (audit.residentAfter < audit.tilesUploaded) return 'tiles-missing'
   return undefined
+}
+
+/** Error objects can carry stacks, URLs, causes and response excerpts. Only
+ * a bounded diagnostic line leaves this module; never stringify an unknown
+ * thrown object/string. JSON parser messages can quote the response itself. */
+function failureDetails(error: unknown): { errorName?: string; errorMessage: string } {
+  if (!(error instanceof Error)) {
+    return { errorMessage: `Non-Error thrown (${error === null ? 'null' : typeof error})` }
+  }
+  const errorName = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(error.name) ? error.name : 'Error'
+  if (error instanceof SyntaxError) return { errorName, errorMessage: 'Syntax error during snapshot restore' }
+  const line = error.message.split(/[\r\n]/, 1)[0]
+  if (/^\s*[[{<]/.test(line)) return { errorName, errorMessage: 'Snapshot restore failed (payload omitted)' }
+  const errorMessage = line
+    .replace(/\b(?:[a-z][a-z\d+.-]*:\/\/|(?:blob|data|file):)[^\s"'<>]+/gi, '[url]')
+    .replace(/(^|[\s"'(])\/[^\s"'<>)]*/g, '$1[url]')
+    .replace(/[<{][\s\S]*$/, '[payload]')
+    .slice(0, 240).trim() || '(no message)'
+  return { errorName, errorMessage }
 }
 
 /** Builds the report. `layerState` is the structure the restore itself carried
@@ -148,7 +169,7 @@ export function buildRestoreReport(
     roomId,
     status: outcome.status,
     ...(outcome.status === 'failed'
-      ? { stage: outcome.stage, appliedBeforeFailure: outcome.appliedLayerIds.length }
+      ? { stage: outcome.stage, appliedBeforeFailure: outcome.appliedLayerIds.length, ...failureDetails(outcome.error) }
       : {}),
     ...(outcome.status === 'restored' ? { snapshotSeq: outcome.head.seq } : {}),
     layers,

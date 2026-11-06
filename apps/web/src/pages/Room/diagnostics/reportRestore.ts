@@ -59,6 +59,7 @@ export function reportSnapshotRestore(
       layers: report.layers.map(crumbLine).join(' | '),
       deadLayers: report.deadLayers,
       gpu: report.gpu.renderer,
+      ...(report.errorMessage ? { errorName: report.errorName, errorMessage: report.errorMessage } : {}),
     },
   })
 
@@ -82,6 +83,7 @@ export function reportSnapshotRestore(
         status: report.status,
         stage: report.stage,
         appliedBeforeFailure: report.appliedBeforeFailure,
+        ...(report.errorMessage ? { errorName: report.errorName, errorMessage: report.errorMessage } : {}),
         snapshotSeq: report.snapshotSeq,
         deadLayers: report.deadLayers,
         deadBytes: report.deadBytes,
