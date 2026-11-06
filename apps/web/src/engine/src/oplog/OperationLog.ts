@@ -146,6 +146,8 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
 export class OperationLog {
   private _entries: LogEntry[] = []
   private _revision = 0
+  private _historicalPrefixRevision = -1
+  private readonly _historicalPrefixes = new Map<number, OperationLog>()
 
   /** Changes whenever journal order or entry state may change. */
   get revision(): number { return this._revision }
@@ -508,16 +510,65 @@ export class OperationLog {
     return out
   }
 
+  /** Historical source of a copy/merge. Refold controls at the cut instead
+   *  of projecting today's resolved entry states into the past. Callers must
+   *  not mutate the returned context; any live-log change invalidates it. */
+  historicalPrefix(beforeSeq: number): OperationLog {
+    if (this._historicalPrefixRevision !== this._revision) {
+      this._historicalPrefixes.clear()
+      this._historicalPrefixRevision = this._revision
+    }
+    const cached = this._historicalPrefixes.get(beforeSeq)
+    if (cached) return cached
+    const originals = new Map(this._entries.map(entry => [entry.op.id, entry]))
+    const controlled = new Set<string>()
+    // A known future control must suppress final-state fallback, even though
+    // the control itself does not belong to the requested historical prefix.
+    for (const { op } of this._entries) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') continue
+      const target = originals.get(op.targetOpId)?.op
+      if (!target || (target.seq ?? 0) >= (op.seq ?? 0)
+        || (op.type !== 'operation_revoke' && target.userId !== op.userId)) continue
+      controlled.add(target.id)
+      if (op.type !== 'operation_revoke' && target.type === 'stroke' && target.strokeId) {
+        for (const { op: other } of this._entries) {
+          if (other.type === 'stroke' && other.userId === target.userId && other.strokeId === target.strokeId
+            && (other.seq ?? 0) < (op.seq ?? 0)) controlled.add(other.id)
+        }
+      }
+    }
+    const scratch = new OperationLog()
+    for (const { op, pending, serverSeq } of this._entries) {
+      if ((op.seq ?? 0) >= beforeSeq) continue
+      scratch.append(op, pending ? { pending: true } : { serverSeq })
+      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
+    }
+    for (const entry of scratch._entries) {
+      const previous = originals.get(entry.op.id)!
+      // Backfilled/legacy callers may know a resolved state while its control
+      // is outside the available journal. Preserve that unknown-prefix fact.
+      if (previous.state !== 'done' && !controlled.has(entry.op.id)) entry.state = previous.state
+    }
+    scratch._pixelOpDoneCount.clear()
+    for (const entry of scratch._entries) if (entry.state === 'done') scratch._bumpPixelOpCount(entry.op, 1)
+    // Keep memory bounded in rooms with many distinct structural cuts.
+    if (this._historicalPrefixes.size >= 4) this._historicalPrefixes.delete(this._historicalPrefixes.keys().next().value!)
+    this._historicalPrefixes.set(beforeSeq, scratch)
+    return scratch
+  }
+
   /** `done` pixel operations targeting the given layer, optionally only those
    *  ordered strictly before `beforeSeq` (used to reconstruct a merge source
    *  as it was at merge time). */
   layerPixelOps(layerId: string, beforeSeq?: number): PixelOperation[] {
+    if (beforeSeq !== undefined) return this.historicalPrefix(beforeSeq).layerPixelOps(layerId)
     const out: PixelOperation[] = []
     for (const e of this._entries) {
       if (e.state !== 'done') continue
       const { op } = e
       if (!isPixelOperation(op) || !pixelOpTargetsLayer(op, layerId)) continue
-      if (beforeSeq !== undefined && (op.seq ?? 0) >= beforeSeq) continue
       out.push(op)
     }
     return out

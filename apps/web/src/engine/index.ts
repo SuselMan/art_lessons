@@ -2389,7 +2389,14 @@ export class PencilEngine implements PencilEngineAPI {
       makeLayerBuffer: id => this._makeLayerBuffer(id),
       createBuffer: id => this._createBuffer(id),
       destroyBuffer: id => this._destroyBuffer(id),
-      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      replayInto: (buf, id, ops, beforeSeq) => {
+        if (beforeSeq === undefined) { this._replayInto(buf, id, ops); return }
+        const liveLog = this._log
+        this._log = liveLog.historicalPrefix(beforeSeq)
+        this._wetReplayRevision = -1
+        try { this._replayInto(buf, id, ops, false) }
+        finally { this._log = liveLog; this._wetReplayRevision = -1 }
+      },
       compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
       takeCheckpoint: id => this._takeCheckpoint(id),
       invalidateSplitCache: () => this._invalidateSplitCache(),
@@ -4692,7 +4699,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._flushSnapshotDependentLayers()
   }
 
-  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
+  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], useCheckpoints = true): void {
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
     // tiles can momentarily exceed what the final done-history actually
@@ -4713,7 +4720,9 @@ export class PencilEngine implements PencilEngineAPI {
     tiled?.suspendEviction()
     try {
       let start = 0
-      const best = this._checkpoints.best(layerId, ops)
+      // Current source checkpoints may contain paint added after this copy.
+      // Only ordinary rebuilds may use them; historical reads replay the prefix.
+      const best = useCheckpoints ? this._checkpoints.best(layerId, ops) : null
       const cp = best?.cp
       if (best && cp) {
         buf.clear()
