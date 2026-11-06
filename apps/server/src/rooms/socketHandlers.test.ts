@@ -935,3 +935,75 @@ it('#786 evacuation of B lets an independently pending C join finish on C', asyn
   expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
   expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
 })
+
+describe('#762 terminal rejection retires only unrecorded live ink', () => {
+  it.each([false, true])('cancels a refused remainder after accepted chunks; ordinary UP=%s', async ended => {
+    const { lessonId, teacher, student } = await classroom()
+    const strokeId = fresh('rejected-live')
+    const accepted = { ...stroke(fresh('accepted-chunk'), 'student'), strokeId }
+    const confirmation = next(teacher, 'operation_confirmed')
+    const send = (op: StrokeOperation) => new Promise(resolve => student.emit('operation', op, resolve))
+    expect(await send(accepted)).toMatchObject({ ok: true })
+    expect((await confirmation).operation.id).toBe(accepted.id)
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    expect((await live).strokeId).toBe(strokeId)
+    if (ended) {
+      const up = next(teacher, 'peer_stroke_live_end')
+      student.emit('stroke_live_end', { strokeId })
+      expect(await up).toEqual({ userId: 'student', strokeId })
+    }
+    const frozen = next(student, 'room_frozen_changed')
+    teacher.emit('set_room_frozen', true)
+    expect((await frozen).frozen).toBe(true)
+    // A timeout is captured as a value to avoid an unhandled rejection if
+    // the baseline has no cancellation while the verdict is being checked.
+    const cancellation = next(teacher, 'peer_stroke_live_end', 300).catch(error => String(error))
+    const refused = { ...stroke(fresh('refused-chunk'), 'student'), strokeId }
+    expect(await send(refused)).toEqual({ ok: false, reason: 'room_frozen' })
+    expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+    const ids = getRoomSnapshot(lessonId)!.tailOperations.map(op => op.id)
+    expect(ids).toContain(accepted.id)
+    expect(ids).not.toContain(refused.id)
+    expect(student.connected).toBe(true)
+    // Retrying the already accepted chunk after freeze is a duplicate ACK,
+    // not another terminal refusal or another cancellation.
+    const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+    expect(await send(accepted)).toMatchObject({ ok: true, duplicate: true })
+    await noCancellation
+  })
+
+  it('cancels a live stroke after a participant freeze', async () => {
+    const { teacher, student } = await classroom()
+    const strokeId = fresh('participant-freeze')
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    await live
+    const frozen = next(student, 'participant_frozen_changed')
+    teacher.emit('set_participant_frozen', { userId: 'student', frozen: true })
+    await frozen
+    const cancellation = next(teacher, 'peer_stroke_live_end', 300).catch(error => String(error))
+    const verdict = await new Promise(resolve => student.emit('operation', { ...stroke(fresh('refused'), 'student'), strokeId }, resolve))
+    expect(verdict).toEqual({ ok: false, reason: 'participant_frozen' })
+    expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+  })
+
+  it('leaves a transient server_error retryable without cancelling live ink', async () => {
+    const { teacher, student } = await classroom()
+    const strokeId = fresh('transient-live')
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    await live
+    const logModule = await import('./operationLog.js')
+    const failure = vi.spyOn(logModule, 'recordOperation').mockImplementationOnce(() => { throw new Error('controlled transient persistence failure') })
+    const op = { ...stroke(fresh('retry'), 'student'), strokeId }
+    try {
+      const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+      expect(await new Promise(resolve => student.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'server_error' })
+      await noCancellation
+    } finally { failure.mockRestore() }
+    const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+    expect(await new Promise(resolve => student.emit('operation', op, resolve))).toMatchObject({ ok: true })
+    await noCancellation
+  })
+})

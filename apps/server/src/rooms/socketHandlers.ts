@@ -1,7 +1,7 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, JoinResult, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { isClassVisibility, isRoomAccessMode, isTransientReject, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
@@ -646,6 +646,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
             'rejected operation (role/freeze/owner-lock check)',
           )
           ack?.({ ok: false, reason })
+          // Ordinary pen-up can precede the durable verdict. A terminal
+          // refusal owes observers an explicit cancellation; accepted chunks
+          // remain canonical. Transient failures still owe a retry.
+          if (!isTransientReject(reason) && op.type === 'stroke' && op.strokeId) {
+            activeLiveStrokes.delete(op.strokeId)
+            socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId: op.strokeId, cancelled: true })
+          }
           return
         }
 
