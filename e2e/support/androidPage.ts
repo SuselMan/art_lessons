@@ -20,10 +20,14 @@ export async function androidPage(endpoint: string, url: string) {
 
   const wire = new WebSocket(owned.webSocketDebuggerUrl)
   let seq = 0
+  const listeners = new Map<string, Set<(params: Record<string, unknown>) => void>>()
   const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
   wire.on('message', raw => {
-    const reply = JSON.parse(String(raw)) as { id?: number; result?: unknown; error?: { message: string } }
-    if (!reply.id) return
+    const reply = JSON.parse(String(raw)) as { id?: number; result?: unknown; error?: { message: string }; method?: string; params?: Record<string, unknown> }
+    if (!reply.id) {
+      if (reply.method) for (const listener of listeners.get(reply.method) ?? []) listener(reply.params ?? {})
+      return
+    }
     const wait = pending.get(reply.id)
     if (!wait) return
     clearTimeout(wait.timer); pending.delete(reply.id)
@@ -40,7 +44,12 @@ export async function androidPage(endpoint: string, url: string) {
     if (reply.exceptionDetails) throw new Error(JSON.stringify(reply.exceptionDetails))
     return reply.result.value
   }
-  return { call, evaluate, close: async () => {
+  return { call, evaluate, on: (event: string, listener: (params: Record<string, unknown>) => void) => {
+    const group = listeners.get(event) ?? new Set()
+    group.add(listener); listeners.set(event, group)
+    return () => { group.delete(listener); if (!group.size) listeners.delete(event) }
+  }, close: async () => {
+    listeners.clear()
     for (const wait of pending.values()) { clearTimeout(wait.timer); wait.reject(new Error('Android QA target closed')) }
     pending.clear(); wire.close(); await fetch(`${endpoint}/json/close/${owned.id}`)
   } }

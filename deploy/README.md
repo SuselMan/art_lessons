@@ -121,9 +121,12 @@ sysctl -n net.ipv4.tcp_congestion_control   # bbr
 tc qdisc show dev "$(ip route show default | awk '{print $5; exit}')" | head -1
 ```
 
-This does not make the room load cheap, it only stops the wire from being the
-bottleneck — #425 still tracks the ~13MB of layer snapshots and op log that a
-room join transfers, uncached, on every entry.
+This stops the lossy path from collapsing the TCP window. Snapshot entry now
+uses a small uncached index and immutable, privately cached per-layer blobs;
+reopening an unchanged snapshot does not transfer its pixel bytes again (#427).
+Clipped edge tiles also avoid storing pixels outside the sheet. The heavy-room
+cold/repeat acceptance check, including a real Samsung, is recorded in
+[`docs/qa/425-heavy-room-open.md`](../docs/qa/425-heavy-room-open.md).
 
 ## GitHub Actions secrets (repo settings → Secrets and variables → Actions)
 
