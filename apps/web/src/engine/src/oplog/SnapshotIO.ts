@@ -319,6 +319,14 @@ export class SnapshotIO {
       residentAfter: resident.length,
       withContentAfter: resident.filter(t => t.contentRect !== null).length,
     })
+    if (glError !== gl.NO_ERROR) {
+      // The audit survives the throw so Room can report partial application.
+      // Failed uploads must never acquire authoritative coverage/checkpoints
+      // or become a replacement snapshot uploaded on behalf of other readers.
+      ledger.markDirty(layerId)
+      ledger.refusePublishing(layerId)
+      throw new Error(`Snapshot upload failed: GL error 0x${glError.toString(16)}`)
+    }
     if (coveredSeq !== undefined) ledger.setCoverage(layerId, coveredSeq)
     // (#373) These pixels *are* what the server already stores, so the layer
     // is marked changed (it is — the buffer was empty a moment ago) and

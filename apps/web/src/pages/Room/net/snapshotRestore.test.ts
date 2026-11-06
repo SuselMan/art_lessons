@@ -627,3 +627,24 @@ it('holds exactly one decoded layer while installation awaits physical UP; abort
   expect(engine.takeSnapshotRestoreAudit().map(item=>item.layerId)).toEqual(['background','L2'])
  }finally{old.abort();fresh.abort();engine.destroy()}
 })
+
+it('fails the whole restore on a real engine upload error after an earlier layer succeeded', async () => {
+  const { createTestEngine } = await import('../../../engine/testing/engineTestUtils')
+  const { engine, canvas } = createTestEngine({ userId: 'A' }, { width: 8, height: 8 })
+  engine.setBaseLayers(['background', 'L2'])
+  const pixels = new Uint8Array(256).fill(200)
+  const blob = await compressLayerTiles(encodeLayerTiles([{ originX: 0, originY: 0, width: 8, height: 8, pixels }]))
+  const state: LayerState = { items: { ...ONE_LAYER_STATE.items, L2: { kind: 'layer', id: 'L2', name: 'Two', visible: true, opacity: 1 } }, rootOrder: ['background', 'L2'], activeId: 'background', selectedIds: [] }
+  mockRestoreFetch({ seq: 100, layerState: state, layers: [{ layerId: 'background', seq: 100 }, { layerId: 'L2', seq: 100 }] }, { 'background/100': blob, 'L2/100': blob })
+  const gl = canvas.getContext('webgl') as unknown as { getError(): number }
+  const original = gl.getError.bind(gl)
+  try {
+    const outcome = await restoreLatestSnapshot('room-1', { beginLayers: () => {}, applyLayer: (id, tiles, seq) => {
+      if (id === 'L2') { let calls = 0; gl.getError = () => ++calls === 2 ? 0x0505 : original() }
+      return engine.restoreLayerFromSnapshot(id, tiles, seq)
+    } })
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'apply', appliedLayerIds: ['background'] })
+    expect(engine.bakeNetworkSnapshot('L2')).toBeNull()
+    expect(engine.takeSnapshotRestoreAudit()).toMatchObject([{ layerId: 'background', glError: 0 }, { layerId: 'L2', glError: 0x0505 }])
+  } finally { gl.getError = original; engine.destroy() }
+})
