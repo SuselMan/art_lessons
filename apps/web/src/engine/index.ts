@@ -3139,6 +3139,9 @@ export class PencilEngine implements PencilEngineAPI {
   confirmOperation(opId: string, seq: number): boolean {
     const confirmed = this._log.confirm(opId, seq)
     if (!confirmed) return false
+    for (const op of confirmed.historyChanges ?? []) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
+    }
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
     this._settleLayers()
     return true
@@ -3146,23 +3149,23 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   discardOperation(opId: string): boolean {
-    if (!this._log.isPending(opId)) return false
-    const target = this._log.revoke(opId)
+    const before = new Map(this._log.entries.map(entry => [entry.op.id,
+      {state: entry.state, goneReason: entry.goneReason}]))
+    const target = this._log.rejectPending(opId)
     if (!target) return false
-    // An undo or redo put nothing on the canvas of its own — it flipped
-    // another entry, and that flip is what has to come back: the server kept
-    // the target as it was. (A refused revoke is left alone — it leaves its
-    // target `gone`, which the log has no way to walk back.)
-    if (target.type === 'operation_undo' || target.type === 'operation_redo') {
-      const flipped = target.type === 'operation_undo'
-        ? this._log.applyRedo(target.targetOpId, target.userId)
-        : this._log.applyUndo(target.targetOpId, target.userId)
-      if (flipped) this._applyHistoryChange(flipped)
-      return true
+    // Rejection can undo optimistic branching or a revoke as well as the
+    // directly targeted state flip. Repair every material/structural change.
+    const affected = new Map<string, Operation>()
+    for (const entry of this._log.entries) {
+      const previous = before.get(entry.op.id)
+      if (previous && (previous.state !== entry.state || previous.goneReason !== entry.goneReason)) affected.set(entry.op.id, entry.op)
     }
-    // The same re-sync an undo or a teacher's revoke gets: whatever it put on
-    // the canvas has to come off again, by replaying the layer without it.
-    this._applyHistoryChange(target)
+    // Also repair the direct target when a legacy resolved state masks the
+    // transition: the rejected event may already have changed its buffer.
+    const direct = target.type === 'operation_undo' || target.type === 'operation_redo' || target.type === 'operation_revoke'
+      ? this._log.entries.find(entry => entry.op.id === target.targetOpId)?.op : target
+    if (direct) affected.set(direct.id, direct)
+    for (const op of affected.values()) if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
     return true
   }
 
@@ -5781,7 +5784,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
-    this._snapshotIO.absorbHistorical(pageOps)
+    const changed = this._snapshotIO.absorbHistorical(pageOps)
+    for (const op of changed) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
+    }
     this._resolveSnapshotHistoryRepairs()
   }
 
