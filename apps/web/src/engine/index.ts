@@ -3518,7 +3518,8 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if(painter === 'grid')this._smudge.prepareGrid()
+      if(painter === 'polygonFill')this._brush.preparePolygon()
+      else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
       else if(painter === 'sketchLines')this._brush.prepareSketchLines()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
@@ -6552,7 +6553,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
     this._dabs.timing=spacingBrush?.behavior?.timing
-    this._dabs.inputKnots=!!(spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle)
+    this._dabs.inputKnots=!!(spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom

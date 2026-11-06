@@ -7,5 +7,5 @@ export function isBrushParticle(v:unknown):v is BrushParticle{
 export function isParticleDescriptor(d:Record<string,unknown>):boolean{
  if(d.particle===undefined)return true
  const b=d.behavior,t=d.tip,record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
- return isBrushParticle(d.particle)&&d.model==='stamp'&&['mixer','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet'].every(k=>d[k]===undefined)&&d.paperInteraction===0&&record(t)&&t.kind==='round'&&t.profile===undefined&&record(b)&&b.version===2&&b.dual===undefined&&b.timing===undefined&&b.wetMix===undefined&&record(b.rendering)&&b.rendering.accumulation==='directOver'&&b.rendering.blendMode==='normal'
+ return isBrushParticle(d.particle)&&d.model==='stamp'&&['mixer','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet'].every(k=>d[k]===undefined)&&d.paperInteraction===0&&record(t)&&t.kind==='round'&&t.aspect===1&&t.profile===undefined&&record(b)&&b.version===2&&b.dual===undefined&&b.timing===undefined&&b.wetMix===undefined&&record(b.rendering)&&b.rendering.accumulation==='directOver'&&b.rendering.blendMode==='normal'
 }

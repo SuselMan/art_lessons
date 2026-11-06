@@ -49,9 +49,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'>()
+  if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.grid)capabilities.add('grid')
   if(brush.hatching)capabilities.add('hatching')

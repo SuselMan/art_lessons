@@ -1,3 +1,4 @@
+import type{PolygonFillBatch}from'./PolygonFillBatch'
 import type{SprayShapeBatch}from'./SprayShapeBatch'
 import type {BehaviorPlaced} from '../presets/brushBehavior'
 import type {AccumulationBuffer} from '../buffers/AccumulationBuffer'
@@ -27,6 +28,16 @@ export class SketchLineBatch{
   const gl=this.gl
   this.program??=createProgram(gl,VERT,FRAG);this.composite??=createProgram(gl,COPY_VERT,COPY_FRAG);this.buffer??=gl.createBuffer()!
   if(!this.quad){this.quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,this.quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)}
+ }
+ /** Replace gesture coverage with its latest closed shape. Dirty bounds
+  * include the previous shape, so shrinking/moving contours restore original. */
+ paintPolygon(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,polygons:PolygonFillBatch):void{
+  const last=stamps.at(-1);if(!last?.polygon)return
+  this.prepare();polygons.paintMask(temporary,last.polygon,originX,originY);coverage.clear()
+  const gl=this.gl,program=this.composite!
+  coverage.beginDraw();gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,temporary.texture)
+  gl.uniform1i(gl.getUniformLocation(program,'u_source'),0);gl.uniform1f(gl.getUniformLocation(program,'u_opacity'),last.ceiling);gl.uniform4f(gl.getUniformLocation(program,'u_flatColor'),...last.color,1)
+  gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);gl.disableVertexAttribArray(position);coverage.endDraw()
  }
  /** Native Particle adds bilinear point weights inside one request image,
   * then composites that image OVER once. Reuses both existing batch programs. */

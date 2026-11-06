@@ -1,3 +1,4 @@
+import{PolygonFillBatch}from'./PolygonFillBatch'
 import{hatchingStampFragment}from'../raster/brushHatchingShader'
 import{hatchingPlane}from'../presets/brushHatching'
 import {SketchLineBatch} from './SketchLineBatch'
@@ -78,6 +79,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private polygonBatch?:PolygonFillBatch
   private hatchingStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private sketchBatch?:SketchLineBatch
   private sprayBatch?:SprayShapeBatch
@@ -119,6 +121,7 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
+    this.polygonBatch?.reset()
     this.sketchBatch?.reset()
     this.sprayBatch?.reset()
     this.hatchingStamp=undefined
@@ -138,6 +141,7 @@ export class BrushBehaviorPainter {
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
+  preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
   prepareHatching():void{this.hatchingProgram()}
   private hatchingProgram():{program:WebGLProgram;uniforms:Uniforms;position:number}{
     if(!this.hatchingStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,hatchingStampFragment(createBrushStampFragment(true,true,true)));this.hatchingStamp={program,uniforms:getUniforms(gl,program,STAMP_UNIFORMS),position:gl.getAttribLocation(program,'a_position')}}
@@ -190,6 +194,7 @@ export class BrushBehaviorPainter {
   }
   destroy(): void {
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
+    this.polygonBatch?.destroy()
     this.sketchBatch?.destroy()
     this.sprayBatch?.destroy()
     const gl = this.ctx.gl
@@ -212,7 +217,7 @@ export class BrushBehaviorPainter {
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if((brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle) && dabs.length>(brush.particle?1:4)){
+    if((brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle?1:4)){
       for(let i=0;i<dabs.length;i+=(brush.particle?1:4)){const last=i+(brush.particle?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
@@ -551,6 +556,10 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
+        if(brush.experiment){
+          (this.sketchBatch??=new SketchLineBatch(gl)).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl))
+          return
+        }
         if(brush.particle){
           (this.sketchBatch??=new SketchLineBatch(gl)).paintParticlePoints(list,coverage,ceiling,tile.originX,tile.originY,this.sprayBatch??=new SprayShapeBatch(gl))
           return

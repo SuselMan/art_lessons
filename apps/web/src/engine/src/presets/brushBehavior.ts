@@ -1,3 +1,4 @@
+import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
 import{hatchingPlacement,type HatchingPlacement}from'./brushHatching'
 import {curveTraceStamps,type CurveTraceState}from'./brushCurveTrace'
@@ -12,6 +13,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  experiment?:ExperimentState
   particle?:ParticleState
   curveTrace?:CurveTraceState
   bristle?:BristleState
@@ -101,6 +103,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  polygon?:PolygonGeometry
   hatching?:HatchingPlacement
   requestGroup?:number
   pathOpacity?:number
@@ -339,6 +342,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  if(brush.experiment){
+    const experiment=state.experiment??={points:[],firstLine:true,speedCoeff:0,smoothDistance:0}
+    const stamps=experimentStamps(brush.experiment,dab,experiment,adjustedColor)
+    state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
+    return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
+  }
   if(brush.particle){
     const particles=state.particle??={values:new Float64Array(),ordinal:0}
     const stamps=particleStamps(brush.particle,dab,particles,adjustedColor)
