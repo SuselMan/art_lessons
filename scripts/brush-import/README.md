@@ -343,3 +343,7 @@ recorded gesture seeds and source allocation metadata (`sourceSize`,
 `sourceScale`, codec3) supplied by the engine; the importer must not fabricate
 these from authored brush defaults. GPU oracle acceptance is required before
 emitting/activating a new stock catalog with this capability.
+
+### Tangent Normal
+
+`paintopid=tangentnormal` imports the ordinary alpha mask, size/opacity/scatter, tilt/drawing-direction/mixed normal colour, elevation sensitivity and all six RGB swizzles. Foreground colour is ignored. The author viewport rotation is recorded once per gesture; ordinary tiles/live packets/undo/replay render the same descriptor. RGB8 normals use regular layer composition, without implicit vector renormalization. Stylus Rotation mode is rejected until twist is recorded; canvas mirroring and changing viewport rotation during a gesture are not supported by this adapter. The stock `w)_Texture_Normal_Map` is supported.

@@ -156,6 +156,7 @@ export class DabSystem {
   /** New source-request policies capture constructor size before F32/sensors. */
   captureSourceSize = false
   captureSourceTime = false
+  captureSourceAngle = false
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
   private _timingPoint?: SourcePaintInformation
@@ -559,6 +560,7 @@ export class DabSystem {
     fork.inputKnots=this.inputKnots
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
+    fork.captureSourceAngle=this.captureSourceAngle
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
     fork._timingPoint=this._timingPoint?{...this._timingPoint}:undefined
@@ -1117,7 +1119,7 @@ export class DabSystem {
     return {
       x: fp.x, y: fp.y, pressure, tiltX, tiltY,
       size: fp.size, aspectRatio: fp.aspectRatio, angle: this.strokeInput ? pathAngle : fp.angle, opacity: 1, t: 0,
-      ...(this.strokeInput ? {sourceAngle:pathAngle} : {}),
+      ...(this.strokeInput||this.captureSourceAngle ? {sourceAngle:pathAngle} : {}),
       ...(this.captureSourceSize ? {sourceSize:captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
       ...(normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(normalizedSpeed)}),
     }

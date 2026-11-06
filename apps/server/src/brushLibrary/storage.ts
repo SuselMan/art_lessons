@@ -160,9 +160,10 @@ export class BrushStorage {
     if (!brush) throw Error('Brush unavailable')
     if (brushRequiresRandomContext(brush.descriptor) && (op.brushRandom === undefined || !hasValidBrushRandomContext(op))) return false
     if(!hasValidBrushSourceContext(op) || brush.descriptor.mixer?.source==='projectionCanvas' && op.brushSource?.projection===undefined)return false
+    if(brush.descriptor.tangentNormal&&op.brushSource?.normalRotation===undefined)return false
     if(brush.descriptor.clone&&op.brushSource?.clone===undefined)return false
     if(brushUsesGradient(brush.descriptor)&&op.brushSource?.gradient===undefined)return false
-    if (!brush.descriptor.behavior?.sequentialRandom && !brush.descriptor.behavior?.strokeInput && !brushRequiresSourceTime(brush.descriptor)) return true
+    if (!brush.descriptor.tangentNormal && !brush.descriptor.behavior?.sequentialRandom && !brush.descriptor.behavior?.strokeInput && !brushRequiresSourceTime(brush.descriptor)) return true
     try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), strokeEndSample(op)) }
     catch { return false }
   }

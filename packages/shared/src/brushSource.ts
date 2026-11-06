@@ -4,6 +4,8 @@ import {isBrushGradient} from './brushGradient.js'
  * repeat unchanged on live/final chunks so replay never reads receiver UI. */
 export type BrushSourceContext = {
   readonly version:1
+  /** Author viewport rotation in radians, captured once for normal-vector brushes. */
+  readonly normalRotation?:number
   /** Bottom to top, already flattened for visibility and folder opacity. */
   readonly projection?:readonly {readonly id:string;readonly opacity:number}[]
   /** 256 straight RGBA8 samples, lowercase hexadecimal, including alpha. */
@@ -18,8 +20,9 @@ const object=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==n
 export function isBrushSourceContext(value:unknown):value is BrushSourceContext {
   if(!object(value))return false
   if(ownedSources.has(value))return true
-  if(value.version!==1||Object.keys(value).some(k=>!['version','projection','gradient','clone'].includes(k)))return false
-  if(value.projection===undefined&&value.gradient===undefined&&value.clone===undefined)return false
+  if(value.version!==1||Object.keys(value).some(k=>!['version','projection','gradient','clone','normalRotation'].includes(k)))return false
+  if(value.projection===undefined&&value.gradient===undefined&&value.clone===undefined&&value.normalRotation===undefined)return false
+  if(value.normalRotation!==undefined&&(typeof value.normalRotation!=='number'||!Number.isFinite(value.normalRotation)||Math.abs(value.normalRotation)>Math.PI*2))return false
   if(value.clone!==undefined){
     const c=value.clone
     if(!object(c)||Object.keys(c).length!==4||!['x','y','offsetX','offsetY'].every(k=>typeof c[k]==='number'&&Number.isFinite(c[k])&&Math.abs(c[k] as number)<=1e7))return false
@@ -39,7 +42,7 @@ export function isBrushSourceContext(value:unknown):value is BrushSourceContext 
 export function copyBrushSourceContext(source:BrushSourceContext):BrushSourceContext {
   if(ownedSources.has(source))return source
   if(!isBrushSourceContext(source))throw Error('Invalid brush source context')
-  const copy:BrushSourceContext=Object.freeze({version:1,...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({...source.clone})} : {})})
+  const copy:BrushSourceContext=Object.freeze({version:1,...(source.normalRotation===undefined?{}:{normalRotation:source.normalRotation}),...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({...source.clone})} : {})})
   ownedSources.add(copy);return copy
 }
 
