@@ -1,3 +1,4 @@
+import{MyPaintStrokePainter}from'./MyPaintStrokePainter'
 import{CloneBrushPass}from'./CloneBrushPass'
 import{curveInputRequests,finishCurveInput}from'../presets/curveInput'
 import{FilterBrushPass}from'./FilterBrushPass'
@@ -54,6 +55,7 @@ const STAMP_UNIFORMS = [ 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
 type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>
 export interface BehaviorScratch extends BrushScratch {
   brushSecondary(): {scratch:BehaviorScratch;sampling:SecondarySamplingState;tile:(source:AccumulationBuffer)=>AccumulationBuffer}
+  brushNative?:{destroy():void}
   brushBehavior?: BrushBehaviorState
   brushCeiling(tile: AccumulationBuffer): AccumulationBuffer
   brushCeilingCopy(tile: AccumulationBuffer): AccumulationBuffer
@@ -123,11 +125,13 @@ export class BrushBehaviorPainter {
     const resource=brushTipResource(id,gray,tip)
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
+  private mypaintPass?:MyPaintStrokePainter
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
+    this.mypaintPass?.destroy();this.mypaintPass=undefined
     this.clonePass?.forget()
     this.filterPass?.forget()
     this.polygonBatch?.reset()
@@ -202,6 +206,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
+    this.mypaintPass?.destroy();this.mypaintPass=undefined
     this.clonePass?.destroy()
     this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
@@ -236,11 +241,12 @@ export class BrushBehaviorPainter {
     assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
-    if (!dabs.length && !scratch.brushBehavior)
+    if (!dabs.length && !scratch.brushBehavior && !scratch.brushNative)
       return
     const releaseTextures = this.leaseTextures(brush)
     try {
     this.bindings.set(scratch, { target, preset, brush, pressure, color, execution })
+    if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
     if(brush.curveTrace?.version===2){
       const trace=state.curveTrace??={points:[],ordinal:0},input=trace.input??={}

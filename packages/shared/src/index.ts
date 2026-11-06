@@ -42,3 +42,5 @@ export * from './brushSource.js'
 export * from './pixelReadDependencies.js'
 
 export * from './brushGradient.js'
+
+export{MYPAINT_SCHEMA}from'./mypaintSchema.js'

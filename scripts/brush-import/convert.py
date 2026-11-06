@@ -754,6 +754,10 @@ def main():
     args=ap.parse_args(); catalog=Catalog(args.output)
     for path in args.sources:
         if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog)
+        elif path.suffix.lower()=='.myb':
+            from mypaint_import import mypaint_preset
+            preview=path.with_name(path.stem+'_prev.png')
+            catalog.brushes.append(mypaint_preset(path.read_bytes(),path.name,catalog,preview.read_bytes()if preview.exists()else None))
         elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
         elif path.suffix.lower() in ('.kpp','.bundle'):

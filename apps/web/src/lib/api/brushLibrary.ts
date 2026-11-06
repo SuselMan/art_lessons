@@ -1,3 +1,5 @@
+import{mypaintKernelReady,prepareMyPaintKernel}from'../../engine/src/presets/mypaintKernel'
+import{digitalBrushFromPreset}from'../../engine/src/presets/digitalBrushPresets'
 import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
@@ -114,8 +116,7 @@ async function fetchAsset(id: string): Promise<void> {
  * refresh the current room manifest; cold peers need no manual library reload. */
 export function prepareBrushPresets(presets: readonly (string | undefined)[]): Promise<void> | null {
   const imported = presets.filter((p): p is string => !!p && (p.startsWith('brush:imported-') || p.startsWith('imported-')))
-  let needed: Set<string>
-  try { needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id))) }
+  try { for(const p of presets)importedBrushAssets(p) }
   catch {
     if (!imported.length) throw new Error('Invalid brush preset')
     const scope = roomScope
@@ -141,12 +142,12 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[]): P
       if (work) await work
     })()
   }
-  if (!needed.size) return null
-  return (async () => { for (const id of needed) await fetchAsset(id) })()
+  return prepareBrushPresetsKnown(presets)
 }
 function prepareBrushPresetsKnown(presets: readonly (string | undefined)[]): Promise<void> | null {
   const needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id)))
-  return needed.size ? (async () => { for (const id of needed) await fetchAsset(id) })() : null
+  const native=!mypaintKernelReady()&&presets.some(p=>!!p&&/^(brush:)?imported-/.test(p)&&!!digitalBrushFromPreset(p).mypaint)
+  return needed.size||native ? (async () => { if(native)await prepareMyPaintKernel();for (const id of needed) await fetchAsset(id) })() : null
 }
 
 /** Bind before a local stroke can be streamed. Read-only restore never needs a

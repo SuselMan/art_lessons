@@ -4103,7 +4103,7 @@ export class PencilEngine implements PencilEngineAPI {
       // A live-end packet can precede the durable operation carrying points
       // omitted from the throttled live stream. Curve's buffered input must
       // stay open until that operation has supplied its final points.
-      if (open && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
+      if (open && !open.scratch.brushNative && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
       live.ended = true
       const owed = Math.max(0, live.paintedTotal - live.committedOffset)
       outstanding += owed
@@ -6255,7 +6255,7 @@ export class PencilEngine implements PencilEngineAPI {
         })
       }
       this._scheduleAirbrush()
-    },1)
+    },session.snapshot.opts.tool==='digitalBrush'&&digitalBrushFromPreset(session.snapshot.opts.pencilType).mypaint?16:1)
   }
   private _captureAuthorTime(session:TimedAuthorSession,now:number):number {
     session.lastTime=Math.max(session.lastTime,Math.floor(now-session.snapshot.dispatchNow))
@@ -6568,7 +6568,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
     this._dabs.timing=spacingBrush?.behavior?.timing
-    this._dabs.inputKnots=!!(spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
+    this._dabs.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
@@ -6848,7 +6848,7 @@ export class PencilEngine implements PencilEngineAPI {
     const dabs = !catchupDone && held && !e.cancelled ? this._dabs.continueStroke(held.x,held.y,held.pressure,held.tiltX,held.tiltY,this._physicalSize,0,0,finalTime) : []
     dabs.push(...this._dabs.endStroke(this._physicalSize, e.speed))
     const endpointBrush=this._strokeTool==='digitalBrush' ? digitalBrushFromPreset(this._strokePreset) : undefined
-    const endInput=endpointBrush?.behavior?.dual?.sampling==='independent' ? this._dabs.peekEndSample(this._physicalSize,e.speed) : undefined
+    const endInput=endpointBrush?.mypaint||endpointBrush?.behavior?.dual?.sampling==='independent' ? this._dabs.peekEndSample(this._physicalSize,e.speed) : undefined
     let strokeEndSample:StrokeOperation['strokeEndSample']
     if(endInput) {
       endInput.t=Math.max(0,finalTime)

@@ -405,7 +405,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if root.tag != 'Preset':
         raise ValueError('Invalid Krita preset root')
     engine = root.get('paintopid')
-    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate'):
+    if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
     # XML bytearray properties have an outer serialization layer. The embedded
@@ -433,6 +433,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if any(value != matches[0][1] for _, value in matches):
             raise ValueError('Ambiguous Krita resource: '+filename)
         return matches[0][1]
+    if engine == 'mypaintbrush':
+        from mypaint_import import mypaint_preset
+        if params.get('CompositeOp','normal') not in ('normal','erase')or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Unsupported MyPaint composite/timing mode')
+        if 'MyPaint/json'not in params:raise ValueError('MyPaint KPP missing JSON')
+        result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase')
+        result['name']=root.get('name')or result['name']
+        result['descriptor']=finalize_identity(result['descriptor'],data)
+        return result
     if engine == 'duplicate':
         from krita_clone import clone_preset
         return clone_preset(data,root,params,name,catalog,external)

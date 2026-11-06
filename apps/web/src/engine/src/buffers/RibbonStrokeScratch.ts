@@ -110,6 +110,7 @@ function clearParkedBuffer(buffer: AccumulationBuffer): void {
 type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
+  brushNative?:{destroy():void}
   brushBehavior?: BrushBehaviorState
   private _brushSecondary?: {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tiles:Map<AccumulationBuffer,AccumulationBuffer>}
   brushSecondary(): {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tile:(source:AccumulationBuffer)=>AccumulationBuffer} {
@@ -668,6 +669,7 @@ export class RibbonStrokeScratch {
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
     if(this._brushSecondary){this._brushSecondary.scratch.destroy();for(const buffer of this._brushSecondary.tiles.values())this.pool.release(buffer);this._brushSecondary=undefined}
+    this.brushNative?.destroy();this.brushNative=undefined
     this.brushBehavior = undefined
     this._materialGesture = null
     this._storageBounds = null
@@ -698,6 +700,7 @@ export class RibbonStrokeScratch {
   forget(): void {
     this._brushSecondary?.scratch.forget()
     this._brushSecondary=undefined
+    this.brushNative?.destroy();this.brushNative=undefined
     this.brushBehavior = undefined
     this._materialGesture = null
     this.trackRunningSource = false

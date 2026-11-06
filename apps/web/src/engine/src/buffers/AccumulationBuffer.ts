@@ -409,6 +409,11 @@ export class AccumulationBuffer {
    *  brought back from main memory uploads dozens of these at once, and on
    *  the iPad reallocating each one next to the storage still being freed was
    *  the spike the tab did not survive. */
+  writePixelsRegion(x:number,y:number,width:number,height:number,pixels:Uint8Array):void {
+    this._invalidateMips()
+    const gl=this.gl;gl.bindTexture(gl.TEXTURE_2D,this._texture);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels)
+  }
+
   writePixels(pixels: Uint8Array): void {
     this._invalidateMips()
     const { gl, width, height } = this
