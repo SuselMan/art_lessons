@@ -1,3 +1,5 @@
+import {isBrushGradient} from './brushGradient.js'
+
 /** Immutable inputs external to the brush preset. Recorded once per gesture;
  * repeat unchanged on live/final chunks so replay never reads receiver UI. */
 export type BrushSourceContext = {
@@ -25,10 +27,11 @@ export function isBrushSourceContext(value:unknown):value is BrushSourceContext 
       ids.add(layer.id)
     }
   }
-  return value.gradient===undefined||typeof value.gradient==='string'&&/^[0-9a-f]{2048}$/.test(value.gradient)
+  return value.gradient===undefined||isBrushGradient(value.gradient)
 }
 
 export function copyBrushSourceContext(source:BrushSourceContext):BrushSourceContext {
+  if(ownedSources.has(source))return source
   if(!isBrushSourceContext(source))throw Error('Invalid brush source context')
   const copy:BrushSourceContext=Object.freeze({version:1,...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient})})
   ownedSources.add(copy);return copy

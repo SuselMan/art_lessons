@@ -211,7 +211,7 @@ export function useToolColor({ engineRef, engineEpoch, socketRef }: ToolColorDep
   const openPanelColorSurface = useCallback(() => setColorFlyoutAt('panel'), [])
 
   return {
-    applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,
+    activeColor,applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,
     colorContent, colorFlyoutAt, openPanelColorSurface, railWellRef, panelWellRef, closeColorFlyout,
     openRailColorSurface, expandColorField,
   }

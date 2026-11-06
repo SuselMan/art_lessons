@@ -61,6 +61,7 @@ export interface BrushTip {
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** Straight RGB planes paired with mask alpha; one tuple per image-pipe frame. */
   color?: { planes: [AssetId, AssetId, AssetId]; frames?: [AssetId, AssetId, AssetId][] }
+    | {gradient:{gray:AssetId;grayFrames?:AssetId[]}}
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -84,6 +85,32 @@ export interface BrushTip {
  *  brushDabRandom seeded by the dab itself (see brushDabSeed) — so the teacher's
  *  splatter lands on the student's screen drop for drop. None of it is
  *  recorded: the dab is, and the stamps are a pure function of it. */
+export interface BrushForegroundRate {rate:number;dynamics?:BrushDynamic[]}
+/** A gradient variant omits the outer rate, so older validators reject it. */
+export type BrushForeground=BrushForegroundRate|{gradient:BrushForegroundRate & {value:number;positionDynamics?:BrushDynamic[]}}
+export function brushForegroundRate(foreground:BrushForeground|undefined):BrushForegroundRate|undefined {
+ return foreground && 'gradient' in foreground ? foreground.gradient : foreground
+}
+export function brushUsesGradient(brush:BrushDescriptor):boolean {
+ return !!brush.tip.color && 'gradient' in brush.tip.color || !!brush.mixer?.foreground && 'gradient' in brush.mixer.foreground
+}
+export function brushTipColorPlanes(tip:BrushTip,index=0):readonly [AssetId,AssetId,AssetId]|undefined {
+ const color=tip.color
+ if(!color)return undefined
+ if('gradient' in color){const gray=color.gradient.grayFrames?.[index] ?? color.gradient.gray;return[gray,gray,gray]}
+ return color.frames?.[index] ?? color.planes
+}
+function isBrushForeground(value:unknown):boolean {
+ if(!record(value))return false
+ const gradient='gradient' in value
+ if(gradient && (Object.keys(value).length!==1 || !record(value.gradient)))return false
+ const rate=gradient ? value.gradient : value
+ if(!record(rate)||!numberIn(rate.rate,0,1))return false
+ if(Object.keys(rate).some(key=>!(gradient ? ['rate','dynamics','value','positionDynamics'] : ['rate','dynamics']).includes(key)))return false
+ if(rate.dynamics!==undefined&&!isBrushBehavior({version:2,modulations:{flow:rate.dynamics}}))return false
+ return !gradient || numberIn(rate.value,0,1) && (rate.positionDynamics===undefined||isBrushBehavior({version:2,modulations:{flow:rate.positionDynamics}}))
+}
+
 export interface BrushScatter {
   /** Stamps per dab. */
   count: number
@@ -274,7 +301,7 @@ export interface BrushDescriptor {
     /** Source-over foreground added to sampled canvas before masked transfer.
      * Rate and its input responses multiply effective dab opacity once here;
      * transfer independently applies pickup and effective opacity. No reservoir. */
-    foreground?: { rate: number; dynamics?: BrushDynamic[] }
+    foreground?: BrushForeground
     /** LIGHTNESSMAP stores unshaded colour and accumulated height per tile. */
     paintThickness?: {value:number;mode:'overlay'|'overwrite';dynamics?:BrushDynamic[]}
     /** Multiplicative input responses for the pickup/transfer amount. */
@@ -454,10 +481,19 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(d.tip.color !== undefined) {
       const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
       const tuple=(v:unknown):v is AssetId[]=>Array.isArray(v)&&v.length===3&&v.every(ref)
-      if(d.model!=='mixer'||(d.mixer as {algorithm?:string}|undefined)?.algorithm!=='krita-stamp'||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined
-        ||!record(color)||Object.keys(color).some(k=>!['planes','frames'].includes(k))||!tuple(color.planes)
-        ||(d.tip.animation ? !Array.isArray(color.frames)||color.frames.length!==frames.length||!color.frames.every(tuple)||JSON.stringify(color.frames[0])!==JSON.stringify(color.planes) : color.frames!==undefined))return false
-      const ids=[...frames,...((color.frames ?? [color.planes]) as unknown[][]).flat()]
+      if(d.model!=='mixer'||(d.mixer as {algorithm?:string}|undefined)?.algorithm!=='krita-stamp'||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined||!record(color))return false
+      let planes:unknown[]
+      if('gradient' in color){
+        const g=color.gradient
+        if(Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
+          ||(d.tip.animation ? !Array.isArray(g.grayFrames)||g.grayFrames.length!==frames.length||!g.grayFrames.every(ref)||g.grayFrames[0]!==g.gray : g.grayFrames!==undefined))return false
+        planes=Array.isArray(g.grayFrames)?g.grayFrames:[g.gray]
+      }else {
+        if(Object.keys(color).some(k=>!['planes','frames'].includes(k))||!tuple(color.planes)
+          ||(d.tip.animation ? !Array.isArray(color.frames)||color.frames.length!==frames.length||!color.frames.every(tuple)||JSON.stringify(color.frames[0])!==JSON.stringify(color.planes) : color.frames!==undefined))return false
+        planes=((color.frames ?? [color.planes]) as unknown[][]).flat()
+      }
+      const ids=[...frames,...planes]
       if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false
     }
     if (d.tip.material !== undefined) {
@@ -520,12 +556,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || !isBrushCanvasSource(d.mixer.source) || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))
-      || (d.mixer.foreground !== undefined && (!record(d.mixer.foreground) || !isBrushCanvasSource(d.mixer.source) || !numberIn(d.mixer.foreground.rate,0,1)
-        || (d.mixer.foreground.dynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.foreground.dynamics } }))))
+      || (d.mixer.foreground !== undefined && (!isBrushCanvasSource(d.mixer.source) || !isBrushForeground(d.mixer.foreground)))
       || (d.mixer.pickupDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.pickupDynamics } })))) return false
     // Canvas feedback has no carried reservoir or wet charge. Foreground is
     // opt-in only through its independent pre-transfer composition contract.
     if (isBrushCanvasSource(d.mixer?.source) && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
+    if(d.tip.color!==undefined&&record(d.mixer?.foreground)&&'gradient' in d.mixer.foreground)return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
     if(d.mixer?.paintThickness!==undefined) {
       const t=d.mixer.paintThickness
@@ -551,8 +587,8 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     visited.add(value)
     add(value.tip.mask)
     for(const id of value.tip.animation?.frames ?? [])add(id)
-    for(const id of value.tip.color?.planes ?? [])add(id)
-    for(const frame of value.tip.color?.frames ?? [])for(const id of frame)add(id)
+    if(value.tip.color&&'gradient' in value.tip.color){add(value.tip.color.gradient.gray);for(const id of value.tip.color.gradient.grayFrames??[])add(id)}
+    else {for(const id of value.tip.color?.planes??[])add(id);for(const frame of value.tip.color?.frames??[])for(const id of frame)add(id)}
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id)
@@ -571,7 +607,7 @@ function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
     ...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
     ...(v?.rotation?.composition?.additive??[]),...(v?.rotation?.composition?.scaling??[]),
     ...groups.flatMap(g=>Object.values(g??{}).flat()),
-    ...(b.mixer?.sampling?.radiusDynamics??[]),...(b.mixer?.foreground?.dynamics??[]),...(b.mixer?.pickupDynamics??[]),...(b.mixer?.paintThickness?.dynamics??[]),
+    ...(b.mixer?.sampling?.radiusDynamics??[]),...(brushForegroundRate(b.mixer?.foreground)?.dynamics??[]),...(b.mixer?.foreground && 'gradient' in b.mixer.foreground ? b.mixer.foreground.gradient.positionDynamics??[] : []),...(b.mixer?.pickupDynamics??[]),...(b.mixer?.paintThickness?.dynamics??[]),
   ]
 }
 

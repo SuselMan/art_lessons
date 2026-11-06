@@ -70,3 +70,12 @@ it('requires recorded merged sources and keeps them stable across preview clones
  expect(()=>assertSameBrushExecutionContext(context,brushExecutionContext(undefined,source))).toThrow('sources changed')
  expect(()=>assertSameBrushExecutionContext(context,undefined)).toThrow('sources changed')
 })
+
+it('requires a gesture-owned palette for gradient foregrounds',()=>{
+ const brush=structuredClone(digitalBrushFromPreset('hard-round'))
+ brush.model='mixer';brush.mixer={source:'previousCanvas',load:0,initialLoad:0,pickup:1,strength:1,foreground:{gradient:{rate:1,value:1}}}
+ expect(()=>assertBrushExecutionContext(brush)).toThrow('gradient')
+ const context=brushExecutionContext(undefined,{version:1,gradient:'f'.repeat(2048)})
+ expect(()=>assertBrushExecutionContext(brush,context)).not.toThrow()
+ expect(()=>assertSameBrushExecutionContext(context,brushExecutionContext(undefined,{version:1,gradient:'0'.repeat(2048)}))).toThrow('sources changed')
+})

@@ -530,15 +530,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
-        material_gray=[]; stamp_images=[]
+        material_gray=[]; gradient_gray=[];stamp_images=[]
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
             if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
-            if application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames']):
+            if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge' and not eraser):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
-                material_gray=[gray for gray,alpha in planes]
+                if application==3:gradient_gray=[gray for gray,alpha in planes]
+                else:material_gray=[gray for gray,alpha in planes]
                 frames=[alpha for gray,alpha in planes]
             elif stamp_images:
                 frames=[frame.getchannel('A') for frame in stamp_images]
@@ -554,22 +555,23 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
-            if pipe['coloured'] and application!=0 and not material_gray and not stamp_images:
+            if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
             if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[image.convert('RGBA')]
-            if application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active:
+            if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge' and not eraser):
                 gray,mask=lightness_planes(image,definition)
-                material_gray=[gray]
+                if application==3:gradient_gray=[gray]
+                else:material_gray=[gray]
             elif stamp_images:
                 mask=stamp_images[0].getchannel('A')
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
-            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not stamp_images:
+            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
                 sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:
                     d['tip']['imageSampling']=sampling
@@ -589,6 +591,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['color']={'planes':channels[0]}
             if len(channels)>1:d['tip']['color']['frames']=channels
             notes.append(compatibility('colorSmudgeStamp','Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.'))
+        elif gradient_gray:
+            gray_assets=[tip_asset(gray,catalog,warnings) for gray in gradient_gray]
+            if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):raise ValueError('Gradient/alpha plane bounds mismatch')
+            d['tip']['color']={'gradient':{'gray':gray_assets[0][0]}}
+            if len(gray_assets)>1:d['tip']['color']['gradient']['grayFrames']=[asset for asset,bounds in gray_assets]
+            notes.append(compatibility('gradientTip','Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))
         elif material_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
@@ -876,6 +884,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             aid=catalog.asset(mask,warnings,grain=True)
             d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
             notes.append(compatibility('textureApplication','Unsupported native texturing mode '+str(texture_mode)+'; previous grain approximation retained.','unsupported'))
+    gradient_decoded=False
     if engine == 'colorsmudge' and not eraser:
         # Krita's checkable rate options default unchecked. A disabled colour
         # rate contributes no foreground paint; disabled smudge means full pickup.
@@ -928,7 +937,18 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 foreground={'rate':color_rate if modern else clamp(max(1-raw_smudge_rate,.2)*color_rate)}
                 controls=size_like_controls(params,'ColorRate',notes,allow_time=timed_input)
                 if controls: foreground['dynamics']=controls
+                if enabled(params.get('PressureGradient')) and 'color' not in d['tip']:
+                    position=numeric(params.get('GradientValue'),1)
+                    if not 0<=position<=1:raise ValueError('Native gradient position outside0..1')
+                    foreground.update(value=position)
+                    position_controls=size_like_controls(params,'Gradient',notes,allow_time=timed_input)
+                    if position_controls:foreground['positionDynamics']=position_controls
+                    foreground={'gradient':foreground}
+                    notes.append(compatibility('foregroundGradient','Gradient position and alpha use a gesture-captured256-sample canvas resource before HSV; default Grafetto resource is foreground-to-white, custom native selection is external to KPP.'))
                 d['mixer']['foreground']=foreground
+            if enabled(params.get('PressureGradient')):
+                gradient_decoded=True
+                if 'color' in d['tip']:notes.append(compatibility('foregroundGradient','Native RGB stamp pigment does not use the foreground paintColor gradient.','supported'))
             if numeric(params.get('SmudgeRateMode'),0)==1:
                 radius=numeric(params.get('SmudgeRadiusValue'),3)
                 if numeric(params.get('SmudgeRadiusVersion'),1)<2: radius/=100
@@ -952,7 +972,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and d.get('mixer',{}).get('paintThickness')) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1062,6 +1082,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d.get('mixer',{}).get('algorithm') or d.get('mixer',{}).get('sampling',{}).get('mode')=='adaptiveMean': d['version']=max(d['version'],36)
     if d.get('mixer',{}).get('paintThickness'): d['version']=max(d['version'],37)
     if d.get('mixer',{}).get('source')=='projectionCanvas':d['version']=max(d['version'],38)
+    if 'gradient' in d.get('mixer',{}).get('foreground',{}) or 'gradient' in d['tip'].get('color',{}):d['version']=max(d['version'],39)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

@@ -25,3 +25,9 @@ describe('recorded external brush sources',()=>{
   expect(hasValidBrushSourceContext({...packet(),strokeId:'old_nanoid'})).toBe(false)
  })
 })
+
+it('reuses trusted immutable contexts without cloning their palette per dab batch',()=>{
+ const owned=copyBrushSourceContext({version:1,gradient:'f'.repeat(2048)})
+ expect(copyBrushSourceContext(owned)).toBe(owned)
+ expect(Object.isFrozen(owned)).toBe(true)
+})

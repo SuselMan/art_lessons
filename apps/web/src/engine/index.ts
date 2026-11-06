@@ -5,8 +5,8 @@ import { createCursorHistory, pushCursorHistory, startCursorDirection } from './
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
-import { dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds } from '@grafetto/shared'
-import { BrushPreparation, assertNativeImageAdmission, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds } from '@grafetto/shared'
+import { BrushPreparation, assertNativeImageAdmission, bindBrushGradient,brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -822,6 +822,8 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
+  /** Canvas gradient resource; omitted uses foreground to white at pen-down. */
+  setBrushGradient(lut?:string):void
   // #278/#489: the angle setting of whichever nib the active tool is wearing.
   // angleRadians is always canvas-space (the caller resolves the local
   // viewport's own rotation into this one number, same "engine only ever sees
@@ -1685,6 +1687,7 @@ export class PencilEngine implements PencilEngineAPI {
   // along the way as well as on the final op.
   private _strokeBrushRandom?: BrushRandomSeeds
   private _strokeBrushSource?:BrushSourceContext
+  private _canvasBrushGradient?:string
   private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
@@ -3502,7 +3505,10 @@ export class PencilEngine implements PencilEngineAPI {
   async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     const descriptor = digitalBrushFromPreset(preset)
-    const { resources, capabilities } = brushPreparationPlan(descriptor)
+    const plan=brushPreparationPlan(descriptor),capabilities=plan.capabilities
+    const gradient=descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
+    const resources=bindBrushGradient(plan.resources,gradient)
+    const preparationKey=gradient ? preset+':gradient:'+gradient : preset
     if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
@@ -3525,16 +3531,16 @@ export class PencilEngine implements PencilEngineAPI {
     // Same immutable preset callers share one generation; raw aliases remain
     // separate keys until their full preparation plans are proven equivalent.
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
-    if (this._brushPreparationPreset !== preset) {
+    if (this._brushPreparationPreset !== preparationKey) {
       this._brushPreparationGeneration++
       this._brushPreparation.cancel()
-      this._brushPreparationPreset = preset
+      this._brushPreparationPreset = preparationKey
     }
     const generation = this._brushPreparationGeneration
     const result = await this._brushPreparation.run([...programJobs, ...missing.map(resource => () => {
       if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
       else this._smudge.prepareTexture(wet,resource)
-    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost(),preset)
+    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost(),preparationKey)
     if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.
@@ -3559,6 +3565,10 @@ export class PencilEngine implements PencilEngineAPI {
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+  setBrushGradient(lut?:string):void {
+    if(lut!==undefined&&!isBrushGradient(lut))throw Error('Invalid canvas brush gradient')
+    this._canvasBrushGradient=lut
+  }
 
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
    *  up (same "never mid-stroke" rule as _nibAngleRadians' own field
@@ -6242,7 +6252,9 @@ export class PencilEngine implements PencilEngineAPI {
     const policy=this._opts.tool==='digitalBrush'?digitalBrushFromPreset(this._opts.pencilType).behavior?.strokeInput:undefined
     if(policy && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
-    const brushSource:BrushSourceContext|undefined=brush?.mixer?.source==='projectionCanvas' ? {version:1,projection:this._compositeOrder.map(item=>({...item}))} : undefined
+    const projection=brush?.mixer?.source==='projectionCanvas' ? this._compositeOrder.map(item=>({...item})) : undefined
+    const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
+    const brushSource:BrushSourceContext|undefined=projection||gradient ? copyBrushSourceContext({version:1,...(projection?{projection}:{}),...(gradient?{gradient}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
       cameraAngle:this._authorCameraAngle,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,tiltResponse:this._tiltResponse,

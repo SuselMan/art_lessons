@@ -47,7 +47,6 @@ class LegacyForegroundTests(unittest.TestCase):
 
     def test_strategy_gate_applies_to_pure_and_foreground(self):
         gates=[({'CompositeOp':'multiply'},None),({'SmudgeRateMode':'2'},None)]
-        gates += [({},'<Brush type="png_brush" filename="tip.png" brushApplication="'+str(mode)+'"/>') for mode in [3]]
         for color in ['0','.7']:
             for extra,definition in gates:
                 with self.subTest(color=color,extra=extra,definition=definition):
@@ -114,3 +113,29 @@ class LegacyForegroundTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+class ForegroundGradientTests(unittest.TestCase):
+    brush=LegacyForegroundTests.brush
+    def test_gradient_position_has_its_own_rate_and_dynamics(self):
+        c=self.brush({'PressureGradient':'true','GradientValue':'.8','GradientUseCurve':'true','GradientSensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
+        d=c.brushes[0]['descriptor'];g=d['mixer']['foreground']['gradient']
+        self.assertEqual(d['version'],39)
+        self.assertAlmostEqual(g['rate'],.14)
+        self.assertEqual(g['value'],.8)
+        self.assertTrue(g['positionDynamics'])
+        self.assertNotIn('rate',d['mixer']['foreground'])
+        convert.validate_portable_mixer(d)
+    def test_zero_color_and_rgb_stamp_ignore_foreground_gradient(self):
+        self.assertNotIn('foreground',self.brush({'PressureGradient':'true','ColorRateValue':'0'}).brushes[0]['descriptor']['mixer'])
+        d=self.brush({'PressureGradient':'true'},'<Brush type="png_brush" filename="tip.png" brushApplication="1"/>').brushes[0]['descriptor']
+        self.assertNotIn('gradient',d['mixer']['foreground'])
+
+    def test_gradient_map_retains_gray_alpha_and_uses_stamp_strategy(self):
+        c=self.brush({},'<Brush type="png_brush" filename="tip.png" brushApplication="3" AdjustmentVersion="2"/>')
+        d=c.brushes[0]['descriptor']
+        self.assertEqual(d['version'],39)
+        self.assertEqual(d['mixer']['algorithm'],'krita-stamp')
+        self.assertIn('gradient',d['tip']['color'])
+        self.assertNotIn('material',d['tip'])
+        self.assertNotIn('imageSampling',d['tip'])
+        self.assertIn(d['tip']['color']['gradient']['gray'],c.assets)

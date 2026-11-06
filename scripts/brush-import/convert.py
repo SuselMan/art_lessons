@@ -511,10 +511,17 @@ def validate_portable_mixer(descriptor):
         if 'radiusDynamics' in sampling: validate_portable_dynamics(sampling['radiusDynamics'])
     if 'foreground' in mixer:
         foreground=mixer['foreground']
-        if (not isinstance(foreground,dict) or set(foreground)-{'rate','dynamics'} or mixer.get('source') not in ('previousCanvas','projectionCanvas')
-                or not finite(foreground.get('rate'))):
+        if not isinstance(foreground,dict):raise ValueError('Invalid portable mixer foreground')
+        gradient='gradient' in foreground
+        if gradient:
+            if set(foreground)!={'gradient'} or not isinstance(foreground['gradient'],dict):raise ValueError('Invalid portable foreground gradient')
+            foreground=foreground['gradient']
+        allowed={'rate','dynamics','value','positionDynamics'} if gradient else {'rate','dynamics'}
+        if (set(foreground)-allowed or mixer.get('source') not in ('previousCanvas','projectionCanvas')
+                or not finite(foreground.get('rate')) or gradient and not finite(foreground.get('value'))):
             raise ValueError('Invalid portable mixer foreground')
         if 'dynamics' in foreground: validate_portable_dynamics(foreground['dynamics'])
+        if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
 def validate_portable_profile(descriptor):
@@ -659,14 +666,23 @@ def portable_bundle(path,catalog):
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
             def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
             if (d.get('model')!='mixer' or d.get('mixer',{}).get('algorithm')!='krita-stamp' or tip.get('kind')!='bitmap'
-                    or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict) or set(color)-{'planes','frames'} or not tuple_ids(color.get('planes'))):
-                raise ValueError('Invalid portable RGB material')
-            colors=color.get('frames',[color['planes']])
-            if (('animation' in tip and ('frames' not in color or not isinstance(colors,list) or len(colors)!=len(frames) or colors[0]!=color['planes']))
-                    or ('animation' not in tip and 'frames' in color) or not all(tuple_ids(frame) for frame in colors)):
-                raise ValueError('Invalid portable RGB frames')
-            paired=frames+[aid for frame in colors for aid in frame]
-            if len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable RGB plane sizes differ')
+                    or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict)):
+                raise ValueError('Invalid portable colour material')
+            if 'gradient' in color:
+                g=color['gradient']
+                if set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
+                colors=g.get('grayFrames',[g['gray']])
+                if not isinstance(colors,list) or any(not isinstance(a,str) or a not in ids for a in colors) or ('animation' in tip and ('grayFrames' not in g or len(colors)!=len(frames) or colors[0]!=g['gray'])) or ('animation' not in tip and 'grayFrames' in g):raise ValueError('Invalid portable gradient frames')
+                paired=frames+colors
+            else:
+                if set(color)-{'planes','frames'} or not tuple_ids(color.get('planes')):raise ValueError('Invalid portable RGB material')
+                colors=color.get('frames',[color['planes']])
+                if (('animation' in tip and ('frames' not in color or not isinstance(colors,list) or len(colors)!=len(frames) or colors[0]!=color['planes']))
+                        or ('animation' not in tip and 'frames' in color) or not all(tuple_ids(frame) for frame in colors)):
+                    raise ValueError('Invalid portable RGB frames')
+                paired=frames+[aid for frame in colors for aid in frame]
+            if len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable colour plane sizes differ')
+            if 'gradient' in d.get('mixer',{}).get('foreground',{}):raise ValueError('Image stamp does not use a foreground gradient')
         if 'material' in tip:
             material=tip['material']
             if ((d['model']!='stamp' and not (d['model']=='mixer' and d.get('mixer',{}).get('algorithm')=='krita-mask' and d.get('mixer',{}).get('paintThickness'))) or tip.get('kind')!='bitmap' or not isinstance(material,dict)

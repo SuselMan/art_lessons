@@ -276,3 +276,19 @@ describe('radial curve room resource lifetime', () => {
     expect(readFileSync(storage.path('rooms', 'room'))).toEqual(room)
   })
 })
+
+it('requires the recorded canvas palette for a gradient foreground',async()=>{
+ const {createBrushRandomStrokeId,createBrushSourceNonce,makeBrushGradient}=await import('@grafetto/shared')
+ const {storage}=fixture(),library=empty()
+ library.brushes.push({name:'gradient',source:'authored.kpp',warnings:[],descriptor:{
+  id:'imported-0123456789abcdef01234567',version:39,model:'mixer',category:'paint',tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},
+  paperInteraction:0,spacing:.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],
+  mixer:{source:'previousCanvas',load:0,initialLoad:0,pickup:1,strength:1,foreground:{gradient:{rate:1,value:1}}},
+ }})
+ storage.install('author',library,new Map())
+ const op:import('@grafetto/shared').StrokeOperation={id:'gradient-op',type:'stroke',userId:'author',timestamp:0,layerId:'ink',tool:'digitalBrush',preset:'brush:imported-0123456789abcdef01234567@39',color:[0,0,0],dabs:[],strokeId:'legacy-stroke'}
+ expect(storage.acceptsExecutionInputs('room','author',op)).toBe(false)
+ const source={version:1 as const,gradient:makeBrushGradient([0,0,0,1],[1,1,1,1])},seeds={version:1 as const,sequentialSeed:1,strokeSeed:2}
+ op.brushSource=source;op.brushRandom=seeds;op.strokeId=createBrushRandomStrokeId(createBrushSourceNonce('gradient_nonce',source),seeds)
+ expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
+})

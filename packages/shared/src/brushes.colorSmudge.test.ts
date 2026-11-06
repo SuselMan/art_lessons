@@ -47,3 +47,25 @@ it('admits the explicit merged-canvas source without adding a reservoir',()=>{
  expect(isBrushLibrary(l)).toBe(true)
  m.load=.1;expect(isBrushLibrary(l)).toBe(false)
 })
+
+it('validates a captured foreground gradient without accepting an outer fallback rate',()=>{
+ const l=library(),m=l.brushes[0].descriptor.mixer!
+ m.foreground={gradient:{rate:.6,value:.7}}
+ expect(isBrushLibrary(l)).toBe(true)
+ m.foreground={gradient:{rate:.6,value:2}}
+ expect(isBrushLibrary(l)).toBe(false)
+ const unknown=l as unknown as {brushes:{descriptor:{mixer:{foreground:unknown}}}[]}
+ unknown.brushes[0].descriptor.mixer.foreground={rate:.6,gradient:{rate:.6,value:.7}}
+ expect(isBrushLibrary(l)).toBe(false)
+})
+
+it('requires a gray CAS plane paired with gradient-map alpha',()=>{
+ const l=library(),b=l.brushes[0].descriptor
+ const mask='asset:0000000000000000000000000000000000000000000000000000000000000001' as const
+ const gray='asset:0000000000000000000000000000000000000000000000000000000000000002' as const
+ l.assets=[{id:mask,size:2,file:mask.slice(6)+'.bin'},{id:gray,size:2,file:gray.slice(6)+'.bin'}]
+ b.tip={kind:'bitmap',hardness:1,aspect:1,rotation:'fixed',angle:0,mask,color:{gradient:{gray}}}
+ b.mixer!.algorithm='krita-stamp'
+ expect(isBrushLibrary(l)).toBe(true)
+ l.assets.pop();expect(isBrushLibrary(l)).toBe(false)
+})

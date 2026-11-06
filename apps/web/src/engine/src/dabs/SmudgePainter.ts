@@ -11,7 +11,7 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -33,7 +33,7 @@ import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeas
 
 import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
-import { brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
+import { brushForegroundRate,sampleBrushGradient,brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -48,14 +48,14 @@ import { createProgram, getUniforms } from '../raster/utils'
 
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
-import { colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
+import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
 import { colorSmudgeRates } from '../presets/colorSmudge'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
 type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
-interface WetStamp { projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetStamp { gradientLut?:string;foregroundAlpha?:number; projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -405,7 +405,7 @@ export class SmudgePainter {
     } : target
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
-    const resources = paint?.brush ? brushPreparationResources(paint.brush) : undefined
+    const resources = paint?.brush ? bindBrushGradient(brushPreparationResources(paint.brush),execution?.brushSource?.gradient) : undefined
     if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
     const releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : () => {}
     try {
@@ -475,7 +475,10 @@ export class SmudgePainter {
     // direction and animation. Hash namespaces do not perturb old jitter streams.
     const sourceSeed=brushDabSeed(dab.x,dab.y,dab.pressure)
     const samplingRadius=brush.mixer?.sampling ? clampNum(brush.mixer.sampling.radius*(brush.mixer.sampling.radiusDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x70000+index)),1),0,3) : undefined
-    const foregroundRate=brush.mixer?.foreground ? brush.mixer.foreground.rate*(brush.mixer.foreground.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index)),1) : undefined
+    const foreground=brushForegroundRate(brush.mixer?.foreground)
+    const foregroundRate=foreground ? foreground.rate*(foreground.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index)),1) : undefined
+    const gradient=brush.mixer?.foreground && 'gradient' in brush.mixer.foreground ? brush.mixer.foreground.gradient : undefined
+    const gradientColor=gradient ? sampleBrushGradient(state.behavior.execution!.brushSource!,gradient.value*(gradient.positionDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0xa0000+index)),1)) : undefined
     const thicknessOption=brush.mixer?.paintThickness
     const thickness=thicknessOption ? clampNum(thicknessOption.value*(thicknessOption.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x90000+index)),1),0,1) : undefined
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
@@ -485,9 +488,9 @@ export class SmudgePainter {
       pickup: brushSamplesCanvas(brush) ? paint.pickup : !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
     }
     step.pickup = clampNum(step.pickup*pickupFactor,0,1)
-    for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
+    for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,gradientColor?.color ?? paint.color)) {
       let shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      const wetStamp: WetStamp = {projection,thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
+      const wetStamp: WetStamp = {gradientLut:brush.tip.color&&'gradient' in brush.tip.color ? state.behavior.execution!.brushSource!.gradient : undefined,foregroundAlpha:gradientColor?.alpha,projection,thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
       if (brushSamplesCanvas(brush)) {
         if (this.radiusOf(shaped,paint) < 0.5) continue
         const mean=brush.mixer.sampling
@@ -1022,9 +1025,9 @@ export class SmudgePainter {
     const imageRatio = dual && brush ? Math.max(.01,curveAt(dual.brush.sizeByPressure,dab.pressure)/Math.max(.01,curveAt(brush.sizeByPressure,dab.pressure))*(dual.brush.scatter?.scale ?? 1)) : 1
     const imageChildRx = Math.fround(Math.fround(Math.fround(radius)*Math.fround(wet?.stamp.aspect ?? 1))*imageRatio/(1+(wet?.stamp.edgeSoftness ?? 0)*.15))
     const childImage = dualTip && dual?.brush.tip.imageSampling ? nativeImageResource(dualTip,dual.brush.tip,2*imageChildRx) : undefined
-    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes:wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] : undefined),nativeImage:mainImage,lookup32:brush?.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
+    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes:wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] : undefined),nativeImage:mainImage,lookup32:brush?.tip.profile?.kind==='radialCurve'?true:undefined,gradientMap:wet?.gradientLut?true:undefined,gradientLut:wet?.gradientLut})] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
     const colorPlanes=wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] as const : undefined)
-    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage,brush?.tip.profile?.kind==='radialCurve'?true:undefined,colorPlanes) : paper.texture
+    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage,brush?.tip.profile?.kind==='radialCurve'?true:undefined,colorPlanes,wet?.gradientLut) : paper.texture
     const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true,!!brush.texture.application) : paper.texture
     const dualTexture=dualTip ? this.wetTexture(dualTip,false,false,childImage,dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined) : paper.texture
     const dualGrainTexture=dualGrain ? this.wetTexture(dualGrain.id,true,true) : paper.texture
@@ -1117,6 +1120,7 @@ export class SmudgePainter {
     const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
+    foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1
     const heightAdjustment=brush?.mixer?.paintThickness?.mode==='overwrite' ? 1 : (wet?.step.pickup ?? 1)-.01+(1-((wet?.step.pickup ?? 1)-.01))*thickness
@@ -1229,16 +1233,16 @@ export class SmudgePainter {
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     if(group.some(entry=>entry.nativeImage || entry.lookup32)) assertNativeImageAdmission(group,this.imageDimensionLimit())
     this.wetTextures.protect(group.map(brushTextureResourceKey))
-    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage,resource.lookup32,resource.colorPlanes)
+    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage,resource.lookup32,resource.colorPlanes,resource.gradientLut)
   }
 
   /** Byte-bounded residency; active samplers remain protected across draws. */
-  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true, colorPlanes?:readonly [string,string,string]): WebGLTexture {
-    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32,colorPlanes}), cached = this.wetTextures.get(key)
+  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true, colorPlanes?:readonly [string,string,string],gradientLut?:string): WebGLTexture {
+    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32,colorPlanes,gradientMap:gradientLut?true:undefined,gradientLut}), cached = this.wetTextures.get(key)
     if(cached)return cached
     if(colorPlanes){
       const alpha=importedAssetPixels(id),side=Math.sqrt(alpha.length)
-      const pixels=colorSmudgeTipPixels(alpha,colorPlanes.map(importedAssetPixels))
+      const pixels=gradientLut ? colorSmudgeGradientTipPixels(alpha,importedAssetPixels(colorPlanes[0]),gradientLut) : colorSmudgeTipPixels(alpha,colorPlanes.map(importedAssetPixels))
       const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side})
       this.wetTextures.put(key,entry.texture,entry.bytes)
       return entry.texture

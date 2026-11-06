@@ -1,3 +1,4 @@
+import {brushTipColorPlanes} from '@grafetto/shared'
 import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
 import { brushExecutionContext, assertBrushExecutionContext, assertBrushSourceInputs, type BrushExecutionContext } from './brushExecutionContext'
 import { KritaPerStrokeRandomSource, KritaRandomSource, type KritaRandomSnapshot } from './nativeRandom'
@@ -263,7 +264,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const dualIndex=behavior?.dual ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1) : undefined
   const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
   const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]
-  const colorPlanes=(index===undefined ? undefined : brush.tip.color?.frames?.[index]) ?? brush.tip.color?.planes
+  const colorPlanes=brushTipColorPlanes(brush.tip,index)
   const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
   const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous

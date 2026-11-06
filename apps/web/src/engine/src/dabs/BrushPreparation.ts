@@ -3,12 +3,19 @@ import { proceduralProfileUniforms } from '../raster/brushProcedural'
 import { nativeImageBank, type NativeImageResource } from './NativeImageBank'
 import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import type { BrushDescriptor, BrushTip, BrushTextureId, TipMaskId } from '@grafetto/shared'
+import {brushTipColorPlanes,isBrushGradient,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
-export interface BrushPreparationOptions { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; gradientMap?:true;gradientLut?:string;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+export interface BrushPreparationOptions { gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'>): string => (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'>): string => (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export function bindBrushGradient(resources:readonly BrushPreparationResource[],lut:string|undefined):BrushPreparationResource[] {
+ return resources.map(resource=>{
+  if(!resource.gradientMap)return resource
+  if(!isBrushGradient(lut))throw Error('Gradient tip preparation requires a captured palette')
+  return {...resource,gradientLut:lut}
+ })
+}
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
 export function brushTipSamplerId(tip?: BrushTip): TipMaskId | undefined {
@@ -58,7 +65,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
         }
         return
       }
-      const resource:BrushPreparationResource=colorPlanes ? {painter,id,grain:false,colorPlanes} : {painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
+      const resource:BrushPreparationResource=colorPlanes ? {painter,id,grain:false,colorPlanes,...(tip?.color&&'gradient' in tip.color?{gradientMap:true as const}:{})} : {painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
   }
@@ -83,7 +90,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     const frames=b.tip.animation?.frames ?? (brushTipSamplerId(b.tip) ? [brushTipSamplerId(b.tip)!] : [])
     frames.forEach((id,index)=>{
       const gray=b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray
-      const colorPlanes=painter==='wet' && b.mixer?.paintThickness && gray ? [gray,gray,gray] as const : b.tip.color?.frames?.[index] ?? b.tip.color?.planes
+      const colorPlanes=painter==='wet' && b.mixer?.paintThickness && gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
       add(painter,id,false,false,gray,b.tip,colorPlanes)
     })
     add(painter, b.texture?.id, true,!!b.texture?.application)

@@ -1,4 +1,4 @@
-import { isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
+import { brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
 export interface BrushExecutionContext {
@@ -15,7 +15,7 @@ const requiresContext = new WeakMap<BrushDescriptor, boolean>()
 export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   const known = requiresContext.get(brush)
   if(known !== undefined) return known
-  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'
+  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)
   requiresContext.set(brush, result)
   return result
 }
@@ -24,6 +24,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(brushRequiresRandomContext(brush) && !context?.brushRandom) throw Error('Keyed brush source requires an explicit gesture context')
   if(context?.brushSource!==undefined && !isBrushSourceContext(context.brushSource))throw Error('Invalid brush source context')
   if(brush.mixer?.source==='projectionCanvas' && !context?.brushSource?.projection)throw Error('Merged brush requires recorded projection sources')
+  if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
 }
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {
   const a = previous?.brushRandom, b = incoming?.brushRandom
