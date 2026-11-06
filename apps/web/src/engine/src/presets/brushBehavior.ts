@@ -1,3 +1,4 @@
+import {bristleStamps,type BristleState} from './brushBristle'
 import {sketchStamps,type SketchState} from './brushSketch'
 import { sprayStamps } from './brushSpray'
 import {brushTipColorPlanes} from '@grafetto/shared'
@@ -8,6 +9,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  bristle?:BristleState
   sketch?:SketchState
   execution?: BrushExecutionContext
   /** Mutable source represented only by a cloneable value snapshot. */
@@ -329,6 +331,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  if(brush.bristle){
+    const bristle=state.bristle??={ordinal:0,oldPressure:1,ends:[]}
+    const stamps=bristleStamps(brush,{...dab,angle,size:dab.size*sizeScale},bristle,adjustedColor,state.seed)
+    state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
+    return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
+  }
   if(brush.sketch){
     const sketch=state.sketch??={points:[],cells:new Map(),ordinal:0,color:[...adjustedColor],alpha:1}
     const factor=(key:'width'|'offset'|'probability',salt:number)=>(brush.sketch!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(salt+i)),1)

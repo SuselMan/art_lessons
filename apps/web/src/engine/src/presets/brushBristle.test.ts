@@ -1,0 +1,13 @@
+import {expect,it} from 'vitest'
+import type {BrushDescriptor,Dab}from'@grafetto/shared'
+import {bristleStamps,type BristleState}from'./brushBristle'
+import {beginBrushBehavior,behaviorStampsForDab}from'./brushBehavior'
+import {isBrushBristle}from'../../../../../../packages/shared/src/brushBristle'
+const brush:BrushDescriptor={id:'test',version:45,model:'stamp',category:'paint',tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'stamp',sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],pressureSmoothingPx:0,opacity:1,bristle:{version:1,hairs:[[.2,0,1],[-.2,0,.25]],scale:1,shear:0,random:0,mousePressure:false,threshold:false,connected:true,antialias:true,compositing:false},behavior:{version:2,rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}}
+const dab:Dab={x:0,y:0,size:100,angle:0,aspectRatio:1,pressure:.5,tiltX:0,tiltY:0,opacity:1,t:0}
+const state=():BristleState=>({ordinal:0,oldPressure:1,ends:[]})
+it('drags separate hairs and keeps each mask contact strength',()=>{const s=state();expect(bristleStamps(brush,dab,s,[1,0,0],1)).toEqual([]);const a=bristleStamps(brush,{...dab,y:10},s,[1,0,0],1);expect(a).toHaveLength(2);expect(a[0]).toMatchObject({x:20,y:5,flowScale:1,segmentLength:10});expect(a[1]).toMatchObject({x:-20,flowScale:.25})})
+it('connects transformed endpoints through size changes',()=>{const s=state();bristleStamps(brush,dab,s,[1,0,0],1);bristleStamps(brush,{...dab,y:10},s,[1,0,0],1);const a=bristleStamps(brush,{...dab,y:20,size:50},s,[1,0,0],1);expect(a[0].x).toBe(15);expect(a[0].segmentLength).toBeCloseTo(Math.hypot(10,10))})
+it('pressure threshold lifts shorter hairs',()=>{const b={...brush,bristle:{...brush.bristle!,threshold:true}},s=state();bristleStamps(b,dab,s,[1,0,0],1);expect(bristleStamps(b,{...dab,y:10},s,[1,0,0],1)).toHaveLength(1)})
+it('replay and structured-cloned savepoints preserve population and jitter',()=>{const b={...brush,bristle:{...brush.bristle!,random:7}},s=beginBrushBehavior(dab);behaviorStampsForDab(b,dab,s,[1,0,0]);behaviorStampsForDab(b,{...dab,y:10},s,[1,0,0]);const copy=structuredClone(s);expect(behaviorStampsForDab(b,{...dab,y:20},s,[1,0,0])).toEqual(behaviorStampsForDab(b,{...dab,y:20},copy,[1,0,0]))})
+it('rejects unknown fields, oversized populations and unsupported raster mode',()=>{expect(isBrushBristle(brush.bristle)).toBe(true);expect(isBrushBristle({...brush.bristle,ink:true})).toBe(false);expect(isBrushBristle({...brush.bristle,hairs:Array(4097).fill([0,0,1])})).toBe(false);expect(isBrushBristle({...brush.bristle,antialias:false,compositing:false})).toBe(false)})

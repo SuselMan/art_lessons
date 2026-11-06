@@ -27,11 +27,11 @@ export class SketchLineBatch{
   this.program??=createProgram(gl,VERT,FRAG);this.composite??=createProgram(gl,COPY_VERT,COPY_FRAG);this.buffer??=gl.createBuffer()!
   if(!this.quad){this.quad=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,this.quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)}
  }
- paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,aa:boolean):void{
+ paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,aa:boolean,additive=false):void{
   this.prepare();const gl=this.gl,program=this.program!,composite=this.composite!
   for(let first=0;first<stamps.length;){
    let end=first+1;while(end<stamps.length&&stamps[end].group===stamps[first].group)end++
-   temporary.clear();temporary.beginDraw();gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!)
+   temporary.clear();temporary.beginDraw();if(additive)gl.blendFunc(gl.ONE,gl.ONE);gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!)
    gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),coverage.width,coverage.height);gl.uniform1f(gl.getUniformLocation(program,'u_aa'),aa?1:0)
    const attributes=[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_extent',2,8]] as const
    const locations=attributes.map(([name,size,offset])=>{const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset*4);return loc})
