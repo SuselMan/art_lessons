@@ -110,7 +110,6 @@ class RotationImportTests(unittest.TestCase):
 
     def test_other_sensors_combinations_disabled_curve_and_outside_strength_stay_unsupported(self):
         cases=[
-               ('1','<params id="ascension"/>',{'RotationUseCurve':'false'}),
                ('2','<params id="ascension"/>',{})]
         for strength,sensor,extra in cases:
             with self.subTest(sensor=sensor,extra=extra),tempfile.TemporaryDirectory() as tmp:
@@ -121,6 +120,14 @@ class RotationImportTests(unittest.TestCase):
             b=self.brush(tmp,extra={'PressureRotation':'false'})
             self.assertNotIn('angle',b['descriptor']['behavior'].get('dynamics',{}))
             self.assertFalse(any('PressureRotation' in x['detail'] for x in b['compatibility']))
+
+    def test_checked_rotation_without_curve_keeps_native_half_turn(self):
+        for strength in ['0','.5','1']:
+            with tempfile.TemporaryDirectory()as tmp:
+                b=self.brush(tmp,strength,'<params id="ascension"/>',{'RotationUseCurve':'false'})
+                self.assertAlmostEqual(math.cos(b['descriptor']['tip']['angle']),-1)
+                self.assertAlmostEqual(math.sin(b['descriptor']['tip']['angle']),0)
+                self.assertFalse(any(x['feature']=='activeDynamics'and'PressureRotation'in x['detail']for x in b['compatibility']))
 
     def test_scaling_modes_and_additive_tilt_direction(self):
         sensor='<params id="sensorslist"><ChildSensor id="ascension"/><ChildSensor id="pressure"/><ChildSensor id="speed"/></params>'

@@ -793,6 +793,13 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             ratio_decoded=True
             notes.append(compatibility('ratioDynamics','Native local-Y ratio and independent sensors retained; Grafetto minimum roundness .02 and maximum aspect20 approximate near-zero native ratios.'))
     rotation_decoded=False
+    rotation_static=False
+    if enabled(params.get('PressureRotation'))and not enabled(params.get('RotationUseCurve','true')):
+        # Native checked Rotation with UseCurve=false has no sensor components:
+        # rotationLikeValue returns zero, apply maps it to a half-turn.
+        d['tip']['angle']=math.remainder(d['tip']['angle']-math.pi,2*math.pi)
+        rotation_decoded=True;rotation_static=True
+        notes.append(compatibility('RotationConstant','Checked Rotation with a disabled sensor curve retains its native constant half-turn; saved sensor data is inactive.','supported'))
     if enabled(params.get('PressureRotation')) and enabled(params.get('RotationUseCurve','true')):
         rotation_sensor=xml(params.get('RotationSensor','<params id="pressure"/>'))
         rotation_sensors=list(rotation_sensor.findall('ChildSensor')) if rotation_sensor.get('id')=='sensorslist' else [rotation_sensor]
@@ -1159,6 +1166,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if has_combination(d):d['version']=max(d['version'],57)
     if behavior.get('mirror'):d['version']=max(d['version'],58)
     if behavior.get('rotation',{}).get('composition',{}).get('scalingMode'):d['version']=max(d['version'],59)
+    if rotation_static:d['version']=max(d['version'],60)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:
