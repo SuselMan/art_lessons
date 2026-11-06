@@ -15,6 +15,8 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('accepts an actual PNG preview with byte-decoded dimensions',()=>{const data=library();data.brushes[0].preview='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';expect(isBrushLibrary(data)).toBe(true)})
+
   it('admits author input on the primary component and rejects unsupported independent child input', () => {
     const data=library(), parent=data.brushes[0].descriptor, child=structuredClone(parent)
     const strokeInput={version:1,initialDirection:'cursorHistory'} as const
