@@ -317,3 +317,23 @@ it('requires captured velocity for primary and independent child packets and end
   expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
  }
 })
+
+
+it('requires a captured palette for genuine Pixel Gradient97 raw packed empty and endpoint packets',async()=>{
+ const {isBrushLibrary,makeBrushGradient,packDabs,createBrushSourceNonce,createBrushRandomStrokeId}=await import('@grafetto/shared')
+ const {storage}=fixture(),library=empty(),alpha=Buffer.from([255,128,64,0,32,192,255,16,64,255,128,0,255,32,192,64]),gray=Buffer.from([0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255])
+ const ah=createHash('sha256').update(alpha).digest('hex'),gh=createHash('sha256').update(gray).digest('hex')
+ const descriptor:import('@grafetto/shared').BrushDescriptor={id:'imported-979797979797979797979797',version:97,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:`asset:${ah}`,color:{gradient:{gray:`asset:${gh}`}},hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2,rendering:{accumulation:'directOver',mode:'buildUp',blendMode:'normal',wetEdges:0,burntEdges:0,burntEdgesMode:'normal'}}}
+ library.assets.push({id:`asset:${ah}`,size:4,file:ah+'.bin'},{id:`asset:${gh}`,size:4,file:gh+'.bin'});library.brushes.push({name:'Authored Pixel Gradient97',source:'authored97.kpp',warnings:[],descriptor})
+ expect(isBrushLibrary(library)).toBe(true)
+ storage.install('author97',library,new Map([[ah,alpha],[gh,gray]]));const preset='brush:'+descriptor.id+'@97';storage.pin('room97','author97',[preset])
+ expect(storage.asset(ah,4)).toEqual(alpha);expect(storage.asset(gh,4)).toEqual(gray)
+ const dab:import('@grafetto/shared').Dab={x:1,y:2,size:10,pressure:.5,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:0}
+ const source={version:1 as const,gradient:makeBrushGradient([1,0,0,.25],[0,1,1,1])},seeds={version:1 as const,sequentialSeed:1,strokeSeed:2}
+ const base:import('@grafetto/shared').StrokeOperation={id:'pixel-gradient97-op',type:'stroke',userId:'author97',timestamp:0,layerId:'ink',tool:'digitalBrush',preset,color:[0,0,0],strokeId:'legacy-stroke'}
+ for(const shape of [{dabs:[dab]},{dabsPacked:packDabs([dab])},{dabs:[]},{dabs:[],strokeEndSample:{...dab,baseSize:10}}]){
+  const missing={...base,...shape};expect(storage.acceptsExecutionInputs('room97','author97',missing)).toBe(false)
+  const captured={...missing,brushSource:source,brushRandom:seeds,strokeId:createBrushRandomStrokeId(createBrushSourceNonce('pixel97_nonce',source),seeds)}
+  expect(storage.acceptsExecutionInputs('room97','author97',captured)).toBe(true)
+ }
+})

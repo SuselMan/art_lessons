@@ -690,7 +690,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if application==0 and adjustment_active:
                 pipe['frames']=[alpha_mask_image(frame,definition) if frame.mode=='RGBA' else frame for frame in pipe['frames']]
             if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or all(frame.mode=='RGBA'for frame in pipe['frames'])):stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
-            if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge'):
+            if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine in('paintbrush','colorsmudge')):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 if application==3:gradient_gray=[gray for gray,alpha in planes]
                 else:material_gray=[gray for gray,alpha in planes]
@@ -734,7 +734,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if application==0 and adjustment_active:
                 image=alpha_mask_image(image,definition)
             if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
-            if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge'):
+            if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine in('paintbrush','colorsmudge')):
                 gray,mask=lightness_planes(image,definition)
                 if application==3:gradient_gray=[gray]
                 else:material_gray=[gray]
@@ -767,6 +767,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in gradient_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):raise ValueError('Gradient/alpha plane bounds mismatch')
             d['tip']['color']={'gradient':{'gray':gray_assets[0][0]}}
+            if engine=='paintbrush' and (len(gray_assets)!=1 or catalog.assets[d['tip']['mask']]['size']>512):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
             if len(gray_assets)>1:d['tip']['color']['gradient']['grayFrames']=[asset for asset,bounds in gray_assets]
             notes.append(compatibility('gradientTip','Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))
         elif material_gray:
@@ -1406,6 +1407,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn'):d['version']=max(d['version'],75)
     if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
+    if engine=='paintbrush' and 'gradient'in d['tip'].get('color',{}):
+        if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
+        d['version']=max(d['version'],97)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)

@@ -1,7 +1,7 @@
 import {BristleSaturationResource} from './BristleSaturationResource'
 import {usesPixelOriginalRgba} from '../presets/pixelOriginalRgba'
 import type{SprayScratchLease}from'./SprayRequestPainter'
-import{colorSmudgeTipPixels}from'../presets/colorSmudgeTip'
+import{colorSmudgeTipPixels,colorSmudgeGradientTipPixels}from'../presets/colorSmudgeTip'
 import type {BristleInkSettings} from '../presets/brushBristleInk'
 import type { BrushExecutionContext } from '../presets/brushExecutionContext'
 import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
@@ -9,7 +9,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -51,15 +51,17 @@ export class BrushPainter {
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
     this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase) => {
-      const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut) => {
+      const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
+      const resources = gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut)
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const release=this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
       if(!usesPixelOriginalRgba(brush)&&!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
+      if(gradientLut){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Pixel gradient resource was not prepared');return release}catch(error){release();throw error}}
       // Peer/cold use the same admitted cache/lease; selection is not readiness.
       try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
       catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
-    },(id,planes,bounds)=>this.preparedImage(id,planes,bounds),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle))
+    },(id,planes,bounds,gradientLut)=>this.preparedImage(id,planes,bounds,gradientLut),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle))
   }
   initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {
@@ -112,22 +114,31 @@ export class BrushPainter {
     this.textures.protect(group.map(brushTextureResourceKey))
     if(resource.bristleSaturation){this.saturationResources.prepare(resource.bristleSaturation,group.map(brushTextureResourceKey));return}
     if(resource.colorPlanes){
-      if(resource.gradientMap)throw Error('Spray image requires original RGB planes')
+      if(resource.gradientMap&&!resource.gradientLut)throw Error('Gradient image requires a captured palette')
       const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
-      const alpha=importedAssetPixels(resource.id),side=Math.sqrt(alpha.length),pixels=colorSmudgeTipPixels(alpha,resource.colorPlanes.map(importedAssetPixels))
+      const alpha=importedAssetPixels(resource.id),side=Math.sqrt(alpha.length)
+      if(resource.gradientMap&&side>512)throw Error('Pixel gradient side exceeds512')
+      const pixels=resource.gradientMap ? colorSmudgeGradientTipPixels(alpha,importedAssetPixels(resource.colorPlanes[0]),resource.gradientLut!) : colorSmudgeTipPixels(alpha,resource.colorPlanes.map(importedAssetPixels))
       const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side});this.textures.put(key,entry.texture,entry.bytes)
     }else if(resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
     else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage,resource.lookup32)
   }
 
+  /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
+  preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
+    if(!usesPixelOriginalRgba(brush)||!brush.tip.color||!('gradient'in brush.tip.color))return
+    const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+    const release=this.textures.lease(brushTextureLeasePlan(resources,'stamp'))
+    try{for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}finally{release()}
+  }
   private preparedSprayMask(id:TipMaskId,bounds?:BrushDescriptor["tip"]["maskBounds"]){
     const key=brushTextureResourceKey({id,grain:false}),texture=this.textures.get(key),epoch=this.colorEpoch
     if(!texture)throw Error('Spray mask was not prepared')
     const side=Math.sqrt(importedAssetPixels(id).length)
     return{texture,width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray mask owner was retired')}}
   }
-  private preparedImage(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushDescriptor["tip"]["maskBounds"]){
-    const key=brushTextureResourceKey({id,grain:false,colorPlanes:planes}),texture=this.textures.get(key),epoch=this.colorEpoch
+  private preparedImage(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushDescriptor["tip"]["maskBounds"],gradientLut?:string){
+    const key=brushTextureResourceKey({id,grain:false,colorPlanes:planes,...(gradientLut?{gradientMap:true as const,gradientLut}:{})}),texture=this.textures.get(key),epoch=this.colorEpoch
     if(!texture)throw Error('Spray RGBA image was not prepared')
     const side=Math.sqrt(importedAssetPixels(id).length)
     return{texture,width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray RGBA image owner was retired')}}

@@ -602,7 +602,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         }
       }
     }
-    const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&Array.isArray(d.tip.color.planes)
+    const pixelGradient=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&record(d.tip.color.gradient)
+    if(pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&(Array.isArray(d.tip.color.planes)||pixelGradient)
     if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.colorAdjustment!==undefined||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
     if(d.tip.color !== undefined) {
       const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
@@ -611,7 +613,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       let planes:unknown[]
       if('gradient' in color){
         const g=color.gradient
-        if(sprayImage||pixelImage||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
+        if(sprayImage||pixelImage&&!pixelGradient||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
           ||(d.tip.animation ? !Array.isArray(g.grayFrames)||g.grayFrames.length!==frames.length||!g.grayFrames.every(ref)||g.grayFrames[0]!==g.gray : g.grayFrames!==undefined))return false
         planes=Array.isArray(g.grayFrames)?g.grayFrames:[g.gray]
       }else {
@@ -680,6 +682,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
         if(secondary.filter?.kind==='invert')return false
+        if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false

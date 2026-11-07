@@ -7894,6 +7894,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects()
+    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()

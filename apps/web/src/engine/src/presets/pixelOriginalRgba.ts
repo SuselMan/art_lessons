@@ -3,13 +3,15 @@ import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
  * This module captures geometry only; it never packs, uploads or caches pixels. */
 export function usesPixelOriginalRgba(brush:BrushDescriptor):boolean {
- return brush.model==='stamp'&&!brush.spray&&!!brush.tip.color&&'planes' in brush.tip.color
+ return brush.model==='stamp'&&!brush.spray&&!!brush.tip.color&&('planes' in brush.tip.color||'gradient' in brush.tip.color)
 }
 export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
  if(!usesPixelOriginalRgba(brush))throw Error('Expected Pixel original RGBA stamp')
  const color=brush.tip.color
- if(!color||!('planes' in color))throw Error('Expected original RGB planes')
- if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
+ if(!color)throw Error('Expected original RGB planes')
+ if('gradient' in color){
+  if(brush.version<97||brush.tip.animation||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal')throw Error('Unsupported Pixel gradient map combination')
+ }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
  if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
  if(b?.colorAdjustment||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')

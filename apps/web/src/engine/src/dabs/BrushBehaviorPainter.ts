@@ -145,10 +145,10 @@ export class BrushBehaviorPainter {
   private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
-  private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void
-  private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
+  private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void
+  private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string)=>PreparedBrushImageView
   private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource) { this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string)=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource) { this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -319,18 +319,21 @@ export class BrushBehaviorPainter {
 
     if (!dabs.length && !scratch.brushBehavior && !scratch.brushNative)
       return
-    const releaseTextures = this.leaseTextures(brush,effectiveErase)
+    const gradientLut=originalRgba&&brush.tip.color&&'gradient' in brush.tip.color?execution?.brushSource?.gradient:undefined
+    if(originalRgba&&brush.tip.color&&'gradient' in brush.tip.color&&!gradientLut)throw Error('Pixel gradient map requires a captured palette')
+    const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(gradientLut?{gradientMap:true as const,gradientLut}:{})})
+    const releaseTextures = this.leaseTextures(brush,effectiveErase,gradientLut)
     try {
     // The common prepared callback/lease is installed by Spray V2. No lazy
     // RGB upload, alternate cache or foreground fallback is permitted here.
     const originalViews=originalFrames?new Map<string,PixelOriginalRgbaView>():undefined
     if(originalFrames&&originalViews)for(const [frameIndex,frame] of originalFrames.entries()){
-      const key=(gihFrames?frameIndex+':':'')+brushTextureResourceKey({id:frame.id,grain:false,colorPlanes:frame.planes})
-      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds)))
+      const key=(gihFrames?frameIndex+':':'')+brushTextureResourceKey(imageResource(frame.id,frame.planes))
+      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds,gradientLut)))
     }
     const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined,frameIndex?:number):PixelOriginalRgbaView=>{
       if(!id||!planes)throw Error('Pixel original RGBA frame identity is missing')
-      const view=originalViews?.get((gihFrames?frameIndex+':':'')+brushTextureResourceKey({id,grain:false,colorPlanes:planes}))
+      const view=originalViews?.get((gihFrames?frameIndex+':':'')+brushTextureResourceKey(imageResource(id,planes)))
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
@@ -478,7 +481,7 @@ export class BrushBehaviorPainter {
       if(originalRgba&&tip&&!colorPlanes)throw Error('Missing protected RGB frame')
       this.protectTextures([
       'g:cloud','g:grit',
-      ...(tip&&originalRgba ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes})] : tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
+      ...(tip&&originalRgba ? [brushTextureResourceKey(imageResource(tip,colorPlanes))] : tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
       ...(dual && (!secondary?.tip.imageSampling || dualImage) ? [brushTextureResourceKey({...brushTipResource(dual,dualGray,secondary?.tip),nativeImage:dualImage})] : []),
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),

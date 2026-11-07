@@ -788,14 +788,16 @@ def portable_bundle(path,catalog):
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
             def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
             spray_image=d.get('model')=='stamp'and d.get('version',0)>=76 and d.get('spray',{}).get('particle',{}).get('image')is True
-            pixel_image=d.get('model')=='stamp'and 'spray'not in d and d.get('version',0)>=84 and isinstance(color,dict)and 'planes'in color
+            pixel_gradient=d.get('model')=='stamp'and 'spray'not in d and isinstance(color,dict)and 'gradient'in color
+            if pixel_gradient and(depth or d['version']<97 or 'animation'in tip or asset_sizes.get(tip.get('mask'),100000)>512 or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid portable Pixel gradient combination')
+            pixel_image=d.get('model')=='stamp'and 'spray'not in d and d.get('version',0)>=84 and isinstance(color,dict)and ('planes'in color or pixel_gradient)
             if pixel_image and(any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material'))or any(k in behavior for k in('dual','colorAdjustment','edgeBleed'))or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness'))):raise ValueError('Invalid portable Pixel original RGBA combination')
             if (not(d.get('model')=='mixer'and d.get('mixer',{}).get('algorithm')=='krita-stamp'or spray_image or pixel_image) or tip.get('kind')!='bitmap'
                     or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict)):
                 raise ValueError('Invalid portable colour material')
             if 'gradient' in color:
                 g=color['gradient']
-                if spray_image or pixel_image or set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
+                if spray_image or pixel_image and not pixel_gradient or set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
                 colors=g.get('grayFrames',[g['gray']])
                 if not isinstance(colors,list) or any(not isinstance(a,str) or a not in ids for a in colors) or ('animation' in tip and ('grayFrames' not in g or len(colors)!=len(frames) or colors[0]!=g['gray'])) or ('animation' not in tip and 'grayFrames' in g):raise ValueError('Invalid portable gradient frames')
                 paired=frames+colors
