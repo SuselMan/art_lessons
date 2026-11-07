@@ -297,7 +297,11 @@ def lightness_planes(image, definition):
         auto_midpoint=enabled(definition.get('AutoAdjustMidPoint')) if definition.get('AutoAdjustMidPoint') is not None else None)
 
 
-def raster(data, name, brush=False):
+def raster(data, name, brush=False, svg_policy=None):
+    if (svg_policy is not None or name.lower().endswith('.svg')) and not data.startswith(b'\x89PNG\r\n\x1a\n'):
+        if svg_policy is None:raise ValueError('SVG resource requires explicit application policy')
+        from captured_svg import captured_svg
+        return captured_svg(bytes(data),svg_policy)
     if name.lower().endswith('.gbr'):
         image=gbr(data,preserve_color=brush)
         return image_coverage(image) if brush and image.mode=='RGBA' else image
@@ -697,9 +701,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
-            image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
+            payload=resource(filename)
+            captured_svg_source=kind=='svg_brush'and not payload.startswith(b'\x89PNG\r\n\x1a\n')
+            image=gbr(payload,preserve_color=True) if filename.lower().endswith('.gbr') else raster(payload,filename,svg_policy='krita-mask-v1'if kind=='svg_brush'else None)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
-            application=brush_application(definition,[image])
+            application=0 if captured_svg_source else brush_application(definition,[image])
             if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
             if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge'):
                 gray,mask=lightness_planes(image,definition)
@@ -716,7 +722,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                     d['tip']['imageSampling']=sampling
                     notes.append(compatibility('integerImagePyramid','Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.'))
             if kind=='svg_brush':
-                notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
+                notes.append(compatibility('svgRasterizer','Captured SVG mask rasterized on white at1000px by bounded librsvg policy; Qt edge/indexed-gray rounding may differ. Unsupported external resources/fonts/filters are rejected.'if captured_svg_source else'Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         source_metric=mask.size

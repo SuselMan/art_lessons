@@ -19,7 +19,11 @@ def capture_spray_image(root, reference, resolve_resource):
     if not isinstance(payload,(bytes,bytearray)):
         raise ValueError('Spray image resource must contain captured bytes')
     # BytesIO is intentional: imageUrl is NEVER passed to Image.open/open.
-    image=Image.open(io.BytesIO(payload))
+    if reference.lower().endswith('.svg'):
+        from captured_svg import captured_svg
+        image=captured_svg(bytes(payload),'captured-image-v1')
+    else:
+        image=Image.open(io.BytesIO(payload))
     if min(image.size)<1 or image.width*image.height>MAX_PIXELS:
         raise ValueError('Spray image resource exceeds pixel limit')
     image.load()

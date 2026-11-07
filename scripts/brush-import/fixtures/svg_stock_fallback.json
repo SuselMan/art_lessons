@@ -1,0 +1,98 @@
+{
+  "sourceKppBase64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAvXRFWHRwcmVzZXQAPFByZXNldCBwYWludG9waWQ9InBhaW50YnJ1c2giIG5hbWU9Ik93biBwcmVwYXJlZCBTVkcgZmFsbGJhY2siPjxwYXJhbSBuYW1lPSJicnVzaF9kZWZpbml0aW9uIj4mbHQ7QnJ1c2ggdHlwZT0ic3ZnX2JydXNoIiBmaWxlbmFtZT0ib3duLnN2ZyIgc2NhbGU9IjEiIHJhdGlvPSIxIi8mZ3Q7PC9wYXJhbT48L1ByZXNldD4jsi9NAAAAC0lEQVR4nGNgQAcAABIAAXfx+gAAAAAASUVORK5CYII=",
+  "resourcePngBase64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8//8/AwMDEwMDAwMDAwAkBgMB/DXemwAAAABJRU5ErkJggg==",
+  "descriptor": {
+    "id": "imported-f638a148129d80e986fa5ccc",
+    "version": 27,
+    "model": "stamp",
+    "category": "paint",
+    "tip": {
+      "kind": "bitmap",
+      "mask": "asset:df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+      "hardness": 0.7,
+      "aspect": 1.0,
+      "rotation": "fixed",
+      "angle": 0.0,
+      "maskBounds": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0
+      }
+    },
+    "paperInteraction": 0,
+    "spacing": 0.1,
+    "flow": 1,
+    "flowPer": "stamp",
+    "sizeByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "flowByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "opacityByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "pressureSmoothingPx": 0,
+    "opacity": 1,
+    "behavior": {
+      "version": 2,
+      "speedInput": {
+        "version": 1,
+        "space": "view",
+        "maximum": 30,
+        "estimator": "grafettoEMA30ms"
+      },
+      "rendering": {
+        "opacityCeiling": "uniform",
+        "mode": "buildUp",
+        "blendMode": "normal",
+        "wetEdges": 0,
+        "burntEdges": 0,
+        "burntEdgesMode": "multiply",
+        "accumulation": "directOver"
+      },
+      "spacing": {
+        "mode": "diameter",
+        "coefficient": 0.1
+      }
+    }
+  },
+  "compatibility": [
+    {
+      "feature": "kritaEngine",
+      "status": "approximate",
+      "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+    },
+    {
+      "feature": "svgRasterizer",
+      "status": "approximate",
+      "detail": "Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported."
+    }
+  ],
+  "provenance": {
+    "oldImporterSha256": "1fb7726b2620560333e0a7aec3ba4c4d2038f40d58086bd5d49be7093a734d90",
+    "method": "actual unchanged source preset, self-authored prepared PNG under SVG name; actual official stock source/hash gate untouched"
+  }
+}
