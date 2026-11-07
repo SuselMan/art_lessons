@@ -1,3 +1,4 @@
+import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
 import {usesPixelOriginalRgba,assertPixelOriginalRgba,pixelOriginalRgbaFrames,capturePixelOriginalRgbaView,type PixelOriginalRgbaView} from '../presets/pixelOriginalRgba'
 import{SprayRequestPainter}from'./SprayRequestPainter'
 import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
@@ -46,7 +47,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
-const NOISE_UNIFORMS=['u_originalRgbaTip','u_rectangleCoefficients','u_rectangleGeometry','u_autoNoiseConfig','u_autoNoiseKey','u_autoNoiseGridX','u_autoNoiseGridY']
+const NOISE_UNIFORMS=['u_gihFrame','u_gihSampleX','u_gihSampleY','u_originalRgbaTip','u_rectangleCoefficients','u_rectangleGeometry','u_autoNoiseConfig','u_autoNoiseKey','u_autoNoiseGridX','u_autoNoiseGridY']
 const STAMP_UNIFORMS = [ 'u_autoSpikes','u_autoSpikeAngle','u_dualFlip', 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
@@ -281,6 +282,8 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    const gihFrames=usesVariableGih(brush.tip)?prepareVariableGih(brush):undefined
+    if(brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
     if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle||brush.clone?1:4)){
@@ -311,13 +314,13 @@ export class BrushBehaviorPainter {
     // The common prepared callback/lease is installed by Spray V2. No lazy
     // RGB upload, alternate cache or foreground fallback is permitted here.
     const originalViews=originalFrames?new Map<string,PixelOriginalRgbaView>():undefined
-    if(originalFrames&&originalViews)for(const frame of originalFrames){
-      const key=brushTextureResourceKey({id:frame.id,grain:false,colorPlanes:frame.planes})
-      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,brush.tip.maskBounds)))
+    if(originalFrames&&originalViews)for(const [frameIndex,frame] of originalFrames.entries()){
+      const key=(gihFrames?frameIndex+':':'')+brushTextureResourceKey({id:frame.id,grain:false,colorPlanes:frame.planes})
+      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds)))
     }
-    const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined):PixelOriginalRgbaView=>{
+    const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined,frameIndex?:number):PixelOriginalRgbaView=>{
       if(!id||!planes)throw Error('Pixel original RGBA frame identity is missing')
-      const view=originalViews?.get(brushTextureResourceKey({id,grain:false,colorPlanes:planes}))
+      const view=originalViews?.get((gihFrames?frameIndex+':':'')+brushTextureResourceKey({id,grain:false,colorPlanes:planes}))
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
@@ -352,12 +355,16 @@ export class BrushBehaviorPainter {
     const accumulation=behavior.rendering?.accumulation
     // Source ellipse geometry remains on each stamp. Allocation uses native
     // square characteristic axes for spiked generators, independently of Ratio.
+    const gihPlans=new WeakMap<BehaviorPlaced,ReturnType<typeof variableGihStamp>>()
+    const gihPlan=(stamp:BehaviorPlaced)=>{if(!gihFrames)return undefined;let p=gihPlans.get(stamp);if(!p){p=variableGihStamp(brush,gihFrames,stamp);gihPlans.set(stamp,p)}return p}
     const allocationFor=(stamp:BehaviorPlaced)=>brush.tip.autoShape?autoSpikeAllocation(stamp.radius,stamp.aspect,brush.tip.autoShape.spikes):stamp
     const footprintFor=(stamp:BehaviorPlaced,pad:number)=>{
+      const selected=gihPlan(stamp);if(selected)return {minX:selected.x-pad,minY:selected.y-pad,maxX:selected.x+selected.width+pad,maxY:selected.y+selected.height+pad}
       const allocation=allocationFor(stamp)
       return brushFootprintBounds(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,pad)
     }
     const copyRectFor=(stamp:BehaviorPlaced,width:number,height:number,originX:number,originY:number)=>{
+      const selected=gihPlan(stamp);if(selected)return brushFootprintCopyRect(selected.x+selected.width/2,selected.y+selected.height/2,selected.height/2,selected.width/selected.height,0,originX,originY,width,height)
       const allocation=allocationFor(stamp)
       return brushFootprintCopyRect(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,originX,originY,width,height)
     }
@@ -394,7 +401,7 @@ export class BrushBehaviorPainter {
         const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
         const span=advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
         return {...st,flowScale:1,bristleInkSpan:span}
-      }).filter(st=>brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
+      }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
@@ -491,7 +498,7 @@ export class BrushBehaviorPainter {
       coverage.beginDraw()
       gl.useProgram(selected.program)
       const u = selected.uniforms
-      if(effects)gl.uniform1f(u.u_originalRgbaTip,originalRgba?1:0)
+      if(effects){gl.uniform1f(u.u_originalRgbaTip,originalRgba?1:0);gl.uniform4f(u.u_gihFrame,0,0,0,1)}
       if(effects&&!noiseSettings){
         gl.uniform4f(u.u_autoNoiseConfig,65535,0,0,0)
         gl.uniform4f(u.u_autoNoiseKey,0,0,0,0)
@@ -577,7 +584,7 @@ export class BrushBehaviorPainter {
             protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage,s.colorPlanes)
             // Resolve the whole group before binding. Lazy upload restores GL
             // state and cannot evict another sampler in this protected group.
-            const rgbaView=originalRgba?originalView(currentMask,s.colorPlanes):undefined
+            const rgbaView=originalRgba?originalView(currentMask,s.colorPlanes,s.frameIndex):undefined
             if(rgbaView&&(rgbaView.texture===coverage.texture||rgbaView.texture===original.texture||rgbaView.texture===tile.buffer.texture||rgbaView.texture===ceiling.texture))throw Error('Pixel RGBA sampler aliases its paint target')
             const mainView=rgbaView ? {texture:rgbaView.texture,mode:0} : currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip,mainImage) : {texture:paper.texture,mode:0}
             if(rgbaView)gl.uniform4f(u.u_tipBounds,...rgbaView.bounds)
@@ -588,7 +595,7 @@ export class BrushBehaviorPainter {
             gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mainTexture)
             gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,secondTexture)
             if (integerImages) {
-              const mainBounds = mainImage?.bounds ?? brush.tip.maskBounds
+              const mainBounds = (gihFrames&&s.frameIndex!==undefined?gihFrames[s.frameIndex].maskBounds:undefined)??mainImage?.bounds ?? brush.tip.maskBounds
               const childBounds = dualImage?.bounds ?? secondary?.tip.maskBounds
               gl.uniform4f(u.u_tipBounds, mainBounds?.x ?? 0, mainBounds?.y ?? 0, mainBounds?.width ?? 1, mainBounds?.height ?? 1)
               gl.uniform4f(u.u_dualBounds, childBounds?.x ?? 0, childBounds?.y ?? 0, childBounds?.width ?? 1, childBounds?.height ?? 1)
@@ -723,6 +730,13 @@ export class BrushBehaviorPainter {
           gl.uniform4f(u.u_grainTransform, wrap(cos * ox + sin * oy), wrap(-sin * ox + cos * oy), cos, sin)
           const depth = (brush.texture?.strength ?? 0) * s.grainDepth
           gl.uniform1f(u.u_texStrength, g ? clamp(Math.max(g.depthMinimum, depth) * (1 - g.depthJitter * brushDabRandom(state.seed, 43))) : depth)
+          const selectedGih=gihPlan(s)
+          if(selectedGih){
+            gl.uniform4f(u.u_gihFrame,...selectedGih.frame)
+            gl.uniform4f(u.u_gihSampleX,...selectedGih.sampleX);gl.uniform4f(u.u_gihSampleY,...selectedGih.sampleY)
+            gl.uniform2f(u.u_dabCenter,selectedGih.x+selectedGih.width/2-tile.originX,selectedGih.y+selectedGih.height/2-tile.originY)
+            gl.uniform1f(u.u_dabRadius,selectedGih.height/2);gl.uniform1f(u.u_aspectRatio,selectedGih.width/selectedGih.height);gl.uniform1f(u.u_angle,0)
+          }
           gl.drawArrays(gl.TRIANGLES, 0, 6)
         }
       }

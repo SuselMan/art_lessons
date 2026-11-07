@@ -1,3 +1,4 @@
+import {GIH_FRAME_SAMPLING_GLSL} from './gihFrameGeometry'
 import {PIXEL_ORIGINAL_RGBA_GLSL} from '../presets/pixelOriginalRgba'
 import {BRUSH_AUTO_RECTANGLE_GLSL} from './autoRectangle'
 import {BRUSH_AUTO_MASK_NOISE_GLSL} from './autoMaskNoise'
@@ -552,7 +553,8 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
     void main() {`)
     replace('brushProceduralMaskWithSpikes(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)',
       'brushEffectsMask(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)')
-    replace('  void main() {',PIXEL_ORIGINAL_RGBA_GLSL+'\n  uniform float u_originalRgbaTip;\n  void main() {')
+    replace('  void main() {',GIH_FRAME_SAMPLING_GLSL+PIXEL_ORIGINAL_RGBA_GLSL+'\n  uniform float u_originalRgbaTip;\n  void main() {')
+    replace('vec4 tipSample=u_tipImageEnabled>0.5 ?', 'vec4 tipSample=u_gihFrame.x>0.5 ? brushGihFrameSample(u_tip,v_localUV) : u_tipImageEnabled>0.5 ?')
     replace('      shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);',`      if(u_originalRgbaTip>0.5){shape=tipSample.a;pigment=brushOriginalRgbaPigment(tipSample);}
       else shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);`)
     replace(BRUSH_TEXTURE_APPLICATION_GLSL, TEXTURE_ALPHA_EXTENDED_GLSL+BRUSH_TEXTURE_APPLICATION_GLSL.replace(' if(application.x<1.5)',' if(application.x>2.5)return brushTextureAlphaExtended(a,t,s,application);\n if(application.x<1.5)'))

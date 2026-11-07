@@ -1,3 +1,4 @@
+import {beginBrushBehavior,behaviorStampsForDab,brushSourceSpacingAxes} from './brushBehavior'
 import {expect,it} from 'vitest'
 import type {BrushDescriptor,Dab} from '@grafetto/shared'
 import {BrushPainter,type BrushContext} from '../dabs/BrushPainter'
@@ -19,8 +20,8 @@ function brush(pipe=false):BrushDescriptor{
  delete b.texture;delete b.wet
  return b
 }
-function setup(limit=1){
- ids.forEach((id,i)=>installBrushPixels(id,new Uint8Array(i===0?[255,128,0,64]:i<=3?[255,64,192,32]:[32,192,64,255])))
+function setup(limit=1,variable=false,origin=0){
+ ids.forEach((id,i)=>installBrushPixels(variable?id.replace('a84','b86'):id,variable?new Uint8Array(i<=3?16:64).fill(i===0?255:128):new Uint8Array(i===0?[255,128,0,64]:i<=3?[255,64,192,32]:[32,192,64,255])))
  const values=new Map<string,number[]>(),bindings=new Map<number,WebGLTexture|null>(),sources=new WeakMap<object,string>(),programSources=new WeakMap<object,string[]>(),calls:{texture:WebGLTexture|null|undefined;values:Map<string,number[]>}[]=[],uploads:unknown[][]=[]
  let active=33984,current:object|undefined
  const stop=new Error('actual original RGBA deposition reached'),constants=new Map<string,number>();let next=100
@@ -51,8 +52,9 @@ function setup(limit=1){
  painter.initGL();painter.prepareStampEffects()
  const buffer={width:64,height:64,texture:{},beginDraw(){},beginReplaceDraw(){},clear(){},endDraw(){},copyRegionInto(){}}as unknown as AccumulationBuffer
  const scratch={getOrCreate:()=>({original:buffer,coverage:{...buffer,texture:{}}}),brushCeiling:()=>({...buffer,texture:{}}),noteBrushEdgePx:()=>0}as unknown as BehaviorScratch
- const paint=(b:BrushDescriptor,fg:[number,number,number]=[0,1,0],activeScratch=scratch)=>painter.paint({resolveForPaint:()=>[{originX:0,originY:0,buffer,contentRect:null}],markContentPainted:()=>{}}as unknown as ILayerBuffer,[0,1].slice(0,limit).map(i=>({x:20+i*10,y:20,size:12,pressure:1,opacity:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:i*10}as Dab)),{sizeMultiplier:1}as PencilPreset,{brush:b,pressure:{size:true,opacity:true}},fg,activeScratch,undefined)
- return {painter,gl,stop,calls,uploads,scratch,paint}
+ const resolvedBounds:unknown[]=[]
+ const paint=(b:BrushDescriptor,fg:[number,number,number]=[0,1,0],activeScratch=scratch)=>painter.paint({resolveForPaint:(bounds:unknown)=>{resolvedBounds.push(bounds);return[{originX:origin,originY:origin,buffer,contentRect:null}]},markContentPainted:()=>{}}as unknown as ILayerBuffer,[0,1].slice(0,limit).map(i=>({x:20+i*10,y:20,size:12,pressure:1,opacity:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:i*10}as Dab)),{sizeMultiplier:1}as PencilPreset,{brush:b,pressure:{size:true,opacity:true}},fg,activeScratch,undefined)
+ return {painter,gl,stop,calls,uploads,scratch,paint,resolvedBounds}
 }
 it('actual Pixel preparation uses ONE common RGBA cache upload and the same borrowed view',()=>{
  const b=brush(),s=setup()
@@ -151,4 +153,95 @@ it('spatially varying original RGB uses the real alpha-darken feedback path even
   expect(s.calls[0].values.get('u_washMode')).toEqual([2])
   expect(s.calls[0].values.get('u_originalRgbaTip')).toEqual([1])
  }finally{s.painter.destroy()}
+})
+
+function variableBrush():BrushDescriptor {
+ const b=brush(true);b.version=86
+ const map=(id:string)=>id.replace('a84','b86') as `asset:${string}`
+ b.tip.mask=map(ids[0]);b.tip.maskBounds={x:0,y:0,width:1,height:1}
+ b.tip.animation={mode:'incremental',frames:[map(ids[0]),map(ids[4])],geometry:{version:1,frames:[{sourceWidth:4,sourceHeight:2,maskBounds:{x:0,y:0,width:1,height:1}},{sourceWidth:8,sourceHeight:6,maskBounds:{x:0,y:0,width:1,height:1}}]}}
+ b.tip.color={planes:[map(ids[1]),map(ids[2]),map(ids[3])],frames:[[map(ids[1]),map(ids[2]),map(ids[3])],[map(ids[4]),map(ids[5]),map(ids[6])]]}
+ return b
+}
+it('variable GIH86 facade preserves original dimensions and selected-frame footprint without local selection',()=>{
+ const b=variableBrush(),s=setup(2,true)
+ try{
+  expect(()=>s.paint(b)).toThrow(s.stop)
+  expect(s.calls.map(c=>c.values.get('u_gihFrame'))).toEqual([[1,4,2,4],[1,8,6,8]])
+  // Nominal12px: first original4x2 ->12x6, second8x6 ->24x18, no resize-to-first.
+  expect(s.calls.map(c=>c.values.get('u_dabRadius'))).toEqual([[3],[9]])
+  expect(s.calls.map(c=>c.values.get('u_aspectRatio'))).toEqual([[2],[24/18]])
+  expect(s.calls.map(c=>c.values.get('u_dabCenter'))).toEqual([[20,20],[36,26]])
+  expect(s.calls.map(c=>c.values.get('u_originalRgbaTip'))).toEqual([[1],[1]])
+  expect(s.scratch.brushBehavior?.dabOrdinal).toBe(2)
+  expect(s.resolvedBounds[0]).toEqual({minX:13,minY:16,maxX:49,maxY:36})
+ }finally{s.painter.destroy()}
+})
+it('variable GIH86 validates all original frame metadata before author state changes',()=>{
+ const b=variableBrush(),s=setup(1,true)
+ b.tip.animation!.geometry!.frames[1].maskBounds.width=.5
+ try{expect(()=>s.paint(b)).toThrow('padding');expect(s.scratch.brushBehavior).toBeUndefined();expect(s.calls).toHaveLength(0)}finally{s.painter.destroy()}
+})
+
+it('variable GIH86 grayscale shares selected placement and sampler geometry without original RGB',()=>{
+ const b=variableBrush(),s=setup(2,true);delete b.tip.color
+ try{expect(()=>s.paint(b)).toThrow(s.stop);expect(s.calls.map(c=>c.values.get('u_gihFrame'))).toEqual([[1,4,2,4],[1,8,6,8]]);expect(s.calls.map(c=>c.values.get('u_originalRgbaTip'))).toEqual([[0],[0]]);expect(s.calls.map(c=>c.values.get('u_dabCenter'))).toEqual([[20,20],[36,26]])}finally{s.painter.destroy()}
+})
+it('variable GIH86 reanchors a larger selected frame on the opposite reference hotspot when mirrored',()=>{
+ const b=variableBrush(),s=setup(2,true);b.behavior!.mirror={horizontal:true,vertical:false,value:1}
+ try{expect(()=>s.paint(b)).toThrow(s.stop);expect(s.calls.map(c=>c.values.get('u_dabCenter'))).toEqual([[20,20],[24,26]]);expect(s.calls[1].values.get('u_gihSampleX')![0]).toBeLessThan(0)}finally{s.painter.destroy()}
+})
+it('returning from GIH86 to unchanged Pixel84 clears selected-frame uniforms',()=>{
+ const b=variableBrush(),s=setup(1,true)
+ try{
+  expect(()=>s.paint(b)).toThrow(s.stop)
+  const old=structuredClone(b);old.version=84;delete old.tip.animation
+  if(!old.tip.color||!('planes'in old.tip.color))throw Error('Expected RGB');delete old.tip.color.frames
+  const scratch={getOrCreate:s.scratch.getOrCreate,brushCeiling:s.scratch.brushCeiling,noteBrushEdgePx:s.scratch.noteBrushEdgePx}as unknown as BehaviorScratch
+  expect(()=>s.paint(old,[0,1,0],scratch)).toThrow(s.stop)
+  expect(s.calls[1].values.get('u_gihFrame')).toEqual([0,0,0,1]);expect(s.calls[1].values.get('u_originalRgbaTip')).toEqual([1])
+ }finally{s.painter.destroy()}
+})
+
+it('frame identity is chosen once per logical dab and never changes nominal spacing or stamp size',()=>{
+ const b=variableBrush(),old=structuredClone(b);delete old.tip.animation!.geometry
+ const dab={x:20,y:20,size:12,pressure:1,opacity:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:0}as Dab
+ const state=beginBrushBehavior(dab),legacy=beginBrushBehavior(dab)
+ const got=[behaviorStampsForDab(b,dab,state,[1,0,0])[0],behaviorStampsForDab(b,{...dab,t:10},state,[1,0,0])[0]]
+ const prior=[behaviorStampsForDab(old,dab,legacy,[1,0,0])[0],behaviorStampsForDab(old,{...dab,t:10},legacy,[1,0,0])[0]]
+ expect(got.map(x=>x.frameIndex)).toEqual([0,1]);expect(state.dabOrdinal).toBe(legacy.dabOrdinal)
+ for(let i=0;i<got.length;i++){const {frameIndex,frameCoordinateFlip,...nominal}=got[i];expect(frameIndex).toBe(i);expect(frameCoordinateFlip).toBe(false);expect(nominal).toEqual(prior[i])}
+ const profile={mode:'diameter' as const,coefficient:.2}
+ expect(brushSourceSpacingAxes(b,dab,beginBrushBehavior(dab),profile,1,0)).toEqual(brushSourceSpacingAxes(old,dab,beginBrushBehavior(dab),profile,1,0))
+ // Same seed and tuples split into separate paint/input batches still consume identical animation ordinals.
+ expect(state.seed).toBe(legacy.seed);expect(state.dabSequence).toBe(legacy.dabSequence)
+})
+
+it('frame index distinguishes geometry even when both alpha and RGB texture identities are shared',()=>{
+ const b=variableBrush(),s=setup(2,true),a=b.tip.animation!
+ if(!b.tip.color||!('planes'in b.tip.color)||!b.tip.color.frames)throw Error('Expected RGB frames')
+ a.frames[1]=a.frames[0];a.geometry!.frames[1]={sourceWidth:4,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}};b.tip.color.frames[1]=[...b.tip.color.planes]
+ try{expect(()=>s.paint(b)).toThrow(s.stop);expect(s.calls[0].texture).toBe(s.calls[1].texture);expect(s.calls.map(c=>c.values.get('u_gihFrame'))).toEqual([[1,4,2,4],[1,4,4,4]]);expect(s.calls.map(c=>c.values.get('u_dabRadius'))).toEqual([[3],[6]])}finally{s.painter.destroy()}
+})
+it('retiled rendering keeps the same selected sampler transform and logical ordinal',()=>{
+ const b=variableBrush(),a=setup(2,true),tile=setup(2,true,16)
+ try{
+  expect(()=>a.paint(b)).toThrow(a.stop);expect(()=>tile.paint(b)).toThrow(tile.stop)
+  for(let i=0;i<2;i++){expect(tile.calls[i].values.get('u_gihSampleX')).toEqual(a.calls[i].values.get('u_gihSampleX'));expect(tile.calls[i].values.get('u_gihSampleY')).toEqual(a.calls[i].values.get('u_gihSampleY'))}
+  expect(tile.calls.map(c=>c.values.get('u_dabCenter'))).toEqual([[4,4],[20,10]])
+  expect(tile.scratch.brushBehavior?.dabOrdinal).toBe(a.scratch.brushBehavior?.dabOrdinal)
+ }finally{a.painter.destroy();tile.painter.destroy()}
+})
+
+it('plain parent cannot bypass primary-only GIH86 by nesting a grayscale variable child',()=>{
+ const child=variableBrush();delete child.tip.color
+ const s=setup(1,true),parent=structuredClone(digitalBrushFromPreset('hard-round'))
+ parent.behavior={version:2,dual:{brush:child,blendMode:'multiply',sampling:'independent'}}
+ try{expect(()=>brushPreparationPlan(parent)).toThrow('Variable GIH child is unsupported')}finally{s.painter.destroy()}
+})
+
+it.each(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const)('GIH86 preparation rejects non-Pixel family %s before branch bypass',family=>{
+ const b=variableBrush(),s=setup(1,true);delete b.tip.color
+ const combined={...b,[family]:{}}
+ try{expect(()=>brushPreparationPlan(combined)).toThrow('Unsupported variable GIH geometry combination');expect(s.scratch.brushBehavior).toBeUndefined();expect(s.calls).toHaveLength(0)}finally{s.painter.destroy()}
 })

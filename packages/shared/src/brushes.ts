@@ -90,7 +90,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
+  animation?: { mode: 'random' | 'incremental'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -554,16 +554,40 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         return size === undefined || right > size || bottom > size
       })) return false
     }
+    const variableChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)?d.behavior.dual.brush:undefined
+    if(record(variableChild)&&record(variableChild.tip)&&record(variableChild.tip.animation)&&variableChild.tip.animation.geometry!==undefined)return false
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames'].includes(key))
+        || Object.keys(animation).some(key => !['mode','frames','geometry'].includes(key))
         || !['random','incremental'].includes(String(animation.mode))
         || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
-      if (sizes.size !== 1) return false
+      if (animation.geometry === undefined) { if (sizes.size !== 1) return false }
+      else {
+        // Revision86 preserves original per-frame geometry; legacy animations retain their equal-size law.
+        const geometry=animation.geometry
+        if(Number(d.version)<86||d.model!=='stamp'||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
+          ||d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined
+          ||record(d.behavior)&&(d.behavior.edgeBleed!==undefined||d.behavior.colorAdjustment!==undefined||record(d.behavior.rendering)&&!!d.behavior.rendering.wetEdges||record(d.behavior.dynamics)&&d.behavior.dynamics.sharpness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.sharpness!==undefined)
+          ||record(d.behavior)&&d.behavior.dual!==undefined||!record(geometry)
+          ||Object.keys(geometry).some(k=>!['version','frames'].includes(k))||geometry.version!==1
+          ||!Array.isArray(geometry.frames)||geometry.frames.length!==frameIds.length)return false
+        for(let i=0;i<frameIds.length;i++){
+          const row=geometry.frames[i],side=assetSizes.get(String(frameIds[i]))
+          if(!side||!record(row)||Object.keys(row).some(k=>!['sourceWidth','sourceHeight','maskBounds'].includes(k))
+            ||!numberIn(row.sourceWidth,1,side)||!Number.isInteger(row.sourceWidth)
+            ||!numberIn(row.sourceHeight,1,side)||!Number.isInteger(row.sourceHeight)||!record(row.maskBounds))return false
+          const w=Number(row.sourceWidth),h=Number(row.sourceHeight),longest=Math.max(w,h),b=row.maskBounds
+          const expected={x:(Math.floor((side-w)/2)+(w-longest)/2)/side,y:(Math.floor((side-h)/2)+(h-longest)/2)/side,width:longest/side,height:longest/side}
+          if(expected.x<0||expected.y<0||Object.keys(b).some(k=>!['x','y','width','height'].includes(k))
+            ||(['x','y','width','height'] as const).some(k=>!Object.is(b[k],expected[k])))return false
+          const referenceBounds=d.tip.maskBounds
+          if(i===0&&(!record(referenceBounds)||(['x','y','width','height'] as const).some(k=>!Object.is(referenceBounds[k],expected[k]))))return false
+        }
+      }
     }
     const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&Array.isArray(d.tip.color.planes)
     if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.colorAdjustment!==undefined||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
@@ -583,7 +607,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         planes=((color.frames ?? [color.planes]) as unknown[][]).flat()
       }
       const ids=[...frames,...planes]
-      if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false
+      const geometry=record(d.tip.animation)?d.tip.animation.geometry:undefined
+      if(geometry===undefined){if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false}
+      else {
+        // New86 only: equal physical planes WITHIN each frame; different frames may use different sides.
+        if(!pixelImage||!('planes' in color))return false
+        const colorFrames=(color.frames??[color.planes]) as unknown[][]
+        if(frames.some((id,index)=>colorFrames[index].some(plane=>assetSizes.get(String(plane))!==assetSizes.get(String(id)))))return false
+      }
     }
     if (d.tip.material !== undefined) {
       const material = d.tip.material

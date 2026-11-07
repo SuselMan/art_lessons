@@ -1,0 +1,21 @@
+import type {BrushDescriptor,BrushTip} from '@grafetto/shared'
+import {importedAssetPixels} from './importedBrushes'
+import {captureGihFrameMetadata,gihFrameSampleTransform,type GihFrameMetadata} from '../raster/gihFrameGeometry'
+export function usesVariableGih(tip:BrushTip):boolean{return tip.animation?.geometry!==undefined}
+export function prepareVariableGih(brush:BrushDescriptor):readonly GihFrameMetadata[]{
+ const tip=brush.tip,a=tip.animation,g=a?.geometry,b=brush.behavior
+ if(!g||brush.version<86||brush.model!=='stamp'||tip.kind!=='bitmap'||brush.mixer||(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const).some(k=>brush[k]!==undefined)||b?.dual||tip.profile||tip.autoNoise||tip.autoShape||tip.imageSampling||tip.material||b?.colorAdjustment||b?.edgeBleed||b?.rendering?.wetEdges||b?.dynamics?.sharpness||b?.modulations?.sharpness?.length)throw Error('Unsupported variable GIH geometry combination')
+ if(tip.color&& !('planes' in tip.color))throw Error('Variable GIH gradient is unsupported')
+ if(g.version!==1||!a||g.frames.length!==a.frames.length)throw Error('Invalid variable GIH geometry')
+ const sides=a.frames.map(id=>Math.sqrt(importedAssetPixels(id).length))
+ const rows=captureGihFrameMetadata(g.frames,sides)
+ if(!tip.maskBounds||(['x','y','width','height']as const).some(k=>!Object.is(tip.maskBounds![k],rows[0].maskBounds[k])))throw Error('Variable GIH reference bounds differ')
+ if(tip.color&&'planes' in tip.color){const color=tip.color;if(!color.frames||color.frames.length!==rows.length)throw Error('Missing variable GIH colour frames');color.frames.forEach((planes,index)=>{if(planes.length!==3||planes.some(id=>importedAssetPixels(id).length!==sides[index]*sides[index]))throw Error('Variable GIH colour dimensions differ')})}
+ return rows
+}
+export function variableGihStamp(brush:BrushDescriptor,frames:readonly GihFrameMetadata[],s:{x:number;y:number;radius:number;aspect:number;angle:number;flipX:number;flipY:number;frameIndex?:number;frameCoordinateFlip?:boolean}){
+ const index=s.frameIndex
+ if(index===undefined||!Number.isInteger(index)||index<0||index>=frames.length)throw Error('Missing selected GIH frame index')
+ const first=frames[0],frame=frames[index],longest=Math.max(first.sourceWidth,first.sourceHeight)
+ return gihFrameSampleTransform({reference:{width:first.sourceWidth,height:first.sourceHeight},selected:{width:frame.sourceWidth,height:frame.sourceHeight},cursor:[s.x,s.y],scale:2*s.radius*s.aspect/longest,ratio:1/s.aspect,rotation:s.angle-brush.tip.angle,brushAngle:brush.tip.angle,horizontalMirror:s.flipX<0,verticalMirror:s.flipY<0,coordinateSystemFlipped:!!s.frameCoordinateFlip,subpixel:true})
+}

@@ -3,6 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
+from variable_gih import validate_variable_gih_descriptor
 import base64
 import hashlib
 import io
@@ -659,7 +660,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
-        material_gray=[]; gradient_gray=[];stamp_images=[]
+        material_gray=[]; gradient_gray=[];stamp_images=[];variable_gih_bounds=None
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
@@ -674,13 +675,22 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 frames=[frame.getchannel('A') for frame in stamp_images]
             else:
                 frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
-            if len({frame.size for frame in frames})!=1:
-                raise ValueError('GIH frames with unequal dimensions are unsupported')
+            unequal=len({frame.size for frame in frames})!=1
+            if unequal:
+                if engine!='paintbrush' or material_gray or gradient_gray or (pipe['coloured'] and application!=0 and not stamp_images):
+                    raise ValueError('Unequal GIH material/colour combination is unsupported')
+                if any(max(frame.size)>2048 for frame in frames):raise ValueError('Unequal GIH original dimensions exceed 2048; resizing is forbidden')
+
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
             if len(assets)>1:
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
+                if unequal:
+                    variable_gih_bounds=[bounds for aid,bounds in assets]
+                    d['tip']['animation']['geometry']={'version':1,'frames':[{'sourceWidth':frame.width,'sourceHeight':frame.height,'maskBounds':bounds}for frame,(aid,bounds)in zip(frames,assets)]}
+                    d['version']=max(d['version'],86)
+                    notes.append(compatibility('gihOriginalGeometry','Original per-frame dimensions/padding retained without resize; first-frame nominal size/spacing and selected-frame hotspot placement use browser functional filtering.','supported'))
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
@@ -715,7 +725,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             channels=[]
             for frame in stamp_images:
                 planes=[tip_asset(frame.getchannel(channel),catalog,warnings) for channel in 'RGB']
-                if any(bounds!=d['tip']['maskBounds'] for asset,bounds in planes):raise ValueError('Colour/alpha bounds differ')
+                if any(bounds!=(variable_gih_bounds[len(channels)] if variable_gih_bounds is not None else d['tip']['maskBounds']) for asset,bounds in planes):raise ValueError('Colour/alpha bounds differ')
                 channels.append([asset for asset,bounds in planes])
             d['tip']['color']={'planes':channels[0]}
             if len(channels)>1:d['tip']['color']['frames']=channels
@@ -1355,6 +1365,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
+    if d['tip'].get('animation',{}).get('geometry') is not None:
+        d['version']=max(d['version'],86)
+    validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

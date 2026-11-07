@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from variable_gih import validate_variable_gih_descriptor
 import argparse
 import base64
 import hashlib
@@ -684,6 +685,7 @@ def portable_bundle(path,catalog):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        validate_variable_gih_descriptor(d,asset_sizes)
         def has_absolute_response(v):
             if isinstance(v,dict):return isinstance(v.get('combine'),dict)and bool(v['combine'].get('absolute'))or any(has_absolute_response(x)for x in v.values())
             return isinstance(v,list)and any(has_absolute_response(x)for x in v)
@@ -738,10 +740,10 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)!={'mode','frames'} or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
+            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
             frames=animation['frames']
             if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
-            if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
+            if 'geometry'not in animation and len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
         if 'color' in tip:
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
             def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
@@ -764,7 +766,7 @@ def portable_bundle(path,catalog):
                         or ('animation' not in tip and 'frames' in color) or not all(tuple_ids(frame) for frame in colors)):
                     raise ValueError('Invalid portable RGB frames')
                 paired=frames+[aid for frame in colors for aid in frame]
-            if len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable colour plane sizes differ')
+            if 'geometry'not in tip.get('animation',{}) and len({asset_sizes[aid] for aid in paired})!=1:raise ValueError('Portable colour plane sizes differ')
             if 'gradient' in d.get('mixer',{}).get('foreground',{}):raise ValueError('Image stamp does not use a foreground gradient')
         if 'material' in tip:
             material=tip['material']
