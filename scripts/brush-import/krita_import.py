@@ -621,10 +621,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             mask=Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         rectangle_profile=None
-        new_gaussian=(engine=='paintbrush'and generator.get('id')=='gauss'and(spikes==2 or spikes_supported)and not noise_active and valid_fade and(shape=='rect'or ratio!=1 and not spikes_supported))
+        new_gaussian=(engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='gauss'and(spikes==2 or spikes_supported)and not noise_active and valid_fade and(shape=='rect'or ratio!=1 and not spikes_supported))
         if new_gaussian:
             rectangle_profile={'kind':'gaussian2D','shape':'rectangle'if shape=='rect'else'ellipse','horizontalFade':hf,'verticalFade':vf,'antialias':gaussian_aa}
-        new_curve=(engine=='paintbrush'and generator.get('id')=='soft'and shape=='rect'and(spikes==2 or spikes_supported)and not noise_active and not enabled(params.get('PressureSharpness')))
+        new_curve=(engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='soft'and shape=='rect'and(spikes==2 or spikes_supported)and not noise_active and not enabled(params.get('PressureSharpness')))
         if new_curve:
             curve=generator.get('softness_curve','0,0;1,1')
             if not enabled(params.get('PressureSoftness')):
