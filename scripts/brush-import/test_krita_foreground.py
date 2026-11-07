@@ -46,7 +46,7 @@ class LegacyForegroundTests(unittest.TestCase):
             self.assertNotIn('flow',d['behavior'].get('modulations',{}))
 
     def test_strategy_gate_applies_to_pure_and_foreground(self):
-        gates=[({'CompositeOp':'multiply','MergedPaint':'true'},None),({'CompositeOp':'negation'},None),({'SmudgeRateMode':'2'},None)]
+        gates=[({'CompositeOp':'negation'},None),({'SmudgeRateMode':'2'},None)]
         for color in ['0','.7']:
             for extra,definition in gates:
                 with self.subTest(color=color,extra=extra,definition=definition):

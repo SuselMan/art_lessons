@@ -418,6 +418,8 @@ export class SmudgePainter {
     if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs) }
     if (target instanceof AccumulationBuffer) return
     const projectionRead=paint?.brush?.mixer?.source==='projectionCanvas' ? this.ctx.openProjection?.(execution!.brushSource!,target) : undefined
+    let releaseTextures:(()=>void)|undefined,failed=false
+    try {
     const projection=projectionRead?.layers
     if(paint?.brush?.mixer?.source==='projectionCanvas' && !projection)throw Error('Projection source reader unavailable')
     const materialOwners=new WeakMap<AccumulationBuffer,PaintTarget>()
@@ -435,8 +437,7 @@ export class SmudgePainter {
     // stroke's own next incremental batch), and nothing needs resolving.
     const resources = paint?.brush ? bindBrushGradient(brushPreparationResources(paint.brush),execution?.brushSource?.gradient) : undefined
     if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
-    const releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : () => {}
-    try {
+    releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : undefined
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs,target)
     for (const dab of dabs) {
       if (paint?.brush) {
@@ -452,7 +453,15 @@ export class SmudgePainter {
       else this.applyDab(layer, dab, 0, userId, paint)
       prev = dab
     }
-    } finally { releaseTextures();projectionRead?.release() }
+    } catch(error) { failed=true;throw error }
+    finally {
+      // Both acquisitions belong to this call. A failed preparation owns only
+      // the read session; a failed paint keeps its exact original thrown value.
+      let cleanupFailed=false,cleanupError:unknown
+      try { releaseTextures?.() } catch(error) { cleanupFailed=true;cleanupError=error }
+      try { projectionRead?.release() } catch(error) { if(!cleanupFailed){cleanupFailed=true;cleanupError=error} }
+      if(!failed&&cleanupFailed)throw cleanupError
+    }
   }
 
   /** A historical read must not consume another participant's live gesture.
@@ -1118,7 +1127,7 @@ export class SmudgePainter {
     const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
     const composite=colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
-    if(composite>=4 && (brush?.mixer?.algorithm || brush?.mixer?.source!=='previousCanvas'))throw new Error('Legacy Color Smudge requires its own canvas strategy')
+    if(composite>=4 && (brush?.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
     const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? brushTipSamplerId(dual?.brush.tip)
     const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined

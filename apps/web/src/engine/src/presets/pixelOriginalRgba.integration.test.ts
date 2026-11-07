@@ -74,9 +74,38 @@ it('actual Pixel preparation uses ONE common RGBA cache upload and the same borr
   s.painter.initGL();expect(()=>image.assertCurrent()).toThrow('retired')
  }finally{s.painter.destroy()}
 })
-it('missing common prepared RGB fails before advancing author/frame state, never uploads on first paint',()=>{
+it('never-selected Pixel peer prepares real RGB before author state and shares the common cache',()=>{
  const s=setup(),b=brush()
- try{expect(()=>s.paint(b)).toThrow('not prepared');expect(s.scratch.brushBehavior).toBeUndefined();expect(s.calls).toHaveLength(0);expect(s.uploads.filter(c=>c[2]===s.gl.RGBA&&c[3]===2&&c[4]===2)).toHaveLength(0)}finally{s.painter.destroy()}
+ try{
+  const resource=brushPreparationPlan(b).resources.find(r=>!!r.colorPlanes)
+  if(!resource)throw Error('Expected original RGBA resource')
+  expect(s.painter.hasPreparedTexture(resource)).toBe(false)
+  // No engine.prepareBrush/prepareTexture: READ enters actual facade directly.
+  expect(()=>s.paint(b)).toThrow(s.stop)
+  expect(s.calls[0].values.get('u_originalRgbaTip')).toEqual([1])
+  expect(s.painter.hasPreparedTexture(resource)).toBe(true)
+  expect(s.uploads.filter(c=>c[2]===s.gl.RGBA&&c[3]===2&&c[4]===2)).toHaveLength(1)
+  const view=s.painter['preparedImage'](ids[0],[ids[1],ids[2],ids[3]])
+  expect(s.calls[0].texture).toBe(view.texture)
+  s.painter.initGL();expect(()=>view.assertCurrent()).toThrow('retired')
+ }finally{s.painter.destroy()}
+})
+it('never-selected Pixel GIH preflights every paired RGB frame without alpha-only fallback',()=>{
+ const s=setup(2),b=brush(true)
+ try{
+  expect(()=>s.paint(b)).toThrow(s.stop)
+  const first=s.painter['preparedImage'](ids[0],[ids[1],ids[2],ids[3]])
+  const second=s.painter['preparedImage'](ids[0],[ids[4],ids[5],ids[6]])
+  expect(first.texture).not.toBe(second.texture)
+  expect(s.calls.map(c=>c.texture)).toEqual([first.texture,second.texture])
+  expect(s.uploads.filter(c=>c[2]===s.gl.RGBA&&c[3]===2&&c[4]===2)).toHaveLength(2)
+ }finally{s.painter.destroy()}
+})
+it('missing imported RGB bytes fails before author state and deposition',()=>{
+ const s=setup(),b=brush()
+ if(!b.tip.color||!('planes' in b.tip.color))throw Error('Expected RGB planes')
+ b.tip.color.planes[2]=`asset:${'f'.repeat(64)}`
+ try{expect(()=>s.paint(b)).toThrow('Brush asset unavailable');expect(s.scratch.brushBehavior).toBeUndefined();expect(s.calls).toHaveLength(0)}finally{s.painter.destroy()}
 })
 it('incremental GIH frames sharing alpha bind their paired RGB resources in recorded order',()=>{
  const b=brush(true),s=setup(2)

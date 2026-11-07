@@ -37,8 +37,9 @@ class SmudgeStrategiesTests(unittest.TestCase):
                 else:bad['mixer'][change[0]]=change[1]
                 with self.assertRaises(ValueError):convert.validate_portable_mixer(bad)
             b=self.brush({'CompositeOp':mode,'MergedPaint':'true'}).brushes[0]
-            self.assertNotIn('colorRateComposite',b['descriptor']['mixer'])
-            self.assertTrue(any(n['feature']=='colorSmudge'and n['status']=='unsupported'for n in b['compatibility']))
+            self.assertEqual(b['descriptor']['version'],85)
+            self.assertEqual(b['descriptor']['mixer']['source'],'projectionCanvas')
+            self.assertEqual(b['descriptor']['mixer']['colorRateComposite'],mode)
     def test_old_normal_and_modern_multiply_paths_remain_unchanged(self):
         for params in [{},{'SmudgeRateUseNewEngine':'true','CompositeOp':'multiply'}]:
             d=self.brush(params).brushes[0]['descriptor']

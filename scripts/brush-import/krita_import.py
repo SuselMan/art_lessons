@@ -1102,7 +1102,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         foreground_modes={'grain_merge':'grainMerge','grain_extract':'grainExtract','negation':'negation'}
-        legacy_foreground=not modern and mode in('multiply','screen') and not enabled(params.get('MergedPaint','false'))
+        legacy_foreground=not modern and mode in('multiply','screen')
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
                          and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
                          and (params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
@@ -1332,7 +1332,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if behavior.get('softness')is not None and d['tip'].get('profile',{}).get('kind')=='standard':d['version']=max(d['version'],64)
     if d.get('mixer',{}).get('colorRateComposite')=='hardMixPhotoshop':d['version']=max(d['version'],65)
     if d.get('mixer',{}).get('colorRateComposite')in('grainMerge','grainExtract','negation'):d['version']=max(d['version'],82)
-    if d.get('mixer',{}).get('colorRateComposite')in('multiply','screen'):d['version']=max(d['version'],83)
+    if d.get('mixer',{}).get('colorRateComposite')in('multiply','screen'):d['version']=max(d['version'],85 if d['mixer'].get('source')=='projectionCanvas' else 83)
     if d['tip'].get('profile',{}).get('kind')=='radialCurveSoftness':d['version']=max(d['version'],68)
     foreground=d.get('mixer',{}).get('foreground',{})
     foreground=foreground.get('gradient',foreground)
