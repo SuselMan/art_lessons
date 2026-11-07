@@ -492,3 +492,16 @@ ROOT обновил пару процессов на286196083:frontend905005/bac
 b0ba844166645cb866cc29cc3aa5a89fffc044569177fed30b9e16634e02d93d.
 Это функциональный oracle, не измерение задержки и не полная native identity.
 HTTP и два клиента с genuine8sample/weighted1024 KPP проверяются отдельно.
+
+
+### Bristle93: HTTP и онлайн двух участников PASS
+
+Два genuine KPP:8sample unweighted и1024sample weighted, плюс прежний72
+для переключения A→72→A. Импорт через actual backend15 PASS. На Linux AMD
+оба автора по очереди:livepeer,Undo/Redo,оба cold replay с точными PNG hashes
+PASS; actual pressure записан0.2..1. Первое холодное чтение было ошибкой QA:
+DOM уже Saved, но canvas pointerEvents=none,seq0/ops0 и LUT ещё не готова.
+Исправленная проверка ждёт целевую доску, реальную готовность canvas и
+нулевую displaySuspendDepth; единственный повтор двух сценариев PASS.
+Исходная неудачная квитанция сохранена и не выдаётся за runtime-дефект.
+Это не измерение скорости на планшете. Context restore проверяется отдельно.
