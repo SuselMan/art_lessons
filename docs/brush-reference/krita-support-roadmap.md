@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-08. Публичный QA frontend/backend286196083 (frontend14/backend15).
+Состояние:2026-11-08. Публичный QA frontend/backend6804074fe (frontend15/backend16).
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -505,3 +505,22 @@ DOM уже Saved, но canvas pointerEvents=none,seq0/ops0 и LUT ещё не г
 нулевую displaySuspendDepth; единственный повтор двух сценариев PASS.
 Исходная неудачная квитанция сохранена и не выдаётся за runtime-дефект.
 Это не измерение скорости на планшете. Context restore проверяется отдельно.
+
+
+### Hatching94 и неиспользуемый native Flow: QA15/16
+
+6804074fe: Hatching допускает native Mirror маски в общем stamp-пути.
+Порог0.5 и оси используют существующий ответ; мировая фаза штриховки не
+зеркалится. Старые47/67 без Mirror неизменны, эти версии с Mirror отклоняются.
+Bristle/Sketch/Curve/Hatching используют нативный Opacity-only paintop: их
+неиспользуемые Flow-ключи убраны из частного XML common-parser; исходные
+байты сохраняются. Нового закона Flow нет; active Opacity работает.
+
+739/113 TS и427 Python PASS,web2464/server1204inputs0diag. Capped backend16:
+20 genuine Flow KPP совпали с прежними rendering goldens;4 асимметричных
+Hatching native/portable/sharedCAS и downgrade<94 rejection PASS. Proof:
+a119b3194094a050153758bd2c995a2041ecd268078fd6308906c33e97a1c74a.
+Linux GPU13/104 PASS:9 pressure/axis,old67,3negative world origins;JS/GL0.
+Публичная параfrontend928804/backend928785, каталог неизменён; старые14/15
+остановлены. Онлайн94 выполняется; прежний93 завершён с contextrestore,
+online proofd82d561850fc97d17027f42617f0dce9e2a32d75b086647b9ebfe9f5abd2bfad.
