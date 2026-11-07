@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend e729bd4ce, backend/importer251131e6d.
+Состояние:2026-11-07. Публичный QA frontend565b4ce23, backend/importer267f1e3aa.
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -216,3 +216,23 @@ Spray87 original-at-BEGIN остаётся не включённым RAM-кан�
 штриха при hard-cap не считается решением, если повтор снова превышает бюджет.
 Bristle89 остаётся исследуемой функциональной аппроксимацией насыщения: CPU
 таблица и quality-screen не равны готовому GPU consumer или поддержке Soak.
+
+
+### GIH86 и Color Smudge88: проверены и выложены
+
+Публичный frontend565b4ce23 заменил прежний QA на том же адресе. GIH:14 настоящих
+GPU случаев (включая ненулевое изображение вне original-rectangle); серый и RGBA
+неодинаковый GIH прошли двух участников/live/Undo/Redo/cold. Исправлена реальная
+ошибка implicit mip derivatives: sampling выполняется до branchless clipping.
+
+Color Smudge88:6 отдельных GPU случаев проверяют actual alpha reduction/COPY;
+legacy и modern стирание видно на холсте, zero-rate controls сохраняют ожидаемый
+результат. Все4 импорта прошли live/Undo/Redo/cold обоих участников. Первые no-effect
+проверки использовали размер1px и исключены из доказательств видимого стирания;
+корректный размер32px проверен отдельно. Карандаш/маркер/ластик и add/clear/delete
+слоя прошли регрессию. Это Linux GPU, не проверка задержки пера Samsung/iPad.
+
+ImageShape4 importer267f1e3aa интегрирован:captured resource RGBA, tight non-square
+crop, независимые размеры и обычный общий CAS.363 Python теста и genuine shared
+validator PASS; actual GPU/online этого импортера ещё выполняются. Backend8
+запущен с прежними storage/catalog; глобально171 определение/252 CAS сохранены.
