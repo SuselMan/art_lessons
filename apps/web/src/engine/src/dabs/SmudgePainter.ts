@@ -1235,8 +1235,8 @@ export class SmudgePainter {
     const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
-    if(binding===this.colorSmudgeTransfer || binding===this.colorSmudgeForegroundTransfer)gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
-    if(binding===this.colorSmudgeForegroundTransfer || binding===this.colorSmudgeLegacyTransfer)gl.uniform1f(u.u_colorSmudgeComposite,composite)
+    if(binding && (binding===this.colorSmudgeTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
+    if(binding && (binding===this.colorSmudgeForegroundTransfer || binding===this.colorSmudgeLegacyTransfer))gl.uniform1f(u.u_colorSmudgeComposite,composite)
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1
