@@ -16,7 +16,6 @@ def bristle_preset(data,root,params,name,catalog,external):
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Bristle nonunit flow is unsupported')
     aa=enabled(params.get('HairyBristle/antialias'));compositing=enabled(params.get('HairyBristle/useCompositing'))
-    if not aa and not compositing:raise ValueError('Bristle aliased maximum-alpha rasterization is not implemented')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
@@ -43,14 +42,14 @@ def bristle_preset(data,root,params,name,catalog,external):
         v=numeric(params.get('HairyBristle/'+key),default)
         if not math.isfinite(v) or not lo<=v<=hi:raise ValueError('Bristle setting outside bounded range: '+key)
         return v
-    d['version']=45;d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
+    d['version']=66 if not aa and not compositing else 45;d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('scatter','spacing'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
     d['bristle']={'version':1,'hairs':hairs,'scale':number('scale',2,0,10),'shear':number('shear',0,-10,10),'random':number('random',2,0,100),'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]
-    result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Ink depletion/soaking and aliased maximum-alpha input are rejected.'))
+    result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Aliased maximum-alpha preserves the whole winning pigment via batched depth ranking; ink depletion/soaking remain rejected.'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

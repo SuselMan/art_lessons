@@ -76,12 +76,22 @@ class RadialTests(unittest.TestCase):
             c=self.imported(tmp,params);d=c.brushes[0]['descriptor']
             self.assertEqual(d['version'],31);self.assertEqual(d['behavior']['dual']['brush']['version'],31)
     def test_dynamic_or_threshold_fallback_and_invalid_source(self):
-        for params in [{'PressureSoftness':'true'},{'PressureSoftness':'true','SoftnessUseCurve':'false','SoftnessValue':'1'}, {'PressureSharpness':'true','SharpnessUseCurve':'false'}]:
+        for params in [{'PressureSharpness':'true','SharpnessUseCurve':'false'}]:
             with tempfile.TemporaryDirectory() as tmp:
                 c=self.imported(tmp,{'brush_definition':definition(),**params});d=c.brushes[0]['descriptor']
                 self.assertNotEqual(d['version'],31);self.assertNotIn('profile',d['tip']);self.assertEqual(d['tip']['kind'],'bitmap')
         for curve,diameter in [('0,0;0,1',1),('0,nan;1,0',1),('0,0;1,1',.001),('0,0;1,1',10001)]:
             with self.assertRaises(ValueError):radial_curve_samples(curve,diameter)
+    def test_dynamic_softness_preserves_basis_and_controls(self):
+        for extra in [{'SoftnessUseCurve':'false','SoftnessValue':'.2'},{'SoftnessUseCurve':'true','SoftnessValue':'.5'}]:
+            with tempfile.TemporaryDirectory()as tmp:
+                c=self.imported(tmp,{'brush_definition':definition(48),'PressureSoftness':'true',**extra});d=c.brushes[0]['descriptor']
+                self.assertEqual(d['version'],68);self.assertEqual(d['tip']['profile']['kind'],'radialCurveSoftness')
+                self.assertEqual(d['behavior']['softness'],float(extra['SoftnessValue']))
+                p=d['tip']['profile'];self.assertGreaterEqual(p['span'],1);self.assertEqual(p['resolution'],192)
+                self.assertGreaterEqual(c.assets[p['lookup']]['size']**2,8*(192+2));convert.validate_portable_profile(d)
+                self.assertFalse(any(n['status']=='unsupported'for n in c.brushes[0]['compatibility']))
+                if extra['SoftnessUseCurve']=='true':self.assertIn('softness',d['behavior']['modulations'])
     def test_portable_lookup_integrity_capacity_and_combinations_atomic(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);c=self.imported(tmp,{'brush_definition':definition()});manifest=c.write()

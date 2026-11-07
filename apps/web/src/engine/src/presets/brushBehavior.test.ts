@@ -266,3 +266,13 @@ it('resolves standard softness per dab independently of flow, opacity and footpr
  expect(rest).toEqual(original);
  expect(stamps({...base,behavior:{version:2,softness:0}})[0].softnessScale).toBe(0);
 });
+
+it('resolves dynamic radial-curve softness without treating it as standard fade or opacity',()=>{
+ const input={...dabs[0],pressure:.25},id=`asset:${'e'.repeat(64)}` as const
+ const b:BrushDescriptor={...brush,scatter:undefined,tip:{kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'radialCurveSoftness',lookup:id,resolution:15,encoding:'softness-affine-unorm32be-v1',minimum:-1,span:2,antialias:false}},behavior:{version:2,softness:.8,modulations:{softness:[{control:'pressure',minimum:0,jitter:0}]}}}
+ const first=behaviorStampsForDab(b,input,beginBrushBehavior(input),color)[0]
+ expect(first.softnessScale).toBe(.2)
+ const second=behaviorStampsForDab(b,{...input,pressure:.75},beginBrushBehavior(input),color)[0]
+ expect(second.softnessScale).toBeCloseTo(.6,14)
+ expect(b.tip.profile).toHaveProperty('minimum',-1)
+})

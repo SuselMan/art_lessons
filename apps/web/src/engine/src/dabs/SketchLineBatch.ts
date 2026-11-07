@@ -20,8 +20,8 @@ export class SketchLineBatch{
  private composite?:WebGLProgram
  private buffer?:WebGLBuffer
  private quad?:WebGLBuffer
- private data=new Float32Array(2048*6*10)
- constructor(gl:WebGLRenderingContext){this.gl=gl}
+ private readonly data:Float32Array
+ constructor(gl:WebGLRenderingContext,staging=new Float32Array(2048*6*10)){if(staging.length!==2048*6*10)throw RangeError('Exact line staging required');this.gl=gl;this.data=staging}
  reset():void{this.program=undefined;this.composite=undefined;this.buffer=undefined;this.quad=undefined}
  destroy():void{const gl=this.gl;if(this.program)gl.deleteProgram(this.program);if(this.composite)gl.deleteProgram(this.composite);if(this.buffer)gl.deleteBuffer(this.buffer);if(this.quad)gl.deleteBuffer(this.quad);this.reset()}
  prepare():void{

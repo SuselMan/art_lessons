@@ -1,3 +1,4 @@
+import {validateRadialSoftnessTexture,type RadialSoftnessLayout} from '../raster/radialSoftness'
 import { radialCurveTextureSide } from '../raster/radialCurve'
 import { proceduralProfileUniforms } from '../raster/brushProcedural'
 import { nativeImageBank, type NativeImageResource } from './NativeImageBank'
@@ -19,16 +20,36 @@ export function bindBrushGradient(resources:readonly BrushPreparationResource[],
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
 export function brushTipSamplerId(tip?: BrushTip): TipMaskId | undefined {
-  return tip?.profile?.kind === 'radialCurve' ? tip.profile.lookup : tip?.mask
+  return (tip?.profile?.kind === 'radialCurve' || tip?.profile?.kind === 'radialCurveSoftness') ? tip.profile.lookup : tip?.mask
+}
+const softnessBases=new WeakMap<BrushTip,{lookup:string;resolution:number;minimum:number;span:number;basis:RadialSoftnessLayout}>()
+export function brushTipSoftnessLayout(tip:BrushTip):RadialSoftnessLayout {
+  const profile=tip.profile
+  if(profile?.kind!=='radialCurveSoftness')throw Error('Expected radial softness tip')
+  const old=softnessBases.get(tip)
+  if(old&&old.lookup===profile.lookup&&old.resolution===profile.resolution&&old.minimum===profile.minimum&&old.span===profile.span)return old.basis
+  const basis=validateRadialSoftnessTexture(importedAssetPixels(profile.lookup),profile)
+  softnessBases.set(tip,{lookup:profile.lookup,resolution:profile.resolution,minimum:profile.minimum,span:profile.span,basis})
+  return basis
+}
+export function brushTipSoftnessBasisUniforms(tip?:BrushTip):[number,number,number,number] {
+  if(tip?.profile?.kind!=='radialCurveSoftness')return [0,0,0,1]
+  const basis=brushTipSoftnessLayout(tip)
+  return [basis.resolution,basis.textureSide,basis.minimum,basis.span]
 }
 export function brushTipProfileUniforms(tip?: BrushTip): [number,number,number,number] {
   const profile=tip?.profile
+  if(profile?.kind==='radialCurveSoftness')return proceduralProfileUniforms(profile,brushTipSoftnessLayout(tip!).textureSide)
   return proceduralProfileUniforms(profile, profile?.kind === 'radialCurve' ? radialCurveTextureSide(importedAssetPixels(profile.lookup), profile.resolution) : undefined)
 }
 
 const materialPlans = new WeakMap<BrushTip, ReturnType<typeof materialPackingPlan>>()
 /** One physical resource resolver for preparation, pinning and render lookup. */
 export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): Omit<BrushPreparationResource,'painter'> {
+  if(tip?.profile?.kind==='radialCurveSoftness'){
+    brushTipSoftnessLayout(tip)
+    return {id:tip.profile.lookup,grain:false,lookup32:true}
+  }
   if (tip?.profile?.kind === 'radialCurve') {
     radialCurveTextureSide(importedAssetPixels(tip.profile.lookup),tip.profile.resolution)
     return {id:tip.profile.lookup,grain:false,lookup32:true}
@@ -83,11 +104,12 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')
       capabilities.add('stampCircleBand')
     }
+    if(painter==='wet'&&(b.tip.profile?.kind==='radialCurveSoftness'||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.profile?.kind==='radialCurveSoftness'))throw Error('Dynamic radial softness requires the stamp renderer')
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet' && !b.mixer?.paintThickness) throw Error('Lightness tip material requires a material renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (!covered) {
-      const curve = b.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurve'
+      const curve = b.tip.profile?.kind === 'radialCurve' || b.tip.profile?.kind === 'radialCurveSoftness' || inline?.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurveSoftness'
       if (curve) capabilities.add(painter === 'stamp' ? 'stampCurve' : 'wetCurve')
       else {
         if (b.tip.imageSampling || inline?.tip.imageSampling) capabilities.add(painter === 'stamp' ? 'stampImage' : 'wetImage')

@@ -70,6 +70,7 @@ export class BrushPainter {
   preparePolygon():void{this.behavior.preparePolygon()}
   prepareHatching():void{this.behavior.prepareHatching()}
   prepareClone():void{this.behavior.prepareClone()}
+  prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }

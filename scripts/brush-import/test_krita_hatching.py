@@ -12,5 +12,6 @@ class HatchingTests(unittest.TestCase):
     def test_checked_cross_control_keeps_presence(self):
         a=self.convert('<param name="PressureCrosshatching">true</param><param name="CrosshatchingUseCurve">false</param>');self.assertIn('cross',a['descriptor']['hatching']['dynamics'])
     def test_opaque_background_and_invalid_geometry_rejected(self):
-        with self.assertRaisesRegex(ValueError,'background'):self.convert('<param name="Hatching/bool_opaquebackground">true</param>')
+        d=self.convert('<param name="Hatching/bool_opaquebackground">true</param>')['descriptor']
+        self.assertTrue(d['hatching']['opaqueBackground']);self.assertEqual(d['version'],67)
         with self.assertRaisesRegex(ValueError,'separation'):self.convert('<param name="Hatching/separation">0</param>')

@@ -1,3 +1,4 @@
+import {radialSoftnessAlpha,type RadialSoftnessBasis} from './radialSoftness'
 import { radialCurveAlpha } from './radialCurve'
 import type { BrushTip } from '@grafetto/shared';
 import { BRUSH_GAUSSIAN_GLSL, gaussianSampleCount, gaussianTransparency, maskSamplingGLSL, maskStencilAlpha } from './gaussianTip';
@@ -10,9 +11,9 @@ export function proceduralProfileUniforms(profile?: Profile, lookupSide?: number
     number
 ] {
     if (profile?.kind === 'circleBand') throw Error('Circle band uses a separate max-alpha program')
-    if (profile?.kind === 'radialCurve') {
+    if (profile?.kind === 'radialCurve' || profile?.kind === 'radialCurveSoftness') {
         if (!lookupSide) throw Error('Radial curve requires its lookup resource')
-        return [3, profile.resolution, lookupSide, 0]
+        return [profile.kind==='radialCurveSoftness'?4:3, profile.resolution, lookupSide, 0]
     }
     if (!profile)
         return [-1, 0, 0, 0];
@@ -60,8 +61,14 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 }
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
-export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1): number {
+export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1, softnessBasis?:RadialSoftnessBasis): number {
     if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
+    if(profile.kind==='radialCurveSoftness') {
+        if(!softnessBasis||softnessBasis.resolution!==profile.resolution||softnessBasis.minimum!==profile.minimum||softnessBasis.span!==profile.span)throw Error('Radial softness requires its prepared basis')
+        if(![x,y,width,height,angle].every(Number.isFinite)||width<=0||height<=0)return 0
+        const c=Math.cos(angle),s=Math.sin(angle),u=(c*x+s*y)/(width*.5),v=(-s*x+c*y)/(height*.5)
+        return radialSoftnessAlpha(u*u+v*v,softnessBasis,softness)
+    }
     if (profile.kind === 'radialCurve') {
         if (!lookup) throw Error('Radial curve requires its lookup resource')
         const c=Math.cos(angle),s=Math.sin(angle),u=(c*x+s*y)/(width*.5),v=(-s*x+c*y)/(height*.5)

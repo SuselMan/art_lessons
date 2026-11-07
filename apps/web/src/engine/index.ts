@@ -1,3 +1,4 @@
+import {captureHatchingBackground,type HatchingRgba8} from './src/raster/hatchingBackground'
 import type {ProjectionReadSession} from './src/raster/CanvasProjectionSampler'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
@@ -827,6 +828,10 @@ export interface PencilEngineAPI {
    * gradient-map resource to keep its texture upload outside pen input. */
   requestCloneSourcePick():void
   setBrushGradient(lut?:string):void
+  /** Next-gesture brush background; omitted resets explicit Grafetto white default.
+   * Independent of paper. No background picker UI is currently provided. */
+  setHatchingBackground(rgba?:HatchingRgba8):void
+  setBrushBackground(rgba?:HatchingRgba8):void
   // #278/#489: the angle setting of whichever nib the active tool is wearing.
   // angleRadians is always canvas-space (the caller resolves the local
   // viewport's own rotation into this one number, same "engine only ever sees
@@ -1693,6 +1698,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _clonePickArmed=false
   private _cloneSource?:{x:number;y:number}
   private _cloneOffset?:{x:number;y:number}
+  private _hatchingBackground?:HatchingRgba8
   private _canvasBrushGradient?:string
   private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number}}
   private _strokeId: string | null = null
@@ -3528,7 +3534,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
-      else if(painter === 'sketchLines')this._brush.prepareSketchLines()
+      else if(painter === 'sketchLines'){if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
@@ -3580,6 +3586,10 @@ export class PencilEngine implements PencilEngineAPI {
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
   requestCloneSourcePick():void {this._clonePickArmed=true}
+  setHatchingBackground(rgba?:HatchingRgba8):void {this.setBrushBackground(rgba)}
+  setBrushBackground(rgba?:HatchingRgba8):void {
+    this._hatchingBackground=rgba===undefined?undefined:captureHatchingBackground(rgba)
+  }
   setBrushGradient(lut?:string):void {
     if(lut!==undefined&&!isBrushGradient(lut))throw Error('Invalid canvas brush gradient')
     this._canvasBrushGradient=lut
@@ -6276,7 +6286,8 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
     const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
     const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
-    const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined ? copyBrushSourceContext({version:1,...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
+    const background=brush&&brush.hatching?.opaqueBackground?captureHatchingBackground(this._hatchingBackground):undefined
+    const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background ? copyBrushSourceContext({version:1,...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
       cameraAngle:this._authorCameraAngle,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,tiltResponse:this._tiltResponse,
@@ -7874,6 +7885,9 @@ export class PencilEngine implements PencilEngineAPI {
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,execution?:BrushExecutionContext,
   ): void {
+    // Recorded/peer/cold brushes need not be the locally selected tool.
+    // Prepare this exact capability before the painter advances gesture state.
+    if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution)
   }
 

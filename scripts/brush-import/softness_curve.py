@@ -80,12 +80,12 @@ def compile_softness_basis(curve, diameter):
         raise ValueError('Invalid softness authored diameter')
     resolution = math.floor(diameter * 4 + .5)
     zero, one = raw_softness_basis(curve, resolution)
-    minimum = min(min(zero), min(one))
-    maximum = max(max(zero), max(one))
+    minimum = min(0.0, min(zero), min(one))
+    maximum = max(1.0, max(zero), max(one))
     span = maximum - minimum
     if span == 0:
         span = 1.0
-    if not math.isfinite(span) or span <= 0:
+    if not math.isfinite(span) or not -65536<=minimum<=65536 or not 1<=span<=131072:
         raise ValueError('Unrepresentable softness basis range')
     payload = bytearray()
     for pair in zip(zero, one):

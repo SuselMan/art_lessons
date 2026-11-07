@@ -1,3 +1,5 @@
+import {hatchingBackgroundUniform} from '../raster/hatchingBackground'
+import {BristleRequestBatch} from './BristleRequestBatch'
 import{tangentNormalColor}from'../presets/brushTangentNormal'
 import{MyPaintStrokePainter}from'./MyPaintStrokePainter'
 import{CloneBrushPass}from'./CloneBrushPass'
@@ -15,7 +17,7 @@ import { prepareCircleDifference, type CircleDifference } from '../raster/roundC
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { proceduralProfileUniforms, standardSoftnessProfile, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
-import { brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
+import { brushTipSoftnessBasisUniforms, brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
 import { brushTextureApplication } from './brushTextureApplication'
@@ -32,7 +34,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
-const STAMP_UNIFORMS = [ 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
+const STAMP_UNIFORMS = [ 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
   'u_wickCap', 'u_tipPacking', 'u_dualTipPacking', 'u_lightnessMaterial',
@@ -88,6 +90,9 @@ export class BrushBehaviorPainter {
   private polygonBatch?:PolygonFillBatch
   private hatchingStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private sketchBatch?:SketchLineBatch
+  private bristleRequests?:BristleRequestBatch
+  private lineStaging?:Float32Array<ArrayBuffer>
+  private sharedLineStaging():Float32Array<ArrayBuffer>{return this.lineStaging??=new Float32Array(2048*6*10)}
   private sprayBatch?:SprayShapeBatch
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
@@ -137,6 +142,7 @@ export class BrushBehaviorPainter {
     this.filterPass?.forget()
     this.polygonBatch?.reset()
     this.sketchBatch?.reset()
+    this.bristleRequests?.reset()
     this.sprayBatch?.reset()
     this.hatchingStamp=undefined
     this.circleStamp = undefined
@@ -163,7 +169,8 @@ export class BrushBehaviorPainter {
   }
   prepareProcedural(): void { this.stampFor(true) }
 
-  prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl)).prepare()}
+  prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
+  prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).prepare()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
 
   prepareCircleBand(): void { this.circleProgram() }
@@ -213,6 +220,7 @@ export class BrushBehaviorPainter {
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
     this.polygonBatch?.destroy()
     this.sketchBatch?.destroy()
+    this.bristleRequests?.destroy()
     this.sprayBatch?.destroy()
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
@@ -347,7 +355,7 @@ export class BrushBehaviorPainter {
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])
-    const curveProfiles = brush.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurve'
+    const curveProfiles = brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
     const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),brush.texture?.id,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
@@ -399,6 +407,12 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_tipProfile,brush.tip.profile?.kind === 'gaussian' ? brush.tip.profile.fade : .5,brush.tip.profile?.antialias ? 1 : 0)
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
+      if(curveProfiles){
+        gl.uniform4f(u.u_tipSoftnessBasis,...brushTipSoftnessBasisUniforms(brush.tip))
+        gl.uniform4f(u.u_dualSoftnessBasis,...brushTipSoftnessBasisUniforms(secondary?.tip))
+        gl.uniform1f(u.u_tipSoftness,1)
+        gl.uniform1f(u.u_dualSoftness,1)
+      }
       if ((procedural||brush.hatching) && !circleBand) {
         gl.uniform4f(u.u_tipProcedural, ...brushTipProfileUniforms(brush.tip))
         gl.uniform4f(u.u_dualProcedural, ...brushTipProfileUniforms(secondary?.tip))
@@ -471,10 +485,13 @@ export class BrushBehaviorPainter {
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
           if(brush.hatching&&s.hatching){
+            gl.uniform4f(u.u_hatchBackground,...hatchingBackgroundUniform(brush.hatching,execution?.brushSource))
             const h=s.hatching
             gl.uniform2f(u.u_hatchStyle,h.thickness,brush.hatching.antialias?1:0)
             for(let i=0;i<3;i++)gl.uniform4f(u['u_hatch'+i],...(i<h.angles.length?hatchingPlane(h.angles[i],h.separation,brush.hatching.origin,tile.originX,tile.originY,brush.hatching.subpixel):[0,0,0,0])as [number,number,number,number])
           }
+          if(brush.tip.profile?.kind==='radialCurveSoftness' && s.softnessScale!==undefined)gl.uniform1f(u.u_tipSoftness,s.softnessScale)
+          if(secondary?.tip.profile?.kind==='radialCurveSoftness' && s.dualSoftnessScale!==undefined)gl.uniform1f(u.u_dualSoftness,s.dualSoftnessScale)
           if (s.sharpnessScale !== undefined) gl.uniform3f(u.u_alphaThreshold, brushAlphaThresholdValue(threshold, s.sharpnessScale), threshold?.softness ?? 0, threshold ? 1 : 0)
           if (s.dualSharpnessScale !== undefined) gl.uniform3f(u.u_dualAlphaThreshold, brushAlphaThresholdValue(dualThreshold, s.dualSharpnessScale), dualThreshold?.softness ?? 0, dualThreshold ? 1 : 0)
           if (circleBand) {
@@ -520,7 +537,7 @@ export class BrushBehaviorPainter {
             const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
             if(s.softnessScale!==undefined && brush.tip.profile?.kind==='standard') gl.uniform4f(u.u_tipProcedural,...proceduralProfileUniforms(standardSoftnessProfile(brush.tip.profile,mainRx,mainRy,s.softnessScale??1)))
             if(s.dualSoftnessScale!==undefined && secondary?.tip.profile?.kind==='standard') gl.uniform4f(u.u_dualProcedural,...proceduralProfileUniforms(standardSoftnessProfile(secondary.tip.profile,childRx,childRy,s.dualSoftnessScale??1)))
-            const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve') || !!brush.tip.imageSampling
+            const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness') || !!brush.tip.imageSampling
             // A child profile does not expand a legacy parent's clipping quad.
             const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)
               : brush.tip.profile || secondary?.tip.profile?.kind === 'gaussian' ? 1 : 0
@@ -583,19 +600,25 @@ export class BrushBehaviorPainter {
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
         if(brush.experiment){
-          (this.sketchBatch??=new SketchLineBatch(gl)).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl))
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl))
           return
         }
         if(brush.particle){
-          (this.sketchBatch??=new SketchLineBatch(gl)).paintParticlePoints(list,coverage,ceiling,tile.originX,tile.originY,this.sprayBatch??=new SprayShapeBatch(gl))
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintParticlePoints(list,coverage,ceiling,tile.originX,tile.originY,this.sprayBatch??=new SprayShapeBatch(gl))
           return
         }
         if(brush.curveTrace){
-          (this.sketchBatch??=new SketchLineBatch(gl)).paintCurves(list,coverage,ceiling,scratch.brushCeilingCopy(tile.buffer),tile.originX,tile.originY)
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintCurves(list,coverage,ceiling,scratch.brushCeilingCopy(tile.buffer),tile.originX,tile.originY)
+          return
+        }
+        if(brush.bristle&&!brush.bristle.antialias&&!brush.bristle.compositing){
+          if(!this.bristleRequests)throw Error('Bristle alpha-winner programs are not prepared')
+          this.bristleRequests.prepareDimensions(coverage.width,coverage.height)
+          this.bristleRequests.paint(list,coverage,ceiling,tile.originX,tile.originY)
           return
         }
         if(brush.sketch||brush.bristle){
-          (this.sketchBatch??=new SketchLineBatch(gl)).paint(list,coverage,ceiling,tile.originX,tile.originY,brush.sketch?.antialias??brush.bristle!.antialias,!!brush.bristle&&!brush.bristle.compositing)
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paint(list,coverage,ceiling,tile.originX,tile.originY,brush.sketch?.antialias??brush.bristle!.antialias,!!brush.bristle&&!brush.bristle.compositing)
           return
         }
         if(brush.spray && brush.spray.particle.shape!=='tip' && accumulation==='directOver' && !secondary && !brush.texture && !brush.tip.material && !brush.tip.color && !brush.paperInteraction && !behavior.edgeBleed && !behavior.wetMix){

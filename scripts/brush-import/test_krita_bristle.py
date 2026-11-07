@@ -4,9 +4,9 @@ from test_krita import kpp
 from brush_contract import Catalog
 from krita_import import preset
 class BristleTests(unittest.TestCase):
-    def convert(self,extra=''):
+    def convert(self,extra='',aa=True):
         definition='<Brush type="gbr_brush" filename="hair.gbr" scale="1" ColorAsMask="1"/>'
-        data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/antialias">true</param>'+extra)
+        data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/antialias">'+str(aa).lower()+'</param>'+extra)
         # GIMP grayscale brush, white represents coverage in the importer.
         name=b'hair\0';header=struct.pack('>7I',28+len(name),2,4,4,1,0x47494d50,25)
         with tempfile.TemporaryDirectory() as d:return preset(data,'test.kpp',Catalog(Path(d)),{'hair.gbr':header+name+bytes([255]*16)})
@@ -16,3 +16,7 @@ class BristleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'depletion'):self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/soak">true</param>')
     def test_density_is_checked(self):
         with self.assertRaisesRegex(ValueError,'density'):self.convert('<param name="HairyBristle/density">101</param>')
+
+    def test_aliased_alpha_winner_is_admitted_separately_from_legacy(self):
+        b=self.convert('<param name="HairyBristle/useCompositing">false</param>',aa=False)['descriptor']
+        self.assertEqual(b['version'],66);self.assertFalse(b['bristle']['antialias']);self.assertFalse(b['bristle']['compositing'])

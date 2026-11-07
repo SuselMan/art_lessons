@@ -12,3 +12,12 @@ it('uses native closed-upper dyadic separation intervals',()=>{const b={...h,dyn
 it('rounds thickness and retains a minimum one-pixel contact',()=>{expect(hatchingPlacement(h,{...c,thickness:0}).thickness).toBe(1);expect(hatchingPlacement({...h,thickness:2.6},c).thickness).toBe(3)})
 it('world phase matches across tile boundaries and negative coordinates',()=>{const angle=.37,sep=18,a=hatchingPlane(angle,sep,[20,-30],-512,0,true),b=hatchingPlane(angle,sep,[20,-30],0,0,true);const mod=(v:number)=>(v%sep+sep)%sep;expect(mod(a[0]*512+a[2])).toBeCloseTo(b[2],10);expect(a[2]).toBeGreaterThanOrEqual(0);expect(a[2]).toBeLessThan(sep)})
 it('validates geometry and generates an opt-in shader without changing legacy',()=>{expect(isBrushHatching(h)).toBe(true);expect(isBrushHatching({...h,separation:0})).toBe(false);expect(isBrushHatching({...h,extra:true})).toBe(false);const legacy=createBrushStampFragment(true,true,true),s=hatchingStampFragment(legacy);expect(s).toContain('hatchLine');expect(legacy).not.toContain('hatchLine');expect(()=>hatchingStampFragment('bad')).toThrow()})
+it('assembles a coloured request before common opacity and keeps historical line-only branch explicit',()=>{
+ const source=hatchingStampFragment(createBrushStampFragment(true,true,true))
+ expect(source).toContain('uniform vec4 u_hatchBackground')
+ expect(source).toContain('hatchingBackgroundRequest(vec4(pigment,1.0),u_hatchBackground,hatch,1.0,1.0)')
+ expect(source).toContain('pigment=request.a>0.0?request.rgb/request.a:vec3(0.0)')
+ expect(source).toContain('shape*=request.a')
+ expect(source).toContain('else shape*=hatch')
+ expect(source.match(/float amount = shape \* v_opacity;/g)).toHaveLength(1)
+})

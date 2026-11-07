@@ -31,3 +31,11 @@ it('reuses trusted immutable contexts without cloning their palette per dab batc
  expect(copyBrushSourceContext(owned)).toBe(owned)
  expect(Object.isFrozen(owned)).toBe(true)
 })
+
+it('captures and binds the author hatching background independently of receiver UI',()=>{
+ const color:[number,number,number,number]=[12,34,56,128],raw:BrushSourceContext={version:1,background:color}
+ const owned=copyBrushSourceContext(raw),key=brushSourceKey(owned);color[0]=99
+ expect(owned.background).toEqual([12,34,56,128]);expect(Object.isFrozen(owned.background)).toBe(true)
+ expect(key).not.toBe(brushSourceKey(raw));expect(isBrushSourceContext(owned)).toBe(true)
+ for(const c of [[0,0,0],[0,0,0,256],[0,0,NaN,0],[0,0,.5,0]])expect(isBrushSourceContext({version:1,background:c})).toBe(false)
+})

@@ -124,3 +124,23 @@ ColorRate: снимается отказ nonunit constant combined-sensors. Су
 Bristle: только внутренний pure CPU helper расхода каждого волоска и продолжения
 порциями. Descriptor admission и renderer v2 не включены. Это подготовка,
 не заявленная поддержка depletion/soak/max-alpha в приложении.
+
+### Интеграция 07.11: блок проверки
+
+Soft-curve Softness68 подключена к импорту, bounded CAS lookup, существующим
+primary/mask sampler и per-dab uniforms. Нет дополнительной CPU-копии ресурса
+в рендерере; старый radialCurve не переписывается. Gaussian и прямоугольный
+soft-generator не подменяются этим профилем.
+
+Bristle66: aliased non-compositing request использует whole-RGBA alpha winner
+с DEPTH16 и strict GREATER, не MAX по компонентам цвета. Подготовка перед
+локальным/peer/cold paint, lifecycle/context reset, staging переиспользуется.
+Depletion/soak пока не допускаются: pure helper ещё не streaming renderer.
+
+Hatching67: opaque background записывается общим source.background RGBA8.
+Default brush background Grafetto белый; custom через setBrushBackground API,
+UI picker пока отсутствует. Бумага и цвет принимающего клиента не читаются.
+Legacy setHatchingBackground — alias. Shape/request opacity применяются один раз.
+
+Общие проверки этого блока:344 unit/47 modules и320 Python PASS. Реальная GPU
+проверка выполняется отдельно; до неё этот блок не объявляется проверенным стендом.

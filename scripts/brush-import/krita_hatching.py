@@ -7,7 +7,6 @@ from brush_contract import finalize_identity,compatibility
 
 def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
-    if enabled(params.get('Hatching/bool_opaquebackground')):raise ValueError('Hatching opaque background requires a captured background colour')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
     if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Hatching nonunit flow is unsupported')
@@ -42,10 +41,12 @@ def hatching_preset(data,root,params,name,catalog,external):
         if len(controls)>4:raise ValueError('Hatching sensor count limit')
         # Presence carries native checked state even when its result is1.
         dynamics[key]=controls;notes+=local
+    if enabled(params.get('Hatching/bool_opaquebackground')):
+        h['opaqueBackground']=True;d['version']=max(d['version'],67)
     if dynamics:h['dynamics']=dynamics
     d['hatching']=h
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+notes
-    result['compatibility'].append(compatibility('hatching','World origin, separation bins, integer thickness, crosshatch order/thresholds, moire and checked angle sensors retained. Procedural infinite lines clipped by the common tip replace native clipped DDA strokes. Pixel rounding/joins and non-subpixel endpoint rounding differ; opaque background rejected.'))
+    result['compatibility'].append(compatibility('hatching','World origin, separation bins, integer thickness, crosshatch order/thresholds, moire and checked angle sensors retained. Procedural infinite lines clipped by the common tip replace native clipped DDA strokes. Pixel rounding/joins and non-subpixel endpoint rounding differ; opaque background uses gesture-captured Grafetto brush background (white default, custom through API).'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

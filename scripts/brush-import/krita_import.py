@@ -546,10 +546,28 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
-            # Even an enabled constant option is outside this first capability.
+            # Checked Pixel Softness uses its own affine basis capability.
             procedural_soft=((engine=='colorsmudge' or not enabled(params.get('PressureSoftness')))
                              and not enabled(params.get('PressureSharpness')))
-            if procedural_soft:
+            dynamic_soft=False
+            if engine=='paintbrush'and enabled(params.get('PressureSoftness'))and not enabled(params.get('PressureSharpness')):
+                softness_value=numeric(params.get('SoftnessValue'),1)
+                if not math.isfinite(softness_value)or not 0<=softness_value<=1:raise ValueError('Native Softness value outside0..1')
+                dynamic_soft=True
+                if enabled(params.get('SoftnessUseCurve','true')):
+                    start=len(notes);softness_controls=size_like_controls(params,'Softness',notes,allow_time=timed_input)
+                    dynamic_soft=bool(softness_controls)and not any(n['status']=='unsupported'for n in notes[start:])
+            if dynamic_soft:
+                from softness_curve import compile_softness_basis
+                basis=compile_softness_basis(curve,max(source_size,source_size*numeric(generator.get('ratio'),1)))
+                payload=basis['payload'];side=4
+                while side*side<len(payload):side*=2
+                lookup=catalog.asset(Image.frombytes('L',(side,side),payload+bytes(side*side-len(payload))),warnings,grain=True)
+                d['tip']['kind']='procedural';d['tip']['hardness']=1
+                d['tip']['profile']={'kind':'radialCurveSoftness','lookup':lookup,'resolution':basis['resolution'],'encoding':basis['encoding'],'minimum':basis['minimum'],'span':basis['span'],'antialias':False}
+                d['version']=max(d['version'],68)
+                notes.append(compatibility('radialCurveSoftness','Native interior-knot softness retained in a bounded affine basis; mix and clamp precede radial interpolation. GPU rounding remains approximate.','supported'))
+            elif procedural_soft:
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
                 authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
                 d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
@@ -559,7 +577,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 mask=soft_circle(curve,source_size)
                 d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
                 notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
-            if engine!='colorsmudge' and enabled(params.get('PressureSoftness')):
+            if engine!='colorsmudge' and enabled(params.get('PressureSoftness'))and not dynamic_soft:
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
         if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
@@ -714,11 +732,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
     if sharpness_controls: behavior.setdefault('modulations',{})['sharpness']=sharpness_controls
-    if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')=='standard' and enabled(params.get('PressureSoftness')):
+    if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')in('standard','radialCurveSoftness') and enabled(params.get('PressureSoftness')):
         behavior['softness']=softness_value
         if softness_controls:behavior.setdefault('modulations',{})['softness']=softness_controls
         d['version']=max(d['version'],64)
-        notes.append(compatibility('standardSoftness','Native standard-mask fade coefficients respond per dab; no opacity substitution.','supported'))
+        notes.append(compatibility('maskSoftness','Native mask generator responds per dab; no opacity substitution.','supported'))
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))
@@ -1234,6 +1252,13 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if isinstance(v,dict):return v.get('control')=='distance'or any(has_distance_control(x)for x in v.values())
         return isinstance(v,list)and any(has_distance_control(x)for x in v)
     if has_distance_control(d):d['version']=max(d['version'],63)
+    # Keep newly admitted capabilities above historical input/timer revisions.
+    if behavior.get('softness')is not None and d['tip'].get('profile',{}).get('kind')=='standard':d['version']=max(d['version'],64)
+    if d.get('mixer',{}).get('colorRateComposite')=='hardMixPhotoshop':d['version']=max(d['version'],65)
+    if d['tip'].get('profile',{}).get('kind')=='radialCurveSoftness':d['version']=max(d['version'],68)
+    foreground=d.get('mixer',{}).get('foreground',{})
+    foreground=foreground.get('gradient',foreground)
+    if any(c.get('combine',{}).get('constant',1)!=1 for c in foreground.get('dynamics',[])):d['version']=max(d['version'],69)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

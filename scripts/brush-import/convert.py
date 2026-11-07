@@ -572,6 +572,14 @@ def validate_portable_profile(descriptor):
                 or tip.get('kind')!='procedural' or profile['shape'] not in ('ellipse','rectangle')
                 or any(not finite(profile.get(key),0,1) for key in ('horizontalFade','verticalFade'))):
             raise ValueError('Invalid portable standard profile')
+    elif profile.get('kind')=='radialCurveSoftness':
+        if (set(profile)!={'kind','lookup','resolution','encoding','minimum','span','antialias'}
+                or descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'or profile.get('antialias')is not False
+                or profile.get('encoding')!='softness-affine-unorm32be-v1'
+                or not isinstance(profile.get('lookup'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
+                or type(profile.get('resolution'))is not int or not 1<=profile['resolution']<=40000
+                or not finite(profile.get('minimum'),-65536,65536)or not finite(profile.get('span'),1,131072)
+                or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
                 or tip.get('kind')!='procedural' or profile['antialias'] is not False
@@ -639,9 +647,9 @@ def portable_bundle(path,catalog):
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})
-        if profile.get('kind')=='radialCurve':
+        if profile.get('kind')in('radialCurve','radialCurveSoftness'):
             size=asset_sizes.get(profile['lookup'],0)
-            if size<4 or size*size<4*(profile['resolution']+2):
+            if size<4 or size*size<(8 if profile['kind']=='radialCurveSoftness'else 4)*(profile['resolution']+2):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
@@ -675,12 +683,12 @@ def portable_bundle(path,catalog):
         if 'softness' in behavior:
             value=behavior['softness']
             if (type(value)not in(int,float)or not math.isfinite(value)or not 0<=value<=1
-                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')!='standard'):
+                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness')):
                 raise ValueError('Invalid standard-mask softness')
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
             if isinstance(controls,dict) and 'softness' in controls:
-                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')!='standard':raise ValueError('Softness response requires standard mask')
+                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness'):raise ValueError('Softness response requires standard mask')
                 validate_portable_dynamics([controls['softness']]if section=='dynamics'else controls['softness'])
             if isinstance(controls,dict) and 'sharpness' in controls:
                 if 'alphaThreshold' not in tip: raise ValueError('Sharpness response requires alpha threshold')

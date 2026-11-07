@@ -79,6 +79,7 @@ export interface BrushTip {
     | { kind: 'circleBand'; antialias: true }
     /** Native radial response table, UNORM32 big-endian words in CAS bytes. */
     | { kind: 'radialCurve'; lookup: AssetId; resolution: number; encoding: 'unorm32be'; antialias: false }
+    | { kind:'radialCurveSoftness';lookup:AssetId;resolution:number;encoding:'softness-affine-unorm32be-v1';minimum:number;span:number;antialias:false }
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -430,7 +431,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
     if(record(d.behavior)&&d.behavior.mirror!==undefined&&['sketch','bristle','curveTrace','hatching','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
-    if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&d.tip.profile.kind==='standard'))return false
+    if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
@@ -460,6 +461,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
           || (assetSizes.get(profile.lookup as string) ?? 0)<4
           || ((assetSizes.get(profile.lookup as string) ?? 0)**2)<4*(profile.resolution+2)
           || d.tip.imageSampling!==undefined || d.tip.alphaThreshold!==undefined) return false
+      } else if(profile.kind==='radialCurveSoftness') {
+        if(d.model!=='stamp'||d.tip.kind!=='procedural'||profile.antialias!==false||profile.encoding!=='softness-affine-unorm32be-v1'
+          ||Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','minimum','span','antialias'].includes(key))
+          ||!ref(profile.lookup)||!numberIn(profile.resolution,1,40000)||!Number.isInteger(profile.resolution)
+          ||!numberIn(profile.minimum,-65536,65536)||!numberIn(profile.span,1,131072)
+          ||(assetSizes.get(profile.lookup as string)??0)<4||((assetSizes.get(profile.lookup as string)??0)**2)<8*(profile.resolution+2)
+          ||d.tip.imageSampling!==undefined||d.tip.alphaThreshold!==undefined)return false
       } else if (profile.kind === 'circleBand') {
         if (d.tip.kind !== 'procedural' || profile.antialias!==true || Object.keys(profile).some(key=>!['kind','antialias'].includes(key))) return false
       } else return false
@@ -592,7 +600,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
-        if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
+        if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness')) return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
@@ -644,7 +652,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id)
-    if(value.tip.profile?.kind==='radialCurve')add(value.tip.profile.lookup)
+    if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }
   visit(brush)

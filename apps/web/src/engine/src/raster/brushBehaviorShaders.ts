@@ -1,3 +1,4 @@
+import {BRUSH_RADIAL_SOFTNESS_GLSL} from './radialSoftness'
 import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
@@ -460,10 +461,20 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
     replace('if (u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;', 'if (u_dualImageEnabled<0.5 && u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;')
   }
   if (radialCurves) {
-    replace(BRUSH_PROCEDURAL_GLSL, BRUSH_PROCEDURAL_GLSL + BRUSH_RADIAL_CURVE_GLSL)
-    replace('brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)', 'brushProceduralMaskWithCurve(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural,u_tip)')
-    replace('u_dualProceduralGeometry,u_dualProcedural)', 'u_dualProceduralGeometry,u_dualProcedural,u_dual)')
-    replace('brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,', 'brushProceduralMaskWithCurve(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,')
+    replace(BRUSH_PROCEDURAL_GLSL, BRUSH_PROCEDURAL_GLSL + BRUSH_RADIAL_CURVE_GLSL + BRUSH_RADIAL_SOFTNESS_GLSL + `
+    uniform vec4 u_tipSoftnessBasis;
+    uniform vec4 u_dualSoftnessBasis;
+    uniform float u_tipSoftness;
+    uniform float u_dualSoftness;
+    float brushProceduralMaskWithSoftness(vec2 pixel,mat2 frame,vec4 geometry,vec4 profile,sampler2D lookup,vec4 basis,float softness) {
+      if(profile.x<3.5)return brushProceduralMaskWithCurve(pixel,frame,geometry,profile,lookup);
+      vec2 p=(frame*pixel)/geometry.xy;
+      return brushRadialSoftnessMask(lookup,dot(p,p),basis,softness);
+    }
+    `)
+    replace('brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)', 'brushProceduralMaskWithSoftness(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness)')
+    replace('u_dualProceduralGeometry,u_dualProcedural)', 'u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness)')
+    replace('brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,', 'brushProceduralMaskWithSoftness(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,')
   }
   return source
 }
