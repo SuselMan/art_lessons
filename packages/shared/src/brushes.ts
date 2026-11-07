@@ -90,7 +90,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure'; rank?: number; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
+  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity'; rank?: number; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -561,9 +561,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
         || Object.keys(animation).some(key => !['mode','frames','geometry','rank'].includes(key))
-        || !['random','incremental','constant','pressure'].includes(String(animation.mode))
+        || !['random','incremental','constant','pressure','velocity'].includes(String(animation.mode))
         || (animation.mode==='constant'||animation.mode==='pressure') && Number(d.version)<91
-        || (animation.mode==='pressure' ? !numberIn(animation.rank,1,2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
+        || animation.mode==='velocity' && Number(d.version)<92
+        || (animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
         || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       const frameIds = animation.frames
@@ -673,6 +674,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
+    }
+    // The engine captures speed from the ROOT preset, including for independent masks.
+    // Child-only speedInput would not capture a channel on the author pipeline.
+    const velocityChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
+    if(record(d.tip.animation)&&d.tip.animation.mode==='velocity'||record(velocityChild)&&velocityChild.mode==='velocity'){
+      const speed=record(d.behavior)?d.behavior.speedInput:undefined
+      if(Number(d.version)<92||!record(speed)||speed.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')return false
     }
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
@@ -801,9 +809,11 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
   const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
-  if(!allocation&&!direction&&!time)return true
+  const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
+  if(!allocation&&!direction&&!time&&!velocity)return true
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
     &&(!time||isDabSourceTime(d.sourceTime))
+    &&(!velocity||(typeof d.normalizedSpeed==='number'&&Number.isFinite(d.normalizedSpeed)&&d.normalizedSpeed>=0&&d.normalizedSpeed<=1))
     &&(!direction||(typeof d.sourceAngle==='number'&&Number.isFinite(d.sourceAngle)))
     &&(!allocation||(Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
       &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1))

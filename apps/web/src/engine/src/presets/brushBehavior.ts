@@ -297,9 +297,18 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
-export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number): number | undefined {
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
+  if(animation.mode==='velocity'){
+    const rank=animation.rank
+    if(!Number.isInteger(rank)||rank===undefined||rank<1||rank>256||normalizedSpeed===undefined||!Number.isFinite(normalizedSpeed)||normalizedSpeed<0||normalizedSpeed>1)throw Error('Invalid GIH captured velocity input')
+    // Native selectPre: positive qRound(log(1+speed)/3*((rank-1)+.5)).
+    // Keep its normalized speed domain; do NOT stretch log(2) to the last frame.
+    const speed=Math.fround(normalizedSpeed)
+    const index=Math.floor(Math.min(Math.log(1+speed),3)/3*((rank-1)+.5)+.5)
+    return (index>>>0)%animation.frames.length
+  }
   if(animation.mode==='constant')return 0
   if(animation.mode==='pressure'){
     const rank=animation.rank,p=Math.fround(pressure ?? NaN)
@@ -313,8 +322,8 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
   return animation.mode==='incremental' ? ordinal%animation.frames.length
     : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
 }
-export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number): BrushDescriptor['tip']['mask'] {
-  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure)
+export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number): BrushDescriptor['tip']['mask'] {
+  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed)
   return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
@@ -338,11 +347,17 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     assertBrushSourceInputs(brush,[dab])
   }
   // Validate both selectors before advancing any real gesture state.
+  const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'
+  if(velocity){
+    const speed=behavior?.speedInput
+    if(brush.version<92||speed?.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')throw Error('GIH velocity requires root captured speedInput30')
+    if(dab.normalizedSpeed===undefined||!Number.isFinite(dab.normalizedSpeed)||dab.normalizedSpeed<0||dab.normalizedSpeed>1)throw Error('Invalid GIH captured velocity input')
+  }
   const ordinal = state.dabOrdinal ?? 0
-  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure)
-  // Independent pressure masks are queried only by their own resampled child dabs.
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed)
+  // Independent sensor masks are queried only by their own resampled child dabs.
   // Preserve historical random/incremental parent metadata expressions unchanged.
-  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&behavior.dual.brush.tip.animation?.mode==='pressure') ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure) : undefined
+  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
   advanceBrushAnimation(brush, state)
   const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
   const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]

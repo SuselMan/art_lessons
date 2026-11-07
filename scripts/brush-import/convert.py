@@ -685,6 +685,13 @@ def portable_bundle(path,catalog):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        # A valid standalone child does not ensure the selected ROOT captures speed.
+        child=behavior.get('dual',{}).get('brush',{}) if isinstance(behavior.get('dual',{}),dict) else {}
+        child_tip=child.get('tip',{}) if isinstance(child,dict) else {}
+        own_animation=tip.get('animation',{});child_animation=child_tip.get('animation',{}) if isinstance(child_tip,dict) else {}
+        if (isinstance(own_animation,dict)and own_animation.get('mode')=='velocity')or(isinstance(child_animation,dict)and child_animation.get('mode')=='velocity'):
+            speed=behavior.get('speedInput')
+            if d['version']<92 or not isinstance(speed,dict) or speed!={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'} or type(speed.get('version'))is not int or type(speed.get('maximum'))not in(int,float):raise ValueError('GIH velocity requires root captured speedInput30')
         validate_variable_gih_descriptor(d,asset_sizes)
         if any('lightnessStrength' in behavior.get(key,{}) for key in ('dynamics','modulations')):
             if d['version']<90 or d['model']!='stamp' or tip.get('material',{}).get('kind')!='lightness' or any(k in d for k in ['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']):raise ValueError('Invalid portable Lightness Strength target')
@@ -745,10 +752,12 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure'): raise ValueError('Invalid portable tip animation')
+            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure','velocity'): raise ValueError('Invalid portable tip animation')
             if animation['mode'] in ('constant','pressure') and d['version']<91:raise ValueError('GIH sensor selection requires revision91')
-            if animation['mode']=='pressure':
-                if type(animation.get('rank')) is not int or not 1<=animation['rank']<=2147483647:raise ValueError('Invalid portable GIH pressure rank')
+            if animation['mode']=='velocity' and d['version']<92:raise ValueError('GIH velocity requires revision92')
+            if animation['mode']in('pressure','velocity'):
+                maximum=256 if animation['mode']=='velocity'else 2147483647
+                if type(animation.get('rank')) is not int or not 1<=animation['rank']<=maximum:raise ValueError('Invalid portable GIH selector rank')
             elif 'rank'in animation:raise ValueError('Unexpected portable GIH rank')
             frames=animation['frames']
             if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')

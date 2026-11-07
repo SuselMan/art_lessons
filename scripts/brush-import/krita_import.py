@@ -167,7 +167,8 @@ def gbr(data, preserve_color=False):
 def gih(data, preserve_color=False):
     """Read the documented image-pipe container without discarding any frame.
 
-    The currently shipped Krita pipes use one random/incremental dimension.
+    One dimension, equal declared count/ncells/rank, bounded actual frames.
+    Random/incremental/constant/pressure plus bounded-rank captured velocity.
     Other selection/rank combinations fail explicitly pending runtime support.
     Reference: https://developer.gimp.org/core/standards/gih/
     """
@@ -189,10 +190,12 @@ def gih(data, preserve_color=False):
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
     mode=params.get('sel0',params.get('selection','incremental'))
-    if mode not in ('random','incremental','constant','pressure'):
+    if mode not in ('random','incremental','constant','pressure','velocity'):
         raise ValueError('Unsupported GIH selection mode: '+mode)
     if mode in ('random','incremental') and count>256:
         raise ValueError('Unsupported legacy GIH declared frame count')
+    if mode=='velocity' and count>256:
+        raise ValueError('Unsupported GIH velocity declared rank above256')
     frames=[];offset=second+1;pixels=0;coloured=False
     for _ in range(count):
         # Krita loads valid frames until exact EOF, then indexes modulo the
@@ -707,16 +710,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
             if len(assets)>1:
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
-                if pipe['mode']=='pressure':d['tip']['animation']['rank']=pipe['declaredCount']
+                if pipe['mode']in('pressure','velocity'):d['tip']['animation']['rank']=pipe['declaredCount']
                 if unequal:
                     variable_gih_bounds=[bounds for aid,bounds in assets]
                     d['tip']['animation']['geometry']={'version':1,'frames':[{'sourceWidth':frame.width,'sourceHeight':frame.height,'maskBounds':bounds}for frame,(aid,bounds)in zip(frames,assets)]}
                     d['version']=max(d['version'],86)
                     notes.append(compatibility('gihOriginalGeometry','Original per-frame dimensions/padding retained without resize; first-frame nominal size/spacing and selected-frame hotspot placement use browser functional filtering.','supported'))
             if pipe['mode'] in ('constant','pressure'):d['version']=max(d['version'],91)
+            if pipe['mode']=='velocity':d['version']=max(d['version'],92)
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
-            selection_note=('All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.')
+            selection_note=('All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
             notes.append(compatibility('gihSelection',selection_note))
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
@@ -1407,6 +1411,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)
     if d['tip'].get('animation',{}).get('geometry') is not None:
         d['version']=max(d['version'],86)
+    if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
