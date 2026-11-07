@@ -1,3 +1,5 @@
+import type{SprayScratchLease}from'./SprayRequestPainter'
+import{colorSmudgeTipPixels}from'../presets/colorSmudgeTip'
 import type {BristleInkSettings} from '../presets/brushBristleInk'
 import type { BrushExecutionContext } from '../presets/brushExecutionContext'
 import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
@@ -21,6 +23,7 @@ import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPaint
 
 export interface BrushContext {
   readonly gl: WebGLRenderingContext
+  acquireSprayScratch?(width:number,height:number):SprayScratchLease
   readonly brushMipCache?: BrushMipCache
   quadBuf(): WebGLBuffer
   readonly paper: PaperSampling
@@ -37,6 +40,7 @@ export class BrushPainter {
   private readonly materialMips: BrushMipCache
   private readonly ownsMipCache: boolean
   private maximumImageSide: number | undefined
+  private colorEpoch={}
   private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
@@ -46,11 +50,16 @@ export class BrushPainter {
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase) => {
       const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
-      return this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
-    })
+      const release=this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
+      if(!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
+      // Peer/cold use the same admitted cache/lease; selection is not readiness.
+      try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
+      catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
+    },(id,planes,bounds)=>this.preparedImage(id,planes,bounds),(id,bounds)=>this.preparedSprayMask(id,bounds))
   }
-  initGL():void {this.maximumImageSide=undefined;this.textures.clear(true);this.behavior.initGL()}
+  initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.textures.clear(true);this.behavior.initGL()}
   destroy():void {
+    this.colorEpoch={}
     this.behavior.destroy()
     this.textures.clear()
     if (this.ownsMipCache) this.materialMips.clear()
@@ -75,6 +84,8 @@ export class BrushPainter {
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
+  prepareSpraySources():void{this.behavior.prepareSpraySources()}
+  prepareSprayImages():void {this.behavior.prepareSprayImages()}
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
@@ -84,8 +95,26 @@ export class BrushPainter {
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     this.textures.protect(group.map(brushTextureResourceKey))
-    if (resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
+    if(resource.colorPlanes){
+      if(resource.gradientMap)throw Error('Spray image requires original RGB planes')
+      const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
+      const alpha=importedAssetPixels(resource.id),side=Math.sqrt(alpha.length),pixels=colorSmudgeTipPixels(alpha,resource.colorPlanes.map(importedAssetPixels))
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side});this.textures.put(key,entry.texture,entry.bytes)
+    }else if(resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
     else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage,resource.lookup32)
+  }
+
+  private preparedSprayMask(id:TipMaskId,bounds?:BrushDescriptor["tip"]["maskBounds"]){
+    const key=brushTextureResourceKey({id,grain:false}),texture=this.textures.get(key),epoch=this.colorEpoch
+    if(!texture)throw Error('Spray mask was not prepared')
+    const side=Math.sqrt(importedAssetPixels(id).length)
+    return{texture,width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray mask owner was retired')}}
+  }
+  private preparedImage(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushDescriptor["tip"]["maskBounds"]){
+    const key=brushTextureResourceKey({id,grain:false,colorPlanes:planes}),texture=this.textures.get(key),epoch=this.colorEpoch
+    if(!texture)throw Error('Spray RGBA image was not prepared')
+    const side=Math.sqrt(importedAssetPixels(id).length)
+    return{texture,width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray RGBA image owner was retired')}}
   }
 
   private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {

@@ -1,3 +1,4 @@
+import {prepareGaussianRectangle,autoRectangleAlpha,gaussianEllipseAlpha,type CurveRectangle} from './autoRectangle'
 import {autoSpikeFold} from './autoSpikes'
 import {radialSoftnessAlpha,type RadialSoftnessBasis} from './radialSoftness'
 import { radialCurveAlpha } from './radialCurve'
@@ -11,6 +12,8 @@ export function proceduralProfileUniforms(profile?: Profile, lookupSide?: number
     number,
     number
 ] {
+    if(profile?.kind==='gaussian2D'){const fade=Math.max(1e-6,Math.min(1-1e-6,1-(profile.horizontalFade+profile.verticalFade)/2));return [profile.shape==='ellipse'?5:6,profile.shape==='ellipse'?fade:profile.horizontalFade,profile.verticalFade,profile.antialias?1:0]}
+    if(profile?.kind==='curveRectangle'||profile?.kind==='curveRectangleSoftness'){if(!lookupSide)throw Error('Rectangle curve requires its lookup resource');return [profile.kind==='curveRectangle'?7:8,profile.resolution,lookupSide,profile.antialias?1:0]}
     if (profile?.kind === 'circleBand') throw Error('Circle band uses a separate max-alpha program')
     if (profile?.kind === 'radialCurve' || profile?.kind === 'radialCurveSoftness') {
         if (!lookupSide) throw Error('Radial curve requires its lookup resource')
@@ -62,7 +65,17 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 }
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
-export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1, softnessBasis?:RadialSoftnessBasis, spikes=2): number {
+export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1, softnessBasis?:RadialSoftnessBasis, spikes=2, rectangleBasis?:CurveRectangle): number {
+    if(profile.kind==='gaussian2D'){
+        if(![x,y,width,height,angle].every(Number.isFinite)||width<=0||height<=0)return 0
+        if(profile.shape==='ellipse')return gaussianEllipseAlpha(x,y,width*.5,height*.5,Math.max(1e-6,Math.min(1-1e-6,1-(profile.horizontalFade+profile.verticalFade)/2)),profile.antialias,angle,spikes)
+        const prepared=prepareGaussianRectangle(width*.5,height*.5,profile.horizontalFade,profile.verticalFade,profile.antialias)
+        return autoRectangleAlpha(x,y,width*.5,height*.5,angle,spikes,prepared)
+    }
+    if(profile.kind==='curveRectangle'||profile.kind==='curveRectangleSoftness'){
+        if(!rectangleBasis||rectangleBasis.resolution!==profile.resolution)throw Error('Rectangle curve requires its prepared basis')
+        return autoRectangleAlpha(x,y,width*.5,height*.5,angle,spikes,rectangleBasis,softness)
+    }
     if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
     if(spikes!==2)return proceduralSpikesAlpha(x,y,width,height,profile,angle,lookup,softness,softnessBasis,spikes)
     if(profile.kind==='radialCurveSoftness') {
@@ -88,7 +101,7 @@ export function proceduralMaskAlpha(x: number, y: number, width: number, height:
     });
 }
 /** Native scalar samples each folded generator before U8 stencil averaging. */
-function proceduralSpikesAlpha(x:number,y:number,width:number,height:number,profile:Exclude<Profile,{kind:'circleBand'}>,angle:number,lookup:Uint8Array|undefined,softness:number,basis:RadialSoftnessBasis|undefined,spikes:number):number {
+function proceduralSpikesAlpha(x:number,y:number,width:number,height:number,profile:Exclude<Profile,{kind:'circleBand'|'gaussian2D'|'curveRectangle'|'curveRectangleSoftness'}>,angle:number,lookup:Uint8Array|undefined,softness:number,basis:RadialSoftnessBasis|undefined,spikes:number):number {
     if(![x,y,width,height,angle].every(Number.isFinite)||width<=0||height<=0)return 0
     const rx=width*.5,ry=height*.5,c=Math.cos(angle),s=Math.sin(angle)
     const halfAllocation=rx*(Math.abs(c)+Math.abs(s))

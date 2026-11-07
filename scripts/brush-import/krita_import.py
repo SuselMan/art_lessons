@@ -620,6 +620,31 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if shape=='rect' and not standard:
             mask=Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
+        rectangle_profile=None
+        new_gaussian=(engine=='paintbrush'and generator.get('id')=='gauss'and(spikes==2 or spikes_supported)and not noise_active and valid_fade and(shape=='rect'or ratio!=1 and not spikes_supported))
+        if new_gaussian:
+            rectangle_profile={'kind':'gaussian2D','shape':'rectangle'if shape=='rect'else'ellipse','horizontalFade':hf,'verticalFade':vf,'antialias':gaussian_aa}
+        new_curve=(engine=='paintbrush'and generator.get('id')=='soft'and shape=='rect'and(spikes==2 or spikes_supported)and not noise_active and not enabled(params.get('PressureSharpness')))
+        if new_curve:
+            curve=generator.get('softness_curve','0,0;1,1')
+            if not enabled(params.get('PressureSoftness')):
+                rectangle_profile={**radial_curve_lookup(curve,source_size,catalog,warnings),'kind':'curveRectangle','antialias':enabled(generator.get('antialiasEdges'))}
+            else:
+                softness_value=numeric(params.get('SoftnessValue'),1)
+                if not math.isfinite(softness_value)or not 0<=softness_value<=1:raise ValueError('Native Softness value outside0..1')
+                start=len(notes)
+                softness_controls=size_like_controls(params,'Softness',notes,allow_time=timed_input)if enabled(params.get('SoftnessUseCurve','true'))else[]
+                if not any(n['status']=='unsupported'for n in notes[start:])and(not enabled(params.get('SoftnessUseCurve','true'))or softness_controls):
+                    from softness_curve import compile_softness_basis
+                    basis=compile_softness_basis(curve,source_size);payload=basis['payload'];side=4
+                    while side*side<len(payload):side*=2
+                    lookup=catalog.asset(Image.frombytes('L',(side,side),payload+bytes(side*side-len(payload))),warnings,grain=True)
+                    rectangle_profile={'kind':'curveRectangleSoftness','lookup':lookup,'resolution':basis['resolution'],'encoding':basis['encoding'],'minimum':basis['minimum'],'span':basis['span'],'antialias':enabled(generator.get('antialiasEdges'))}
+        if rectangle_profile:
+            d['tip'].pop('mask',None);d['tip'].pop('maskBounds',None);d['tip']['kind']='procedural';d['tip']['hardness']=1;d['tip']['profile']=rectangle_profile
+            d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[rectangle_profile['kind']])
+            notes[:]=[n for n in notes if n['feature']not in('autoBrush','gaussianGenerator')]
+            notes.append(compatibility('autoRectangle','Separable Gaussian axes or complementary nearest-index curve products retained, with native 2D edge fade. GPU erf, curve and edge rounding may differ.','supported'))
         if spikes_supported and d['tip'].get('profile'):
             d['tip']['kind']='procedural';d['tip']['autoShape']={'version':1,'spikes':int(spikes)}
             d['version']=max(d['version'],71)
@@ -628,6 +653,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['kind']='procedural';d['tip']['autoNoise']={'version':1,'density':noise_density,'randomness':noise_randomness}
             d['version']=max(d['version'],74)
             notes.append(compatibility('autoMaskNoise','Per-pixel attenuation and density use a captured-seed functional D16/R8 law on a canonical full-dab grid. Native random sequence and pixels differ.','supported'))
+        if noise_active and noise_supported and not d['tip'].get('autoNoise'):notes.append(compatibility('autoMaskNoise','Per-pixel density/randomness are not implemented for this fallback generator.','unsupported'))
         if gaussian_softness_noop:notes.append(compatibility('gaussianSoftness','Native Gaussian generator stores but does not use Softness; saved controls do not affect the mask.','supported'))
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
@@ -638,7 +664,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
-            if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
+            if application==1 and engine in('paintbrush','colorsmudge') and not eraser and(engine=='colorsmudge'or all(frame.mode=='RGBA'for frame in pipe['frames'])):stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
             if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge' and not eraser):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 if application==3:gradient_gray=[gray for gray,alpha in planes]
@@ -664,7 +690,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
-            if application==1 and engine=='colorsmudge' and not eraser:stamp_images=[image.convert('RGBA')]
+            if application==1 and engine in('paintbrush','colorsmudge') and not eraser and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
             if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge' and not eraser):
                 gray,mask=lightness_planes(image,definition)
                 if application==3:gradient_gray=[gray]
@@ -693,7 +719,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 channels.append([asset for asset,bounds in planes])
             d['tip']['color']={'planes':channels[0]}
             if len(channels)>1:d['tip']['color']['frames']=channels
-            notes.append(compatibility('colorSmudgeStamp','Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.'))
+            notes.append(compatibility('pixelOriginalRgba'if engine=='paintbrush'else'colorSmudgeStamp','Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.'))
         elif gradient_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in gradient_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):raise ValueError('Gradient/alpha plane bounds mismatch')
@@ -748,7 +774,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
     if sharpness_controls: behavior.setdefault('modulations',{})['sharpness']=sharpness_controls
-    if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')in('standard','radialCurveSoftness') and enabled(params.get('PressureSoftness')):
+    if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')in('standard','radialCurveSoftness','curveRectangleSoftness') and enabled(params.get('PressureSoftness')):
         behavior['softness']=softness_value
         if softness_controls:behavior.setdefault('modulations',{})['softness']=softness_controls
         d['version']=max(d['version'],64)
@@ -1075,9 +1101,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # Both pure and foreground canvas paths require this same native
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
+        foreground_modes={'grain_merge':'grainMerge','grain_extract':'grainExtract','negation':'negation'}
+        legacy_foreground=not modern and mode in('multiply','screen') and not enabled(params.get('MergedPaint','false'))
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
                          and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
-                         and (params.get('CompositeOp','normal')=='normal' or (modern and mode in modes)))
+                         and (params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
         if previous_canvas:
             d['mixer'].update(source='projectionCanvas' if enabled(params.get('MergedPaint','false')) and 'material' not in d['tip'] else 'previousCanvas',load=0,initialLoad=0)
             if d['mixer']['source']=='projectionCanvas':notes.append(compatibility('mergedPaint','Captured visible-layer order/opacity and historical source reads; bounded live projection is recomposited per dab rather than native cached image overlay.'))
@@ -1088,6 +1116,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 behavior['rendering']['blendMode']='normal'
                 d['version']=max(d['version'],65)
                 notes.append(compatibility('colorRateComposite','Native strict U8 Photoshop Hard Mix is applied only to foreground paint; canvas feedback and final transfer keep their own strategy.','supported'))
+            if (modern and mode in foreground_modes) or legacy_foreground:
+                notes=[note for note in notes if note['feature']!='blendMode']
+                d['mixer']['colorRateComposite']=foreground_modes[mode] if modern else mode
+                behavior['rendering']['blendMode']='normal'
+                notes.append(compatibility('colorRateComposite','Foreground-only composition; feedback and final transfer retain the selected modern/legacy strategy. U8 colour-profile and native byte rounding differ.','supported'))
             if 'material' in d['tip']:
                 checked=enabled(params.get('PressurePaintThickness'))
                 thickness=numeric(params.get('PaintThicknessValue'),1) if checked else 1
@@ -1200,12 +1233,30 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             try:value=float(params.get('RateValue',1)) if enabled(params.get('PressureRate')) else 1
             except(ValueError,TypeError):value=float('nan')
             if value!=1:controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
-            valid=not refresh_random and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
+            functional_refresh=engine=='paintbrush'
+            valid=(not refresh_random or functional_refresh)and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
             valid=valid and (not enabled(params.get('PressureRate')) or not enabled(params.get('RateUseCurve','true')) or bool(controls))
-            valid=valid and all(not c.get('combine') and c['control']in('pressure','off') and c.get('jitter',0)==0 for c in controls)
+            def refresh_control(c):
+                combine=c.get('combine')
+                return functional_refresh and any(leaf['control']=='random'for leaf in combine['scaling']+combine['additive'])and all(refresh_control(leaf)for leaf in combine['scaling']+combine['additive']) if combine else c['control']in(('pressure','off','random')if functional_refresh else('pressure','off'))and c.get('jitter',0)==0
+            valid=valid and all(refresh_control(c)for c in controls)
             if valid:
                 behavior['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':enabled(params.get('PaintOpSettings/ignoreSpacing'))}
                 if controls:behavior['timing']['rateDynamics']=controls
+                if functional_refresh:
+                    source_time_random=[False]
+                    def time_random(node,path):
+                        if isinstance(node,dict):
+                            if node.get('control')=='random':
+                                node['randomSource']={'kind':'grafettoSourceTime-v1','key':path};source_time_random[0]=True
+                            for key,value in node.items():
+                                if key not in('brush','randomSource'):time_random(value,path+'/'+key)
+                        elif isinstance(node,list):
+                            for index,value in enumerate(node):time_random(value,path+'/'+str(index))
+                    time_random(behavior,'behavior')
+                    if source_time_random[0]:
+                        d['version']=max(d['version'],81)
+                        notes.append(compatibility('airbrushFuzzyRefresh','Stationary and emitted queries use captured F64 sourceTime, gesture seed and sensor role. No refresh-event network history is needed; native random order and sequence differ.','supported'))
                 for note in notes:
                     if note['feature']=='activeDynamics':
                         remaining=[part for part in note['detail'].split(', ')if part!='PressureRate']
@@ -1280,12 +1331,22 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     # Keep newly admitted capabilities above historical input/timer revisions.
     if behavior.get('softness')is not None and d['tip'].get('profile',{}).get('kind')=='standard':d['version']=max(d['version'],64)
     if d.get('mixer',{}).get('colorRateComposite')=='hardMixPhotoshop':d['version']=max(d['version'],65)
+    if d.get('mixer',{}).get('colorRateComposite')in('grainMerge','grainExtract','negation'):d['version']=max(d['version'],82)
+    if d.get('mixer',{}).get('colorRateComposite')in('multiply','screen'):d['version']=max(d['version'],83)
     if d['tip'].get('profile',{}).get('kind')=='radialCurveSoftness':d['version']=max(d['version'],68)
     foreground=d.get('mixer',{}).get('foreground',{})
     foreground=foreground.get('gradient',foreground)
     if any(c.get('combine',{}).get('constant',1)!=1 for c in foreground.get('dynamics',[])):d['version']=max(d['version'],69)
+    def has_time_random(node):
+        if isinstance(node,dict):return node.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1'or any(has_time_random(value)for key,value in node.items()if key!='brush')
+        return isinstance(node,list)and any(has_time_random(value)for value in node)
+    if has_time_random(behavior):d['version']=max(d['version'],81)
+    if engine=='paintbrush'and 'planes'in d['tip'].get('color',{}):
+        if behavior.get('dual')or behavior.get('colorAdjustment')or behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour/dual adjustments are not implemented')
+        d['version']=max(d['version'],84)
     if d.get('texture',{}).get('eraseId'):d['version']=max(d['version'],77)
     if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn'):d['version']=max(d['version'],75)
+    if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)

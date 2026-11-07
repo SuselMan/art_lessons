@@ -1,3 +1,4 @@
+import {usesPixelOriginalRgba,assertPixelOriginalRgba} from '../presets/pixelOriginalRgba'
 import {textureEraseId} from '../presets/brushTextureErase'
 import {validateRadialSoftnessTexture,type RadialSoftnessLayout} from '../raster/radialSoftness'
 import { radialCurveTextureSide } from '../raster/radialCurve'
@@ -23,17 +24,17 @@ export function brushUsesStampEffects(brush:BrushDescriptor):boolean {
  const activeNoise=!!brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)
  const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'}
  const inline=brush.behavior?.dual?.sampling!=='independent'?brush.behavior?.dual?.brush:undefined
- return activeNoise||extended(brush)||extended(inline)
+ return usesPixelOriginalRgba(brush)||activeNoise||extended(brush)||extended(inline)||brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'
 }
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
 export function brushTipSamplerId(tip?: BrushTip): TipMaskId | undefined {
-  return (tip?.profile?.kind === 'radialCurve' || tip?.profile?.kind === 'radialCurveSoftness') ? tip.profile.lookup : tip?.mask
+  return ((tip?.profile?.kind === 'radialCurve') || tip?.profile?.kind === 'radialCurveSoftness' || tip?.profile?.kind === 'curveRectangle' || tip?.profile?.kind === 'curveRectangleSoftness') ? tip.profile.lookup : tip?.mask
 }
 const softnessBases=new WeakMap<BrushTip,{lookup:string;resolution:number;minimum:number;span:number;basis:RadialSoftnessLayout}>()
 export function brushTipSoftnessLayout(tip:BrushTip):RadialSoftnessLayout {
   const profile=tip.profile
-  if(profile?.kind!=='radialCurveSoftness')throw Error('Expected radial softness tip')
+  if(profile?.kind!=='radialCurveSoftness'&&profile?.kind!=='curveRectangleSoftness')throw Error('Expected radial softness tip')
   const old=softnessBases.get(tip)
   if(old&&old.lookup===profile.lookup&&old.resolution===profile.resolution&&old.minimum===profile.minimum&&old.span===profile.span)return old.basis
   const basis=validateRadialSoftnessTexture(importedAssetPixels(profile.lookup),profile)
@@ -41,24 +42,24 @@ export function brushTipSoftnessLayout(tip:BrushTip):RadialSoftnessLayout {
   return basis
 }
 export function brushTipSoftnessBasisUniforms(tip?:BrushTip):[number,number,number,number] {
-  if(tip?.profile?.kind!=='radialCurveSoftness')return [0,0,0,1]
+  if(tip?.profile?.kind!=='radialCurveSoftness'&&tip?.profile?.kind!=='curveRectangleSoftness')return [0,0,0,1]
   const basis=brushTipSoftnessLayout(tip)
   return [basis.resolution,basis.textureSide,basis.minimum,basis.span]
 }
 export function brushTipProfileUniforms(tip?: BrushTip): [number,number,number,number] {
   const profile=tip?.profile
-  if(profile?.kind==='radialCurveSoftness')return proceduralProfileUniforms(profile,brushTipSoftnessLayout(tip!).textureSide)
-  return proceduralProfileUniforms(profile, profile?.kind === 'radialCurve' ? radialCurveTextureSide(importedAssetPixels(profile.lookup), profile.resolution) : undefined)
+  if((profile?.kind==='radialCurveSoftness'||profile?.kind==='curveRectangleSoftness'))return proceduralProfileUniforms(profile,brushTipSoftnessLayout(tip!).textureSide)
+  return proceduralProfileUniforms(profile, (profile?.kind === 'radialCurve'||profile?.kind === 'curveRectangle') ? radialCurveTextureSide(importedAssetPixels(profile.lookup), profile.resolution) : undefined)
 }
 
 const materialPlans = new WeakMap<BrushTip, ReturnType<typeof materialPackingPlan>>()
 /** One physical resource resolver for preparation, pinning and render lookup. */
 export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): Omit<BrushPreparationResource,'painter'> {
-  if(tip?.profile?.kind==='radialCurveSoftness'){
+  if((tip?.profile?.kind==='radialCurveSoftness'||tip?.profile?.kind==='curveRectangleSoftness')){
     brushTipSoftnessLayout(tip)
     return {id:tip.profile.lookup,grain:false,lookup32:true}
   }
-  if (tip?.profile?.kind === 'radialCurve') {
+  if ((tip?.profile?.kind === 'radialCurve'||tip?.profile?.kind === 'curveRectangle')) {
     radialCurveTextureSide(importedAssetPixels(tip.profile.lookup),tip.profile.resolution)
     return {id:tip.profile.lookup,grain:false,lookup32:true}
   }
@@ -78,9 +79,9 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.clone)capabilities.add('cloneBrush')
@@ -89,8 +90,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.grid)capabilities.add('grid')
   if(brush.hatching)capabilities.add('hatching')
   if(brush.sketch||brush.bristle||brush.curveTrace)capabilities.add('sketchLines')
-  if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
-  if(brush.mixer?.algorithm)capabilities.add('colorSmudge')
+  if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
+  else if(brush.spray?.particle.image)capabilities.add('sprayImages')
+  else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
+  if(brush.mixer?.algorithm)capabilities.add(['grainMerge','grainExtract','negation'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
+  else if(['multiply','screen'].includes(brush.mixer?.colorRateComposite ?? ''))capabilities.add('colorSmudgeLegacy')
   if(brush.mixer?.source==='projectionCanvas')capabilities.add('projectionCanvas')
   if(brush.mixer?.sampling?.mode==='adaptiveMean')capabilities.add('colorSmudgeMean')
   const resources = new Map<string, BrushPreparationResource>()
@@ -108,7 +112,12 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    if(usesPixelOriginalRgba(b))assertPixelOriginalRgba(b)
+    if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
+    const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
+    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
+    if(b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
     if(b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     if(b.tip.autoNoise&&painter!=='stamp')throw Error('Auto-mask noise requires the stamp renderer')
     if (b.tip.profile?.kind === 'circleBand') {

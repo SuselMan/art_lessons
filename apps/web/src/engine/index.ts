@@ -2519,6 +2519,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#494) The digital brush — see BrushPainter.ts; its programs are
     // built by _initGL below too.
     this._brush = new BrushPainter({
+      acquireSprayScratch:(width,height)=>this._smudge.leaseSprayScratch(width,height),
       gl,
       brushMipCache: this._brushMipCache,
       quadBuf: () => this._quadBuf,
@@ -3535,12 +3536,16 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
       else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'spraySources')this._brush.prepareSpraySources()
+      else if(painter === 'sprayImages')this._brush.prepareSprayImages()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampEffects') this._brush.prepareStampEffects()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
+      else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
+      else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy()
       else if(painter === 'projectionCanvas')this._smudge.prepareProjectionSource()
       else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
       else if (painter === 'stamp') this._brush.prepareProcedural()
@@ -6287,7 +6292,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
     const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
     const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
-    const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground)?captureHatchingBackground(this._hatchingBackground):undefined
+    const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground||brush.spray?.color.mixBackground||brush.spray?.color.fillBackground)?captureHatchingBackground(this._hatchingBackground):undefined
     const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background ? copyBrushSourceContext({version:1,...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
@@ -7891,6 +7896,8 @@ export class PencilEngine implements PencilEngineAPI {
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects()
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
+    if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()
+    else if(stamp.brush.spray?.particle.image)this._brush.prepareSprayImages()
     this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution)
   }
 

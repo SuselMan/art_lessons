@@ -420,7 +420,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   /** (#365) World-space size one tile of `factor` spans — what the composite
    *  needs to place a resolveCoarse target, since unlike a fine tile its
    *  buffer dimensions and its world extent are no longer the same number. */
-  coarseWorldSize(factor: CoarseFactor): { w: number; h: number } {
+  coarseWorldSize(factor: 1 | CoarseFactor): { w: number; h: number } {
     return { w: this.tileW * factor, h: this.tileH * factor }
   }
 

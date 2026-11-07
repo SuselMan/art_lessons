@@ -22,7 +22,7 @@ class TimingTests(unittest.TestCase):
   p={'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':'0','PressureRate':'false','RateSensor':'<params id="fuzzy"/>'}
   self.assertEqual(self.brush(p,True)['descriptor']['behavior']['timing']['rate'],0)
  def test_unknown_and_random_rate_fail_closed(self):
-  for sensor in ('fuzzy','unknown','time'):
+  for sensor in ('unknown','time'):
    b=self.brush({'PaintOpSettings/isAirbrushing':'true','PressureRate':'true','RateSensor':'<params id="'+sensor+'"/>'},True)
    self.assertNotIn('timing',b['descriptor']['behavior'])
    self.assertTrue(any(n['feature']=='airbrush'and n['status']=='unsupported'for n in b['compatibility']))
@@ -54,8 +54,9 @@ class TimingTests(unittest.TestCase):
   for option in ('Size','Rotation','Spacing'):
    p={'PaintOpSettings/isAirbrushing':'true','Pressure'+option:'true',option+'Sensor':'<params id="fuzzy"/>'}
    b=self.brush(p,True)
-   self.assertNotIn('timing',b['descriptor']['behavior'])
-   self.assertTrue(any(n['feature']=='airbrush'and 'non-painting RNG event'in n['detail']and n['status']=='unsupported'for n in b['compatibility']))
+   self.assertIn('timing',b['descriptor']['behavior'])
+   self.assertGreaterEqual(b['descriptor']['version'],81)
+   self.assertTrue(any(n['feature']=='airbrushFuzzyRefresh'and n['status']=='supported'for n in b['compatibility']))
    p[option+'UseCurve']='false'
    self.assertIn('timing',self.brush(p,True)['descriptor']['behavior'])
 
@@ -67,8 +68,10 @@ class TimingTests(unittest.TestCase):
   for horizontal,vertical in (('true','true'),('true','false'),('false','true')):
    p={**base,'HorizontalMirrorEnabled':horizontal,'VerticalMirrorEnabled':vertical}
    b=self.brush(p,True)
-   self.assertNotIn('timing',b['descriptor']['behavior'])
-   self.assertTrue(any(n['feature']=='airbrush'and n['status']=='unsupported'and 'Mirror spacing-refresh' in n['detail']for n in b['compatibility']))
+   self.assertIn('timing',b['descriptor']['behavior'])
+   c=b['descriptor']['behavior']['mirror']['dynamics'][0]
+   self.assertEqual(c['randomSource']['kind'],'grafettoSourceTime-v1')
+   convert.validate_portable_dynamics([c])
   for overrides in ({},{'HorizontalMirrorEnabled':'false','VerticalMirrorEnabled':'false'},
                     {'HorizontalMirrorEnabled':'true','PressureMirror':'false'},
                     {'VerticalMirrorEnabled':'true','MirrorUseCurve':'false'}):
@@ -77,5 +80,14 @@ class TimingTests(unittest.TestCase):
  def test_mirror_guard_preserves_independent_time_sensor(self):
   b=self.brush({'PaintOpSettings/isAirbrushing':'true','PressureMirror':'true','HorizontalMirrorEnabled':'true',
     'MirrorSensor':'<params id="fuzzy"/>','PressureSize':'true','SizeSensor':'<params id="time" duration="720" periodic="1"/>'},True)
-  self.assertNotIn('timing',b['descriptor']['behavior'])
+  self.assertIn('timing',b['descriptor']['behavior'])
   self.assertEqual(b['descriptor']['behavior']['modulations']['size'][0]['control'],'time')
+
+ def test_fuzzy_rate_uses_recorded_source_time_contract(self):
+  b=self.brush({'PaintOpSettings/isAirbrushing':'true','PressureRate':'true','RateSensor':'<params id="fuzzy"/>'},True)
+  c=b['descriptor']['behavior']['timing']['rateDynamics'][0]
+  self.assertEqual(c['randomSource']['kind'],'grafettoSourceTime-v1')
+  self.assertGreaterEqual(b['descriptor']['version'],81)
+  convert.validate_portable_dynamics([c])
+  for bad in ({**c,'randomStream':0},{**c,'control':'pressure'},{**c,'randomSource':{'kind':'grafettoSourceTime-v1','key':''}}):
+   with self.assertRaises(ValueError):convert.validate_portable_dynamics([bad])

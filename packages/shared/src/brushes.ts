@@ -74,6 +74,9 @@ export interface BrushTip {
   /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
    * Absence preserves legacy round/bitmap sampling. */
   profile?: { kind: 'gaussian'; fade: number; antialias: boolean }
+    | {kind:'gaussian2D';shape:'ellipse'|'rectangle';horizontalFade:number;verticalFade:number;antialias:boolean}
+    | {kind:'curveRectangle';lookup:AssetId;resolution:number;encoding:'unorm32be';antialias:boolean}
+    | {kind:'curveRectangleSoftness';lookup:AssetId;resolution:number;encoding:'softness-affine-unorm32be-v1';minimum:number;span:number;antialias:boolean}
     | { kind: 'standard'; shape: 'ellipse' | 'rectangle'; horizontalFade: number; verticalFade: number; antialias: boolean }
     /** Opaque core plus a one-pixel outward band linear in squared distance. */
     | { kind: 'circleBand'; antialias: true }
@@ -342,7 +345,7 @@ export interface BrushDescriptor {
     /** New mask strategy: feedback composition precedes foreground and mask. */
     algorithm?: 'krita-mask' | 'krita-stamp'
     /** Native foreground-only operation; final canvas transfer remains COPY. */
-    colorRateComposite?: 'hardMixPhotoshop'
+    colorRateComposite?: 'hardMixPhotoshop' | 'grainMerge' | 'grainExtract' | 'negation' | 'multiply' | 'screen'
     /** Uniform previous-canvas area mean. Fixed64 sample cap. */
     sampling?: { mode: 'uniformMean' | 'adaptiveMean' | 'maskMean'; radius: number; radiusDynamics?: BrushDynamic[] }
     /** Source-over foreground added to sampled canvas before masked transfer.
@@ -433,22 +436,28 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if(brushDynamicInputs(d as unknown as BrushDescriptor).some(control=>control.randomSource?.kind==='grafettoSourceTime-v1')&&(Number(d.version)<81||d.model!=='stamp'||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
     if(d.tip.autoNoise!==undefined){
       const noise=d.tip.autoNoise
       if(!record(noise)||Object.keys(noise).length!==3||Object.keys(noise).some(k=>!['version','density','randomness'].includes(k))||noise.version!==1||!numberIn(noise.density,0,1)||!numberIn(noise.randomness,0,1)||Number(d.version)<74||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness'].includes(String(d.tip.profile.kind))||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
     }
-    if(d.tip.autoShape!==undefined&&(!record(d.tip.autoShape)||Object.keys(d.tip.autoShape).some(k=>!['version','spikes'].includes(k))||d.tip.autoShape.version!==1||!numberIn(d.tip.autoShape.spikes,3,20)||!Number.isInteger(d.tip.autoShape.spikes)||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness'].includes(String(d.tip.profile.kind))))return false
+    if(d.tip.autoShape!==undefined&&(!record(d.tip.autoShape)||Object.keys(d.tip.autoShape).some(k=>!['version','spikes'].includes(k))||d.tip.autoShape.version!==1||!numberIn(d.tip.autoShape.spikes,3,20)||!Number.isInteger(d.tip.autoShape.spikes)||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(record(d.behavior)&&d.behavior.mirror!==undefined&&['sketch','bristle','curveTrace','hatching','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
-    if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness'].includes(String(d.tip.profile.kind))))return false
+    if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     // Ink V2 currently supports opacity depletion; saturation requires sequential color state.
     if(record(d.bristle)&&d.bristle.version===2&&(Number(d.version)<72||!record(d.bristle.ink)||d.bristle.ink.useSaturation!==false))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
-    // Pending Spray source/image renderer: retain fail-closed catalogue admission.
-    if(record(d.spray)&&((record(d.spray.particle)&&d.spray.particle.image!==undefined)||(record(d.spray.color)&&['sampleInput','mixBackground','fillBackground'].some(k=>((d.spray as Record<string,unknown>).color as Record<string,unknown>)[k]!==undefined))))return false
+    const sprayImage=record(d.spray)&&record(d.spray.particle)&&d.spray.particle.image===true
+    const spraySource=record(d.spray)&&record(d.spray.color)&&['sampleInput','mixBackground','fillBackground'].some(k=>(d.spray as {color:Record<string,unknown>}).color[k]===true)
+    if(sprayImage||spraySource){
+      if(Number(d.version)<76||d.model!=='stamp'||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.taper!==undefined||d.behavior.edgeBleed!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+      if((d.spray as {particle:{shape:string}}).particle.shape==='tip'&&(d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.autoShape!==undefined||d.tip.autoNoise!==undefined))return false
+      if(sprayImage&&(d.tip.kind!=='bitmap'||!record(d.tip.color)||!Array.isArray(d.tip.color.planes)||'gradient'in d.tip.color))return false
+    }
     if(d.spray!==undefined&&(!isBrushSpray(d.spray)||d.model!=='stamp'||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2))return false
     if (d.tip.kind === 'procedural' && d.tip.profile === undefined) return false
     if (d.tip.profile !== undefined) {
@@ -459,7 +468,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || d.behavior.edgeBleed !== undefined || d.wet !== undefined
         || (record(d.behavior.rendering) && d.behavior.rendering.wetEdges !== undefined && d.behavior.rendering.wetEdges !== 0)
         || typeof profile.antialias !== 'boolean') return false
-      if (profile.kind === 'gaussian') {
+      const rectangleProfile=['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(profile.kind))
+      if(rectangleProfile&&(d.model!=='stamp'||d.tip.kind!=='procedural'||d.tip.autoNoise!==undefined||d.behavior.dual!==undefined||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if(profile.kind==='gaussian2D'){
+        if(Number(d.version)<78||!['ellipse','rectangle'].includes(String(profile.shape))||Object.keys(profile).some(k=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))||!numberIn(profile.horizontalFade,0,1)||!numberIn(profile.verticalFade,0,1))return false
+      }else if(profile.kind==='curveRectangle'||profile.kind==='curveRectangleSoftness'){
+        const dynamic=profile.kind==='curveRectangleSoftness',allowed=dynamic?['kind','lookup','resolution','encoding','minimum','span','antialias']:['kind','lookup','resolution','encoding','antialias']
+        if(Number(d.version)<(dynamic?80:79)||Object.keys(profile).some(k=>!allowed.includes(k))||!ref(profile.lookup)||!numberIn(profile.resolution,1,40000)||!Number.isInteger(profile.resolution)||profile.encoding!==(dynamic?'softness-affine-unorm32be-v1':'unorm32be')||(assetSizes.get(String(profile.lookup))??0)<4||(assetSizes.get(String(profile.lookup))??0)**2<(dynamic?8:4)*(profile.resolution+2)||d.tip.imageSampling!==undefined||d.tip.alphaThreshold!==undefined||dynamic&&(!numberIn(profile.minimum,-65536,65536)||!numberIn(profile.span,1,131072)))return false
+      }else if (profile.kind === 'gaussian') {
         if (d.model !== 'stamp' || (d.tip.aspect !== 1&&d.tip.autoShape===undefined)
           || Object.keys(profile).some(key=>!['kind','fade','antialias'].includes(key))
           || !numberIn(profile.fade,0.000001,0.999999)) return false
@@ -549,14 +565,16 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (sizes.size !== 1) return false
     }
+    const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&Array.isArray(d.tip.color.planes)
+    if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.colorAdjustment!==undefined||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
     if(d.tip.color !== undefined) {
       const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
       const tuple=(v:unknown):v is AssetId[]=>Array.isArray(v)&&v.length===3&&v.every(ref)
-      if(d.model!=='mixer'||(d.mixer as {algorithm?:string}|undefined)?.algorithm!=='krita-stamp'||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined||!record(color))return false
+      if(!(d.model==='mixer'&&(d.mixer as {algorithm?:string}|undefined)?.algorithm==='krita-stamp'||sprayImage||pixelImage)||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined||!record(color))return false
       let planes:unknown[]
       if('gradient' in color){
         const g=color.gradient
-        if(Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
+        if(sprayImage||pixelImage||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
           ||(d.tip.animation ? !Array.isArray(g.grayFrames)||g.grayFrames.length!==frames.length||!g.grayFrames.every(ref)||g.grayFrames[0]!==g.gray : g.grayFrames!==undefined))return false
         planes=Array.isArray(g.grayFrames)?g.grayFrames:[g.gray]
       }else {
@@ -616,7 +634,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
-        if (secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
+        if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
@@ -627,7 +645,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
       || (d.mixer.source !== undefined && !isBrushCanvasSource(d.mixer.source))
       || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || !isBrushCanvasSource(d.mixer.source)))
-      || (d.mixer.colorRateComposite !== undefined && (d.mixer.colorRateComposite!=='hardMixPhotoshop'||!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm))||d.behavior?.rendering?.blendMode!=='normal'))
+      || (d.mixer.colorRateComposite !== undefined && (d.model!=='mixer'||d.behavior?.rendering?.blendMode!=='normal'||(d.mixer.colorRateComposite==='hardMixPhotoshop' ? !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['grainMerge','grainExtract','negation'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<82||!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['multiply','screen'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<83||d.mixer.algorithm!==undefined||d.mixer.source!=='previousCanvas' : true)))
       || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || !isBrushCanvasSource(d.mixer.source) || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))
@@ -668,7 +686,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id);add(value.texture?.eraseId)
-    if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness')add(value.tip.profile.lookup)
+    if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness'||value.tip.profile?.kind==='curveRectangle'||value.tip.profile?.kind==='curveRectangleSoftness')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }
   visit(brush)
@@ -705,7 +723,7 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
   const visit=(b: BrushDescriptor):boolean=>{
     if(seen.has(b))return false
     seen.add(b)
-    return !!b.mypaint||b.curveTrace?.version===2||!!b.behavior?.timing||brushDynamicInputs(b).some(d=>d.control==='time')||!!(b.behavior?.dual&&visit(b.behavior.dual.brush))
+    return !!b.mypaint||b.curveTrace?.version===2||!!b.behavior?.timing||brushDynamicInputs(b).some(d=>d.control==='time'||d.control==='random'&&d.randomSource?.kind==='grafettoSourceTime-v1')||!!(b.behavior?.dual&&visit(b.behavior.dual.brush))
   }
   return visit(brush)
 }
@@ -714,7 +732,7 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
  * Inspect only sensor-bearing fields; ordinary metadata must not opt in. */
 export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
   const seen = new Set<BrushDescriptor>()
-  const native = (d: BrushDynamic | undefined): boolean => d?.control === 'strokeRandom' && d.randomSource?.kind === 'qt5Taus88'
+  const native = (d: BrushDynamic | undefined): boolean => d?.control === 'strokeRandom' && d.randomSource?.kind === 'qt5Taus88'||d?.control==='random'&&d.randomSource?.kind==='grafettoSourceTime-v1'
   const visit = (b: BrushDescriptor): boolean => {
     if (seen.has(b)) return false
     seen.add(b)

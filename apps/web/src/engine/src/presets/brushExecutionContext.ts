@@ -15,7 +15,7 @@ const requiresContext = new WeakMap<BrushDescriptor, boolean>()
 export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   const known = requiresContext.get(brush)
   if(known !== undefined) return known
-  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground
+  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground||!!brush.spray?.color.mixBackground||!!brush.spray?.color.fillBackground
   requiresContext.set(brush, result)
   return result
 }
@@ -29,6 +29,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
   if(brush.hatching?.opaqueBackground&&!context?.brushSource?.background)throw Error('Hatching requires a captured background')
   if((brush.grid?.fillBackground||brush.grid?.mixBackground)&&!context?.brushSource?.background)throw Error('Grid requires a captured background')
+  if((brush.spray?.color.fillBackground||brush.spray?.color.mixBackground)&&!context?.brushSource?.background)throw Error('Spray requires a captured background')
 }
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {
   const a = previous?.brushRandom, b = incoming?.brushRandom

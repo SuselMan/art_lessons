@@ -31,9 +31,13 @@ class SprayTest(unittest.TestCase):
         for axis in ['radial','angular']:
             b=self.convert('<param name="Spray/'+axis+'DistributionType">curveBased</param>')
             self.assertEqual(b['descriptor']['version'],43)
-    def test_missing_canvas_strategy_is_explicit(self):
+    def test_canvas_strategy_keeps_explicit_source_timing_qualification(self):
         for key in ['sampleInputColor','mixBgColor','fillBackground']:
-            with self.assertRaisesRegex(ValueError,'canvas colour'):self.convert('<param name="ColorOption/'+key+'">true</param>')
+            b=self.convert('<param name="ColorOption/'+key+'">true</param>')
+            self.assertEqual(b['descriptor']['version'],76)
+            field={'sampleInputColor':'sampleInput','mixBgColor':'mixBackground','fillBackground':'fillBackground'}[key]
+            self.assertTrue(b['descriptor']['spray']['color'][field])
+            self.assertTrue(any(n['feature']=='spraySourceTiming'and n['status']=='approximate'for n in b['compatibility']))
     def test_filesystem_image_not_followed(self):
         with self.assertRaisesRegex(ValueError,'image shape'):self.convert('<param name="SprayShape/shape">4</param>')
     def test_invalid_distribution_rejected(self):

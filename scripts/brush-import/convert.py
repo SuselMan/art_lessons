@@ -442,8 +442,8 @@ def validate_portable_dynamics(controls):
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if not isinstance(controls,list) or len(controls)>4: raise ValueError('Invalid portable dynamic count')
-    def keyed(source):
-        return (isinstance(source,dict) and set(source)=={'kind','key'} and source.get('kind')=='qt5Taus88'
+    def keyed(source,kind="qt5Taus88"):
+        return (isinstance(source,dict) and set(source)=={'kind','key'} and source.get('kind')==kind
                 and isinstance(source.get('key'),str) and '\0' not in source['key']
                 and 1<=len(source['key'].encode('utf-16-le','surrogatepass'))//2<=128)
     for control in controls:
@@ -467,7 +467,8 @@ def validate_portable_dynamics(controls):
                 or (control.get('control')=='strokeRandom' and not (
                     ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
                     or ('randomStream' not in control and keyed(control.get('randomSource')))))
-                or (control.get('control')!='strokeRandom' and ('randomStream' in control or 'randomSource' in control))
+                or (control.get('control')=='random' and ('randomStream' in control or 'randomSource' in control and not keyed(control['randomSource'],'grafettoSourceTime-v1')))
+                or (control.get('control')not in('strokeRandom','random') and ('randomStream' in control or 'randomSource' in control))
                 or (control.get('control')in('dabProgress','time','distance') and (type(control.get('period')) is not int or not 1<=control['period']<=(2147483647 if control['control']!='dabProgress'else 1000000) or type(control.get('periodic')) is not bool))
                 or (control.get('control')not in('dabProgress','time','distance') and ('period' in control or 'periodic' in control))
                 or not finite(control.get('minimum')) or not finite(control.get('jitter'))
@@ -506,7 +507,11 @@ def validate_portable_mixer(descriptor):
             or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
             or ('source' in mixer and mixer['source'] not in ('previousCanvas','projectionCanvas'))):
         raise ValueError('Invalid portable mixer')
-    if 'colorRateComposite'in mixer and (mixer['colorRateComposite']!='hardMixPhotoshop'or mixer.get('algorithm')not in('krita-mask','krita-stamp')or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid Color Smudge foreground composition')
+    if 'colorRateComposite'in mixer:
+        mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
+        modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
+        valid=(modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and mixer.get('source')=='previousCanvas' if mode in('multiply','screen') else False)
+        if not valid or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
@@ -553,7 +558,7 @@ def validate_portable_profile(descriptor):
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
             or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
-            or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness')):raise ValueError('Invalid native auto shape')
+            or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid native auto shape')
     maximum=(isinstance(behavior,dict) and isinstance(behavior.get('rendering'),dict)
              and behavior['rendering'].get('accumulation')=='maxAlpha')
     circle=isinstance(profile,dict) and profile.get('kind')=='circleBand'
@@ -571,7 +576,25 @@ def validate_portable_profile(descriptor):
             or behavior.get('rendering',{}).get('wetEdges',0)!=0):
         raise ValueError('Invalid portable procedural profile combination')
     finite=lambda value,lo,hi:type(value) in (int,float) and math.isfinite(value) and lo<=value<=hi
-    if profile.get('kind')=='gaussian':
+    if profile.get('kind') in ('gaussian2D','curveRectangle','curveRectangleSoftness'):
+        kind=profile['kind']
+        minimum_version={'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[kind]
+        if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
+                or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
+                or any(k in descriptor for k in ('mixer','spray','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
+                or 'dual'in behavior or 'autoNoise'in tip):raise ValueError('Invalid portable rectangle profile combination')
+        if kind=='gaussian2D':
+            if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
+                    or any(not finite(profile.get(k),0,1)for k in('horizontalFade','verticalFade'))):raise ValueError('Invalid portable 2D Gaussian profile')
+        else:
+            dynamic=kind=='curveRectangleSoftness'
+            fields={'kind','lookup','resolution','encoding','antialias'}|({'minimum','span'}if dynamic else set())
+            if (set(profile)!=fields or profile.get('encoding')!=('softness-affine-unorm32be-v1'if dynamic else'unorm32be')
+                    or not isinstance(profile.get('lookup'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
+                    or type(profile.get('resolution'))is not int or not 1<=profile['resolution']<=40000
+                    or any(k in tip for k in('imageSampling','alphaThreshold'))
+                    or dynamic and(not finite(profile.get('minimum'),-65536,65536)or not finite(profile.get('span'),1,131072))):raise ValueError('Invalid portable rectangle curve profile')
+    elif profile.get('kind')=='gaussian':
         if (set(profile)!={'kind','fade','antialias'} or descriptor['model']!='stamp'
                 or tip.get('aspect')!=1 and tip.get('autoShape')is None or not finite(profile.get('fade'),.000001,.999999)):
             raise ValueError('Invalid portable Gaussian profile')
@@ -655,9 +678,9 @@ def portable_bundle(path,catalog):
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})
-        if profile.get('kind')in('radialCurve','radialCurveSoftness'):
+        if profile.get('kind')in('radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'):
             size=asset_sizes.get(profile['lookup'],0)
-            if size<4 or size*size<(8 if profile['kind']=='radialCurveSoftness'else 4)*(profile['resolution']+2):
+            if size<4 or size*size<(8 if profile['kind']in('radialCurveSoftness','curveRectangleSoftness')else 4)*(profile['resolution']+2):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
@@ -680,10 +703,16 @@ def portable_bundle(path,catalog):
                     or type(timing.get('ignoreDistanceSpacing'))is not bool):raise ValueError('Invalid portable timing policy')
             if 'rateDynamics'in timing:
                 validate_portable_dynamics(timing['rateDynamics'])
-                if not 1<=len(timing['rateDynamics'])<=4 or any(c.get('combine')or c['control']not in('pressure','off')or c['jitter']!=0 for c in timing['rateDynamics']):raise ValueError('Unsupported portable Rate controls')
+                def refresh_control(c):
+                    if c.get('combine'):
+                        group=c['combine'];leaves=group['scaling']+group['additive'];return group.get('absolute')is None and d['version']>=81 and all(refresh_control(v)for v in leaves)and any(v.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1'for v in leaves)
+                    return c['jitter']==0 and(c['control']in('pressure','off')or d['version']>=81 and c['control']=='random'and c.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1')
+                if not 1<=len(timing['rateDynamics'])<=4 or not all(refresh_control(c)for c in timing['rateDynamics']):raise ValueError('Unsupported portable Rate controls')
         def validate_times(value):
             if isinstance(value,dict):
-                if value.get('control')=='time':validate_portable_dynamics([value])
+                if value.get('control')=='time'or value.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1':
+                    validate_portable_dynamics([value])
+                    if value.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1'and(d['version']<81 or d['model']!='stamp'):raise ValueError('Invalid source-time random revision')
                 for child in value.values():validate_times(child)
             elif isinstance(value,list):
                 for child in value:validate_times(child)
@@ -691,12 +720,12 @@ def portable_bundle(path,catalog):
         if 'softness' in behavior:
             value=behavior['softness']
             if (type(value)not in(int,float)or not math.isfinite(value)or not 0<=value<=1
-                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness')):
+                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness')):
                 raise ValueError('Invalid standard-mask softness')
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
             if isinstance(controls,dict) and 'softness' in controls:
-                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness'):raise ValueError('Softness response requires standard mask')
+                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness'):raise ValueError('Softness response requires standard mask')
                 validate_portable_dynamics([controls['softness']]if section=='dynamics'else controls['softness'])
             if isinstance(controls,dict) and 'sharpness' in controls:
                 if 'alphaThreshold' not in tip: raise ValueError('Sharpness response requires alpha threshold')
@@ -716,12 +745,15 @@ def portable_bundle(path,catalog):
         if 'color' in tip:
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
             def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
-            if (d.get('model')!='mixer' or d.get('mixer',{}).get('algorithm')!='krita-stamp' or tip.get('kind')!='bitmap'
+            spray_image=d.get('model')=='stamp'and d.get('version',0)>=76 and d.get('spray',{}).get('particle',{}).get('image')is True
+            pixel_image=d.get('model')=='stamp'and 'spray'not in d and d.get('version',0)>=84 and isinstance(color,dict)and 'planes'in color
+            if pixel_image and(any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material'))or any(k in behavior for k in('dual','colorAdjustment','edgeBleed'))or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness'))):raise ValueError('Invalid portable Pixel original RGBA combination')
+            if (not(d.get('model')=='mixer'and d.get('mixer',{}).get('algorithm')=='krita-stamp'or spray_image or pixel_image) or tip.get('kind')!='bitmap'
                     or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict)):
                 raise ValueError('Invalid portable colour material')
             if 'gradient' in color:
                 g=color['gradient']
-                if set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
+                if spray_image or pixel_image or set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
                 colors=g.get('grayFrames',[g['gray']])
                 if not isinstance(colors,list) or any(not isinstance(a,str) or a not in ids for a in colors) or ('animation' in tip and ('grayFrames' not in g or len(colors)!=len(frames) or colors[0]!=g['gray'])) or ('animation' not in tip and 'grayFrames' in g):raise ValueError('Invalid portable gradient frames')
                 paired=frames+colors

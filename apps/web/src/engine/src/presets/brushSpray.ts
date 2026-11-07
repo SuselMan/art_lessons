@@ -8,9 +8,9 @@ export function sprayStamps(brush:BrushDescriptor,dab:Dab,seed:number,ordinal:nu
   const random=(i:number):number=>brushDabRandom((seed^Math.imul(ordinal+1,0x9e3779b9))>>>0,i)
   const lookup=(lut:Float64Array,u:number):number=>{const x=u*256,i=Math.min(255,Math.floor(x));return lut[i]+(lut[i+1]-lut[i])*(x-i)}
   const radial=decode(s.radial.samples),angular=decode(s.angular)
-  const radius=dab.size*.5*s.scale
+  const area=sprayRequestGeometry(brush,dab,seed,ordinal),radius=area.radius
   const count=Math.min(4096,s.density===undefined?s.count:Math.floor(s.density*Math.PI*radius*radius))
-  const cx=dab.x+(random(0)*2-1)*radius*s.jitter,cy=dab.y+(random(1)*2-1)*radius*s.jitter
+  const cx=area.x,cy=area.y
   const areaAngle=s.angle-dab.angle,cos=Math.cos(areaAngle),sin=Math.sin(areaAngle)
   const result:BrushStamp[]=[]
   for(let i=0;i<count;i++){
@@ -23,7 +23,14 @@ export function sprayStamps(brush:BrushDescriptor,dab:Dab,seed:number,ordinal:nu
     const particleScale=s.dynamics.randomSize?r(3):1
     const proportional=s.particle.proportional?s.diameter*s.scale/100:1
     const width=Math.max(1,s.particle.width*proportional*particleScale),height=Math.max(1,s.particle.height*proportional*particleScale)
-    result.push({x:cx+cos*x-sin*y,y:cy+sin*x+cos*y,size:height,aspect:width/height,angle,flowScale:s.color.randomOpacity?Math.pow(random(16+(s.color.perParticle?i:0)*16+7),2):1})
+    result.push({x:cx+cos*x-sin*y,y:cy+sin*x+cos*y,size:height,aspect:width/height,angle,flowScale:s.color.randomOpacity?Math.pow(random(16+(s.color.perParticle?i:0)*16+7),s.particle.image?1:2):1})
   }
   return result
+}
+
+/** Same area/jitter computation for particles and the real pre-particle background,
+ * including requests whose population is zero. */
+export function sprayRequestGeometry(brush:BrushDescriptor,dab:Dab,seed:number,ordinal:number){
+ const s=brush.spray!,random=(i:number)=>brushDabRandom((seed^Math.imul(ordinal+1,0x9e3779b9))>>>0,i),radius=dab.size*.5*s.scale
+ return{x:dab.x+(random(0)*2-1)*radius*s.jitter,y:dab.y+(random(1)*2-1)*radius*s.jitter,radius}
 }

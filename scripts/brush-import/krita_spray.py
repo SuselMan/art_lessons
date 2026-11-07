@@ -33,8 +33,7 @@ def spray_preset(data,root,params,name,catalog,external):
         n=numeric(params.get(key),default)
         if not lo<=n<=hi:raise ValueError('Spray setting outside supported range: '+key)
         return n
-    for option in ('sampleInputColor','mixBgColor','fillBackground'):
-        if enabled(params.get('ColorOption/'+option)):raise ValueError('Spray '+option+' requires a canvas colour resource strategy')
+    source_flags={key:True for source,key in (('sampleInputColor','sampleInput'),('mixBgColor','mixBackground'),('fillBackground','fillBackground'))if enabled(params.get('ColorOption/'+source))}
     diameter=number('Spray/diameter',100,.01,10000)
     scale=number('Spray/scale',1,.01,4)
     shape=enabled(params.get('SprayShape/enabled','true'))
@@ -109,10 +108,15 @@ def spray_preset(data,root,params,name,catalog,external):
            'dynamics':{'randomSize':flag('randomSize'),'fixedAngle':angle_value('fixedRotation','fixedAngle'),'randomAngle':number(prefix+'randomRotationWeight',.5,0,1) if flag('randomRotation') else 0,'radialAngle':number(prefix+'followCursorWeigth',1,0,1) if flag('followCursor') else 0,'pathAngle':number(prefix+'followDrawingAngleWeigth',1,0,1) if flag('followDrawingAngle') else 0},
            'color':{'perParticle':enabled(params.get('ColorOption/colorPerParticle','true')),'hue':number('ColorOption/hue',0,-180,180)/180 if color else 0,'saturation':number('ColorOption/saturation',0,-100,100)/100 if color else 0,'value':number('ColorOption/value',0,-100,100)/100 if color else 0,'randomOpacity':enabled(params.get('ColorOption/useRandomOpacity'))}}
     if enabled(params.get('Spray/useDensity')):spray['density']=number('Spray/coverage',.3,0,100)/100
-    d['spray']=spray;d['version']=43
+    spray['color'].update(source_flags)
+    if source_flags:
+        if spray['particle']['shape']=='tip'and any(k in d['tip']for k in('profile','imageSampling','autoShape','autoNoise')):raise ValueError('Spray sampled source requires a round or bitmap particle tip')
+        if d.get('texture')or d.get('paperInteraction')or behavior.get('erase'):raise ValueError('Spray sampled source combination is not supported')
+    d['spray']=spray;d['version']=76 if source_flags else 43
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
+    if source_flags:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
     if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
     if source_randomness:result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']

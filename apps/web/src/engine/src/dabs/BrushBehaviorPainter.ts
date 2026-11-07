@@ -1,3 +1,9 @@
+import {usesPixelOriginalRgba,assertPixelOriginalRgba,pixelOriginalRgbaFrames,capturePixelOriginalRgbaView,type PixelOriginalRgbaView} from '../presets/pixelOriginalRgba'
+import{SprayRequestPainter}from'./SprayRequestPainter'
+import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
+import{SprayImageBatch}from'./SprayImageBatch'
+import type{PreparedBrushImageView}from'./PreparedBrushImageView'
+import {prepareGaussianRectangle,gaussianRectangleUniforms} from '../raster/autoRectangle'
 import {textureEraseId} from '../presets/brushTextureErase'
 import {prepareAutoMaskNoise,autoMaskNoiseUniforms,autoMaskNoiseCoordinateBytes,prepareAutoMaskNoiseGrid,autoMaskNoiseGridUniforms,type AutoMaskNoiseGrid} from '../raster/autoMaskNoise'
 import {createBristleInkState,type BristleInkSettings} from '../presets/brushBristleInk'
@@ -40,7 +46,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
-const NOISE_UNIFORMS=['u_autoNoiseConfig','u_autoNoiseKey','u_autoNoiseGridX','u_autoNoiseGridY']
+const NOISE_UNIFORMS=['u_originalRgbaTip','u_rectangleCoefficients','u_rectangleGeometry','u_autoNoiseConfig','u_autoNoiseKey','u_autoNoiseGridX','u_autoNoiseGridY']
 const STAMP_UNIFORMS = [ 'u_autoSpikes','u_autoSpikeAngle','u_dualFlip', 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
@@ -100,6 +106,8 @@ export class BrushBehaviorPainter {
   private bristleRequests?:BristleRequestBatch
   private lineStaging?:Float32Array<ArrayBuffer>
   private sharedLineStaging():Float32Array<ArrayBuffer>{return this.lineStaging??=new Float32Array(2048*6*10)}
+  private sprayRequestPainter?:SprayRequestPainter
+  private sprayImageBatch?:SprayImageBatch
   private sprayBatch?:SprayShapeBatch
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
@@ -134,7 +142,9 @@ export class BrushBehaviorPainter {
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
+  private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')}) { this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -152,6 +162,8 @@ export class BrushBehaviorPainter {
     this.polygonBatch?.reset()
     this.sketchBatch?.reset()
     this.bristleRequests?.reset()
+    this.sprayRequestPainter?.reset()
+    this.sprayImageBatch?.reset()
     this.sprayBatch?.reset()
     this.hatchingStamp=undefined
     this.circleStamp = undefined
@@ -182,6 +194,11 @@ export class BrushBehaviorPainter {
   prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean):void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).prepareInkProfile(settings,!antialias&&!compositing)}
   prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
   prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).prepare()}
+  prepareSpraySources():void{
+    this.sprayRequestPainter??=new SprayRequestPainter(this.ctx,(w,h)=>{if(!this.ctx.acquireSprayScratch)throw Error('Spray scratch owner is unavailable');return this.ctx.acquireSprayScratch(w,h)},(stamp,brush)=>{const id=stamp.mask??brush.tip.mask,planes=stamp.colorPlanes;if(!id||!planes)throw Error('Spray original image is unavailable');return this.preparedImage(id,planes,brush.tip.maskBounds)},(stamp,brush)=>{if(brush.spray?.particle.shape!=='tip')return undefined;const id=stamp.mask??brush.tip.mask;return id?this.preparedSprayMask(id,brush.tip.maskBounds):undefined})
+    this.sprayRequestPainter.prepare()
+  }
+  prepareSprayImages():void{(this.sprayImageBatch??=new SprayImageBatch(this.ctx.gl)).prepare()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
 
   prepareCircleBand(): void { this.circleProgram() }
@@ -241,6 +258,8 @@ export class BrushBehaviorPainter {
     this.polygonBatch?.destroy()
     this.sketchBatch?.destroy()
     this.bristleRequests?.destroy()
+    this.sprayRequestPainter?.destroy()
+    this.sprayImageBatch?.destroy()
     this.sprayBatch?.destroy()
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
@@ -274,7 +293,14 @@ export class BrushBehaviorPainter {
     assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
+    const originalRgba=usesPixelOriginalRgba(brush)
+    const originalFrames=originalRgba?pixelOriginalRgbaFrames(brush):undefined
+    if(originalRgba)assertPixelOriginalRgba(brush)
+    if(brush.behavior?.dual&&usesPixelOriginalRgba(brush.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     const noise=brush.tip.autoNoise
+    if(brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'){
+      if(brush.tip.autoNoise||brush.behavior?.dual||brush.model!=='stamp')throw Error('New rectangle profiles require an unpaired stamp without noise')
+    }
     const noiseSettings=noise&&(noise.density!==1||noise.randomness!==0)?prepareAutoMaskNoise(noise.density,noise.randomness):undefined
     const noiseConfig=noiseSettings?autoMaskNoiseUniforms(noiseSettings):undefined
 
@@ -282,9 +308,28 @@ export class BrushBehaviorPainter {
       return
     const releaseTextures = this.leaseTextures(brush,effectiveErase)
     try {
+    // The common prepared callback/lease is installed by Spray V2. No lazy
+    // RGB upload, alternate cache or foreground fallback is permitted here.
+    const originalViews=originalFrames?new Map<string,PixelOriginalRgbaView>():undefined
+    if(originalFrames&&originalViews)for(const frame of originalFrames){
+      const key=brushTextureResourceKey({id:frame.id,grain:false,colorPlanes:frame.planes})
+      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,brush.tip.maskBounds)))
+    }
+    const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined):PixelOriginalRgbaView=>{
+      if(!id||!planes)throw Error('Pixel original RGBA frame identity is missing')
+      const view=originalViews?.get(brushTextureResourceKey({id,grain:false,colorPlanes:planes}))
+      if(!view)throw Error('Pixel original RGBA frame was not prepared')
+      view.assertCurrent();return view
+    }
     this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
+    if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)){
+      if(effectiveErase||!(target instanceof TiledLayerBuffer)||!this.sprayRequestPainter)throw Error('Spray source pipeline is not prepared for this target')
+      this.sprayRequestPainter.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier)
+      return
+    }
+
     if(brush.curveTrace?.version===2){
       const trace=state.curveTrace??={points:[],ordinal:0},input=trace.input??={}
       dabs=dabs.flatMap(dab=>curveInputRequests(dab,input))
@@ -323,7 +368,7 @@ export class BrushBehaviorPainter {
       if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
       state.washColor??=[...color]
     }
-    const constantPigment=!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    const constantPigment=!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {
       const previous = state.previous
@@ -383,6 +428,11 @@ export class BrushBehaviorPainter {
       noiseGrids.set(stamp,prepareAutoMaskNoiseGrid(stamp.x,stamp.y,rx,ry,!!brush.tip.autoShape,stamp.flipX as 1|-1,stamp.flipY as 1|-1))
     }
 
+    const rectangleUniforms=brush.tip.profile?.kind==='gaussian2D'&&brush.tip.profile.shape==='rectangle'?new WeakMap<BehaviorPlaced,ReturnType<typeof gaussianRectangleUniforms>>():undefined
+    if(rectangleUniforms&&brush.tip.profile?.kind==='gaussian2D')for(const stamp of stamps){
+      const rx=Math.fround(Math.fround(stamp.radius)*Math.fround(stamp.aspect)),ry=Math.fround(stamp.radius)
+      rectangleUniforms.set(stamp,gaussianRectangleUniforms(prepareGaussianRectangle(rx,ry,brush.tip.profile.horizontalFade,brush.tip.profile.verticalFade,brush.tip.profile.antialias)))
+    }
     const oldPreview = this.previewBounds.get(state)
     if (!stamps.length && !secondaryDirty && !oldPreview)
       return
@@ -405,19 +455,22 @@ export class BrushBehaviorPainter {
     // scratch and the output tile; it does not require recompositing.
     const bounds = {minX:Math.floor(dirty.minX),minY:Math.floor(dirty.minY),maxX:Math.ceil(dirty.maxX),maxY:Math.ceil(dirty.maxY)}
     const secondary = independent ? undefined : behavior.dual?.brush
-    const protect=(tip?:TipMaskId,grain?:BrushTextureId,dual?:TipMaskId,dualGrain?:BrushTextureId,grid?:boolean,dualGrid?:boolean,gray?:string,dualGray?:string,mainImage?:NativeImageResource,dualImage?:NativeImageResource):void=>this.protectTextures([
+    const protect=(tip?:TipMaskId,grain?:BrushTextureId,dual?:TipMaskId,dualGrain?:BrushTextureId,grid?:boolean,dualGrid?:boolean,gray?:string,dualGray?:string,mainImage?:NativeImageResource,dualImage?:NativeImageResource,planes?:readonly[string,string,string]):void=>{
+      const colorPlanes=planes??originalFrames?.[0].planes
+      if(originalRgba&&tip&&!colorPlanes)throw Error('Missing protected RGB frame')
+      this.protectTextures([
       'g:cloud','g:grit',
-      ...(tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
+      ...(tip&&originalRgba ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes})] : tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
       ...(dual && (!secondary?.tip.imageSampling || dualImage) ? [brushTextureResourceKey({...brushTipResource(dual,dualGray,secondary?.tip),nativeImage:dualImage})] : []),
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
-    ])
+    ])}
     const effects=brushUsesStampEffects(brush)
     const curveProfiles = effects || !!brush.tip.autoShape || !!secondary?.tip.autoShape || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
     const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
-    const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
+    const animated = !!brush.spray?.particle.image || !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     const primaryTextureId=textureEraseId(brush.texture,effectiveErase),secondaryTextureId=textureEraseId(secondary?.texture,effectiveErase)
-    protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),primaryTextureId,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondaryTextureId,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
+    protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),primaryTextureId,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondaryTextureId,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray,undefined,undefined,stamps[0]?.colorPlanes)
     const procedural = !!brush.hatching || brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
     const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects)
     const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
@@ -438,6 +491,7 @@ export class BrushBehaviorPainter {
       coverage.beginDraw()
       gl.useProgram(selected.program)
       const u = selected.uniforms
+      if(effects)gl.uniform1f(u.u_originalRgbaTip,originalRgba?1:0)
       if(effects&&!noiseSettings){
         gl.uniform4f(u.u_autoNoiseConfig,65535,0,0,0)
         gl.uniform4f(u.u_autoNoiseKey,0,0,0,0)
@@ -520,10 +574,13 @@ export class BrushBehaviorPainter {
             const mainImage = currentMask && brush.tip.imageSampling ? nativeImageResource(currentMask, brush.tip, 2 * s.radius * s.aspect) : undefined
             const childRadiusX = s.radius * s.aspect * imageRatio / (1 + s.edgeSoftness * .15)
             const dualImage = currentDual && secondary?.tip.imageSampling ? nativeImageResource(currentDual, secondary.tip, 2 * childRadiusX) : undefined
-            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage)
+            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage,s.colorPlanes)
             // Resolve the whole group before binding. Lazy upload restores GL
             // state and cannot evict another sampler in this protected group.
-            const mainView=currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip,mainImage) : {texture:paper.texture,mode:0}
+            const rgbaView=originalRgba?originalView(currentMask,s.colorPlanes):undefined
+            if(rgbaView&&(rgbaView.texture===coverage.texture||rgbaView.texture===original.texture||rgbaView.texture===tile.buffer.texture||rgbaView.texture===ceiling.texture))throw Error('Pixel RGBA sampler aliases its paint target')
+            const mainView=rgbaView ? {texture:rgbaView.texture,mode:0} : currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip,mainImage) : {texture:paper.texture,mode:0}
+            if(rgbaView)gl.uniform4f(u.u_tipBounds,...rgbaView.bounds)
             const mainTexture=mainView.texture
             const secondView=currentDual ? this.tipView(currentDual,s.dualGray ?? secondary?.tip.material?.gray,secondary?.tip,dualImage) : {texture:paper.texture,mode:0}
             const secondTexture=secondView.texture
@@ -567,7 +624,7 @@ export class BrushBehaviorPainter {
             gl.uniform2f(u.u_hatchStyle,h.thickness,brush.hatching.antialias?1:0)
             for(let i=0;i<3;i++)gl.uniform4f(u['u_hatch'+i],...(i<h.angles.length?hatchingPlane(h.angles[i],h.separation,brush.hatching.origin,tile.originX,tile.originY,brush.hatching.subpixel):[0,0,0,0])as [number,number,number,number])
           }
-          if(brush.tip.profile?.kind==='radialCurveSoftness' && s.softnessScale!==undefined)gl.uniform1f(u.u_tipSoftness,s.softnessScale)
+          if((brush.tip.profile?.kind==='radialCurveSoftness'||brush.tip.profile?.kind==='curveRectangleSoftness') && s.softnessScale!==undefined)gl.uniform1f(u.u_tipSoftness,s.softnessScale)
           if(secondary?.tip.profile?.kind==='radialCurveSoftness' && s.dualSoftnessScale!==undefined)gl.uniform1f(u.u_dualSoftness,s.dualSoftnessScale)
           if (s.sharpnessScale !== undefined) gl.uniform3f(u.u_alphaThreshold, brushAlphaThresholdValue(threshold, s.sharpnessScale), threshold?.softness ?? 0, threshold ? 1 : 0)
           if (s.dualSharpnessScale !== undefined) gl.uniform3f(u.u_dualAlphaThreshold, brushAlphaThresholdValue(dualThreshold, s.dualSharpnessScale), dualThreshold?.softness ?? 0, dualThreshold ? 1 : 0)
@@ -610,11 +667,17 @@ export class BrushBehaviorPainter {
           if (procedural) {
             const mainRx = Math.fround(Math.fround(s.radius) * Math.fround(s.aspect))
             const mainRy = Math.fround(s.radius)
+            if(brush.tip.profile?.kind==='gaussian2D'&&brush.tip.profile.shape==='rectangle'){
+              const uniforms=rectangleUniforms?.get(s)
+              if(!uniforms)throw Error('Gaussian rectangle geometry was not prepared')
+              gl.uniform4f(u.u_rectangleCoefficients,...uniforms.coefficients)
+              gl.uniform4f(u.u_rectangleGeometry,...uniforms.geometry)
+            }
             const childRx = Math.fround(mainRx * ratio / (1 + s.edgeSoftness * .15))
             const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
             if(s.softnessScale!==undefined && brush.tip.profile?.kind==='standard') gl.uniform4f(u.u_tipProcedural,...proceduralProfileUniforms(standardSoftnessProfile(brush.tip.profile,mainRx,mainRy,s.softnessScale??1)))
             if(s.dualSoftnessScale!==undefined && secondary?.tip.profile?.kind==='standard') gl.uniform4f(u.u_dualProcedural,...proceduralProfileUniforms(standardSoftnessProfile(secondary.tip.profile,childRx,childRy,s.dualSoftnessScale??1)))
-            const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness') || !!brush.tip.imageSampling
+            const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness'||brush.tip.profile?.kind === 'gaussian2D'||brush.tip.profile?.kind === 'curveRectangle'||brush.tip.profile?.kind === 'curveRectangleSoftness') || !!brush.tip.imageSampling
             // A child profile does not expand a legacy parent's clipping quad.
             const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)
               : brush.tip.profile || secondary?.tip.profile?.kind === 'gaussian' ? 1 : 0
@@ -714,6 +777,21 @@ export class BrushBehaviorPainter {
         }
         if(brush.sketch||brush.bristle){
           (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paint(list,coverage,ceiling,tile.originX,tile.originY,brush.sketch?.antialias??brush.bristle!.antialias,!!brush.bristle&&!brush.bristle.compositing)
+          return
+        }
+        if(brush.spray?.particle.image){
+          if(accumulation!=='directOver'||secondary||brush.texture||brush.tip.material||brush.paperInteraction||behavior.edgeBleed||behavior.wetMix||!brush.tip.color||!('planes'in brush.tip.color)||brush.tip.imageSampling)throw Error('Spray original image combination is not supported')
+          const batch=this.sprayImageBatch;if(!batch)throw Error('Spray images are not prepared')
+          // Preserve order across animation frame changes. The existing draw
+          // lease pins the union of all prepared frames under the same16MiB.
+          let start=0
+          while(start<list.length){const first=list[start],id=first.mask??brush.tip.mask,planes=first.colorPlanes??brush.tip.color.planes
+            if(!id||!planes||!first.sprayImageHsv)throw Error('Spray image particle has no original resource')
+            let end=start+1;while(end<list.length&&(list[end].mask??brush.tip.mask)===id&&(list[end].colorPlanes??brush.tip.color.planes)===planes)end++
+            const view=this.preparedImage(id,planes,brush.tip.maskBounds)
+            batch.paint(list.slice(start,end).map(s=>({x:s.x,y:s.y,width:2*s.radius*s.aspect,height:2*s.radius,angle:s.angle,opacity:s.flow*s.ceiling,hsv:s.sprayImageHsv??(()=>{throw Error('Spray image particle has no captured HSV')})()})),view,coverage,tile.originX,tile.originY)
+            start=end
+          }
           return
         }
         if(brush.spray && brush.spray.particle.shape!=='tip' && accumulation==='directOver' && !secondary && !brush.texture && !brush.tip.material && !brush.tip.color && !brush.paperInteraction && !behavior.edgeBleed && !behavior.wetMix){

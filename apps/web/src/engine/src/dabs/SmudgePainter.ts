@@ -54,6 +54,7 @@ import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FR
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
 import { colorSmudgeRates, resolveColorSmudgeRate } from '../presets/colorSmudge'
+import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeLegacyFragment} from '../raster/colorSmudgeStrategyShader'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
@@ -177,6 +178,7 @@ export class SmudgePainter {
   // imprint is resampled through SMUDGE_PICKUP_FRAG's normalized uv when the
   // brush size changes — so the two pools now differ only in who owns them;
   // merging them is a separate change, not part of moving this code.
+  private sprayLeaseEpoch={live:true,lost:false}
   private readonly scratchPool: ScratchFreeList<AccumulationBuffer>
 
   // Smudge's own carried imprint (#14; a raster texture per user since
@@ -222,6 +224,8 @@ export class SmudgePainter {
   private maximumImageSide?: number
   private materialProjection?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeForegroundTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab;target?:ILayerBuffer }>()
@@ -261,6 +265,7 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.sprayLeaseEpoch.live=false;this.sprayLeaseEpoch.lost=true;this.sprayLeaseEpoch={live:true,lost:false}
     this.effectBatch?.reset()
     this.gridBatch?.reset()
     this.projectionSampler.forget()
@@ -269,6 +274,8 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -294,6 +301,8 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -306,6 +315,7 @@ export class SmudgePainter {
   }
 
   destroy(): void {
+    this.sprayLeaseEpoch.live=false
     this.effectBatch?.destroy()
     this.gridBatch?.destroy()
     this.projectionSampler.destroy()
@@ -322,11 +332,15 @@ export class SmudgePainter {
     this.wetGestures.clear()
     if(this.colorMean)gl.deleteProgram(this.colorMean.program)
     if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
+    if(this.colorSmudgeForegroundTransfer)gl.deleteProgram(this.colorSmudgeForegroundTransfer.program)
+    if(this.colorSmudgeLegacyTransfer)gl.deleteProgram(this.colorSmudgeLegacyTransfer.program)
     if(this.materialProjection)gl.deleteProgram(this.materialProjection.program)
     if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -1005,6 +1019,24 @@ export class SmudgePainter {
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
   }
 
+  prepareColorSmudgeForeground():void {
+    this.prepareColorSmudgeMean()
+    this.prepareMaterialProjection()
+    if(this.colorSmudgeForegroundTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeForegroundFragment(wetTransferFragment(true,true,true,true)))
+    this.colorSmudgeForegroundTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  prepareColorSmudgeLegacy():void {
+    if(this.colorSmudgeLegacyTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true)))
+    this.colorSmudgeLegacyTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
   private prepareMaterialProjection():void {
     if(this.materialProjection)return
     const gl=this.gl,program=createProgram(gl,DISPLAY_VERT,COLOR_SMUDGE_MATERIAL_FRAG)
@@ -1085,6 +1117,8 @@ export class SmudgePainter {
     // beginning the destination pass so allocation cannot redirect this dab.
     const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
+    const composite=colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
+    if(composite>=4 && (brush?.mixer?.algorithm || brush?.mixer?.source!=='previousCanvas'))throw new Error('Legacy Color Smudge requires its own canvas strategy')
     const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? brushTipSamplerId(dual?.brush.tip)
     const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
@@ -1107,9 +1141,12 @@ export class SmudgePainter {
     const childProfile = !wet?.secondary && (dual?.brush.tip.profile?.kind === 'standard' || dual?.brush.tip.profile?.kind === 'radialCurve')
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
-    if (brush?.mixer?.algorithm) {
-      this.prepareColorSmudge()
-      binding=this.colorSmudgeTransfer
+    if(composite>=4){
+      this.prepareColorSmudgeLegacy()
+      binding=this.colorSmudgeLegacyTransfer
+    } else if (brush?.mixer?.algorithm) {
+      if(composite>0){this.prepareColorSmudgeForeground();binding=this.colorSmudgeForegroundTransfer}
+      else {this.prepareColorSmudge();binding=this.colorSmudgeTransfer}
     } else if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
       this.prepareRadialCurves()
       binding=this.curveTransfer
@@ -1150,7 +1187,7 @@ export class SmudgePainter {
       gl.uniform1f(u.u_wickPx, wick)
       gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
     }
-    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer) && binding) {
+    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeForegroundTransfer || binding === this.colorSmudgeLegacyTransfer) && binding) {
       gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
       gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
       const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
@@ -1187,7 +1224,8 @@ export class SmudgePainter {
     const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
-    if(binding===this.colorSmudgeTransfer)gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
+    if(binding===this.colorSmudgeTransfer || binding===this.colorSmudgeForegroundTransfer)gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
+    if(binding===this.colorSmudgeForegroundTransfer || binding===this.colorSmudgeLegacyTransfer)gl.uniform1f(u.u_colorSmudgeComposite,composite)
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1
@@ -1336,6 +1374,12 @@ export class SmudgePainter {
    *  square, patch-sized and LINEAR-filtered, and a stroke cycles two or
    *  three of them per dab). Kept separate from AreaOps' scratchPool — see
    *  the field's own comment. */
+  leaseSprayScratch(width:number,height:number){
+    const epoch=this.sprayLeaseEpoch
+    if(!epoch.live||![width,height].every(n=>Number.isSafeInteger(n)&&n>0&&n<=this.imageDimensionLimit()))throw Error('Spray scratch lease is invalid')
+    const buffer=this.scratchPool.acquire(width,height);let live=true
+    return{buffer,assertCurrent:()=>{if(!live||epoch!==this.sprayLeaseEpoch||!epoch.live)throw Error('Spray scratch lease was retired')},release:()=>{if(!live)return;live=false;if(epoch.lost)return;if(epoch!==this.sprayLeaseEpoch||!epoch.live)buffer.destroy();else this.scratchPool.release(buffer)}}
+  }
   private acquireScratch(size: number,height=size): AccumulationBuffer {
     return this.scratchPool.acquire(size, height)
   }

@@ -16,10 +16,13 @@ class GaussianTests(unittest.TestCase):
   self.assertEqual(a['descriptor']['tip']['kind'],'round')
   self.assertNotIn('mask',a['descriptor']['tip'])
   self.assertEqual(a['descriptor']['tip']['profile'],{'kind':'gaussian','fade':1e-6,'antialias':True})
- def test_eligibility_preserves_legacy_gaussian_cases(self):
+ def test_anisotropic_gaussian_uses_two_axis_profile(self):
   for kwargs in [{'ratio':.8}]:
    d=self.convert(**kwargs)['descriptor']['tip']
-   self.assertEqual(d['kind'],'bitmap');self.assertNotIn('profile',d)
+   self.assertEqual(d['kind'],'procedural')
+   self.assertEqual(d['profile']['kind'],'gaussian2D')
+   self.assertEqual(d['profile']['shape'],'ellipse')
+   convert.validate_portable_profile(self.convert(**kwargs)['descriptor'])
 
  def test_hard_non_antialiased_profile_is_not_a_resampled_bitmap(self):
   a=self.convert(1,aa=0);b=self.convert(80,aa=0)

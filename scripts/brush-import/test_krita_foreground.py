@@ -46,13 +46,24 @@ class LegacyForegroundTests(unittest.TestCase):
             self.assertNotIn('flow',d['behavior'].get('modulations',{}))
 
     def test_strategy_gate_applies_to_pure_and_foreground(self):
-        gates=[({'CompositeOp':'multiply'},None),({'SmudgeRateMode':'2'},None)]
+        gates=[({'CompositeOp':'multiply','MergedPaint':'true'},None),({'CompositeOp':'negation'},None),({'SmudgeRateMode':'2'},None)]
         for color in ['0','.7']:
             for extra,definition in gates:
                 with self.subTest(color=color,extra=extra,definition=definition):
                     c=self.brush({'ColorRateValue':color,**extra},definition);self.assertEqual(c.skipped,[])
                     b=c.brushes[0];self.assertNotIn('source',b['descriptor']['mixer'])
                     self.assertTrue(any(x['feature']=='colorSmudge' and x['status']=='unsupported' for x in b['compatibility']))
+        for color in ['0','.7']:
+            for mode in ['multiply','screen']:
+                b=self.brush({'ColorRateValue':color,'CompositeOp':mode}).brushes[0]
+                d=b['descriptor'];self.assertEqual(d['version'],83)
+                self.assertEqual(d['mixer']['source'],'previousCanvas')
+                self.assertEqual(d['mixer']['colorRateComposite'],mode)
+                self.assertNotIn('algorithm',d['mixer'])
+                self.assertEqual(d['behavior']['rendering']['blendMode'],'normal')
+                self.assertFalse(any(x['feature']=='colorSmudge'and x['status']=='unsupported'for x in b['compatibility']))
+                if color=='0':self.assertNotIn('foreground',d['mixer'])
+                else:self.assertAlmostEqual(d['mixer']['foreground']['rate'],.14)
         c=self.brush({},'<Brush type="png_brush" filename="tip.png" brushApplication="0"/>')
         self.assertEqual(c.brushes[0]['descriptor']['mixer']['source'],'previousCanvas')
 

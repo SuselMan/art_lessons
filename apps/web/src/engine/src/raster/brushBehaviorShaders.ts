@@ -1,3 +1,5 @@
+import {PIXEL_ORIGINAL_RGBA_GLSL} from '../presets/pixelOriginalRgba'
+import {BRUSH_AUTO_RECTANGLE_GLSL} from './autoRectangle'
 import {BRUSH_AUTO_MASK_NOISE_GLSL} from './autoMaskNoise'
 import {TEXTURE_ALPHA_EXTENDED_GLSL} from './textureAlphaModes'
 import {BRUSH_AUTO_SPIKES_GLSL} from './autoSpikes'
@@ -526,6 +528,33 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       'brushAutoSpikeFrame(mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_autoSpikes.y,u_dualProceduralAngle,u_dualFlip),u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)')
   }
   if(autoNoise){
+    replace('    uniform vec2 u_autoSpikes;',BRUSH_AUTO_RECTANGLE_GLSL+`
+    uniform vec4 u_rectangleCoefficients;
+    uniform vec4 u_rectangleGeometry;
+    uniform vec2 u_autoSpikes;`)
+    replace('  void main() {',`
+    float brushEffectsTransparency(vec2 point,vec2 radii,vec4 profile,sampler2D lookup,vec4 basis,float softness,float spikes) {
+      vec2 p=brushAutoSpikeFold(vec2(point.x,abs(point.y)),spikes,false);
+      if(profile.x<5.5)return brushGaussianEllipseTransparency(p,radii,vec2(profile.y,profile.w));
+      if(profile.x<6.5)return brushGaussianRectangleTransparency(p,u_rectangleCoefficients,u_rectangleGeometry);
+      return brushCurveRectangleTransparency(p,radii,lookup,vec4(profile.y,profile.z,profile.w,0.0),profile.x>7.5?basis:vec4(profile.y,profile.z,0.0,1.0),softness,profile.x>7.5?1.0:0.0);
+    }
+    float brushEffectsMask(vec2 pixel,mat2 frame,vec4 geometry,vec4 profile,sampler2D lookup,vec4 basis,float softness,float spikes) {
+      if(profile.x<4.5)return brushProceduralMaskWithSpikes(pixel,frame,geometry,profile,lookup,basis,softness,spikes);
+      float n=geometry.z,total=0.0;
+      if(n<1.5)return (255.0-brushEffectsTransparency(frame*pixel,geometry.xy,profile,lookup,basis,softness,spikes))/255.0;
+      for(int y=0;y<6;y++)for(int x=0;x<6;x++)if(float(x)<n&&float(y)<n){
+        vec2 offset=vec2(float(x),float(y))/n;
+        total+=brushEffectsTransparency(frame*(pixel+offset),geometry.xy,profile,lookup,basis,softness,spikes);
+      }
+      return (255.0-floor(total/(n*n)))/255.0;
+    }
+    void main() {`)
+    replace('brushProceduralMaskWithSpikes(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)',
+      'brushEffectsMask(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)')
+    replace('  void main() {',PIXEL_ORIGINAL_RGBA_GLSL+'\n  uniform float u_originalRgbaTip;\n  void main() {')
+    replace('      shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);',`      if(u_originalRgbaTip>0.5){shape=tipSample.a;pigment=brushOriginalRgbaPigment(tipSample);}
+      else shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);`)
     replace(BRUSH_TEXTURE_APPLICATION_GLSL, TEXTURE_ALPHA_EXTENDED_GLSL+BRUSH_TEXTURE_APPLICATION_GLSL.replace(' if(application.x<1.5)',' if(application.x>2.5)return brushTextureAlphaExtended(a,t,s,application);\n if(application.x<1.5)'))
     replace('  void main() {',BRUSH_AUTO_MASK_NOISE_GLSL+`
       uniform vec4 u_autoNoiseConfig;

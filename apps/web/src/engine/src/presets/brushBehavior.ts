@@ -1,3 +1,4 @@
+import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
 import{brushUsesDistanceControl}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
@@ -7,7 +8,7 @@ import{hatchingPlacement,type HatchingPlacement}from'./brushHatching'
 import {curveTraceStamps,type CurveTraceState}from'./brushCurveTrace'
 import {bristleGeometryStamps,bristleStamps,type BristleState} from './brushBristle'
 import {sketchStamps,type SketchState} from './brushSketch'
-import { sprayStamps } from './brushSpray'
+import { sprayStamps,sprayRequestGeometry } from './brushSpray'
 import {brushTipColorPlanes} from '@grafetto/shared'
 import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
 import { brushExecutionContext, assertBrushExecutionContext, assertBrushSourceInputs, type BrushExecutionContext } from './brushExecutionContext'
@@ -16,6 +17,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  sprayPainterOpacity?:number
   deform?:DeformState
   experiment?:ExperimentState
   particle?:ParticleState
@@ -110,6 +112,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  sprayImageHsv?:readonly[number,number,number]
   polygon?:PolygonGeometry
   hatching?:HatchingPlacement
   requestGroup?:number
@@ -203,6 +206,7 @@ function worldDistanceForDab(dab:Dab,state:BrushBehaviorState):number {
 export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
   if (!d)
     return 1
+  if(d.control==='random'&&d.randomSource?.kind==='grafettoSourceTime-v1')random=sourceTimeRandomValue(d.randomSource,state.execution?.brushRandom?.strokeSeed,dab.sourceTime)
   if(d.control==='time' && (dab.sourceTime===undefined || !Number.isFinite(dab.sourceTime) || dab.sourceTime<0))throw Error('Missing or invalid sourceTime')
   if(d.combine){
     const c=d.combine,seed=Math.floor(clamp(random)*4294967295)>>>0
@@ -307,7 +311,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number,
   number,
   number
-], options: {geometryOnly?:boolean} = {}): BehaviorStamp[] {
+], options: {geometryOnly?:boolean;sprayRequest?:{spray?:{geometry:{x:number;y:number;radius:number};opacityScale:number;foreground:readonly[number,number,number]}}} = {}): BehaviorStamp[] {
   const behavior = brush.behavior
   const noise=brush.tip.autoNoise
   const activeNoise=!!noise&&(noise.density!==1||noise.randomness!==0)
@@ -422,6 +426,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
     return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
   }
+  if(brush.spray&&options.sprayRequest)options.sprayRequest.spray={geometry:sprayRequestGeometry(brush,{...dab,size:dab.size*sizeScale},state.seed,state.dabSequence??0),opacityScale,foreground:adjustedColor}
   const bases = brush.spray ? sprayStamps(brush,{...dab,angle,size:dab.size*sizeScale},state.seed,state.dabSequence??0,direction) : brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale })
   const out = bases.map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
@@ -452,11 +457,11 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const sprayColor=spray ? hsvAdjustColor(adjustedColor,spray.hue*brushDabRandom(spraySeed,16+colorIndex*16+4),spray.saturation*brushDabRandom(spraySeed,16+colorIndex*16+5),spray.value*brushDabRandom(spraySeed,16+colorIndex*16+6)) : adjustedColor
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(activeNoise?{autoNoiseKey:autoMaskNoiseKey(noiseSeed!,state.dabSequence??0,i,0)}:{}), ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(activeNoise?{autoNoiseKey:autoMaskNoiseKey(noiseSeed!,state.dabSequence??0,i,0)}:{}), ...(brush.spray?.particle.image?{sprayImageHsv:[spray!.hue*brushDabRandom(spraySeed,16+colorIndex*16+4),spray!.saturation*brushDabRandom(spraySeed,16+colorIndex*16+5),spray!.value*brushDabRandom(spraySeed,16+colorIndex*16+6)]as const}:{}), ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       ...(brush.hatching?{hatching:hatchingPlacement(brush.hatching,Object.fromEntries((['angle','cross','separation','thickness']as const).map((key,j)=>[key,(brush.hatching!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(0xf6000+j*16+i)),1)]))as {angle:number;cross:number;separation:number;thickness:number})}:{}),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
-      ...((brush.tip.profile?.kind==='standard'||brush.tip.profile?.kind==='radialCurveSoftness') && (behavior?.softness!==undefined || behavior?.modulations?.softness?.length || behavior?.dynamics?.softness)
+      ...((brush.tip.profile?.kind==='standard'||brush.tip.profile?.kind==='radialCurveSoftness'||brush.tip.profile?.kind==='curveRectangleSoftness') && (behavior?.softness!==undefined || behavior?.modulations?.softness?.length || behavior?.dynamics?.softness)
         ? {softnessScale:clamp((behavior?.softness??1)*dynamic('softness',0x61000+i*16))}:{}),
       ...(behavior?.dual?.sampling!=='independent' && (behavior?.dual?.brush.tip.profile?.kind==='standard'||behavior?.dual?.brush.tip.profile?.kind==='radialCurveSoftness') && (behavior.dual.brush.behavior?.softness!==undefined || behavior.dual.brush.behavior?.modulations?.softness?.length || behavior.dual.brush.behavior?.dynamics?.softness)
         ? {dualSoftnessScale:clamp((behavior.dual.brush.behavior?.softness??1)*dynamic('softness',0x62000+i*16,behavior.dual.brush.behavior))}:{}),
