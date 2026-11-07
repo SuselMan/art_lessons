@@ -297,6 +297,16 @@ def lightness_planes(image, definition):
         auto_midpoint=enabled(definition.get('AutoAdjustMidPoint')) if definition.get('AutoAdjustMidPoint') is not None else None)
 
 
+def alpha_mask_image(image, definition):
+    """IMAGE/PIPE_IMAGE ALPHAMASK only; preserve alpha, transform gray once.
+
+    Caller must distinguish native MASK resources, which ignore these controls.
+    The same existing bounded native tone compiler handles LIGHTNESSMAP planes.
+    """
+    gray, alpha = lightness_planes(image, definition)
+    return Image.merge('RGBA', (gray, gray, gray, alpha))
+
+
 def raster(data, name, brush=False, svg_policy=None):
     if (svg_policy is not None or name.lower().endswith('.svg')) and not data.startswith(b'\x89PNG\r\n\x1a\n'):
         if svg_policy is None:raise ValueError('SVG resource requires explicit application policy')
@@ -669,6 +679,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
+            if application==0 and adjustment_active:
+                pipe['frames']=[alpha_mask_image(frame,definition) if frame.mode=='RGBA' else frame for frame in pipe['frames']]
             if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or all(frame.mode=='RGBA'for frame in pipe['frames'])):stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
             if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge'):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
@@ -706,6 +718,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             image=gbr(payload,preserve_color=True) if filename.lower().endswith('.gbr') else raster(payload,filename,svg_policy='krita-mask-v1'if kind=='svg_brush'else None)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=0 if captured_svg_source else brush_application(definition,[image])
+            original_sampling_image=image
+            if application==0 and adjustment_active:
+                image=alpha_mask_image(image,definition)
             if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
             if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge'):
                 gray,mask=lightness_planes(image,definition)
@@ -717,7 +732,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
             if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
-                sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'])
+                sampling=integer_image_sampling(original_sampling_image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:
                     d['tip']['imageSampling']=sampling
                     notes.append(compatibility('integerImagePyramid','Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.'))
@@ -758,7 +773,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
             notes.append(compatibility('brushApplication',application_name+' resolved from native/legacy flags; its material is unsupported and retains the alpha-mask approximation.','unsupported'))
         elif adjustment_active and (any(numeric(definition.get(key),default)!=default for key,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or enabled(definition.get('AutoAdjustMidPoint'))):
-            notes.append(compatibility('alphaMaskAdjustments','Custom brightness/contrast/midpoint adjustment of image masks is not implemented.','unsupported'))
+            notes.append(compatibility('alphaMaskAdjustments','Native image-type gray adjustment is compiled once before inverse-gray times original alpha; MASK resources ignore these controls.','supported'))
     else:
         raise ValueError('Unsupported Krita brush definition: '+str(kind))
     d['spacing']=clamp(numeric(definition.get('spacing'),0.1),0.000001,2)
