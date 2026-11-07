@@ -669,10 +669,13 @@ def portable_bundle(path,catalog):
         validated.append((asset,raw))
     if set(payloads)!=ids: raise ValueError('Portable payload keys differ from manifest')
     seen=set()
+    trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
+        from captured_bristle import validate_portable_bristle
+        validate_portable_bristle(d,trusted_raw_assets)
         validate_portable_mixer(d)
         tip=d['tip']
         validate_portable_profile(d)

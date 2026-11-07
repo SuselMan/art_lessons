@@ -13,7 +13,6 @@ def bristle_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric
     ink_enabled=enabled(params.get('HairyInk/enabled'))
     if ink_enabled and enabled(params.get('HairyInk/soak')):raise ValueError('Bristle ink depletion soaking is not implemented')
-    if ink_enabled and enabled(params.get('HairyInk/useSaturation')):raise ValueError('Bristle ink depletion saturation is not implemented')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Bristle timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Bristle nonunit flow is unsupported')
@@ -65,15 +64,22 @@ def bristle_preset(data,root,params,name,catalog,external):
         d['version']=72
         d['bristle']['version']=2
         d['bristle']['ink']={'depletion':[struct.unpack('f',struct.pack('f',v))[0] for v in samples],
-            'useOpacity':enabled(params.get('HairyInk/useOpacity','true')),'useSaturation':False,
+            'useOpacity':enabled(params.get('HairyInk/useOpacity','true')),'useSaturation':enabled(params.get('HairyInk/useSaturation')),
             'useWeights':enabled(params.get('HairyInk/useWeights')),
             'pressureWeight':ink_number('pressureWeights',50,0,100)/100,
             'bristleLengthWeight':ink_number('bristleLengthWeights',50,0,100)/100,
             'bristleInkAmountWeight':ink_number('bristleInkAmountWeight',50,0,100)/100,
             'inkDepletionWeight':ink_number('inkDepletionWeight',50,0,100)}
+    if ink_enabled and d['bristle']['ink']['useSaturation']:
+        from captured_bristle import install_bristle
+        lookup,_quality=install_bristle(d['bristle']['ink'],catalog)
+        d['version']=93;d['bristle']['saturationLookup']=lookup
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]
     result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Aliased maximum-alpha preserves the whole winning pigment via batched depth ranking; Opacity depletion uses persistent per-hair counters and a bounded GPU curve; saturation/soaking remain rejected.'))
+    if ink_enabled and d['bristle']['ink']['useSaturation']:
+        result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation uses a compiled functional lookup; soaking remains rejected.'))if n['feature']=='bristle'else n for n in result['compatibility']]
+        result['compatibility'].append(compatibility('bristleSaturation','Immutable profile compiled once into a trusted bounded CAS lookup. Functional clamped HSL interval transfer; deterministic quality-screen evidence is not a native RGB8/ICC identity or universal error bound. Canvas soaking remains unsupported.'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

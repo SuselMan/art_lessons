@@ -30,10 +30,13 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/server apps/server
 COPY packages/shared packages/shared
 COPY scripts/brush-import scripts/brush-import
+# Pure ink law has one canonical source; compiler bundles it at build time only.
+COPY apps/web/src/engine/src/presets/brushBristleInk.ts apps/web/src/engine/src/presets/brushBristleInkBulk.ts apps/web/src/engine/src/presets/brushBristleSaturationTable.ts apps/web/src/engine/src/presets/
 # postinstall (prisma generate) needs apps/server/prisma/schema.prisma
 # present, hence copying the whole apps/server dir before this rather than
 # just its package.json.
 RUN npm ci
+RUN node scripts/brush-import/build_bristle_saturation.mjs
 RUN npm run build --workspace=apps/server
 
 FROM node:20-bookworm-slim AS runtime

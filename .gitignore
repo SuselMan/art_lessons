@@ -39,3 +39,6 @@ apps/web/public/paper/
 test-results/
 playwright-report/
 __pycache__/
+
+# Built offline brush compiler; canonical TypeScript sources are tracked.
+/scripts/brush-import/compile_bristle_saturation.mjs

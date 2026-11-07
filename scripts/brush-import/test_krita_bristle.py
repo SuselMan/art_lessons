@@ -27,6 +27,16 @@ class BristleTests(unittest.TestCase):
         ink=d['bristle']['ink'];self.assertEqual(len(ink['depletion']),4)
         self.assertEqual(ink['pressureWeight'],.25);self.assertEqual(ink['inkDepletionWeight'],70)
         self.assertTrue(ink['useOpacity']);self.assertFalse(ink['useSaturation'])
-    def test_unsupported_saturation_and_invalid_amount_remain_explicit(self):
-        for key,value in [('useSaturation','true'),('inkAmount','1'),('inkAmount','65537')]:
+    def test_invalid_amount_remains_explicit(self):
+        for key,value in [('inkAmount','1'),('inkAmount','65537')]:
             with self.assertRaises(ValueError):self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/'+key+'">'+value+'</param>')
+
+    def test_saturation_uses_trusted_compiler_and_revision93(self):
+        from unittest.mock import patch
+        lookup={'version':1,'encoding':'bristle-saturation-functional-v1-le','asset':'asset:'+'a'*64,'profileSha256':'b'*64,'byteLength':80}
+        with patch('captured_bristle.install_bristle',return_value=(lookup,{}))as compile:
+            result=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/useSaturation">true</param><param name="HairyInk/inkAmount">4</param>')
+        d=result['descriptor'];self.assertEqual(d['version'],93);self.assertEqual(d['bristle']['saturationLookup'],lookup)
+        self.assertTrue(d['bristle']['ink']['useSaturation']);compile.assert_called_once()
+        self.assertEqual(compile.call_args.args[0],d['bristle']['ink'])
+        self.assertTrue(any(n['feature']=='bristleSaturation' for n in result['compatibility']))
