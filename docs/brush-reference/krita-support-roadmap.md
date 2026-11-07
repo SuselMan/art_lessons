@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend565b4ce23, backend/importer43449880e.
+Состояние:2026-11-07. Публичный QA frontend/backend11c23f8a1.
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -317,3 +317,38 @@ Backend10 PID607197 и public frontend8 оставлены для QA с TTL48h; 
 остановлен. Неудачный никогда не запущенный backend9 удалён после проверки SHA.
 Данные/CAS/DB сохранены. Linux author/peer/history/cold новых SVG-профилей ещё
 выполняется, этот CLI/runtime proof не подменяет online проверку.
+
+
+### SVG online завершён; Lightness90 выложен
+
+SVG/backend434 прошёл все3 Linux AMD сценария: alpha-adjusted GBR33 даба, SVG
+mask48 дабов, SVG-image Spray14 дабов. Для каждого: exact автор/peer, Undo/Redo,
+повторный вход обоих; WebGL/JS errors0. Число дабов получено actual shared decoder
+из dabsPacked. Proof:linux-svg3-online-v1/final-proof.json,
+SHA256:f0c7996768a06ba9cc23e33f4ed7ad08066f0a642815d508d5608e90895d35e0.
+Chrome/контексты/tunnel закрыты;183343010 bytes отдельного remote Chrome profile
+остались под TTL1h, cleanup guard отказал из-за несвязанных unreadable процессов.
+Защита не обходилась.
+
+11c23f8a1 добавляет Lightness Strength90 для Pixel material: checked size-like
+response применяется к RGB transfer по дабу; alpha, flow и child-mask coverage
+не перемножаются с этим параметром. Старый static setup сохранён. Guards явно
+отклоняют неподходящие модели и специальные семейства, а также не допускают
+Bristle saturation89 или original-source87 просто из-за большего номера версии.
+591 TS/95 modules,403 Python, web2449/server1203 inputs0diag.
+
+Настоящий GPU14/14: независимые RGB endpoint ожидания точны, alpha точная.
+Отключение только per-dab uniform даёт ожидаемые6FAIL/8PASS при GL/JS0. Это14
+конкретных случаев, не весь native цветовой процесс и не GPU sum>1 clamp proof.
+Capped runtime настоящего KPP90 принят shared guard с обоими CAS.
+Согласованные immutable frontend11/backend11 из11c23f8a1 выложены на прежний
+адрес; каталог не изменился. PID640272/640109, record fixes-v93-manager/public11-processes.json.
+Proof интеграции:fixes-v93-manager/final-proof.json,
+SHA256:84da3c4a04e138a401ee63a3a9c87a62948c9f6a76cbca218f5c415fc9a8e796.
+Новые online90 проверки ещё выполняются.
+
+Отдельный локальный1e21077f1 закрывает сравнение undefined smudge bindings:
+специальные uniforms задаются только при активном binding.17 тестов/4 модуля PASS,
+scoped lint0 errors/1 прежнее предупреждение. Эта отдельная правка не входит
+в выложенные артефакты11c. Bristle89 остаётся выключенным: memory cache и CPU
+owner-phase имеют private проверки, historical source continuation ещё в работе.
