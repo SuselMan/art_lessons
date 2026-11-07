@@ -518,6 +518,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     application=0
     softness_value=1
     softness_controls=[]
+    lightness_controls=[]
     gaussian_softness_noop=False
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -767,7 +768,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if engine=='colorsmudge' and enabled(params.get('PressureLightnessStrength')):
                 notes.append(compatibility('lightnessStrength','Native Color Smudge uses Paint Thickness and projects accumulated height with strength1; the saved Pixel Lightness Strength option is ignored.','supported'))
             elif enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
-                notes.append(compatibility('lightnessStrength','Active native lightness-strength sensors are not applied; constant strength retained.','unsupported'))
+                local=[]
+                controls=size_like_controls(params,'LightnessStrength',local,allow_time=timed_input)
+                if controls and not any(n['status']=='unsupported' for n in local):
+                    lightness_controls=controls
+                    d['version']=max(d['version'],90)
+                    notes.extend(local)
+                    notes.append(compatibility('lightnessStrength','Checked native size-like response controls RGB lightness transfer per logical dab, independently of alpha/flow.','supported'))
+                else:
+                    notes.extend(local)
+                    notes.append(compatibility('lightnessStrength','Unsupported active native lightness-strength sensors; constant strength retained.','unsupported'))
             notes.append(compatibility('lightnessMaterial','Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
         elif application!=0:
             application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
@@ -804,6 +814,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
+    if lightness_controls:behavior.setdefault('modulations',{})['lightnessStrength']=lightness_controls
     if sharpness_controls: behavior.setdefault('modulations',{})['sharpness']=sharpness_controls
     if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')in('standard','radialCurveSoftness','curveRectangleSoftness') and enabled(params.get('PressureSoftness')):
         behavior['softness']=softness_value
@@ -1386,6 +1397,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
+    if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)
     if d['tip'].get('animation',{}).get('geometry') is not None:
         d['version']=max(d['version'],86)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})

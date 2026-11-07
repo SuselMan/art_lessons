@@ -708,6 +708,10 @@ export class BrushBehaviorPainter {
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
           gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
           gl.uniform1f(u.u_dualStrength, secondary ? secondary.flow * curveAt(secondary.flowByPressure, s.pressure) * curveAt(secondary.opacityByPressure, s.pressure) : 1)
+          // The setup value restores legacy/static state on every brush switch.
+          // A child material only contributes alpha; its RGB strength does not
+          // multiply the masking coverage. Independent children paint normally.
+          if(s.lightnessStrength!==undefined)gl.uniform1f(u.u_lightnessStrength,s.lightnessStrength)
           const flowValue=clamp(s.flow)
           if(lastFlow!==flowValue){gl.uniform1f(accumulation?u.u_washFlow:u.u_opacity,flowValue);lastFlow=flowValue}
           if(accumulation==='alphaDarken'){

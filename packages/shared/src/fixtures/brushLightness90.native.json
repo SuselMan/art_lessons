@@ -1,0 +1,170 @@
+{
+  "qualification": "self-authored native KPP; not Krita stock export; real importer output unchanged",
+  "library": {
+    "schemaVersion": 1,
+    "brushes": [
+      {
+        "descriptor": {
+          "id": "imported-8df917afb71ed39d27a66d5e",
+          "version": 90,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "bitmap",
+            "mask": "asset:f5b0845f1cfc70984e994ddffcd0bc03d92b0d9522be4c9bf284a892961734b8",
+            "hardness": 0.7,
+            "aspect": 1.0,
+            "rotation": "fixed",
+            "angle": 0.0,
+            "maskBounds": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 1.0,
+              "height": 1.0
+            },
+            "material": {
+              "kind": "lightness",
+              "gray": "asset:4d302283ccff312f25e8251d1b98c51471bc3c1277296cb79ce83ef20f4f8710",
+              "strength": 0.4
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.1,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply",
+              "accumulation": "directOver"
+            },
+            "modulations": {
+              "lightnessStrength": [
+                {
+                  "control": "pressure",
+                  "minimum": 0,
+                  "jitter": 0,
+                  "curve": [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      1,
+                      1
+                    ]
+                  ]
+                }
+              ]
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.1
+            }
+          }
+        },
+        "name": "QA Krita",
+        "source": "Lightness90.kpp",
+        "warnings": [
+          "kritaEngine: Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+          "lightnessMaterial: Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison."
+        ],
+        "compatibility": [
+          {
+            "feature": "kritaEngine",
+            "status": "approximate",
+            "detail": "Krita paintbrush settings translated to Grafetto; vendor pixel equivalence is not claimed."
+          },
+          {
+            "feature": "lightnessStrength",
+            "status": "supported",
+            "detail": "Checked native size-like response controls RGB lightness transfer per logical dab, independently of alpha/flow."
+          },
+          {
+            "feature": "lightnessMaterial",
+            "status": "approximate",
+            "detail": "Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+        "sourceDefaults": {
+          "sizePx": 2.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      }
+    ],
+    "assets": [
+      {
+        "id": "asset:f5b0845f1cfc70984e994ddffcd0bc03d92b0d9522be4c9bf284a892961734b8",
+        "size": 2,
+        "file": "f5b0845f1cfc70984e994ddffcd0bc03d92b0d9522be4c9bf284a892961734b8.bin"
+      },
+      {
+        "id": "asset:4d302283ccff312f25e8251d1b98c51471bc3c1277296cb79ce83ef20f4f8710",
+        "size": 2,
+        "file": "4d302283ccff312f25e8251d1b98c51471bc3c1277296cb79ce83ef20f4f8710.bin"
+      }
+    ],
+    "skipped": []
+  },
+  "payloads": {
+    "asset:f5b0845f1cfc70984e994ddffcd0bc03d92b0d9522be4c9bf284a892961734b8": [
+      255,
+      128,
+      64,
+      0
+    ],
+    "asset:4d302283ccff312f25e8251d1b98c51471bc3c1277296cb79ce83ef20f4f8710": [
+      84,
+      127,
+      167,
+      255
+    ]
+  },
+  "kppSha256": "52b0f25bd3aca3102e814003c124f91ab0472889befad38cd94c394375094afb",
+  "tipSha256": "481cadb4ed9f474291acaff569c91290f2977b4e9076bfddd84b325f75128f9b"
+}

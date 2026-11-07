@@ -133,6 +133,9 @@ export interface BehaviorStamp extends BrushStamp {
   bleed: number
   opacityScale: number
   grainDepth: number
+  /** Effective RGB lightness transfer only; never opacity or mask coverage. */
+  lightnessStrength?: number
+  dualLightnessStrength?: number
   softnessScale?: number
   dualSoftnessScale?: number
   autoNoiseKey?:number
@@ -349,6 +352,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
   const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i)) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
+  // Native Pixel queries this option once per logical dab before deposition.
+  const lightness = brush.version>=90 && brush.model==='stamp' && brush.tip.material && (behavior?.dynamics?.lightnessStrength || behavior?.modulations?.lightnessStrength?.length)
+    ? clamp(brush.tip.material.strength*dynamic('lightnessStrength',0x65000)) : undefined
+  const lightnessChild = brush.version>=90 && behavior?.dual?.sampling!=='independent' ? behavior?.dual?.brush : undefined
+  const dualLightness = lightnessChild?.tip.material && (lightnessChild.behavior?.dynamics?.lightnessStrength || lightnessChild.behavior?.modulations?.lightnessStrength?.length)
+    ? clamp(lightnessChild.tip.material.strength*dynamic('lightnessStrength',0x66000,lightnessChild.behavior)) : undefined
   const rotation = behavior?.rotation
   const mirror=behavior?.mirror
   const mirrorActive=!!mirror&&mirror.value*(mirror.dynamics??[]).reduce((factor,control,index)=>factor*brushDynamicValue(control,directionalDab,state,rand(0x53000+index)),1)>=.5
@@ -462,6 +471,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
       ...stamp, ...(brush.tip.animation?.geometry?{frameIndex:index,frameCoordinateFlip:mirrorActive&&!!mirror&&(!!mirror.horizontal!==!!mirror.vertical)}:{}), ...(activeNoise?{autoNoiseKey:autoMaskNoiseKey(noiseSeed!,state.dabSequence??0,i,0)}:{}), ...(brush.spray?.particle.image?{sprayImageHsv:[spray!.hue*brushDabRandom(spraySeed,16+colorIndex*16+4),spray!.saturation*brushDabRandom(spraySeed,16+colorIndex*16+5),spray!.value*brushDabRandom(spraySeed,16+colorIndex*16+6)]as const}:{}), ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       ...(brush.hatching?{hatching:hatchingPlacement(brush.hatching,Object.fromEntries((['angle','cross','separation','thickness']as const).map((key,j)=>[key,(brush.hatching!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(0xf6000+j*16+i)),1)]))as {angle:number;cross:number;separation:number;thickness:number})}:{}),
+      ...(lightness===undefined?{}:{lightnessStrength:lightness}),
+      ...(dualLightness===undefined?{}:{dualLightnessStrength:dualLightness}),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       ...((brush.tip.profile?.kind==='standard'||brush.tip.profile?.kind==='radialCurveSoftness'||brush.tip.profile?.kind==='curveRectangleSoftness') && (behavior?.softness!==undefined || behavior?.modulations?.softness?.length || behavior?.dynamics?.softness)
         ? {softnessScale:clamp((behavior?.softness??1)*dynamic('softness',0x61000+i*16))}:{}),

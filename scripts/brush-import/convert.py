@@ -686,6 +686,11 @@ def portable_bundle(path,catalog):
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
         validate_variable_gih_descriptor(d,asset_sizes)
+        if any('lightnessStrength' in behavior.get(key,{}) for key in ('dynamics','modulations')):
+            if d['version']<90 or d['model']!='stamp' or tip.get('material',{}).get('kind')!='lightness' or any(k in d for k in ['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']):raise ValueError('Invalid portable Lightness Strength target')
+            for section in ('dynamics','modulations'):
+                controls=behavior.get(section,{})
+                if 'lightnessStrength' in controls:validate_portable_dynamics([controls['lightnessStrength']] if section=='dynamics' else controls['lightnessStrength'])
         def has_absolute_response(v):
             if isinstance(v,dict):return isinstance(v.get('combine'),dict)and bool(v['combine'].get('absolute'))or any(has_absolute_response(x)for x in v.values())
             return isinstance(v,list)and any(has_absolute_response(x)for x in v)

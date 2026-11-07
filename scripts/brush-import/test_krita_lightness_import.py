@@ -83,7 +83,10 @@ class LightnessImportTests(unittest.TestCase):
                     self.assertEqual(brush['descriptor']['mixer']['paintThickness'],{'value':1,'mode':'overwrite'})
                 else:
                     self.assertEqual(brush['descriptor']['tip']['material']['strength'],.5)
-                    self.assertTrue(any(x['feature']=='lightnessStrength' and x['status']=='unsupported' for x in brush['compatibility']))
+                    self.assertGreaterEqual(brush['descriptor']['version'],90)
+                    self.assertTrue(brush['descriptor']['behavior']['modulations']['lightnessStrength'])
+                    self.assertTrue(any(x['feature']=='lightnessStrength' and x['status']=='supported' for x in brush['compatibility']))
+                    self.assertFalse(any(x['feature']=='lightnessStrength' and x['status']=='unsupported' for x in brush['compatibility']))
 
 
 if __name__=='__main__':unittest.main()
