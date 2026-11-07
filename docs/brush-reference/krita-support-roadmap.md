@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend/backendf22744499 (support12).
+Состояние:2026-11-07. Публичный QA frontend/backend6596f6969 (support13).
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -384,3 +384,31 @@ Support12 включает guard smudge binding1e21077f1; прежний11 ег�
 DB/CAS/QA-комнаты и компактные доказательства. Старые11 процессы остановлены;
 старые immutable сборки сохранены для rollback. Bristle89 по-прежнему выключен:
 исторические источники и приоритет локального карандаша ещё дорабатываются.
+
+
+### GIH92: velocity выложен, аппаратная проверка выполняется
+
+6596f696922a5f58ee9e2c39bfe91bea48678016 добавляет native normalized-speed
+log-law выбора кадра: round(log(1+speed)/3*(rank-.5)) modulo actual frames.
+Только velocity ограничен rank≤256; pressure91 с int32 rank не сужен.
+Поле normalizedSpeed уже записывалось в dab codec; новый wire не вводится.
+Root и child capture profile проверяются до admission; missing speed отвергается
+до изменения состояния. Independent child выбирает кадр по собственному дабу.
+Нормализованный диапазон намеренно не растягивается до последнего кадра.
+
+619 тестов/100 TS модулей,411 Python PASS; web2451/server1203 inputs0diag,
+scoped lint0. Независимый Decimal audit23228 threshold cases0 расхождений
+на host; это не обещание native libm bit identity на всех устройствах.
+Backend13 capped smoke:4 genuine L/RGBA×rank5/256, actual2 PASS; rank257
+явно отвергнут. Full CAS и missing manifest/physical CAS negatives PASS.
+Proof:backend13-capped-smoke-v1/final-proof.json,
+SHA256:24e4bbde2a67884a411ffda2651ba0e2c31429af26dd0b5ece38df4f0149f4de.
+Frontend/backend13 заменили12, каталог неизменён; PID827825/827804 TTL48h.
+Root record:fixes-v96-manager/public13-processes.json. GPU/online92 выполняются;
+этот раздел не объявляет их завершёнными. Старые12 процессы остановлены.
+
+Bristle89 остаётся выключенным. Найдено, что существующий historical ROI
+resolveVisible сперва replay-ит весь слой в scratch; after-build cache cap
+не ограничивает peak. Решение должно использовать budgeted regional source
+reads с каноническими зависимостями и приоритетом локального карандаша;
+повышение cap или ошибка уже принятого штриха не являются готовностью.
