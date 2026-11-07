@@ -15,9 +15,10 @@ def bristle_preset(data,root,params,name,catalog,external):
     if ink_enabled and enabled(params.get('HairyInk/soak')):raise ValueError('Bristle ink depletion soaking is not implemented')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Bristle timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
-    if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Bristle nonunit flow is unsupported')
     aa=enabled(params.get('HairyBristle/antialias'));compositing=enabled(params.get('HairyBristle/useCompositing'))
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    from native_ignored_flow import strip_unused_native_flow
+    ignored_flow=strip_unused_native_flow(transformed)
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
@@ -80,6 +81,7 @@ def bristle_preset(data,root,params,name,catalog,external):
     if ink_enabled and d['bristle']['ink']['useSaturation']:
         result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation uses a compiled functional lookup; soaking remains rejected.'))if n['feature']=='bristle'else n for n in result['compatibility']]
         result['compatibility'].append(compatibility('bristleSaturation','Immutable profile compiled once into a trusted bounded CAS lookup. Functional clamped HSL interval transfer; deterministic quality-screen evidence is not a native RGB8/ICC identity or universal error bound. Canvas soaking remains unsupported.'))
+    if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

@@ -9,7 +9,6 @@ def curve_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Curve timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Curve supports normal compositing only')
-    if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Curve nonunit flow is unsupported')
     def number(key,default,lo,hi):
         v=numeric(params.get('Curve/'+key),default)
         if not math.isfinite(v)or not lo<=v<=hi:raise ValueError('Curve setting outside bounded range: '+key)
@@ -18,6 +17,8 @@ def curve_preset(data,root,params,name,catalog,external):
     if int(history)!=history:raise ValueError('Curve history must be an integer')
     width=number('lineWidth',1,.1,1000)
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    from native_ignored_flow import strip_unused_native_flow
+    ignored_flow=strip_unused_native_flow(transformed)
     # Curve has no stamp/Size/Rotation option. Supply a harmless initialization
     # tip only for the common parser, and remove stale unrelated settings.
     for node in list(transformed):
@@ -50,6 +51,7 @@ def curve_preset(data,root,params,name,catalog,external):
     ignored={'kritaEngine','standardMaskProfile','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]+notes
     result['compatibility'].append(compatibility('curveTrace','Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
+    if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

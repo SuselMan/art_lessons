@@ -707,6 +707,7 @@ def portable_bundle(path,catalog):
         if has_absolute_response(d)and 'strokeInput'not in behavior:raise ValueError('Absolute response requires recorded source input')
         mirror=behavior.get('mirror')
         if mirror is not None:
+            if d.get('hatching') is not None and d['version']<94:raise ValueError('Portable Hatching Mirror requires revision94')
             if (not isinstance(mirror,dict)or set(mirror)-{'horizontal','vertical','value','dynamics'}
                     or type(mirror.get('horizontal'))is not bool or type(mirror.get('vertical'))is not bool
                     or not(mirror['horizontal']or mirror['vertical'])or type(mirror.get('value'))not in(int,float)

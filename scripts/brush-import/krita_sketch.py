@@ -15,12 +15,13 @@ def sketch_preset(data,root,params,name,catalog,external):
     if not enabled(params.get('Sketch/simpleMode')):raise ValueError('Sketch mask-selected connections are not implemented')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Sketch timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Sketch supports normal compositing only')
-    if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Sketch nonunit flow is unsupported')
     def number(key,default,lo,hi):
         value=numeric(params.get(key),default)
         if not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Sketch setting outside bounded range: '+key)
         return value
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    from native_ignored_flow import strip_unused_native_flow
+    ignored_flow=strip_unused_native_flow(transformed)
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
@@ -50,6 +51,7 @@ def sketch_preset(data,root,params,name,catalog,external):
         if n['feature']=='activeDynamics':n['detail']=', '.join(v for v in n['detail'].split(', ')if v not in ('PressureLine width','PressureOffset scale','PressureDensity','PressureRotation'))
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='activeDynamics' or n['detail']]
     result['compatibility'].append(compatibility('sketch','Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu.'))
+    if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

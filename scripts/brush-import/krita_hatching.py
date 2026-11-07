@@ -9,13 +9,14 @@ def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
-    if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Hatching nonunit flow is unsupported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    from native_ignored_flow import strip_unused_native_flow
+    ignored_flow=strip_unused_native_flow(transformed)
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d['version']=47
-    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the hatching adapter')
+    if d.get('behavior',{}).get('mirror'):d['version']=94
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('scatter','rotation'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
@@ -47,6 +48,7 @@ def hatching_preset(data,root,params,name,catalog,external):
     d['hatching']=h
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+notes
     result['compatibility'].append(compatibility('hatching','World origin, separation bins, integer thickness, crosshatch order/thresholds, moire and checked angle sensors retained. Procedural infinite lines clipped by the common tip replace native clipped DDA strokes. Pixel rounding/joins and non-subpixel endpoint rounding differ; opaque background uses gesture-captured Grafetto brush background (white default, custom through API).'))
+    if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result
