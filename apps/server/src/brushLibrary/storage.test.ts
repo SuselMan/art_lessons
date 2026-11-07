@@ -292,3 +292,28 @@ it('requires the recorded canvas palette for a gradient foreground',async()=>{
  op.brushSource=source;op.brushRandom=seeds;op.strokeId=createBrushRandomStrokeId(createBrushSourceNonce('gradient_nonce',source),seeds)
  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
 })
+
+it('requires captured velocity for primary and independent child packets and endpoints',async()=>{
+ const {packDabs}=await import('@grafetto/shared')
+ for(const childOnly of [false,true]){
+  const {storage}=fixture(),library=empty(),bytes=Buffer.from([1,2,3,4]),hash=createHash('sha256').update(bytes).digest('hex'),asset=`asset:${hash}` as const
+  const descriptor:import('@grafetto/shared').BrushDescriptor={id:'imported-0123456789abcdef01234567',version:92,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:asset,hardness:1,aspect:1,rotation:'fixed',angle:0,animation:{mode:'velocity',rank:5,frames:[asset,asset]}},paperInteraction:0,spacing:.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2,speedInput:{version:1,space:'view',maximum:30,estimator:'grafettoEMA30ms'}}}
+  if(childOnly){const child=structuredClone(descriptor);descriptor.tip.animation=undefined;descriptor.behavior!.dual={brush:child,blendMode:'multiply',sampling:'independent'}}
+  library.assets.push({id:asset,size:2,file:hash+'.bin'});library.brushes.push({name:'velocity',source:'authored.kpp',warnings:[],descriptor})
+  storage.install('author',library,new Map([[hash,bytes]]))
+  storage.pin('room','author',['brush:'+descriptor.id+'@92'])
+  const dab:import('@grafetto/shared').Dab={x:1,y:2,size:10,pressure:.5,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:0}
+  const op:import('@grafetto/shared').StrokeOperation={id:'velocity-op',type:'stroke',userId:'author',timestamp:0,layerId:'ink',tool:'digitalBrush',preset:'brush:'+descriptor.id+'@92',color:[0,0,0],strokeId:'legacy-stroke',dabs:[dab]}
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(false)
+  op.dabs=[{...dab,normalizedSpeed:.5}]
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
+  op.dabsPacked=packDabs([dab]);delete op.dabs
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(false)
+  op.dabsPacked=packDabs([{...dab,normalizedSpeed:.5}])
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
+  op.strokeEndSample={...dab,baseSize:10}
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(false)
+  op.strokeEndSample.normalizedSpeed=.5
+  expect(storage.acceptsExecutionInputs('room','author',op)).toBe(true)
+ }
+})

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { brushAssetIds, brushUsesGradient,brushRequiresRandomContext, brushRequiresSourceTime, hasValidBrushRandomContext,hasValidBrushSourceContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
+import { brushAssetIds, brushUsesGradient,brushRequiresRandomContext, brushRequiresSourceInputs, hasValidBrushRandomContext,hasValidBrushSourceContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
@@ -163,7 +163,7 @@ export class BrushStorage {
     if(brush.descriptor.tangentNormal&&op.brushSource?.normalRotation===undefined)return false
     if(brush.descriptor.clone&&op.brushSource?.clone===undefined)return false
     if(brushUsesGradient(brush.descriptor)&&op.brushSource?.gradient===undefined)return false
-    if (!brush.descriptor.tangentNormal && !brush.descriptor.behavior?.sequentialRandom && !brush.descriptor.behavior?.strokeInput && !brushRequiresSourceTime(brush.descriptor)) return true
+    if (!brushRequiresSourceInputs(brush.descriptor)) return true
     try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), strokeEndSample(op)) }
     catch { return false }
   }

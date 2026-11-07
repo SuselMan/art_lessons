@@ -806,12 +806,18 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
   return dynamics.every(d=>!d.combine&&d.control!=='random'&&d.control!=='strokeRandom'&&d.jitter===0)
 }
 
-/** Recorded allocation input is mandatory for each opted-in logical request.
+/** Shared fast-path predicate for client and server packet admission. */
+export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
+ return !!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+  ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
+}
+
+/** Recorded source channels are mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
   const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
-  if(!allocation&&!direction&&!time&&!velocity)return true
+  if(!brushRequiresSourceInputs(brush))return true
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
     &&(!time||isDabSourceTime(d.sourceTime))
     &&(!velocity||(typeof d.normalizedSpeed==='number'&&Number.isFinite(d.normalizedSpeed)&&d.normalizedSpeed>=0&&d.normalizedSpeed<=1))
