@@ -277,3 +277,20 @@ CPU-кэш отдельно прошёл25 тестов/3 модуля и стр
 В чистой CPU-модели48abe40d5 устранено неправильное поканальное RGB-ограничение
 при усилении насыщенности: HSL saturation ограничивается с сохранением светлоты.
 15 тестов/3 модуля и scoped lint прошли. Это не включает экспериментальный89.
+
+
+### SVG и ALPHAMASK: исходники интегрированы, runtime выкладка ожидается
+
+4588ebd8a добавляет ограниченный captured SVG: геометрия, gradients и clip paths,
+явные mask1000px/image RGBA политики, без внешних ресурсов, текста и фильтров.
+Это функциональный librsvg subset, не весь SVG/Qt. Реальный Sharp child прошёл
+существующий AS1GiB лимит с --jitless/одним V8 pool и heap96MiB; лимит не расширен.
+
+dcb1f686b добавляет brightness/contrast/midpoint к IMAGE/PIPE_IMAGE ALPHAMASK
+до inverse-gray×original-alpha. Настоящие MASK и IMAGESTAMP не корректируются,
+LIGHTNESSMAP не получает двойную коррекцию. Изменённый CAS меняет immutable ID;
+новый renderer/wire version не требуется, default descriptor сохраняется.
+Полный объединённый Python набор:393 теста PASS/6.58s,
+fixes-v92-reference/importer-combined.log. Серверная упаковка и завершение
+дерева дочерних процессов проходят отдельную интеграцию; публичный backend8
+ещё не содержит этих изменений.
