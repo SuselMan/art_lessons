@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-08. Публичный QA frontend/backend6804074fe (frontend15/backend16).
+Состояние:2026-11-08. Публичный QA frontend/backenda84f13909 (frontend17/backend18).
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -524,3 +524,35 @@ Linux GPU13/104 PASS:9 pressure/axis,old67,3negative world origins;JS/GL0.
 Публичная параfrontend928804/backend928785, каталог неизменён; старые14/15
 остановлены. Онлайн94 выполняется; прежний93 завершён с contextrestore,
 online proofd82d561850fc97d17027f42617f0dce9e2a32d75b086647b9ebfe9f5abd2bfad.
+
+
+### FilterInvert95 и SprayAutoNoise96: QA17/18
+
+76159b577+a84f13909: pointwise Invert использует исходный тайл и COPY-маску,
+сохраняет alpha, не собирает слой и не создаёт blur-буферы. Spray tip density/
+randomness используют существующий74 шум с отдельной записанной placement
+identity каждой частицы; count/density частиц остаются отдельной настройкой.
+Открыты только independent procedural tip, без image/source/dual сочетаний.
+
+R99:745 TS/115модулей,432 Python,web2465/server1204inputs0diag,lint0.
+Последующие guards:16 TS/5модулей и5 Pythonfilter PASS. Исправлены portable
+revision95/96 parity и root-only HatchingMirror/Invert child admission,
+с genuine positive и meaningful guard-removal FAIL. Intermediate backend17
+не выкладывался: capped негатив нашёл принятие invert ниже95; backend18
+из финальногоa84f13909 повторил native8/portable/sharedCAS и оба revision
+negative PASS. Proof8630ec3a526adecbcd08612f488983c979a26277d335121af9bdf69c76826d2f.
+
+GPU95:18rows/4128checks PASS; painted RGB±1, alpha/exterior exact, старые
+Gaussian/Unsharp exact. Допуск подкреплён отдельным ordinary WebGL UNORM+mix
+calibration: до1 RGB также без инверсии, в default/highp sampler. Строгие
+неуспешные квитанции сохранены; версия с null contentRect исправлена как QA.
+Identity counterfactual даёт936 failures, spatial controls сохраняются. Proof:
+a94e6bf8fa1958dee91b3f524873fd85036b9f53dfea15314b8801c6411a7364.
+GPU96:5rows/4980interiors PASS, whole/split exact, seed меняет рисунок,
+density0/neutral endpoints exact. Counterfactual3rows:368+368+362failures.
+Prooffba8d6793fb517ad6cf88e0b05b7f98aa8cdff4dd5b4268f8ec8f62df63dec71.
+Renderer-компоненты761 повторно сверены сa84 без изменений численного пути.
+
+Публичныеfrontend953749/backend953730, каталог неизменён,15/16 остановлены.
+Онлайн95/96 выполняется. Hatching94 онлайн4genuine пресета live/undo/redo/
+обаcold PASS, proofc1b86b9e732be2a2bb03539af90c8488d5725e8dc7728f3e9c9335d8963cea65.
