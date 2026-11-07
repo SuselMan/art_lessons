@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend565b4ce23, backend/importer267f1e3aa.
+Состояние:2026-11-07. Публичный QA frontend565b4ce23, backend/importer43449880e.
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -294,3 +294,26 @@ LIGHTNESSMAP не получает двойную коррекцию. Измен
 fixes-v92-reference/importer-combined.log. Серверная упаковка и завершение
 дерева дочерних процессов проходят отдельную интеграцию; публичный backend8
 ещё не содержит этих изменений.
+
+
+### Backend10: SVG и alpha-корректировки выложены
+
+Backend10 собран строго из43449880e, заменил backend8 на том же QA адресе.
+Каталог до/после переключения совпал; frontend565b4ce23 не менялся.396 Python
+тестов PASS, server1203 inputs/0 diagnostics. Из скопированного runtime под
+AS1GiB/CPU110/FSIZE512MiB импортирован настоящий собственный bundle: SVG-маска,
+SVG-image Spray и alpha-adjusted GBR; внешний SVG отвергнут. Shared validator
+принял3 определения/4 CAS/1048612 bytes и отверг недостающие assets.
+Proof:backend10-capped-smoke-v1/final-proof.json,
+SHA256:ce3a39686ef76d28d40f559961e9f093fbf661e4d9a5b3efbca1419dd4fde146.
+
+При этом тесте обнаружен и исправлен старый whitelist bundle, не пропускавший
+.svg; закреплено сохранение prepared stock PNG precedence. Docker-упаковка
+использует Pillow13 из существующего requirements, отдельный venv и API assert;
+сам Docker build/deploy не выполнялся. Lifecycle9 tests PASS; старое поведение
+с оставшимся дочерним процессом воспроизводится отрицательным контролем.
+
+Backend10 PID607197 и public frontend8 оставлены для QA с TTL48h; старый backend8
+остановлен. Неудачный никогда не запущенный backend9 удалён после проверки SHA.
+Данные/CAS/DB сохранены. Linux author/peer/history/cold новых SVG-профилей ещё
+выполняется, этот CLI/runtime proof не подменяет online проверку.
