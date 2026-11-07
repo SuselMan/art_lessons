@@ -39,3 +39,18 @@ contention fails closed; a lock is recovered only when its owner PID no longer e
 (or a missing-PID startup lock is older than 30 seconds). All path identities are hashed; symlinks are rejected and asset
 reads recheck SHA-256. Export streams a portable JSON `{library, assets}` bundle, assets
 being base64 bytes keyed by asset ID. Export is exact archival data, not a vendor file.
+
+
+The Linux importer starts in its own process group. Shutdown, deadline and worker
+exit terminate that owned group, including SVG decoder children; completion waits
+for the leader's close before work-directory cleanup or the next queued job.
+Caller-supplied process IDs are never accepted. Other platforms retain child-only
+termination, but the upload worker itself still requires Linux prlimit.
+
+The server runtime must package scripts/brush-import, Python3/Pillow, util-linux
+(prlimit), Node and the production Sharp dependency. The server Dockerfile now
+includes them. Captured SVG is a bounded subset, not arbitrary full-SVG support;
+unknown/external resources, fonts, filters and use/image elements fail closed.
+The private renderer uses --jitless --v8-pool-size=1 --max-old-space-size=96 under
+the same inherited1GiB address-space cap. SVG emits only PNG on stdout; startup
+warnings go to stderr. No extra daemon, resource quota or import concurrency.

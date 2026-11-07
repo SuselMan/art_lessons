@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
 import { mkdir, mkdtemp, rm, readdir, stat, writeFile, lstat } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
@@ -36,10 +36,10 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   operator.assets.clear()
   setBrushStorage(storage,operator.manifest)
   let closing=false
-  let activeChild: ReturnType<typeof spawn> | undefined
+  let activeChild: BrushImportProcess | undefined
   let drainTask: Promise<void> = Promise.resolve()
   app.addHook('onClose',async()=>{
-    closing=true; activeChild?.kill('SIGKILL'); await drainTask
+    closing=true; activeChild?.cancel(); await drainTask
     if(scratch) await rm(scratch,{recursive:true,force:true})
   })
   const jobs=new Map<string,{ owner: string; job: BrushImportJob }>()
@@ -105,15 +105,12 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
         storage.atomic(storage.path('jobs',id),{owner,job})
         if(closing) throw Error('Import interrupted')
         await mkdir(output,{mode:0o700})
-        await new Promise<void>((resolveJob,reject)=> {
-          const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
-          const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
-          const child=spawn('prlimit',['--as=1073741824','--cpu=110','--fsize=536870912','--',python,script,input,'--output',output],{stdio:['ignore','ignore','ignore'],env:{PATH:process.env.PATH,PYTHONHASHSEED:'0'}})
-          activeChild=child
-          const timer=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Brush import timed out'))},120000)
-          child.once('error',err=>{clearTimeout(timer);reject(err)})
-          child.once('close',code=>{activeChild=undefined;clearTimeout(timer);code===0 ? resolveJob() : reject(Error('Unsupported or damaged brush file'))})
-        })
+        const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
+        const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
+        const child=startBrushImportProcess('prlimit',['--as=1073741824','--cpu=110','--fsize=536870912','--',python,script,input,'--output',output],{PATH:process.env.PATH,PYTHONHASHSEED:'0'})
+        activeChild=child
+        try { await child.finished }
+        finally { if(activeChild===child) activeChild=undefined }
         const converted=await loadBrushLibrary(output)
         storage.install(owner,converted.manifest,converted.assets)
         job.status='complete'; job.library=converted.manifest

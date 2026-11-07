@@ -29,6 +29,7 @@ COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/server apps/server
 COPY packages/shared packages/shared
+COPY scripts/brush-import scripts/brush-import
 # postinstall (prisma generate) needs apps/server/prisma/schema.prisma
 # present, hence copying the whole apps/server dir before this rather than
 # just its package.json.
@@ -40,12 +41,15 @@ ENV NODE_ENV=production
 # Prisma's query engine needs libssl at runtime — without it present it falls
 # back to guessing an OpenSSL version, a real (if usually harmless) warning
 # on every start that's cheap to just not have.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+# Captured brush uploads execute the packaged bounded Python/Pillow importer.
+# prlimit comes from util-linux; SVG uses the same Node and runtime Sharp.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-pil util-linux && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/scripts/brush-import ./scripts/brush-import
 WORKDIR /app/apps/server
 EXPOSE 4000
 # (#177) `--import` loads the Sentry init before any application module, and

@@ -101,3 +101,22 @@ it('serves refreshed operator diagnostics over old room pins without rewriting p
     expect(await readFile(storage.path('owners', 'alice'))).toEqual(owner)
   } finally { await server.close() }
 })
+
+
+it('shutdown terminates active decoder descendants before removing importer work', async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'brush-route-process-'));directories.push(directory)
+  const script=join(directory,'own-importer.cjs'),receipt=join(directory,'pids.json')
+  await writeFile(script,`const{spawn}=require('node:child_process');const{writeFileSync}=require('node:fs');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});writeFileSync(${JSON.stringify(receipt)},JSON.stringify({parent:process.pid,child:c.pid}));setInterval(()=>{},1000)`)
+  vi.stubEnv('GRAFETTO_BRUSH_IMPORT_PYTHON',process.execPath);vi.stubEnv('GRAFETTO_BRUSH_IMPORT_SCRIPT',script)
+  const server=await app()
+  let p:{parent:number;child:number}|undefined
+  try{
+    const response=await server.inject({method:'POST',url:'/api/brush-library/imports',headers:{'content-type':'application/octet-stream','x-brush-filename':'own.kpp'},payload:Buffer.from('own-test')});expect(response.statusCode).toBe(202)
+    for(let i=0;i<150;i++){try{p=JSON.parse(await readFile(receipt,'utf8'));break}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;await new Promise(r=>setTimeout(r,20))}}
+    if(!p)throw Error('Own route worker did not start')
+    await server.close()
+    const live=async(pid:number)=>{try{const stat=await readFile(`/proc/${pid}/stat`,'utf8');return stat.slice(stat.lastIndexOf(')')+2).split(' ')[0]!=='Z'}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return false;throw error}}
+    expect(await live(p.parent)).toBe(false);expect(await live(p.child)).toBe(false)
+    const storageRoot=process.env.GRAFETTO_BRUSH_STORAGE_DIR;if(!storageRoot)throw Error('Missing own test storage');const status=await readFile(new BrushStorage(storageRoot).path('jobs',response.json().id),'utf8');expect(JSON.parse(status).job.status).toBe('failed')
+  }finally{await server.close();if(p)for(const pid of [p.parent,p.child]){try{process.kill(pid,'SIGKILL')}catch(error){if((error as NodeJS.ErrnoException).code!=='ESRCH')throw error}}}
+})
