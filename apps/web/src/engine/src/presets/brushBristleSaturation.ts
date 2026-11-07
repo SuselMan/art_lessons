@@ -1,4 +1,4 @@
-import type {BristleInkProfile} from './brushBristleInk'
+import {bristleHslSaturationRgb8,type BristleInkProfile} from './brushBristleInk'
 import type {BristleInkSpan} from './brushBristleInkBulk'
 export type BristleRgb=readonly[number,number,number]
 export interface BristleSaturationCursor {index:number;color:[number,number,number]}
@@ -16,22 +16,13 @@ export function bristleSaturationFactor(profile:BristleInkProfile,span:BristleIn
  const oldInk=index===0?span.initialInk:Math.fround(remaining(index-1)),current=remaining(index)
  return profile.useWeights?span.pressure*profile.pressureWeight+span.length*profile.bristleLengthWeight+oldInk*profile.bristleInkAmountWeight+current*profile.inkDepletionWeight:span.pressure*span.length*oldInk*current
 }
-/** Compatibility HSL type=1, h=v=0. Quantize RGB after every transform.
- * Functional RGB8 witness, not a claim about every native color space. */
-function transform(rgb:BristleRgb,factor:number):[number,number,number]{
- const high=Math.max(...rgb),low=Math.min(...rgb),light=(high+low)/2,chroma=high-low
- if(chroma===0)return [...rgb]
- const target=chroma*Math.max(0,factor),minimum=light-target/2
- const channel=(v:number)=>Math.round(clamp(minimum+(v-low)*target/chroma)*255)/255
- return [channel(rgb[0]),channel(rgb[1]),channel(rgb[2])]
-}
 /** Bounded reference only: no geometry arrays, no ink mutation, no rendering
  * admission. Caller snapshots cursor to continue; max2048 actual transforms. */
 export function advanceBristleSaturationReference(profile:BristleInkProfile,span:BristleInkSpan,cursor:BristleSaturationCursor,maxSteps:number):{steps:number;done:boolean}{
  if(!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>2048||!Number.isSafeInteger(cursor.index)||cursor.index<0||cursor.index>span.samples||!cursor.color.every(unit))throw RangeError('Invalid Bristle saturation continuation')
  const steps=Math.min(maxSteps,span.samples-cursor.index)
  for(let j=0;j<steps;j++){
-  if(profile.useSaturation)cursor.color=transform(cursor.color,bristleSaturationFactor(profile,span,cursor.index))
+  if(profile.useSaturation)cursor.color=bristleHslSaturationRgb8(cursor.color,bristleSaturationFactor(profile,span,cursor.index))
   cursor.index++
  }
  return {steps,done:cursor.index===span.samples}

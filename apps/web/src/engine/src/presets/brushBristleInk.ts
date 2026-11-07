@@ -50,10 +50,10 @@ export function beginBristleInkLine(state:BristleInkState,hair:number,start:read
 }
 /** HSL compatibility saturation: native type=1, compatibilityMode default=true.
  * Functional RGB bytes are quantized at every sample, including transparent ones. */
-function saturation(rgb:readonly[number,number,number],factor:number):[number,number,number] {
+export function bristleHslSaturationRgb8(rgb:readonly[number,number,number],factor:number):[number,number,number] {
  const high=Math.max(...rgb),low=Math.min(...rgb),light=(high+low)/2,chroma=high-low
  if(chroma===0)return [...rgb]
- const target=chroma*Math.max(0,factor),minimum=light-target/2
+ const target=Math.min(1-Math.abs(high+low-1),chroma*Math.max(0,factor)),minimum=light-target/2
  const channel=(v:number)=>Math.round(clamp(minimum+(v-low)*target/chroma)*255)/255
  return [channel(rgb[0]),channel(rgb[1]),channel(rgb[2])]
 }
@@ -69,7 +69,7 @@ export function advanceBristleInkLine(profile:BristleInkProfile,state:BristleInk
  for(let i=0;i<count;i++){
   const index=line.index++,depletion=profile.depletion[Math.min(hair.counter,profile.amount-1)]
   const weighted=line.pressure*profile.pressureWeight+line.length*profile.bristleLengthWeight+hair.inkAmount*profile.bristleInkAmountWeight+(1-depletion)*profile.inkDepletionWeight
-  if(profile.useSaturation)line.color=saturation(line.color,profile.useWeights?weighted:line.pressure*line.length*hair.inkAmount*(1-depletion))
+  if(profile.useSaturation)line.color=bristleHslSaturationRgb8(line.color,profile.useWeights?weighted:line.pressure*line.length*hair.inkAmount*(1-depletion))
   const opacity=profile.useOpacity?clamp(profile.useWeights?weighted:line.length*hair.inkAmount):line.length
   const final=index>line.steps,t=dominant===0?0:index/Math.abs(dominant)
   samples.push({x:final?line.end[0]:line.start[0]+t*dx,y:final?line.end[1]:line.start[1]+t*dy,opacity,color:[...line.color]})

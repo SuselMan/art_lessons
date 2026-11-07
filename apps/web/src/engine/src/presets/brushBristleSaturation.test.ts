@@ -44,3 +44,12 @@ it('rejects expanding/weighted analytic shortcuts and foreign prefixes; preserve
  expect(()=>bristleSaturationAnalytic(prepareBristleSaturationPrefix(weighted),weighted,ws,0,[1,0,0])).toThrow('unweighted')
  expect(()=>bristleSaturationAnalytic(structuredClone(prefix),p,span,0,[1,0,0])).toThrow('matching')
 })
+
+
+it('clamps HSL saturation before RGB quantization and preserves lightness at expanding factors',async()=>{
+ const {bristleHslSaturationRgb8}=await import('./brushBristleInk')
+ // S is already one at L=.6. RGB channel clipping would incorrectly lower L.
+ expect(bristleHslSaturationRgb8([1,.2,.6],2)).toEqual([1,.2,.6])
+ expect(bristleHslSaturationRgb8([.8,.4,.6],3)).toEqual([1,.2,.6])
+ expect(bristleHslSaturationRgb8([.8,.4,.6],0)).toEqual([.6,.6,.6])
+})
