@@ -19,6 +19,15 @@ export function proceduralProfileUniforms(profile?: Profile, lookupSide?: number
     return profile.kind === 'gaussian' ? [0, profile.fade, 0, profile.antialias ? 1 : 0]
         : [profile.shape === 'ellipse' ? 1 : 2, profile.horizontalFade, profile.verticalFade, profile.antialias ? 1 : 0];
 }
+/** Native standard-generator softness changes fade coefficients, never opacity.
+ * Re-encode coefficients in the existing profile ABI, including fade=0's
+ * special coefficient1. The unchanged softness1 path preserves old uniforms. */
+export function standardSoftnessProfile(profile: Extract<Profile, {kind:'standard'}>, rx:number, ry:number, softness=1): Extract<Profile, {kind:'standard'}> {
+    if (!Number.isFinite(softness) || softness<0 || softness>1 || !Number.isFinite(rx) || !Number.isFinite(ry) || rx<=0 || ry<=0) throw new RangeError('Invalid standard softness geometry');
+    if (softness===1) return profile;
+    const safe=Math.max(.01,softness);
+    return {...profile,horizontalFade:profile.horizontalFade===0?safe/rx:profile.horizontalFade*safe,verticalFade:profile.verticalFade===0?safe/ry:profile.verticalFade*safe};
+}
 /** Independently expressed normalized rational fade. Samples return U8
  * transparency; stencil inversion/rounding is shared with Gaussian. */
 function standardTransparency(x: number, y: number, rx: number, ry: number, profile: Extract<Profile, {
@@ -51,7 +60,7 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 }
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
-export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array): number {
+export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1): number {
     if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
     if (profile.kind === 'radialCurve') {
         if (!lookup) throw Error('Radial curve requires its lookup resource')
@@ -61,6 +70,7 @@ export function proceduralMaskAlpha(x: number, y: number, width: number, height:
     if (![x, y, width, height, angle].every(Number.isFinite) || width <= 0 || height <= 0)
         return 0;
     const rx = width * .5, ry = height * .5, c = Math.cos(angle), s = Math.sin(angle);
+    if(profile.kind==='standard') profile=standardSoftnessProfile(profile,rx,ry,softness);
     const n = proceduralSampleCount(Math.min(width, height), profile.antialias);
     return maskStencilAlpha(x, y, n, (px, py) => {
         const localX = c * px + s * py, localY = -s * px + c * py;

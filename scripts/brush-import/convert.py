@@ -671,8 +671,16 @@ def portable_bundle(path,catalog):
             elif isinstance(value,list):
                 for child in value:validate_times(child)
         validate_times(behavior)
+        if 'softness' in behavior:
+            value=behavior['softness']
+            if (type(value)not in(int,float)or not math.isfinite(value)or not 0<=value<=1
+                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')!='standard'):
+                raise ValueError('Invalid standard-mask softness')
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
+            if isinstance(controls,dict) and 'softness' in controls:
+                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')!='standard':raise ValueError('Softness response requires standard mask')
+                validate_portable_dynamics([controls['softness']]if section=='dynamics'else controls['softness'])
             if isinstance(controls,dict) and 'sharpness' in controls:
                 if 'alphaThreshold' not in tip: raise ValueError('Sharpness response requires alpha threshold')
                 validate_portable_dynamics([controls['sharpness']] if section=='dynamics' else controls['sharpness'])

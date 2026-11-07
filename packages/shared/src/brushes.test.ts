@@ -15,6 +15,17 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('admits softness only on the implemented standard stamp mask',()=>{
+    const data=library(),d=data.brushes[0].descriptor
+    d.paperInteraction=0;d.tip={kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:.5,verticalFade:.5,antialias:true}}
+    d.behavior={version:2,softness:.2,modulations:{softness:[{control:'pressure',minimum:0,jitter:0}]}}
+    expect(isBrushLibrary(data)).toBe(true)
+    for(const value of [-.1,1.1,NaN]){d.behavior.softness=value;expect(isBrushLibrary(data)).toBe(false)}
+    d.behavior.softness=.5;d.tip.profile={kind:'gaussian',fade:.5,antialias:true};expect(isBrushLibrary(data)).toBe(false)
+    d.tip.profile={kind:'standard',shape:'rectangle',horizontalFade:.5,verticalFade:.5,antialias:false};expect(isBrushLibrary(data)).toBe(true)
+    d.model='mixer';d.mixer={load:0,pickup:0,strength:1};expect(isBrushLibrary(data)).toBe(false)
+  })
+
   it('accepts an actual PNG preview with byte-decoded dimensions',()=>{const data=library();data.brushes[0].preview='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';expect(isBrushLibrary(data)).toBe(true)})
 
   it('admits author input on the primary component and rejects unsupported independent child input', () => {

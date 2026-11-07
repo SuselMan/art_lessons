@@ -25,9 +25,27 @@ class ProceduralTests(unittest.TestCase):
         b,_=self.brush('rect',generator={'hfade':'0','vfade':'1','antialiasEdges':'0'})
         self.assertEqual(b['descriptor']['tip']['profile']['horizontalFade'],0);self.assertFalse(b['descriptor']['tip']['profile']['antialias'])
     def test_excluded_density_randomness_spikes_and_softness_remain_explicit(self):
-        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'}),dict(generator={'spikes':'4'}),dict(extra={'PressureSoftness':'true','SoftnessUseCurve':'true'})]:
+        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'}),dict(generator={'spikes':'4'})]:
             b,_=self.brush('rect',**kw);self.assertNotIn('profile',b['descriptor']['tip'])
             self.assertTrue(any(c['feature']=='standardMaskProfile'and c['status']=='unsupported'for c in b['compatibility']))
+    def test_standard_softness_constant_pressure_and_combined_controls(self):
+        for shape in ['circle','rect']:
+            for extra in [
+                {'SoftnessUseCurve':'false','SoftnessValue':'.2'},
+                {'SoftnessUseCurve':'true','SoftnessValue':'.5'},
+                {'SoftnessUseCurve':'true','SoftnessValue':'.5','SoftnesscurveMode':'1','SoftnessSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'},
+            ]:
+                b,assets=self.brush(shape,extra={'PressureSoftness':'true',**extra});d=b['descriptor']
+                self.assertEqual(d['tip']['profile']['kind'],'standard');self.assertEqual(d['behavior']['softness'],float(extra['SoftnessValue']))
+                self.assertGreaterEqual(d['version'],64);self.assertEqual(assets,{})
+                self.assertFalse(any(n['status']=='unsupported'for n in b['compatibility']))
+                convert.validate_portable_profile(d)
+                if extra['SoftnessUseCurve']=='true':self.assertIn('softness',d['behavior']['modulations'])
+                else:self.assertNotIn('softness',d['behavior'].get('modulations',{}))
+    def test_softness_unsupported_sensor_does_not_become_constant(self):
+        b,_=self.brush(extra={'PressureSoftness':'true','SoftnessUseCurve':'true','SoftnessSensor':'<params id="rotation"/>'})
+        self.assertNotIn('softness',b['descriptor']['behavior']);self.assertNotIn('profile',b['descriptor']['tip'])
+        self.assertTrue(any(n['status']=='unsupported'for n in b['compatibility']))
     def test_checked_unit_constant_softness_and_unchecked_stale_values(self):
         for params in [{'PressureSoftness':'false','SoftnessValue':'.2'},{'PressureSoftness':'true','SoftnessUseCurve':'false','SoftnessValue':'1'}]:
             b,_=self.brush(extra=params);self.assertEqual(b['descriptor']['tip']['profile']['kind'],'standard')

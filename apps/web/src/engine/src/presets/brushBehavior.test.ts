@@ -253,3 +253,16 @@ describe('logical dab progress',()=>{
     expect(isBrushBehavior({version:2,modulations:{opacity:[{...progress,control:'pressure'}]}})).toBe(false)
   })
 })
+it('resolves standard softness per dab independently of flow, opacity and footprint',()=>{
+ const base:BrushDescriptor={...brush,scatter:undefined,tip:{kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:1,verticalFade:1,antialias:false}},behavior:{version:2}};
+ const input={...dabs[0],pressure:.5};
+ const stamps=(b:BrushDescriptor)=>behaviorStampsForDab(b,input,beginBrushBehavior(input),color);
+ const original=stamps(base)[0];
+ const changed=stamps({...base,behavior:{version:2,softness:.8,modulations:{softness:[{control:'pressure',minimum:0,jitter:0}]}}})[0];
+ expect(changed.softnessScale).toBe(.4);
+ expect(original).not.toHaveProperty('softnessScale');
+ const {softnessScale,...rest}=changed;
+ expect(softnessScale).toBe(.4);
+ expect(rest).toEqual(original);
+ expect(stamps({...base,behavior:{version:2,softness:0}})[0].softnessScale).toBe(0);
+});

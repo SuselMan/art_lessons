@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { proceduralMaskAlpha, proceduralProfileUniforms, proceduralSampleCount } from './brushProcedural';
+import { standardSoftnessProfile, proceduralMaskAlpha, proceduralProfileUniforms, proceduralSampleCount } from './brushProcedural';
 import { BRUSH_GAUSSIAN_GLSL, gaussianMaskAlpha } from './gaussianTip';
 import witnesses from './brushProcedural.witnesses.json';
 it('matches independently authored pinned scalar samples including rotated unequal axes', () => {
@@ -29,4 +29,30 @@ it('bounds malformed geometry and makes the native undefined hard-circle boundar
     expect(proceduralMaskAlpha(NaN, 0, 48, 48, profile)).toBe(0);
     expect(proceduralProfileUniforms()).toEqual([-1, 0, 0, 0]);
     expect(proceduralProfileUniforms({ ...profile, shape: 'rectangle' })).toEqual([2, 1, 1, 0]);
+});
+it('applies native standard softness to fade coefficients without changing geometry or opacity', () => {
+    const ellipse={kind:'standard',shape:'ellipse',horizontalFade:1,verticalFade:1,antialias:false} as const;
+    const rectangle={...ellipse,shape:'rectangle'} as const;
+    // Native scalar formula at x8/r10: ellipse transparency trunc132,
+    // rectangle trunc153. Softness1 keeps the opaque interior.
+    expect(proceduralMaskAlpha(8,0,20,20,ellipse)).toBe(255);
+    expect(proceduralMaskAlpha(8,0,20,20,ellipse,0,undefined,.5)).toBe(123);
+    expect(proceduralMaskAlpha(8,0,20,20,rectangle,0,undefined,.5)).toBe(102);
+    expect(proceduralMaskAlpha(0,0,20,20,ellipse,0,undefined,.5)).toBe(255);
+    expect(proceduralMaskAlpha(11,0,20,20,ellipse,0,undefined,.5)).toBe(0);
+});
+it('preserves native zero-fade coefficients at subpixel radii and softness floor', () => {
+    const p={kind:'standard',shape:'ellipse',horizontalFade:0,verticalFade:0,antialias:false} as const;
+    const adjusted=standardSoftnessProfile(p,.25,.125,.5);
+    expect(adjusted.horizontalFade).toBe(2); // Runtime coefficient encoding, not serialized fade.
+    expect(adjusted.verticalFade).toBe(4);
+    expect(standardSoftnessProfile(p,.25,.125,1)).toBe(p);
+    for(const softness of [0,.001,.01]) expect(standardSoftnessProfile(p,10,5,softness)).toEqual({...p,horizontalFade:.001,verticalFade:.002});
+    expect(()=>standardSoftnessProfile(p,10,5,NaN)).toThrow(RangeError);
+});
+it('retains old standard samples exactly when softness is absent or one',()=>{
+    for(const w of witnesses.cases){
+        const p={kind:'standard',shape:w.profile as 'ellipse'|'rectangle',horizontalFade:w.horizontalFade,verticalFade:w.verticalFade,antialias:w.antialias} as const;
+        expect(proceduralMaskAlpha(w.x,w.y,w.width,w.height,p,w.angle,undefined,1)).toBe(proceduralMaskAlpha(w.x,w.y,w.width,w.height,p,w.angle));
+    }
 });

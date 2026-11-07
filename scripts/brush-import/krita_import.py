@@ -372,7 +372,7 @@ def sensor_controls(params, option, notes, *, allow_time=False):
                 else 'Distance follows canonical centreline length in world pixels; native input-curve subdivision may differ.'if name=='distance'else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
     if compound and controls:
         constant=numeric(params.get(option+'Value'),1)
-        if not 0<=constant<=1 or option=='ColorRate'and constant!=1:
+        if not 0<=constant<=1:
             notes.append(compatibility(option+'SensorCombination','Nonunit option strength with a combined response requires constant-before-clamp execution; not approximated.','unsupported'))
             return []
         scaling=[control for control,name in zip(controls,source_ids)if name not in additive_ids and name!='drawingangle']
@@ -501,6 +501,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     source_size=None
     source_metric=None
     application=0
+    softness_value=1
+    softness_controls=[]
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -565,9 +567,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         softness_checked=engine!='colorsmudge' and enabled(params.get('PressureSoftness'))
         constant_softness=(not softness_checked or
             (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
+        softness_supported=constant_softness
+        if default_generator and engine=='paintbrush' and softness_checked:
+            softness_value=numeric(params.get('SoftnessValue'),1)
+            if not math.isfinite(softness_value) or not 0<=softness_value<=1:
+                raise ValueError('Native Softness value outside0..1')
+            softness_supported=True
+            if enabled(params.get('SoftnessUseCurve','true')):
+                start=len(notes)
+                softness_controls=size_like_controls(params,'Softness',notes,allow_time=timed_input)
+                softness_supported=bool(softness_controls) and not any(n['status']=='unsupported'for n in notes[start:])
         standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
             and numeric(definition.get('randomness'))==0 and numeric(definition.get('density'),1)==1
-            and constant_softness)
+            and softness_supported)
         if standard:
             horizontal=numeric(generator.get('hfade'),0)
             vertical=numeric(generator.get('vfade'),0)
@@ -702,6 +714,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
     if sharpness_controls: behavior.setdefault('modulations',{})['sharpness']=sharpness_controls
+    if engine=='paintbrush' and d['tip'].get('profile',{}).get('kind')=='standard' and enabled(params.get('PressureSoftness')):
+        behavior['softness']=softness_value
+        if softness_controls:behavior.setdefault('modulations',{})['softness']=softness_controls
+        d['version']=max(d['version'],64)
+        notes.append(compatibility('standardSoftness','Native standard-mask fade coefficients respond per dab; no opacity substitution.','supported'))
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))
@@ -1077,7 +1094,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and engine=='colorsmudge') and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):

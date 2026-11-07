@@ -76,20 +76,18 @@ class LegacyForegroundTests(unittest.TestCase):
         self.assertAlmostEqual(sample['radius'],.0923);self.assertEqual(sample['radiusDynamics'][0]['curve'],[[0,0],[1,1]])
         self.assertAlmostEqual(sample['radius']*.75,.069225)
 
-    def test_additive_and_nonunit_combination_remain_explicitly_unsupported(self):
+    def test_nonunit_combination_retains_constant_before_clamp(self):
         for option in ['ColorRate','SmudgeRadius']:
             extra={'SmudgeRateMode':'1','PressureSmudgeRadius':'true',option+'UseCurve':'true',option+'Sensor':'<params id="ascension"/>'}
             c=self.brush(extra);b=c.brushes[0];m=b['descriptor']['mixer']
-            target=m['foreground'] if option=='ColorRate' else m['sampling']
-            if option=='ColorRate':
-                self.assertNotIn('dynamics',target)
-                self.assertTrue(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported' for n in b['compatibility']))
-            else:
-                self.assertEqual(target['radiusDynamics'][0]['combine']['additive'][0]['control'],'tiltDirection')
-                self.assertFalse(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported'for n in b['compatibility']))
+            control=m['foreground']['dynamics'][0]if option=='ColorRate'else m['sampling']['radiusDynamics'][0]
+            self.assertEqual(control['combine']['additive'][0]['control'],'tiltDirection')
+            self.assertFalse(any(n['feature']==option+'SensorCombination'and n['status']=='unsupported'for n in b['compatibility']))
+            if option=='ColorRate':self.assertEqual(control['combine']['constant'],.7)
         c=self.brush({'ColorRateUseCurve':'true','ColorRatecurveMode':'1','ColorRateSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
-        self.assertNotIn('dynamics',c.brushes[0]['descriptor']['mixer']['foreground'])
-        self.assertTrue(any(n['feature']=='ColorRateSensorCombination' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+        control=c.brushes[0]['descriptor']['mixer']['foreground']['dynamics'][0]
+        self.assertEqual(control['combine']['mode'],'sum');self.assertEqual(control['combine']['constant'],.7)
+        self.assertFalse(any(n['feature']=='ColorRateSensorCombination'and n['status']=='unsupported'for n in c.brushes[0]['compatibility']))
 
     def test_invalid_raw_rates_reject_instead_of_smuggling_clamp(self):
         for key in ['ColorRateValue','SmudgeRateValue']:

@@ -13,7 +13,7 @@ import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
 import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
-import { proceduralSampleCount } from '../raster/brushProcedural'
+import { proceduralProfileUniforms, standardSoftnessProfile, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
 import { brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
@@ -518,6 +518,8 @@ export class BrushBehaviorPainter {
             const mainRy = Math.fround(s.radius)
             const childRx = Math.fround(mainRx * ratio / (1 + s.edgeSoftness * .15))
             const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
+            if(s.softnessScale!==undefined && brush.tip.profile?.kind==='standard') gl.uniform4f(u.u_tipProcedural,...proceduralProfileUniforms(standardSoftnessProfile(brush.tip.profile,mainRx,mainRy,s.softnessScale??1)))
+            if(s.dualSoftnessScale!==undefined && secondary?.tip.profile?.kind==='standard') gl.uniform4f(u.u_dualProcedural,...proceduralProfileUniforms(standardSoftnessProfile(secondary.tip.profile,childRx,childRy,s.dualSoftnessScale??1)))
             const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve') || !!brush.tip.imageSampling
             // A child profile does not expand a legacy parent's clipping quad.
             const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)

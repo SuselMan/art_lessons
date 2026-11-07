@@ -53,7 +53,7 @@ import { createProgram, getUniforms } from '../raster/utils'
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
-import { colorSmudgeRates } from '../presets/colorSmudge'
+import { colorSmudgeRates, resolveColorSmudgeRate } from '../presets/colorSmudge'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
@@ -496,7 +496,7 @@ export class SmudgePainter {
     const sourceSeed=brushDabSeed(dab.x,dab.y,dab.pressure)
     const samplingRadius=brush.mixer?.sampling ? clampNum(brush.mixer.sampling.radius*(brush.mixer.sampling.radiusDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x70000+index)),1),0,3) : undefined
     const foreground=brushForegroundRate(brush.mixer?.foreground)
-    const foregroundRate=foreground ? foreground.rate*(foreground.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index)),1) : undefined
+    const foregroundRate=foreground ? resolveColorSmudgeRate(foreground.rate,foreground.dynamics,(control,index)=>brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index))) : undefined
     const gradient=brush.mixer?.foreground && 'gradient' in brush.mixer.foreground ? brush.mixer.foreground.gradient : undefined
     const gradientColor=gradient ? sampleBrushGradient(state.behavior.execution!.brushSource!,gradient.value*(gradient.positionDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0xa0000+index)),1)) : undefined
     const thicknessOption=brush.mixer?.paintThickness

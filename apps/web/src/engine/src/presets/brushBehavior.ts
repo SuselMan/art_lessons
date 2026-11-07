@@ -127,6 +127,8 @@ export interface BehaviorStamp extends BrushStamp {
   bleed: number
   opacityScale: number
   grainDepth: number
+  softnessScale?: number
+  dualSoftnessScale?: number
   sharpnessScale?: number
   dualSharpnessScale?: number
   flipX: number
@@ -444,6 +446,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       ...(brush.hatching?{hatching:hatchingPlacement(brush.hatching,Object.fromEntries((['angle','cross','separation','thickness']as const).map((key,j)=>[key,(brush.hatching!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(0xf6000+j*16+i)),1)]))as {angle:number;cross:number;separation:number;thickness:number})}:{}),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
+      ...(brush.tip.profile?.kind==='standard' && (behavior?.softness!==undefined || behavior?.modulations?.softness?.length || behavior?.dynamics?.softness)
+        ? {softnessScale:clamp((behavior?.softness??1)*dynamic('softness',0x61000+i*16))}:{}),
+      ...(behavior?.dual?.sampling!=='independent' && behavior?.dual?.brush.tip.profile?.kind==='standard' && (behavior.dual.brush.behavior?.softness!==undefined || behavior.dual.brush.behavior?.modulations?.softness?.length || behavior.dual.brush.behavior?.dynamics?.softness)
+        ? {dualSoftnessScale:clamp((behavior.dual.brush.behavior?.softness??1)*dynamic('softness',0x62000+i*16,behavior.dual.brush.behavior))}:{}),
       ...(behavior?.dynamics?.sharpness || behavior?.modulations?.sharpness?.length
         ? { sharpnessScale: dynamic('sharpness', 4096 + i * 8) } : {}),
       ...(behavior?.dual?.sampling !== 'independent' && (behavior?.dual?.brush.behavior?.dynamics?.sharpness || behavior?.dual?.brush.behavior?.modulations?.sharpness?.length)
