@@ -745,7 +745,11 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
+            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure'): raise ValueError('Invalid portable tip animation')
+            if animation['mode'] in ('constant','pressure') and d['version']<91:raise ValueError('GIH sensor selection requires revision91')
+            if animation['mode']=='pressure':
+                if type(animation.get('rank')) is not int or not 1<=animation['rank']<=2147483647:raise ValueError('Invalid portable GIH pressure rank')
+            elif 'rank'in animation:raise ValueError('Unexpected portable GIH rank')
             frames=animation['frames']
             if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
             if 'geometry'not in animation and len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')

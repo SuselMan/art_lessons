@@ -297,14 +297,24 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
-export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0): number | undefined {
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
+  if(animation.mode==='constant')return 0
+  if(animation.mode==='pressure'){
+    const rank=animation.rank,p=Math.fround(pressure ?? NaN)
+    if(!Number.isInteger(rank)||rank===undefined||rank<1||rank>2147483647||!Number.isFinite(p))throw Error('Invalid GIH pressure selection input')
+    // Native selectPre uses static_cast<int>, then chooseNextBrush accumulates uint32.
+    // Narrow author pressure exactly as the existing recorded dab codec does.
+    const index=Math.trunc(p*(rank-1)+.5)
+    if(index< -2147483648||index>2147483647)throw Error('GIH pressure selection exceeds native int range')
+    return (index>>>0)%animation.frames.length
+  }
   return animation.mode==='incremental' ? ordinal%animation.frames.length
     : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
 }
-export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0): BrushDescriptor['tip']['mask'] {
-  const index=brushAnimationIndex(tip,seed,ordinal,stream)
+export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number): BrushDescriptor['tip']['mask'] {
+  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure)
   return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
@@ -327,9 +337,13 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     assertBrushExecutionContext(brush,state.execution)
     assertBrushSourceInputs(brush,[dab])
   }
-  const ordinal = advanceBrushAnimation(brush, state)
-  const index=brushAnimationIndex(brush.tip,state.seed,ordinal)
-  const dualIndex=behavior?.dual ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1) : undefined
+  // Validate both selectors before advancing any real gesture state.
+  const ordinal = state.dabOrdinal ?? 0
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure)
+  // Independent pressure masks are queried only by their own resampled child dabs.
+  // Preserve historical random/incremental parent metadata expressions unchanged.
+  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&behavior.dual.brush.tip.animation?.mode==='pressure') ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure) : undefined
+  advanceBrushAnimation(brush, state)
   const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
   const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]
   const colorPlanes=brushTipColorPlanes(brush.tip,index)

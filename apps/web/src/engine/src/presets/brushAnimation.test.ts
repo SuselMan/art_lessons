@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor, Dab } from '@grafetto/shared'
-import { advanceBrushAnimation, beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs } from './brushBehavior'
+import { advanceBrushAnimation, brushAnimationIndex, beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs } from './brushBehavior'
 import { digitalBrushFromPreset } from './digitalBrushPresets'
 import { importedBrushAssets, installBrushLibrary } from './importedBrushes'
 
@@ -91,4 +91,79 @@ describe('bitmap pipe frame selection', () => {
     installBrushLibrary({ schemaVersion: 1, brushes: [{ name: 'Own pipe fixture', source: 'qa', warnings: [], descriptor }], assets: [...frames, childFrame].map(id => ({ id, size: 2, file: `${id.slice(6)}.bin` })), skipped: [] })
     expect(importedBrushAssets(`brush:${descriptor.id}@101`)).toEqual([...frames, childFrame])
   })
+})
+
+// New modes deliberately use declared rank before modulo ACTUAL frame count.
+describe('revision91 native pipe selectors',()=>{
+  const selected=(mode:'pressure'|'constant',rank=5):BrushDescriptor=>{
+    const b=brush();b.version=91;b.tip.animation={mode,frames,...(mode==='pressure'?{rank}:{})};return b
+  }
+  it('retains uint32 native cast/modulo for EOF-short pressure and admitted values outside unit range',()=>{
+    for(const rank of [1,5,257,2147483647])for(const pressure of [0,.125,.5,1,...(rank<1000?[-1,1.5,2]:[])]){
+      const b=selected('pressure',rank),a=b.tip.animation!;a.frames=frames.slice(0,2)
+      const n=BigInt(Math.trunc(Math.fround(pressure)*(rank-1)+.5))
+      const expected=Number(BigInt.asUintN(32,n)%2n)
+      expect(brushAnimationIndex(b.tip,123,19,0,pressure)).toBe(expected)
+    }
+  })
+  it('agrees with recorded f32 at every half threshold and both neighboring floats',()=>{
+    const b=selected('pressure',257)
+    for(let i=0;i<256;i++){
+      const f=new Float32Array([ (i+.5)/256 ]),u=new Uint32Array(f.buffer),bits=u[0]
+      for(const offset of [-1,0,1]){u[0]=bits+offset;const p=f[0]
+        expect(brushAnimationIndex(b.tip,1,1,0,p)).toBe(Math.trunc(p*256+.5)%3)
+        expect(brushAnimationIndex(b.tip,1,1,0,p+Number.EPSILON*p)).toBe(brushAnimationIndex(b.tip,1,1,0,Math.fround(p+Number.EPSILON*p)))
+      }
+    }
+  })
+  it('evaluates once before scatter for primary and inline child, without changing jitter streams',()=>{
+    for(const mode of ['pressure','constant']as const){
+      const b=selected(mode);b.behavior={version:2,dual:{brush:selected('pressure',257),blendMode:'multiply'}}
+      const state=beginBrushBehavior(dabs[0])
+      for(const pressure of [0,.125,.5,1]){
+        const dab={...dabs[0],pressure},stamps=behaviorStampsForDab(b,dab,state,color)
+        expect(stamps).toHaveLength(3)
+        expect(stamps.map(s=>s.mask)).toEqual(Array(3).fill(frames[mode==='constant'?0:Math.trunc(Math.fround(pressure)*4+.5)%3]))
+        expect(stamps.map(s=>s.dualMask)).toEqual(Array(3).fill(frames[Math.trunc(Math.fround(pressure)*256+.5)%3]))
+      }
+      expect(state.dabOrdinal).toBe(4)
+    }
+  })
+  it('fails invalid pressure in either role BEFORE mutating author state',()=>{
+    for(const inline of [false,true])for(const pressure of [NaN,Infinity,1e30]){
+      const b=inline?brush():selected('pressure');if(inline)b.behavior={version:2,dual:{brush:selected('pressure'),blendMode:'multiply'}}
+      const state=beginBrushBehavior(dabs[0]),before=structuredClone(state)
+      expect(()=>behaviorStampsForDab(b,{...dabs[0],pressure},state,color)).toThrow(/GIH pressure/)
+      expect(state).toEqual(before)
+    }
+  })
+  it('keeps independent resampled pressure selection identical across chunks and restored state',()=>{
+    const primary=brush(),child=selected('pressure',257)
+    const inputs=dabs.map((d,i)=>({...d,pressure:i/19}))
+    const render=(chunk:number)=>{const sampling={remaining:0};let state=beginBrushBehavior(inputs[0]);const out=[]
+      for(let i=0;i<inputs.length;i+=chunk){state=structuredClone(state);for(const dab of secondaryBrushDabs(primary,child,inputs.slice(i,i+chunk),sampling)){
+        const stamps=behaviorStampsForDab(child,dab,state,color)
+        expect(stamps[0].mask).toBe(frames[Math.trunc(Math.fround(dab.pressure)*256+.5)%3]);out.push(...stamps)
+      }}return out
+    }
+    expect(render(7)).toEqual(render(20))
+  })
+})
+
+it('does not query unused independent pressure child with parent pressure when no child dab is emitted',()=>{
+  const child=brush();child.version=91;child.tip.animation={mode:'pressure',rank:2147483647,frames};child.spacing=.1
+  const parent=brush();parent.behavior={version:2,dual:{brush:child,sampling:'independent',blendMode:'multiply'}}
+  const start={...dabs[0],pressure:.5},resume={...dabs[1],x:start.x+.00001,pressure:2},sampling={remaining:0}
+  const first=secondaryBrushDabs(parent,child,[start],sampling)
+  expect(first).toHaveLength(1)
+  const childState=beginBrushBehavior(start)
+  expect(behaviorStampsForDab(child,first[0],childState,color)[0].mask).toBe(frames[1073741823%3])
+  expect(secondaryBrushDabs(parent,child,[resume],sampling)).toEqual([])
+  const parentState=beginBrushBehavior(start)
+  const stamps=behaviorStampsForDab(parent,resume,parentState,color)
+  expect(stamps).toHaveLength(3);expect(stamps.every(s=>s.dualMask===undefined)).toBe(true)
+  expect(parentState.dabOrdinal).toBe(1);expect(childState.dabOrdinal).toBe(1)
+  const inline={...parent,behavior:{version:2 as const,dual:{brush:child,blendMode:'multiply' as const}}},state=beginBrushBehavior(start),before=structuredClone(state)
+  expect(()=>behaviorStampsForDab(inline,resume,state,color)).toThrow('GIH pressure selection exceeds native int range')
+  expect(state).toEqual(before)
 })

@@ -90,7 +90,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
+  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure'; rank?: number; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -560,8 +560,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames','geometry'].includes(key))
-        || !['random','incremental'].includes(String(animation.mode))
+        || Object.keys(animation).some(key => !['mode','frames','geometry','rank'].includes(key))
+        || !['random','incremental','constant','pressure'].includes(String(animation.mode))
+        || (animation.mode==='constant'||animation.mode==='pressure') && Number(d.version)<91
+        || (animation.mode==='pressure' ? !numberIn(animation.rank,1,2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
         || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       const frameIds = animation.frames

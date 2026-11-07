@@ -184,19 +184,23 @@ def gih(data, preserve_color=False):
         params=dict(pairs)
         if len(params)!=len(pairs):
             raise ValueError('Duplicate GIH header parameter')
-        if not 1<=count<=256 or int(params.get('dim','1'))!=1 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
+        if not 1<=count<=2147483647 or int(params.get('dim','1'))!=1 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
             raise ValueError('Unsupported GIH frame count or dimensions/ranks')
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
     mode=params.get('sel0',params.get('selection','incremental'))
-    if mode not in ('random','incremental'):
+    if mode not in ('random','incremental','constant','pressure'):
         raise ValueError('Unsupported GIH selection mode: '+mode)
+    if mode in ('random','incremental') and count>256:
+        raise ValueError('Unsupported legacy GIH declared frame count')
     frames=[];offset=second+1;pixels=0;coloured=False
     for _ in range(count):
         # Krita loads valid frames until exact EOF, then indexes modulo the
         # actual count. Its official fairy-dust pipe declares4 but contains1.
         if offset==len(data) and frames:
             break
+        if len(frames)>=256:
+            raise ValueError('GIH actual frame limit')
         if len(data)-offset<20:
             raise ValueError('Truncated GIH frame')
         header_size,version,w,h,channels=struct.unpack('>5I',data[offset:offset+20])
@@ -703,14 +707,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
             if len(assets)>1:
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
+                if pipe['mode']=='pressure':d['tip']['animation']['rank']=pipe['declaredCount']
                 if unequal:
                     variable_gih_bounds=[bounds for aid,bounds in assets]
                     d['tip']['animation']['geometry']={'version':1,'frames':[{'sourceWidth':frame.width,'sourceHeight':frame.height,'maskBounds':bounds}for frame,(aid,bounds)in zip(frames,assets)]}
                     d['version']=max(d['version'],86)
                     notes.append(compatibility('gihOriginalGeometry','Original per-frame dimensions/padding retained without resize; first-frame nominal size/spacing and selected-frame hotspot placement use browser functional filtering.','supported'))
+            if pipe['mode'] in ('constant','pressure'):d['version']=max(d['version'],91)
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
-            notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
+            selection_note=('All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.')
+            notes.append(compatibility('gihSelection',selection_note))
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
