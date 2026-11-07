@@ -556,6 +556,11 @@ def validate_portable_profile(descriptor):
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
             or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness')):raise ValueError('Invalid portable auto mask noise')
+    if noise is not None and 'spray'in descriptor:
+        spray=descriptor['spray']
+        if not isinstance(spray,dict) or not isinstance(spray.get('particle'),dict) or not isinstance(spray.get('color'),dict) or not isinstance(behavior,dict):raise ValueError('Invalid portable Spray Auto-mask noise records')
+        particle=spray['particle'];color=spray['color']
+        if descriptor.get('version',0)<96 or particle.get('shape')!='tip' or particle.get('image') or any(color.get(k) for k in ('sampleInput','mixBackground','fillBackground')) or 'dual'in behavior:raise ValueError('Invalid portable Spray Auto-mask noise combination')
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
             or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
@@ -707,6 +712,7 @@ def portable_bundle(path,catalog):
         if has_absolute_response(d)and 'strokeInput'not in behavior:raise ValueError('Absolute response requires recorded source input')
         mirror=behavior.get('mirror')
         if mirror is not None:
+            if depth and d.get('hatching') is not None:raise ValueError('Portable Hatching Mirror is root-only')
             if d.get('hatching') is not None and d['version']<94:raise ValueError('Portable Hatching Mirror requires revision94')
             if (not isinstance(mirror,dict)or set(mirror)-{'horizontal','vertical','value','dynamics'}
                     or type(mirror.get('horizontal'))is not bool or type(mirror.get('vertical'))is not bool

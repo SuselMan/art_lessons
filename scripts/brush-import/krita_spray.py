@@ -59,9 +59,8 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     if not shape:
         definition=xml(base_params.get('brush_definition',''))
         source_randomness=numeric(definition.get('randomness'),0)!=0 or numeric(definition.get('density'),1)!=1
-        # Preserve the authored mask profile even when its secondary stochastic
-        # coverage controls cannot yet be lowered. Do not replace a ring by a disc.
-        definition.set('randomness','0');definition.set('density','1')
+        # The common Auto-mask importer retains the existing functional74 law.
+        # Each Spray particle receives its own captured placement identity.
         generator=definition.find('MaskGenerator')
         if generator is not None and generator.get('id')=='soft' and enabled(generator.get('antialiasEdges')):
             source_curve_aa=True;generator.set('antialiasEdges','0')
@@ -129,7 +128,8 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     if source_flags:
         if spray['particle']['shape']=='tip'and any(k in d['tip']for k in('profile','imageSampling','autoShape','autoNoise')):raise ValueError('Spray sampled source requires a round or bitmap particle tip')
         if d.get('texture')or d.get('paperInteraction')or behavior.get('erase'):raise ValueError('Spray sampled source combination is not supported')
-    d['spray']=spray;d['version']=76 if source_flags or image_shape else 43
+    if d['tip'].get('autoNoise') and (image_shape or source_flags or behavior.get('dual')):raise ValueError('Spray Auto-mask noise requires an independent procedural particle')
+    d['spray']=spray;d['version']=max(76 if source_flags or image_shape else 43,96 if d['tip'].get('autoNoise') else 0)
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
@@ -137,6 +137,6 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     if image_shape and params.get('SprayShape/imageUrl','').lower().endswith('.svg'):result['compatibility'].append(compatibility('capturedSvgImage','Captured bounded SVG subset rasterized to explicit RGBA pixel dimensions with librsvg. Fonts/external images/filters/use are rejected; Qt SVG plugin/ICC/filtering byte identity is not claimed.'))
     if source_flags and not image_shape:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
     if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
-    if source_randomness:result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
+    if source_randomness and not d['tip'].get('autoNoise'):result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']
     return result
