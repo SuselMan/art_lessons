@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend/backend11c23f8a1.
+Состояние:2026-11-07. Публичный QA frontend/backendf22744499 (support12).
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -352,3 +352,35 @@ SHA256:84da3c4a04e138a401ee63a3a9c87a62948c9f6a76cbca218f5c415fc9a8e796.
 scoped lint0 errors/1 прежнее предупреждение. Эта отдельная правка не входит
 в выложенные артефакты11c. Bristle89 остаётся выключенным: memory cache и CPU
 owner-phase имеют private проверки, historical source continuation ещё в работе.
+
+
+### GIH91: constant/pressure выложены и проверены онлайн
+
+Согласованные frontend12/backend12 из f22744499 заменили11 на прежнем QA
+адресе; каталог171 определение/144 имени/252 CAS не изменился. Новый режим
+constant выбирает кадр0; pressure использует declared rank и native float32
+округление, затем modulo фактически загруженных кадров. Поддержан только
+одномерный GIH с согласованными count/rank/ncells; angular/tilt/velocity и
+многомерные трубы остаются отдельными неподдержанными случаями. Старые
+random/incremental не изменены. Independent child выбирается по собственному дабу.
+
+Объединённые проверки:609 TS/98 модулей,407 Python; web2449/server1203 inputs
+без diagnostics. GPU20/20 PASS; подмена declared rank числом кадров даёт4
+ожидаемых FAIL и16 контролей PASS. Четыре настоящих KPP/GIH под теми же
+runtime caps приняты; HTTP импорт и Linux AMD L/RGBA×constant/pressure:
+видимый live, точный peer PNG, Undo/Redo и cold обоих участников PASS, JS/GL0.
+Proof:fixes-v73/gih91-online-v1/final-proof.json,
+SHA256:fe6cbdabe5040978f5c693d2823ce12273025071ec593a90e3d6d32fa320b2f2.
+
+Это расширение импортируемых ресурсов, а не новые штатные кисти: среди31 GIH
+проверенного cached официального Krita4 bundle27 random и4 incremental.
+Не заявляется аудит отсутствующего RGBA bundle. Lightness90 также завершил
+оба author/peer/history/cold сценария; proof SHA256:
+ab3b66b9020742e109f54c18162c9f78f5c6023648012c8d4d9139ddd64c60c5.
+Support12 включает guard smudge binding1e21077f1; прежний11 его не включал.
+
+Собственные браузеры/контексты/туннели GIH91 и Lightness90 закрыты, профили
+убраны. Оставлены один QA frontend669680/backend669553 TTL48h, защищённые
+DB/CAS/QA-комнаты и компактные доказательства. Старые11 процессы остановлены;
+старые immutable сборки сохранены для rollback. Bristle89 по-прежнему выключен:
+исторические источники и приоритет локального карандаша ещё дорабатываются.
