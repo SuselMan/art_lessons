@@ -2,6 +2,7 @@ import io
 import json
 import base64
 import tempfile
+import zipfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -66,6 +67,34 @@ class CapturedSvgTests(unittest.TestCase):
  def test_comment_cannot_hide_doctype_or_malformed_delimiters(self):
   for data in [b'<!--bad--comment-->'+SVG,b'<!--open'+SVG,b'<!--ok--><!DOCTYPE svg>'+SVG]:
    with self.assertRaises(ValueError):sanitize_svg(data,'captured-image-v1')
+ def test_genuine_bundle_captured_svg_member_reaches_real_decoder(self):
+  from PIL import Image,PngImagePlugin
+  from brush_contract import Catalog
+  from krita_import import convert_krita
+  xml='<Preset paintopid="paintbrush" name="Own bundled SVG"><param name="brush_definition">&lt;Brush type="svg_brush" filename="own.svg" scale="1" ratio="1"/&gt;</param></Preset>'
+  info=PngImagePlugin.PngInfo();info.add_text('preset',xml);stream=io.BytesIO();Image.new('RGBA',(2,2)).save(stream,format='PNG',pnginfo=info)
+  with tempfile.TemporaryDirectory()as tmp:
+   path=Path(tmp)/'own.bundle'
+   with zipfile.ZipFile(path,'w')as archive:archive.writestr('paintoppresets/own.kpp',stream.getvalue());archive.writestr('brushes/own.svg',SVG)
+   c=Catalog(Path(tmp)/'out');convert_krita(path,c);self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);self.assertNotIn('color',c.brushes[0]['descriptor']['tip']);self.assertGreater(len(c.assets),0)
+ def test_bundle_preserves_explicit_prepared_stock_override_exactly(self):
+  from brush_contract import Catalog
+  from krita_import import convert_krita
+  fixture=json.loads((Path(__file__).parent/'fixtures/svg_stock_fallback.json').read_text())
+  with tempfile.TemporaryDirectory()as tmp:
+   path=Path(tmp)/'own.bundle'
+   with zipfile.ZipFile(path,'w')as archive:archive.writestr('stock-fixture.kpp',base64.b64decode(fixture['sourceKppBase64']));archive.writestr('brushes/own.svg',SVG)
+   c=Catalog(Path(tmp)/'out');convert_krita(path,c,{'operator.bundle/brushes/own.svg':base64.b64decode(fixture['resourcePngBase64'])});self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor'],fixture['descriptor']);self.assertEqual(c.brushes[0]['compatibility'],fixture['compatibility'])
+ def test_genuine_embedded_svg_resource_not_external_loader(self):
+  import hashlib
+  from PIL import Image,PngImagePlugin
+  from brush_contract import Catalog
+  from krita_import import preset
+  import xml.etree.ElementTree as ET
+  root=ET.Element('Preset',{'paintopid':'paintbrush','name':'Own embedded SVG'});ET.SubElement(root,'param',{'name':'brush_definition'}).text='<Brush type="svg_brush" filename="own.svg" scale="1" ratio="1"/>';ET.SubElement(ET.SubElement(root,'resources'),'resource',{'filename':'own.svg','md5sum':hashlib.md5(SVG).hexdigest()}).text=base64.b64encode(SVG).decode()
+  info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));stream=io.BytesIO();Image.new('RGBA',(2,2)).save(stream,format='PNG',pnginfo=info)
+  with tempfile.TemporaryDirectory()as tmp:
+   record=preset(stream.getvalue(),'own.kpp',Catalog(Path(tmp)),{});self.assertIn('mask',record['descriptor']['tip']);self.assertNotIn('color',record['descriptor']['tip'])
  def test_decoder_timeout_is_explicit_recoverable_import_error(self):
   import subprocess
   with mock.patch('captured_svg.subprocess.run',side_effect=subprocess.TimeoutExpired('node',20)):

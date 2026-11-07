@@ -1414,7 +1414,11 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         if len(set(names))!=len(names) or any(n.startswith('/') or '\\' in n or '..' in PurePosixPath(n).parts for n in names):
             raise ValueError('Unsafe or duplicate Krita bundle member')
         resources=dict(external or {})
-        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
+        # Explicit prepared SVG bytes (the pinned stock adapter) keep their
+        # previous resolver precedence. Raw bundle SVG is a fallback captured
+        # member, never a URL/path opened by its filename.
+        prepared_svg_names={PurePosixPath(n).name for n in resources if n.lower().endswith('.svg')}
+        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')) or (n.lower().endswith('.svg') and PurePosixPath(n).name not in prepared_svg_names)})
         for name in sorted(n for n in names if n.lower().endswith(('.kpp','.myb'))):
             try:
                 if name.lower().endswith('.myb'):

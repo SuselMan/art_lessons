@@ -43,13 +43,19 @@ ENV NODE_ENV=production
 # on every start that's cheap to just not have.
 # Captured brush uploads execute the packaged bounded Python/Pillow importer.
 # prlimit comes from util-linux; SVG uses the same Node and runtime Sharp.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-pil util-linux && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-venv util-linux && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/scripts/brush-import ./scripts/brush-import
+# Keep importer raster APIs identical to the pinned CLI environment; Debian's
+# python3-pil is older and lacks APIs used by this importer.
+RUN python3 -m venv /opt/brush-python \
+    && /opt/brush-python/bin/python -m pip install --no-cache-dir -r /app/scripts/brush-import/requirements.txt \
+    && /opt/brush-python/bin/python -c "from PIL import Image; assert hasattr(Image.Image, 'get_flattened_data')"
+ENV GRAFETTO_BRUSH_IMPORT_PYTHON=/opt/brush-python/bin/python
 WORKDIR /app/apps/server
 EXPOSE 4000
 # (#177) `--import` loads the Sentry init before any application module, and
