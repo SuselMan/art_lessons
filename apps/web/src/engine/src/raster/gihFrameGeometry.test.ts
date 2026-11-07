@@ -29,7 +29,8 @@ it('inverse sample uses selected source coordinates, raster mirrors and transpar
  expect(sample({...input,horizontalMirror:true},-1,-1)).toEqual([8,0]);expect(sample({...input,verticalMirror:true},1,1)).toEqual([8,0]);
  const p=gihFrameSampleTransform({...input,ratio:.5,rotation:Math.PI/2});
  expect(sample({...input,ratio:.5,rotation:Math.PI/2},0,0)[0]).toBeCloseTo(4);
- expect(p.width).toBe(4); // Half-pixel first hotspot adds an output column; no source resizing.expect(p.height).toBe(8);
+ expect(p.width).toBe(4); // Half-pixel first hotspot adds an output column; no source resizing.
+ expect(p.height).toBe(8);
 });
 
 it('negative-angle native sampler inversely maps a known rotated source point without squaring ratio',()=>{

@@ -88,8 +88,10 @@ uniform vec4 u_gihSampleY;
 vec4 brushGihFrameSample(sampler2D tip,vec2 localUV) {
  vec3 point=vec3(localUV,1.0);
  vec2 original=vec2(dot(u_gihSampleX.xyz,point),dot(u_gihSampleY.xyz,point));
- if(any(lessThan(original,vec2(0.0)))||any(greaterThan(original,u_gihFrame.yz)))return vec4(0.0);
  vec2 squareUV=(original+(vec2(u_gihFrame.w)-u_gihFrame.yz)*0.5)/u_gihFrame.w;
- return texture2D(tip,u_tipBounds.xy+squareUV*u_tipBounds.zw);
+ // Keep implicit mip derivatives defined across edge quads before clipping.
+ vec4 sampled=brushTipSample(tip,u_tipBounds.xy+squareUV*u_tipBounds.zw,u_tipPacking);
+ vec2 inside=step(vec2(0.0),original)*step(original,u_gihFrame.yz);
+ return sampled*(inside.x*inside.y);
 }
 `;
