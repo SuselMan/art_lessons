@@ -24,3 +24,33 @@ class FilterInvert95Tests(unittest.TestCase):
         result=self.convert();library={'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]}
         with tempfile.TemporaryDirectory()as folder:
             path=Path(folder)/'invert.grafetto-brushes.json';path.write_text(json.dumps({'library':library,'assets':{}}));catalog=Catalog(Path(folder)/'output');portable_bundle(path,catalog);self.assertEqual(catalog.brushes,[result])
+    def test_portable_rejects_invalid_invert_before_installation(self):
+        baseline=self.convert()
+        mutations=[{'version':94},{'filter':{'version':2,'kind':'invert','radiusX':0}},
+                   {'filter':{'version':1,'kind':'invert'}},{'filter':{'version':2,'kind':'gaussian'}},
+                   {'model':'stamp'},{'mixer':{'source':'projectionCanvas'}},
+                   {'behavior':{**baseline['descriptor']['behavior'],'dual':None}}]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation),tempfile.TemporaryDirectory()as folder:
+                result=copy.deepcopy(baseline);result['descriptor'].update(mutation)
+                path=Path(folder)/'invalid.grafetto-brushes.json'
+                path.write_text(json.dumps({'library':{'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]},'assets':{}}))
+                catalog=Catalog(Path(folder)/'output')
+                error='portable mixer' if 'model'in mutation or 'mixer'in mutation else 'portable Invert filter'
+                with self.assertRaisesRegex(ValueError,error):portable_bundle(path,catalog)
+                self.assertEqual(catalog.brushes,[]);self.assertEqual(list((Path(folder)/'output').rglob('*.bin')),[])
+    def test_portable_invert_child_is_rejected_with_valid_parent(self):
+        child=self.convert()['descriptor']
+        for model in ('stamp','mixer'):
+            for independent in (False,True):
+                with self.subTest(model=model,independent=independent),tempfile.TemporaryDirectory()as folder:
+                    result=self.convert();parent=result['descriptor'];parent.pop('filter');parent['id']='imported-'+'a'*24;parent['model']=model
+                    if model=='stamp':parent.pop('mixer')
+                    path=Path(folder)/'parent.grafetto-brushes.json'
+                    def install():
+                        path.write_text(json.dumps({'library':{'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]},'assets':{}}))
+                        catalog=Catalog(Path(folder)/('output-'+str(len(list(Path(folder).iterdir())))))
+                        portable_bundle(path,catalog);return catalog
+                    self.assertEqual(len(install().brushes),1)
+                    parent['behavior']['dual']={'brush':copy.deepcopy(child),'blendMode':'normal',**({'sampling':'independent'}if independent else{})}
+                    with self.assertRaisesRegex(ValueError,'Invert filter is root-only'):install()

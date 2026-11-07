@@ -679,6 +679,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
+        if(secondary.filter?.kind==='invert')return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false

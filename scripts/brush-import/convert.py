@@ -552,6 +552,17 @@ def validate_portable_profile(descriptor):
     tip=descriptor['tip']
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
+    filter_config=descriptor.get('filter')
+    if isinstance(filter_config,dict) and (filter_config.get('kind')=='invert' or filter_config.get('version')==2):
+        mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
+        if (set(filter_config)!={'version','kind'} or type(filter_config.get('version'))is not int or filter_config['version']!=2 or filter_config.get('kind')!='invert'
+                or descriptor['version']<95 or descriptor.get('model')!='mixer' or not isinstance(mixer,dict) or mixer.get('source')!='previousCanvas'
+                or any(k in mixer for k in ('algorithm','foreground','sampling','paintThickness'))
+                or any(k in descriptor for k in ('deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet'))
+                or descriptor.get('paperInteraction')!=0 or not isinstance(behavior,dict) or behavior.get('version')!=2
+                or any(k in behavior for k in ('dual','timing','wetMix','taper')) or not isinstance(rendering,dict)
+                or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal' or rendering.get('wetEdges')!=0 or rendering.get('burntEdges')!=0):
+            raise ValueError('Invalid portable Invert filter; requires revision95 and ordinary canvas-filter strategy')
     noise=tip.get('autoNoise')
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
@@ -684,6 +695,7 @@ def portable_bundle(path,catalog):
         validate_portable_mixer(d)
         tip=d['tip']
         validate_portable_profile(d)
+        if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')=='invert':raise ValueError('Portable Invert filter is root-only')
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})
