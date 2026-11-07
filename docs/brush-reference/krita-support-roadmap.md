@@ -1,6 +1,6 @@
 # Завершение поддержки кистей Krita
 
-Состояние:2026-11-07. Публичный QA frontend/backend6596f6969 (support13).
+Состояние:2026-11-07. Публичный QA frontend6596f6969/backend e949d70a1 (frontend13/backend14).
 Представлены16 современных семейств;144 выбираемых штатных пресета,
 171 историческое определение. Это покрытие семейств и выбранного каталога,
 а не всех механизмов произвольных KPP.
@@ -435,3 +435,23 @@ cleanup guard, защита не обходилась. Public13/backend13 про
 ресурсом (новый контракт93); клиент загружает/проверяет готовые bytes. Это пока
 проектируемая реализация, не включённая поддержка. Прежний89 OFF. Большая
 regional historical переделка приостановлена, её RAM-прототипы сохранены.
+
+
+### Серверная валидация записанной скорости
+
+e949d70a1 исправляет серверный fast-path: общий brushRequiresSourceInputs
+используется клиентом/shared и сервером, velocity primary/child больше не
+обходит проверку.35 тестов/6 модулей PASS; возврат старого velocity-blind
+условия даёт meaningful FAIL. Web2451/server1203 inputs0diag; lint0errors
+и прежнее предупреждение storage177. Backend14 PID852230 заменил13, каталог
+неизменён; frontend13/source6596 не менялся. Настоящий wire/HTTP6/6 PASS:
+raw/packed без speed отвергнуты invalid_operation без записи в DB; валидные
+raw/packed приняты seq1/2; missing endpoint отвергнут, valid endpoint seq3.
+Proof:fixes-v73/backend14-velocity-wire-v1/final-proof.json, SHA256:
+90b14f5d4327fc284cfea120200a0b6de7ef568bcca8d5d06f98481d68c0b268.
+Собственный socket закрыт, worker reaped; тестовая комната сохранена.
+
+8090e0941/cb044dd27/8f534f449 готовят BRP1 и explicit saturationLookup
+ресурс для будущего93.8 узких shared тестов PASS. Это подготовка контракта:
+actual shared guard продолжает запрещать saturation во всех версиях.
+Будущий guard93 пока только RAM/strict88inputs0diag, не включён на стенде.
