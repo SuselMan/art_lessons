@@ -518,6 +518,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
         spikes=numeric(generator.get('spikes'),2)
         spikes_supported=engine=='paintbrush'and math.isfinite(spikes)and spikes==int(spikes)and 3<=spikes<=20
+        noise_density=numeric(definition.get('density'),1);noise_randomness=numeric(definition.get('randomness'),0)
+        if engine=='paintbrush'and not all(math.isfinite(v)and 0<=v<=1 for v in(noise_density,noise_randomness)):
+            raise ValueError('Auto-mask density/randomness outside0..1')
+        noise_active=noise_density!=1 or noise_randomness!=0
+        noise_supported=engine=='paintbrush'
+        noise_representable=not noise_active or noise_supported
         gaussian=generator.get('id')=='gauss' and shape=='circle' and(spikes==2 or spikes_supported)
         gaussian_softness_noop=generator.get('id')=='gauss'and engine=='paintbrush'and enabled(params.get('PressureSoftness'))
         gaussian_aa=enabled(generator.get('antialiasEdges'))
@@ -531,8 +537,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         representable_fade=valid_fade and 1e-6<=native_fade<=1-1e-6
         hard_gaussian=hf==1 and vf==1
         procedural_gaussian=(gaussian and engine=='paintbrush' and(ratio==1 or spikes_supported)
-            and (gaussian_aa or representable_fade) and numeric(definition.get('randomness'))==0
-            and numeric(definition.get('density'),1)==1)
+            and (gaussian_aa or representable_fade) and noise_representable)
         if procedural_gaussian:
             # Existing immutable Gaussian program/frame remains the round path.
             d['tip']['kind']='round'
@@ -545,8 +550,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
         soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
-              and not enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
-              and numeric(definition.get('density'),1)==1)
+              and not enabled(generator.get('antialiasEdges')) and noise_representable)
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
@@ -583,7 +587,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
             if engine!='colorsmudge' and enabled(params.get('PressureSoftness'))and not dynamic_soft:
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
-        if (generator.get('id','default') != 'default' and not gaussian and not soft) or (spikes!=2 and not spikes_supported) or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
+        if (generator.get('id','default') != 'default' and not gaussian and not soft) or (spikes!=2 and not spikes_supported) or(noise_active and not noise_supported):
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         default_generator=generator.get('id','default')=='default'
         softness_checked=engine!='colorsmudge' and enabled(params.get('PressureSoftness'))
@@ -600,8 +604,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 softness_controls=size_like_controls(params,'Softness',notes,allow_time=timed_input)
                 softness_supported=bool(softness_controls) and not any(n['status']=='unsupported'for n in notes[start:])
         standard=(default_generator and shape in ('circle','rect') and(spikes==2 or spikes_supported)
-            and numeric(definition.get('randomness'))==0 and numeric(definition.get('density'),1)==1
-            and softness_supported)
+            and noise_representable and softness_supported)
         if standard:
             horizontal=numeric(generator.get('hfade'),0)
             vertical=numeric(generator.get('vfade'),0)
@@ -621,6 +624,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['kind']='procedural';d['tip']['autoShape']={'version':1,'spikes':int(spikes)}
             d['version']=max(d['version'],71)
             notes.append(compatibility('autoSpikes','Native angular sector folding retains source ratio and independent square allocation. Scalar/GPU edge rounding may differ.','supported'))
+        if noise_active and noise_supported and d['tip'].get('profile'):
+            d['tip']['kind']='procedural';d['tip']['autoNoise']={'version':1,'density':noise_density,'randomness':noise_randomness}
+            d['version']=max(d['version'],74)
+            notes.append(compatibility('autoMaskNoise','Per-pixel attenuation and density use a captured-seed functional D16/R8 law on a canonical full-dab grid. Native random sequence and pixels differ.','supported'))
         if gaussian_softness_noop:notes.append(compatibility('gaussianSoftness','Native Gaussian generator stores but does not use Softness; saved controls do not affect the mask.','supported'))
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
@@ -985,7 +992,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # independent: stale enabled curves must not revive an unchecked option.
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
-        if texture_mode in (0,1):
+        texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',8:'linearDodge',9:'linearBurn'}
+        texture_supported=texture_mode in (0,1)or(engine=='paintbrush'and texture_mode in texture_modes)
+        if texture_supported:
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
             if scale<0: raise ValueError('Negative Krita texture scale')
@@ -1002,14 +1011,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if target!=mask.size:
                 mask=mask.resize(target,Image.Resampling.BILINEAR)
                 notes.append(compatibility('textureResampling','Native Qt SmoothTransformation approximated offline with PIL bilinear at rounded integer grid.'))
-            mask=preprocess_texture(mask,
-                brightness=numeric(params.get(prefix+'Brightness'),0),
-                contrast=numeric(params.get(prefix+'Contrast'),1),
-                neutral_point=numeric(params.get(prefix+'NeutralPoint'),.5),
-                invert=enabled(params.get(prefix+'Invert')),
-                cutoff_policy=int(numeric(params.get(prefix+'CutoffPolicy'),0)),
-                cutoff_left=int(numeric(params.get(prefix+'CutoffLeft'),0)),
-                cutoff_right=int(numeric(params.get(prefix+'CutoffRight'),255)))
+            authored_pattern=mask
+            tone={'brightness':numeric(params.get(prefix+'Brightness'),0),
+                  'contrast':numeric(params.get(prefix+'Contrast'),1),
+                  'neutral_point':numeric(params.get(prefix+'NeutralPoint'),.5),
+                  'invert':enabled(params.get(prefix+'Invert')),
+                  'cutoff_policy':int(numeric(params.get(prefix+'CutoffPolicy'),0)),
+                  'cutoff_left':int(numeric(params.get(prefix+'CutoffLeft'),0)),
+                  'cutoff_right':int(numeric(params.get(prefix+'CutoffRight'),255))}
+            mask=preprocess_texture(authored_pattern,**tone)
+            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and enabled(params.get(prefix+'AutoInvertOnErase')) else None
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
             padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
@@ -1018,12 +1029,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
-                          'application':{'mode':'multiply' if texture_mode==0 else 'subtract','soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+                          'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+            if erase_pattern is not None:
+                erase_padded=Image.new('L',(pot,pot));erase_padded.paste(erase_pattern,(0,0))
+                d['texture']['eraseId']=catalog.asset(erase_padded,warnings,grain=True);d['version']=max(d['version'],77)
+                notes.append(compatibility('textureEraseInvert','Paired normal/erase pattern is compiled before neutral-point remap and cutoff; recorded effective erasing selects the resource.','supported'))
+            if texture_mode not in (0,1):d['version']=max(d['version'],75)
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
                 notes.append(compatibility('textureOffset','Native offset exceeds bounded8192 and was clamped.','unsupported'))
             if offset['randomX'] or offset['randomY']:
                 notes.append(compatibility('textureRandomOffset','Per-stroke pattern phase uses deterministic Grafetto RNG rather than Krita RNG.'))
-            if enabled(params.get(prefix+'AutoInvertOnErase')):
+            if enabled(params.get(prefix+'AutoInvertOnErase'))and erase_pattern is None:
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
             controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
@@ -1268,6 +1284,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     foreground=d.get('mixer',{}).get('foreground',{})
     foreground=foreground.get('gradient',foreground)
     if any(c.get('combine',{}).get('constant',1)!=1 for c in foreground.get('dynamics',[])):d['version']=max(d['version'],69)
+    if d.get('texture',{}).get('eraseId'):d['version']=max(d['version'],77)
+    if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn'):d['version']=max(d['version'],75)
+    if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

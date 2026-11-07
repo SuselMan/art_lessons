@@ -1,3 +1,4 @@
+import {textureEraseId} from '../presets/brushTextureErase'
 import {validateRadialSoftnessTexture,type RadialSoftnessLayout} from '../raster/radialSoftness'
 import { radialCurveTextureSide } from '../raster/radialCurve'
 import { proceduralProfileUniforms } from '../raster/brushProcedural'
@@ -16,6 +17,13 @@ export function bindBrushGradient(resources:readonly BrushPreparationResource[],
   if(!isBrushGradient(lut))throw Error('Gradient tip preparation requires a captured palette')
   return {...resource,gradientLut:lut}
  })
+}
+/** Small preflight shared by selected and never-selected READ paths. */
+export function brushUsesStampEffects(brush:BrushDescriptor):boolean {
+ const activeNoise=!!brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)
+ const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'}
+ const inline=brush.behavior?.dual?.sampling!=='independent'?brush.behavior?.dual?.brush:undefined
+ return activeNoise||extended(brush)||extended(inline)
 }
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
@@ -68,11 +76,11 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 }
 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
-export function brushPreparationPlan(brush: BrushDescriptor): {
+export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.clone)capabilities.add('cloneBrush')
@@ -100,6 +108,9 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    if(painter!=='stamp'&&b.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
+    if(b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
+    if(b.tip.autoNoise&&painter!=='stamp')throw Error('Auto-mask noise requires the stamp renderer')
     if (b.tip.profile?.kind === 'circleBand') {
       if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')
       capabilities.add('stampCircleBand')
@@ -111,7 +122,8 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (!covered) {
       const curve = !!b.tip.autoShape || !!inline?.tip.autoShape || b.tip.profile?.kind === 'radialCurve' || b.tip.profile?.kind === 'radialCurveSoftness' || inline?.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurveSoftness'
-      if (curve) capabilities.add(painter === 'stamp' ? 'stampCurve' : 'wetCurve')
+      if(painter==='stamp'&&brushUsesStampEffects(b))capabilities.add('stampEffects')
+      else if (curve) capabilities.add(painter === 'stamp' ? 'stampCurve' : 'wetCurve')
       else {
         if (b.tip.imageSampling || inline?.tip.imageSampling) capabilities.add(painter === 'stamp' ? 'stampImage' : 'wetImage')
         if (painter === 'stamp'
@@ -125,25 +137,26 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       const colorPlanes=painter==='wet' && b.mixer?.paintThickness && gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
       add(painter,id,false,false,gray,b.tip,colorPlanes)
     })
-    add(painter, b.texture?.id, true,!!b.texture?.application)
+    add(painter, textureEraseId(b.texture,capturedErase), true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }
     const dual = b.behavior?.dual
     if (!dual) return
     if (dual.sampling === 'independent') visit(dual.brush, 'stamp')
     else if (painter === 'stamp') visit(dual.brush, 'stamp', true)
     else {
+      if(dual.brush.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
       if(dual.brush.tip.profile?.kind==='gaussian') throw Error('Procedural dual profile requires the stamp renderer')
       if(dual.brush.tip.material) throw Error('Lightness dual material requires the stamp renderer')
       for (const id of dual.brush.tip.animation?.frames ?? (brushTipSamplerId(dual.brush.tip) ? [brushTipSamplerId(dual.brush.tip)!] : [])) add('wet', id, false, false, undefined, dual.brush.tip)
-      if(dual.brush.texture?.application)add('wet',dual.brush.texture.id,true,true)
+      if(dual.brush.texture?.application)add('wet',textureEraseId(dual.brush.texture,capturedErase),true,true)
     }
   }
   visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp')
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 
-export function brushPreparationResources(brush: BrushDescriptor): BrushPreparationResource[] {
-  return brushPreparationPlan(brush).resources
+export function brushPreparationResources(brush: BrushDescriptor, capturedErase?:boolean): BrushPreparationResource[] {
+  return brushPreparationPlan(brush,capturedErase).resources
 }
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {

@@ -15,6 +15,36 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('validates and retains the bounded paired erase texture',()=>{
+    const data=library(),d=data.brushes[0].descriptor,eraseId=`asset:${'b'.repeat(64)}`as const
+    data.assets.push({id:eraseId,size:2,file:'b'.repeat(64)+'.bin'});d.version=77
+    d.texture={id:data.assets[0].id,eraseId,periodPx:8,strength:1,application:{mode:'multiply',soft:false}}
+    expect(isBrushLibrary(data)).toBe(true);expect(brushAssetIds(d)).toContain(eraseId)
+    data.assets[1].size=4;expect(isBrushLibrary(data)).toBe(false);data.assets[1].size=2
+    d.version=76;expect(isBrushLibrary(data)).toBe(false);d.version=77
+    d.model='mixer';d.mixer={load:0,pickup:0,strength:1};expect(isBrushLibrary(data)).toBe(false)
+  })
+
+  it('bounds stochastic Pixel masks and requires their captured random context',()=>{
+    const data=library(),d=data.brushes[0].descriptor;d.version=74;d.paperInteraction=0;d.behavior={version:2}
+    d.tip={kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:1,verticalFade:1,antialias:false},autoNoise:{version:1,density:.5,randomness:.2}}
+    expect(isBrushLibrary(data)).toBe(true);expect(brushRequiresRandomContext(d)).toBe(true)
+    for(const value of [-.1,1.01,NaN]){d.tip.autoNoise!.density=value;expect(isBrushLibrary(data)).toBe(false)}d.tip.autoNoise!.density=.5
+    const child=structuredClone(d);d.behavior.dual={brush:child,blendMode:'multiply'};expect(isBrushLibrary(data)).toBe(false)
+    delete child.tip.autoNoise;expect(isBrushLibrary(data)).toBe(true)
+    delete d.behavior.dual;d.version=73;expect(isBrushLibrary(data)).toBe(false)
+  })
+
+  it('admits new alpha texture operations only for the versioned stamp route',()=>{
+    const data=library(),d=data.brushes[0].descriptor;d.version=75
+    for(const mode of ['darken','overlay','linearDodge','linearBurn']as const){
+      d.texture={id:data.assets[0].id,periodPx:8,strength:.5,application:{mode,soft:true}}
+      expect(isBrushLibrary(data)).toBe(true)
+      d.version=74;expect(isBrushLibrary(data)).toBe(false);d.version=75
+      d.model='mixer';d.mixer={load:0,pickup:0,strength:1};expect(isBrushLibrary(data)).toBe(false);d.model='stamp';delete d.mixer
+    }
+  })
+
   it('bounds procedural spikes and rejects bitmap decoration',()=>{
     const data=library(),d=data.brushes[0].descriptor
     d.paperInteraction=0;d.flowPer='stamp';d.behavior={version:2}

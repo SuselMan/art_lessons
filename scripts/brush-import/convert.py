@@ -546,6 +546,10 @@ def validate_portable_profile(descriptor):
     tip=descriptor['tip']
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
+    noise=tip.get('autoNoise')
+    if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
+            or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
+            or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness')):raise ValueError('Invalid portable auto mask noise')
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
             or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
@@ -763,7 +767,7 @@ def portable_bundle(path,catalog):
             if any(frame not in asset_sizes or rect['x']+rect['width']>asset_sizes[frame]
                    or rect['y']+rect['height']>asset_sizes[frame] for frame in frames):
                 raise ValueError('Portable integer image source exceeds asset')
-        if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
+        if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids or d['texture'].get('eraseId',d['texture'].get('id')) not in ids): raise ValueError('Missing portable grain asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
         if 'spacing' in behavior:

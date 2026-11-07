@@ -1,3 +1,4 @@
+import {textureAlphaApplicationCode} from '../raster/textureAlphaModes'
 import type { BrushDescriptor } from '@grafetto/shared'
 import { importedAssetPixels } from '../presets/importedBrushes'
 import { TIP_MASK_SIZE } from '../presets/tipMasks'
@@ -13,5 +14,5 @@ export function brushTextureApplication(texture: BrushDescriptor['texture'], see
   const x=offset?.randomX ? Math.floor(brushDabRandom(seed,0x70000+stream*16)*periodX) : offset?.x ?? 0
   const y=offset?.randomY ? Math.floor(brushDabRandom(seed,0x70001+stream*16)*periodY) : offset?.y ?? 0
   const wrap=(value:number,period:number)=>((value%period)+period)%period
-  return {application:[texture.application.mode==='multiply'?1:2,texture.application.soft?1:0,width,height],mapping:[periodX,size,wrap(originX-x,periodX),wrap(originY-y,periodY)]}
+  return {application:[textureAlphaApplicationCode(texture.application.mode),texture.application.soft?1:0,width,height],mapping:[periodX,size,wrap(originX-x,periodX),wrap(originY-y,periodY)]}
 }

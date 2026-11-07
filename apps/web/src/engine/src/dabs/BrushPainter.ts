@@ -43,8 +43,8 @@ export class BrushPainter {
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush => {
-      const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush)
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase) => {
+      const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       return this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
     })
@@ -78,6 +78,8 @@ export class BrushPainter {
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
+  prepareStampEffects():void{this.imageDimensionLimit();this.behavior.prepareStampEffects()}
+  prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {

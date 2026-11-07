@@ -1,3 +1,4 @@
+import {brushExecutionContext} from './brushExecutionContext'
 import { describe, expect, it } from 'vitest'
 import { isBrushBehavior, type BrushDescriptor, type Dab } from '@grafetto/shared'
 import { beginBrushBehavior, brushSourceSpacingAxes, brushRotationOffset, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
@@ -300,4 +301,21 @@ it('evaluates inline child mirror once per logical dab with a versioned independ
  for(const s of low)expect([s.dualFlipX,s.dualFlipY]).toEqual([1,1])
  const old=behaviorStampsForDab({...parent,version:72},input,beginBrushBehavior(input),color)
  for(const s of old)expect(s).not.toHaveProperty('dualFlipX')
+})
+
+it('captures Auto-mask noise identity on logical stamps independently of render batch cuts',()=>{
+ const input={...dabs[0],pressure:.5},execution=brushExecutionContext({version:1,strokeSeed:123,sequentialSeed:456})
+ const b:BrushDescriptor={...brush,version:74,scatter:undefined,tip:{kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:1,verticalFade:1,antialias:false},autoNoise:{version:1,density:.5,randomness:.5}},behavior:{version:2}}
+ expect(()=>behaviorStampsForDab(b,input,beginBrushBehavior(input),color)).toThrow('captured stroke seed')
+ const state=beginBrushBehavior(input,execution)
+ const first=behaviorStampsForDab(b,input,state,color)[0]
+ const checkpoint=structuredClone(state)
+ const next={...input,x:input.x+5,t:input.t+10}
+ const second=behaviorStampsForDab(b,next,state,color)[0]
+ const replay=behaviorStampsForDab(b,next,checkpoint,color)[0]
+ expect(first.autoNoiseKey).toBeDefined()
+ expect(second.autoNoiseKey).not.toBe(first.autoNoiseKey)
+ expect(replay.autoNoiseKey).toBe(second.autoNoiseKey)
+ const absent=behaviorStampsForDab({...b,tip:{...b.tip,autoNoise:undefined}},input,beginBrushBehavior(input),color)[0]
+ expect(absent).not.toHaveProperty('autoNoiseKey')
 })

@@ -1,3 +1,5 @@
+import {BRUSH_AUTO_MASK_NOISE_GLSL} from './autoMaskNoise'
+import {TEXTURE_ALPHA_EXTENDED_GLSL} from './textureAlphaModes'
 import {BRUSH_AUTO_SPIKES_GLSL} from './autoSpikes'
 import {BRUSH_RADIAL_SOFTNESS_GLSL} from './radialSoftness'
 import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
@@ -430,7 +432,8 @@ void main() {
 
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
-export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false): string {
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false): string {
+  if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')
   if (!procedural && !integerImages && !radialCurves) return BRUSH_STAMP_FRAG
   let source = BRUSH_STAMP_FRAG
   const replace = (from: string, to: string): void => {
@@ -521,6 +524,20 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       dualUV *= u_dualFlip;`)
     replace('mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)',
       'brushAutoSpikeFrame(mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_autoSpikes.y,u_dualProceduralAngle,u_dualFlip),u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)')
+  }
+  if(autoNoise){
+    replace(BRUSH_TEXTURE_APPLICATION_GLSL, TEXTURE_ALPHA_EXTENDED_GLSL+BRUSH_TEXTURE_APPLICATION_GLSL.replace(' if(application.x<1.5)',' if(application.x>2.5)return brushTextureAlphaExtended(a,t,s,application);\n if(application.x<1.5)'))
+    replace('  void main() {',BRUSH_AUTO_MASK_NOISE_GLSL+`
+      uniform vec4 u_autoNoiseConfig;
+      uniform vec4 u_autoNoiseKey;
+      uniform vec4 u_autoNoiseGridX;
+      uniform vec4 u_autoNoiseGridY;
+      void main() {`)
+    replace('    shape=brushAlphaThreshold(shape,u_alphaThreshold);',`
+      vec4 noiseX=brushNoiseAddOffset(u_autoNoiseGridX,floor(gl_FragCoord.x)*u_autoNoiseConfig.z);
+      vec4 noiseY=brushNoiseAddOffset(u_autoNoiseGridY,floor(gl_FragCoord.y)*u_autoNoiseConfig.w);
+      shape=brushAutoMaskNoiseU8(floor(clamp(shape,0.0,1.0)*255.0+0.5),u_autoNoiseConfig.xy,u_autoNoiseKey,noiseX,noiseY)/255.0;
+      shape=brushAlphaThreshold(shape,u_alphaThreshold);`)
   }
   return source
 }

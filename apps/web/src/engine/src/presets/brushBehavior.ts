@@ -1,3 +1,4 @@
+import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
 import{brushUsesDistanceControl}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
@@ -129,6 +130,7 @@ export interface BehaviorStamp extends BrushStamp {
   grainDepth: number
   softnessScale?: number
   dualSoftnessScale?: number
+  autoNoiseKey?:number
   dualFlipX?:number
   dualFlipY?:number
   sharpnessScale?: number
@@ -307,6 +309,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number
 ], options: {geometryOnly?:boolean} = {}): BehaviorStamp[] {
   const behavior = brush.behavior
+  const noise=brush.tip.autoNoise
+  const activeNoise=!!noise&&(noise.density!==1||noise.randomness!==0)
+  const noiseSeed=activeNoise?state.execution?.brushRandom?.strokeSeed:undefined
+  if(activeNoise&&noiseSeed===undefined)throw Error('Auto-mask noise requires a captured stroke seed')
   const native=!!behavior?.sequentialRandom
   if(native || behavior?.strokeInput) {
     assertBrushExecutionContext(brush,state.execution)
@@ -446,7 +452,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const sprayColor=spray ? hsvAdjustColor(adjustedColor,spray.hue*brushDabRandom(spraySeed,16+colorIndex*16+4),spray.saturation*brushDabRandom(spraySeed,16+colorIndex*16+5),spray.value*brushDabRandom(spraySeed,16+colorIndex*16+6)) : adjustedColor
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(activeNoise?{autoNoiseKey:autoMaskNoiseKey(noiseSeed!,state.dabSequence??0,i,0)}:{}), ...(colorPlanes ? {colorPlanes} : {}), ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       ...(brush.hatching?{hatching:hatchingPlacement(brush.hatching,Object.fromEntries((['angle','cross','separation','thickness']as const).map((key,j)=>[key,(brush.hatching!.dynamics?.[key]??[]).reduce((v,c,i)=>v*brushDynamicValue(c,directionalDab,state,rand(0xf6000+j*16+i)),1)]))as {angle:number;cross:number;separation:number;thickness:number})}:{}),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),

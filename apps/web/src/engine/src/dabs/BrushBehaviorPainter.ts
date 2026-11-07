@@ -1,3 +1,5 @@
+import {textureEraseId} from '../presets/brushTextureErase'
+import {prepareAutoMaskNoise,autoMaskNoiseUniforms,autoMaskNoiseCoordinateBytes,prepareAutoMaskNoiseGrid,autoMaskNoiseGridUniforms,type AutoMaskNoiseGrid} from '../raster/autoMaskNoise'
 import {createBristleInkState,type BristleInkSettings} from '../presets/brushBristleInk'
 import {advanceBristleInkBulk} from '../presets/brushBristleInkBulk'
 import type {BristleInkGeometry} from '../presets/brushBristle'
@@ -21,7 +23,7 @@ import { prepareCircleDifference, type CircleDifference } from '../raster/roundC
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { proceduralProfileUniforms, standardSoftnessProfile, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
-import { brushTipSoftnessBasisUniforms, brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
+import { brushUsesStampEffects, brushTipSoftnessBasisUniforms, brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
 import { brushTextureApplication } from './brushTextureApplication'
@@ -38,6 +40,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
+const NOISE_UNIFORMS=['u_autoNoiseConfig','u_autoNoiseKey','u_autoNoiseGridX','u_autoNoiseGridY']
 const STAMP_UNIFORMS = [ 'u_autoSpikes','u_autoSpikeAngle','u_dualFlip', 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
@@ -102,6 +105,7 @@ export class BrushBehaviorPainter {
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
   private bindings = new WeakMap<BehaviorScratch, {
     execution?: BrushExecutionContext
+    effectiveErase:boolean
     target: BrushTarget
     preset: PencilPreset
     brush: BrushDescriptor
@@ -116,6 +120,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private effectsStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private curveStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
@@ -128,8 +133,8 @@ export class BrushBehaviorPainter {
   private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
-  private readonly leaseTextures: (brush: BrushDescriptor) => () => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -152,6 +157,7 @@ export class BrushBehaviorPainter {
     this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.curveStamp = undefined
+    this.effectsStamp = undefined
     this.imageStamp = undefined
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
@@ -188,10 +194,19 @@ export class BrushBehaviorPainter {
     return this.circleStamp
   }
 
+  prepareStampEffects():void{this.stampFor(true,true,true,true)}
+  prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.stampFor(true,true,true) }
   prepareIntegerImages(): void { this.stampFor(true, true) }
 
-  private stampFor(procedural: boolean, integerImages = false, radialCurves = false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+  private stampFor(procedural: boolean, integerImages = false, radialCurves = false,autoNoise=false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if(autoNoise){
+      if(!this.effectsStamp){
+        const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true,true))
+        this.effectsStamp={program,uniforms:getUniforms(gl,program,[...STAMP_UNIFORMS,...NOISE_UNIFORMS]),position:gl.getAttribLocation(program,'a_position')}
+      }
+      return this.effectsStamp
+    }
     if (radialCurves) {
       if (!this.curveStamp) {
         const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true))
@@ -216,7 +231,7 @@ export class BrushBehaviorPainter {
   }
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (b)
-      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
+      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase)
   }
   destroy(): void {
     this.mypaintPass?.destroy();this.mypaintPass=undefined
@@ -235,6 +250,8 @@ export class BrushBehaviorPainter {
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
+    if(this.effectsStamp)gl.deleteProgram(this.effectsStamp.program)
+    this.effectsStamp=undefined
     if (this.curveStamp) gl.deleteProgram(this.curveStamp.program)
     this.curveStamp=undefined
     if (this.imageStamp) gl.deleteProgram(this.imageStamp.program)
@@ -244,23 +261,28 @@ export class BrushBehaviorPainter {
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
     if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle||brush.clone?1:4)){
-      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
+      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase)}
       return
     }
     if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
+    if(brush.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
+    const noise=brush.tip.autoNoise
+    const noiseSettings=noise&&(noise.density!==1||noise.randomness!==0)?prepareAutoMaskNoise(noise.density,noise.randomness):undefined
+    const noiseConfig=noiseSettings?autoMaskNoiseUniforms(noiseSettings):undefined
+
     if (!dabs.length && !scratch.brushBehavior && !scratch.brushNative)
       return
-    const releaseTextures = this.leaseTextures(brush)
+    const releaseTextures = this.leaseTextures(brush,effectiveErase)
     try {
-    this.bindings.set(scratch, { target, preset, brush, pressure, color, execution })
+    this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
     if(brush.curveTrace?.version===2){
@@ -279,7 +301,7 @@ export class BrushBehaviorPainter {
         markContentPainted:bounds=>{ secondaryDirty=unionBounds(secondaryDirty,bounds) },
       }
       const child={...independent,behavior:independent.behavior??{version:2 as const}}
-      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint,execution),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish,undefined,execution)
+      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint,execution),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish,undefined,execution,effectiveErase)
     }
 
     const accumulation=behavior.rendering?.accumulation
@@ -352,6 +374,15 @@ export class BrushBehaviorPainter {
     const tail = splitBrushTail(all, state.distance, behavior.taper?.end ?? 0, finish, behavior.taper?.size, behavior.taper?.opacity)
     state.pending = tail.pending
     const stamps = [...tail.ready, ...tail.preview]
+    // Prepare only small immutable geometry metadata, once per actual stamp.
+    // Do this before framebuffer/texture effects; never derive an origin from a tile.
+    const noiseGrids=noiseSettings?new WeakMap<BehaviorPlaced,AutoMaskNoiseGrid>():undefined
+    if(noiseGrids)for(const stamp of stamps){
+      if(stamp.autoNoiseKey===undefined)throw Error('Auto-mask noise stamp has no captured identity')
+      const rx=Math.fround(Math.fround(stamp.radius)*Math.fround(stamp.aspect)),ry=Math.fround(stamp.radius)
+      noiseGrids.set(stamp,prepareAutoMaskNoiseGrid(stamp.x,stamp.y,rx,ry,!!brush.tip.autoShape,stamp.flipX as 1|-1,stamp.flipY as 1|-1))
+    }
+
     const oldPreview = this.previewBounds.get(state)
     if (!stamps.length && !secondaryDirty && !oldPreview)
       return
@@ -381,18 +412,20 @@ export class BrushBehaviorPainter {
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])
-    const curveProfiles = !!brush.tip.autoShape || !!secondary?.tip.autoShape || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
+    const effects=brushUsesStampEffects(brush)
+    const curveProfiles = effects || !!brush.tip.autoShape || !!secondary?.tip.autoShape || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
     const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
-    protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),brush.texture?.id,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
+    const primaryTextureId=textureEraseId(brush.texture,effectiveErase),secondaryTextureId=textureEraseId(secondary?.texture,effectiveErase)
+    protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),primaryTextureId,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondaryTextureId,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
     const procedural = !!brush.hatching || brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles)
+    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects)
     const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
-    const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
+    const texture = brush.texture ? this.grain(primaryTextureId!,!!brush.texture.application) : paper.texture
     const dualView = !animated && brushTipSamplerId(secondary?.tip) ? this.tipView(brushTipSamplerId(secondary?.tip)!,secondary?.tip.material?.gray,secondary?.tip) : {texture:paper.texture,mode:0}
     const dualMask=dualView.texture
-    const dualTexture = secondary?.texture ? this.grain(secondary.texture.id,!!secondary.texture.application) : paper.texture
+    const dualTexture = secondary?.texture ? this.grain(secondaryTextureId!,!!secondary.texture.application) : paper.texture
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
     const g = behavior.grain
     const period = Math.max(0.5, (brush.texture?.periodPx ?? 1) * (g ? 0.1 + g.zoom * 1.9 : 1))
@@ -405,6 +438,12 @@ export class BrushBehaviorPainter {
       coverage.beginDraw()
       gl.useProgram(selected.program)
       const u = selected.uniforms
+      if(effects&&!noiseSettings){
+        gl.uniform4f(u.u_autoNoiseConfig,65535,0,0,0)
+        gl.uniform4f(u.u_autoNoiseKey,0,0,0,0)
+        gl.uniform4f(u.u_autoNoiseGridX,0,0,0,0)
+        gl.uniform4f(u.u_autoNoiseGridY,0,0,0,0)
+      }
       const primaryApplication=brushTextureApplication(brush.texture,state.seed,tile.originX,tile.originY)
       const secondaryApplication=brushTextureApplication(secondary?.texture,state.seed,tile.originX,tile.originY,1)
       gl.uniform4f(u.u_textureApplication,...primaryApplication.application);gl.uniform4f(u.u_textureMapping,...primaryApplication.mapping)
@@ -512,6 +551,16 @@ export class BrushBehaviorPainter {
           const footprint=footprintFor(s,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
+          if(noiseGrids&&noiseConfig){
+            const grid=noiseGrids.get(s)
+            if(!grid||s.autoNoiseKey===undefined)throw Error('Auto-mask noise grid was not prepared')
+            const mapping=autoMaskNoiseGridUniforms(grid,tile.originX,tile.originY,coverage.height)
+            gl.uniform4f(u.u_autoNoiseConfig,noiseConfig[0],noiseConfig[1],mapping.stepX,mapping.stepY)
+            gl.uniform4f(u.u_autoNoiseKey,...autoMaskNoiseCoordinateBytes(s.autoNoiseKey))
+            gl.uniform4f(u.u_autoNoiseGridX,...mapping.x)
+            gl.uniform4f(u.u_autoNoiseGridY,...mapping.y)
+          }
+
           if(brush.hatching&&s.hatching){
             gl.uniform4f(u.u_hatchBackground,...hatchingBackgroundUniform(brush.hatching,execution?.brushSource))
             const h=s.hatching

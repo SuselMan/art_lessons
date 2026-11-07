@@ -24,10 +24,16 @@ class ProceduralTests(unittest.TestCase):
     def test_zero_and_hard_fades_are_not_replaced_by_mean_hardness(self):
         b,_=self.brush('rect',generator={'hfade':'0','vfade':'1','antialiasEdges':'0'})
         self.assertEqual(b['descriptor']['tip']['profile']['horizontalFade'],0);self.assertFalse(b['descriptor']['tip']['profile']['antialias'])
-    def test_excluded_density_randomness_spikes_and_softness_remain_explicit(self):
-        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'})]:
-            b,_=self.brush('rect',**kw);self.assertNotIn('profile',b['descriptor']['tip'])
-            self.assertTrue(any(c['feature']=='standardMaskProfile'and c['status']=='unsupported'for c in b['compatibility']))
+    def test_density_and_randomness_use_versioned_functional_mask(self):
+        for density,randomness in [(0,0),(.8,0),(1,.2),(.5,.7)]:
+            b,_=self.brush('rect',definition={'density':str(density),'randomness':str(randomness)})
+            d=b['descriptor'];self.assertEqual(d['tip']['profile']['kind'],'standard')
+            self.assertEqual(d['tip']['autoNoise'],{'version':1,'density':density,'randomness':randomness})
+            self.assertGreaterEqual(d['version'],74);convert.validate_portable_profile(d)
+            self.assertFalse(any(c['status']=='unsupported'for c in b['compatibility']))
+        for key,value in [('density',-1),('randomness',1.1)]:
+            bad=copy.deepcopy(d);bad['tip']['autoNoise'][key]=value
+            with self.assertRaises(ValueError):convert.validate_portable_profile(bad)
     def test_standard_softness_constant_pressure_and_combined_controls(self):
         for shape in ['circle','rect']:
             for extra in [

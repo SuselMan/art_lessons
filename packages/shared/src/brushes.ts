@@ -82,6 +82,8 @@ export interface BrushTip {
     | { kind:'radialCurveSoftness';lookup:AssetId;resolution:number;encoding:'softness-affine-unorm32be-v1';minimum:number;span:number;antialias:false }
   /** Native angular folding; source axes retain their independent ratio. */
   autoShape?:{version:1;spikes:number}
+  /** Functional D16/R8 stochastic mask law, versioned independently of native RNG. */
+  autoNoise?:{version:1;density:number;randomness:number}
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -279,9 +281,9 @@ export interface BrushDescriptor {
    *  stamp — see tipMasks.ts on why only that survives the overlap of a
    *  continuous stroke. `periodPx` is the world size of one tile of it. */
   texture?: {
-    id: BrushTextureId; periodPx: number; strength: number
+    id: BrushTextureId; eraseId?:AssetId; periodPx: number; strength: number
     /** Explicit operation on the dab mask; absent preserves historical grain. */
-    application?: { mode: 'multiply' | 'subtract'; soft: boolean }
+    application?: { mode: 'multiply' | 'subtract' | 'darken' | 'overlay' | 'linearDodge' | 'linearBurn'; soft: boolean }
     /** Integer repeat grid at the top-left of its padded square asset. */
     patternSize?: { width: number; height: number }
     /** Canvas phase in world pixels; random axes are selected once per gesture. */
@@ -431,6 +433,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if(d.tip.autoNoise!==undefined){
+      const noise=d.tip.autoNoise
+      if(!record(noise)||Object.keys(noise).length!==3||Object.keys(noise).some(k=>!['version','density','randomness'].includes(k))||noise.version!==1||!numberIn(noise.density,0,1)||!numberIn(noise.randomness,0,1)||Number(d.version)<74||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness'].includes(String(d.tip.profile.kind))||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+    }
     if(d.tip.autoShape!==undefined&&(!record(d.tip.autoShape)||Object.keys(d.tip.autoShape).some(k=>!['version','spikes'].includes(k))||d.tip.autoShape.version!==1||!numberIn(d.tip.autoShape.spikes,3,20)||!Number.isInteger(d.tip.autoShape.spikes)||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness'].includes(String(d.tip.profile.kind))))return false
     if(record(d.behavior)&&d.behavior.mirror!==undefined&&['sketch','bristle','curveTrace','hatching','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
@@ -441,6 +447,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.bristle)&&d.bristle.version===2&&(Number(d.version)<72||!record(d.bristle.ink)||d.bristle.ink.useSaturation!==false))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    // Pending Spray source/image renderer: retain fail-closed catalogue admission.
+    if(record(d.spray)&&((record(d.spray.particle)&&d.spray.particle.image!==undefined)||(record(d.spray.color)&&['sampleInput','mixBackground','fillBackground'].some(k=>((d.spray as Record<string,unknown>).color as Record<string,unknown>)[k]!==undefined))))return false
     if(d.spray!==undefined&&(!isBrushSpray(d.spray)||d.model!=='stamp'||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2))return false
     if (d.tip.kind === 'procedural' && d.tip.profile === undefined) return false
     if (d.tip.profile !== undefined) {
@@ -580,8 +588,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.texture !== undefined) {
       const t = d.texture
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
-        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset'].includes(key))) return false
-      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract'].includes(String(t.application.mode))
+        || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset'].includes(key))) return false
+      if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
+      if(record(t.application)&&['darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))&&(d.model!=='stamp'||Number(d.version)<75))return false
+      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract','darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
       if (t.patternSize !== undefined) {
         const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
@@ -606,6 +616,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
+        if (secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
@@ -656,7 +667,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     else {for(const id of value.tip.color?.planes??[])add(id);for(const frame of value.tip.color?.frames??[])for(const id of frame)add(id)}
     add(value.tip.material?.gray)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
-    add(value.texture?.id)
+    add(value.texture?.id);add(value.texture?.eraseId)
     if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }
@@ -708,7 +719,7 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
     if (seen.has(b)) return false
     seen.add(b)
     const v = b.behavior
-    if(b.mypaint||v?.sequentialRandom)return true
+    if(b.mypaint||v?.sequentialRandom||b.tip?.autoNoise)return true
     const controls = brushDynamicInputs(b)
     return controls.some(native) || !!(v?.dual && visit(v.dual.brush))
   }
