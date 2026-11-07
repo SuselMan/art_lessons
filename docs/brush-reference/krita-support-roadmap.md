@@ -236,3 +236,20 @@ ImageShape4 importer267f1e3aa интегрирован:captured resource RGBA, t
 crop, независимые размеры и обычный общий CAS.363 Python теста и genuine shared
 validator PASS; actual GPU/online этого импортера ещё выполняются. Backend8
 запущен с прежними storage/catalog; глобально171 определение/252 CAS сохранены.
+
+
+### ImageShape4: GPU и онлайн проверены
+
+Backend/importer267f1e3aa выложен с сохранением общего storage и глобального
+каталога171/252. Два genuinely imported асимметричных image-профиля (L/RGBA)
+прошли live/Undo/Redo/cold обоих участников.12 GPU случаев на Linux/AMD Radeon
+проверяют масштаб1/2/4 и поворот0/π; oracle использует выровненные внешние границы.
+Два исходных odd-halfpixel случая сохранены отдельно: отличаются краевым
+положением на1px и не выдаются за native pixel-identity proof. Рендерер для них
+не менялся.14 GIH/6 Smudge/12 image cases — разные конкретные сценарии.
+
+Источник результата:fixes-v73/spray-image4-executed-v1/final-proof.json.
+Браузерный профиль, Chrome, private frontend и SSH tunnel закрыты; завершённые
+бандлы/CAS-реплики убраны после проверки SHA. Осталось216348B компактного QA-cache
+под консервативным cleanup guard/TTL. Public frontend8/backend8, данные/CAS/DB
+сохранены. Общий безопасный SVG пока отдельный RAM-пакет, не объявлен выложенным.
