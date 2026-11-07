@@ -664,8 +664,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
-            if application==1 and engine in('paintbrush','colorsmudge') and not eraser and(engine=='colorsmudge'or all(frame.mode=='RGBA'for frame in pipe['frames'])):stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
-            if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge' and not eraser):
+            if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or all(frame.mode=='RGBA'for frame in pipe['frames'])):stamp_images=[frame.convert('RGBA') for frame in pipe['frames']]
+            if (application==2 and engine in ('paintbrush','colorsmudge') and all(frame.mode=='RGBA' for frame in pipe['frames'])) or (application==3 and engine=='colorsmudge'):
                 planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
                 if application==3:gradient_gray=[gray for gray,alpha in planes]
                 else:material_gray=[gray for gray,alpha in planes]
@@ -690,8 +690,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
-            if application==1 and engine in('paintbrush','colorsmudge') and not eraser and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
-            if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge' and not eraser):
+            if application==1 and engine in('paintbrush','colorsmudge') and (not eraser or engine=='colorsmudge') and(engine=='colorsmudge'or image.mode in('RGB','RGBA')):stamp_images=[image.convert('RGBA')]
+            if (application==2 and engine in ('paintbrush','colorsmudge') and adjustment_active) or (application==3 and engine=='colorsmudge'):
                 gray,mask=lightness_planes(image,definition)
                 if application==3:gradient_gray=[gray]
                 else:material_gray=[gray]
@@ -1075,7 +1075,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
             notes.append(compatibility('textureApplication','Unsupported native texturing mode '+str(texture_mode)+'; previous grain approximation retained.','unsupported'))
     gradient_decoded=False
-    if engine == 'colorsmudge' and not eraser:
+    if engine=='colorsmudge':
         # Krita's checkable rate options default unchecked. A disabled colour
         # rate contributes no foreground paint; disabled smudge means full pickup.
         # Source semantics (independent mapping, no vendor implementation copied):
@@ -1105,7 +1105,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         legacy_foreground=not modern and mode in('multiply','screen')
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
                          and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
-                         and (params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
+                         and (eraser or params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
         if previous_canvas:
             d['mixer'].update(source='projectionCanvas' if enabled(params.get('MergedPaint','false')) and 'material' not in d['tip'] else 'previousCanvas',load=0,initialLoad=0)
             if d['mixer']['source']=='projectionCanvas':notes.append(compatibility('mergedPaint','Captured visible-layer order/opacity and historical source reads; bounded live projection is recomposited per dab rather than native cached image overlay.'))
@@ -1121,6 +1121,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 d['mixer']['colorRateComposite']=foreground_modes[mode] if modern else mode
                 behavior['rendering']['blendMode']='normal'
                 notes.append(compatibility('colorRateComposite','Foreground-only composition; feedback and final transfer retain the selected modern/legacy strategy. U8 colour-profile and native byte rounding differ.','supported'))
+            if eraser:
+                d['mixer']['colorRateComposite']='erase'
+                behavior['rendering']['blendMode']='normal'
+                notes.append(compatibility('colorRateComposite','Foreground erase preserves smear/dull feedback and final transfer; zero Color Rate remains a pure blender. Native byte/colour-profile differences remain.','supported'))
             if 'material' in d['tip']:
                 checked=enabled(params.get('PressurePaintThickness'))
                 thickness=numeric(params.get('PaintThicknessValue'),1) if checked else 1
@@ -1330,6 +1334,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if has_distance_control(d):d['version']=max(d['version'],63)
     # Keep newly admitted capabilities above historical input/timer revisions.
     if behavior.get('softness')is not None and d['tip'].get('profile',{}).get('kind')=='standard':d['version']=max(d['version'],64)
+    if d.get('mixer',{}).get('colorRateComposite')=='erase':d['version']=max(d['version'],88)
     if d.get('mixer',{}).get('colorRateComposite')=='hardMixPhotoshop':d['version']=max(d['version'],65)
     if d.get('mixer',{}).get('colorRateComposite')in('grainMerge','grainExtract','negation'):d['version']=max(d['version'],82)
     if d.get('mixer',{}).get('colorRateComposite')in('multiply','screen'):d['version']=max(d['version'],85 if d['mixer'].get('source')=='projectionCanvas' else 83)

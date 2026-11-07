@@ -1127,7 +1127,9 @@ export class SmudgePainter {
     const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
     const composite=colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
-    if(composite>=4 && (brush?.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
+    const legacyComposite=composite===4||composite===5||composite===6&&!brush?.mixer?.algorithm
+    if(composite===6&&(!brush||brush.version<88||brush.model!=='mixer'||brush.behavior?.erase!==true||!brushSamplesCanvas(brush)))throw Error('Foreground erase requires Color Smudge88')
+    if(legacyComposite && (brush?.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
     const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? brushTipSamplerId(dual?.brush.tip)
     const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
@@ -1150,7 +1152,7 @@ export class SmudgePainter {
     const childProfile = !wet?.secondary && (dual?.brush.tip.profile?.kind === 'standard' || dual?.brush.tip.profile?.kind === 'radialCurve')
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
-    if(composite>=4){
+    if(legacyComposite){
       this.prepareColorSmudgeLegacy()
       binding=this.colorSmudgeLegacyTransfer
     } else if (brush?.mixer?.algorithm) {
