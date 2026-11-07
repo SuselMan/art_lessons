@@ -19,7 +19,7 @@ export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
 import {isBrushBristle,type BrushBristle} from './brushBristle.js'
-export type {BrushBristle,BrushBristleInk} from './brushBristle.js'
+export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
 import { isBrushSpray, type BrushSpray } from './brushSpray.js'
@@ -726,6 +726,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     if(value.tip.color&&'gradient' in value.tip.color){add(value.tip.color.gradient.gray);for(const id of value.tip.color.gradient.grayFrames??[])add(id)}
     else {for(const id of value.tip.color?.planes??[])add(id);for(const frame of value.tip.color?.frames??[])for(const id of frame)add(id)}
     add(value.tip.material?.gray)
+    add(value.bristle?.saturationLookup?.asset)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
     add(value.texture?.id);add(value.texture?.eraseId)
     if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness'||value.tip.profile?.kind==='curveRectangle'||value.tip.profile?.kind==='curveRectangleSoftness')add(value.tip.profile.lookup)
