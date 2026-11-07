@@ -1,3 +1,5 @@
+import type {PreparedBristleSaturationResource} from './BristleSaturationResource'
+import {advancePreparedBristleSaturationInk} from '../presets/brushBristleSaturationTable'
 import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
 import {usesPixelOriginalRgba,assertPixelOriginalRgba,pixelOriginalRgbaFrames,capturePixelOriginalRgbaView,type PixelOriginalRgbaView} from '../presets/pixelOriginalRgba'
 import{SprayRequestPainter}from'./SprayRequestPainter'
@@ -35,7 +37,7 @@ import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
 import { brushTextureApplication } from './brushTextureApplication'
 import { brushFootprintBounds, brushFootprintCopyRect } from './brushFootprint'
-import { BRUSH_BLEND_MODES, type BrushDescriptor, type BrushTip, type Dab } from '@grafetto/shared'
+import { BRUSH_BLEND_MODES, type BrushBristle, type BrushDescriptor, type BrushTip, type Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { wetMixStep } from '../presets/wetMix'
@@ -138,6 +140,7 @@ export class BrushBehaviorPainter {
   private cu!: Uniforms
   private sp = -1;
   private cp = -1;
+  private readonly saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource
   private readonly ctx: BrushContext
   private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
@@ -145,7 +148,7 @@ export class BrushBehaviorPainter {
   private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void
   private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
   private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')}) { this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource) { this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -192,7 +195,14 @@ export class BrushBehaviorPainter {
   }
   prepareProcedural(): void { this.stampFor(true) }
 
-  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean):void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).prepareInkProfile(settings,!antialias&&!compositing)}
+  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean,bristle?:BrushBristle):void{
+    const batch=this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())
+    if(settings.useSaturation){
+      if(!bristle||bristle.version!==2||bristle.ink!==settings||!this.saturationResource)throw Error('Compiled Bristle saturation owner is not installed')
+      batch.prepareCompiledSaturation(settings,this.saturationResource(bristle),!antialias&&!compositing)
+    }else batch.prepareInkProfile(settings,!antialias&&!compositing)
+  }
+  releaseBristleSaturation():void{this.bristleRequests?.releaseSaturationResource()}
   prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
   prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).prepare()}
   prepareSpraySources():void{
@@ -377,6 +387,7 @@ export class BrushBehaviorPainter {
     }
     const constantPigment=!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
+    const saturationTable=brush.bristle?.version===2&&brush.bristle.ink.useSaturation?this.bristleRequests!.preparedSaturationTable(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {
       const previous = state.previous
       let flow = brush.flow
@@ -399,7 +410,7 @@ export class BrushBehaviorPainter {
         const geometry=(st as typeof st&{bristleInk?:BristleInkGeometry}).bristleInk
         if(!geometry)throw Error('Missing Bristle ink geometry')
         const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
-        const span=advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
+        const span=saturationTable?advancePreparedBristleSaturationInk(saturationTable,bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias):advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
         return {...st,flowScale:1,bristleInkSpan:span}
       }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping

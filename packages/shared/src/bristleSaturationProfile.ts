@@ -4,7 +4,7 @@ import {isBristleInk,type BrushBristleInk} from './brushBristle.js'
  * BRP1, law version, count and flags are LE u32; weights retain binary64.
  * Only the depletion curve is narrowed, exactly as createBristleInkProfile.
  * This helper does not admit saturation brushes or compile their lookup. */
-export function bristleSaturationProfileBytes(ink:BrushBristleInk):Uint8Array {
+export function bristleSaturationProfileBytes(ink:BrushBristleInk):Uint8Array<ArrayBuffer> {
  if(!isBristleInk(ink))throw new RangeError('Invalid Bristle saturation profile')
  const bytes=new Uint8Array(48+ink.depletion.length*4),view=new DataView(bytes.buffer)
  view.setUint32(0,0x31505242,true)

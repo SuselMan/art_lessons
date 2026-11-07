@@ -41,6 +41,13 @@ export class BrushTextureCache {
     this.usedBytes += bytes
     this.trim()
   }
+  /** Explicit owner retirement cannot remove a sampler pinned by a live draw. */
+  remove(key:string):void {
+    for(const group of this.leases.values())if(group.some(item=>item.key===key))throw Error('Cannot retire a leased brush texture')
+    const entry=this.entries.get(key);if(!entry)return
+    this.gl.deleteTexture(entry.texture)
+    this.entries.delete(key);this.usedBytes-=entry.bytes
+  }
   clear(lost = false): void {
     if (!lost) for (const entry of this.entries.values()) this.gl.deleteTexture(entry.texture)
     this.entries.clear(); this.protectedKeys.clear(); this.leases.clear(); this.usedBytes = 0

@@ -1,3 +1,4 @@
+import {BristleSaturationResource} from './BristleSaturationResource'
 import {usesPixelOriginalRgba} from '../presets/pixelOriginalRgba'
 import type{SprayScratchLease}from'./SprayRequestPainter'
 import{colorSmudgeTipPixels}from'../presets/colorSmudgeTip'
@@ -42,28 +43,33 @@ export class BrushPainter {
   private readonly ownsMipCache: boolean
   private maximumImageSide: number | undefined
   private colorEpoch={}
+  private readonly saturationResources:BristleSaturationResource
   private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
+    this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase) => {
       const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
-      if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const release=this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
       if(!usesPixelOriginalRgba(brush)&&!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
       // Peer/cold use the same admitted cache/lease; selection is not readiness.
       try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
       catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
-    },(id,planes,bounds)=>this.preparedImage(id,planes,bounds),(id,bounds)=>this.preparedSprayMask(id,bounds))
+    },(id,planes,bounds)=>this.preparedImage(id,planes,bounds),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle))
   }
-  initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.textures.clear(true);this.behavior.initGL()}
+  initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {
     this.colorEpoch={}
-    this.behavior.destroy()
-    this.textures.clear()
-    if (this.ownsMipCache) this.materialMips.clear()
+    let failed=false,primary:unknown
+    const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;primary=error}}}
+    cleanup(()=>this.behavior.destroy())
+    cleanup(()=>this.textures.clear());this.saturationResources.reset()
+    if(this.ownsMipCache)cleanup(()=>this.materialMips.clear())
+    if(failed)throw primary
   }
   finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext):void {
@@ -74,14 +80,22 @@ export class BrushPainter {
   }
 
   hasPreparedTexture(resource: BrushPreparationResource): boolean {
-    return this.textures.get(brushTextureResourceKey(resource)) !== undefined
+    return resource.bristleSaturation?this.saturationResources.ready(resource.bristleSaturation):this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
   prepareFilter():void{this.behavior.prepareFilter()}
   preparePolygon():void{this.behavior.preparePolygon()}
   prepareHatching():void{this.behavior.prepareHatching()}
   prepareClone():void{this.behavior.prepareClone()}
-  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean):void{this.behavior.prepareBristleInk(settings,antialias,compositing)}
+  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean,brush?:BrushDescriptor):void{
+    if(settings.useSaturation){
+      if(brush?.bristle?.version!==2||brush.bristle.ink!==settings)throw Error('Compiled Bristle saturation descriptor is required')
+      const resources=brushPreparationResources(brush)
+      assertNativeImageAdmission(resources,this.imageDimensionLimit())
+      this.saturationResources.prepare(brush.bristle,resources.map(brushTextureResourceKey))
+    }
+    this.behavior.prepareBristleInk(settings,antialias,compositing,brush?.bristle)
+  }
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
@@ -96,6 +110,7 @@ export class BrushPainter {
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     this.textures.protect(group.map(brushTextureResourceKey))
+    if(resource.bristleSaturation){this.saturationResources.prepare(resource.bristleSaturation,group.map(brushTextureResourceKey));return}
     if(resource.colorPlanes){
       if(resource.gradientMap)throw Error('Spray image requires original RGB planes')
       const key=brushTextureResourceKey(resource);if(this.textures.get(key))return

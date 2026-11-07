@@ -18,7 +18,7 @@ import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
-import {isBrushBristle,type BrushBristle} from './brushBristle.js'
+import {isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
 export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
@@ -447,9 +447,17 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
-    // Ink V2 currently supports opacity depletion; saturation requires sequential color state.
+    // Saturation requires an explicitly compiled immutable lookup (revision93).
     if(record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics.lightnessStrength!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations.lightnessStrength!==undefined))&&!(Number(d.version)>=90&&d.model==='stamp'&&record(d.tip.material)&&d.tip.material.kind==='lightness'&&['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)))return false
-    if(record(d.bristle)&&d.bristle.version===2&&(Number(d.version)<72||!record(d.bristle.ink)||d.bristle.ink.useSaturation!==false))return false
+    if(record(d.bristle)&&d.bristle.version===2){
+      if(Number(d.version)<72||!record(d.bristle.ink))return false
+      const ink=d.bristle.ink,lookup=d.bristle.saturationLookup
+      if(ink.useSaturation===true){
+        if(Number(d.version)<93||!isBristleSaturationLookup(lookup)||!ref(lookup.asset)||!Array.isArray(ink.depletion)||!ink.depletion.every(v=>typeof v==='number'&&v===Math.fround(v)))return false
+        let side=2;while(side*side<lookup.byteLength)side*=2
+        if(assetSizes.get(lookup.asset)!==side)return false
+      }else if(ink.useSaturation!==false||lookup!==undefined)return false
+    }
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     const sprayImage=record(d.spray)&&record(d.spray.particle)&&d.spray.particle.image===true
@@ -668,6 +676,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false

@@ -1,7 +1,5 @@
-import{mypaintKernelReady,prepareMyPaintKernel}from'../../engine/src/presets/mypaintKernel'
-import{digitalBrushFromPreset}from'../../engine/src/presets/digitalBrushPresets'
 import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
-import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
+import { bristleSaturationLookupReady,prepareBristleSaturationLookup,mypaintKernelReady,prepareMyPaintKernel,digitalBrushFromPreset,installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
 import { cachedBrushAsset, cacheBrushAsset } from './brushAssetCache'
 
@@ -147,7 +145,13 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[]): P
 function prepareBrushPresetsKnown(presets: readonly (string | undefined)[]): Promise<void> | null {
   const needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id)))
   const native=!mypaintKernelReady()&&presets.some(p=>!!p&&/^(brush:)?imported-/.test(p)&&!!digitalBrushFromPreset(p).mypaint)
-  return needed.size||native ? (async () => { if(native)await prepareMyPaintKernel();for (const id of needed) await fetchAsset(id) })() : null
+  const saturation=presets.flatMap(p=>{const b=p&&/^(brush:)?imported-/.test(p)?digitalBrushFromPreset(p).bristle:undefined;return b?.version===2&&b.ink.useSaturation?[b]:[]})
+  const lookupMissing=saturation.some(b=>!bristleSaturationLookupReady(b))
+  return needed.size||native||lookupMissing ? (async () => {
+    if(native)await prepareMyPaintKernel()
+    for (const id of needed) await fetchAsset(id)
+    for(const b of saturation){const work=prepareBristleSaturationLookup(b);if(work)await work}
+  })() : null
 }
 
 /** Bind before a local stroke can be streamed. Read-only restore never needs a

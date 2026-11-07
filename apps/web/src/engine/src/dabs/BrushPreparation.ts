@@ -1,3 +1,4 @@
+import {BRISTLE_SATURATION_GPU_BYTES,BRISTLE_SATURATION_UPLOAD_BYTES,bristleSaturationResourceKey} from './BristleSaturationResource'
 import {prepareVariableGih,usesVariableGih} from '../presets/gihFramePreparation'
 import {usesPixelOriginalRgba,assertPixelOriginalRgba} from '../presets/pixelOriginalRgba'
 import {textureEraseId} from '../presets/brushTextureErase'
@@ -7,12 +8,12 @@ import { proceduralProfileUniforms } from '../raster/brushProcedural'
 import { nativeImageBank, type NativeImageResource } from './NativeImageBank'
 import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import {brushTipColorPlanes,isBrushGradient,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
+import {brushTipColorPlanes,isBrushGradient,type BrushBristle,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; gradientMap?:true;gradientLut?:string;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
 export interface BrushPreparationOptions { gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'>): string => (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'|'bristleSaturation'>): string => (resource.bristleSaturation ? bristleSaturationResourceKey(resource.bristleSaturation) : undefined) ?? (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export function bindBrushGradient(resources:readonly BrushPreparationResource[],lut:string|undefined):BrushPreparationResource[] {
  return resources.map(resource=>{
   if(!resource.gradientMap)return resource
@@ -114,6 +115,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    if(b.bristle?.version===2&&b.bristle.ink.useSaturation){
+      if(painter!=='stamp'||!b.bristle.saturationLookup)throw Error('Compiled Bristle saturation requires the stamp renderer')
+      const resource:BrushPreparationResource={painter,id:b.bristle.saturationLookup.asset,grain:false,bristleSaturation:b.bristle}
+      resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
+    }
     if(b.behavior?.dual&&usesVariableGih(b.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     if(usesPixelOriginalRgba(b))assertPixelOriginalRgba(b)
     if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
@@ -173,6 +179,7 @@ export function brushPreparationResources(brush: BrushDescriptor, capturedErase?
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
   return resources.reduce((total, resource) => {
+    if (resource.bristleSaturation) return total+BRISTLE_SATURATION_GPU_BYTES
     if (resource.colorPlanes) return total + size(resource.id) ** 2 * 4
     if (resource.lookup32) return total + size(resource.id) ** 2
     if (resource.nativeImage) return total + resource.nativeImage.width * resource.nativeImage.height * 4
@@ -186,10 +193,11 @@ export function brushPreparationBytes(resources: readonly BrushPreparationResour
 /** Native policy promises a complete finite working bank, never a legacy
  * lazy-upload fallback after readiness reported an oversized skip. */
 export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {
-  if (!resources.some(resource => resource.nativeImage || resource.lookup32)) return
+  if (!resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation)) return
   const bytes = brushPreparationBytes(resources, id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
-  if (bytes > BRUSH_PREPARATION_BYTES) throw Error('Native image bank exceeds the brush texture budget')
+  if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) throw Error('Native image bank exceeds the brush texture budget')
   for (const resource of resources) {
+    if(resource.bristleSaturation&&(!Number.isFinite(maximumTextureSide)||maximumTextureSide<1024))throw Error('Bristle saturation exceeds GPU texture dimension limit')
     if (resource.lookup32 && (!Number.isFinite(maximumTextureSide) || Math.sqrt(importedAssetPixels(resource.id).length)/2 > maximumTextureSide)) throw Error('Radial curve exceeds GPU texture dimension limit')
     const image = resource.nativeImage
     if (!image) continue
@@ -299,4 +307,10 @@ export class BrushPreparation {
     }
     return pending
   }
+}
+
+/** At most one selected page is repacked at once. This is CPU upload staging,
+ * separate from both GPU residency and the room-owned raw CAS byte plane. */
+export function brushPreparationTransientBytes(resources:readonly BrushPreparationResource[]):number {
+ return resources.some(r=>r.bristleSaturation)?BRISTLE_SATURATION_UPLOAD_BYTES:0
 }

@@ -7,7 +7,7 @@ import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionCon
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds } from '@grafetto/shared'
-import { BrushPreparation, assertNativeImageAdmission, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { BrushPreparation, assertNativeImageAdmission, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -3524,7 +3524,7 @@ export class PencilEngine implements PencilEngineAPI {
     const preparationKey=gradient ? preset+':gradient:'+gradient : preset
     if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
-    if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
+    if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
@@ -3535,7 +3535,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
-      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'spraySources')this._brush.prepareSpraySources()
       else if(painter === 'sprayImages')this._brush.prepareSprayImages()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
@@ -7894,7 +7894,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects()
-    if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing)
+    if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()
     else if(stamp.brush.spray?.particle.image)this._brush.prepareSprayImages()
