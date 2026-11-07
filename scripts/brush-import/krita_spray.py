@@ -27,7 +27,7 @@ def inverse_cdf(pdf, upper=1):
     return out
 
 
-def spray_preset(data,root,params,name,catalog,external):
+def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     from krita_import import preset, enabled, numeric, xml, native_transfer
     def number(key,default,lo,hi):
         n=numeric(params.get(key),default)
@@ -38,16 +38,22 @@ def spray_preset(data,root,params,name,catalog,external):
     scale=number('Spray/scale',1,.01,4)
     shape=enabled(params.get('SprayShape/enabled','true'))
     shape_id=int(number('SprayShape/shape',0,0,4))
-    # Native imageUrl is a filesystem path, not an embedded brush resource.
-    if shape and shape_id==4:raise ValueError('Spray image shape requires an embedded portable image, not imageUrl')
+    image_shape=shape and shape_id==4
+    image_size=None
+    if image_shape and (params.get('CompositeOp','normal')!='normal' or enabled(params.get('Krita/erase'))):
+        raise ValueError('Spray image shape combination is not supported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     base_params=dict(params)
     if shape:
         width=number('SprayShape/width',6,1,10000);height=number('SprayShape/height',6,1,10000)
         if shape_id in (2,3):width=height=1
-        definition=ET.Element('Brush',{'type':'auto_brush','spacing':'0.1','useAutoSpacing':'0','angle':'0'})
-        ET.SubElement(definition,'MaskGenerator',{'diameter':str(max(width,height)),'type':'rect' if shape_id in (1,3) else 'circle','ratio':str(min(width,height)/max(width,height)),'id':'default','hfade':'1','vfade':'1','spikes':'2','antialiasEdges':'1'})
-        base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
+        if image_shape:
+            from krita_spray_image import capture_spray_image
+            base_params['brush_definition'],image_size=capture_spray_image(transformed,params.get('SprayShape/imageUrl',''),resolve_resource)
+        else:
+            definition=ET.Element('Brush',{'type':'auto_brush','spacing':'0.1','useAutoSpacing':'0','angle':'0'})
+            ET.SubElement(definition,'MaskGenerator',{'diameter':str(max(width,height)),'type':'rect' if shape_id in (1,3) else 'circle','ratio':str(min(width,height)/max(width,height)),'id':'default','hfade':'1','vfade':'1','spikes':'2','antialiasEdges':'1'})
+            base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
     source_randomness=False
     source_curve_aa=False
     if not shape:
@@ -68,10 +74,20 @@ def spray_preset(data,root,params,name,catalog,external):
     result=preset(output.getvalue(),name,catalog,external,timed_input=True)
     d=result['descriptor'];particle_size=result['sourceDefaults']['sizePx']
     if not shape:width=particle_size;height=particle_size/d['tip']['aspect']
+    if image_shape:
+        if 'color' not in d['tip'] or 'planes' not in d['tip']['color']:
+            raise ValueError('Spray image shape requires canonical RGBA planes')
+        from krita_spray_image import spray_image_bounds
+        side=catalog.assets[d['tip']['mask']]['size']
+        if any(catalog.assets[aid]['size']!=side for aid in d['tip']['color']['planes']):
+            raise ValueError('Spray image colour/alpha storage mismatch')
+        d['tip']['maskBounds']=spray_image_bounds(image_size,side)
     # The common painter normalises its long axis. Spray's independent physical
     # particle metrics below already include that conversion.
     d['tip']['aspect']=1
     behavior=d['behavior'];behavior.pop('scatter',None);d.pop('scatter',None)
+    if image_shape and (d.get('texture') or d.get('paperInteraction') or behavior.get('erase') or behavior.get('dual') or behavior.get('taper') or behavior.get('edgeBleed') or behavior.get('wetMix') or behavior.get('rendering',{}).get('blendMode')!='normal'):
+        raise ValueError('Spray image shape combination is not supported')
     spacing=number('Spray/spacing',.5,0,4)*.5
     d['spacing']=max(.000001,min(2,spacing));behavior['spacing']={'mode':'diameter','coefficient':spacing,'isotropic':True}
     behavior['rendering']['accumulation']='directOver'
@@ -104,19 +120,21 @@ def spray_preset(data,root,params,name,catalog,external):
     spray={'version':1,'diameter':diameter,'scale':scale,'aspect':number('Spray/aspect',1,.01,4),'angle':math.radians(number('Spray/rotation',0,-360,360)),
            'count':int(number('Spray/particleCount',12,0,1024)),'jitter':number('Spray/jitterMoveAmount',1,0,4) if enabled(params.get('Spray/jitterMovement')) else 0,
            'radial':{'maximum':upper,'samples':''.join(format(round(v/upper*65535),'04x') for v in inverse_cdf(pdf,upper))},'angular':''.join(format(round(v*65535),'04x') for v in inverse_cdf(curve_pdf('Spray/angularDistribution',False) if angular=='curveBased' else lambda x:1)),
-           'particle':{'shape':(['ellipse','rectangle','bilinear','pixel'][shape_id] if shape else 'tip'),'width':width,'height':height,'proportional':shape and enabled(params.get('SprayShape/proportional'))},
+           'particle':{'shape':('tip' if image_shape or not shape else ['ellipse','rectangle','bilinear','pixel'][shape_id]),'width':width,'height':height,'proportional':shape and enabled(params.get('SprayShape/proportional'))},
            'dynamics':{'randomSize':flag('randomSize'),'fixedAngle':angle_value('fixedRotation','fixedAngle'),'randomAngle':number(prefix+'randomRotationWeight',.5,0,1) if flag('randomRotation') else 0,'radialAngle':number(prefix+'followCursorWeigth',1,0,1) if flag('followCursor') else 0,'pathAngle':number(prefix+'followDrawingAngleWeigth',1,0,1) if flag('followDrawingAngle') else 0},
            'color':{'perParticle':enabled(params.get('ColorOption/colorPerParticle','true')),'hue':number('ColorOption/hue',0,-180,180)/180 if color else 0,'saturation':number('ColorOption/saturation',0,-100,100)/100 if color else 0,'value':number('ColorOption/value',0,-100,100)/100 if color else 0,'randomOpacity':enabled(params.get('ColorOption/useRandomOpacity'))}}
+    if image_shape:spray['particle']['image']=True
     if enabled(params.get('Spray/useDensity')):spray['density']=number('Spray/coverage',.3,0,100)/100
     spray['color'].update(source_flags)
     if source_flags:
         if spray['particle']['shape']=='tip'and any(k in d['tip']for k in('profile','imageSampling','autoShape','autoNoise')):raise ValueError('Spray sampled source requires a round or bitmap particle tip')
         if d.get('texture')or d.get('paperInteraction')or behavior.get('erase'):raise ValueError('Spray sampled source combination is not supported')
-    d['spray']=spray;d['version']=76 if source_flags else 43
+    d['spray']=spray;d['version']=76 if source_flags or image_shape else 43
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
-    if source_flags:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
+    if image_shape:result['compatibility'].append(compatibility('sprayImageParticle','Captured resource RGB/alpha, independent particle dimensions, centred rotation and per-particle HSV/opacity retained. Native Qt initial resize and smooth transformed-image filtering differ from canonical GPU filtering.','approximate'))
+    if source_flags and not image_shape:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
     if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
     if source_randomness:result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']

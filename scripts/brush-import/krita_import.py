@@ -490,7 +490,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return sketch_preset(data,root,params,name,catalog,external)
     if engine == 'spraybrush':
         from krita_spray import spray_preset
-        return spray_preset(data,root,params,name,catalog,external)
+        return spray_preset(data,root,params,name,catalog,external,resource)
     if engine == 'roundmarker':
         from krita_round import roundmarker_preset
         return roundmarker_preset(data, root, params, name)
