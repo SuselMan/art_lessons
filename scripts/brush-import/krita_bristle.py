@@ -11,7 +11,9 @@ from brush_contract import finalize_identity,compatibility
 
 def bristle_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric
-    if enabled(params.get('HairyInk/enabled')):raise ValueError('Bristle ink depletion/soaking is not implemented')
+    ink_enabled=enabled(params.get('HairyInk/enabled'))
+    if ink_enabled and enabled(params.get('HairyInk/soak')):raise ValueError('Bristle ink depletion soaking is not implemented')
+    if ink_enabled and enabled(params.get('HairyInk/useSaturation')):raise ValueError('Bristle ink depletion saturation is not implemented')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Bristle timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     if numeric(params.get('FlowValue'),1)!=1:raise ValueError('Bristle nonunit flow is unsupported')
@@ -47,9 +49,31 @@ def bristle_preset(data,root,params,name,catalog,external):
     for key in ('scatter','spacing'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
     d['bristle']={'version':1,'hairs':hairs,'scale':number('scale',2,0,10),'shear':number('shear',0,-10,10),'random':number('random',2,0,100),'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
+    if ink_enabled:
+        from curve_transfer import native_transfer
+        import struct
+        amount=numeric(params.get('HairyInk/inkAmount'),1024)
+        if not math.isfinite(amount) or amount!=int(amount) or not 2<=amount<=65536:
+            raise ValueError('Bristle ink amount outside bounded2..65536')
+        amount=int(amount)
+        curve=native_transfer(params.get('HairyInk/inkDepletionCurve','0,0;1,1;'),amount)
+        samples=curve['samples'] if isinstance(curve,dict) else [i/(amount-1) for i in range(amount)]
+        def ink_number(key,default,lo,hi):
+            value=numeric(params.get('HairyInk/'+key),default)
+            if not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Bristle ink setting outside bounded range: '+key)
+            return value
+        d['version']=72
+        d['bristle']['version']=2
+        d['bristle']['ink']={'depletion':[struct.unpack('f',struct.pack('f',v))[0] for v in samples],
+            'useOpacity':enabled(params.get('HairyInk/useOpacity','true')),'useSaturation':False,
+            'useWeights':enabled(params.get('HairyInk/useWeights')),
+            'pressureWeight':ink_number('pressureWeights',50,0,100)/100,
+            'bristleLengthWeight':ink_number('bristleLengthWeights',50,0,100)/100,
+            'bristleInkAmountWeight':ink_number('bristleInkAmountWeight',50,0,100)/100,
+            'inkDepletionWeight':ink_number('inkDepletionWeight',50,0,100)}
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]
-    result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Aliased maximum-alpha preserves the whole winning pigment via batched depth ranking; ink depletion/soaking remain rejected.'))
+    result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Aliased maximum-alpha preserves the whole winning pigment via batched depth ranking; Opacity depletion uses persistent per-hair counters and a bounded GPU curve; saturation/soaking remain rejected.'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

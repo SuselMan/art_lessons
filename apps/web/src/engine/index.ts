@@ -3534,7 +3534,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
-      else if(painter === 'sketchLines'){if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
@@ -6286,7 +6286,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
     const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
     const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
-    const background=brush&&brush.hatching?.opaqueBackground?captureHatchingBackground(this._hatchingBackground):undefined
+    const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground)?captureHatchingBackground(this._hatchingBackground):undefined
     const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background ? copyBrushSourceContext({version:1,...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
@@ -7887,7 +7887,8 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
-    if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
+    if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing)
+    else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution)
   }
 

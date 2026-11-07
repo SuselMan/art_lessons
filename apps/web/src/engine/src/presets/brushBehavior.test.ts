@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isBrushBehavior, type BrushDescriptor, type Dab } from '@grafetto/shared'
-import { beginBrushBehavior, brushRotationOffset, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
+import { beginBrushBehavior, brushSourceSpacingAxes, brushRotationOffset, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color: [
@@ -275,4 +275,29 @@ it('resolves dynamic radial-curve softness without treating it as standard fade 
  const second=behaviorStampsForDab(b,{...input,pressure:.75},beginBrushBehavior(input),color)[0]
  expect(second.softnessScale).toBeCloseTo(.6,14)
  expect(b.tip.profile).toHaveProperty('minimum',-1)
+})
+it('uses native square characteristic spacing for spikes while Ratio changes only source axes',()=>{
+ const b:BrushDescriptor={...brush,scatter:undefined,tip:{kind:'procedural',hardness:1,aspect:5,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:1,verticalFade:1,antialias:false},autoShape:{version:1,spikes:4}},behavior:{version:2,dynamics:{roundness:{control:'pressure',minimum:0,jitter:0}}}}
+ const profile={mode:'diameter' as const,coefficient:.2}
+ const input={...dabs[0],size:20,aspectRatio:5,angle:0,pressure:.25}
+ const low=brushSourceSpacingAxes(b,input,beginBrushBehavior(input),profile,.2,0)
+ const high=brushSourceSpacingAxes(b,{...input,pressure:1},beginBrushBehavior(input),profile,.2,0)
+ expect(low.x).toBeCloseTo(low.y,12)
+ expect(high.x).toBeCloseTo(high.y,12)
+ expect(low.x).toBeCloseTo(high.x,12)
+ const legacy={...b,tip:{...b.tip,autoShape:undefined}}
+ const old=brushSourceSpacingAxes(legacy,input,beginBrushBehavior(input),profile,.2,0)
+ expect(old.x).toBeGreaterThan(old.y)
+})
+it('evaluates inline child mirror once per logical dab with a versioned independent mask result',()=>{
+ const child:BrushDescriptor={...brush,behavior:{version:2,mirror:{horizontal:true,vertical:false,value:1,dynamics:[{control:'pressure',minimum:0,jitter:0}]}}}
+ const parent:BrushDescriptor={...brush,version:73,behavior:{version:2,mirror:{horizontal:false,vertical:true,value:1},dual:{brush:child,blendMode:'multiply'}}}
+ const input={...dabs[0],pressure:.8}
+ const high=behaviorStampsForDab(parent,input,beginBrushBehavior(input),color)
+ expect(high.length).toBeGreaterThan(1)
+ for(const s of high){expect([s.dualFlipX,s.dualFlipY]).toEqual([-1,1]);expect([s.flipX,s.flipY]).toEqual([1,-1])}
+ const low=behaviorStampsForDab(parent,{...input,pressure:.2},beginBrushBehavior(input),color)
+ for(const s of low)expect([s.dualFlipX,s.dualFlipY]).toEqual([1,1])
+ const old=behaviorStampsForDab({...parent,version:72},input,beginBrushBehavior(input),color)
+ for(const s of old)expect(s).not.toHaveProperty('dualFlipX')
 })

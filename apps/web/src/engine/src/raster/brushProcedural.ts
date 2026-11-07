@@ -1,3 +1,4 @@
+import {autoSpikeFold} from './autoSpikes'
 import {radialSoftnessAlpha,type RadialSoftnessBasis} from './radialSoftness'
 import { radialCurveAlpha } from './radialCurve'
 import type { BrushTip } from '@grafetto/shared';
@@ -61,8 +62,9 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 }
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
-export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1, softnessBasis?:RadialSoftnessBasis): number {
+export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array, softness = 1, softnessBasis?:RadialSoftnessBasis, spikes=2): number {
     if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
+    if(spikes!==2)return proceduralSpikesAlpha(x,y,width,height,profile,angle,lookup,softness,softnessBasis,spikes)
     if(profile.kind==='radialCurveSoftness') {
         if(!softnessBasis||softnessBasis.resolution!==profile.resolution||softnessBasis.minimum!==profile.minimum||softnessBasis.span!==profile.span)throw Error('Radial softness requires its prepared basis')
         if(![x,y,width,height,angle].every(Number.isFinite)||width<=0||height<=0)return 0
@@ -84,6 +86,25 @@ export function proceduralMaskAlpha(x: number, y: number, width: number, height:
         return profile.kind === 'gaussian' ? gaussianTransparency(localX, localY, rx, profile.fade, profile.antialias)
             : standardTransparency(localX, localY, rx, ry, profile);
     });
+}
+/** Native scalar samples each folded generator before U8 stencil averaging. */
+function proceduralSpikesAlpha(x:number,y:number,width:number,height:number,profile:Exclude<Profile,{kind:'circleBand'}>,angle:number,lookup:Uint8Array|undefined,softness:number,basis:RadialSoftnessBasis|undefined,spikes:number):number {
+    if(![x,y,width,height,angle].every(Number.isFinite)||width<=0||height<=0)return 0
+    const rx=width*.5,ry=height*.5,c=Math.cos(angle),s=Math.sin(angle)
+    const halfAllocation=rx*(Math.abs(c)+Math.abs(s))
+    if(Math.abs(x)>halfAllocation||Math.abs(y)>halfAllocation)return 0
+    if(profile.kind==='standard')profile=standardSoftnessProfile(profile,rx,ry,softness)
+    if(profile.kind==='radialCurveSoftness'&&(!basis||basis.resolution!==profile.resolution||basis.minimum!==profile.minimum||basis.span!==profile.span))throw Error('Radial softness requires its prepared basis')
+    const n=proceduralSampleCount(Math.min(width,height),profile.antialias)
+    return maskStencilAlpha(x,y,n,(px,py)=>{
+        const [fx,fy]=autoSpikeFold(c*px+s*py,-s*px+c*py,spikes,profile.kind==='standard'&&profile.shape==='rectangle')
+        if(profile.kind==='standard')return standardTransparency(fx,fy,rx,ry,profile)
+        if(profile.kind==='gaussian')return gaussianTransparency(fx,fy*rx/ry,rx,profile.fade,profile.antialias)
+        const q=(fx/rx)**2+(fy/ry)**2
+        if(profile.kind==='radialCurveSoftness')return 255-radialSoftnessAlpha(q,basis!,softness)
+        if(!lookup)throw Error('Radial curve requires its lookup resource')
+        return 255-radialCurveAlpha(q,lookup,profile.resolution)
+    })
 }
 const STANDARD_GLSL = `
 float brushStandardTransparency(vec2 point,vec2 radii,vec4 profile) {

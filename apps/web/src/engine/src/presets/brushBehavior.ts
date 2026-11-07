@@ -4,7 +4,7 @@ import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushEx
 import{particleStamps,type ParticleState}from'./brushParticle'
 import{hatchingPlacement,type HatchingPlacement}from'./brushHatching'
 import {curveTraceStamps,type CurveTraceState}from'./brushCurveTrace'
-import {bristleStamps,type BristleState} from './brushBristle'
+import {bristleGeometryStamps,bristleStamps,type BristleState} from './brushBristle'
 import {sketchStamps,type SketchState} from './brushSketch'
 import { sprayStamps } from './brushSpray'
 import {brushTipColorPlanes} from '@grafetto/shared'
@@ -71,7 +71,7 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
     const actual=Math.max(0,value)
     return Math.max(.5,coefficient*factor*(mode==='diameter' ? actual : actual<1 ? actual : Math.sqrt(actual)))
   }
-  const x=axis(diameter*stamp.aspect*(axisScale?.x ?? 1)),y=axis(diameter*(axisScale?.y ?? 1))
+  const x=axis(diameter*stamp.aspect*(axisScale?.x ?? 1)),y=axis(diameter*(brush.tip.autoShape?stamp.aspect:1)*(axisScale?.y ?? 1))
   return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:angleOffset === undefined ? stamp.angle : stamp.angle+angleOffset}
 }
 export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
@@ -129,6 +129,8 @@ export interface BehaviorStamp extends BrushStamp {
   grainDepth: number
   softnessScale?: number
   dualSoftnessScale?: number
+  dualFlipX?:number
+  dualFlipY?:number
   sharpnessScale?: number
   dualSharpnessScale?: number
   flipX: number
@@ -338,6 +340,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const rotation = behavior?.rotation
   const mirror=behavior?.mirror
   const mirrorActive=!!mirror&&mirror.value*(mirror.dynamics??[]).reduce((factor,control,index)=>factor*brushDynamicValue(control,directionalDab,state,rand(0x53000+index)),1)>=.5
+  const childMirror=brush.version>=73&&behavior?.dual?.sampling!=='independent'?behavior?.dual?.brush.behavior?.mirror:undefined
+  const childMirrored=!!childMirror&&childMirror.value*(childMirror.dynamics??[]).reduce((factor,control,index)=>factor*brushDynamicValue(control,directionalDab,state,rand(0x64000+index)),1)>=.5
   const randomRotation = rotation?.random === 'stroke' ? brushDabRandom(state.seed, 9) : rand(9)
   const countScale = dynamic('count', 10) * (1 - (behavior?.scatter?.countJitter ?? 0) * rand(11))
   const count = Math.max(1, Math.round((brush.scatter?.count ?? 1) * countScale))
@@ -401,7 +405,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   }
   if(brush.bristle){
     const bristle=state.bristle??={ordinal:0,oldPressure:1,ends:[]}
-    const stamps=bristleStamps(brush,{...dab,angle,size:dab.size*sizeScale},bristle,adjustedColor,state.seed)
+    const stamps=(brush.bristle.version===2?bristleGeometryStamps:bristleStamps)(brush,{...dab,angle,size:dab.size*sizeScale},bristle,adjustedColor,state.seed)
     state.previous={...dab};state.dabSequence=(state.dabSequence??0)+1
     return stamps.map(stamp=>({...stamp,wetGrade:0,edgeSoftness:0,bleed:0,opacityScale,grainDepth:1,flipX:1,flipY:1,distance:state.distance}))
   }
@@ -454,6 +458,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
         ? { sharpnessScale: dynamic('sharpness', 4096 + i * 8) } : {}),
       ...(behavior?.dual?.sampling !== 'independent' && (behavior?.dual?.brush.behavior?.dynamics?.sharpness || behavior?.dual?.brush.behavior?.modulations?.sharpness?.length)
         ? { dualSharpnessScale: dynamic('sharpness', 8192 + i * 8, behavior.dual.brush.behavior) } : {}),
+      ...(childMirror?{dualFlipX:childMirrored&&childMirror.horizontal?-1:1,dualFlipY:childMirrored&&childMirror.vertical?-1:1}:{}),
       flipX: (rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1)*(mirrorActive&&mirror?.horizontal?-1:1),
       flipY: (rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1)*(mirrorActive&&mirror?.vertical?-1:1),
       color: hasColor ? shiftColor(sprayColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : sprayColor,

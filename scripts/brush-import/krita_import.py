@@ -503,6 +503,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     application=0
     softness_value=1
     softness_controls=[]
+    gaussian_softness_noop=False
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -515,7 +516,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         hardness = clamp((numeric(generator.get('hfade'),1)+numeric(generator.get('vfade'),1))/2)
         ratio = clamp(numeric(generator.get('ratio'),1),0.0625,1)
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
-        gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
+        spikes=numeric(generator.get('spikes'),2)
+        spikes_supported=engine=='paintbrush'and math.isfinite(spikes)and spikes==int(spikes)and 3<=spikes<=20
+        gaussian=generator.get('id')=='gauss' and shape=='circle' and(spikes==2 or spikes_supported)
+        gaussian_softness_noop=generator.get('id')=='gauss'and engine=='paintbrush'and enabled(params.get('PressureSoftness'))
         gaussian_aa=enabled(generator.get('antialiasEdges'))
         try:
             hf=float(generator.get('hfade','0'));vf=float(generator.get('vfade','0'))
@@ -526,7 +530,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         elif native_fade==1: native_fade=1-1e-6
         representable_fade=valid_fade and 1e-6<=native_fade<=1-1e-6
         hard_gaussian=hf==1 and vf==1
-        procedural_gaussian=(gaussian and engine=='paintbrush' and ratio==1
+        procedural_gaussian=(gaussian and engine=='paintbrush' and(ratio==1 or spikes_supported)
             and (gaussian_aa or representable_fade) and numeric(definition.get('randomness'))==0
             and numeric(definition.get('density'),1)==1)
         if procedural_gaussian:
@@ -540,7 +544,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
-        soft=(generator.get('id')=='soft' and shape=='circle' and numeric(generator.get('spikes'),2)==2
+        soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
               and not enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
               and numeric(definition.get('density'),1)==1)
         if soft:
@@ -579,7 +583,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
             if engine!='colorsmudge' and enabled(params.get('PressureSoftness'))and not dynamic_soft:
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
-        if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
+        if (generator.get('id','default') != 'default' and not gaussian and not soft) or (spikes!=2 and not spikes_supported) or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         default_generator=generator.get('id','default')=='default'
         softness_checked=engine!='colorsmudge' and enabled(params.get('PressureSoftness'))
@@ -595,7 +599,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 start=len(notes)
                 softness_controls=size_like_controls(params,'Softness',notes,allow_time=timed_input)
                 softness_supported=bool(softness_controls) and not any(n['status']=='unsupported'for n in notes[start:])
-        standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
+        standard=(default_generator and shape in ('circle','rect') and(spikes==2 or spikes_supported)
             and numeric(definition.get('randomness'))==0 and numeric(definition.get('density'),1)==1
             and softness_supported)
         if standard:
@@ -613,6 +617,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if shape=='rect' and not standard:
             mask=Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
+        if spikes_supported and d['tip'].get('profile'):
+            d['tip']['kind']='procedural';d['tip']['autoShape']={'version':1,'spikes':int(spikes)}
+            d['version']=max(d['version'],71)
+            notes.append(compatibility('autoSpikes','Native angular sector folding retains source ratio and independent square allocation. Scalar/GPU edge rounding may differ.','supported'))
+        if gaussian_softness_noop:notes.append(compatibility('gaussianSoftness','Native Gaussian generator stores but does not use Softness; saved controls do not affect the mask.','supported'))
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
@@ -1119,7 +1128,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1259,6 +1268,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     foreground=d.get('mixer',{}).get('foreground',{})
     foreground=foreground.get('gradient',foreground)
     if any(c.get('combine',{}).get('constant',1)!=1 for c in foreground.get('dynamics',[])):d['version']=max(d['version'],69)
+    if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
+    if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

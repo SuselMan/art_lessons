@@ -1,7 +1,7 @@
 import{CanvasEffectBatch}from'./CanvasEffectBatch'
 import{deformRequest}from'../presets/brushDeform'
 import{GridCellBatch}from'./GridCellBatch'
-import{gridCells}from'../presets/brushGrid'
+import{gridCells,gridBackgroundRect}from'../presets/brushGrid'
 import {CanvasProjectionSampler,type ProjectionReadSession,type ProjectionSampleLayer} from '../raster/CanvasProjectionSampler'
 import {COLOR_SMUDGE_MATERIAL_FRAG} from '../raster/colorSmudgeMaterialShader'
 import { COLOR_SMUDGE_MEAN_FRAG } from '../raster/colorSmudgeMeanShader'
@@ -556,13 +556,26 @@ export class SmudgePainter {
     if(!cells.length)return
     const pad=g.shape===4?6:1,bounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity}
     for(const c of cells){bounds.minX=Math.min(bounds.minX,c.x-c.width/2-pad);bounds.maxX=Math.max(bounds.maxX,c.x+c.width/2+pad);bounds.minY=Math.min(bounds.minY,c.y-c.height/2-pad);bounds.maxY=Math.max(bounds.maxY,c.y+c.height/2+pad)}
+    const background=g.fillBackground||g.mixBackground?state.execution?.brushSource?.background:undefined
+    if((g.fillBackground||g.mixBackground)&&!background)throw Error('Grid requires a captured background')
+    const bg=background?.map(v=>v/255),bgRect=g.fillBackground?gridBackgroundRect(g,dab):undefined
+    if(bgRect){bounds.minX=Math.min(bounds.minX,bgRect.minX);bounds.minY=Math.min(bounds.minY,bgRect.minY);bounds.maxX=Math.max(bounds.maxX,bgRect.maxX);bounds.maxY=Math.max(bounds.maxY,bgRect.maxY)}
     const span=Math.max(8,Math.ceil(Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))+2),rect={minX:Math.floor(bounds.minX)-1,minY:Math.floor(bounds.minY)-1,maxX:0,maxY:0};rect.maxX=rect.minX+span;rect.maxY=rect.minY+span
     const size=g.sampleInput?Math.min(512,span):8,source=this.acquireScratch(size)
     try{
       if(g.sampleInput)this.gatherPatch(source,target.resolveForRead?.(rect)??target.resolveForPaint(rect),rect,size,span)
       const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity,0,1)
       const batch=this.gridBatch??=new GridCellBatch(this.gl)
-      for(const tile of target.resolveForPaint(bounds))batch.paint(cells,tile.buffer,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,opacity)
+      for(const tile of target.resolveForPaint(bounds)){
+        if(!g.fillBackground&&!g.mixBackground&&!g.hsv){batch.paint(cells,tile.buffer,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,opacity);continue}
+        const request=this.acquireScratch(tile.buffer.width,tile.buffer.height)
+        try{
+          request.clear()
+          if(bgRect){const cell={x:(bgRect.minX+bgRect.maxX)/2,y:(bgRect.minY+bgRect.maxY)/2,width:bgRect.maxX-bgRect.minX,height:bgRect.maxY-bgRect.minY,sampleX:0,sampleY:0,alpha:1};batch.paint([cell],request,tile.originX,tile.originY,source,rect,span,bg!,1,false,false,1)}
+          batch.paint(cells,request,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,1,bg,g.mixBackground?Math.max(0,Math.min(1,dab.pressure)):-1,g.shape===1)
+          batch.transfer(request,tile.buffer,opacity)
+        }finally{this.releaseScratch(request)}
+      }
       target.markContentPainted(bounds)
     }finally{this.releaseScratch(source)}
   }
@@ -1323,8 +1336,8 @@ export class SmudgePainter {
    *  square, patch-sized and LINEAR-filtered, and a stroke cycles two or
    *  three of them per dab). Kept separate from AreaOps' scratchPool — see
    *  the field's own comment. */
-  private acquireScratch(size: number): AccumulationBuffer {
-    return this.scratchPool.acquire(size, size)
+  private acquireScratch(size: number,height=size): AccumulationBuffer {
+    return this.scratchPool.acquire(size, height)
   }
 
   private releaseScratch(buf: AccumulationBuffer): void {

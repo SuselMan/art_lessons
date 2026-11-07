@@ -1,3 +1,4 @@
+import {BRUSH_AUTO_SPIKES_GLSL} from './autoSpikes'
 import {BRUSH_RADIAL_SOFTNESS_GLSL} from './radialSoftness'
 import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
@@ -184,6 +185,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_lightnessStrength;
   uniform float u_dualLightnessMaterial;
   uniform vec2 u_flip;
+  uniform vec2 u_dualFlip;
   uniform vec4 u_grainTransform;
   uniform vec2 u_grainTone;
   uniform float u_grainBlend;
@@ -243,6 +245,7 @@ export const BRUSH_STAMP_FRAG = `
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
+      dualUV *= u_dualFlip;
       vec4 dualSample=brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);
       mat2 dualRotation=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z);
       mat2 dualScale=mat2(1.0,0.0,0.0,u_dualTransform.y/u_dualTransform.x);
@@ -462,6 +465,8 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
   }
   if (radialCurves) {
     replace(BRUSH_PROCEDURAL_GLSL, BRUSH_PROCEDURAL_GLSL + BRUSH_RADIAL_CURVE_GLSL + BRUSH_RADIAL_SOFTNESS_GLSL + `
+    uniform vec2 u_autoSpikes;
+    uniform float u_autoSpikeAngle;
     uniform vec4 u_tipSoftnessBasis;
     uniform vec4 u_dualSoftnessBasis;
     uniform float u_tipSoftness;
@@ -471,10 +476,51 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       vec2 p=(frame*pixel)/geometry.xy;
       return brushRadialSoftnessMask(lookup,dot(p,p),basis,softness);
     }
+    ` + BRUSH_AUTO_SPIKES_GLSL + `
+    mat2 brushAutoSpikeFrame(mat2 original,float spikes,float angle,vec2 flip) {
+      if(spikes<2.5)return original;
+      float c=cos(angle),s=sin(angle);return mat2(c*flip.x,-s*flip.y,s*flip.x,c*flip.y);
+    }
+    float brushAutoSpikeAlpha(vec2 point,vec2 radii,vec4 profile,sampler2D lookup,vec4 basis,float softness,float spikes) {
+      vec2 p=brushAutoSpikeFold(point,spikes,profile.x>1.5&&profile.x<2.5);
+      if(profile.x<0.5)return (255.0-brushGaussianTransparency(vec2(p.x,p.y*radii.x/radii.y),radii.x,vec2(profile.y,profile.w)))/255.0;
+      if(profile.x<2.5)return (255.0-brushStandardTransparency(p,radii,profile))/255.0;
+      vec2 u=p/radii;float q=dot(u,u);
+      if(profile.x>3.5)return brushRadialSoftnessMask(lookup,q,basis,softness);
+      if(q>1.0)return 0.0;
+      float pos=q*profile.y,index=floor(pos);
+      float value=mix(brushCurveValue(lookup,index,profile.z),brushCurveValue(lookup,index+1.0,profile.z),pos-index);
+      return (255.0-floor(clamp((1.0-value)*255.0,0.0,255.0)))/255.0;
+    }
+    float brushProceduralMaskWithSpikes(vec2 pixel,mat2 frame,vec4 geometry,vec4 profile,sampler2D lookup,vec4 basis,float softness,float spikes) {
+      if(spikes<2.5)return brushProceduralMaskWithSoftness(pixel,frame,geometry,profile,lookup,basis,softness);
+      float n=geometry.z;
+      if(n<1.5)return brushAutoSpikeAlpha(frame*pixel,geometry.xy,profile,lookup,basis,softness,spikes);
+      float sum=0.0;
+      for(int y=0;y<6;y++)for(int x=0;x<6;x++){
+        if(float(x)<n&&float(y)<n){
+          vec2 offset=vec2(float(x),float(y))/n;
+          sum+=floor(255.0*(1.0-brushAutoSpikeAlpha(frame*(pixel+offset),geometry.xy,profile,lookup,basis,softness,spikes))+0.5);
+        }
+      }
+      return (255.0-floor(sum/(n*n)))/255.0;
+    }
     `)
-    replace('brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)', 'brushProceduralMaskWithSoftness(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness)')
-    replace('u_dualProceduralGeometry,u_dualProcedural)', 'u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness)')
-    replace('brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,', 'brushProceduralMaskWithSoftness(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,')
+    replace('brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)', 'brushProceduralMaskWithSpikes(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)')
+    replace('u_dualProceduralGeometry,u_dualProcedural)', 'u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)')
+    replace('brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,', 'brushProceduralMaskWithSpikes(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,')
+  }
+  if(radialCurves) {
+    // The primary quad may be a world-axis allocation bbox. Bitmap masks must
+    // still use their own physical source frame, never that enlarged quad UV.
+    replace('      dualUV *= u_dualFlip;', `      if(u_autoSpikes.x>2.5){
+        vec2 pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter;
+        float c=cos(u_dualProceduralAngle),s=sin(u_dualProceduralAngle);
+        dualUV=(mat2(c,-s,s,c)*pixel)/u_dualProceduralGeometry.xy;
+      }
+      dualUV *= u_dualFlip;`)
+    replace('mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)',
+      'brushAutoSpikeFrame(mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_autoSpikes.y,u_dualProceduralAngle,u_dualFlip),u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)')
   }
   return source
 }

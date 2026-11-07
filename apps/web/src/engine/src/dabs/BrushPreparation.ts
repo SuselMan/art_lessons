@@ -104,12 +104,13 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
       if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')
       capabilities.add('stampCircleBand')
     }
+    if(painter==='wet'&&(b.tip.autoShape||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.autoShape))throw Error('Auto spikes require the stamp renderer')
     if(painter==='wet'&&(b.tip.profile?.kind==='radialCurveSoftness'||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.profile?.kind==='radialCurveSoftness'))throw Error('Dynamic radial softness requires the stamp renderer')
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet' && !b.mixer?.paintThickness) throw Error('Lightness tip material requires a material renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (!covered) {
-      const curve = b.tip.profile?.kind === 'radialCurve' || b.tip.profile?.kind === 'radialCurveSoftness' || inline?.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurveSoftness'
+      const curve = !!b.tip.autoShape || !!inline?.tip.autoShape || b.tip.profile?.kind === 'radialCurve' || b.tip.profile?.kind === 'radialCurveSoftness' || inline?.tip.profile?.kind === 'radialCurve' || inline?.tip.profile?.kind === 'radialCurveSoftness'
       if (curve) capabilities.add(painter === 'stamp' ? 'stampCurve' : 'wetCurve')
       else {
         if (b.tip.imageSampling || inline?.tip.imageSampling) capabilities.add(painter === 'stamp' ? 'stampImage' : 'wetImage')

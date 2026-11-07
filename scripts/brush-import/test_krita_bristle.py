@@ -20,3 +20,13 @@ class BristleTests(unittest.TestCase):
     def test_aliased_alpha_winner_is_admitted_separately_from_legacy(self):
         b=self.convert('<param name="HairyBristle/useCompositing">false</param>',aa=False)['descriptor']
         self.assertEqual(b['version'],66);self.assertFalse(b['bristle']['antialias']);self.assertFalse(b['bristle']['compositing'])
+
+    def test_opacity_depletion_and_native_weight_units(self):
+        d=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/inkAmount">4</param><param name="HairyInk/pressureWeights">25</param><param name="HairyInk/inkDepletionWeight">70</param>')['descriptor']
+        self.assertEqual(d['version'],72);self.assertEqual(d['bristle']['version'],2)
+        ink=d['bristle']['ink'];self.assertEqual(len(ink['depletion']),4)
+        self.assertEqual(ink['pressureWeight'],.25);self.assertEqual(ink['inkDepletionWeight'],70)
+        self.assertTrue(ink['useOpacity']);self.assertFalse(ink['useSaturation'])
+    def test_unsupported_saturation_and_invalid_amount_remain_explicit(self):
+        for key,value in [('useSaturation','true'),('inkAmount','1'),('inkAmount','65537')]:
+            with self.assertRaises(ValueError):self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/'+key+'">'+value+'</param>')

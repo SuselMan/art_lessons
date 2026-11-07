@@ -32,7 +32,7 @@ def natural_run(points):
 
 
 def native_transfer(text, sample_count=256):
-    if type(sample_count) is not int or not 2<=sample_count<=40002:
+    if type(sample_count) is not int or not 2<=sample_count<=65536:
         raise ValueError('Krita transfer resolution exceeds bounded offline limit')
     records=[record.split(',') for record in text.split(';') if record.strip()]
     if not 1<=len(records)<=256:

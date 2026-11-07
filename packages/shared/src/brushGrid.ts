@@ -1,5 +1,8 @@
 export interface BrushGrid{
  version:1
+ fillBackground?:true
+ mixBackground?:true
+ hsv?:{hue:number;saturation:number;value:number}
  width:number
  height:number
  scale:number
@@ -16,7 +19,7 @@ export interface BrushGrid{
 export function isBrushGrid(value:unknown):value is BrushGrid{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,n=(x:unknown,a:number,b:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=a&&x<=b
- return Object.keys(v).every(k=>['version','width','height','scale','offset','division','pressureDivision','border','randomBorder','shape','sampleInput','colorPerCell','randomOpacity'].includes(k))&&v.version===1&&n(v.width,1,1024)&&n(v.height,1,1024)&&n(v.scale,.01,10)&&Number.isInteger(v.division)&&n(v.division,0,16)&&Number.isInteger(v.shape)&&n(v.shape,0,4)&&Array.isArray(v.offset)&&v.offset.length===2&&v.offset.every(x=>n(x,-1e9,1e9))&&Array.isArray(v.border)&&v.border.length===2&&v.border.every(x=>n(x,0,1000))&&['pressureDivision','randomBorder','sampleInput','colorPerCell','randomOpacity'].every(k=>typeof v[k]==='boolean')
+ return Object.keys(v).every(k=>['version','width','height','scale','offset','division','pressureDivision','border','randomBorder','shape','sampleInput','colorPerCell','randomOpacity','fillBackground','mixBackground','hsv'].includes(k))&&(v.fillBackground===undefined||v.fillBackground===true)&&(v.mixBackground===undefined||v.mixBackground===true)&&(v.hsv===undefined||typeof v.hsv==='object'&&v.hsv!==null&&!Array.isArray(v.hsv)&&Object.keys(v.hsv).length===3&&['hue','saturation','value'].every(k=>n((v.hsv as Record<string,unknown>)[k],-1,1)))&&v.version===1&&n(v.width,1,1024)&&n(v.height,1,1024)&&n(v.scale,.01,10)&&Number.isInteger(v.division)&&n(v.division,0,16)&&Number.isInteger(v.shape)&&n(v.shape,0,4)&&Array.isArray(v.offset)&&v.offset.length===2&&v.offset.every(x=>n(x,-1e9,1e9))&&Array.isArray(v.border)&&v.border.length===2&&v.border.every(x=>n(x,0,1000))&&['pressureDivision','randomBorder','sampleInput','colorPerCell','randomOpacity'].every(k=>typeof v[k]==='boolean')
 }
 
 /** Keep family validation in an independent scope: the catalogue's many

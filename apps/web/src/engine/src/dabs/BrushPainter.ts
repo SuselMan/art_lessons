@@ -1,3 +1,4 @@
+import type {BristleInkSettings} from '../presets/brushBristleInk'
 import type { BrushExecutionContext } from '../presets/brushExecutionContext'
 import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
@@ -70,6 +71,7 @@ export class BrushPainter {
   preparePolygon():void{this.behavior.preparePolygon()}
   prepareHatching():void{this.behavior.prepareHatching()}
   prepareClone():void{this.behavior.prepareClone()}
+  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean):void{this.behavior.prepareBristleInk(settings,antialias,compositing)}
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }

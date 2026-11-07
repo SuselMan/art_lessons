@@ -1,19 +1,22 @@
+import {createBristleInkProfile,createBristleInkState} from '../presets/brushBristleInk'
+import {advanceBristleInkBulk} from '../presets/brushBristleInkBulk'
 import {expect,it,vi} from 'vitest'
 import type {BehaviorPlaced} from '../presets/brushBehavior'
 import type {AccumulationBuffer} from '../buffers/AccumulationBuffer'
 import {BristleRequestBatch} from './BristleRequestBatch'
 /** Command/state model of one covered pixel, NOT a GPU rasterizer/pixel proof. */
-function fixture(privateVao=false){
- const gl:any={},names='VAO_BINDING MAX_RENDERBUFFER_SIZE RENDERBUFFER_BINDING ARRAY_BUFFER_BINDING FRAMEBUFFER_BINDING CURRENT_PROGRAM VIEWPORT COLOR_WRITEMASK COLOR_CLEAR_VALUE DEPTH_FUNC DEPTH_WRITEMASK DEPTH_RANGE DEPTH_CLEAR_VALUE BLEND_EQUATION_RGB BLEND_EQUATION_ALPHA BLEND_SRC_RGB BLEND_DST_RGB BLEND_SRC_ALPHA BLEND_DST_ALPHA ACTIVE_TEXTURE TEXTURE_BINDING_2D BLEND CULL_FACE DEPTH_TEST SCISSOR_TEST STENCIL_TEST DITHER POLYGON_OFFSET_FILL SAMPLE_ALPHA_TO_COVERAGE SAMPLE_COVERAGE RENDERBUFFER ARRAY_BUFFER FRAMEBUFFER DEPTH_ATTACHMENT STENCIL_ATTACHMENT FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE NONE FRAMEBUFFER_COMPLETE TEXTURE0 TEXTURE_2D DEPTH_COMPONENT16 STATIC_DRAW STREAM_DRAW FLOAT TRIANGLES GREATER FUNC_ADD ONE ONE_MINUS_SRC_ALPHA COLOR_BUFFER_BIT DEPTH_BUFFER_BIT VERTEX_SHADER FRAGMENT_SHADER COMPILE_STATUS LINK_STATUS VERTEX_ATTRIB_ARRAY_ENABLED VERTEX_ATTRIB_ARRAY_BUFFER_BINDING VERTEX_ATTRIB_ARRAY_SIZE VERTEX_ATTRIB_ARRAY_TYPE VERTEX_ATTRIB_ARRAY_NORMALIZED VERTEX_ATTRIB_ARRAY_STRIDE VERTEX_ATTRIB_ARRAY_POINTER'.split(' ')
+function fixture(privateVao=false,fragDepth=false){
+ const gl:any={},names='ZERO TEXTURE1 UNPACK_ALIGNMENT UNPACK_FLIP_Y_WEBGL UNPACK_PREMULTIPLY_ALPHA_WEBGL UNPACK_COLORSPACE_CONVERSION_WEBGL RGBA UNSIGNED_BYTE TEXTURE_MIN_FILTER TEXTURE_MAG_FILTER TEXTURE_WRAP_S TEXTURE_WRAP_T NEAREST CLAMP_TO_EDGE VAO_BINDING MAX_RENDERBUFFER_SIZE RENDERBUFFER_BINDING ARRAY_BUFFER_BINDING FRAMEBUFFER_BINDING CURRENT_PROGRAM VIEWPORT COLOR_WRITEMASK COLOR_CLEAR_VALUE DEPTH_FUNC DEPTH_WRITEMASK DEPTH_RANGE DEPTH_CLEAR_VALUE BLEND_EQUATION_RGB BLEND_EQUATION_ALPHA BLEND_SRC_RGB BLEND_DST_RGB BLEND_SRC_ALPHA BLEND_DST_ALPHA ACTIVE_TEXTURE TEXTURE_BINDING_2D BLEND CULL_FACE DEPTH_TEST SCISSOR_TEST STENCIL_TEST DITHER POLYGON_OFFSET_FILL SAMPLE_ALPHA_TO_COVERAGE SAMPLE_COVERAGE RENDERBUFFER ARRAY_BUFFER FRAMEBUFFER DEPTH_ATTACHMENT STENCIL_ATTACHMENT FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE NONE FRAMEBUFFER_COMPLETE TEXTURE0 TEXTURE_2D DEPTH_COMPONENT16 STATIC_DRAW STREAM_DRAW FLOAT TRIANGLES GREATER FUNC_ADD ONE ONE_MINUS_SRC_ALPHA COLOR_BUFFER_BIT DEPTH_BUFFER_BIT VERTEX_SHADER FRAGMENT_SHADER COMPILE_STATUS LINK_STATUS VERTEX_ATTRIB_ARRAY_ENABLED VERTEX_ATTRIB_ARRAY_BUFFER_BINDING VERTEX_ATTRIB_ARRAY_SIZE VERTEX_ATTRIB_ARRAY_TYPE VERTEX_ATTRIB_ARRAY_NORMALIZED VERTEX_ATTRIB_ARRAY_STRIDE VERTEX_ATTRIB_ARRAY_POINTER'.split(' ')
  names.forEach((name,i)=>gl[name]=i+1)
  let serial=0,uploaded=new Float32Array(),rank=0,requestPixel=[0,0,0,0],coveragePixel=[0,0,0,0],throwDraw=false
- const object=()=>({id:++serial}),seedBuffer=object(),s=new Map<number,any>(),caps=new Set<number>([gl.DITHER,gl.SCISSOR_TEST,gl.CULL_FACE]),textures=new Map<number,any>([[gl.TEXTURE0,object()],[gl.TEXTURE0+3,object()]]),attachments=new Map<any,any>(),attrs=new Map<number,any>()
+ const object=()=>({id:++serial}),seedBuffer=object(),s=new Map<number,any>(),caps=new Set<number>([gl.DITHER,gl.SCISSOR_TEST,gl.CULL_FACE]),textures=new Map<number,any>([[gl.TEXTURE0,object()],[gl.TEXTURE1,null],[gl.TEXTURE0+3,object()]]),attachments=new Map<any,any>(),attrs=new Map<number,any>()
  for(const [name,value] of Object.entries({MAX_RENDERBUFFER_SIZE:4096,RENDERBUFFER_BINDING:object(),ARRAY_BUFFER_BINDING:seedBuffer,FRAMEBUFFER_BINDING:object(),CURRENT_PROGRAM:object(),VIEWPORT:[3,4,5,6],COLOR_WRITEMASK:[false,true,false,true],COLOR_CLEAR_VALUE:[.1,.2,.3,.4],DEPTH_FUNC:999,DEPTH_WRITEMASK:false,DEPTH_RANGE:[.2,.8],DEPTH_CLEAR_VALUE:.75,BLEND_EQUATION_RGB:900,BLEND_EQUATION_ALPHA:901,BLEND_SRC_RGB:902,BLEND_DST_RGB:903,BLEND_SRC_ALPHA:904,BLEND_DST_ALPHA:905,ACTIVE_TEXTURE:gl.TEXTURE0+3}))s.set(gl[name],value)
- for(let i=0;i<4;i++)attrs.set(i,{enabled:i===1,buffer:seedBuffer,size:2,type:gl.FLOAT,normalized:false,stride:16,offset:i*4})
+ for(const key of [gl.UNPACK_ALIGNMENT,gl.UNPACK_FLIP_Y_WEBGL,gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,gl.UNPACK_COLORSPACE_CONVERSION_WEBGL])s.set(key,0)
+ for(let i=0;i<6;i++)attrs.set(i,{enabled:i===1,buffer:seedBuffer,size:2,type:gl.FLOAT,normalized:false,stride:16,offset:i*4})
  const seedVao=object();let currentVao:unknown=seedVao
  const vaoStates=new Map<unknown,typeof attrs>([[seedVao,attrs]])
  const attributeState=()=>vaoStates.get(currentVao)!
- const vao={VERTEX_ARRAY_BINDING_OES:gl.VAO_BINDING,createVertexArrayOES:vi.fn(()=>{const v=object(),a=new Map<number,any>();for(let i=0;i<4;i++)a.set(i,{enabled:false,buffer:null,size:4,type:gl.FLOAT,normalized:false,stride:0,offset:0});vaoStates.set(v,a);return v}),bindVertexArrayOES:(v:unknown)=>{currentVao=v},deleteVertexArrayOES:vi.fn()}
+ const vao={VERTEX_ARRAY_BINDING_OES:gl.VAO_BINDING,createVertexArrayOES:vi.fn(()=>{const v=object(),a=new Map<number,any>();for(let i=0;i<6;i++)a.set(i,{enabled:false,buffer:null,size:4,type:gl.FLOAT,normalized:false,stride:0,offset:0});vaoStates.set(v,a);return v}),bindVertexArrayOES:(v:unknown)=>{currentVao=v},deleteVertexArrayOES:vi.fn()}
  gl.getParameter=(p:number)=>p===gl.VAO_BINDING?currentVao:p===gl.TEXTURE_BINDING_2D?textures.get(s.get(gl.ACTIVE_TEXTURE)):s.get(p)
  gl.isEnabled=(c:number)=>caps.has(c);gl.enable=(c:number)=>caps.add(c);gl.disable=(c:number)=>caps.delete(c)
  gl.bindRenderbuffer=(_t:number,v:unknown)=>s.set(gl.RENDERBUFFER_BINDING,v);gl.bindFramebuffer=(_t:number,v:unknown)=>s.set(gl.FRAMEBUFFER_BINDING,v);gl.bindBuffer=(_t:number,v:unknown)=>s.set(gl.ARRAY_BUFFER_BINDING,v)
@@ -22,17 +25,18 @@ function fixture(privateVao=false){
  gl.depthFunc=(v:number)=>s.set(gl.DEPTH_FUNC,v);gl.depthMask=(v:boolean)=>s.set(gl.DEPTH_WRITEMASK,v);gl.depthRange=(...v:number[])=>s.set(gl.DEPTH_RANGE,v);gl.clearDepth=(v:number)=>s.set(gl.DEPTH_CLEAR_VALUE,v)
  gl.blendEquation=(v:number)=>{s.set(gl.BLEND_EQUATION_RGB,v);s.set(gl.BLEND_EQUATION_ALPHA,v)};gl.blendEquationSeparate=(a:number,b:number)=>{s.set(gl.BLEND_EQUATION_RGB,a);s.set(gl.BLEND_EQUATION_ALPHA,b)}
  gl.blendFunc=(a:number,b:number)=>{s.set(gl.BLEND_SRC_RGB,a);s.set(gl.BLEND_SRC_ALPHA,a);s.set(gl.BLEND_DST_RGB,b);s.set(gl.BLEND_DST_ALPHA,b)};gl.blendFuncSeparate=(a:number,b:number,c:number,d:number)=>{s.set(gl.BLEND_SRC_RGB,a);s.set(gl.BLEND_DST_RGB,b);s.set(gl.BLEND_SRC_ALPHA,c);s.set(gl.BLEND_DST_ALPHA,d)}
- gl.getExtension=(name:string)=>name==='OES_vertex_array_object'&&privateVao?vao:null;gl.createShader=()=>object();gl.shaderSource=vi.fn();gl.compileShader=()=>{};gl.getShaderParameter=()=>true;gl.deleteShader=()=>{};gl.createProgram=vi.fn(()=>({...object(),uniforms:{}}));gl.attachShader=()=>{};gl.linkProgram=()=>{};gl.getProgramParameter=()=>true;gl.deleteProgram=vi.fn()
+ gl.getExtension=(name:string)=>name==='EXT_frag_depth'&&fragDepth?{}:name==='OES_vertex_array_object'&&privateVao?vao:null;gl.createShader=()=>object();gl.shaderSource=vi.fn();gl.compileShader=()=>{};gl.getShaderParameter=()=>true;gl.deleteShader=()=>{};gl.createProgram=vi.fn(()=>({...object(),uniforms:{}}));gl.attachShader=()=>{};gl.linkProgram=()=>{};gl.getProgramParameter=()=>true;gl.deleteProgram=vi.fn()
+ gl.createTexture=vi.fn(object);gl.deleteTexture=vi.fn();gl.texParameteri=()=>{};gl.texImage2D=vi.fn();gl.pixelStorei=(key:number,value:number)=>s.set(key,value)
  gl.createBuffer=vi.fn(object);gl.createRenderbuffer=vi.fn(object);gl.deleteBuffer=vi.fn();gl.deleteRenderbuffer=vi.fn();gl.renderbufferStorage=vi.fn()
  gl.framebufferRenderbuffer=(_a:number,_b:number,_c:number,v:unknown)=>attachments.set(s.get(gl.FRAMEBUFFER_BINDING),v)
  gl.getFramebufferAttachmentParameter=()=>gl.NONE;gl.checkFramebufferStatus=()=>gl.FRAMEBUFFER_COMPLETE
- gl.getAttribLocation=(_p:unknown,name:string)=>['a_position','a_local','a_color','a_extent'].indexOf(name)
+ gl.getAttribLocation=(_p:unknown,name:string)=>['a_position','a_local','a_color','a_extent','a_inkState','a_inkAxis'].indexOf(name)
  gl.getVertexAttrib=(i:number,p:number)=>attributeState().get(i)[new Map([[gl.VERTEX_ATTRIB_ARRAY_ENABLED,'enabled'],[gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING,'buffer'],[gl.VERTEX_ATTRIB_ARRAY_SIZE,'size'],[gl.VERTEX_ATTRIB_ARRAY_TYPE,'type'],[gl.VERTEX_ATTRIB_ARRAY_NORMALIZED,'normalized'],[gl.VERTEX_ATTRIB_ARRAY_STRIDE,'stride']]).get(p)!]
  gl.getVertexAttribOffset=(i:number)=>attributeState().get(i).offset
  gl.vertexAttribPointer=(i:number,size:number,type:number,normalized:boolean,stride:number,offset:number)=>Object.assign(attributeState().get(i),{buffer:s.get(gl.ARRAY_BUFFER_BINDING),size,type,normalized,stride,offset})
  gl.enableVertexAttribArray=(i:number)=>attributeState().get(i).enabled=true;gl.disableVertexAttribArray=(i:number)=>attributeState().get(i).enabled=false
  gl.useProgram=(p:unknown)=>s.set(gl.CURRENT_PROGRAM,p);gl.getUniformLocation=(p:unknown,name:string)=>({p,name})
- gl.uniform1f=gl.uniform1i=(loc:any,v:number)=>loc.p.uniforms[loc.name]=v;gl.uniform2f=()=>{}
+ gl.uniform1f=gl.uniform1i=(loc:any,v:number)=>loc.p.uniforms[loc.name]=v;gl.uniform2f=gl.uniform3f=gl.uniform4f=()=>{}
  gl.bufferData=(_t:number,v:Float32Array)=>uploaded=new Float32Array(v)
  gl.clear=vi.fn(()=>{rank=0;requestPixel=[0,0,0,0]})
  gl.drawArrays=vi.fn((_m:number,_f:number,count:number)=>{
@@ -100,4 +104,43 @@ it('does not replace an original undefined failure with a cleanup exception and 
  let caught=false,error:unknown='no'
  try{s.batch.paint([stamp(.5,[1,0,0])],s.coverage,s.request,0,0)}catch(value){caught=true;error=value}
  expect(caught).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(s.attachments.get(s.request.fbo)).toBeNull();s.gl.bindRenderbuffer=bind;s.batch.destroy()
+})
+
+const inkSettings={depletion:[0,.5,1],useOpacity:true,useSaturation:false,useWeights:false,pressureWeight:.5,bristleLengthWeight:.5,bristleInkAmountWeight:.5,inkDepletionWeight:50}
+it('prewarms one reused packed profile texture and refuses unsupported capabilities before mutation',()=>{
+ const s=fixture(true),before=s.snapshot()
+ expect(()=>s.batch.prepareInkProfile(inkSettings,true)).toThrow('EXT_frag_depth');expect(s.snapshot()).toEqual(before);expect(s.gl.createProgram).not.toHaveBeenCalled()
+ expect(()=>s.batch.prepareInkProfile({...inkSettings,useSaturation:true},false)).toThrow('saturation');expect(s.gl.createProgram).not.toHaveBeenCalled()
+ s.batch.prepareInkProfile(inkSettings,false);expect(s.snapshot()).toEqual(before);expect(s.batch.inkTextureBytes).toBe(12)
+ s.batch.prepareInkProfile(inkSettings,false);expect(s.gl.texImage2D).toHaveBeenCalledTimes(1)
+ s.batch.prepareInkProfile({...inkSettings,depletion:[1,0]},false);expect(s.gl.createTexture).toHaveBeenCalledTimes(1);expect(s.gl.texImage2D).toHaveBeenCalledTimes(2)
+ s.batch.reset();expect(s.batch.inkTextureBytes).toBe(0);expect(s.gl.deleteTexture).toHaveBeenCalledTimes(1)
+})
+it('runs spatial opacity as bounded hair geometry and restores both texture units on undefined draw failure',()=>{
+ const s=fixture(true,true);s.batch.prepareInkProfile(inkSettings,true);s.batch.prepareDimensions(16,16)
+ const profile=createBristleInkProfile(inkSettings),state=createBristleInkState(1),span=advanceBristleInkBulk(profile,state,0,[6,8],[10,8],1,1,false)
+ const stamps=Array.from({length:4096},()=>({...stamp(1,[1,0,0]),bristleInkSpan:span}))
+ s.gl.drawArrays=vi.fn();const before=s.snapshot();s.batch.paint(stamps,s.coverage,s.request,0,0,{antialias:false,compositing:false})
+ expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);expect(s.snapshot()).toEqual(before)
+ s.gl.drawArrays=()=>{throw undefined};let caught=false,error:unknown='none'
+ try{s.batch.paint(stamps,s.coverage,s.request,0,0,{antialias:false,compositing:false})}catch(e){caught=true;error=e}
+ expect(caught).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(s.attachments.get(s.request.fbo)).toBeNull()
+ const shaders=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1])).join('\n');expect(shaders).toContain('gl_FragDepthEXT=a');expect(shaders).toContain('v_inkState=a_inkState')
+})
+
+it('uses the non-depth bounded additive AA path without frag-depth and premultiplies request RGB once',()=>{
+ const s=fixture(true);s.batch.prepareInkProfile(inkSettings,false);s.batch.prepareDimensions(16,16)
+ const span=advanceBristleInkBulk(createBristleInkProfile(inkSettings),createBristleInkState(1),0,[6,8],[10,8],1,1,true),items=Array.from({length:4096},()=>({...stamp(1,[1,0,0]),bristleInkSpan:span}))
+ const blend=vi.spyOn(s.gl,'blendFuncSeparate');s.gl.drawArrays=vi.fn();const before=s.snapshot()
+ s.batch.paint(items,s.coverage,s.request,0,0,{antialias:true,compositing:false})
+ expect(blend).toHaveBeenCalledWith(s.gl.ONE,s.gl.ZERO,s.gl.ONE,s.gl.ONE);expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);expect(s.snapshot()).toEqual(before)
+ const shaders=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1])).join('\n');expect(shaders).toContain('texture2D(u_source,v_uv).rgb*texture2D(u_source,v_uv).a');expect(shaders).not.toContain('#extension GL_EXT_frag_depth : require')
+})
+it('invalidates readiness on profile upload failure and preserves original undefined plus unpack/texture state',()=>{
+ const s=fixture(true);s.batch.prepareInkProfile(inkSettings,false);const before=s.snapshot(),next={...inkSettings,depletion:[1,.5,0]},upload=s.gl.texImage2D
+ s.gl.texImage2D=()=>{throw undefined};let caught=false,error:unknown='none'
+ try{s.batch.prepareInkProfile(next,false)}catch(e){caught=true;error=e}
+ expect(caught).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before)
+ expect(()=>s.batch.assertInkPrepared(inkSettings,false)).toThrow('not prepared');expect(()=>s.batch.assertInkPrepared(next,false)).toThrow('not prepared')
+ s.gl.texImage2D=upload;s.batch.prepareInkProfile(next,false);expect(()=>s.batch.assertInkPrepared(next,false)).not.toThrow();expect(s.gl.createTexture).toHaveBeenCalledTimes(1)
 })

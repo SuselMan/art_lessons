@@ -91,8 +91,8 @@ it('prepares the new descriptor profile through the existing one-texture lookup 
 })
 it('routes both actual primary and mask curve samples through captured basis/softness uniforms',()=>{
  const shader=createBrushStampFragment(true,true,true)
- expect(shader).toContain('brushProceduralMaskWithSoftness(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness)')
- expect(shader).toContain('u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness)')
+ expect(shader).toContain('brushProceduralMaskWithSpikes(pixel,brushAutoSpikeFrame(gaussianFrame,u_autoSpikes.x,u_autoSpikeAngle,u_flip),u_tipProceduralGeometry,u_tipProcedural,u_tip,u_tipSoftnessBasis,u_tipSoftness,u_autoSpikes.x)')
+ expect(shader).toContain('u_dualProceduralGeometry,u_dualProcedural,u_dual,u_dualSoftnessBasis,u_dualSoftness,u_autoSpikes.y)')
  expect(shader).toContain('if(profile.x<3.5)return brushProceduralMaskWithCurve')
  expect(shader).toContain('return brushRadialSoftnessMask(lookup,dot(p,p),basis,softness)')
  expect(createBrushStampFragment(true,true,false)).not.toContain('u_tipSoftnessBasis')

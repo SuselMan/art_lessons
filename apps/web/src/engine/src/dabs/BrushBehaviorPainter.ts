@@ -1,3 +1,7 @@
+import {createBristleInkState,type BristleInkSettings} from '../presets/brushBristleInk'
+import {advanceBristleInkBulk} from '../presets/brushBristleInkBulk'
+import type {BristleInkGeometry} from '../presets/brushBristle'
+import {autoSpikeAllocation} from '../raster/autoSpikes'
 import {hatchingBackgroundUniform} from '../raster/hatchingBackground'
 import {BristleRequestBatch} from './BristleRequestBatch'
 import{tangentNormalColor}from'../presets/brushTangentNormal'
@@ -34,7 +38,7 @@ import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
-const STAMP_UNIFORMS = [ 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
+const STAMP_UNIFORMS = [ 'u_autoSpikes','u_autoSpikeAngle','u_dualFlip', 'u_hatchBackground', 'u_tipSoftnessBasis','u_dualSoftnessBasis','u_tipSoftness','u_dualSoftness', 'u_hatch0','u_hatch1','u_hatch2','u_hatchStyle',
   'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
   'u_wickCap', 'u_tipPacking', 'u_dualTipPacking', 'u_lightnessMaterial',
@@ -169,6 +173,7 @@ export class BrushBehaviorPainter {
   }
   prepareProcedural(): void { this.stampFor(true) }
 
+  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean):void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).prepareInkProfile(settings,!antialias&&!compositing)}
   prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
   prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).prepare()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
@@ -246,6 +251,7 @@ export class BrushBehaviorPainter {
       for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution)}
       return
     }
+    if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
@@ -277,6 +283,18 @@ export class BrushBehaviorPainter {
     }
 
     const accumulation=behavior.rendering?.accumulation
+    // Source ellipse geometry remains on each stamp. Allocation uses native
+    // square characteristic axes for spiked generators, independently of Ratio.
+    const allocationFor=(stamp:BehaviorPlaced)=>brush.tip.autoShape?autoSpikeAllocation(stamp.radius,stamp.aspect,brush.tip.autoShape.spikes):stamp
+    const footprintFor=(stamp:BehaviorPlaced,pad:number)=>{
+      const allocation=allocationFor(stamp)
+      return brushFootprintBounds(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,pad)
+    }
+    const copyRectFor=(stamp:BehaviorPlaced,width:number,height:number,originX:number,originY:number)=>{
+      const allocation=allocationFor(stamp)
+      return brushFootprintCopyRect(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,originX,originY,width,height)
+    }
+
     const circleBand = brush.tip.profile?.kind === 'circleBand'
     if (circleBand !== (accumulation === 'maxAlpha')) throw Error('Circle band requires max-alpha accumulation')
     if(accumulation==='alphaDarken'){
@@ -284,6 +302,7 @@ export class BrushBehaviorPainter {
       state.washColor??=[...color]
     }
     const constantPigment=!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {
       const previous = state.previous
       let flow = brush.flow
@@ -301,7 +320,14 @@ export class BrushBehaviorPainter {
       // Only admitted paint dabs enter the native-style opacity history.
       // Geometry/RNG still advance above, but a discarded tiny footprint must
       // not leave a high average behind for the next visible low-opacity dab.
-      return behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color).filter(st=>brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
+      return behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color).map(st=>{
+        if(brush.bristle?.version!==2)return st
+        const geometry=(st as typeof st&{bristleInk?:BristleInkGeometry}).bristleInk
+        if(!geometry)throw Error('Missing Bristle ink geometry')
+        const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
+        const span=advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
+        return {...st,flowScale:1,bristleInkSpan:span}
+      }).filter(st=>brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
@@ -333,11 +359,11 @@ export class BrushBehaviorPainter {
     let dirty: BrushBounds | undefined = oldPreview
     let nextPreview: BrushBounds | undefined
     for (const s of all) {
-      const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,edge+1)
+      const footprint=footprintFor(s,edge+1)
       if(footprint) dirty=unionBounds(dirty,footprint)
     }
     for (const s of tail.preview) {
-      const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,edge+1)
+      const footprint=footprintFor(s,edge+1)
       if(footprint) nextPreview=unionBounds(nextPreview,footprint)
     }
     if (nextPreview) this.previewBounds.set(state,nextPreview)
@@ -355,7 +381,7 @@ export class BrushBehaviorPainter {
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])
-    const curveProfiles = brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
+    const curveProfiles = !!brush.tip.autoShape || !!secondary?.tip.autoShape || brush.tip.profile?.kind === 'radialCurve' || brush.tip.profile?.kind === 'radialCurveSoftness' || secondary?.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurveSoftness'
     const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),brush.texture?.id,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
@@ -408,6 +434,7 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
       if(curveProfiles){
+        gl.uniform2f(u.u_autoSpikes,brush.tip.autoShape?.spikes??2,secondary?.tip.autoShape?.spikes??2)
         gl.uniform4f(u.u_tipSoftnessBasis,...brushTipSoftnessBasisUniforms(brush.tip))
         gl.uniform4f(u.u_dualSoftnessBasis,...brushTipSoftnessBasisUniforms(secondary?.tip))
         gl.uniform1f(u.u_tipSoftness,1)
@@ -431,6 +458,7 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_dualTexOrigin, ((tile.originX % dualPeriod) + dualPeriod) % dualPeriod, ((tile.originY % dualPeriod) + dualPeriod) % dualPeriod)
       gl.uniform1f(u.u_dualKind, secondary ? secondary.tip.profile ? 3 : secondary.tip.kind === 'bitmap' ? 2 : 1 : 0)
       gl.uniform1f(u.u_dualBlend, blend(behavior.dual?.blendMode))
+      gl.uniform2f(u.u_dualFlip,1,1)
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
       gl.enableVertexAttribArray(selected.position)
       gl.vertexAttribPointer(selected.position, 2, gl.FLOAT, false, 0, 0)
@@ -481,7 +509,7 @@ export class BrushBehaviorPainter {
               }
             }
           }
-          const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
+          const footprint=footprintFor(s,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
           if(brush.hatching&&s.hatching){
@@ -546,6 +574,17 @@ export class BrushBehaviorPainter {
             gl.uniform4f(u.u_tipProceduralGeometry, mainRx, mainRy, proceduralSampleCount(2 * Math.min(mainRx, mainRy), !!brush.tip.profile?.antialias), 0)
             gl.uniform4f(u.u_dualProceduralGeometry, childRx, childRy, proceduralSampleCount(2 * Math.min(childRx, childRy), !!secondary?.tip.profile?.antialias), 0)
             gl.uniform1f(u.u_dualProceduralAngle, secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle)
+            if(brush.tip.autoShape){
+              // Native allocation is the world-axis bbox of a rotated square.
+              // Keep the generator's physical angle/radii independent of this quad.
+              const extent=mainRx*(Math.abs(Math.cos(s.angle))+Math.abs(Math.sin(s.angle)))
+              gl.uniform1f(u.u_autoSpikeAngle,s.angle)
+              gl.uniform1f(u.u_dabRadius,extent)
+              gl.uniform1f(u.u_aspectRatio,1)
+              gl.uniform1f(u.u_angle,0)
+              gl.uniform1f(u.u_wickPx,0)
+            }
+
           }
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
           gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
@@ -561,6 +600,7 @@ export class BrushBehaviorPainter {
           gl.uniform1f(u.u_paperPressure, s.pressure)
           gl.uniform3fv(u.u_color, s.color)
           gl.uniform2f(u.u_flip, s.flipX, s.flipY)
+          if(s.dualFlipX!==undefined&&s.dualFlipY!==undefined)gl.uniform2f(u.u_dualFlip,s.dualFlipX,s.dualFlipY)
           const jitter = g?.offsetJitter ? brushDabRandom(state.seed, 42) * period : 0
           const moving = g?.mode === 'moving' ? 1 - g.movement : 0
           const rotation = (g?.rotation ?? 0) * Math.PI
@@ -583,7 +623,7 @@ export class BrushBehaviorPainter {
         }
         const copy = scratch.brushCeilingCopy(tile.buffer)
         for (const item of list) {
-          const rect = brushFootprintCopyRect(item.x, item.y, item.radius, item.aspect, item.angle, tile.originX, tile.originY, ceiling.width, ceiling.height)
+          const rect = copyRectFor(item,ceiling.width,ceiling.height,tile.originX,tile.originY)
           if (!rect) continue
           gl.activeTexture(gl.TEXTURE7)
           // Only this quad samples previous ceiling. Keep tile-sized storage
@@ -611,6 +651,12 @@ export class BrushBehaviorPainter {
           (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintCurves(list,coverage,ceiling,scratch.brushCeilingCopy(tile.buffer),tile.originX,tile.originY)
           return
         }
+        if(brush.bristle?.version===2){
+          if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared')
+          this.bristleRequests.prepareDimensions(coverage.width,coverage.height)
+          this.bristleRequests.paint(list,coverage,ceiling,tile.originX,tile.originY,{antialias:brush.bristle.antialias,compositing:brush.bristle.compositing})
+          return
+        }
         if(brush.bristle&&!brush.bristle.antialias&&!brush.bristle.compositing){
           if(!this.bristleRequests)throw Error('Bristle alpha-winner programs are not prepared')
           this.bristleRequests.prepareDimensions(coverage.width,coverage.height)
@@ -633,7 +679,7 @@ export class BrushBehaviorPainter {
         // pixel; Wash needs feedback only on its explicitly selected dabs.
         drawStamps(list,false,false,item=>{
           if((circleBand || item.washFeedback) && copy){
-            const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)
+            const rect=copyRectFor(item,coverage.width,coverage.height,tile.originX,tile.originY)
             if(!rect)return
             gl.activeTexture(gl.TEXTURE7)
             coverage.copyRegionInto(copy,rect.x,rect.y,rect.x,rect.y,rect.width,rect.height)

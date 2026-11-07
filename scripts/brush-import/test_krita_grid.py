@@ -12,6 +12,7 @@ class GridTests(unittest.TestCase):
     def test_plain_foreground_grid_stays_supported(self):
         a=self.convert();self.assertNotIn('source',a['descriptor']['mixer']);self.assertEqual(a['descriptor']['mixer']['load'],1)
     def test_background_hsv_and_invalid_shape_rejected(self):
-        with self.assertRaisesRegex(ValueError,'background'):self.convert('<param name="ColorOption/fillBackground">true</param>')
-        with self.assertRaisesRegex(ValueError,'HSV'):self.convert('<param name="ColorOption/useRandomHSV">true</param><param name="ColorOption/hue">10</param>')
+        d=self.convert('<param name="ColorOption/fillBackground">true</param>')['descriptor'];self.assertEqual(d['version'],70);self.assertTrue(d['grid']['fillBackground'])
+        d=self.convert('<param name="ColorOption/useRandomHSV">true</param><param name="ColorOption/hue">90</param><param name="ColorOption/saturation">-50</param>')['descriptor'];self.assertEqual(d['grid']['hsv'],{'hue':.5,'saturation':-.5,'value':0})
+        with self.assertRaisesRegex(ValueError,'HSV'):self.convert('<param name="ColorOption/useRandomHSV">true</param><param name="ColorOption/hue">181</param>')
         with self.assertRaisesRegex(ValueError,'shape'):self.convert('<param name="GridShape/shape">10</param>')

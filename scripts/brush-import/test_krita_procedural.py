@@ -25,7 +25,7 @@ class ProceduralTests(unittest.TestCase):
         b,_=self.brush('rect',generator={'hfade':'0','vfade':'1','antialiasEdges':'0'})
         self.assertEqual(b['descriptor']['tip']['profile']['horizontalFade'],0);self.assertFalse(b['descriptor']['tip']['profile']['antialias'])
     def test_excluded_density_randomness_spikes_and_softness_remain_explicit(self):
-        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'}),dict(generator={'spikes':'4'})]:
+        for kw in [dict(definition={'density':'.8'}),dict(definition={'randomness':'.2'})]:
             b,_=self.brush('rect',**kw);self.assertNotIn('profile',b['descriptor']['tip'])
             self.assertTrue(any(c['feature']=='standardMaskProfile'and c['status']=='unsupported'for c in b['compatibility']))
     def test_standard_softness_constant_pressure_and_combined_controls(self):
@@ -58,4 +58,18 @@ class ProceduralTests(unittest.TestCase):
         d['tip']={'kind':'procedural','aspect':1,'profile':{'kind':'gaussian','fade':.5,'antialias':True}}
         with self.assertRaises(ValueError):convert.validate_portable_profile(d)
 
-if __name__=='__main__':unittest.main()
+
+    def test_spikes_keep_square_allocation_and_source_ratio(self):
+        for shape in ['circle','rect']:
+            for n in [3,4,5,20]:
+                b,_=self.brush(shape,generator={'spikes':str(n)});d=b['descriptor']
+                self.assertEqual(d['tip']['autoShape'],{'version':1,'spikes':n});self.assertEqual(d['tip']['aspect'],5)
+                self.assertEqual(d['tip']['profile']['kind'],'standard');self.assertGreaterEqual(d['version'],71);convert.validate_portable_profile(d)
+                self.assertFalse(any(x['status']=='unsupported'for x in b['compatibility']))
+        b,_=self.brush(generator={'spikes':'21'});self.assertNotIn('autoShape',b['descriptor']['tip'])
+        self.assertTrue(any(x['status']=='unsupported'for x in b['compatibility']))
+    def test_gaussian_spikes_anisotropy_and_native_softness_noop(self):
+        b,_=self.brush(generator={'id':'gauss','spikes':'5'},extra={'PressureSoftness':'true','SoftnessValue':'.2'})
+        d=b['descriptor'];self.assertEqual(d['tip']['profile']['kind'],'gaussian');self.assertEqual(d['tip']['autoShape']['spikes'],5)
+        self.assertNotIn('softness',d['behavior']);convert.validate_portable_profile(d)
+        self.assertFalse(any(x['status']=='unsupported'for x in b['compatibility']))

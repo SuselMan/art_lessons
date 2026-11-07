@@ -15,6 +15,16 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('bounds procedural spikes and rejects bitmap decoration',()=>{
+    const data=library(),d=data.brushes[0].descriptor
+    d.paperInteraction=0;d.flowPer='stamp';d.behavior={version:2}
+    d.tip={kind:'procedural',hardness:1,aspect:2,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'rectangle',horizontalFade:1,verticalFade:1,antialias:false},autoShape:{version:1,spikes:5}}
+    expect(isBrushLibrary(data)).toBe(true)
+    for(const spikes of [2,21,3.5,NaN]){d.tip.autoShape!.spikes=spikes;expect(isBrushLibrary(data)).toBe(false)}
+    d.tip.autoShape!.spikes=20;expect(isBrushLibrary(data)).toBe(true)
+    d.tip.kind='bitmap';expect(isBrushLibrary(data)).toBe(false)
+  })
+
   it('admits softness only on the implemented standard stamp mask',()=>{
     const data=library(),d=data.brushes[0].descriptor
     d.paperInteraction=0;d.tip={kind:'procedural',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'ellipse',horizontalFade:.5,verticalFade:.5,antialias:true}}

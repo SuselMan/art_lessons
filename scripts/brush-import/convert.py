@@ -546,6 +546,10 @@ def validate_portable_profile(descriptor):
     tip=descriptor['tip']
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
+    auto=tip.get('autoShape')
+    if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
+            or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
+            or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness')):raise ValueError('Invalid native auto shape')
     maximum=(isinstance(behavior,dict) and isinstance(behavior.get('rendering'),dict)
              and behavior['rendering'].get('accumulation')=='maxAlpha')
     circle=isinstance(profile,dict) and profile.get('kind')=='circleBand'
@@ -565,7 +569,7 @@ def validate_portable_profile(descriptor):
     finite=lambda value,lo,hi:type(value) in (int,float) and math.isfinite(value) and lo<=value<=hi
     if profile.get('kind')=='gaussian':
         if (set(profile)!={'kind','fade','antialias'} or descriptor['model']!='stamp'
-                or tip.get('aspect')!=1 or not finite(profile.get('fade'),.000001,.999999)):
+                or tip.get('aspect')!=1 and tip.get('autoShape')is None or not finite(profile.get('fade'),.000001,.999999)):
             raise ValueError('Invalid portable Gaussian profile')
     elif profile.get('kind')=='standard':
         if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'}
