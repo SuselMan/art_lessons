@@ -14,3 +14,14 @@ describe('modern Color Smudge compiler combinations',()=>{
   expect(wetTransferFragment(true,true,true)).not.toContain('u_colorSmudgeHeight')
  })
 })
+
+it('dispatches Photoshop only inside modern foreground composition and retains alpha shell',()=>{
+ const shader=wetTransferFragment(true,true,true,true)
+ expect(shader).toContain('uniform float u_colorSmudgePhotoshop')
+ expect(shader).toContain('step(vec3(256.0),floor(clamp(dst,0.0,1.0)*255.0+0.5)+floor(clamp(src,0.0,1.0)*255.0+0.5))')
+ expect(shader).toContain('if(u_colorSmudgePhotoshop<0.5 && u_wetBlend<0.5)return pigment+destination*(1.0-pigment.a)')
+ expect(shader).toContain('u_colorSmudge.z>0.5 && pigment.a>0.0 && u_wetBlend<0.5 && u_colorSmudgePhotoshop<0.5')
+ expect(shader).toContain('pigment.a+destination.a*(1.0-pigment.a)')
+ expect(wetTransferFragment()).not.toContain('u_colorSmudgePhotoshop')
+ expect(wetTransferFragment(true,true,true)).not.toContain('u_colorSmudgePhotoshop')
+})

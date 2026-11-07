@@ -5,12 +5,17 @@ export function colorSmudgeTransferFragment(source: string): string {
     source = source.replace(before, after)
   }
   replace("  uniform float u_previousCanvas; //",
-`  uniform float u_projectionCanvas; uniform vec2 u_colorSmudgeHeight; uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
+`  uniform float u_colorSmudgePhotoshop; uniform float u_projectionCanvas; uniform vec2 u_colorSmudgeHeight; uniform float u_colorSmudgeTip; uniform vec4 u_colorSmudge; // new mask strategy, smear amount, fused dulling, mask-only pass
   uniform float u_previousCanvas; //`)
   replace(" float wetGrainBlend(float b,float s,float m)",
 ` vec4 colorSmudgePaint(vec4 destination,vec4 pigment) {
-   if(u_wetBlend<0.5)return pigment+destination*(1.0-pigment.a);
-   vec3 blended=brushBlend(destination.rgb/max(destination.a,0.000001),pigment.rgb/max(pigment.a,0.000001),u_wetBlend);
+   if(u_colorSmudgePhotoshop<0.5 && u_wetBlend<0.5)return pigment+destination*(1.0-pigment.a);
+   vec3 dst=destination.rgb/max(destination.a,0.000001),src=pigment.rgb/max(pigment.a,0.000001);
+   // CFHardMixPhotoshop: strict widened U8 sum; equality stays black.
+   // Quantize straight channels before comparison to avoid half/tie drift.
+   vec3 blended=u_colorSmudgePhotoshop>0.5
+     ? step(vec3(256.0),floor(clamp(dst,0.0,1.0)*255.0+0.5)+floor(clamp(src,0.0,1.0)*255.0+0.5))
+     : brushBlend(dst,src,u_wetBlend);
    return vec4(destination.rgb*(1.0-pigment.a)+pigment.rgb*(1.0-destination.a)+blended*destination.a*pigment.a,pigment.a+destination.a*(1.0-pigment.a));
  }
  float wetGrainBlend(float b,float s,float m)`)
@@ -33,7 +38,7 @@ export function colorSmudgeTransferFragment(source: string): string {
         if(u_colorSmudgeTip>0.5) pigment=texture2D(u_tip, u_tipBounds.xy + (v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw)*u_previousCanvasForeground.a;
         vec4 mixed;
         // Native fuses foreground into the sampled mean for OVER dulling.
-        if(u_colorSmudge.z>0.5 && pigment.a>0.0 && u_wetBlend<0.5) {
+        if(u_colorSmudge.z>0.5 && pigment.a>0.0 && u_wetBlend<0.5 && u_colorSmudgePhotoshop<0.5) {
           source=pigment+source*(1.0-pigment.a);
           mixed=source*a+destination*(1.0-source.a*a);
         } else {

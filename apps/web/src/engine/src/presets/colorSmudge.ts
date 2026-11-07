@@ -18,3 +18,12 @@ export function colorSmudgeRates(opacity: number, pickup: number, color: number,
 export function resolveColorSmudgeRate<T>(rate:number,dynamics:readonly T[]|undefined,evaluate:(control:T,index:number)=>number):number {
   return rate * (dynamics ?? []).reduce((value,control,index)=>value*evaluate(control,index),1)
 }
+
+/** Foreground-only functional U8 projection of native CFHardMixPhotoshop.
+ * Arguments are straight encoded channels; alpha composition stays in the
+ * existing modern Color Smudge shell, not this per-channel decision.
+ */
+export function colorSmudgeHardMixPhotoshop(destination:number,source:number):0|1 {
+  const byte=(value:number)=>Math.floor(Math.max(0,Math.min(1,value))*255+.5)
+  return byte(source)+byte(destination)>255?1:0
+}

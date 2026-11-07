@@ -26,6 +26,17 @@ describe('brush library contract', () => {
     d.model='mixer';d.mixer={load:0,pickup:0,strength:1};expect(isBrushLibrary(data)).toBe(false)
   })
 
+  it('bounds Photoshop Hard Mix to the modern foreground strategy',()=>{
+    const data=library(),d=data.brushes[0].descriptor
+    d.model='mixer';d.paperInteraction=0
+    d.mixer={load:0,initialLoad:0,pickup:1,strength:1,source:'previousCanvas',algorithm:'krita-mask',colorRateComposite:'hardMixPhotoshop'}
+    d.behavior={version:2,rendering:{mode:'buildUp',blendMode:'normal',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}
+    expect(isBrushLibrary(data)).toBe(true)
+    delete d.mixer.algorithm;expect(isBrushLibrary(data)).toBe(false)
+    d.mixer.algorithm='krita-mask';d.behavior.rendering!.blendMode='hardMix';expect(isBrushLibrary(data)).toBe(false)
+    d.behavior.rendering!.blendMode='normal';Object.assign(d.mixer,{colorRateComposite:'hardMix'});expect(isBrushLibrary(data)).toBe(false)
+  })
+
   it('accepts an actual PNG preview with byte-decoded dimensions',()=>{const data=library();data.brushes[0].preview='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';expect(isBrushLibrary(data)).toBe(true)})
 
   it('admits author input on the primary component and rejects unsupported independent child input', () => {

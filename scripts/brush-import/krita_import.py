@@ -765,6 +765,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         behavior['rendering']['blendMode']=modes[mode]
     else:
         notes.append(compatibility('blendMode','Unsupported Krita blend '+mode+'; normal used.','unsupported'))
+    if mode=='hard_mix_photoshop':notes.append(compatibility('hardMixPhotoshop','Photoshop Hard Mix requires a foreground-specific strategy; legacy Hard Mix fallback is not equivalent.','unsupported'))
     # Native checked Size keeps its constant even when UseCurve=false.
     # Missing PressureSize is unchecked; stale UseCurve/Value do not enable it.
     size_checked=enabled(params.get('PressureSize','false'))
@@ -1038,6 +1039,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['mixer'].update(source='projectionCanvas' if enabled(params.get('MergedPaint','false')) and 'material' not in d['tip'] else 'previousCanvas',load=0,initialLoad=0)
             if d['mixer']['source']=='projectionCanvas':notes.append(compatibility('mergedPaint','Captured visible-layer order/opacity and historical source reads; bounded live projection is recomposited per dab rather than native cached image overlay.'))
             if modern: d['mixer']['algorithm']='krita-stamp' if 'color' in d['tip'] else 'krita-mask'
+            if modern and mode=='hard_mix_photoshop':
+                notes=[note for note in notes if note['feature']!='hardMixPhotoshop']
+                d['mixer']['colorRateComposite']='hardMixPhotoshop'
+                behavior['rendering']['blendMode']='normal'
+                d['version']=max(d['version'],65)
+                notes.append(compatibility('colorRateComposite','Native strict U8 Photoshop Hard Mix is applied only to foreground paint; canvas feedback and final transfer keep their own strategy.','supported'))
             if 'material' in d['tip']:
                 checked=enabled(params.get('PressurePaintThickness'))
                 thickness=numeric(params.get('PaintThicknessValue'),1) if checked else 1

@@ -4,6 +4,19 @@ from pathlib import Path
 import convert
 from test_krita_foreground import LegacyForegroundTests
 class ColorSmudgeImportTests(LegacyForegroundTests):
+    def test_photoshop_hard_mix_is_foreground_only_modern_capability(self):
+        for definition in [None,'<Brush type="png_brush" filename="tip.png" brushApplication="1"/>']:
+            extra={'SmudgeRateUseNewEngine':'true','CompositeOp':'hard_mix_photoshop'}
+            c=self.brush(extra,definition)if definition else self.brush(extra)
+            d=c.brushes[0]['descriptor'];self.assertEqual(d['mixer']['colorRateComposite'],'hardMixPhotoshop')
+            self.assertEqual(d['behavior']['rendering']['blendMode'],'normal');self.assertGreaterEqual(d['version'],65)
+            self.assertFalse(any(n['feature']=='blendMode'and n['status']=='unsupported'for n in c.brushes[0]['compatibility']))
+            convert.validate_portable_mixer(d)
+            for change in [{'algorithm':None},{'colorRateComposite':'hardMix'}]:
+                bad=copy.deepcopy(d);bad['mixer'].update(change)
+                with self.assertRaises(ValueError):convert.validate_portable_mixer(bad)
+        old=self.brush({'CompositeOp':'hard_mix_photoshop','SmudgeRateUseNewEngine':'false'}).brushes[0]['descriptor']
+        self.assertNotIn('colorRateComposite',old['mixer'])
     def test_new_smearing_rates_not_legacy_prefactor(self):
         d=self.brush({'SmudgeRateUseNewEngine':'true','SmudgeRateValue':'.9'}).brushes[0]['descriptor']
         self.assertEqual(d['mixer']['algorithm'],'krita-mask')

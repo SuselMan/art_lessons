@@ -500,12 +500,13 @@ def validate_portable_mixer(descriptor):
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if (descriptor['model']!='mixer' or not isinstance(mixer,dict)
-            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','algorithm','paintThickness'}
+            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','algorithm','paintThickness','colorRateComposite'}
             or any(not finite(mixer.get(key)) for key in ('load','pickup','strength'))
             or ('initialLoad' in mixer and not finite(mixer['initialLoad']))
             or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
             or ('source' in mixer and mixer['source'] not in ('previousCanvas','projectionCanvas'))):
         raise ValueError('Invalid portable mixer')
+    if 'colorRateComposite'in mixer and (mixer['colorRateComposite']!='hardMixPhotoshop'or mixer.get('algorithm')not in('krita-mask','krita-stamp')or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):

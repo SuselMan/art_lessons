@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { colorSmudgeRates, resolveColorSmudgeRate } from './colorSmudge'
+import { colorSmudgeRates, resolveColorSmudgeRate, colorSmudgeHardMixPhotoshop } from './colorSmudge'
 it('keeps pigment independent from pickup and squares Color Rate after input dynamics',()=>{
  expect(colorSmudgeRates(.5,.6,.7,false)).toEqual({smear:.3,color:.7*.7*.5})
  expect(colorSmudgeRates(.5,0,1,false)).toEqual({smear:0,color:.5})
@@ -51,4 +51,16 @@ it('retains historical products and legacy foreground compensation without clamp
  const state=beginBrushBehavior(colorRateDab),dynamic:BrushDynamic={control:'off',minimum:0,jitter:0,combine:{constant:.5,mode:'sum',scaling:[response(.8),response(.7)],additive:[]}}
  expect(resolveColorSmudgeRate(.1,[dynamic],control=>brushDynamicValue(control,colorRateDab,state,.4))).toBeCloseTo(.15,14)
  expect(resolveColorSmudgeRate(.7,undefined,evaluate)).toBe(.7)
+})
+
+it('uses strict widened U8 HardMixPhotoshop foreground threshold rather than vivid-light hard mix',()=>{
+ for(const[source,destination,expected]of [[0,255,0],[255,0,0],[1,255,1],[255,1,1],[127,128,0],[128,127,0],[128,128,1],[0,0,0],[255,255,1]]as const){
+  expect(colorSmudgeHardMixPhotoshop(destination/255,source/255)).toBe(expected)
+ }
+ // Independent complete U8 diagonal boundaries: equality is black, next byte white.
+ for(let source=0;source<=255;source++){
+  expect(colorSmudgeHardMixPhotoshop((255-source)/255,source/255)).toBe(0)
+  if(source)expect(colorSmudgeHardMixPhotoshop((256-source)/255,source/255)).toBe(1)
+ }
+ expect([64,127,255].map((s,i)=>colorSmudgeHardMixPhotoshop([192,128,0][i]/255,s/255))).toEqual([1,0,0])
 })
