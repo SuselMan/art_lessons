@@ -602,25 +602,37 @@ export class RibbonStrokeScratch {
       // is read — copyTo overwrites `original` outright, the others are
       // cleared — so a reused buffer carries nothing of whatever gesture had
       // it last.
-      const original = this.pool.acquire(tile.width, tile.height)
-      tile.copyTo(original)
-      const coverage = this.pool.acquire(tile.width, tile.height)
-      coverage.clear()
-      let inkLoad: AccumulationBuffer | null = null
-      let inkColor: AccumulationBuffer | null = null
-      if (this.needsInk) {
-        inkLoad = this.pool.acquire(tile.width, tile.height)
-        inkLoad.clear()
-        if (this.needsColor) {
-          inkColor = this.pool.acquire(tile.width, tile.height)
-          inkColor.clear()
-        }
+      const acquired: AccumulationBuffer[] = []
+      const acquire = (): AccumulationBuffer => {
+        const buffer = this.pool.acquire(tile.width, tile.height)
+        acquired.push(buffer)
+        return buffer
       }
-      // The settled pair is taken on the first settle, by the pass that needs
-      // it — a marker gesture never does, and three buffers a tile was already
-      // the churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
-      this._tiles.set(tile, entry)
+      try {
+        const original = acquire()
+        tile.copyTo(original)
+        const coverage = acquire()
+        coverage.clear()
+        let inkLoad: AccumulationBuffer | null = null
+        let inkColor: AccumulationBuffer | null = null
+        if (this.needsInk) {
+          inkLoad = acquire()
+          inkLoad.clear()
+          if (this.needsColor) {
+            inkColor = acquire()
+            inkColor.clear()
+          }
+        }
+        entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
+        this._tiles.set(tile, entry)
+      } catch (error) {
+        // Nothing was published. Attempt every release independently; a
+        // cleanup failure must not hide the original (including undefined).
+        for (let i = acquired.length - 1; i >= 0; i--) {
+          try { this.pool.release(acquired[i]) } catch { /* Preserve primary. */ }
+        }
+        throw error
+      }
     }
     return entry
   }
@@ -629,8 +641,13 @@ export class RibbonStrokeScratch {
   brushCeiling(tile: AccumulationBuffer): AccumulationBuffer {
     const entry = this.getOrCreate(tile)
     if (!entry.inkLoad) {
-      entry.inkLoad = this.pool.acquire(tile.width, tile.height)
-      entry.inkLoad.clear()
+      const ceiling = this.pool.acquire(tile.width, tile.height)
+      try { ceiling.clear() }
+      catch (error) {
+        try { this.pool.release(ceiling) } catch { /* Preserve primary. */ }
+        throw error
+      }
+      entry.inkLoad = ceiling
     }
     return entry.inkLoad
   }
