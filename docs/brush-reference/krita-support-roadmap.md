@@ -1097,3 +1097,37 @@ fullsuite добавлены только getter для type-flow и комме�
 guarded cleanup. Python/shared/server не менялись, повтор не требовался.
 Это local code prerequisite: дополнительные historical fields/chunks
 ещё не имеют нового общего preallocation admission; Grid не включён.
+
+137d: цельный код Grid Wash для sampled rectangle / PaintOpAction2 подготовлен
+и прошёл центральные проверки. Новый sourcePolicy `canonical-begin-v1`
+фиксирует источник на первом положительном логическом дабе; endpoint metadata
+не создаёт отпечаток. Старые версии48/70 сохраняют прежние правила.
+Native Grid не применяет Flow/Opacity options: запрос имеет единичную
+непрозрачность, captured opacity применяется при выводе Wash.
+
+Источник и основа вывода разделены ролями прежних трёх scratch planes.
+Чужая растровая операция начинает новый сегмент накопления, как в остальных
+Wash Grafetto; исходные цвета BEGIN сохраняются. Очистка того же target
+сбрасывает destination pins/segment, но не подменяет источник текущим холстом.
+Полный replay заново устанавливает источник. Новый Grid working set16MiB
+учитывает активные planes и два512px patches, включая вложенный historical
+replay; это не общий лимит GPU и не прежний бюджет texture bank.
+
+Ресурсное ожидание использует существующие author FIFO/rebuild jobs, без
+polling и room reload. Оно отличается от history repair; чтение зависимых
+слоёв и snapshots не объявляют неполные pixels готовыми. Clear/delete/undo
+сохраняют путь восстановления. Source authority проверяется по фактическому
+курсу replay/применения, а не только по строке prefix. Own append и ACK
+сохраняют источник; реальная вставка перед pending BEGIN его инвалидирует.
+
+Первый общий прогон:1161 PASS и один сбой старой prototype fixture,
+233 модуля /125.28s. После исправления fixture и типовых несоответствий:
+48 focused PASS /11 модулей /15.26s, web2602/server1254 inputs,
+0 type diagnostics. Python601 PASS32.353s. Selected lint exit0,
+35 предупреждений, включая новые; все восемь workers завершены.
+Independent renderer/host static reviews закрыли найденные blockers.
+
+Это ещё не GPU/online release137. Подготовлены120 GPU rows
+(прежние111 +9 Grid), genuine CAPS и двухклиентный online сценарий;
+они требуют финального Git pin и отдельной immutable сборки.
+Публичный QA52/55 и каталог189/144/252 остаются на проверенном136.

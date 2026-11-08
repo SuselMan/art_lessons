@@ -1,3 +1,4 @@
+import {LayerTilesNotReady} from '../buffers/TiledLayerBuffer'
 // (#494) The room snapshot's way in and out of the engine, out of PencilEngine
 // (seam С7 of the survey): baking a layer for upload, the independent
 // full-replay bake it is verified against, restoring a downloaded one into a
@@ -62,6 +63,8 @@ export interface SnapshotIOContext {
   /** A fresh, empty layer buffer for a scratch replay — see _makeLayerBuffer.
    *  The caller destroys it. */
   scratchLayer(layerId: string): ILayerBuffer
+  /** Whole synchronous verification replay; never isolates individual rebuild slices. */
+  withIsolatedBrushGestures?<T>(work:()=>T):T
   /** The engine's _applyPixelOp: what a first-ever paint of `op` does. */
   applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void
   /** Starts decoding the images `ops` import; never awaited. */
@@ -165,7 +168,8 @@ export class SnapshotIO {
     // ledger revision or replacement buffer makes the observation obsolete.
     const revision = this.ctx.ledger.pixelRevision(layerId)
     if (this._emptyRevision.get(buf) === revision) return null
-    const tiles = this._bakeTiles(buf)
+    let tiles:SnapshotTile[]
+    try{tiles=this._bakeTiles(buf)}catch(error){if(!(error instanceof LayerTilesNotReady))throw error;return null}
     // (#467) Since _bakeTiles drops fully transparent tiles, this now also
     // catches a layer that is resident but holds nothing — painted and then
     // erased away. Omitting it leaves it uncovered, so the server sends its
@@ -204,8 +208,12 @@ export class SnapshotIO {
 
     const scratch = this.ctx.scratchLayer(layerId)
     try {
-      scratch.clear()
-      for (const op of ops) this.ctx.applyPixelOp(scratch, layerId, op)
+      const replay=()=>{
+        scratch.clear()
+        for (const op of ops) this.ctx.applyPixelOp(scratch, layerId, op)
+      }
+      if(this.ctx.withIsolatedBrushGestures)this.ctx.withIsolatedBrushGestures(replay)
+      else replay()
       // (#425) The same clipping as `bake`, and it has to be the same call:
       // this is the oracle those bytes are compared against (#168, #289), so
       // a difference in geometry here would read as a determinism violation
@@ -213,6 +221,7 @@ export class SnapshotIO {
       const tiles = this._bakeTiles(scratch)
       if (!tiles.length) return null
       return encodeLayerTiles(tiles)
+    } catch(error){if(!(error instanceof LayerTilesNotReady))throw error;return null
     } finally {
       scratch.destroy()
     }
@@ -474,6 +483,12 @@ export class SnapshotIO {
     })
   }
 
+  /** An explicit BEGIN dependency cannot be reconstructed from a pixel-only pinned base. */
+  requireHistoryRepair(layerId:string,coveredSeq:number):void{
+    if(!Number.isSafeInteger(coveredSeq)||coveredSeq<1)throw Error('Invalid Grid history coverage')
+    this.historyRepairs.set(layerId,Math.max(coveredSeq,this.historyRepairs.get(layerId)??0))
+    this.ctx.ledger.markDirty(layerId);this.ctx.ledger.refusePublishing(layerId)
+  }
   historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
 
   /** Until an ACK or historical ID resolves membership, a pending stroke may

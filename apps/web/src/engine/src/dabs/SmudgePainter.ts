@@ -1,3 +1,7 @@
+import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
+import{hasGridWash137Scope,hasGridBeginIdentity137}from'@grafetto/shared'
+import{GridWashOwner,GridWashBudget,gridGestureKey137,isGridRenderableDab137,gridGeometryNotReady,gridNotReady,gridCapacity,gridDestinationPlan,type GridBounds,type GridWashRuntime,type GridWashBinding,type GridBeginResult,type GridDestinationPinsResult,type GridWashPrepareResult,type GridWashPaintResult,type GridWashOwnerInfo,type BorrowedGridWash}from'./GridWashRuntime'
+import{sprayWashRegions}from'../presets/sprayWash133'
 import {textureEraseId} from '../presets/brushTextureErase'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
 import{CanvasEffectBatch}from'./CanvasEffectBatch'
@@ -60,7 +64,7 @@ import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeLegacy
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
-interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
+interface WetGesture extends WetMixState { gridWash?:GridWashOwner; behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
 type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveVisible?:ILayerBuffer['resolveVisible'];resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
 interface WetStamp { gradientLut?:string;foregroundAlpha?:number; projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
@@ -120,6 +124,11 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  openGridBegin?(target:ILayerBuffer,binding:GridWashBinding):GridBeginResult
+  pinGridDestinations?(target:ILayerBuffer,binding:GridWashBinding,tiles:readonly PaintTarget[]):GridDestinationPinsResult
+  assertGridWashPrepared?():void
+  borrowRequestWash?():BorrowedGridWash
+  gridResourcesReleased?():void
   openProjection?(source:NonNullable<BrushExecutionContext['brushSource']>,target:ILayerBuffer):ProjectionReadSession
 
   readonly brushMipCache?: BrushMipCache
@@ -165,6 +174,7 @@ const TRANSFER_UNIFORMS = [
 export class SmudgePainter {
   private effectBatch?:CanvasEffectBatch
   prepareCanvasEffect():void{(this.effectBatch??=new CanvasEffectBatch(this.gl)).prepare()}
+  private readonly gridBudget=new GridWashBudget()
   private gridBatch?:GridCellBatch
   prepareGrid():void{(this.gridBatch??=new GridCellBatch(this.gl)).prepare()}
   private readonly gl: WebGLRenderingContext
@@ -313,7 +323,7 @@ export class SmudgePainter {
     this.imageTransfer = undefined
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
     this.wetTextures.clear(true)
-    for(const state of this.wetGestures.values()) state.secondary?.forget()
+    for(const state of this.wetGestures.values()){this.retireGridState(state,true);state.secondary?.forget()}
     this.wetGestures.clear()
     this.imprints.clear() // same reasoning — pooled GL objects are dead too
     this.replayChunks.clear()
@@ -333,7 +343,7 @@ export class SmudgePainter {
     this.replayChunks.clear()
     this.wetTextures.clear()
     if (this.ownsMipCache) this.imageMips.clear()
-    for(const state of this.wetGestures.values())state.secondary?.destroy()
+    for(const state of this.wetGestures.values()){this.retireGridState(state);state.secondary?.destroy()}
     this.wetGestures.clear()
     if(this.colorMean)gl.deleteProgram(this.colorMean.program)
     if(this.colorSmudgeTextureTransfer)gl.deleteProgram(this.colorSmudgeTextureTransfer.program)
@@ -360,6 +370,7 @@ export class SmudgePainter {
 
   /** Release a presentation-only owner without touching a newer gesture. */
   releaseGesture(userId: string, strokeId: string, lost: boolean): void {
+    this.finishGridIdentity(userId,strokeId,lost)
     const imprint = this.imprints.get(userId)
     if (imprint?.strokeId === strokeId) {
       if (!lost) imprint.buf?.destroy()
@@ -376,6 +387,7 @@ export class SmudgePainter {
    * rather than a canonical strokeId. A stale end cannot free a newer owner.
    */
   finishGesture(userId: string, strokeId: string | null): void {
+    if(strokeId!==null)this.finishGridIdentity(userId,strokeId,false)
     const imprint = this.imprints.get(userId)
     if (!imprint || imprint.strokeId !== strokeId) return
     this.finishSecondary(userId)
@@ -414,7 +426,16 @@ export class SmudgePainter {
      *  loaded with and how it lays it down. Absent for the smudge tool. */
     paint?: MixerPaint,
     execution?: BrushExecutionContext,
-  ): void {
+    gridRuntime?:GridWashRuntime,
+  ): GridWashPaintResult|void {
+    if(paint?.brush?.grid&&(paint.brush.grid.sourcePolicy!==undefined||(paint.brush.version>=137&&paint.brush.behavior?.rendering?.accumulation==='alphaDarken'))){
+      if(!hasGridWash137Scope(paint.brush))throw Error('Invalid Grid Wash137 scope')
+      assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
+      if(target instanceof AccumulationBuffer)throw Error('Grid Wash requires its ordinary layer target')
+      if(!gridRuntime)return{...gridNotReady({prefixKey:'missing-host'}as GridWashBinding,'prefix'),acceptedDabs:0}
+      if(strokeId!==undefined&&strokeId!==gridRuntime.binding.strokeId)throw Error('Grid stroke identity mismatch')
+      return this.paintGridWash(target,dabs,userId,paint,execution,gridRuntime)
+    }
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) are a single un-tiled buffer, freshly cleared before
     // every refresh — nothing meaningful to pick up, and reading it back
@@ -483,7 +504,7 @@ export class SmudgePainter {
       const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
       try{
         for(const value of this.imprints.values())if(value.buf)attempt(()=>this.releaseScratch(value.buf!))
-        for(const value of this.wetGestures.values())if(value.secondary)attempt(()=>value.secondary!.destroy())
+        for(const value of this.wetGestures.values()){if(value.gridWash)attempt(()=>this.retireGridState(value));if(value.secondary)attempt(()=>value.secondary!.destroy())}
       }finally{
         this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
         for(const [key,value]of imprints)this.imprints.set(key,value)
@@ -503,6 +524,7 @@ export class SmudgePainter {
     const brush = paint.brush!
     let state = this.wetGestures.get(userId)
     if (!state || !prev) {
+      if(state)this.retireGridState(state)
       state?.secondary?.destroy()
       state = { charge: 1, behavior: beginBrushBehavior(dab,execution) }
       this.wetGestures.set(userId,state)
@@ -589,6 +611,134 @@ export class SmudgePainter {
     }
   }
 
+  /** Same map across chunks; the budget counter remains shared during isolated-map swaps. */
+  activeGridOwners(target?:ILayerBuffer):readonly GridWashOwnerInfo[]{return[...this.wetGestures.values()].flatMap(state=>state.gridWash&&(!target||state.gridWash.target===target)?[state.gridWash.info()]:[])}
+  hasGridBinding(target:ILayerBuffer,binding:GridWashBinding):boolean{return!!this.wetGestures.get(gridGestureKey137(binding))?.gridWash?.matches(target,binding)}
+  invalidateGridOwners(target:ILayerBuffer,_reason:string):void{
+    let failed=false,first:unknown
+    for(const[user,state]of this.wetGestures){if(state.gridWash?.target!==target)continue
+      try{this.retireGridState(state)}catch(error){if(!failed){failed=true;first=error}}
+      this.wetGestures.delete(user)
+    }
+    if(failed)throw first
+  }
+  private finishGridIdentity(userId:string,strokeId:string,lost:boolean):void{
+    let failed=false,first:unknown
+    for(const[key,state]of this.wetGestures){const binding=state.gridWash?.binding
+      if(!binding||binding.userId!==userId||binding.strokeId!==strokeId)continue
+      try{this.retireGridState(state,lost)}catch(error){if(!failed){failed=true;first=error}}finally{this.wetGestures.delete(key)}
+    }
+    if(failed)throw first
+  }
+  private retireGridState(state:WetGesture,lost=false):void{
+    const owner=state.gridWash;if(!owner)return;state.gridWash=undefined
+    let failed=false,first:unknown
+    try{owner.retire(lost)}catch(error){failed=true;first=error}
+    try{this.ctx.gridResourcesReleased?.()}catch(error){if(!failed){failed=true;first=error}}
+    if(failed)throw first
+  }
+  prepareGridDestinationMutation(target:ILayerBuffer):void{
+    let failed=false,first:unknown
+    for(const state of this.wetGestures.values()){if(state.gridWash?.target!==target)continue
+      try{state.gridWash.resetDestinations()}catch(error){if(!failed){failed=true;first=error}}
+    }
+    if(failed)throw first
+  }
+  markGridDestinationBoundary(target:ILayerBuffer,except?:{userId:string;strokeId:string}):void{
+    for(const state of this.wetGestures.values()){const owner=state.gridWash;if(!owner||owner.target!==target)continue
+      if(except&&owner.binding.userId===except.userId&&owner.binding.strokeId===except.strokeId)continue
+      owner.markDestinationBoundary()
+    }
+  }
+  private gridRequest(brush:BrushDescriptor,dab:Dab,seed:number):{cells:ReturnType<typeof gridCells>;bounds:GridBounds}|undefined{
+    if(![dab.x,dab.y,dab.size,dab.opacity,dab.pressure].every(Number.isFinite)||dab.size<=0)throw Error('Invalid Grid request geometry')
+    const cells=gridCells(brush.grid!,dab,seed)
+    if(!cells.length)return undefined
+    const bounds=cells.reduce((b,c)=>({minX:Math.min(b.minX,c.x-c.width/2-1),minY:Math.min(b.minY,c.y-c.height/2-1),maxX:Math.max(b.maxX,c.x+c.width/2+1),maxY:Math.max(b.maxY,c.y+c.height/2+1)}),{minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity})
+    return{cells,bounds}
+  }
+  /** Owned capture BEFORE host author fields/operation publication. No dab is consumed. */
+  prepareGridGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:GridWashRuntime):GridWashPrepareResult{
+    const brush=paint.brush,binding=runtime.binding
+    if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
+    if(!brush||!hasGridWash137Scope(brush)||!hasGridBeginIdentity137({type:'stroke',strokeId:binding.strokeId})||binding.userId!==userId||!binding.layerId||!binding.prefixKey||!Number.isSafeInteger(binding.targetGeneration)||binding.targetGeneration<0)throw Error('Invalid Grid Wash137 binding/scope')
+    if(!(target instanceof TiledLayerBuffer))throw Error('Grid Wash requires its tiled layer target')
+    if(paint.strength!==1||paint.sizeMultiplier!==1)throw Error('Grid Wash137 requires its native unit request')
+    assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,[firstDab])
+    if(!this.gridBatch)throw Error('Grid cells were not prepared');this.gridBatch.assertPrepared()
+    if(!this.ctx.assertGridWashPrepared||!this.ctx.borrowRequestWash||!this.ctx.openGridBegin||!this.ctx.pinGridDestinations)return gridNotReady(binding,'context')
+    this.ctx.assertGridWashPrepared() // CHECKONLY: no strict texture lease across recovery.
+    const ownerKey=gridGestureKey137(binding),current=this.wetGestures.get(ownerKey)
+    if(current?.gridWash?.matches(target,binding)){assertSameBrushExecutionContext(current.behavior.execution,execution);current.gridWash.assertCurrent();return{kind:'ready'}}
+    const state=beginBrushBehavior(firstDab,execution),request=this.gridRequest(brush,firstDab,state.seed)
+    if(!request)return gridGeometryNotReady(binding)
+    const plan=gridDestinationPlan(request.bounds,target.coarseWorldSize(1));if(!plan)return gridGeometryNotReady(binding)
+    const opened=this.ctx.openGridBegin(target,binding);if(opened.kind==='notReady')return opened
+    let owner:GridWashOwner|undefined,viewFailed=false
+    try{
+      const required=GridWashOwner.requiredBytes(opened.view.tiles,plan)
+      owner=GridWashOwner.capture(target,binding,opened.view,Math.max(0,Math.min(1,firstDab.opacity)),this.gridBudget,()=>this.ctx.createBrushScratch(),plan)
+      if(!owner)return gridCapacity(binding,this.gridBudget,required)
+    }catch(error){viewFailed=true;throw error}finally{try{opened.view.release()}catch(error){if(!viewFailed){try{owner?.retire()}catch{/* Preserve primary. */}throw error}}}
+    if(!owner)throw Error('Grid capture did not produce an owner')
+    let published=false,failed=false,borrowed:BorrowedGridWash|undefined
+    try{
+      // Complete verified view released; ordinary recovery precedes the outer strict lease.
+      const tiles=target.resolveForPaint(request.bounds),admitted=owner.admitDestinations(tiles,fresh=>this.ctx.pinGridDestinations!(target,binding,fresh))
+      if(admitted.kind==='notReady')return admitted
+      borrowed=this.ctx.borrowRequestWash();borrowed.kernel.assertPrepared()
+      if(current){this.retireGridState(current);current.secondary?.destroy()}
+      this.wetGestures.set(ownerKey,{charge:1,behavior:state,gridWash:owner});published=true;return{kind:'ready'}
+    }catch(error){failed=true;throw error}finally{
+      let cleanupFailed=false,first:unknown
+      const attempt=(fn:()=>void)=>{try{fn()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
+      if(borrowed)attempt(()=>borrowed!.release());if(!published)attempt(()=>owner!.retire())
+      if(!failed&&cleanupFailed)throw first
+    }
+  }
+  private paintGridWash(target:ILayerBuffer,dabs:readonly Dab[],userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:GridWashRuntime):GridWashPaintResult{
+    const firstDab=dabs.find(isGridRenderableDab137)
+    if(!firstDab)return{kind:'painted',acceptedDabs:dabs.length}
+    const prepared=this.prepareGridGesture(target,firstDab,userId,paint,execution,runtime)
+    if(prepared.kind==='notReady')return{...prepared,acceptedDabs:dabs.indexOf(firstDab)}
+    const state=this.wetGestures.get(gridGestureKey137(runtime.binding))!,owner=state.gridWash!,brush=paint.brush!,batch=this.gridBatch!
+    let acceptedDabs=0
+      for(const dab of dabs){
+        if(!isGridRenderableDab137(dab)){acceptedDabs++;continue}
+        owner.assertCurrent();assertSameBrushExecutionContext(state.behavior.execution,execution)
+        const request=this.gridRequest(brush,dab,state.behavior.seed)
+        if(!request)return{...gridGeometryNotReady(runtime.binding),acceptedDabs}
+        const plan=gridDestinationPlan(request.bounds,(target as TiledLayerBuffer).coarseWorldSize(1))
+        if(!plan)return{...gridGeometryNotReady(runtime.binding),acceptedDabs}
+        const capacity=owner.planDestinations(plan)
+        if(capacity.kind==='notReady')return{...capacity,acceptedDabs}
+        const tiles=target.resolveForPaint(request.bounds)
+        if(!owner.matches(target,runtime.binding))return{...gridNotReady(runtime.binding,'prefix'),acceptedDabs}
+        const admitted=owner.admitDestinations(tiles,fresh=>this.ctx.pinGridDestinations!(target,runtime.binding,fresh))
+        if(admitted.kind==='notReady')return{...admitted,acceptedDabs}
+        let source:AccumulationBuffer|undefined,patch:AccumulationBuffer|undefined,borrowed:BorrowedGridWash|undefined,requestFailed=false
+        try{
+          borrowed=this.ctx.borrowRequestWash!();const current=borrowed.kernel.captureCurrent();current();batch.assertPrepared();source=this.acquireScratch(512);patch=this.acquireScratch(512)
+          const first=request.cells[0],rect={minX:Math.floor(first.sampleX),minY:Math.floor(first.sampleY)}
+          owner.sampleTexel(first.sampleX,first.sampleY,source)
+          for(const tile of tiles)owner.destinationEntry(tile)
+          // All finite admission/pins/source/program/temporary resources precede acceptance.
+          state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1;owner.acceptedDabs++;acceptedDabs++
+          for(const tile of tiles){const entry=owner.entry(tile);for(const region of sprayWashRegions(request.bounds,tile,512,512)){
+            current();owner.assertCurrent();owner.sampleTexel(first.sampleX,first.sampleY,source);patch.clear();batch.paintRequest(request.cells,patch,region.originX,region.originY,source,rect,512)
+            const bottom=tile.buffer.height-region.y-region.height;source.clear();entry.coverage.copyRegionInto(source,region.x,bottom,0,source.height-region.height,region.width,region.height)
+            borrowed.kernel.transfer(patch,source,entry.coverage,region,1,1,undefined,true)
+          }borrowed.present(tile,request.bounds,entry,brush,owner.opacity)}
+          target.markContentPainted(request.bounds)
+        }catch(error){requestFailed=true;throw error}finally{
+          let cleanupFailed=false,first:unknown;for(const buffer of[patch,source])if(buffer)try{this.releaseScratch(buffer)}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}
+          if(borrowed)try{borrowed.release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}
+          if(!requestFailed&&cleanupFailed)throw first
+        }
+      }
+      return{kind:'painted',acceptedDabs}
+  }
+
   private paintGridDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
     const g=paint.brush!.grid!,cells=gridCells(g,dab,state.seed^Math.imul((state.dabSequence??0)+1,0x9e3779b9))
     if(!cells.length)return
@@ -622,6 +772,7 @@ export class SmudgePainter {
   finishSecondary(userId:string,lost=false,strokeId?:string):void {
     if(strokeId && this.imprints.get(userId)?.strokeId!==strokeId)return
     const state=this.wetGestures.get(userId)
+    if(state)this.retireGridState(state,lost)
     if(state?.secondary){if(lost)state.secondary.forget();else state.secondary.destroy();state.secondary=undefined}
   }
 

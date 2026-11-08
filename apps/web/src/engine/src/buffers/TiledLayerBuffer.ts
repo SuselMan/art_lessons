@@ -96,7 +96,13 @@ export interface TileRebuildSession {
  *  engine-agnostic: it knows *when* a tile should be evicted and *that* it
  *  can be safely recovered, but not *how* (that requires the Operation Log
  *  and checkpoint/replay machinery, which live in engine/index.ts). */
-export type TileRebuilder = () => TileRebuildSession
+export interface TileRecoveryNotReady {kind:'notReady';reason:'history'|'prefix'|'resource'|'context';retryKey:string}
+export class LayerTilesNotReady extends Error {
+  readonly outcome:TileRecoveryNotReady
+  readonly layerId?:string
+  constructor(outcome:TileRecoveryNotReady,layerId?:string){super('Layer tiles are not ready: '+outcome.reason);this.outcome=outcome;this.layerId=layerId}
+}
+export type TileRebuilder = () => TileRebuildSession|TileRecoveryNotReady
 
 /** (#365) Draws one fine tile's whole texture, shrunk, into a `w x h` slot at
  *  (`x`, `y`) — top-down pixel coordinates — of the coarse tile's buffer,
@@ -271,7 +277,30 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for(const tile of this.tiles.values())tile.dryColorSmudge()
   }
 
+  /** Borrow only the known BEGIN image. Never rebuild evicted tiles from a later log. */
+  gridBeginTargets():readonly PaintTarget[]|undefined {
+    if(this.evicted.size)return undefined
+    return this.allResident()
+  }
+  private tileRecoveryPending?:TileRecoveryNotReady
+  get pendingTileRecovery():TileRecoveryNotReady|undefined{return this.tileRecoveryPending}
+  private gridPinEpoch=0
+  private readonly gridPins=new Map<string,{buffer:AccumulationBuffer;count:number}>()
+  /** Pins destination keys on this exact target generation; stale releases cannot touch a replacement. */
+  pinGridDestinations(targets:readonly PaintTarget[]):{assertCurrent():void;release():void}{
+    const epoch=this.gridPinEpoch,held=new Map<string,AccumulationBuffer>()
+    for(const t of targets){
+      const key=tileKey(Math.floor(t.originX/this.tileW),Math.floor(t.originY/this.tileH))
+      if(this.tiles.get(key)!==t.buffer)throw Error('Grid destination target changed before pin')
+      held.set(key,t.buffer)
+    }
+    for(const[key,buffer]of held){const old=this.gridPins.get(key);if(old&&old.buffer!==buffer)throw Error('Grid destination pin generation mismatch');this.gridPins.set(key,{buffer,count:(old?.count??0)+1})}
+    let released=false
+    const assertCurrent=()=>{if(released||this.gridPinEpoch!==epoch)throw Error('Grid destination lease retired');for(const[key,buffer]of held)if(this.tiles.get(key)!==buffer)throw Error('Grid destination lease rebound')}
+    return{assertCurrent,release:()=>{if(released)return;released=true;if(this.gridPinEpoch!==epoch)return;for(const[key,buffer]of held){const entry=this.gridPins.get(key);if(entry?.buffer!==buffer)continue;if(--entry.count===0)this.gridPins.delete(key)}this.evictIfOverBudget()}}
+  }
   clear(): void {
+    this.gridPinEpoch++;this.gridPins.clear();this.tileRecoveryPending=undefined
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
@@ -280,6 +309,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   destroy(): void {
+    this.gridPinEpoch++;this.gridPins.clear();this.tileRecoveryPending=undefined
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
@@ -493,7 +523,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // touch() maintains as LRU order — so this still evicts oldest-first.
     for (const key of [...this.tiles.keys()]) {
       if (overBudget <= 0) break
-      if (inUse?.has(key)) continue
+      if (inUse?.has(key)||this.gridPins.has(key)) continue
       const victim = this.tiles.get(key)!
       const storageUnits=victim.baseBytes/(this.tileW*this.tileH*4)
       // (#367) Its last chance to reach the levels — see foldBeforeEviction.
@@ -517,9 +547,12 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  happens relative to its own touch()es, since trimming too early here
    *  could evict (destroy the GPU texture of) a tile the caller is about to
    *  hand back in its own return value. */
-  private recoverTiles(keys: string[]): void {
-    if (!this.rebuildTile || !keys.length) return
-    const session = this.rebuildTile()
+  private recoverTiles(keys: string[]): boolean {
+    if(!keys.length)return true
+    if(this.tileRecoveryPending)return false
+    if(!this.rebuildTile)return true
+    const session=this.rebuildTile()
+    if('kind'in session){this.tileRecoveryPending=session;return false}
     for (const key of keys) {
       const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
@@ -552,6 +585,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // Re-owing costs one quad draw per tile at the next fold; not re-owing
     // costs a level that quietly disagrees with the layer at one zoom.
     this.markForDownsample(keys)
+    return true
   }
 
   private getOrCreateTile(tileX: number, tileY: number): AccumulationBuffer {
@@ -577,7 +611,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   resolveForPaint(worldRect: WorldRect): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
     const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
-    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
+    if(!this.recoverTiles(keys.filter(key=>!this.tiles.has(key)&&this.evicted.has(key))))throw new LayerTilesNotReady(this.tileRecoveryPending!)
     const targets = coords.map(({ tileX, tileY }, i) => {
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
       const buffer = this.getOrCreateTile(tileX, tileY)
@@ -613,7 +647,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
   private resolveExisting(worldRect: WorldRect, forPaint: boolean): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
     const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
-    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
+    const recovered=this.recoverTiles(keys.filter(key=>!this.tiles.has(key)&&this.evicted.has(key)))
+    if(!recovered&&forPaint)throw new LayerTilesNotReady(this.tileRecoveryPending!)
 
     const targets: PaintTarget[] = []
     const inUse = new Set<string>()
@@ -648,7 +683,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  paint/composite) — a temporary, bounded-in-practice bulge right after
    *  an infrequent bulk operation, never a permanent regression. */
   allResident(): PaintTarget[] {
-    this.recoverTiles([...this.evicted])
+    if(!this.recoverTiles([...this.evicted]))throw new LayerTilesNotReady(this.tileRecoveryPending!)
     // Snapshot entries before touching: touch() deletes-and-reinserts the
     // very key a live Map iterator is mid-way through, which would revisit
     // it later in the same iteration (JS Maps replay a re-inserted key that

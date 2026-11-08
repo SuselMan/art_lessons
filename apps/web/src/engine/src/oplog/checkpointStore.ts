@@ -80,7 +80,9 @@ export class CheckpointStore {
 
   /** @param budget How many packed bytes ordinary checkpoints may hold before
    *  the oldest are evicted. Pinned ones are never evicted, whatever it says. */
-  constructor(budget: number) {
+  private readonly gridGesture:(op:WashOp)=>boolean
+  constructor(budget: number,gridGesture:(op:WashOp)=>boolean=()=>false) {
+    this.gridGesture=gridGesture
     this.budget = budget
   }
 
@@ -186,7 +188,7 @@ export class CheckpointStore {
       if (best && cp.opIds.length <= best.cp.opIds.length) continue
       if (cp.opIds.length > ops.length) continue
       const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-      if (start < 0) continue
+      if (start < 0 || crossesGridGesture(ops,start,this.gridGesture)) continue
       if (!cp.fromSnapshot && crossesWash(spans ??= washSpans(ops), start, cp.washIds)) continue
       best = { cp, start }
     }
@@ -204,7 +206,7 @@ export class CheckpointStore {
       for (const id of c.covered) inSnapshot.add(id)
     }
     const start = checkpointPrefixEnd(cp.opIds, ops, inSnapshot)
-    return start >= 0 && !cp.fromSnapshot && crossesWash(washSpans(ops), start, cp.washIds) ? -1 : start
+    return start >= 0 && (crossesGridGesture(ops,start,this.gridGesture)||!cp.fromSnapshot && crossesWash(washSpans(ops), start, cp.washIds)) ? -1 : start
   }
 
   /** (#479) Backfill has put these operations in the log: record, on every
@@ -240,7 +242,18 @@ export class CheckpointStore {
 
 /** An operation as the wash rule sees it: stroke operations of a watercolour
  *  wash carry its id. */
-export interface WashOp { id: string; washId?: string }
+export interface WashOp {id:string;washId?:string;type?:string;userId?:string;strokeId?:string;strokeEnd?:boolean;preset?:string;tool?:string}
+/** Later-arriving chunks and canonical reorders can invalidate a previously safe CP. */
+export function crossesGridGesture(ops:readonly WashOp[],start:number,isGrid:(op:WashOp)=>boolean):boolean{
+  const spans=new Map<string,{first:number;last:number;grid:boolean}>()
+  ops.forEach((op,i)=>{if(op.type!=='stroke'||!op.strokeId||!op.userId)return;const key=JSON.stringify([op.userId,op.strokeId]);const grid=isGrid(op),span=spans.get(key);if(span){span.last=i;if(grid&&!span.grid)span.first=i;span.grid ||=grid}else spans.set(key,{first:i,last:i,grid})})
+  return [...spans.values()].some(s=>s.grid&&s.first<start&&s.last>=start)
+}
+export function hasOpenGridGesture(ops:readonly WashOp[],isGrid:(op:WashOp)=>boolean):boolean{
+  const active=new Map<string,{strokeId:string;grid:boolean}>()
+  for(const op of ops){if(op.type!=='stroke'||!op.userId)continue;if(!op.strokeId){active.delete(op.userId);continue}if(op.strokeEnd){if(active.get(op.userId)?.strokeId===op.strokeId)active.delete(op.userId);continue}const old=active.get(op.userId);active.set(op.userId,{strokeId:op.strokeId,grid:isGrid(op)||old?.strokeId===op.strokeId&&old.grid===true})}
+  return [...active.values()].some(s=>s.grid)
+}
 
 type WashSpans = Array<[number, number, string]>
 

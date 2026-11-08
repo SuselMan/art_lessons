@@ -1,3 +1,7 @@
+import {isGridRenderableDab137} from './src/dabs/GridWashRuntime'
+import {hasOpenGridGesture,type WashOp} from './src/oplog/checkpointStore'
+import {hasGridWash137Scope} from '@grafetto/shared'
+import type {GridWashBinding,GridWashRuntime,GridWashNotReady,GridBeginResult,GridDestinationPinsResult,GridWashPaintResult} from './src/dabs/GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import {textureMaterialVariant} from './src/presets/textureLightness'
 import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
@@ -132,7 +136,7 @@ import {
   IDENTITY_MATRIX, type Matrix3,
 } from './src/raster/matrix'
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
-import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
+import { TiledLayerBuffer, LayerTilesNotReady, type TileRebuilder } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
 import { TILE_SIZE, tilesOverlappingRect, tileWorldRect, type WorldRect } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
@@ -704,6 +708,7 @@ export interface PencilEngineAPI {
   // lets a bake carry only the layers that changed instead of re-reading every
   // layer in the room. False for a layer nobody has ever painted, so an
   // untouched `background` never costs a readback.
+  gridReadiness(layerId:string):{layer:GridWashNotReady|null;author:GridWashNotReady|null}
   isLayerDirty(layerId: string): boolean
   // (#386) Every layer this engine currently holds a pixel buffer for.
   //
@@ -1202,6 +1207,7 @@ export interface PeerLivePacket {
  *  entry can be disposed once the operations have caught up to what was painted
  *  rather than at pen-up, when they are still in flight. */
 interface PeerLiveStroke {
+  gridBlocked?:GridWashNotReady
   peerId: string
   strokeId: string
   layerId: string
@@ -1326,8 +1332,12 @@ interface PeerPreviewState {
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
  *  operations replayed into a FRESH buffer a slice at a time, the old buffer
  *  on screen meanwhile, swapped in whole when the replay has caught up. */
+class GridHostNotReady extends LayerTilesNotReady {constructor(outcome:GridWashNotReady,layerId?:string){super(outcome,layerId)}}
+interface GridAuthorCandidate {input:PointerData;latest?:PointerData;end?:PointerData;snapshot:AuthorStartSnapshot;seeds:NonNullable<ReturnType<typeof createBrushRandomContext>>;strokeId:string;sampler:DabSystem;dabs:Dab[];binding?:GridWashBinding;blocked?:GridWashNotReady;committed:boolean;firstPublished?:boolean;firstElapsed?:number;finalizeEnd?:()=>void}
 interface RebuildJob {
   layerId: string
+  gridBlocked?:GridWashNotReady
+  gridProgress?:{opId:string;acceptedDabs:number}
   fresh: ILayerBuffer
   /** The job's own replay-scratch cache: live washes keep theirs. */
   chunks: Map<string, { strokeId: string; washStrokeId?: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }>
@@ -2238,6 +2248,319 @@ export class PencilEngine implements PencilEngineAPI {
   private _airbrushTimer: ReturnType<typeof setTimeout> | null=null
   private _airbrushInput?:PointerData
   private _authorCameraAngle=0
+  private _gridAuthor?:GridAuthorCandidate
+  private _gridNextAuthor?:GridAuthorCandidate
+  private _gridWakeQueued=false
+  private readonly _gridTargetEpochs=new WeakMap<ILayerBuffer,number>()
+  private _gridNextTargetEpoch=1
+  private _gridReplayOperation?:StrokeOperation
+  private _gridReplayTarget?:{target:ILayerBuffer;layerId:string}
+  private _gridDirectOperation?:StrokeOperation
+  private _isGrid137Brush(brush:BrushDescriptor):boolean{
+    if(brush.version<137||brush.grid?.sourcePolicy!=='canonical-begin-v1')return false
+    if(!hasGridWash137Scope(brush))throw Error('Invalid Grid137 scope')
+    return true
+  }
+  private _isGrid137Operation(op:WashOp):boolean{
+    return op.type==='stroke'&&op.tool==='digitalBrush'&&!!op.preset&&this._isGrid137Brush(digitalBrushFromPreset(op.preset))
+  }
+  private _gridLayerReadiness(layerId:string,seen=new Set<string>()):GridWashNotReady|null{
+    if(seen.has(layerId))return null
+    seen.add(layerId)
+    const target=this._layers.get(layerId)
+    const own=this._rebuildJobs.get(layerId)?.gridBlocked
+      ??[...this._peerLiveStrokes.values()].find(live=>live.layerId===layerId&&live.gridBlocked)?.gridBlocked
+      ??(target instanceof TiledLayerBuffer?target.pendingTileRecovery:null)
+    if(own)return own
+    if(this._snapshotIO.historyRepairPending(layerId))return{kind:'notReady',reason:'history',retryKey:'history:'+layerId}
+    for(const source of this._snapshotDependentLayers.get(layerId)??[]){
+      const pending=this._gridLayerReadiness(source,seen)
+      if(pending)return{...pending,retryKey:'dependency:'+layerId+':'+pending.retryKey}
+    }
+    return null
+  }
+  gridReadiness(layerId:string):{layer:GridWashNotReady|null;author:GridWashNotReady|null}{
+    return{layer:this._gridLayerReadiness(layerId),author:this._gridAuthor?.snapshot.layerId===layerId&&!this._gridAuthor.committed?this._gridAuthor.blocked??null:null}
+  }
+  private _gridEpoch(target:ILayerBuffer):number{
+    let epoch=this._gridTargetEpochs.get(target)
+    if(epoch===undefined){epoch=this._gridNextTargetEpoch++;this._gridTargetEpochs.set(target,epoch)}
+    return epoch
+  }
+  private _gridLayer(target:ILayerBuffer):string|undefined{
+    for(const[id,value]of this._layers)if(value===target)return id
+    for(const job of this._rebuildJobs.values())if(job.fresh===target)return job.layerId
+    return this._gridReplayTarget?.target===target?this._gridReplayTarget.layerId:undefined
+  }
+  private _gridBinding(target:ILayerBuffer,userId:string,strokeId:string):GridWashRuntime|GridWashNotReady{
+    const layerId=this._gridLayer(target)
+    if(!layerId)return{kind:'notReady',reason:'prefix',retryKey:'target-unbound'}
+    if(this._contextLost||this.gl.isContextLost())return{kind:'notReady',reason:'context',retryKey:'context:'+this._gridEpoch(target)}
+    if(this._snapshotIO.historyRepairPending(layerId))return{kind:'notReady',reason:'history',retryKey:'history:'+layerId}
+    if(this._layers.get(layerId)===target&&this._rebuildJobs.has(layerId))return{kind:'notReady',reason:'prefix',retryKey:'rebuild:'+layerId}
+    const entries=this._log.entries.filter(e=>e.state==='done')
+    const first=entries.find(e=>e.op.type==='stroke'&&e.op.layerId===layerId&&e.op.userId===userId&&e.op.strokeId===strokeId&&strokeDabs(e.op).some(isGridRenderableDab137))
+    const before=first?entries.slice(0,entries.indexOf(first)):entries
+    const snapshot=this._checkpoints.all().find(cp=>cp.layerId===layerId&&cp.fromSnapshot)
+    // An existing original source is sufficient for the optimistic live continuation.
+    // Cold canonical replay cannot infer BEGIN from a possibly truncated pixel-only base.
+    const standing=[...this._smudge.activeGridOwners(target)].find(x=>x.binding.userId===userId&&x.binding.strokeId===strokeId)
+    if(first&&snapshot?.coveredSeq&&!standing){
+      const coveredSeq=snapshot.coveredSeq
+      const confirmed=new Set(this._log.entries.map(e=>e.serverSeq).filter((seq):seq is number=>seq!==undefined&&Number.isSafeInteger(seq)&&seq>=1&&seq<=coveredSeq))
+      const complete=confirmed.size===coveredSeq
+      if(!complete||first.serverSeq!==undefined&&first.serverSeq<=snapshot.coveredSeq){
+        this._snapshotIO.requireHistoryRepair(layerId,snapshot.coveredSeq)
+        queueMicrotask(()=>{if(!this._destroyed){this._resolveSnapshotHistoryRepairs();if(this.pendingSnapshotHistoryRepairs().length)this._onSnapshotHistoryRepairNeeded?.()}})
+        return{kind:'notReady',reason:'history',retryKey:'begin-prefix:'+snapshot.coveredSeq}
+      }
+    }
+    const prefixKey=JSON.stringify([snapshot?.coveredSeq??0,before.map(e=>e.op.id)])
+    const binding:GridWashBinding={layerId,userId,strokeId,targetGeneration:this._gridEpoch(target),prefixKey,begin:first&&first.serverSeq!==undefined?{kind:'canonical',firstOpId:first.op.id,seq:first.serverSeq}:{kind:'optimistic',logRevision:this._log.revision}}
+    if(standing){
+      if(standing.binding.prefixKey!==prefixKey||standing.binding.targetGeneration!==binding.targetGeneration){this._smudge.invalidateGridOwners(target,'prefix');return{kind:'notReady',reason:'prefix',retryKey:'prefix:'+this._log.revision}}
+      // Own append after BEGIN changes log.revision but not the immutable source prefix.
+      return{binding:standing.binding}
+    }
+    return{binding}
+  }
+  private _gridCaptureReady(target:ILayerBuffer,binding:GridWashBinding):boolean{
+    const first=this._log.entries.find(e=>e.state==='done'&&e.op.type==='stroke'&&e.op.layerId===binding.layerId&&e.op.userId===binding.userId&&e.op.strokeId===binding.strokeId&&strokeDabs(e.op).some(isGridRenderableDab137))
+    if(this._gridReplayTarget?.target===target&&this._gridReplayOperation?.id===first?.op.id)return true
+    if(this._layers.get(binding.layerId)!==target||this._unsettledLayers.has(binding.layerId)||this._rebuildJobs.has(binding.layerId)||this._pendingRebuilds.has(binding.layerId)||this._hasUnrecordedInk(binding.layerId))return false
+    if(!first)return binding.begin.kind==='optimistic'
+    const last=this._log.layerPixelOps(binding.layerId).at(-1)
+    return this._gridDirectOperation?.id===first.op.id&&last?.id===first.op.id
+  }
+  private _openGridBegin(target:ILayerBuffer,binding:GridWashBinding):GridBeginResult{
+    const runtime=this._gridBinding(target,binding.userId,binding.strokeId)
+    if('kind'in runtime)return runtime
+    if(runtime.binding.prefixKey!==binding.prefixKey||runtime.binding.targetGeneration!==binding.targetGeneration)return{kind:'notReady',reason:'prefix',retryKey:'stale-begin:'+this._log.revision}
+    if(!this._gridCaptureReady(target,binding))return{kind:'notReady',reason:'prefix',retryKey:'unproven-BEGIN-pixels:'+this._log.revision}
+    const tiles=target instanceof TiledLayerBuffer?target.gridBeginTargets():target.allResident()
+    if(!tiles)return{kind:'notReady',reason:'prefix',retryKey:'evicted-begin:'+this._gridEpoch(target)}
+    const lease=target instanceof TiledLayerBuffer?target.pinGridDestinations(tiles):{assertCurrent:()=>{if(this._gridEpoch(target)!==binding.targetGeneration)throw Error('Grid source target changed')},release:()=>{}}
+    let released=false
+    return{kind:'ready',view:{binding,tiles,assertCurrent:()=>{lease.assertCurrent();const now=this._gridBinding(target,binding.userId,binding.strokeId);if(released||'kind'in now||now.binding.prefixKey!==binding.prefixKey||!this._gridCaptureReady(target,binding))throw Error('Grid BEGIN source changed during capture')},release:()=>{if(released)return;released=true;lease.release()}}}
+  }
+  private _pinGridDestinations(target:ILayerBuffer,binding:GridWashBinding,tiles:readonly PaintTarget[]):GridDestinationPinsResult{
+    if(this._gridEpoch(target)!==binding.targetGeneration)return{kind:'notReady',reason:'prefix',retryKey:'destination-target'}
+    const pin=target instanceof TiledLayerBuffer?target.pinGridDestinations(tiles):{assertCurrent:()=>{if(this._gridEpoch(target)!==binding.targetGeneration)throw Error('Grid destination changed')},release:()=>{}}
+    return{kind:'ready',lease:pin}
+  }
+  private _blockGridLayer(layerId:string,outcome:GridWashNotReady):void{
+    queueMicrotask(()=>{
+      if(this._destroyed||!this._layers.has(layerId))return
+      let job=this._rebuildJobs.get(layerId)
+      if(!job){this._startRebuildJob(layerId);job=this._rebuildJobs.get(layerId)}
+      if(!job)return
+      if(job.timer)clearTimeout(job.timer)
+      job.timer=0;job.gridBlocked=outcome
+      this._unsettledLayers.add(layerId)
+    })
+  }
+  private _wakeGridResources():void{
+    if(this._gridWakeQueued||this._destroyed)return
+    this._gridWakeQueued=true
+    queueMicrotask(()=>{
+      this._gridWakeQueued=false;if(this._destroyed||this._contextLost)return
+      for(const info of this._smudge.activeGridOwners()){
+        const checked=this._gridBinding(info.target,info.binding.userId,info.binding.strokeId)
+        if('kind'in checked&&checked.reason==='prefix'&&this._layers.get(info.binding.layerId)===info.target&&!this._rebuildJobs.has(info.binding.layerId))this._rebuildLayerOrDefer(info.binding.layerId)
+      }
+      for(const job of this._rebuildJobs.values())if(job.gridBlocked&&job.timer===0){job.gridBlocked=undefined;job.timer=setTimeout(()=>this._stepRebuildJob(job),0)}
+      const author=this._gridAuthor
+      if(author&&!author.committed){this._tryGridAuthorStart(author);return}
+      if(author?.committed&&(author.latest||author.end)){
+        const latest=author.latest,end=author.end;author.latest=undefined;author.end=undefined
+        const owner=this
+        this._authorInput.prepend(function*(){
+          if(owner._gridAuthor!==author)return
+          // These belong to the old captured physical gesture, not nextStart.
+          owner._authorInput.beforeQueued(()=>{
+            if(latest)owner._onMoveCurrent(latest)
+            if(end)owner._onEndCurrent(end)
+          })
+        })
+      }
+      this._authorInput.resume()
+    })
+  }
+  private _configureAuthorSampler(sampler:DabSystem,snapshot:AuthorStartSnapshot,execution:BrushExecutionContext|undefined):void{
+    sampler.cameraAngle=snapshot.cameraAngle;sampler.brushExecution=execution
+    sampler.setShaping(shapingForTool(
+      snapshot.opts.tool, snapshot.opts.pencilType,
+      { angle: snapshot.nibAngle, anchor: snapshot.nibAnchor },
+      snapshot.tiltResponse,
+    ))
+    // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
+    // straight chords between samples); every other tool keeps its plain
+    // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
+    sampler.curvatureTolerancePx = isRibbonTool(snapshot.opts.tool)
+      ? ribbonProfileFor(snapshot.opts.tool, snapshot.opts.pencilType).curvatureTolerancePx
+      : null
+    // #547 — the step between stamps is a property of the *brush*, not of the
+    // engine, so it is latched here with everything else that is fixed for the
+    // length of one stroke.
+    //
+    // Every brush in the set asks for a tighter step than the engine's 0.22
+    // default, and that default is why: it was calibrated (#478) against tools
+    // whose dabs blend through paper grain and soft graphite falloff. A digital
+    // stamp has neither, so its own ripple shows several times sooner — see the
+    // spacing values in digitalBrushPresets.ts.
+    sampler.spacingFactor = snapshot.opts.tool === 'digitalBrush'
+      ? digitalBrushFromPreset(snapshot.opts.pencilType).spacing
+      : DEFAULT_DAB_SPACING_FACTOR
+    // #478 — same slot and the same lifecycle: a property of the tool, latched
+    // once per stroke. Dab spacing has to track the mark this tool actually
+    // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
+    // mark. See dabSpacing.ts for the whole argument, including which tools
+    // are deliberately left on the old rule.
+    // (#579) Not for a brush whose stamps are separate marks (flowPer
+    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
+    // exists to hide the stamp — to keep a hard edge from reading as a row of
+    // discs — and for these the separate prints *are* the brush: a sponge
+    // spaced to the footprint came out as a smooth band with no dabs in it.
+    // Recorded strokes are unaffected: spacing is decided when the dabs are
+    // made, and a replay paints the dabs the log holds.
+    const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
+    sampler.strokeInput=spacingBrush?.behavior?.strokeInput
+    sampler.timing=spacingBrush?.behavior?.timing
+    sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
+    sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
+    sampler.initialDirection=snapshot.initialDirection
+    sampler.captureSourceAngle=!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
+    const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
+    sampler.autoSpacing = spacingBrush && sourceSpacing
+      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
+      : null
+    const stampBrush = snapshot.opts.tool === 'digitalBrush'
+      && digitalBrushFromPreset(snapshot.opts.pencilType).flowPer === 'stamp'
+    sampler.footprint = isFootprintSpacedTool(snapshot.opts.tool) && !stampBrush
+      ? {
+        sizeScale: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType),
+        hardness: this._resolvePreset(snapshot.opts.tool, snapshot.opts.pencilType).hardness,
+        // #547 — the digital brush follows its footprint at every hardness. See
+        // DabFootprint.spacingStrength for why the gate the other three tools
+        // use is a graphite calibration that does not carry over to a mark with
+        // no paper in it.
+        ...(snapshot.opts.tool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
+      }
+      : null
+    // #489: watercolor's *elongated* nibs take the scallop bound without the
+    // rest of that rule — DabSystem.nibScallop carries the whole argument,
+    // including why the marker's identical 5:1 geometry is left as it is.
+    //
+    // Not the round nib, and that exclusion is measured rather than assumed.
+    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
+    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
+    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
+    // round brush's stroke. Its deposit is normalised per unit travel so the
+    // tone would have held, but the mark's fine structure would not have, and
+    // that is exactly the regression #483 was filed for. This tool has shipped;
+    // the flat has not.
+    //
+    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
+    // tilt and does scallop a little there. Nobody has reported it, and quietly
+    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
+    //
+    // #501: and charcoal's chisel, which wants this *and* the footprint rule —
+    // it is a stamped mark, so its gaps are real holes, and it is an elongated
+    // nib, so its silhouette scallops. Both bounds compose in _spacingAfter.
+    sampler.nibScallop = this._nibScallops(snapshot.opts.tool, snapshot.opts.pencilType)
+      ? { sizeScale: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
+      : null
+  }
+  private _stageGridAuthor(input:PointerData,snapshot:AuthorStartSnapshot):GridAuthorCandidate{
+    const seeds=createBrushRandomContext('digitalBrush')!
+    const strokeId=createBrushRandomStrokeId(createBrushSourceNonce(nanoid(10),snapshot.brushSource),seeds)
+    const sampler=this._dabs.forkForPreview()
+    this._configureAuthorSampler(sampler,snapshot,brushExecutionContext(seeds,snapshot.brushSource))
+    const dabs=sampler.startStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),0)
+    bakeDabOpacity(dabs,input.speed,snapshot.opts.tool,snapshot.opts.pencilType,snapshot.opts.opacity,snapshot.opts.size,sampler.spacingFactor)
+    const canonical=dabs.map(codecDab)
+    return{input,snapshot,seeds,strokeId,sampler,dabs:canonical,committed:false}
+  }
+  private _tryGridAuthorStart(candidate:GridAuthorCandidate):void{
+    if(this._gridAuthor!==candidate||candidate.committed||this._destroyed)return
+    const target=this._layers.get(candidate.snapshot.layerId)
+    if(!target||this._activeId!==candidate.snapshot.layerId){this._cancelGridAuthorStart();return}
+    if(!candidate.dabs.some(isGridRenderableDab137))return
+    const runtime=this._gridBinding(target,this._userId,candidate.strokeId)
+    if('kind'in runtime){candidate.blocked=runtime;return}
+    const paint=digitalBrushMixer(candidate.snapshot.opts.pencilType,candidate.snapshot.opts.graphiteColor)
+    if(!paint)throw Error('Grid137 mixer metadata missing')
+    this._brush.prepareGridWash();this._smudge.prepareGrid()
+    if(!candidate.dabs.length)throw Error('Grid start requires actual first logical input')
+    const prepared=this._smudge.prepareGridGesture(target,candidate.dabs[0],this._userId,paint,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime)
+    if(prepared.kind==='notReady'){candidate.blocked=prepared;if(prepared.reason==='prefix'&&!this._hasUnrecordedInk(candidate.snapshot.layerId)&&!this._rebuildJobs.has(candidate.snapshot.layerId))this._rebuildLayerOrDefer(candidate.snapshot.layerId);return}
+    candidate.binding=runtime.binding;candidate.blocked=undefined;candidate.committed=true
+    this._authorSnapshot=candidate.snapshot
+    const session:TimedAuthorSession={snapshot:candidate.snapshot,input:candidate.input,lastTime:0,cameraAngle:candidate.snapshot.cameraAngle,ended:false}
+    this._authorProducer=session
+    this._timedClockStart=candidate.snapshot.dispatchNow;this._timedClockLast=0
+    const owner=this
+    this._authorInput.enqueue(function*(){
+      if(owner._gridAuthor!==candidate||!candidate.committed)return
+      owner._executeAuthorStart(candidate.input,candidate.snapshot)
+      if(owner._strokeId!==candidate.strokeId){owner._smudge.finishGesture(owner._userId,candidate.strokeId);owner._gridAuthor=undefined;return}
+      const latest=candidate.latest;candidate.latest=undefined;if(latest)owner._onMoveCurrent(latest)
+    })
+  }
+  private _cancelGridAuthorStart():void{
+    const candidate=this._gridAuthor
+    if(!candidate||candidate.committed)return
+    this._gridAuthor=undefined
+    const target=this._layers.get(candidate.snapshot.layerId)
+    if(target&&candidate.binding&&this._smudge.hasGridBinding(target,candidate.binding))this._smudge.finishGesture(this._userId,candidate.strokeId)
+  }
+  private _paintGrid137(target:ILayerBuffer,dabs:Dab[],userId:string,strokeId:string|undefined,paint:NonNullable<ReturnType<typeof digitalBrushMixer>>,execution:BrushExecutionContext|undefined,prevDab?:Dab,strokeEnd=false):GridWashPaintResult{
+    if(!strokeId)throw Error('Grid137 requires gesture identity before paint')
+    if(!dabs.some(isGridRenderableDab137)){if(strokeEnd)this._smudge.finishGesture(userId,strokeId);return{kind:'painted',acceptedDabs:dabs.length}}
+    const runtime=this._gridBinding(target,userId,strokeId)
+    const outcome:GridWashPaintResult = 'kind'in runtime?{...runtime,acceptedDabs:0}:(()=>{
+      this._brush.prepareGridWash();this._smudge.prepareGrid()
+      this._smudge.markGridDestinationBoundary(target,{userId,strokeId})
+      const result=this._smudge.paint(target,dabs,userId,prevDab,strokeId,paint,execution,runtime)
+      if(!result)throw Error('Grid137 renderer omitted explicit acceptance')
+      return result
+    })()
+    if(outcome.kind==='notReady'){
+      const job=[...this._rebuildJobs.values()].find(value=>value.fresh===target)
+      if(job&&this._gridReplayOperation){job.gridProgress={opId:this._gridReplayOperation.id,acceptedDabs:(job.gridProgress?.acceptedDabs??0)+outcome.acceptedDabs};throw new GridHostNotReady(outcome,job.layerId)}
+      if(this._gridReplayOperation)throw new GridHostNotReady(outcome,this._gridLayer(target))
+    }else if(strokeEnd)this._smudge.finishGesture(userId,strokeId)
+    return outcome
+  }
+  /** Only accepted logical dabs may enter the live stream or durable operation. */
+  private _acceptGridAuthorDabs(dabs:readonly Dab[]):void{
+    this._strokeDabs.push(...dabs)
+    for(const dab of dabs)this._noteChunkDab(dab)
+    if(this._onLiveStrokeDabs&&dabs.length){this._liveDabQueue.push(...dabs);this._emitLiveDabsIfDue()}
+    if(this._gridAuthor&&!this._gridAuthor.firstPublished&&dabs.some(isGridRenderableDab137)){this._gridAuthor.firstPublished=true;this._flushStrokeChunk()}
+    else if(this._strokeDabs.length>=STROKE_DAB_CHUNK_LIMIT||this._chunkSpanExceeded())this._flushStrokeChunk()
+  }
+  private _paintGridAuthorDabs(target:ILayerBuffer,dabs:Dab[],paint:NonNullable<ReturnType<typeof digitalBrushMixer>>):void{
+    const owner=this,strokeId=this._strokeId!,execution=brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
+    const initial=this._paintGrid137(target,dabs,this._userId,strokeId,paint,execution,this._strokeDabs.at(-1)??this._strokeChunkTail)
+    this._acceptGridAuthorDabs(dabs.slice(0,initial.acceptedDabs))
+    if(initial.kind==='painted')return
+    let offset=initial.acceptedDabs
+    this._gridAuthor!.blocked=initial
+    this._authorInput.park()
+    this._authorInput.prepend(function*(){
+      while(offset<dabs.length){
+        if(owner._strokeId!==strokeId)return
+        const rebound=owner._layers.get(owner._strokeLayerId??'');if(!rebound)return
+        const result=owner._paintGrid137(rebound,dabs.slice(offset),owner._userId,strokeId,paint,execution,offset?dabs[offset-1]:owner._strokeDabs.at(-1)??owner._strokeChunkTail)
+        owner._acceptGridAuthorDabs(dabs.slice(offset,offset+result.acceptedDabs));offset+=result.acceptedDabs
+        if(result.kind==='notReady'){owner._gridAuthor!.blocked=result;owner._authorInput.park();yield}else if(owner._gridAuthor)owner._gridAuthor.blocked=undefined
+      }
+      const candidate=owner._gridAuthor
+      if(candidate?.strokeId===strokeId&&candidate.finalizeEnd){const finish=candidate.finalizeEnd;candidate.finalizeEnd=undefined;finish()}
+    })
+  }
   private _authorSnapshot?: AuthorStartSnapshot
   private _authorProducer?: TimedAuthorSession
   private _authorInputError: unknown
@@ -2469,6 +2792,7 @@ export class PencilEngine implements PencilEngineAPI {
       quiet: id => this._snapshotQuiet(id),
       settled: id => this._snapshotSettled(id),
       scratchLayer: id => this._makeLayerBuffer(id),
+      withIsolatedBrushGestures: work => this._smudge.withIsolatedGestures(work),
       applyPixelOp: (buf, id, op) => this._applyPixelOp(buf, id, op),
       preloadImages: ops => { void this.preloadImages(ops) },
     })
@@ -2509,6 +2833,12 @@ export class PencilEngine implements PencilEngineAPI {
       createBrushScratch:()=>new RibbonStrokeScratch(this._ribbonScratchPool,false),
       paintBrushMask:(...args)=>this._brush.paintMask(...args),
       openProjection:(source,target)=>this._openProjectionSource(source,target),
+      openGridBegin:(target,binding)=>this._openGridBegin(target,binding),
+      pinGridDestinations:(target,binding,tiles)=>this._pinGridDestinations(target,binding,tiles),
+      gridResourcesReleased:()=>this._wakeGridResources(),
+      assertGridWashPrepared:()=>this._brush.assertGridWashPrepared(),
+      borrowRequestWash:()=>this._brush.borrowRequestWash(),
+
       quadBuf: () => this._quadBuf,
       screenBuf: () => this._screenBuf,
       paper: this._paper,
@@ -2568,6 +2898,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._charcoalGrainMode = options.charcoalGrainMode
 
     this._initGL()
+    this._wakeGridResources()
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
     this._pointer = new PointerInput(canvas, this._diagLog)
@@ -2579,7 +2910,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId        = null
     this._locked          = false
     this._log             = new OperationLog()
-    this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES)
+    this._log.onRevision=()=>this._wakeGridResources()
+    this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES,op=>this._isGrid137Operation(op)&&strokeDabs(op as StrokeOperation).some(isGridRenderableDab137))
     this._strokeLayerId   = null
     this._strokeTool      = 'pencil'
     this._strokePreset    = this._opts.pencilType
@@ -2659,6 +2991,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setActiveLayer(id: string): void {
+    if(id!==this._activeId&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
     if (id !== this._activeId) this._clearWash()
     this._activeId = id
     // #122: moves the below/above split point itself.
@@ -2882,7 +3215,19 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
+  private _appendOperationNow(op:Operation,source:OperationSource,canonicalExecution=false,alreadyLogged=false):void{
+    try{this._appendOperationNowBody(op,source,canonicalExecution,alreadyLogged)}catch(error){
+      if(!(error instanceof LayerTilesNotReady))throw error
+      const layers=pixelWriteLayerIds(op)
+      const sourceLayer=error.layerId
+      if(sourceLayer)this._blockGridLayer(sourceLayer,error.outcome)
+      for(const id of layers){
+        if(sourceLayer&&id!==sourceLayer){let deps=this._snapshotDependentLayers.get(id);if(!deps){deps=new Set();this._snapshotDependentLayers.set(id,deps)}deps.add(sourceLayer)}
+        else this._blockGridLayer(id,error.outcome)
+      }
+    }
+  }
+  private _appendOperationNowBody(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
     if (this._wcAsyncFinish && source === 'local' && !canonicalExecution && this._wcCanonical.pending) {
       if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') this._cancelSettle()
       else if (op.type !== 'paper_dry') {
@@ -2930,14 +3275,22 @@ export class PencilEngine implements PencilEngineAPI {
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
-    const pendingReads = this._noteSnapshotReadDependencies(op)
-    if (pendingReads || pixelWriteLayerIds(op).some(id => this.isSnapshotHistoryRepairPending(id))) {
+    const recoveryControl=op.type==='layer_clear'||op.type==='layer_delete'||op.type==='operation_undo'||op.type==='operation_redo'||op.type==='operation_revoke'
+    if(op.type==='layer_clear'||op.type==='layer_delete'){
+      if(this._strokeLayerId&&pixelWriteLayerIds(op).includes(this._strokeLayerId)&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
+      for(const id of pixelWriteLayerIds(op)){this._cancelRebuildJob(id);this._pendingRebuilds.delete(id);this._snapshotDependentLayers.delete(id);this._snapshotRepairRebuilds.delete(id);for(const live of this._peerLiveStrokes.values())if(live.layerId===id)live.gridBlocked=undefined}
+    }
+    const pendingReads=recoveryControl?false:this._noteSnapshotReadDependencies(op)
+    if (!recoveryControl&&(pendingReads||pixelWriteLayerIds(op).some(id=>this.isSnapshotHistoryRepairPending(id)||!!this.gridReadiness(id).layer))) {
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
     const foreignRead=pixelReadLayerIds(op).some(id=>this._foreignUnrecordedInk(id,op))
     for (const layerId of pixelWriteLayerIds(op)) {
       if (foreignRead || this._foreignUnrecordedInk(layerId, op)) this._unsettledLayers.add(layerId)
+    }
+    if(['layer_clear','area_clear','area_transform','layer_transform','layer_delete','layer_merge','layer_duplicate'].includes(op.type)){
+      for(const id of pixelWriteLayerIds(op)){const target=this._layers.get(id);if(target){if(op.type==='layer_delete')this._smudge.invalidateGridOwners(target,'prefix');else this._smudge.prepareGridDestinationMutation(target)}}
     }
     switch (op.type) {
       case 'layer_add':
@@ -3041,9 +3394,12 @@ export class PencilEngine implements PencilEngineAPI {
             && typeof requestAnimationFrame === 'function') {
             this._paintOpOverFrames(buf, op, dabs) // (§17.72)
           } else {
-            const standing = (dabs.length || readStrokeEndSample(op))
+            const previousGridDirect=this._gridDirectOperation
+            this._gridDirectOperation=op
+            let standing:ReadonlyMap<Dab,number>|undefined
+            try{standing = (dabs.length || readStrokeEndSample(op))
               ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource))
-              : undefined
+              : undefined}finally{this._gridDirectOperation=previousGridDirect}
             // A committed final op can contain only dabs already claimed by the live stream.
             if (op.strokeEnd && op.strokeId) {
               // The final operation can be entirely claimed by live painting.
@@ -3541,7 +3897,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'filterBrush')this._brush.prepareFilter()
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
       else if(painter === 'polygonFill')this._brush.preparePolygon()
-      else if(painter === 'grid')this._smudge.prepareGrid()
+      else if(painter === 'grid'){if(this._isGrid137Brush(descriptor))this._brush.prepareGridWash();this._smudge.prepareGrid()}
       else if(painter === 'hatching')this._brush.prepareHatching()
       else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'requestWash')this._brush.prepareParticleWash()
@@ -3589,15 +3945,18 @@ export class PencilEngine implements PencilEngineAPI {
     return result
   }
 
-  setPencil(type: string): void  { this._opts.pencilType = type }
+  setPencil(type: string): void  {if(type!==this._opts.pencilType&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false);if(type!==this._opts.pencilType)this._cancelGridAuthorStart();this._opts.pencilType = type}
   setTool(tool: ToolType): void  {
+    if(tool!==this._opts.tool&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
+    if(tool!==this._opts.tool)this._cancelGridAuthorStart()
+
     // (#468 v7) Reaching for another tool ends the wash: whatever is on the
     // paper stops being something the next stroke can pool into.
     if (tool !== this._opts.tool) this._clearWash()
     this._opts.tool = tool
   }
   setOpacity(v: number): void    { this._opts.opacity = v }
-  setSize(px: number): void      { this._opts.size = px }
+  setSize(px: number): void      {this._cancelGridAuthorStart();this._opts.size = px}
 
   // Only the *next* stroke picks this up — _onStart() copies it into
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
@@ -4066,6 +4425,14 @@ export class PencilEngine implements PencilEngineAPI {
     const wet = packet.wet && skip ? packet.wet.slice(skip) : packet.wet
     live.liveOffset += packet.dabs.length
     if (!dabs.length) return
+    if(packet.tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(packet.preset))){
+      const paint=digitalBrushMixer(packet.preset,packet.color)
+      if(!paint)throw Error('Grid137 live mixer missing')
+      const result=this._paintGrid137(buf,dabs,peerId,packet.strokeId,paint,brushExecutionContext(packet.brushRandom,packet.brushSource))
+      live.paintedTotal=Math.max(live.paintedTotal,live.liveOffset-dabs.length+result.acceptedDabs)
+      if(result.kind==='notReady'){live.gridBlocked=result;live.desynced=true;this._unsettledLayers.add(packet.layerId)}
+      this._snapshots.markDirty(packet.layerId);this._displayIfNotSuspended();return
+    }
     live.paintedTotal = Math.max(live.paintedTotal, live.liveOffset)
 
     // `strokeId` is what makes marker and smudge continuous across packets —
@@ -4592,6 +4959,7 @@ export class PencilEngine implements PencilEngineAPI {
     const ops = this._log.layerPixelOps(layerId)
     if (this._rebuildWantsSlicing(layerId, ops)) { this._startRebuildJob(layerId); return }
     this._cancelRebuildJob(layerId)
+    if(ops.some(op=>this._isGrid137Operation(op))){this._startRebuildJob(layerId);return}
     this._replayInto(buf, layerId, ops)
     this._snapshotRepairRebuilds.delete(layerId)
     this._noteReplayedOrder(layerId)
@@ -4644,6 +5012,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
     for (const c of job.chunks.values()) c.scratch.destroy()
     this._forgetWashesOf(job.fresh) // (§17.68)
+    this._smudge.invalidateGridOwners(job.fresh,'prefix')
     job.fresh.destroy()
     // A restart makes its washes again straight away - from these.
     if (!restarting) this._endPoolHold()
@@ -4660,6 +5029,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  buffer, the best checkpoint restored into it, the replay scheduled. */
   private _startRebuildJob(layerId: string): void {
     this._cancelRebuildJob(layerId, true)
+    const gridOld=this._layers.get(layerId);if(gridOld)this._smudge.invalidateGridOwners(gridOld,'prefix')
     // (§17.70) Where memory is short, the washes of the buffer being replaced
     // go now rather than at the swap, and their textures become the rebuild's:
     // holding both was the iPad making 600 tile buffers per rebuild, up to 2 s
@@ -4703,15 +5073,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  restarts it), replay for ~12 ms, and swap once caught up. */
   private _stepRebuildJob(job: RebuildJob): void {
     job.timer = 0
-    if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed) return
+    if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed || job.gridBlocked) return
     if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
     const ops = this._log.layerPixelOps(job.layerId)
+    if(job.gridProgress&&ops[job.start+job.applied.length]?.id!==job.gridProgress.opId){this._startRebuildJob(job.layerId);return}
     const startNow = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
     let valid = startNow === job.start
     for (let k = 0; valid && k < job.applied.length; k++) valid = ops[job.start + k]?.id === job.applied[k]
     if (!valid) { this._startRebuildJob(job.layerId); return }
     // Never under this user's own pen: one watercolour operation replays in
     // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
+    if(this._strokeLayerId&&ops.some(op=>this._isGrid137Operation(op))){job.gridBlocked={kind:'notReady',reason:'prefix',retryKey:'author-active'};return}
     if (this._strokeLayerId) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
     // (§17.72) Nor over somebody else's settle still spreading: the next
     // operation's finish would land it here in one piece (0.5 s on the Surface).
@@ -4738,11 +5110,16 @@ export class PencilEngine implements PencilEngineAPI {
           if (!covered && this._replaysInSlices(op)) {
             if (!this._replayStrokeSlice(job, op)) continue
           } else if (!covered) this._applyPixelOp(job.fresh, job.layerId, op, true)
+          job.gridProgress=undefined
           job.applied.push(op.id)
           i++
         } else break
         gl.finish()
       }
+    } catch(error) {
+      if(!(error instanceof GridHostNotReady))throw error
+      job.gridBlocked=error.outcome
+      return
     } finally {
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
@@ -4915,7 +5292,7 @@ export class PencilEngine implements PencilEngineAPI {
       c.scratch.destroy()
       this._replayRibbonChunks.delete(k)
     }
-    if (old) this._forgetWashesOf(old) // (§17.68)
+    if (old) {this._smudge.invalidateGridOwners(old,'prefix');this._forgetWashesOf(old)} // (§17.68)
     for (const [k, c] of job.chunks) this._replayRibbonChunks.set(k, c)
     this._trimChunkCache() // (§17.68)
     // This author's open wash was painted over the old tiles.
@@ -4935,9 +5312,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._invalidateSplitCache()
     this._displayIfNotSuspended()
     this._flushSnapshotDependentLayers()
+    this._wakeGridResources()
   }
 
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
+    // Starting a fresh replay is not a canonical foreign clear inside that replay.
+    this._smudge.invalidateGridOwners(buf,'prefix');this._gridTargetEpochs.delete(buf)
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
     // tiles can momentarily exceed what the final done-history actually
@@ -4961,6 +5341,7 @@ export class PencilEngine implements PencilEngineAPI {
       const best = this._checkpoints.best(layerId, ops)
       const cp = best?.cp
       if (best && cp) {
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
@@ -4984,6 +5365,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._seedWashes(cp, buf, this._replayRibbonChunks) // (§17.56)
         start = best.start
       } else {
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
       }
       for (let i = start; i < ops.length; i++) {
@@ -5116,6 +5498,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _applyPixelOp(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
+    const previous=this._gridReplayTarget;this._gridReplayTarget={target:buf,layerId}
+    try{this._applyPixelOpScoped(buf,layerId,op,spreadSettle)}finally{this._gridReplayTarget=previous}
+  }
+  private _applyPixelOpScoped(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
     if(op.type!=='stroke'||!op.brushSource?.projection){this._applyPixelOpBody(buf,layerId,op,spreadSettle);return}
     if(op.seq===undefined)throw Error('Historical projection requires ordered operation')
     const previous=this._projectionReadScope
@@ -5130,6 +5516,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _applyPixelOpBody(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+    if(op.type!=='stroke'){if(['layer_clear','area_clear','area_transform','layer_transform','layer_merge','layer_duplicate'].includes(op.type))this._smudge.prepareGridDestinationMutation(buf);else this._smudge.markGridDestinationBoundary(buf)}
     if(op.type!=='stroke')buf.dryColorSmudge?.()
     switch (op.type) {
       case 'stroke': {
@@ -5140,8 +5527,14 @@ export class PencilEngine implements PencilEngineAPI {
         //
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
-        const dabs = strokeDabs(op)
-        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource))
+        const wholeDabs=strokeDabs(op)
+        const gridJob=[...this._rebuildJobs.values()].find(job=>job.fresh===buf)
+        const accepted=this._isGrid137Operation(op)&&gridJob?.gridProgress?.opId===op.id?gridJob.gridProgress.acceptedDabs:0
+        const dabs=accepted?wholeDabs.slice(accepted):wholeDabs
+        const previousGridOperation=this._gridReplayOperation
+        this._gridReplayOperation=op
+        let standing:ReadonlyMap<Dab,number>|undefined
+        try{standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource))}finally{this._gridReplayOperation=previousGridOperation}
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
@@ -5152,6 +5545,7 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_clear':
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
         break
       case 'layer_merge':
@@ -5302,16 +5696,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  evicted tiles as the caller needs in a single recoverTiles batch (see
    *  TiledLayerBuffer.recoverTiles), not one replay per tile. */
   private _makeTileRebuilder(layerId: string): TileRebuilder {
-    return (): TileRebuildSession => {
-      const scratch = this._makeLayerBuffer()
-      this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
+    return () => {
+      const scratch=this._makeLayerBuffer()
+      try{this._smudge.withIsolatedGestures(()=>this._replayInto(scratch,layerId,this._log.layerPixelOps(layerId)))}catch(error){
+        this._smudge.invalidateGridOwners(scratch,'prefix');scratch.destroy()
+        if(!(error instanceof LayerTilesNotReady))throw error
+        this._blockGridLayer(layerId,error.outcome)
+        return error.outcome
+      }
       return {
         readPixels: rect => {
           const found = scratch.resolveVisible(rect)[0]
           return found ? found.buffer.readPixels() : null
         },
         readColorSmudgePixels:rect=>scratch.resolveVisible(rect)[0]?.buffer.readColorSmudgePixels(),
-        destroy: () => scratch.destroy(),
+        destroy: () => {this._smudge.invalidateGridOwners(scratch,'prefix');scratch.destroy()},
       }
     }
   }
@@ -5422,6 +5821,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washBoundaries.clear() // (§17.55) their textures went with the context
     this._contextLost = false
     this._initGL()
+    this._wakeGridResources()
     // The dead context took the paper texture with it: a fresh placeholder,
     // then a re-upload from the byte cache — see PaperState.init.
     this._paper.init()
@@ -5753,7 +6153,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _takeCheckpoint(layerId: string): void {
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
-    if (this.isSnapshotHistoryRepairPending(layerId)) return
+    if (this.isSnapshotHistoryRepairPending(layerId)||this._rebuildJobs.get(layerId)?.gridBlocked) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
@@ -5802,6 +6202,7 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
+    if (hasOpenGridGesture(ops,op=>this._isGrid137Operation(op)&&strokeDabs(op as StrokeOperation).some(isGridRenderableDab137))) return
     if (!ops.length) return
     // (#467) Packed on the way in, so the budget below counts what this
     // actually holds. An ordinary checkpoint is evictable and so was never the
@@ -5870,6 +6271,7 @@ export class PencilEngine implements PencilEngineAPI {
     // glaze instead of one wet wash, for that participant only, for good, and
     // passed on in every snapshot they bake. Refusing costs nothing: the layer
     // is left out of this upload and the server keeps serving its operations.
+    if(this.gridReadiness(layerId).layer)return false
     const done = this._log.doneOperations()
     if (hasOpenBrushStroke(done,layerId)) return false
     // A closed wash can still supply water to another gesture. Its encoded
@@ -5908,7 +6310,8 @@ export class PencilEngine implements PencilEngineAPI {
     const pixelIds = coveredSeq === undefined ? undefined : new Set(this._log.layerPixelOps(layerId).map(op => op.id))
     const knownTail = pixelIds && this._log.entries.some(entry => pixelIds.has(entry.op.id)
       && (entry.pending || entry.serverSeq !== undefined && entry.serverSeq > coveredSeq!))
-    const installOnly = !!knownTail || this._hasUnrecordedInk(layerId)
+    const gridTarget=this._layers.get(layerId)
+    const installOnly = !!knownTail || this._hasUnrecordedInk(layerId) || !!(gridTarget&&this._smudge.activeGridOwners(gridTarget).length)
     this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly)
     this._resolveSnapshotHistoryRepairs()
     if (installOnly && this._layers.has(layerId)) {
@@ -5955,6 +6358,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _noteSnapshotHistoryMutation(op: Operation): void {
+    this._wakeGridResources()
+
     this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
     this._resolveSnapshotHistoryRepairs()
     if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
@@ -5962,8 +6367,15 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  private _historyDependencyPending(layerId:string,seen=new Set<string>()):boolean{
+    if(this._snapshotIO.historyRepairPending(layerId)||this._snapshotRepairRebuilds.has(layerId))return true
+    if(seen.has(layerId))return false
+    seen.add(layerId)
+    return [...(this._snapshotDependentLayers.get(layerId)??[])].some(id=>this._historyDependencyPending(id,seen))
+  }
+
   isSnapshotHistoryRepairPending(layerId: string): boolean {
-    return this._snapshotIO.historyRepairPending(layerId) || this._snapshotRepairRebuilds.has(layerId) || this._snapshotDependentLayers.has(layerId)
+    return this._historyDependencyPending(layerId)
   }
 
   pendingSnapshotHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
@@ -5971,7 +6383,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _noteSnapshotReadDependencies(op: Operation): boolean {
-    const pending = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id))
+    const pending = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id)||!!this.gridReadiness(id).layer)
     for (const target of pixelWriteLayerIds(op)) for (const source of pending) {
       if (source === target) continue
       let deps = this._snapshotDependentLayers.get(target)
@@ -5987,7 +6399,7 @@ export class PencilEngine implements PencilEngineAPI {
     // L→R→L is safe: StructuralOps recursively reads each source before the
     // operation's seq. Only a reachable unknown baked prefix prevents replay.
     const unknown = (id: string, seen = new Set<string>()): boolean => {
-      if (this._snapshotIO.historyRepairPending(id)) return true
+      if (this._snapshotIO.historyRepairPending(id)||this._rebuildJobs.get(id)?.gridBlocked) return true
       if (seen.has(id)) return false
       seen.add(id)
       return [...(this._snapshotDependentLayers.get(id) ?? [])].some(source => unknown(source, seen))
@@ -6075,6 +6487,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    const gridTarget=this._layers.get(id);if(gridTarget){this._smudge.invalidateGridOwners(gridTarget,'prefix');this._gridTargetEpochs.delete(gridTarget)}
+
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)
@@ -6273,6 +6687,17 @@ export class PencilEngine implements PencilEngineAPI {
     this._airbrushTimer=null;this._airbrushInput=undefined;this._authorProducer=undefined
   }
   private _cancelOwnedAuthor(lost:boolean,repair=false):void {
+    // Only accepted input has entered _strokeDabs; cancellation may discard the
+    // parked remainder but must first preserve that accepted prefix and its END.
+    if(!lost&&this._gridAuthor?.committed&&this._strokeId&&this._strokeLayerId){
+      this._flushStrokeChunk()
+      const op:StrokeOperation={id:nanoid(10),type:'stroke',userId:this._userId,layerId:this._strokeLayerId,
+        tool:this._strokeTool,preset:this._strokePreset,color:this._strokeColor,dabs:[],timestamp:Date.now(),
+        strokeId:this._strokeId,strokeEnd:true,...brushRandomMetadata(this._strokeBrushRandom,this._strokeBrushSource)}
+      this._log.append(op,{pending:true});this._onLocalOperation?.(op)
+    }
+    this._cancelGridAuthorStart();this._gridAuthor=undefined;this._gridNextAuthor=undefined
+
     const owned=!!this._authorSnapshot||!!this._authorProducer||this._authorInput.pending
     this._stopAirbrush();this._authorInput.cancel();this._authorTasks.reset()
     if(!owned)return
@@ -6352,10 +6777,25 @@ export class PencilEngine implements PencilEngineAPI {
       extraLayerIds:[...this._eraseThroughIds],dispatchNow:now}
   }
   private _onStart(e:PointerData):void {
+    this._cancelGridAuthorStart()
+
     if(this._clonePickArmed&&this._opts.tool==='digitalBrush'&&digitalBrushFromPreset(this._opts.pencilType).clone){this._cloneSource={x:e.x,y:e.y};this._cloneOffset=undefined;this._clonePickArmed=false;return}
     const now=e.dispatchTime ?? performance.now(),snapshot=this._captureAuthorStart(e,now)
     if(!snapshot)return
     const input={...e,...this._snapPoint(e.x,e.y)}
+    if(snapshot.opts.tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(snapshot.opts.pencilType))){
+      const candidate=this._stageGridAuthor(input,snapshot)
+      if(this._authorInput.pending){
+        this._gridNextAuthor=candidate
+        const owner=this
+        this._authorInput.enqueue(function*(){
+          if(owner._gridNextAuthor!==candidate)return
+          owner._gridNextAuthor=undefined;owner._gridAuthor=candidate
+          owner._tryGridAuthorStart(candidate)
+        })
+      }else{this._gridAuthor=candidate;this._tryGridAuthorStart(candidate)}
+      return
+    }
     const timed=snapshot.opts.tool==='digitalBrush' && !!digitalBrushFromPreset(snapshot.opts.pencilType).behavior?.timing
     if(!timed && !this._authorInput.pending && !this._authorSnapshot){this._executeAuthorStart(input,snapshot);return}
     this._stopAirbrush()
@@ -6367,6 +6807,22 @@ export class PencilEngine implements PencilEngineAPI {
     if(timed){this._airbrushInput={...input};this._scheduleAirbrush()}
   }
   private _onMove(e:PointerData):void {
+    if(this._gridNextAuthor){this._gridNextAuthor.latest={...e,...this._snapPoint(e.x,e.y)};return}
+    this._onMoveCurrent(e)
+  }
+  private _onMoveCurrent(e:PointerData):void {
+    if(this._gridAuthor&&!this._gridAuthor.committed){
+      const pending=this._gridAuthor,input={...e,...this._snapPoint(e.x,e.y)}
+      if(!pending.dabs.some(isGridRenderableDab137)){
+        const elapsed=Math.max(0,e.timeStamp-pending.input.timeStamp)
+        const dabs=pending.sampler.continueStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,pending.snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),elapsed)
+        bakeDabOpacity(dabs,input.speed,pending.snapshot.opts.tool,pending.snapshot.opts.pencilType,pending.snapshot.opts.opacity,pending.snapshot.opts.size,pending.sampler.spacingFactor)
+        pending.dabs=dabs.map(codecDab)
+        if(pending.dabs.some(isGridRenderableDab137)){pending.firstElapsed=elapsed;pending.latest=undefined;this._tryGridAuthorStart(pending)}
+      }else pending.latest=input
+      return
+    }
+    if(this._gridAuthor&&this._authorInput.isParked){this._gridAuthor.latest={...e,...this._snapPoint(e.x,e.y)};return}
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
     if(!session){this._executeAuthorMove(e);return}
@@ -6386,17 +6842,27 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
   private _onEnd(e:PointerData):void {
+    if(this._gridNextAuthor){this._gridNextAuthor=undefined;return}
+    this._onEndCurrent(e)
+  }
+  private _onEndCurrent(e:PointerData):void {
+    if(this._gridAuthor&&!this._gridAuthor.committed){this._cancelGridAuthorStart();return}
+    if(this._gridAuthor&&this._authorInput.isParked){this._gridAuthor.end={...e};return}
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
-    if(!session){this._executeAuthorEnd(e);return}
+    if(!session){this._executeAuthorEnd(e);this._wakeGridResources();return}
     const time=this._captureAuthorTime(session,now),input={...e},held={...session.input}
     session.ended=true;session.hold=undefined
     this._stopAirbrush()
-    const owner=this
+    const owner=this,endingGrid=this._gridAuthor
     this._authorInput.enqueue(function*(){
       if(owner._dabs.timing && !input.cancelled)yield* owner._paintTimedInput(held,time,0,session.cameraAngle)
       owner._executeAuthorEnd(input,time,true)
-      owner._authorSnapshot=undefined
+      owner._wakeGridResources()
+      if(!endingGrid||!owner._authorInput.isParked){
+        owner._authorSnapshot=undefined
+        if(owner._gridAuthor===endingGrid)owner._gridAuthor=undefined
+      }
     })
   }
   private *_paintTimedInput(input:PointerData,time:number,speed:number,cameraAngle:number):Generator<void,void,void> {
@@ -6452,7 +6918,6 @@ export class PencilEngine implements PencilEngineAPI {
     if(sourcePolicy && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     // Native cursor history belongs to the freehand tool session, even between
     // brushes without opt-in. Its result only changes new versioned policies.
-    const sourceInitial=snapshot.initialDirection
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
@@ -6581,9 +7046,9 @@ export class PencilEngine implements PencilEngineAPI {
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
     this._strokeBrushSource=snapshot.brushSource
-    this._strokeBrushRandom = createBrushRandomContext(this._strokeTool)
+    this._strokeBrushRandom = this._gridAuthor?.committed?this._gridAuthor.seeds:createBrushRandomContext(this._strokeTool)
     this._dabs.brushExecution = brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
-    this._strokeId = this._strokeBrushRandom
+    this._strokeId = this._gridAuthor?.committed?this._gridAuthor.strokeId:this._strokeBrushRandom
       ? createBrushRandomStrokeId(createBrushSourceNonce(nanoid(10),this._strokeBrushSource), this._strokeBrushRandom)
       : nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
@@ -6600,89 +7065,7 @@ export class PencilEngine implements PencilEngineAPI {
     // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
     // shapingForMarkerPreset) sees this stroke's actual nib, not whatever
     // preset the *previous* stroke left in _strokePreset.
-    this._dabs.setShaping(shapingForTool(
-      this._strokeTool, snapshot.opts.pencilType,
-      { angle: snapshot.nibAngle, anchor: snapshot.nibAnchor },
-      snapshot.tiltResponse,
-    ))
-    // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
-    // straight chords between samples); every other tool keeps its plain
-    // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
-    this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
-      ? ribbonProfileFor(this._strokeTool, snapshot.opts.pencilType).curvatureTolerancePx
-      : null
-    // #547 — the step between stamps is a property of the *brush*, not of the
-    // engine, so it is latched here with everything else that is fixed for the
-    // length of one stroke.
-    //
-    // Every brush in the set asks for a tighter step than the engine's 0.22
-    // default, and that default is why: it was calibrated (#478) against tools
-    // whose dabs blend through paper grain and soft graphite falloff. A digital
-    // stamp has neither, so its own ripple shows several times sooner — see the
-    // spacing values in digitalBrushPresets.ts.
-    this._dabs.spacingFactor = this._strokeTool === 'digitalBrush'
-      ? digitalBrushFromPreset(snapshot.opts.pencilType).spacing
-      : DEFAULT_DAB_SPACING_FACTOR
-    // #478 — same slot and the same lifecycle: a property of the tool, latched
-    // once per stroke. Dab spacing has to track the mark this tool actually
-    // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
-    // mark. See dabSpacing.ts for the whole argument, including which tools
-    // are deliberately left on the old rule.
-    // (#579) Not for a brush whose stamps are separate marks (flowPer
-    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
-    // exists to hide the stamp — to keep a hard edge from reading as a row of
-    // discs — and for these the separate prints *are* the brush: a sponge
-    // spaced to the footprint came out as a smooth band with no dabs in it.
-    // Recorded strokes are unaffected: spacing is decided when the dabs are
-    // made, and a replay paints the dabs the log holds.
-    const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
-    this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
-    this._dabs.timing=spacingBrush?.behavior?.timing
-    this._dabs.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
-    this._dabs.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
-    this._dabs.initialDirection=sourceInitial
-    this._dabs.captureSourceAngle=!!spacingBrush?.tangentNormal
-    this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
-    const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,this._physicalSize),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
-    this._dabs.autoSpacing = spacingBrush && sourceSpacing
-      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, snapshot.opts.pencilType) }
-      : null
-    const stampBrush = this._strokeTool === 'digitalBrush'
-      && digitalBrushFromPreset(snapshot.opts.pencilType).flowPer === 'stamp'
-    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool) && !stampBrush
-      ? {
-        sizeScale: this._dabSizeScale(this._strokeTool, snapshot.opts.pencilType),
-        hardness: this._resolvePreset(this._strokeTool, snapshot.opts.pencilType).hardness,
-        // #547 — the digital brush follows its footprint at every hardness. See
-        // DabFootprint.spacingStrength for why the gate the other three tools
-        // use is a graphite calibration that does not carry over to a mark with
-        // no paper in it.
-        ...(this._strokeTool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
-      }
-      : null
-    // #489: watercolor's *elongated* nibs take the scallop bound without the
-    // rest of that rule — DabSystem.nibScallop carries the whole argument,
-    // including why the marker's identical 5:1 geometry is left as it is.
-    //
-    // Not the round nib, and that exclusion is measured rather than assumed.
-    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
-    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
-    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
-    // round brush's stroke. Its deposit is normalised per unit travel so the
-    // tone would have held, but the mark's fine structure would not have, and
-    // that is exactly the regression #483 was filed for. This tool has shipped;
-    // the flat has not.
-    //
-    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
-    // tilt and does scallop a little there. Nobody has reported it, and quietly
-    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
-    //
-    // #501: and charcoal's chisel, which wants this *and* the footprint rule —
-    // it is a stamped mark, so its gaps are real holes, and it is an elongated
-    // nib, so its silhouette scallops. Both bounds compose in _spacingAfter.
-    this._dabs.nibScallop = this._nibScallops(this._strokeTool, snapshot.opts.pencilType)
-      ? { sizeScale: this._dabSizeScale(this._strokeTool, snapshot.opts.pencilType) }
-      : null
+    this._configureAuthorSampler(this._dabs,snapshot,brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource))
     this._strokePreset  = snapshot.opts.pencilType
     this._strokeColor   = snapshot.opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
@@ -6719,12 +7102,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // Watercolor ribbons cannot paint AccumulationBuffer previews; real dabs
     // and the physical end of the stroke remain on the canonical layer.
-    if (this._predictPointer && this._strokeTool !== 'watercolor') {
+    if (this._predictPointer && this._strokeTool !== 'watercolor'&&!(this._strokeTool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(snapshot.opts.pencilType)))) {
       this._previewBuf = this._previewBufPool.acquire(this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
-    if (this._liveTip && this._strokeTool !== 'watercolor') {
+    if (this._liveTip && this._strokeTool !== 'watercolor'&&!(this._strokeTool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(snapshot.opts.pencilType)))) {
       this._tipBuf = this._tipBufPool.acquire(this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
@@ -6752,8 +7135,8 @@ export class PencilEngine implements PencilEngineAPI {
       const cfg = this._dwellCfg
       this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
     }
-    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp)
-    this._paintStrokeDabs(dabs, e.speed, 0)
+    const dabs = this._gridAuthor?.committed?(()=>{this._dabs=this._gridAuthor!.sampler;return this._gridAuthor!.dabs})():this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp)
+    this._paintStrokeDabs(dabs, e.speed, this._gridAuthor?.firstElapsed??0)
     this._display()
     this._handlers.strokeStart?.(e)
   }
@@ -6944,9 +7327,19 @@ export class PencilEngine implements PencilEngineAPI {
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
+    const grid=this._gridAuthor
+    if(grid?.committed&&this._authorInput.isParked){
+      grid.finalizeEnd=()=>this._completeAuthorEnd(e,layerId,dabs,strokeEndSample,t0)
+      return
+    }
+    this._completeAuthorEnd(e,layerId,dabs,strokeEndSample,t0)
+  }
+
+  private _completeAuthorEnd(e:PointerData,layerId:string,dabs:Dab[],strokeEndSample:StrokeOperation['strokeEndSample'],t0:number):void {
+    const completedGrid=this._gridAuthor
     // Async canonical chunks may still be queued after local pen-up; their
     // final operation owns cleanup. Synchronous local painting uses null ID.
-    if (!this._wcAsyncLocalStroke) this._smudge.finishGesture(this._userId, null)
+    if (!this._wcAsyncLocalStroke) this._smudge.finishGesture(this._userId, completedGrid?.committed?completedGrid.strokeId:null)
     if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
       this._brush.finish(this._ribbonStrokeScratch,strokeEndSample)
       this._finishRibbonStroke(this._ribbonStrokeScratch, true)
@@ -6998,7 +7391,7 @@ export class PencilEngine implements PencilEngineAPI {
       })
     }
 
-    if (this._strokeDabs.length || strokeEndSample) {
+    if (this._strokeDabs.length || strokeEndSample || completedGrid?.firstPublished) {
       // (#520) One operation per layer the gesture painted into — normally
       // exactly one, and several only under a cross-layer erase. They share
       // `strokeId`, which is what makes them one gesture to undo
@@ -7065,6 +7458,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#537) The pen is up: whatever was waiting for it to re-settle can now.
     this._settleLayers()
     this._handlers.strokeEnd?.(e)
+    if(completedGrid&&this._gridAuthor===completedGrid){this._gridAuthor=undefined;this._authorSnapshot=undefined}
   }
 
   /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
@@ -7141,7 +7535,13 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
     this._snapshots.markDirty(this._strokeLayerId)
 
-    this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
+    if(this._gridAuthor?.dabs!==dabs)this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
+    if(this._strokeTool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(this._strokePreset))){
+      const paint=digitalBrushMixer(this._strokePreset,this._strokeColor)
+      if(!paint)throw Error('Grid137 author mixer missing')
+      if(!this._dabs.strokeInput&&!this._dabs.captureSourceTime)for(const dab of dabs)dab.t=elapsedMs
+      this._paintGridAuthorDabs(buf,dabs.map(codecDab),paint);return
+    }
     // #454, ADR 009 §4. Before painting *and* before _strokeDabs.push below,
     // so the narrowing is baked into the dab every other route to these pixels
     // reads — the recorded StrokeOperation, the packet a peer replays, an
@@ -7649,12 +8049,17 @@ export class PencilEngine implements PencilEngineAPI {
       assertBrushSourceInputs(brush,dabs,strokeEndSample)
       assertBrushExecutionContext(brush,execution)
     }
-    if (!dabs.length && !strokeEndSample) return undefined
+    if(tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))&&!dabs.some(isGridRenderableDab137)){if(strokeEnd&&strokeId)this._smudge.finishGesture(userId,strokeId);return undefined}
+    if (!dabs.length && !strokeEndSample) {if(strokeEnd&&strokeId&&tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName)))this._smudge.finishGesture(userId,strokeId);return undefined}
     if(!(tool==='digitalBrush' && digitalBrushFromPreset(presetName).mixer?.paintThickness))target.dryColorSmudge?.()
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
     if (tool === 'digitalBrush') {
       dabs = dabs.map(codecDab)
       if (prevDab) prevDab = codecDab(prevDab)
+    }
+    if('resolveForPaint' in target&&dabs.some(isGridRenderableDab137)){
+      const same=tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))?(strokeId??this._strokeId??undefined):undefined
+      this._smudge.markGridDestinationBoundary(target,same?{userId,strokeId:same}:undefined)
     }
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
@@ -7668,6 +8073,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
+      if(paint?.brush&&this._isGrid137Brush(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
       if (paint) { if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in

@@ -1,3 +1,4 @@
+import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
@@ -168,6 +169,19 @@ export class BrushPainter {
   }
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
+  prepareGridWash():void{
+    const resources:BrushPreparationResource[]=[{id:'cloud',grain:true,painter:'stamp'},{id:'grit',grain:true,painter:'stamp'}]
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    let failed=false
+    try{this.behavior.prepareGridWash();for(const resource of resources)if(!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{try{release()}catch(error){if(!failed)throw error}}
+  }
+  assertGridWashPrepared():void{this.behavior.assertGridWashPrepared()}
+  borrowRequestWash():BorrowedGridWash{
+    const resources:BrushPreparationResource[]=[{id:'cloud',grain:true,painter:'stamp'},{id:'grit',grain:true,painter:'stamp'}]
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    try{if(resources.some(resource=>!this.hasPreparedTexture(resource)))throw Error('Grid Wash composite resources were not prepared');return{...this.behavior.borrowGridWash(),release}}
+    catch(error){try{release()}catch{/* Preserve primary. */}throw error}
+  }
   prepareParticleWash():void{this.behavior.prepareParticleWash()}
   prepareBristleWash():void{this.behavior.prepareBristleWash()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }

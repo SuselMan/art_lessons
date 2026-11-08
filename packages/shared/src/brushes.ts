@@ -28,6 +28,7 @@ import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
 export type{BrushParticle}from'./brushParticle.js'
 import{isGridDescriptor,type BrushGrid}from'./brushGrid.js'
 export type{BrushGrid}from'./brushGrid.js'
+export{hasGridWash137Scope,hasGridBeginIdentity137}from'./brushGrid.js'
 import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
@@ -746,6 +747,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.tangentNormal&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.grid&&(secondary.grid.sourcePolicy!==undefined||secondary.version>=137&&secondary.behavior?.rendering?.accumulation==='alphaDarken'))return false
         if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false

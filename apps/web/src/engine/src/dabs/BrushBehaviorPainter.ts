@@ -1,3 +1,4 @@
+import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
@@ -234,6 +235,14 @@ export class BrushBehaviorPainter {
   }
   prepareSprayImages():void{(this.sprayImageBatch??=new SprayImageBatch(this.ctx.gl)).prepare()}
   private prepareRequestWash():RequestWashBatch{const batch=this.requestWash??=new RequestWashBatch(this.ctx.gl);batch.prepare();return batch}
+  prepareGridWash():void{this.prepareRequestWash()}
+  assertGridWashPrepared():void{if(!this.requestWash||!this.composite)throw Error('Grid Wash was not prepared');this.requestWash.assertPrepared()}
+  borrowGridWash():Omit<BorrowedGridWash,'release'>{
+    const kernel=this.requestWash
+    if(!kernel||!this.composite)throw Error('Grid Wash pipeline was not prepared')
+    kernel.assertPrepared();const current=kernel.captureCurrent()
+    return{kernel,present:(tile,bounds,entry,brush,opacity)=>{current();if(!entry.inkLoad)throw Error('Grid Wash ceiling missing');this.presentStrokeTile(tile,bounds,entry.inkLoad,entry.coverage,entry.inkLoad,brush,opacity)}}
+  }
   prepareParticleWash():void{this.prepareRequestWash();this.prepareSprayShapes()}
   prepareBristleWash():void{this.prepareRequestWash();this.prepareSketchLines()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}

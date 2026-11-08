@@ -1,0 +1,28 @@
+{
+  "originalEntry": "paintoppresets/k)_Blender_Pixelize.kpp",
+  "originalSHA256": "f13ddf424f577907dc614d14370b0ab9e62ceff7104b6432da588da6545d35db",
+  "params": {
+    "ColorOption/colorPerParticle": "false",
+    "ColorOption/fillBackground": "false",
+    "ColorOption/hue": "0",
+    "ColorOption/mixBgColor": "false",
+    "ColorOption/sampleInputColor": "true",
+    "ColorOption/saturation": "0",
+    "ColorOption/useRandomHSV": "false",
+    "ColorOption/useRandomOpacity": "false",
+    "ColorOption/value": "0",
+    "CompositeOp": "normal",
+    "EraserMode": "false",
+    "Grid/divisionLevel": "0",
+    "Grid/gridHeight": "20",
+    "Grid/gridWidth": "20",
+    "Grid/horizontalBorder": "0",
+    "Grid/pressureDivision": "false",
+    "Grid/randomBorder": "false",
+    "Grid/scale": "1",
+    "Grid/verticalBorder": "0",
+    "GridShape/shape": "1",
+    "PaintOpAction": "2",
+    "paintop": "gridbrush"
+  }
+}

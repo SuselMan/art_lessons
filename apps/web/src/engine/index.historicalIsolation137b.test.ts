@@ -13,6 +13,7 @@ import type{PixelOperation}from'./src/oplog/OperationLog'
 function thrown(work:()=>unknown){try{work();return{threw:false,value:undefined}}catch(value){return{threw:true,value}}}
 function setup(){
  const e=Object.create(PencilEngine.prototype)as PencilEngine,gl=new MockGL(),complete=vi.fn(),budget=vi.fn(),rebuild=vi.fn(),wet=vi.fn(),ui=vi.fn(),fieldRelease=vi.fn()
+ Reflect.set(e,'_gridTargetEpochs',new WeakMap())
  const cache=new RibbonReplayCache({ribbonScratchPool:()=>e['_ribbonScratchPool'],destroyed:()=>false,contextLost:()=>false,inJobStep:()=>e['_historicalSourceDepth']>0,preserveOpenChunks:()=>e['_historicalSourceDepth']>0, gpuBudget:()=>Infinity,settlingScratch:()=>e['_historicalSourceDepth']?undefined:e['_settle']?.scratch,completeSettle:()=>e['_completeSettle'](),finishedChunk:()=>undefined,rebuildLostWash:t=>{if(!e['_historicalSourceDepth'])rebuild(t)},scheduleBudgetCheck:()=>{if(!e['_historicalSourceDepth'])budget()},washGpuBytes:()=>0})
  const smudge=Object.create(SmudgePainter.prototype)as SmudgePainter
  for(const key of['imprints','wetGestures','replayChunks'])Reflect.set(smudge,key,new Map())
