@@ -301,9 +301,17 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
-export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number): number | undefined {
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
+  if(animation.mode==='xtilt'||animation.mode==='ytilt'){
+    const rank=animation.rank,axis=Math.fround((animation.mode==='xtilt'?tiltX:tiltY)??NaN)
+    if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||animation.geometry!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||!Number.isFinite(axis)||Math.abs(axis)>90)throw Error('Invalid GIH captured tilt input')
+    // Qt5.15 qRound: nearest with negative half-ties toward positive infinity.
+    // Degrees are NOT normalized; the native unsigned accumulation precedes actual EOF modulo.
+    const index=Math.floor(axis/2*rank+.5)+Math.trunc(rank/2)
+    return(index>>>0)%animation.frames.length
+  }
   if(animation.mode==='angular'){
     const rank=animation.rank
     if(animation.cursorPolicy!=='first-request-v1'||rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||sourceAngle===undefined||!Number.isFinite(sourceAngle))throw Error('Invalid GIH captured angular input')
@@ -332,8 +340,8 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
   return animation.mode==='incremental' ? ordinal%animation.frames.length
     : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
 }
-export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number): BrushDescriptor['tip']['mask'] {
-  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed,sourceAngle)
+export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number): BrushDescriptor['tip']['mask'] {
+  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY)
   return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
@@ -357,6 +365,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     assertBrushExecutionContext(brush,state.execution)
     assertBrushSourceInputs(brush,[dab])
   }
+  // Tilt112 is root-only; reject forged child/mixed descriptors before any selector/counter mutation.
+  const tiltSelector=brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt',childTilt=behavior?.dual?.brush.tip.animation?.mode==='xtilt'||behavior?.dual?.brush.tip.animation?.mode==='ytilt'
+  if(childTilt)throw Error('GIH tilt child is unsupported')
+  if(tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry||brush.tip.color||brush.tip.material||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
   // Validate both selectors before advancing any real gesture state.
   const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'
   if(velocity){
@@ -366,7 +378,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   }
   if(brush.tip.animation?.mode==='angular'&&(!Number.isFinite(dab.x)||!Number.isFinite(dab.y)))throw Error('Invalid GIH angular request coordinates')
   const ordinal = state.dabOrdinal ?? 0
-  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle)
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle,dab.tiltX,dab.tiltY)
   // Independent sensor masks are queried only by their own resampled child dabs.
   // Preserve historical random/incremental parent metadata expressions unchanged.
   const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
