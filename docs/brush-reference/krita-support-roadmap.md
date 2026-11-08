@@ -1127,7 +1127,39 @@ polling и room reload. Оно отличается от history repair; чте�
 35 предупреждений, включая новые; все восемь workers завершены.
 Independent renderer/host static reviews закрыли найденные blockers.
 
-Это ещё не GPU/online release137. Подготовлены120 GPU rows
-(прежние111 +9 Grid), genuine CAPS и двухклиентный online сценарий;
-они требуют финального Git pin и отдельной immutable сборки.
-Публичный QA52/55 и каталог189/144/252 остаются на проверенном136.
+137 завершён на QA53/backend56, immutable source15c622f3. Оригинальный
+`k)_Blender_Pixelize` импортирован как `imported-c6aeab7dee5a95626e20cd1c@137`;
+измеренные новые CAS0. Native13/portable30/shared30 отрицательных вариантов
+и108 Storage-проверок прошли. Каталог190 определений/144 имени/252CAS,
+прежние189 whole objects сохранены. Старая48 остаётся доступной истории.
+
+Actual Linux AMD WebGL120/120 и9 значимых контрпримеров прошли;
+Grid подмены current-source/reset-baseline/previous-full дают2/3/1
+числовых сбоя соответственно, прежние111/nonnumeric/legacy controls зелёные.
+GL/JS0, все22 worker завершены, временные bundles удалены по SHA.
+GPU proof: `restore137-gpu-v3-execution-e8fa1d04f7b944c095e19b65a60d5331`,
+SHA256:65d148b011c13dd8ed43c243225edb5270e164d4dca670ee4591ed46d8bdac05.
+Первые QA-ошибки сохранены: stale Tangent fixture API исправлен по реально
+принятому136 successor, Grid координаты уложены в прежний16MiB working set,
+offset-инвариант измеряет геометрию вместо намеренно отключаемого CF-флага.
+Числовые oracle/пороги/production code при этих исправлениях не менялись.
+
+Два настоящих browser участника на ноутбуке:28 дабов Pixelize по заранее
+нарисованным красно-синим полосам, captured opacity.5 и связанные seeds.
+Never-selected peer видит рисунок до END; первая durable операция уже ACK
+внутри жеста. Final/Undo/Redo/оба cold/реальный WebGL loss+restore совпали;
+RGB изменился в39865 pixels, дальняя40px полоса RGBA exact. У Grid нет
+требования sourceAngle:0 записанных значений допустимы, соответствующая
+лишняя QA-проверка исправлена без добавления данных в операции.
+Отдельно HB53 finite local/stored даба, clear/undoClear/delete/undoDelete
+прошли, исходный Grid composite восстановлен точно. Первый синтетический
+HB producer пропустил обязательный PointerData.speed; ошибочный прогон
+сохранён отдельно, production path не изменялся.
+
+Это закрытый функциональный sampled-rectangle scope, не все параметры Grid
+и не произвольные KPP. Source working set16MiB может ограничить большой
+холст/параллельные активные жесты. Foreign-operation segmentation проверена
+GPU/central; отдельный настоящий concurrent A→B→A онлайн-прогон не заявлен.
+Samsung/iPad latency/memory и межвендорная точность этим прогоном не аттестованы.
+Следующий authored блок138 — static Pixel filtered-gradient + Wash,
+подтверждённый stock gain0; admission до цельной интеграции остаётся закрытым.
