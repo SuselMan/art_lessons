@@ -444,7 +444,8 @@ export function createBrushCompositeFragment(extendedBlend=false):string {
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
 }
 
-export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false,textureLightness=false): string {
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false,textureLightness=false,textureGradient=false): string {
+  if(textureGradient&&(!autoNoise||filteredGradient||textureLightness))throw Error('Texture Gradient requires its own effects capability')
   if(textureLightness&&(!autoNoise||filteredGradient))throw Error('Texture Lightness requires its own effects capability')
   if(filteredGradient&&!autoNoise)throw Error('Filtered gradient requires the private effects capability')
   if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')
@@ -593,6 +594,25 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       vec4 pattern=brushTextureGridRgba(u_texture,local,u_textureApplication,u_textureMapping,0.0);
       pigment=brushMaterialColor(pigment,pattern.r,clamp(u_texStrength,0.0,1.0));
       shape=min(shape,pattern.a);
+    } else if(u_textureApplication.x>0.5) {`)
+  }
+  if(textureGradient){
+    const grid=BRUSH_TEXTURE_APPLICATION_GLSL.slice(BRUSH_TEXTURE_APPLICATION_GLSL.indexOf('float brushTextureGrid(')).replace('float brushTextureGrid(','vec4 brushTextureGridRgba(').replace('return mix(value.r,value.a,alphaChannel);','return value;')
+    replace('  void main() {',grid+`
+  uniform float u_textureMaterial;
+  uniform sampler2D u_gradientPalette;
+  void main() {`)
+    replace('    if(u_textureApplication.x>0.5) {',`    if(u_textureMaterial>0.5) {
+      vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+      vec4 pattern=brushTextureGridRgba(u_texture,local,u_textureApplication,u_textureMapping,0.0);
+      float index=floor(clamp(pattern.r,0.0,1.0)*255.0+0.5);
+      vec4 palette=texture2D(u_gradientPalette,vec2((index+0.5)/256.0,0.5));
+      float w=floor(clamp(u_texStrength,0.0,1.0)*255.0+0.5)/255.0;
+      float sourceAlpha=clamp(shape,0.0,1.0),mappedAlpha=min(palette.a*pattern.a,sourceAlpha);
+      float mixedAlpha=sourceAlpha*(1.0-w)+mappedAlpha*w;
+      vec3 mixedPremul=pigment*sourceAlpha*(1.0-w)+palette.rgb*mappedAlpha*w;
+      pigment=mixedAlpha>0.0?mixedPremul/mixedAlpha:vec3(0.0);
+      shape=mixedAlpha;
     } else if(u_textureApplication.x>0.5) {`)
   }
   return source

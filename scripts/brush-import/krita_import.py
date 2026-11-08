@@ -1087,7 +1087,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
         texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'linearDodge',9:'linearBurn',10:'hardMixPhotoshop',11:'hardMixSofterPhotoshop'}
-        texture_supported=texture_mode in (0,1)or(engine=='paintbrush'and _allow_texture_material and texture_mode==2)or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
+        texture_supported=texture_mode in (0,1)or(engine=='paintbrush'and _allow_texture_material and texture_mode in(2,3))or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
         if texture_supported:
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
@@ -1113,10 +1113,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                   'cutoff_policy':int(numeric(params.get(prefix+'CutoffPolicy'),0)),
                   'cutoff_left':int(numeric(params.get(prefix+'CutoffLeft'),0)),
                   'cutoff_right':int(numeric(params.get(prefix+'CutoffRight'),255))}
-            compiled=preprocess_texture(authored_pattern,**tone,preserve_alpha=True) if texture_mode==2 else preprocess_texture(authored_pattern,**tone)
-            pattern_alpha=(compiled.getchannel('A') if compiled.mode=='RGBA'else Image.new('L',compiled.size,255)) if texture_mode==2 else None
+            compiled=preprocess_texture(authored_pattern,**tone,preserve_alpha=True) if texture_mode in(2,3) else preprocess_texture(authored_pattern,**tone)
+            pattern_alpha=(compiled.getchannel('A') if compiled.mode=='RGBA'else Image.new('L',compiled.size,255)) if texture_mode in(2,3) else None
             mask=compiled.getchannel('R') if compiled.mode=='RGBA' else compiled
-            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and texture_mode!=2 and enabled(params.get(prefix+'AutoInvertOnErase')) else None
+            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and texture_mode not in(2,3) and enabled(params.get(prefix+'AutoInvertOnErase')) else None
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
             padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
@@ -1128,7 +1128,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
-                          **({'material':{'kind':'lightness','alpha':alpha_id}}if texture_mode==2 else{'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))}}),'offset':offset}
+                          **({'material':{'kind':'gradient'if texture_mode==3 else'lightness','alpha':alpha_id}}if texture_mode in(2,3) else{'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))}}),'offset':offset}
             if erase_pattern is not None:
                 erase_padded=Image.new('L',(pot,pot));erase_padded.paste(erase_pattern,(0,0))
                 d['texture']['eraseId']=catalog.asset(erase_padded,warnings,grain=True);d['version']=max(d['version'],77)
@@ -1142,9 +1142,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
             controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
-            if texture_mode==2 and any('combine'in c for c in controls):d['texture']['strength']=1
-            if texture_mode==2 and any(n['status']=='unsupported'and n['feature'].startswith('Texture/Strength/') for n in notes):raise ValueError('Unsupported Texture Lightness108 strength sensors')
-            notes.append(compatibility('texture','Native pattern grid, phase and strength retained; texture Lightness108 consumes independent gray/alpha planes.'if texture_mode==2 else'Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
+            if texture_mode in(2,3) and any('combine'in c for c in controls):d['texture']['strength']=1
+            if texture_mode in(2,3) and any(n['status']=='unsupported'and n['feature'].startswith('Texture/Strength/') for n in notes):raise ValueError('Unsupported Texture Lightness108 strength sensors')
+            notes.append(compatibility('texture','Native pattern grid, phase and strength retained; texture Lightness108 consumes independent gray/alpha planes.'if texture_mode==2 else'Native pattern grid, phase and strength retained; texture Gradient111 consumes independent gray/alpha with gesture-captured CurrentGradient.'if texture_mode==3 else'Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
         else:
             aid=catalog.asset(mask,warnings,grain=True)
             d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
@@ -1428,8 +1428,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         tip=d['tip'];t=d['texture'];render=behavior.get('rendering',{})
         if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
             raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
-        d['version']=max(d['version'],108)
-        notes.append(compatibility('textureLightness','Pattern gray is compiled after white-compositing/tone while original alpha remains independent. Lightness changes current opaque-source RGB; alpha=min(patternAlpha,dabAlpha) before flow/opacity even at strength0. Functional HSL graph shares the existing material helper; native U8/ICC identity is not claimed.','supported'))
+        d['version']=max(d['version'],111 if t['material']['kind']=='gradient'else 108)
+        if t['material']['kind']=='gradient':notes.append(compatibility('textureGradient','Pattern gray is filtered before captured256 palette lookup; alpha is clamped to already coloured dab and mixed with native byte-rounded strength using alpha-aware weighted colour. Functional RGB/alpha graph; ICC/native U8 identity is not claimed.','supported'))
+        else:notes.append(compatibility('textureLightness','Pattern gray is compiled after white-compositing/tone while original alpha remains independent. Lightness changes current opaque-source RGB; alpha=min(patternAlpha,dabAlpha) before flow/opacity even at strength0. Functional HSL graph shares the existing material helper; native U8/ICC identity is not claimed.','supported'))
     if d.get('texture',{}).get('eraseId'):d['version']=max(d['version'],77)
     if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
         if engine=='colorsmudge':

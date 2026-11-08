@@ -1,3 +1,4 @@
+import {textureMaterialVariant} from './src/presets/textureLightness'
 import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
 import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
 import {captureHatchingBackground,type HatchingRgba8} from './src/raster/hatchingBackground'
@@ -3521,7 +3522,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     const descriptor = digitalBrushFromPreset(preset)
     const plan=brushPreparationPlan(descriptor),capabilities=plan.capabilities
-    const gradient=descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
+    const gradient=descriptor.texture?.material?.kind==='gradient'||descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     const resources=bindBrushGradient(plan.resources,gradient)
     const preparationKey=gradient ? preset+':gradient:'+gradient : preset
     if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
@@ -3543,7 +3544,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'sprayImages')this._brush.prepareSprayImages()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
-      else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor),!!descriptor.texture?.material)
+      else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor),textureMaterialVariant(descriptor))
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
       else if (painter === 'colorSmudgeTexture') this._smudge.prepareColorSmudgeTexture()
@@ -7898,9 +7899,10 @@ export class PencilEngine implements PencilEngineAPI {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
-    if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),!!stamp.brush.texture?.material)
+    if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
-    if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)
+    if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)
+    else if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()

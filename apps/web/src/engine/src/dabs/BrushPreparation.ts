@@ -1,4 +1,4 @@
-import {usesTextureLightness} from '../presets/textureLightness'
+import {textureMaterialKind} from '../presets/textureLightness'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
 import {BRISTLE_SATURATION_GPU_BYTES,BRISTLE_SATURATION_UPLOAD_BYTES,bristleSaturationResourceKey} from './BristleSaturationResource'
 import {prepareVariableGih,usesVariableGih} from '../presets/gihFramePreparation'
@@ -28,7 +28,7 @@ export function brushUsesStampEffects(brush:BrushDescriptor):boolean {
  const activeNoise=!!brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)
  const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'||mode==='colorDodge'||mode==='colorBurn'||mode==='hardMixPhotoshop'||mode==='hardMixSofterPhotoshop'}
  const inline=brush.behavior?.dual?.sampling!=='independent'?brush.behavior?.dual?.brush:undefined
- return usesTextureLightness(brush)||usesVariableGih(brush.tip)||usesPixelOriginalRgba(brush)||activeNoise||extended(brush)||extended(inline)||brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'
+ return !!textureMaterialKind(brush)||usesVariableGih(brush.tip)||usesPixelOriginalRgba(brush)||activeNoise||extended(brush)||extended(inline)||brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'
 }
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
@@ -86,7 +86,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
   usesColorSmudgeTexture(brush)
-  usesTextureLightness(brush)
+  textureMaterialKind(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
@@ -170,9 +170,10 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       add(painter,id,false,false,gray,b.tip,colorPlanes)
     })
     if(b.texture?.material){
-      if(b!==brush||!usesTextureLightness(b)||painter!=='stamp')throw Error('Texture Lightness108 is root-only')
+      if(b!==brush||!textureMaterialKind(b)||painter!=='stamp')throw Error('Texture Lightness108 is root-only')
       const resource:BrushPreparationResource={painter,id:b.texture.id,grain:true,discrete:true,patternAlpha:b.texture.material.alpha,patternSize:b.texture.patternSize}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
+      if(b.texture.material.kind==='gradient'){const palette:BrushPreparationResource={painter,id:b.texture.id,grain:false,gradientPalette:true};resources.set(`${painter}:${brushTextureResourceKey(palette)}`,palette)}
     }else add(painter, textureEraseId(b.texture,capturedErase), true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }
     const dual = b.behavior?.dual

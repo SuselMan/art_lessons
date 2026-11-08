@@ -120,7 +120,7 @@ export function brushForegroundRate(foreground:BrushForeground|undefined):BrushF
  return foreground && 'gradient' in foreground ? foreground.gradient : foreground
 }
 export function brushUsesGradient(brush:BrushDescriptor):boolean {
- return !!brush.tip.color && 'gradient' in brush.tip.color || !!brush.mixer?.foreground && 'gradient' in brush.mixer.foreground
+ return brush.texture?.material?.kind==='gradient' || !!brush.tip.color && 'gradient' in brush.tip.color || !!brush.mixer?.foreground && 'gradient' in brush.mixer.foreground
 }
 export function brushTipColorPlanes(tip:BrushTip,index=0):readonly [AssetId,AssetId,AssetId]|undefined {
  const color=tip.color
@@ -286,7 +286,7 @@ export interface BrushDescriptor {
   texture?: {
     id: BrushTextureId; eraseId?:AssetId; periodPx: number; strength: number
     /** Pixel108: compiled pattern gray id + independent alpha plane. */
-    material?: {kind:'lightness';alpha:AssetId}
+    material?: {kind:'lightness'|'gradient';alpha:AssetId}
     /** Explicit operation on the dab mask; absent preserves historical grain. */
     application?: { mode: 'multiply' | 'subtract' | 'darken' | 'overlay' | 'linearDodge' | 'linearBurn' | 'colorDodge' | 'colorBurn' | 'hardMixPhotoshop' | 'hardMixSofterPhotoshop'; soft: boolean }
     /** Integer repeat grid at the top-left of its padded square asset. */
@@ -664,7 +664,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset','material'].includes(key))) return false
       if(t.material!==undefined){
         const m=t.material
-        if(Number(d.version)<108||!record(m)||m.kind!=='lightness'||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||d.behavior.rendering.accumulation!=='directOver')return false
+        if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||d.behavior.rendering.accumulation!=='directOver')return false
       }
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
       if(record(t.application)&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))){

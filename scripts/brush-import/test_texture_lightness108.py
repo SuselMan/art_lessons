@@ -24,11 +24,11 @@ class TextureLightness108Tests(unittest.TestCase):
             root=Path(tmp);c,m,raw=fixture(root);d=m['brushes'][0]['descriptor'];t=d['texture'];self.assertEqual(d['version'],108);self.assertEqual(t['material']['kind'],'lightness');self.assertEqual(t['strength'],0);self.assertNotIn('application',t)
             assets={a['id']:a for a in m['assets']};gray=(c.output/assets[t['id']]['file']).read_bytes();alpha=(c.output/assets[t['material']['alpha']]['file']).read_bytes();self.assertEqual(gray,bytes([255,127,87,39]));self.assertEqual(alpha,bytes([0,128,255,255]));self.assertEqual(gray[0],255);self.assertEqual(alpha[0],0)
             _,out=portable(root,c,m);self.assertEqual(out.brushes,m['brushes'])
-    def test_rgb_pattern_is_opaque_gray_and_historical_raw3_is_not_reinterpreted(self):
+    def test_rgb_pattern_is_opaque_gray_and_new_raw3_has_separate111_kind(self):
         with tempfile.TemporaryDirectory()as tmp:
             root=Path(tmp);c,m,_=fixture(root,rgba=False);t=m['brushes'][0]['descriptor']['texture'];assets={a['id']:a for a in m['assets']};self.assertEqual((c.output/assets[t['material']['alpha']]['file']).read_bytes(),bytes([255]*4))
         with tempfile.TemporaryDirectory()as tmp:
-            _,m,_=fixture(Path(tmp),{'Texture/Pattern/TexturingMode':'3'});self.assertNotIn('material',m['brushes'][0]['descriptor']['texture']);self.assertTrue(any(n['feature']=='textureApplication'and n['status']=='unsupported'for n in m['brushes'][0]['compatibility']))
+            _,m,_=fixture(Path(tmp),{'Texture/Pattern/TexturingMode':'3'});self.assertEqual(m['brushes'][0]['descriptor']['version'],111);self.assertEqual(m['brushes'][0]['descriptor']['texture']['material']['kind'],'gradient');self.assertTrue(any(n['feature']=='textureGradient'and n['status']=='supported'for n in m['brushes'][0]['compatibility']))
     def test_strength_constant_once_and_inactive_curve_does_not_parse_stale_sensor(self):
         for strength in['0','.25','.75','1']:
             with tempfile.TemporaryDirectory()as tmp:
