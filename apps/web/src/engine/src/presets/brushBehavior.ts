@@ -1,7 +1,7 @@
 import{prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
-import{brushUsesDistanceControl}from'@grafetto/shared'
+import{brushUsesDistanceControl,brushAnimationUsesMode}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
@@ -299,11 +299,49 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
   const sector=h<1 ? [c,x,0] : h<2 ? [x,c,0] : h<3 ? [0,c,x] : h<4 ? [0,x,c] : h<5 ? [x,0,c] : [c,0,x]
   return [sector[0]+m,sector[1]+m,sector[2]+m]
 }
+/** New113 raw signed selector: reduction is deliberately owned by the combined branch. */
+function dimensionSelector(mode:string,rank:number,pressure?:number,speed?:number,angle?:number,x?:number,y?:number):number {
+  if(mode==='constant')return 0
+  if(mode==='pressure'){
+    const p=Math.fround(pressure??NaN)
+    if(!Number.isFinite(p)||p<0||p>1)throw Error('Invalid multidimensional pressure input')
+    return Math.trunc(p*(rank-1)+.5)
+  }
+  if(mode==='velocity'){
+    const v=Math.fround(speed??NaN)
+    if(!Number.isFinite(v)||v<0||v>1)throw Error('Invalid multidimensional speed input')
+    return Math.floor(Math.min(Math.log(1+v),3)/3*(rank-.5)+.5)
+  }
+  if(mode==='angular'){
+    if(angle===undefined||!Number.isFinite(angle))throw Error('Invalid multidimensional source angle')
+    const turn=2*Math.PI,wrapped=(angle+3*Math.PI/4)%turn
+    return Math.trunc((wrapped<0?wrapped+turn:wrapped)/turn*rank)
+  }
+  if(mode==='xtilt'||mode==='ytilt'){
+    const v=Math.fround((mode==='xtilt'?x:y)??NaN)
+    if(!Number.isFinite(v)||Math.abs(v)>90)throw Error('Invalid multidimensional tilt input')
+    return Math.floor(v/2*rank+.5)+Math.trunc(rank/2)
+  }
+  throw Error('Unsupported multidimensional selector')
+}
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
 export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
+  if(animation.mode==='dimensions'){
+    const dims=animation.dimensions
+    if(animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
+    const product=dims.reduce((n,d)=>n*d.rank,1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
+    if(product>256||animation.frames.length<1||animation.frames.length>product||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))throw Error('Invalid multidimensional product/policy')
+    let stride=product,index=0
+    for(const dimension of dims){
+      stride/=dimension.rank
+      index=(index+stride*dimensionSelector(dimension.mode,dimension.rank,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY))>>>0
+    }
+    return index%animation.frames.length
+  }
+
   if(animation.mode==='xtilt'||animation.mode==='ytilt'){
     const rank=animation.rank,axis=Math.fround((animation.mode==='xtilt'?tiltX:tiltY)??NaN)
     if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||animation.geometry!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||!Number.isFinite(axis)||Math.abs(axis)>90)throw Error('Invalid GIH captured tilt input')
@@ -360,30 +398,33 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const activeNoise=!!noise&&(noise.density!==1||noise.randomness!==0)
   const noiseSeed=activeNoise?state.execution?.brushRandom?.strokeSeed:undefined
   if(activeNoise&&noiseSeed===undefined)throw Error('Auto-mask noise requires a captured stroke seed')
+  const dimensions=brush.tip.animation?.mode==='dimensions',angular=brushAnimationUsesMode(brush.tip.animation,'angular')
   const native=!!behavior?.sequentialRandom
-  if(native || behavior?.strokeInput) {
+  if(native || behavior?.strokeInput || dimensions) {
     assertBrushExecutionContext(brush,state.execution)
     assertBrushSourceInputs(brush,[dab])
   }
+  if(behavior?.dual?.brush.tip.animation?.mode==='dimensions')throw Error('Multidimensional GIH child is unsupported')
+  if(dimensions&&(brush.version<113||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.color||brush.tip.material||brush.tip.profile||brush.tip.imageSampling||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0||angular&&(!behavior.strokeInput||behavior.strokeInput.version!==1||behavior.strokeInput.initialDirection!=='cursorHistory')))throw Error('Multidimensional GIH requires root static Pixel source policy')
   // Tilt112 is root-only; reject forged child/mixed descriptors before any selector/counter mutation.
   const tiltSelector=brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt',childTilt=behavior?.dual?.brush.tip.animation?.mode==='xtilt'||behavior?.dual?.brush.tip.animation?.mode==='ytilt'
   if(childTilt)throw Error('GIH tilt child is unsupported')
   if(tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry||brush.tip.color||brush.tip.material||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
   // Validate both selectors before advancing any real gesture state.
-  const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'
+  const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'||dimensions&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   if(velocity){
     const speed=behavior?.speedInput
     if(brush.version<92||speed?.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')throw Error('GIH velocity requires root captured speedInput30')
     if(dab.normalizedSpeed===undefined||!Number.isFinite(dab.normalizedSpeed)||dab.normalizedSpeed<0||dab.normalizedSpeed>1)throw Error('Invalid GIH captured velocity input')
   }
-  if(brush.tip.animation?.mode==='angular'&&(!Number.isFinite(dab.x)||!Number.isFinite(dab.y)))throw Error('Invalid GIH angular request coordinates')
+  if(angular&&(!Number.isFinite(dab.x)||!Number.isFinite(dab.y)))throw Error('Invalid GIH angular request coordinates')
   const ordinal = state.dabOrdinal ?? 0
   const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle,dab.tiltX,dab.tiltY)
   // Independent sensor masks are queried only by their own resampled child dabs.
   // Preserve historical random/incremental parent metadata expressions unchanged.
   const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
   advanceBrushAnimation(brush, state)
-  if(brush.tip.animation?.mode==='angular'){
+  if(angular){
     const previous=state.angularCursor
     const x=Math.fround(dab.x),y=Math.fround(dab.y)
     const travelled=previous?Math.hypot(x-previous.x,y-previous.y):0
@@ -409,11 +450,11 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
   const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous
-  if(brush.tip.animation?.mode!=='angular'&&brushUsesDistanceControl(brush)){
+  if(!angular&&brushUsesDistanceControl(brush)){
     state.worldDistance=worldDistanceForDab(dab,state)
     state.worldDistancePoint={x:dab.x,y:dab.y}
   }
-  if (prev&&brush.tip.animation?.mode!=='angular')
+  if (prev&&!angular)
     state.distance += Math.hypot(dab.x - prev.x, dab.y - prev.y) / Math.max(0.5, (dab.size + prev.size) * 0.5)
   const direction = behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y - prev.y, dab.x - prev.x) : dab.angle
   if (!behavior?.strokeInput && prev && !state.directionSet && (prev.x !== dab.x || prev.y !== dab.y)) {

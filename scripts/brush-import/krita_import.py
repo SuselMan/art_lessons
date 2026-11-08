@@ -4,6 +4,7 @@ KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
 from variable_gih import validate_variable_gih_descriptor
+from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
 import hashlib
 import io
@@ -185,12 +186,23 @@ def gih(data, preserve_color=False):
         params=dict(pairs)
         if len(params)!=len(pairs):
             raise ValueError('Duplicate GIH header parameter')
-        if not 1<=count<=2147483647 or int(params.get('dim','1'))!=1 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
+        dimensions=None
+        dim=int(params.get('dim','1'))
+        if dim!=1:
+            if not 2<=dim<=4 or not 1<=count<=256 or int(params.get('ncells','0'))!=count:raise ValueError('Unsupported multidimensional GIH count')
+            names={f'{key}{i}'for i in range(dim)for key in('rank','sel')}
+            if any(key.startswith(('rank','sel'))and key not in names for key in params)or not names<=set(params):raise ValueError('Incomplete GIH dimension header')
+            keys=list(params)
+            if any(keys.index('dim')>keys.index(key)for key in names):raise ValueError('GIH dim must precede dimension selectors')
+            dimensions=[{'mode':params[f'sel{i}'],'rank':int(params[f'rank{i}'])}for i in range(dim)]
+            if any(v['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt')or not 2<=v['rank']<=256 for v in dimensions)or all(v['mode']=='constant'for v in dimensions):raise ValueError('Unsupported GIH dimension selector')
+            if math.prod(v['rank']for v in dimensions)!=count:raise ValueError('GIH ncells must equal rank product')
+        elif not 1<=count<=2147483647 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
             raise ValueError('Unsupported GIH frame count or dimensions/ranks')
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
-    mode=params.get('sel0',params.get('selection','incremental'))
-    if mode not in ('random','incremental','constant','pressure','velocity','angular','xtilt','ytilt'):
+    mode='dimensions'if dimensions is not None else params.get('sel0',params.get('selection','incremental'))
+    if mode not in ('random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'):
         raise ValueError('Unsupported GIH selection mode: '+mode)
     if mode in ('random','incremental') and count>256:
         raise ValueError('Unsupported legacy GIH declared frame count')
@@ -218,7 +230,7 @@ def gih(data, preserve_color=False):
             raise ValueError('GIH cumulative pixel limit')
     if offset!=len(data):
         raise ValueError('GIH trailing bytes or frame count mismatch')
-    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count}
+    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count,**({'dimensions':dimensions}if dimensions is not None else{})}
 
 
 def tip_asset(mask,catalog,warnings):
@@ -714,10 +726,15 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             # Private adapters rewrite paintopid to paintbrush; only genuine native Pixel origin may opt in.
             if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
             if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
-            if len(assets)>1 or pipe['mode']=='angular':
+            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
+            if len(assets)>1 or pipe['mode']in('angular','dimensions'):
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
                 if pipe['mode']in('pressure','velocity','angular','xtilt','ytilt'):d['tip']['animation']['rank']=pipe['declaredCount']
                 if pipe['mode']=='angular':d['tip']['animation']['cursorPolicy']='first-request-v1'
+                if pipe['mode']=='dimensions':
+                    d['tip']['animation']['dimensions']=pipe['dimensions']
+                    if gih_uses_mode(d['tip']['animation'],'angular'):d['tip']['animation']['cursorPolicy']='first-request-v1'
+                    if gih_uses_mode(d['tip']['animation'],'xtilt')or gih_uses_mode(d['tip']['animation'],'ytilt'):d['tip']['animation']['roundingPolicy']='qt5-half-up-v1'
                 if pipe['mode']in('xtilt','ytilt'):d['tip']['animation']['roundingPolicy']='qt5-half-up-v1'
                 if unequal:
                     variable_gih_bounds=[bounds for aid,bounds in assets]
@@ -729,6 +746,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             selection_note=('Tilt selection collapses to the single actual EOF frame; no selector policy is emitted.'if pipe['mode']in('xtilt','ytilt')and len(frames)==1 else'Captured degree-axis F32 chooses Qt5 half-up round(tilt/2*rank)+integer(rank/2), uint32 then actual frame modulo; explicit qt5-half-up-v1, not normalized or native-device precision identity.'if pipe['mode']in('xtilt','ytilt')else'All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Angular pipe selection uses captured DrawingAngle and explicit first-request-v1 per-attempt movement policy; see gihAngular qualification.' if pipe['mode']=='angular' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
+            if pipe['mode']=='dimensions':selection_note='Deterministic row-major GIH dimensions use signed raw sensor indices, uint32 sum and one final actual-EOF modulo; explicit angular first-request/Qt5 tilt policies retained. Native first-point/filter/input rounding remains qualified.'
             notes.append(compatibility('gihSelection',selection_note))
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
@@ -1373,7 +1391,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('strokeInput','Explicit source input metadata retained; cursor-history/fan execution requires the matching engine capability.'))
         except ValueError as error:
             notes.append(compatibility('strokeInput',str(error),'unsupported'))
-    if d['tip'].get('animation',{}).get('mode')=='angular':
+    if gih_uses_mode(d['tip'].get('animation',{}),'angular'):
         # GIH selection uses DrawingAngle even without an active Rotation sensor.
         # Enable the existing author capture by default, never a test-only CLI opt-in.
         if enabled(params.get('PressureRotation')):
@@ -1478,6 +1496,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if(engine!='paintbrush' or not _allow_texture_material or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('strokeInput',{}).get('fanCorners') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('GIH tilt requires root static normal directOver Pixel')
         d['version']=max(d['version'],112)
         notes.append(compatibility('gihTilt','Captured degree-axis F32, Qt5-half-up-v1 rounding and unsigned actual-EOF modulo retained; other Qt rounding/device calibration and native subpixel precision are not claimed. Tilt does not require Angular movement gating.','supported'))
+    if d['tip'].get('animation',{}).get('mode')=='dimensions':
+        d['version']=max(d['version'],113)
+        validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

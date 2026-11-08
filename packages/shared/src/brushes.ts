@@ -90,7 +90,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular' | 'xtilt' | 'ytilt'; rank?: number; cursorPolicy?: 'first-request-v1'; roundingPolicy?:'qt5-half-up-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
+  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular' | 'xtilt' | 'ytilt' | 'dimensions'; dimensions?: {mode:'constant'|'pressure'|'velocity'|'angular'|'xtilt'|'ytilt';rank:number}[]; rank?: number; cursorPolicy?: 'first-request-v1'; roundingPolicy?:'qt5-half-up-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -577,17 +577,23 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames','geometry','rank','cursorPolicy','roundingPolicy'].includes(key))
-        || !['random','incremental','constant','pressure','velocity','angular','xtilt','ytilt'].includes(String(animation.mode))
+        || Object.keys(animation).some(key => !['mode','frames','geometry','rank','cursorPolicy','roundingPolicy','dimensions'].includes(key))
+        || !['random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'].includes(String(animation.mode))
         || (animation.mode==='constant'||animation.mode==='pressure') && Number(d.version)<91
         || animation.mode==='velocity' && Number(d.version)<92
         || animation.mode==='angular' && (Number(d.version)<110||animation.cursorPolicy!=='first-request-v1'||!numberIn(animation.rank,2,256)||!Number.isInteger(animation.rank))
         || (animation.mode==='xtilt'||animation.mode==='ytilt') && (Number(d.version)<112||animation.roundingPolicy!=='qt5-half-up-v1'||!numberIn(animation.rank,2,256)||!Number.isInteger(animation.rank))
-        || animation.mode!=='xtilt'&&animation.mode!=='ytilt'&&animation.roundingPolicy!==undefined
-        || animation.mode!=='angular' && animation.cursorPolicy!==undefined
-        || (animation.mode==='angular'||animation.mode==='xtilt'||animation.mode==='ytilt' ? false : animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
-        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='angular'?1:2) || animation.frames.length > 256
+        || animation.mode!=='dimensions'&&animation.mode!=='xtilt'&&animation.mode!=='ytilt'&&animation.roundingPolicy!==undefined
+        || animation.mode!=='dimensions'&&animation.mode!=='angular' && animation.cursorPolicy!==undefined
+        || (animation.mode==='dimensions'||animation.mode==='angular'||animation.mode==='xtilt'||animation.mode==='ytilt' ? false : animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
+        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='dimensions'||animation.mode==='angular'?1:2) || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
+      if(animation.mode==='dimensions'){
+        const dims=animation.dimensions
+        if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
+        const product=dims.reduce((n,v)=>n*Number(v.rank),1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
+        if(product>256||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
+      }else if(animation.dimensions!==undefined)return false
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (animation.geometry === undefined) { if (sizes.size !== 1) return false }
@@ -735,10 +741,16 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const b=record(d.behavior)?d.behavior:undefined, input=b&&record(b.strokeInput)?b.strokeInput:undefined
       if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
     }
+    const dimensionsChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
+    if(record(dimensionsChild)&&dimensionsChild.mode==='dimensions')return false
+    if(record(d.tip.animation)&&d.tip.animation.mode==='dimensions'){
+      const tip=d.tip,b=record(d.behavior)?d.behavior:undefined,input=b&&record(b.strokeInput)?b.strokeInput:undefined,angular=brushAnimationUsesMode(tip.animation,'angular')
+      if(d.model!=='stamp'||tip.kind!=='bitmap'||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||input?.fanCorners!==undefined||angular&&(!input||input.version!==1||input.initialDirection!=='cursorHistory'))return false
+    }
     // The engine captures speed from the ROOT preset, including for independent masks.
     // Child-only speedInput would not capture a channel on the author pipeline.
     const velocityChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
-    if(record(d.tip.animation)&&d.tip.animation.mode==='velocity'||record(velocityChild)&&velocityChild.mode==='velocity'){
+    if(brushAnimationUsesMode(d.tip.animation,'velocity')||record(velocityChild)&&velocityChild.mode==='velocity'){
       const speed=record(d.behavior)?d.behavior.speedInput:undefined
       if(Number(d.version)<92||!record(speed)||speed.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')return false
     }
@@ -866,9 +878,13 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
   return dynamics.every(d=>!d.combine&&d.control!=='random'&&d.control!=='strokeRandom'&&d.jitter===0)
 }
 
+/** Sensor union of an admitted pipe; no state or random draw is consumed here. */
+export function brushAnimationUsesMode(animation:unknown,mode:string):boolean {
+  return record(animation)&&(animation.mode===mode||animation.mode==='dimensions'&&Array.isArray(animation.dimensions)&&animation.dimensions.some(v=>record(v)&&v.mode===mode))
+}
 /** Shared fast-path predicate for client and server packet admission. */
 export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
- return brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+ return brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
   ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
 }
 
@@ -876,10 +892,14 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
   const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
-  const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
+  const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined
   if(!brushRequiresSourceInputs(brush))return true
+  const dims=brush.tip.animation?.mode==='dimensions',x=dims&&brushAnimationUsesMode(brush.tip.animation,'xtilt'),y=dims&&brushAnimationUsesMode(brush.tip.animation,'ytilt'),pressure=dims&&brushAnimationUsesMode(brush.tip.animation,'pressure')
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
+    &&(!x||(Number.isFinite(d.tiltX)&&Math.abs(Math.fround(d.tiltX))<=90))
+    &&(!y||(Number.isFinite(d.tiltY)&&Math.abs(Math.fround(d.tiltY))<=90))
+    &&(!pressure||(Number.isFinite(d.pressure)&&Math.fround(d.pressure)>=0&&Math.fround(d.pressure)<=1))
     &&(!tilt||(typeof d[tilt]==='number'&&Number.isFinite(d[tilt])&&Math.abs(Math.fround(d[tilt]))<=90))
     &&(!time||isDabSourceTime(d.sourceTime))
     &&(!velocity||(typeof d.normalizedSpeed==='number'&&Number.isFinite(d.normalizedSpeed)&&d.normalizedSpeed>=0&&d.normalizedSpeed<=1))
