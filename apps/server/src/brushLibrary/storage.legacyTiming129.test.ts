@@ -1,0 +1,9 @@
+import{it,expect}from'vitest'
+import{mkdtempSync,rmSync}from'node:fs'
+import{tmpdir}from'node:os'
+import{join}from'node:path'
+import{createHash}from'node:crypto'
+import{packDabs,createBrushRandomStrokeId,type StrokeOperation}from'@grafetto/shared'
+import{brush129,library129,dab129}from'../../../../packages/shared/src/legacySmudgeTiming129.testFixture.js'
+import{BrushStorage}from'./storage.js'
+it('actualStorage requires identical recordedtime and boundseed for raw/packed/endpoint129',()=>{const dir=mkdtempSync(join(tmpdir(),'legacy129-'));try{const bytes=Buffer.from([0,255,128,64]),hash=createHash('sha256').update(bytes).digest('hex'),b=brush129();b.tip.mask=('asset:'+hash)as`asset:${string}`;const lib=library129(b);lib.assets=[{id:b.tip.mask,size:2,file:hash+'.bin'}];const s=new BrushStorage(dir);s.install('author',lib,new Map([[hash,bytes]]));const preset='brush:'+b.id+'@129';s.pin('room','author',[preset]);const seeds={version:1 as const,sequentialSeed:17,strokeSeed:42},base:StrokeOperation={id:'op129',type:'stroke',userId:'author',timestamp:0,layerId:'ink',tool:'digitalBrush',preset,color:[1,0,0],strokeId:createBrushRandomStrokeId('own129_nonce',seeds),brushRandom:seeds};for(const sourceTime of[0,.125,100,undefined,NaN,Infinity,-1]){const d={...dab129(0),sourceTime},valid=typeof sourceTime==='number'&&Number.isFinite(sourceTime)&&sourceTime>=0;for(const kind of['raw','packed','endpoint']){let packet;try{packet=kind==='raw'?{dabs:[d]}:kind==='packed'?{dabsPacked:packDabs([d])}:{dabs:[],strokeEndSample:{...d,baseSize:12}}}catch{expect(kind).toBe('packed');expect(valid).toBe(false);continue}expect(s.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(valid);if(valid)expect(s.acceptsExecutionInputs('room','author',{...base,...packet,brushRandom:undefined})).toBe(false)}}}finally{rmSync(dir,{recursive:true,force:true})}})

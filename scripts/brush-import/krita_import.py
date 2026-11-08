@@ -3,6 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
+from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
@@ -1348,6 +1349,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if mode not in modes: notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
         behavior['dual']={'brush':child,'blendMode':combine,'sampling':'independent'}
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
+    # The default policy stays the same public entry; no private bridge or child
+    # inherits root timing authority. Sensor parsing above keeps historical paths.
+    legacy_refresh129=(engine=='colorsmudge' and depth==0 and _allow_texture_material
+                       and legacy_smudge_timing_scope({**d,'behavior':behavior},False)
+                       and not enabled(params.get('PressureRate'))
+                       and not enabled(params.get('PaintOpSettings/ignoreSpacing')))
+    try:legacy_rate129=float(params.get('PaintOpSettings/rate',20))
+    except(ValueError,TypeError):legacy_rate129=float('nan')
+    if (_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and legacy_refresh129
+            and math.isfinite(legacy_rate129)and 0<=legacy_rate129<=1000
+            and enabled(params.get('PaintOpSettings/isAirbrushing'))):timed_input=True
     if enabled(params.get('PaintOpSettings/isAirbrushing',params.get('AirbrushOption/isAirbrushing'))):
         if timed_input and depth==0 and enabled(params.get('PaintOpSettings/isAirbrushing')):
             try:rate=float(params.get('PaintOpSettings/rate',20))
@@ -1367,7 +1379,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             try:value=float(params.get('RateValue',1)) if enabled(params.get('PressureRate')) else 1
             except(ValueError,TypeError):value=float('nan')
             if value!=1:controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
-            functional_refresh=engine=='paintbrush'
+            functional_refresh=engine=='paintbrush' or legacy_refresh129
             valid=(not refresh_random or functional_refresh)and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
             valid=valid and (not enabled(params.get('PressureRate')) or not enabled(params.get('RateUseCurve','true')) or bool(controls))
             def refresh_control(c):
@@ -1566,6 +1578,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('masking.strokeInput','Independent mask identity DrawingAngle follows its own emitted canonical requests; first angle uses the captured root cursor-history channel. No fan/lock/native spline pixel identity is claimed.','supported'))
         else:
             notes.append(compatibility('masking.strokeInput','This static Lightness/Wash pair exceeds the closed128 source/pair/512-side limits; existing mask lowering retained.'if pair_version==128 else'This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
+    # Historical clock lowering above assigns version35; promote only after
+    # every legacy/pair revision assignment, and only an admitted active timer.
+    if legacy_refresh129 and timed_input and behavior.get('timing') is not None:
+        d['version']=max(d['version'],129)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

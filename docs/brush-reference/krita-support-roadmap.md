@@ -790,3 +790,17 @@ Shoujo видимая шумная форма подтверждена, context 
 только два теста: точное различие generic prewarm skip/reject и тип AssetId.
 Повтор40 TS/11 модулей и типы web/server прошли; lint0. Единого987PASS не заявляем.
 Код готов; genuine original CAPS, GPU и онлайн128 ещё впереди.
+
+### Water-Pattern129: source-time для закрытого legacy Color Smudge
+
+Общий timing/sourceTime81 расширен на root legacy previousCanvas с bitmap/
+random alpha GIH, normal/buildUp без extras. Оригинальный Water-Pattern имеет
+rate100.13, PressureRate=false и ignoreSpacing=false;20 — только native default.
+Сохранены mixer gather/transfer/тайлы и существующий индекс/SmudgePainter;
+нового renderer/shader/wire нет. Общий source-input guard отклоняет неверный
+scope и отсутствующий time до доступа к состоянию/слою. Старые explicitFalse,
+private/child/modern/projection импорты сохраняют прежние полные определения.
+Общий прогон996 TS/194 модуля, типы web/server и lint прошли. В importer
+обнаружено понижение129 до clock35/81; продвижение перенесено после legacy
+назначений, после чего весь565 Python набор прошёл10.802s. Изменился только
+Python; TS не перезапускался. Код готов, genuine CAPS и GPU/онлайн впереди.

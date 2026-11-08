@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import validate_dimensions
 import argparse
@@ -778,6 +779,7 @@ def portable_bundle(path,catalog):
                     or not(mirror['horizontal']or mirror['vertical'])or type(mirror.get('value'))not in(int,float)
                     or not math.isfinite(mirror['value'])or not 0<=mirror['value']<=1):raise ValueError('Invalid portable mirror')
             if 'dynamics'in mirror:validate_portable_dynamics(mirror['dynamics'])
+        if d.get('model')=='mixer'and d['version']>=129 and 'timing'in behavior and not legacy_smudge_timing_scope(d):raise ValueError('Invalid portable legacy Color Smudge129 timing scope')
         timing=behavior.get('timing')
         if timing is not None:
             if (depth>0 or not isinstance(timing,dict) or set(timing)-{'version','rate','ignoreDistanceSpacing','rateDynamics'}
@@ -795,7 +797,7 @@ def portable_bundle(path,catalog):
             if isinstance(value,dict):
                 if value.get('control')=='time'or value.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1':
                     validate_portable_dynamics([value])
-                    if value.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1'and(d['version']<81 or d['model']!='stamp'):raise ValueError('Invalid source-time random revision')
+                    if value.get('randomSource',{}).get('kind')=='grafettoSourceTime-v1'and(d['version']<81 or(d['model']!='stamp'and not legacy_smudge_timing_scope(d))):raise ValueError('Invalid source-time random revision')
                 for child in value.values():validate_times(child)
             elif isinstance(value,list):
                 for child in value:validate_times(child)

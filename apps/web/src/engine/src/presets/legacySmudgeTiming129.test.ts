@@ -1,0 +1,10 @@
+import{it,expect}from'vitest'
+import{brush129,dab129,asset129}from'../../../../../../packages/shared/src/legacySmudgeTiming129.testFixture.js'
+import{beginBrushBehavior,behaviorStampsForDab,brushDynamicValue}from'./brushBehavior'
+import{brushExecutionContext}from'./brushExecutionContext'
+import{sourceTimeRandomValue}from'./sourceTimeRandom'
+import{sourceTimingInterval}from'../dabs/sourceDistanceTiming'
+const execution=brushExecutionContext({version:1,sequentialSeed:17,strokeSeed:42})
+it('uses literal original100.13 interval rather than default20',()=>{// Independent decimal rational100000/10013 bracket, not a claim that binary100.13 is exact.
+ expect(sourceTimingInterval(100.13)).toBeGreaterThan(9.98701687);expect(sourceTimingInterval(100.13)).toBeLessThan(9.98701688);expect(sourceTimingInterval(100.13)).not.toBe(50)})
+it('stationary role queries vary by time and ignore caller coordinate RNG; split/chunks retain frames and geometry',()=>{const b=brush129();b.tip.animation={mode:'random',frames:[asset129,('asset:'+'b'.repeat(64))as`asset:${string}`]};const control=b.behavior!.dynamics!.angle!,times=[0,.125,20,100],whole=beginBrushBehavior(dab129(0),execution),split=beginBrushBehavior(dab129(0),execution);const run=(state:typeof whole,ts:number[])=>ts.flatMap(t=>behaviorStampsForDab(b,dab129(t),state,[1,0,0]));const all=run(whole,times),chunks=[...run(split,times.slice(0,2)),...run(split,times.slice(2))];expect(chunks).toEqual(all);expect(new Set(all.map(v=>v.angle)).size).toBe(4);for(const t of times){const d=dab129(t),s=beginBrushBehavior(d,execution);expect(brushDynamicValue(control,d,s,0)).toBe(brushDynamicValue(control,d,s,1));expect(sourceTimeRandomValue(control.randomSource as {kind:'grafettoSourceTime-v1';key:string},42,t)).toBeGreaterThanOrEqual(0)}const legacy=structuredClone(b);delete legacy.behavior!.dynamics!.angle!.randomSource;const state=beginBrushBehavior(dab129(0),execution);expect(new Set(times.flatMap(t=>behaviorStampsForDab(legacy,dab129(t),state,[1,0,0])).map(v=>v.angle)).size).toBe(1)})
