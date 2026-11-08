@@ -7,9 +7,17 @@ def _int(v,a,z):return _num(v,a,z)and int(v)==v
 def bristle_soak139_scope(d):
     if not isinstance(d,dict)or not all(isinstance(d.get(k),dict)for k in('bristle','behavior','tip')):return False
     h,b,t=d['bristle'],d['behavior'],d['tip'];s=h.get('soak');r=b.get('rendering');ink=h.get('ink')
-    if not isinstance(s,dict)or set(s)!={'sourcePolicy','initialSide'}or s.get('sourcePolicy')!='canonical-begin-v1'or not _int(s.get('initialSide'),1,256):return False
+    if not isinstance(s,dict)or set(s)-{'sourcePolicy','initialSide','resizePolicy'}or('resizePolicy'in s and s['resizePolicy']!='mask-population-v1')or s.get('sourcePolicy')!='canonical-begin-v1'or not _int(s.get('initialSide'),1,256):return False
     n=s['initialSide'];hairs=h.get('hairs')
     if not isinstance(hairs,list)or not 1<=len(hairs)<=4096 or not all(isinstance(a,list)and len(a)==3 and _num(a[2],0,1)and all(_num(v,-.5,.5)and abs(v*n-round(v*n))<=1e-9 and -int(n//2)<=round(v*n)<=n-1-int(n//2)for v in a[:2])for a in hairs):return False
+    if 'resizePolicy'in s:
+        if not _int(d.get('version'),140,float('inf'))or n>64:return False
+        seen=set()
+        for x,y,a in hairs:
+            if a<=0 or abs(a*255-round(a*255))>1e-9:return False
+            key=(round(x*n),round(y*n))
+            if key in seen:return False
+            seen.add(key)
     if set(h)-{'version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak'}or not _int(h.get('version'),2,2)or not isinstance(ink,dict):return False
     if not all(type(h.get(k))is bool for k in('mousePressure','threshold','connected','antialias','compositing'))or not _num(h.get('scale'),0,10)or not _num(h.get('shear'),-10,10)or not _num(h.get('random'),0,100):return False
     if set(ink)!={'depletion','useOpacity','useSaturation','useWeights','pressureWeight','bristleLengthWeight','bristleInkAmountWeight','inkDepletionWeight'}or not isinstance(ink.get('depletion'),list)or not 1<=len(ink['depletion'])<=65536 or not all(_num(v,0,1)for v in ink['depletion'])or not all(type(ink.get(k))is bool for k in('useOpacity','useSaturation','useWeights'))or not all(_num(ink.get(k),0,1)for k in('pressureWeight','bristleLengthWeight','bristleInkAmountWeight'))or not _num(ink.get('inkDepletionWeight'),0,100):return False

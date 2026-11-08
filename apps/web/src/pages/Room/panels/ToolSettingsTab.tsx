@@ -4,7 +4,7 @@ import { SettingField } from '../../../components/SettingField'
 import { useT } from '../../../i18n'
 import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeRatioPresets } from '../shapes/ShapeFrameFields'
-import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
+import { TOOL_SCHEMAS, toolSettingDescriptor, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 import { BrushLibraryControls } from './BrushLibraryControls'
 
@@ -48,7 +48,7 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
         .map(([key, descriptor]) => (
         <SettingField
           key={key}
-          descriptor={descriptor}
+          descriptor={toolSettingDescriptor(settingsToolId,key,toolSettings[settingsToolId])}
           value={toolSettings[settingsToolId][key]}
           onChange={v => setToolSetting(settingsToolId, key, v)}
           layout="panel"

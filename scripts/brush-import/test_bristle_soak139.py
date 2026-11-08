@@ -14,11 +14,11 @@ class Soak139(unittest.TestCase):
   raw=native_raw(extra);p=Path(tmp)/'Soak.kpp';p.write_bytes(raw);c=Catalog(Path(tmp)/'native');convert_krita(p,c,{'own.gbr':GBR});self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);return c,raw
  def test_native_original_bytes_side_before_normalization_and_old72_control(self):
   ds=[]
-  for soak,version in[('true',139),('false',72)]:
+  for soak,version in[('true',140),('false',72)]:
    with tempfile.TemporaryDirectory()as tmp:
     c,raw=self.native(tmp,{'HairyInk/soak':soak});d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],version);self.assertEqual(d['id'],finalize_identity(copy.deepcopy(d),raw)['id']);self.assertEqual(bristle_soak139_scope(d),soak=='true');self.assertTrue(c.assets)
     if soak=='true':
-     self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4});self.assertTrue(all(abs(v*4-round(v*4))<1e-9 for h in d['bristle']['hairs']for v in h[:2]));self.assertTrue(any(n['feature']=='bristleSoak'and n['status']=='approximate'for n in c.brushes[0]['compatibility']))
+     self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4,'resizePolicy':'mask-population-v1'});self.assertTrue(all(abs(v*4-round(v*4))<1e-9 for h in d['bristle']['hairs']for v in h[:2]));self.assertTrue(any(n['feature']=='bristleSoak'and n['status']=='approximate'for n in c.brushes[0]['compatibility']))
     ds.append(copy.deepcopy(d))
   ds[0]['bristle'].pop('soak');self.assertEqual(ds[0]['bristle'],ds[1]['bristle']);self.assertEqual(ds[0]['sizeByPressure'],ds[1]['sizeByPressure']);self.assertEqual(ds[0]['opacityByPressure'],ds[1]['opacityByPressure'])
  def test_native_alpha_policy_flags_and_inactive_soak_are_preserved(self):
@@ -61,4 +61,4 @@ class Soak139(unittest.TestCase):
     with self.assertRaisesRegex(ValueError,'root native Bristle'):preset(native_raw(),'bad.kpp',Catalog(Path(tmp)/'out'),{'own.gbr':GBR},**args)
  def test_integral_json_numbers_and_no_new_wire_inputs(self):
   with tempfile.TemporaryDirectory()as tmp:
-   c,_=self.native(tmp);d=copy.deepcopy(c.brushes[0]['descriptor']);d['version']=139.0;d['bristle']['version']=2.0;d['bristle']['soak']['initialSide']=4.0;self.assertTrue(bristle_soak139_scope(d));validate_portable_profile(d)
+   c,_=self.native(tmp);d=copy.deepcopy(c.brushes[0]['descriptor']);d['version']=140.0;d['bristle']['version']=2.0;d['bristle']['soak']['initialSide']=4.0;self.assertTrue(bristle_soak139_scope(d));validate_portable_profile(d)

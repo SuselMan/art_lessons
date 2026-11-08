@@ -78,6 +78,8 @@ def bristle_preset(data,root,params,name,catalog,external):
     if soak:
         from bristle_soak139 import bristle_soak139_scope
         d['version']=139;d['bristle']['soak']={'sourcePolicy':'canonical-begin-v1','initialSide':side}
+        if density==1 and side<=64:
+            d['version']=140;d['bristle']['soak']['resizePolicy']='mask-population-v1'
         if not bristle_soak139_scope(d):raise ValueError('Bristle Soak139 requires closed root canonical-BEGIN ink palette scope')
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]
@@ -99,6 +101,10 @@ def bristle_preset(data,root,params,name,catalog,external):
     if soak:
         result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation requires its trusted compiled lookup. Soaking uses canonical-BEGIN source palette.').replace('soaking remains rejected.','Soaking uses canonical-BEGIN source palette.').replace('Canvas soaking remains unsupported.','Canvas soaking uses canonical-BEGIN source palette.'))if n['feature']in('bristle','bristleSaturation')else n for n in result['compatibility']]
         result['compatibility'].append(compatibility('bristleSoak','All hair colors sampled once before the first line writes, from canonical-BEGIN active-layer old pixels at nearest-integer initialization coordinates. Source alpha is retained unless opacity depletion replaces it; palette is rebuilt by full BEGIN replay. Functional canonical concurrency, color-space and raster behavior are not native pixel identity.'))
+        if d['version']==140:
+            result['compatibility'].append(compatibility('bristleResize','Complete initialization alpha grid retained: captured sourceSize1..64 rebuilds a dense mask population once per gesture using deterministic bilinear pixel-center/clamped-edge/U8 filtering; pressure and Bristle Scale transform this population afterwards. Native Qt filtering bytes are not identical.'))
+        else:
+            result['compatibility'].append(compatibility('bristleResize','This Soak preset keeps legacy139 fixed imported hairs: density below100% or initialization side above64 is outside the mask-population resize policy. Toolbar resizing stretches existing hairs; native reinitialization population differs.'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

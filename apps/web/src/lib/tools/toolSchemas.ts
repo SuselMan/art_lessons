@@ -1,3 +1,5 @@
+import { importedBrushes } from '../../engine/brushLibrary'
+import {hasBristleSoak140Scope}from'@grafetto/shared'
 import { pickerImportedBrushes } from './brushCatalog'
 
 import {
@@ -1590,8 +1592,22 @@ export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
  *  `Math.min(120, …)`/`Math.max(1, …)`, which both survived past the smudge
  *  tool getting its own 4..160 range and would have survived #336's move to
  *  MAX_TOOL_SIZE_PX too. */
-export function toolSizeRange(toolId: UiToolId): { min: number; max: number } | null {
-  const valueType = TOOL_SCHEMAS[toolId].size?.valueType
+/** Only the new bounded initialization policy constrains the authoring size. */
+export function usesBristleSizeLimit140(toolId:UiToolId,values?:ToolSettingsValue):boolean {
+  return toolId==='digitalBrush'&&!!values&&typeof values.brush==='string'&&values.brush.length>0&&importedBrushes().some(b=>b.descriptor.id===values.brush&&hasBristleSoak140Scope(b.descriptor))
+}
+export function clampToolSize140(toolId:UiToolId,values:ToolSettingsValue):ToolSettingsValue {
+  if(!usesBristleSizeLimit140(toolId,values))return values
+  const size=typeof values.size==='number'&&Number.isFinite(values.size)?Math.max(1,Math.min(64,Math.round(values.size))):1
+  return size===values.size?values:{...values,size}
+}
+export function toolSettingDescriptor(toolId:UiToolId,key:string,values:ToolSettingsValue):SettingDescriptor {
+  const descriptor=TOOL_SCHEMAS[toolId][key]
+  return key==='size'&&usesBristleSizeLimit140(toolId,values)&&descriptor.valueType.kind==='numberRange'
+    ?{...descriptor,valueType:{...descriptor.valueType,min:1,max:64,step:1}}:descriptor
+}
+export function toolSizeRange(toolId: UiToolId,values?:ToolSettingsValue): { min: number; max: number } | null {
+  const valueType = values?toolSettingDescriptor(toolId,'size',values)?.valueType:TOOL_SCHEMAS[toolId].size?.valueType
   return valueType?.kind === 'numberRange' ? { min: valueType.min, max: valueType.max } : null
 }
 
@@ -1746,7 +1762,7 @@ export function loadToolSettings(storage: KeyValueStorage, roomId: string): Tool
       const storedValue = descriptor.transient ? undefined : stored?.[toolId]?.[key]
       values[key] = storedValue === undefined ? descriptor.default : coerceSettingValue(descriptor, storedValue)
     }
-    map[toolId] = values
+    map[toolId] = clampToolSize140(toolId,values)
   }
   // #482: one targeted legacy read, because the generic loop above can only
   // fall back to a default and that would silently drop a choice someone made.

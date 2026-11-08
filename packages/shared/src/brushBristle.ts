@@ -20,7 +20,7 @@ export interface BrushBristleInk {
  bristleInkAmountWeight:number
  inkDepletionWeight:number
 }
-export interface BrushBristleSoak {sourcePolicy:'canonical-begin-v1';initialSide:number}
+export interface BrushBristleSoak {sourcePolicy:'canonical-begin-v1';initialSide:number;resizePolicy?:'mask-population-v1'}
 interface BristleGeometry {
  hairs:[number,number,number][]
  scale:number
@@ -82,8 +82,25 @@ export function hasBristleWash135Scope(value:unknown):boolean {
 function isBristleSoak139(value:unknown,hairs:unknown):value is BrushBristleSoak {
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const s=value as Record<string,unknown>,n=s.initialSide
- return Object.keys(s).length===2&&s.sourcePolicy==='canonical-begin-v1'&&typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256
+ return Object.keys(s).every(k=>['sourcePolicy','initialSide','resizePolicy'].includes(k))&&(s.resizePolicy===undefined||s.resizePolicy==='mask-population-v1')&&s.sourcePolicy==='canonical-begin-v1'&&typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256
  &&Array.isArray(hairs)&&hairs.length>0&&hairs.length<=4096&&hairs.every(h=>Array.isArray(h)&&h.length===3&&h.slice(0,2).every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v*n-Math.round(v*n))<=1e-9&&Math.round(v*n)>=-Math.floor(n/2)&&Math.round(v*n)<=n-1-Math.floor(n/2)))
+}
+/**140 captures the complete source alpha grid, not a density-decimated population. */
+function isResizeMask140(h:BrushBristle):boolean {
+ if(h.version!==2||!h.soak||h.soak.initialSide>64)return false
+ const side=h.soak.initialSide,seen=new Set<number>()
+ for(const[x,y,a]of h.hairs){
+  if(a<=0||Math.abs(a*255-Math.round(a*255))>1e-9)return false
+  const key=(Math.round(y*side)+Math.floor(side/2))*side+Math.round(x*side)+Math.floor(side/2)
+  if(seen.has(key))return false
+  seen.add(key)
+ }
+ return true
+}
+export function hasBristleSoak140Scope(value:unknown):boolean {
+ if(!hasBristleSoak139Scope(value))return false
+ const h=(value as {bristle:BrushBristle}).bristle
+ return h.version===2&&h.soak?.resizePolicy==='mask-population-v1'
 }
 const immutableSoakScopes=new WeakSet<object>()
 /** Imported canonical descriptors are frozen recursively. A shallow freeze or
@@ -112,7 +129,7 @@ function hasBristleSoak139ScopeUncached(value:unknown):boolean {
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  if(!obj(value)||!isBrushBristle(value.bristle)||value.bristle.version!==2||value.bristle.soak===undefined||!obj(value.tip)||!obj(value.behavior))return false
  const h=value.bristle,t=value.tip,b=value.behavior,r=b.rendering
- return Number.isInteger(value.version)&&Number(value.version)>=139&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
+ return Number.isInteger(value.version)&&Number(value.version)>=139&&(h.soak?.resizePolicy===undefined||Number(value.version)>=140&&isResizeMask140(h))&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
  &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))

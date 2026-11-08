@@ -14,7 +14,7 @@ class BristleTests(unittest.TestCase):
         a=self.convert();b=self.convert();self.assertEqual(a['descriptor'],b['descriptor']);self.assertEqual(a['descriptor']['version'],45);self.assertEqual(len(a['descriptor']['bristle']['hairs']),16)
     def test_soak_is_explicit_new139_not_reinterpreted_old72(self):
         d=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/soak">true</param><param name="HairyInk/inkAmount">4</param>')['descriptor']
-        self.assertEqual(d['version'],139);self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4})
+        self.assertEqual(d['version'],140);self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4,'resizePolicy':'mask-population-v1'})
         old=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/inkAmount">4</param>')['descriptor']
         self.assertEqual(old['version'],72);self.assertNotIn('soak',old['bristle'])
     def test_density_is_checked(self):

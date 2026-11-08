@@ -1,7 +1,7 @@
 import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
-export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
+export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
@@ -35,7 +35,7 @@ import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
-import {hasBristleWash135Scope,hasBristleSoak139Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
+import {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
 export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup,BrushBristleSoak} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
@@ -976,7 +976,7 @@ export function brushAnimationUsesMode(animation:unknown,mode:string):boolean {
 }
 /** Shared fast-path predicate for client and server packet admission. */
 export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
- return brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+ return hasBristleSoak140Scope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
   ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
 }
 
@@ -984,7 +984,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
-  const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
+  const resize140=hasBristleSoak140Scope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush))return false
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined
@@ -1000,7 +1000,9 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
     }
     return true
   }
+  const initializedSize=resize140?(dabs[0]?.sourceSize??endpoint?.sourceSize):undefined
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
+    &&(!resize140||d.sourceSize===initializedSize&&d.sourceSize!<=64)
     &&validTilt(d)
     &&(!pressure||(Number.isFinite(d.pressure)&&Math.fround(d.pressure)>=0&&Math.fround(d.pressure)<=1))
     &&(!time||isDabSourceTime(d.sourceTime))

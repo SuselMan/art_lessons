@@ -1,6 +1,8 @@
 import {hasBristleSoak139Scope} from '@grafetto/shared'
 import {BristleSoakGather139} from '../raster/BristleSoakGather139'
 import {bristleSoakPoints139} from '../presets/bristleSoak139'
+import {buildBristleInitialization140,assertBristleInitializationSize140} from '../presets/bristleInitialization140'
+import {createBristleInkState} from '../presets/brushBristleInk'
 import {beginBrushBehavior} from '../presets/brushBehavior'
 import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
 import type{BorrowedGridWash}from'./GridWashRuntime'
@@ -157,6 +159,11 @@ export class BrushPainter {
     const brush=stamp.brush
     if(brush.bristle?.version===2&&brush.bristle.soak){
       if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope')
+      if(brush.bristle.soak.resizePolicy==='mask-population-v1'&&dabs.length){
+        assertBrushSourceInputs(brush,dabs)
+        const previous=scratch.brushBehavior?.previous
+        assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
+      }
       const valid=dabs.filter(d=>Number.isFinite(d.size)&&d.size>0),state=scratch.brushBehavior,oldAnchor=state?.bristle?.previous
       const previous=oldAnchor?{...(state?.previous??valid[0]??_previous!),...oldAnchor}:_previous
       const line=firstBristleLine139(valid,previous)
@@ -186,15 +193,20 @@ export class BrushPainter {
     if(!this.soakGather||!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch)throw Error('Bristle Soak source/gather owner is unavailable')
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const existing=scratch.brushBehavior?.bristle?.soak
+    const resize=brush.bristle?.version===2&&brush.bristle.soak?.resizePolicy==='mask-population-v1'
+    const anchor=scratch.brushBehavior?.previous
+    const sourceSize=resize?assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,anchor?[anchor,line.previous,line.current]:[line.previous,line.current]):undefined
     if(existing)return canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':bristle-soak'}
     const prior=scratch.brushBehavior
     if(prior?.bristle?.ordinal)throw Error('Bristle Soak capture after accepted line is forbidden')
-    const points=bristleSoakPoints139(brush,line.previous),opened=this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
+    const initialization=resize?buildBristleInitialization140(brush,sourceSize!):undefined
+    const points=bristleSoakPoints139(brush,line.previous,initialization),opened=this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
     if(opened.kind==='notReady')return opened
     let failed=false,primary:unknown,rgba:Uint8Array|undefined
     try{
       if(canonicalBeginBindingKey(opened.view.binding)!==canonicalBeginBindingKey(binding))throw Error('Bristle Soak source authority mismatch')
-      rgba=this.soakGather.gather(opened.view,points,()=>this.ctx.acquireSprayScratch!(64,64))
+      rgba=points.length?this.soakGather.gather(opened.view,points,()=>this.ctx.acquireSprayScratch!(64,64)):new Uint8Array(0)
+      if(resize&&rgba.length!==points.length*4)throw Error('Bristle resized palette population mismatch')
       opened.view.assertCurrent()
     }catch(error){failed=true;primary=error}
     finally{try{opened.view.release()}catch(error){if(!failed){failed=true;primary=error}}}
@@ -203,7 +215,7 @@ export class BrushPainter {
     // Publish only after successful gather, authority checks AND source release.
     const state=prior??beginBrushBehavior(line.previous,execution)
     const bristle=state.bristle??{ordinal:0,oldPressure:1,ends:[]}
-    state.bristle={...bristle,soak:{binding:structuredClone(binding),rgba:rgba!}}
+    state.bristle={...bristle,...(initialization?{initialization,ink:initialization.hairs.length?createBristleInkState(initialization.hairs.length):undefined}:{}),soak:{binding:structuredClone(binding),rgba:rgba!}}
     scratch.brushBehavior=state
     return{kind:'ready'}
   }

@@ -10,7 +10,7 @@ import { useClipboardStore } from '../../../stores/clipboardStore'
 import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeFrameFields } from '../shapes/ShapeFrameFields'
 import { WatercolorDryButton } from './WatercolorDryButton'
-import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
+import { TOOL_SCHEMAS, toolSettingDescriptor, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 
 export interface QuickSettingsBarProps {
@@ -83,10 +83,10 @@ export function QuickSettingsBar({
         // every other reader of it.
         .filter(([, descriptor]) => descriptor.valueType.kind !== 'color')
         .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
-        .map(([key, descriptor]) => (
+        .map(([key]) => (
           <SettingField
             key={key}
-            descriptor={descriptor}
+            descriptor={toolSettingDescriptor(settingsToolId,key,toolSettings[settingsToolId])}
             value={toolSettings[settingsToolId][key]}
             onChange={v => setToolSetting(settingsToolId, key, v)}
             layout="toolbar"

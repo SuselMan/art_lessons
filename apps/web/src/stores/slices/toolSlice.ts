@@ -3,7 +3,7 @@ import type { StateCreator } from 'zustand'
 import type { ShapeFrame } from '@grafetto/shared'
 import { importedBrushes } from '../../engine/brushLibrary'
 
-import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../lib/tools/toolSchemas'
+import { clampToolSize140, defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../lib/tools/toolSchemas'
 
 // ── one selected tool (#405) ────────────────────────────────────────────────
 //
@@ -249,8 +249,8 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     const preference = brushChange ? memory[`${toolId}:${next}`] ?? (next === 'native' ? { size: defaultToolSettings()[toolId].size as number, opacity: defaultToolSettings()[toolId].opacity as number } : source ? { size: source.sizePx, opacity: toolId === 'digitalBrush' ? cfg.opacity as number : 1 } : toolId !== 'digitalBrush' && next !== 'native' ? { size: cfg.size as number, opacity: 1 } : undefined) : undefined
     return { brushPreferences: memory, toolSettings: {
       ...state.toolSettings,
-      [toolId]: { ...cfg, [key]: next, ...preference },
+      [toolId]: clampToolSize140(toolId,{ ...cfg, [key]: next, ...preference }),
     } }
   }),
-  setAllToolSettings: settings => set({ toolSettings: settings, brushPreferences: {} }),
+  setAllToolSettings: settings => set({ toolSettings: Object.fromEntries(Object.entries(settings).map(([id,values])=>[id,clampToolSize140(id as UiToolId,values)]))as ToolSettingsMap, brushPreferences: {} }),
 })
