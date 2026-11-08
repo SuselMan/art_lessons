@@ -1,3 +1,4 @@
+import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import{isFilterDescriptor}from'@grafetto/shared'
 import {textureMaterialVariant,type TextureMaterialVariant} from '../presets/textureLightness'
 import{prepareSketchMask}from'../presets/sketchMask'
@@ -326,6 +327,7 @@ export class BrushBehaviorPainter {
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
     if(brush.filter?.kind==='posterize'&&!isFilterDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Posterize117 brush scope')
+    assertEqualLightnessGih123(brush)
     const extendedComposite=(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
     if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')&&!extendedComposite)throw Error('Extended composite is not prepared')
     const gihFrames=usesVariableGih(brush.tip)?prepareVariableGih(brush):undefined

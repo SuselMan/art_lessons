@@ -1,3 +1,4 @@
+import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import {textureMaterialKind} from '../presets/textureLightness'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
 import {BRISTLE_SATURATION_GPU_BYTES,BRISTLE_SATURATION_UPLOAD_BYTES,bristleSaturationResourceKey} from './BristleSaturationResource'
@@ -85,6 +86,9 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  // New123 inputs validate before touching the existing descriptor plan cache.
+  // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
+  if(assertEqualLightnessGih123(brush))materialPlans.delete(brush.tip)
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)

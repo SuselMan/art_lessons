@@ -1,3 +1,4 @@
+import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import{isIndependentDrawingAnglePair}from'@grafetto/shared'
 import {usesTextureLightness,usesTextureGradient,textureMaterialKind,textureLightnessPixels,type TextureMaterialVariant} from '../presets/textureLightness'
 import {pixelGradientSourcePixels,pixelGradientPalettePixels} from '../presets/pixelFilteredGradient'
@@ -12,7 +13,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { bindBrushGradient,assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -71,9 +72,10 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[]):readonly BrushPreparationResource[]|undefined {
-    if(brush.version<122||!isIndependentDrawingAnglePair(brush))return undefined
+    const lightness=assertEqualLightnessGih123(brush)
+    if(!lightness&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     const resources=existing??brushPreparationResources(brush)
-    if(!resources.some(resource=>resource.nativeImage))return undefined
+    if(!lightness&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -82,18 +84,23 @@ export class BrushPainter {
       if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('DrawingAngle image source plane is not canonical')
       if(!Number.isInteger(rect.x)||!Number.isInteger(rect.y)||!Number.isInteger(rect.width)||!Number.isInteger(rect.height)||rect.x<0||rect.y<0||rect.width<1||rect.height<1||rect.x+rect.width>side||rect.y+rect.height>side)throw Error('DrawingAngle image source rectangle exceeds its asset')
     }
-    assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const limit=this.imageDimensionLimit()
+    assertNativeImageAdmission(resources,limit)
+    if(lightness){
+      if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
+      if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
+    }
     return resources
   }
   private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor):()=>void {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        this.prepareIntegerImages()
+        if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
         if(brush?.tip.kind==='procedural'||brush?.behavior?.dual?.brush.tip.kind==='procedural')this.prepareProcedural()
         for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
       }
-      if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('DrawingAngle image bank is not prepared')
+      if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Recorded stamp bank is not prepared')
       return release
     }catch(error){try{release()}catch{/* Preserve primary, including undefined. */}throw error}
   }
