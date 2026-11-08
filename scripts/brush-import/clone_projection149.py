@@ -1,6 +1,9 @@
 """Closed portable merged Clone opt-in. Historical Clone54 is untouched."""
 def validate_clone_projection149(d,depth=0):
     c=d.get('clone')if isinstance(d,dict)else None
+    if isinstance(c,dict)and 'healing'in c:
+        from clone_healing152 import validate_clone_healing152
+        validate_clone_healing152(d,depth);return
     if not isinstance(c,dict)or not('source'in c or 'sourcePolicy'in c):return
     b=d.get('behavior');t=d.get('tip');r=b.get('rendering')if isinstance(b,dict)else None
     if(depth or type(d.get('version'))is not int or d['version']<149 or set(c)!={'version','moveSourcePoint','source','sourcePolicy'}or type(c.get('version'))is not int or c['version']!=1 or type(c.get('moveSourcePoint'))is not bool or c.get('source')!='projectionCanvas'or c.get('sourcePolicy')!='canonical-begin-v1'

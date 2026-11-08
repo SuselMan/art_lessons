@@ -1,3 +1,4 @@
+import type{CanonicalBeginCapability}from'./CanonicalBeginRuntime'
 import {CanonicalBeginSource,type CanonicalBeginLayeredView,type CanonicalSourceLease,type CanonicalSourceClaim}from'./CanonicalBeginSource'
 import type{CanonicalBeginBinding}from'./CanonicalBeginRuntime'
 import type{BrushSourceContext,Dab}from'@grafetto/shared'
@@ -22,9 +23,9 @@ export class CloneBrushPass{
  private quad():WebGLBuffer{return this.geometry??=createFullscreenQuad(this.gl)}
  prepare():void{this.program??=createProgram(this.gl,VERT,FRAG);this.sampler.prepare();this.quad();this.prepared=true}
  assertPrepared():void{if(!this.prepared||!this.program||!this.geometry)throw Error('Merged Clone149 program is not prepared')}
- captureMergedSource(target:ILayerBuffer,binding:CanonicalBeginBinding,view:CanonicalBeginLayeredView,acquire:(w:number,h:number)=>CanonicalSourceLease,claim:CanonicalSourceClaim,onReleased?:()=>void){
+ captureMergedSource(target:ILayerBuffer,binding:CanonicalBeginBinding,view:CanonicalBeginLayeredView,acquire:(w:number,h:number)=>CanonicalSourceLease,claim:CanonicalSourceClaim,onReleased?:()=>void,capability:CanonicalBeginCapability='cloneProjection149'){
   this.assertPrepared()
-  return CanonicalBeginSource.captureMerged(target,binding,view,acquire,claim,onReleased,'cloneProjection149',this.sampler)
+  return CanonicalBeginSource.captureMerged(target,binding,view,acquire,claim,onReleased,capability,this.sampler)
  }
  forget():void{this.prepared=false;this.program=undefined;this.geometry=undefined;this.patch=undefined;this.sampler.forget()}
  destroy():void{if(this.program)this.gl.deleteProgram(this.program);if(this.geometry)this.gl.deleteBuffer(this.geometry);this.patch?.destroy();this.sampler.destroy();this.forget()}

@@ -21,9 +21,9 @@ import{isTangentNormalDescriptor,type BrushTangentNormal}from'./brushTangentNorm
 export type{BrushTangentNormal}from'./brushTangentNormal.js'
 import{isMyPaintDescriptor,type BrushMyPaint}from'./brushMyPaint.js'
 export type{BrushMyPaint}from'./brushMyPaint.js'
-import{hasCloneProjection149Scope,isCloneDescriptor,type BrushClone}from'./brushClone.js'
+import{hasCloneHealing152Scope,hasCloneProjection149Scope,isCloneDescriptor,type BrushClone}from'./brushClone.js'
 export type{BrushClone}from'./brushClone.js'
-export{hasCloneProjection149Scope}from'./brushClone.js'
+export{hasCloneHealing152Scope,hasCloneProjection149Scope}from'./brushClone.js'
 import{hasFilterSmudge147Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
 export{hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
@@ -476,7 +476,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.behavior)&&d.behavior.mirror!==undefined&&(['sketch','bristle','curveTrace','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined)||d.hatching!==undefined&&Number(d.version)<94))return false
     // New canonical source policies require their complete root scope. Schema
     // validators alone cannot establish an operation-owned BEGIN capability.
-    if(record(d.clone)&&(d.clone.source!==undefined||d.clone.sourcePolicy!==undefined)&&!hasCloneProjection149Scope(d))return false
+    if(record(d.clone)&&(d.clone.source!==undefined||d.clone.sourcePolicy!==undefined||d.clone.healing!==undefined)&&!hasCloneProjection149Scope(d)&&!hasCloneHealing152Scope(d))return false
     if(record(d.spray)&&record(d.spray.color)&&d.spray.color.sourcePolicy!==undefined&&!hasSpraySource146Scope(d))return false
     if(record(d.deform)&&d.deform.sourcePolicy!==undefined&&!hasDeformOldData145Scope(d))return false
     if(record(d.filter)&&(d.filter.smudgeMode!==undefined||d.filter.sourcePolicy!==undefined)&&!hasFilterSmudge147Scope(d))return false
@@ -766,7 +766,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if(secondary.tip.color&&'adjustmentPolicy'in secondary.tip.color)return false
-        if(secondary.clone&&(secondary.clone.source!==undefined||secondary.clone.sourcePolicy!==undefined))return false
+        if(secondary.clone&&(secondary.clone.source!==undefined||secondary.clone.sourcePolicy!==undefined||secondary.clone.healing!==undefined))return false
         if(secondary.spray?.color.sourcePolicy!==undefined||secondary.deform?.sourcePolicy!==undefined||secondary.filter&&('smudgeMode'in secondary.filter||'sourcePolicy'in secondary.filter))return false
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false

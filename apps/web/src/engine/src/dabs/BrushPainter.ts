@@ -45,7 +45,7 @@ import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPaint
 export interface BrushContext {
   canonicalResourcesReleased?():void
   reserveCanonicalBeginSource?(binding:CanonicalBeginBinding,bytes:number):(()=>void)|CanonicalBeginNotReady
-  openLayeredCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,projection:NonNullable<NonNullable<BrushExecutionContext['brushSource']>['projection']>):{kind:'ready';view:CanonicalBeginLayeredView}|CanonicalBeginNotReady
+  openLayeredCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,projection:NonNullable<NonNullable<BrushExecutionContext['brushSource']>['projection']>,capability?:'cloneProjection149'|'cloneHealing152'):{kind:'ready';view:CanonicalBeginLayeredView}|CanonicalBeginNotReady
   openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:CanonicalBeginCapability):CanonicalBeginResult
   readonly gl: WebGLRenderingContext
   acquireSprayScratch?(width:number,height:number):SprayScratchLease
@@ -258,6 +258,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   prepareFilter():void{this.behavior.prepareFilter()}
   preparePolygon():void{this.behavior.preparePolygon()}
   prepareHatching():void{this.behavior.prepareHatching()}
+  prepareCloneHealing152():void{this.behavior.prepareCloneHealing152()}
   prepareClone():void{this.behavior.prepareClone()}
   prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean,brush?:BrushDescriptor):void{
     if(settings.useSaturation){

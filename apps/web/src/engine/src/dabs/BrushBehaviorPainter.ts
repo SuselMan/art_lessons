@@ -1,3 +1,7 @@
+import{cloneSourceOffset152}from'./cloneHealing152Request'
+import{hasCloneHealing152Scope}from'@grafetto/shared'
+import{CanonicalBeginBlocked}from'./CanonicalBeginRuntime'
+import{CloneHealingPass152}from'./CloneHealingPass152'
 import{hasPixelOriginalDual151Scope}from'@grafetto/shared'
 import {hasCloneProjection149Scope}from'@grafetto/shared'
 import{FilterSmudge147Pass,FilterSmudge147State,FilterSmudge147Blocked,type FilterSmudge147Request}from'./FilterSmudge147'
@@ -187,6 +191,8 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   private mypaintPass?:MyPaintStrokePainter
+  private healingPass?:CloneHealingPass152
+  prepareCloneHealing152():void{(this.healingPass??=new CloneHealingPass152(this.ctx.gl)).prepare();this.prepareClone()}
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterSmudge147?:FilterSmudge147Pass
@@ -195,7 +201,7 @@ export class BrushBehaviorPainter {
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
     this.mypaintPass?.destroy();this.mypaintPass=undefined
-    this.clonePass?.forget()
+    this.healingPass?.forget();this.clonePass?.forget()
     this.filterSmudge147?.forget()
     this.filterPass?.forget()
     this.polygonBatch?.reset()
@@ -382,30 +388,36 @@ export class BrushBehaviorPainter {
       if(failed)throw failure
     }
   }
-cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.canonicalSource?.capability==='cloneProjection149'?scratch.canonicalSource.binding:undefined}
-invalidateCloneBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability==='cloneProjection149'){const owner=scratch.canonicalSource;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;owner.release()}}
+cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return (scratch.canonicalSource?.capability==='cloneProjection149'||scratch.canonicalSource?.capability==='cloneHealing152')?scratch.canonicalSource.binding:undefined}
+invalidateCloneBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability==='cloneProjection149'||scratch.canonicalSource?.capability==='cloneHealing152'){const owner=scratch.canonicalSource;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;owner.release()}}
 prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
- const brush=paint.brush,binding=runtime.binding
- if(!hasCloneProjection149Scope(brush)||runtime.capability!=='cloneProjection149'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid merged Clone149 BEGIN identity')
- assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution)
- if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
- const existing=scratch.canonicalSource
- if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='cloneProjection149'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':clone149'}}
- if(scratch.brushBehavior?.dabSequence)throw Error('Merged Clone149 capture after accepted request is forbidden')
- if(!this.clonePass||!this.ctx.openLayeredCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Merged Clone149 source owner unavailable')
- this.clonePass.assertPrepared()
- const prior=scratch.brushBehavior,opened=this.ctx.openLayeredCanonicalBegin(target,binding,execution!.brushSource!.projection!)
+ const brush=paint.brush,binding=runtime.binding,healing=hasCloneHealing152Scope(brush),capability=healing?'cloneHealing152':'cloneProjection149'
+ if(!(healing||hasCloneProjection149Scope(brush))||runtime.capability!==capability||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid canonical Clone BEGIN identity')
+ assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+ const existing=scratch.canonicalSource;if(existing){existing.assertCurrent();return existing.target===target&&existing.capability===capability&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':clone'}}
+ if(scratch.brushBehavior?.dabSequence)throw Error('Clone capture after accepted request forbidden')
+ if(!this.clonePass||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Clone source owner unavailable')
+ this.clonePass.assertPrepared();if(healing){if(!this.healingPass)throw Error('Healing152 not prepared');this.healingPass.assertPrepared()}
+ const prior=scratch.brushBehavior,merged=brush.clone?.source==='projectionCanvas'
+ const projection=execution?.brushSource?.projection
+ if(merged&&!projection)throw Error('Merged Clone requires captured projection')
+ const opened=merged?this.ctx.openLayeredCanonicalBegin?.(target,binding,projection!,capability):this.ctx.openCanonicalBegin?.(target,binding,capability)
+ if(!opened)throw Error('Clone canonical source provider unavailable')
  if(opened.kind==='notReady')return opened
- const captured=this.clonePass.captureMergedSource(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.())
+ const acquire=(w:number,h:number)=>this.ctx.acquireSprayScratch!(w,h),claim=(bytes:number)=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),released=()=>this.ctx.canonicalResourcesReleased?.()
+ // Explicit provider branch preserves its exact view type and never uses currenttarget fallback.
+ let captured:ReturnType<typeof CanonicalBeginSource.capture>
+ if(merged){if(!('layers'in opened.view)){try{opened.view.release()}catch{}throw Error('Expected layered Clone BEGIN')};captured=this.clonePass.captureMergedSource(target,binding,opened.view,acquire,claim,released,capability)}
+ else{if('layers'in opened.view){try{opened.view.release()}catch{}throw Error('Expected local Clone BEGIN')};captured=CanonicalBeginSource.capture(target,binding,opened.view,acquire,claim,released,capability)}
  if(captured.kind==='notReady')return captured
- if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Merged Clone149 owner changed during capture')}
+ if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Clone owner changed during capture')}
  scratch.canonicalSource=captured.owner;return{kind:'ready'}
 }
 
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (!b)return
     this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase,b.runtime)
-    if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'||b.runtime?.capability==='cloneProjection149'){
+    if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'||b.runtime?.capability==='cloneProjection149'||b.runtime?.capability==='cloneHealing152'){
       // END closes this source lifetime; duplicate END has no binding to dispatch.
       this.bindings.delete(scratch)
       const state=scratch.filterSmudge147State,source=scratch.canonicalSource
@@ -417,7 +429,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
   }
   destroy(): void {
     this.mypaintPass?.destroy();this.mypaintPass=undefined
-    this.clonePass?.destroy()
+    this.healingPass?.destroy();this.clonePass?.destroy()
     this.filterSmudge147?.destroy()
     this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
@@ -595,12 +607,41 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2||!this.bristleRequests)throw Error('Bristle Soak scope/prewarm unavailable')
     this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true)
   }
+
+ private paintHealing152Requests(target:BrushTarget,dabs:readonly Dab[],preset:PencilPreset,brush:BrushDescriptor,pressure:BrushPressureSettings,color:[number,number,number],scratch:BehaviorScratch,finish:boolean,endpoint:(Dab&{baseSize:number})|undefined,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):void{
+  assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+  if(!this.healingPass||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Healing152 resources unavailable')
+  let accepted=0
+  for(const dab of dabs){
+   const prior=scratch.brushBehavior,base=prior?structuredClone(prior):beginBrushBehavior(dab,execution),probe=structuredClone(base),stamps=behaviorStampsForDab(brush,dab,probe,color)
+   let full:BrushBounds|undefined
+   for(const stamp of stamps){const radius=stamp.size*preset.sizeMultiplier*.5;if(radius<=0)continue;const box=brushFootprintBounds(stamp.x,stamp.y,radius,stamp.aspect,stamp.angle,0);if(box)full=unionBounds(full,box)}
+   if(!full){scratch.brushBehavior=probe;accepted++;continue}
+   // Full logical mask allocation, NEVER tileclip or alpha nonzero ROI.
+   const rect={minX:Math.floor(full.minX),minY:Math.floor(full.minY),maxX:Math.ceil(full.maxX),maxY:Math.ceil(full.maxY)},source=scratch.canonicalSource!
+   if(rect.maxX-rect.minX<3||rect.maxY-rect.minY<3||Math.max(rect.maxX-rect.minX,rect.maxY-rect.minY)>512)throw new CanonicalBeginBlocked({kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'},accepted)
+   const offset=cloneSourceOffset152(rect,dab,execution!.brushSource!.clone!,brush.clone!.moveSourcePoint)
+   const tiles=target.resolveForPaint(rect);source.assertCurrent();if(scratch.brushBehavior!==prior)throw Error('Healing gesture changed during recovery')
+   let staged=base
+   const destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>=[]
+   const proxy=new Proxy(scratch,{get:(target,key)=>key==='brushBehavior'?staged:typeof Reflect.get(target,key)==='function'?Reflect.get(target,key).bind(target):Reflect.get(target,key),set:(target,key,value)=>{if(key==='brushBehavior'){staged=value;return true}return Reflect.set(target,key,value)}})
+   const result=this.healingPass.withHealedPatch(source,rect,offset,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes),(patch)=>{
+    this.paint(target,[dab],preset,brush,pressure,color,proxy,finish&&accepted===dabs.length-1,finish?endpoint:undefined,execution,false,runtime,undefined,{tiles,destinations})
+    // Normal directOver mask already contains captured global opacity ONCE.
+    this.healingPass!.compositePreparedPatch(source,patch,rect,destinations,1)
+   },new Set(tiles.map(t=>t.buffer.texture)))
+   if(result.kind==='notReady')throw new CanonicalBeginBlocked(result,accepted)
+   scratch.brushBehavior=staged;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase:false,runtime});target.markContentPainted(rect);accepted++
+  }
+ }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>}): void {
-    const clone149=!!brush.clone&&(brush.clone.source!==undefined||brush.clone.sourcePolicy!==undefined)
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
+    const healing=brush.clone?.healing!==undefined
+    if(healing){const source=scratch.canonicalSource;if(!hasCloneHealing152Scope(brush)||effectiveErase||runtime?.capability!=='cloneHealing152'||!source||source.capability!=='cloneHealing152'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Healing152 requires prepared canonical BEGIN');source.assertCurrent();if(!this.healingPass)throw Error('Healing152 not prepared');this.healingPass.assertPrepared();if(!healingRequest){this.paintHealing152Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}}
+    const clone149=!healing&&!!brush.clone&&(brush.clone.source!==undefined||brush.clone.sourcePolicy!==undefined)
     if(clone149){
       const source=scratch.canonicalSource
       if(!hasCloneProjection149Scope(brush)||effectiveErase||runtime?.capability!=='cloneProjection149'||!source||source.capability!=='cloneProjection149'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Merged Clone149 requires its prepared canonical BEGIN source')
@@ -884,7 +925,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const g = behavior.grain
     const period = Math.max(0.5, (brush.texture?.periodPx ?? 1) * (g ? 0.1 + g.zoom * 1.9 : 1))
     const wrap = (v: number): number => ((v % period) + period) % period
-    for (const tile of filterRequest?.tiles??target.resolveForPaint(bounds)) {
+    for (const tile of healingRequest?.tiles??filterRequest?.tiles??target.resolveForPaint(bounds)) {
       const original = scratch.getOrCreate(tile.buffer).original
       let coverage = scratch.getOrCreate(tile.buffer).coverage
       let ceiling = scratch.brushCeiling(tile.buffer)
@@ -1269,6 +1310,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         if(accumulation)drawPhysical(tail.preview)
         else {drawStamps(tail.preview,false);coverage.endDraw();drawCeilings(tail.preview)}
       }
+      if(healingRequest){healingRequest.destinations.push({tile,mask:coverage});continue}
       if(brush.clone){
         const source=execution?.brushSource?.clone
         if(!source)throw Error('Clone requires a recorded source')
@@ -1285,7 +1327,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       }
       this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite)
     }
-    target.markContentPainted(bounds)
+    if(!healingRequest)target.markContentPainted(bounds)
     } finally { releaseTextures() }
   }
 }

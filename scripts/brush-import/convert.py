@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from clone_healing152 import validate_clone_healing152
 from pixel_original_dual151 import pixel_original_dual151_scope, validate_pixel_original_dual151
 from pixel_original_hsv150 import pixel_original_hsv150_scope, validate_pixel_original_hsv150
 from pixel_gradient_wash138 import pixel_gradient_wash138_scope
@@ -572,6 +573,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_particle_wash134(descriptor,parent)
     from clone_projection149 import validate_clone_projection149
     validate_clone_projection149(descriptor,1 if parent is not None else 0)
+    validate_clone_healing152(descriptor,1 if parent is not None else 0)
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
@@ -760,6 +762,7 @@ def portable_bundle(path,catalog):
         validate_portable_profile(d,parent=parent)
         from clone_projection149 import validate_clone_projection149
         validate_clone_projection149(d,depth)
+        validate_clone_healing152(d,depth)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
         validate_pixel_original_hsv150(d,depth)
