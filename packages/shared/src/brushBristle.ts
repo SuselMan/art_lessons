@@ -57,3 +57,21 @@ export function isBristleInk(value:unknown):value is BrushBristleInk {
   &&[v.pressureWeight,v.bristleLengthWeight,v.bristleInkAmountWeight].every(unit)
   &&typeof v.inkDepletionWeight==='number'&&Number.isFinite(v.inkDepletionWeight)&&v.inkDepletionWeight>=0&&v.inkDepletionWeight<=100
 }
+
+/** Native no-ink AA additive request, then common Wash. Whole-library validators
+ * still validate dynamics, captured source policies and every ordinary field. */
+export function hasBristleWash135Scope(value:unknown):boolean {
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!isBrushBristle(value.bristle))return false
+ const t=value.tip,b=value.behavior,r=b.rendering,h=value.bristle
+ const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
+ return Number.isInteger(value.version)&&Number(value.version)>=135&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
+ &&h.version===1&&h.antialias===true&&h.compositing===false
+ &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
+ &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
+ &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
+ &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
+ &&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='alphaDarken'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
+}

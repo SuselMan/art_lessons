@@ -22,6 +22,12 @@ export class SketchLineBatch{
  private quad?:WebGLBuffer
  private readonly data:Float32Array
  constructor(gl:WebGLRenderingContext,staging=new Float32Array(2048*6*10)){if(staging.length!==2048*6*10)throw RangeError('Exact line staging required');this.gl=gl;this.data=staging}
+ assertPrepared():void{if(!this.program||!this.composite||!this.buffer||!this.quad)throw Error('Line programs are not prepared')}
+ paintRequest(stamps:readonly BehaviorPlaced[],request:AccumulationBuffer,originX:number,originY:number):void{
+  this.assertPrepared();if(!stamps.length)return
+  if(stamps.length>4096||stamps.some(s=>s.group!==stamps[0].group))throw Error('Bristle requires one bounded line request')
+  this.paint(stamps,request,request,originX,originY,true,true,true)
+ }
  reset():void{this.program=undefined;this.composite=undefined;this.buffer=undefined;this.quad=undefined}
  destroy():void{const gl=this.gl;if(this.program)gl.deleteProgram(this.program);if(this.composite)gl.deleteProgram(this.composite);if(this.buffer)gl.deleteBuffer(this.buffer);if(this.quad)gl.deleteBuffer(this.quad);this.reset()}
  prepare():void{
@@ -71,8 +77,8 @@ export class SketchLineBatch{
    first=end
   }
  }
- paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,aa:boolean,additive=false):void{
-  this.prepare();const gl=this.gl,program=this.program!,composite=this.composite!
+ paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,temporary:AccumulationBuffer,originX:number,originY:number,aa:boolean,additive=false,requestOnly=false):void{
+  if(requestOnly)this.assertPrepared();else this.prepare();const gl=this.gl,program=this.program!,composite=this.composite!
   for(let first=0;first<stamps.length;){
    let end=first+1;while(end<stamps.length&&stamps[end].group===stamps[first].group)end++
    temporary.clear();temporary.beginDraw();if(additive)gl.blendFunc(gl.ONE,gl.ONE);gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!)
@@ -91,6 +97,7 @@ export class SketchLineBatch{
     }
     flush()
    }finally{for(const loc of locations)gl.disableVertexAttribArray(loc);temporary.endDraw()}
+   if(requestOnly){first=end;continue}
    coverage.beginDraw();gl.useProgram(composite);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,temporary.texture)
    gl.uniform1i(gl.getUniformLocation(composite,'u_source'),0);gl.uniform1f(gl.getUniformLocation(composite,'u_opacity'),stamps[first].ceiling)
    gl.uniform4f(gl.getUniformLocation(composite,'u_flatColor'),0,0,0,0)

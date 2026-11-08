@@ -1,3 +1,4 @@
+import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
 import{RequestWashBatch}from'./RequestWashBatch'
 import{sprayWashRegions}from'../presets/sprayWash133'
@@ -233,6 +234,7 @@ export class BrushBehaviorPainter {
   prepareSprayImages():void{(this.sprayImageBatch??=new SprayImageBatch(this.ctx.gl)).prepare()}
   private prepareRequestWash():RequestWashBatch{const batch=this.requestWash??=new RequestWashBatch(this.ctx.gl);batch.prepare();return batch}
   prepareParticleWash():void{this.prepareRequestWash();this.prepareSprayShapes()}
+  prepareBristleWash():void{this.prepareRequestWash();this.prepareSketchLines()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
 
   prepareCircleBand(): void { this.circleProgram() }
@@ -429,11 +431,56 @@ export class BrushBehaviorPainter {
       if(failed)throw failure
     }
   }
+  /** Same shared request owner; one existing no-ink AA line, not one Wash per hair. */
+  private paintBristleWash(target:TiledLayerBuffer,dabs:readonly Dab[],brush:BrushDescriptor,state:BrushBehaviorState,color:[number,number,number],scratch:BehaviorScratch,sizeMultiplier:number,pressure:BrushPressureSettings,accepted:()=>void):void{
+    const kernel=this.requestWash!,current=kernel.captureCurrent(),batch=this.sketchBatch!
+    batch.assertPrepared()
+    const dimensions=target.coarseWorldSize(1)
+    for(const dab of dabs){
+      const entries=Object.entries(state),keys=Object.keys(state),{execution,...plain}=state
+      const working:BrushBehaviorState={...structuredClone(plain),...(execution===undefined?{}:{execution})}
+      const stamps=behaviorStampsForDab(brush,dab,working,color)
+      if(stamps.length>4096)throw RangeError('Bristle Wash request exceeds4096 points')
+      const commit=()=>{if(Object.keys(state).length!==keys.length||entries.some(([key,value])=>Reflect.get(state,key)!==value))throw Error('Bristle request state changed before commit');for(const key of keys)if(!Object.prototype.hasOwnProperty.call(working,key))Reflect.deleteProperty(state,key);Object.assign(state,working);accepted()}
+      current()
+      if(!stamps.some(s=>s.flowScale>0)){commit();continue}
+      const bounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity}
+      for(const stamp of stamps){const half=(stamp.segmentLength??0)*.5,radius=stamp.size*sizeMultiplier*.5+1,rx=Math.abs(Math.cos(stamp.angle))*half+radius,ry=Math.abs(Math.sin(stamp.angle))*half+radius;bounds.minX=Math.min(bounds.minX,stamp.x-rx);bounds.minY=Math.min(bounds.minY,stamp.y-ry);bounds.maxX=Math.max(bounds.maxX,stamp.x+rx);bounds.maxY=Math.max(bounds.maxY,stamp.y+ry)}
+      // Recovery may reenter this same Painter, but never with our lease held.
+      const tiles=target.resolveForPaint(bounds);current();batch.assertPrepared()
+      let request:ReturnType<NonNullable<BrushContext['acquireSprayScratch']>>|undefined,failed=false,failure:unknown
+      try{
+        if(!this.ctx.acquireSprayScratch)throw Error('Bristle request scratch owner is unavailable')
+        request=this.ctx.acquireSprayScratch(Math.min(512,dimensions.w),Math.min(512,dimensions.h));request.assertCurrent();current()
+        if(request.buffer.width>512||request.buffer.height>512)throw Error('Bristle Wash lease exceeds512')
+        const opacity=clamp(digitalBrushCeiling(brush,dab.pressure,pressure.opacity)*(stamps[0].opacityScale??1))
+        const step=advanceWashOpacity(working.washOpacity??={average:0,maximum:0},opacity)
+        const placed=stamps.map(stamp=>({...stamp,radius:stamp.size*sizeMultiplier*.5,flow:stamp.flowScale,ceiling:1,pressure:dab.pressure}))
+        commit()
+        for(const tile of tiles){
+          const entry=scratch.getOrCreate(tile.buffer),previous=scratch.brushCeiling(tile.buffer)
+          for(const region of sprayWashRegions(bounds,tile,request.buffer.width,request.buffer.height)){
+            current();request.assertCurrent();batch.assertPrepared();batch.paintRequest(placed,request.buffer,region.originX,region.originY)
+            const bottom=tile.buffer.height-region.y-region.height
+            entry.coverage.copyRegionInto(previous,region.x,bottom,region.x,bottom,region.width,region.height)
+            kernel.transfer(request.buffer,previous,entry.coverage,region,opacity,step.average,color)
+          }
+          this.presentStrokeTile(tile,bounds,entry.original,entry.coverage,previous,brush,state.opacity)
+        }
+        target.markContentPainted(bounds)
+      }catch(error){failed=true;failure=error}
+      finally{try{request?.release()}catch(error){if(!failed){failed=true;failure=error}}}
+      if(failed)throw failure
+    }
+  }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    const bristleWash=!!brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'
+    if(bristleWash&&(!hasBristleWash135Scope(brush)||effectiveErase))throw Error('Invalid Bristle Wash135 scope')
+    if(bristleWash){if(!this.requestWash||!this.sketchBatch)throw Error('Bristle Wash pipeline was not prepared');this.requestWash.assertPrepared();this.sketchBatch.assertPrepared()}
     const particleWash=!!brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(particleWash&&(!hasParticleWash134Scope(brush)||effectiveErase))throw Error('Invalid Particle Wash134 scope')
     if(particleWash){if(!this.requestWash||!this.sprayBatch)throw Error('Particle Wash pipeline was not prepared');this.requestWash.assertPrepared();this.sprayBatch.assertPrepared()}
@@ -498,9 +545,14 @@ export class BrushBehaviorPainter {
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
-    if(!sprayWash&&!particleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
+    if(!sprayWash&&!particleWash&&!bristleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? beginBrushBehavior(dabs[0],execution)
+    if(bristleWash){
+      if(!(target instanceof TiledLayerBuffer))throw Error('Bristle Wash requires its tiled stroke target')
+      this.paintBristleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,pressure,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})})
+      return
+    }
     if(particleWash){
       if(!(target instanceof TiledLayerBuffer))throw Error('Particle Wash requires its tiled stroke target')
       this.paintParticleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})})

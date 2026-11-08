@@ -1,0 +1,5 @@
+import type{BrushDescriptor,BrushLibrary}from'./brushes.js'
+import type{Dab}from'./stroke.js'
+export function bristle135():BrushDescriptor{return{id:'imported-135135135135135135135135',version:135,model:'stamp',category:'line',tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'stamp',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,0],[1,1]],behavior:{version:2,speedInput:{version:1,space:'view',maximum:30,estimator:'grafettoEMA30ms'},rendering:{mode:'buildUp',blendMode:'normal',accumulation:'alphaDarken',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}},bristle:{version:1,hairs:[[-.2,0,.5],[.2,.1,1]],scale:1.03,shear:0,random:7.47,mousePressure:false,threshold:false,connected:false,antialias:true,compositing:false}}}
+export const library135=():BrushLibrary=>({schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Own Bristle135',source:'authored.kpp',warnings:[],descriptor:bristle135()}]})
+export const dab135=(x=-2,t=0,pressure=.5):Dab=>({x,y:-3,size:17,pressure,opacity:.5,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t})

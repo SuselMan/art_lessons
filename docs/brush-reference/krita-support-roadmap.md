@@ -990,3 +990,27 @@ web2579/server1245inputs,0type diagnostics; selected oxlint0, код не мен
 после suite. Independent static review BLOCK0. CAPS/GPU/actualonline134
 ещё не запускались. Общий kernel требует GPU регрессии133 на новом source;
 MockGL не доказывает пиксели, полную поддержку/планшетную скорость не заявляем.
+
+### Checkpoint135 — Bristle no-ink AA Wash
+
+133 и134 завершили CAPS/GPU/actualонлайн.134:64GPU/3значимыхCF,
+49genuineExperimentalWebsдабов, never-selected peer доauthor_end, ACK,
+UndoRedo,обаcold иреальныйcontextrestore exact;storedopacity.5 иPNG
+maxA128/7574видимыхпикселя. QA50/backend53/sourceb164/catalog187
+определений,144имени,252CAS;полнаясовместимость/планшетнаяlatencyне заявлены.
+
+135 написан целиком:rootBristle v1/noink,AAtrue/compositingfalse,
+normalWash;получатель штатнаяInk-8_Sumi-e. Геометрия/seed/общий134kernel
+не изменены. ExistingSketchLineBatch получил request-only seam того же
+additivecapsule raster;existing491520B staging и borrowed512²request.
+History/pressureOpacity один раз на line, capturedglobalopacity один раз
+при final projection;old45/66/72/93сохраняются. Первыйanchor/threshold-empty
+не требуетlease;perrequestacceptedprefix иrecoverybeforelease сохранены.
+
+ROOTfullsuite1070PASS+2ошибкиожиданийв216модулях141.91s;
+исправленыТОЛЬКО3тестовыхфайла:точностьfloat,невернаяпроверкаNaNx через
+source-onlyStoragehook,NodeNext.jsimports. Все14тестов5новыхмодулей
+PASS13.68s,592PythonPASS37.660s,обаtypes0/lint0;productionпосле
+fullsuiteне менялся. Independentstaticreview BLOCK0. GenuineCAPS/GPU/
+онлайн135ещё не запускались;четыреисходныхGIHкадратребуютactualliteralCAS
+проверки,необъявляемихчислоивесдоисполненияCAPS.

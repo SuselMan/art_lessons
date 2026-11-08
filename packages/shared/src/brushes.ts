@@ -1,3 +1,4 @@
+export {hasBristleWash135Scope}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
@@ -30,7 +31,7 @@ import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
-import {isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
+import {hasBristleWash135Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
 export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
@@ -475,7 +476,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(assetSizes.get(lookup.asset)!==side)return false
       }else if(ink.useSaturation!==false||lookup!==undefined)return false
     }
-    if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(d.bristle!==undefined&&record(d.behavior)&&record(d.behavior.rendering)&&d.behavior.rendering.accumulation==='alphaDarken'&&!hasBristleWash135Scope(d))return false
+    if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasBristleWash135Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
     if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(record(d.sketch)&&d.sketch.mode==='mask'){
       const sketchTip=d.tip,dims=d.sketch.maskSize,size=assetSizes.get(String(sketchTip.mask)),bounds=sketchTip.maskBounds
@@ -741,6 +743,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false

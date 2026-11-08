@@ -84,5 +84,13 @@ def bristle_preset(data,root,params,name,catalog,external):
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    # Private Pixel conversion still handles initialization only; native Wash is
+    # admitted late on the completed genuine Bristle descriptor, never on a child.
+    if params.get('PaintOpAction','1')=='2':
+        from bristle_wash135 import bristle_wash135_scope
+        d['version']=135;d['behavior']['rendering']['accumulation']='alphaDarken'
+        if enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or not bristle_wash135_scope(d):raise ValueError('Bristle Wash135 requires closed no-ink AA additive request')
+        result['compatibility'].append(compatibility('bristleWash','One existing additive-AA hair-line request is transferred through common creamy Wash; captured external stroke opacity is applied once. Hair geometry/seed and first-anchor policy are unchanged; capsule coverage is a functional approximation to native Wu/DDA.'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result
