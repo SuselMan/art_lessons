@@ -760,12 +760,12 @@ def portable_bundle(path,catalog):
         if 'softness' in behavior:
             value=behavior['softness']
             if (type(value)not in(int,float)or not math.isfinite(value)or not 0<=value<=1
-                    or descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness')):
+                    or d.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness')):
                 raise ValueError('Invalid standard-mask softness')
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
             if isinstance(controls,dict) and 'softness' in controls:
-                if descriptor.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness'):raise ValueError('Softness response requires standard mask')
+                if d.get('model')!='stamp'or tip.get('profile',{}).get('kind')not in('standard','radialCurveSoftness','curveRectangleSoftness'):raise ValueError('Softness response requires standard mask')
                 validate_portable_dynamics([controls['softness']]if section=='dynamics'else controls['softness'])
             if isinstance(controls,dict) and 'sharpness' in controls:
                 if 'alphaThreshold' not in tip: raise ValueError('Sharpness response requires alpha threshold')

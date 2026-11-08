@@ -12,7 +12,9 @@ class RectangleNoiseTests(unittest.TestCase):
    library=c.write();payload={a['id']:base64.b64encode((c.output/a['file']).read_bytes()).decode()for a in library['assets']};return library,payload
  def test_genuine_profiles_controls_and_old_versions(self):
   for generator,shape,dynamic,kind in[('gauss','rect',False,'gaussian2D'),('gauss','circle',False,'gaussian2D'),('soft','rect',False,'curveRectangle'),('soft','rect',True,'curveRectangleSoftness')]:
-   lib,_=self.brush(generator,shape,dynamic);d=lib['brushes'][0]['descriptor'];self.assertEqual(d['version'],98);self.assertEqual(d['tip']['profile']['kind'],kind);self.assertEqual(d['tip']['autoNoise'],{'version':1,'density':.5,'randomness':1});convert.validate_portable_profile(d)
+   lib,payload=self.brush(generator,shape,dynamic);d=lib['brushes'][0]['descriptor'];self.assertEqual(d['version'],98);self.assertEqual(d['tip']['profile']['kind'],kind);self.assertEqual(d['tip']['autoNoise'],{'version':1,'density':.5,'randomness':1});convert.validate_portable_profile(d)
+   with tempfile.TemporaryDirectory()as tmp:
+    root=Path(tmp);path=root/'portable.json';path.write_text(json.dumps({'library':lib,'assets':payload}));out=convert.Catalog(root/'portable');convert.portable_bundle(path,out);self.assertEqual(len(out.brushes),1)
    if dynamic:self.assertAlmostEqual(d['behavior']['softness'],.7)
    for version in(74,78,79,80,97):
     bad=copy.deepcopy(d);bad['version']=version
