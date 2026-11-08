@@ -18,7 +18,7 @@ from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
 from sequential_xy import compatible as sequential_xy_compatible
-from stroke_input import source_policy as stroke_input_policy,independent_drawing_angle_pair
+from stroke_input import source_policy as stroke_input_policy,independent_drawing_angle_pair,validate_independent_pair_assets
 from krita_texture import preprocess_texture
 from krita_lightness import compile_lightness_planes
 
@@ -1551,16 +1551,21 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     if child_drawing_angle is not None:
         dual=behavior['dual'];child=dual['brush'];identity_policy={'version':1,'initialDirection':'cursorHistory'}
-        pair_version=122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
+        pair_version=128 if d['tip'].get('material',{}).get('kind')=='lightness'else 122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
         candidate_child={**child,'version':max(child['version'],pair_version),'behavior':{**child['behavior'],'strokeInput':identity_policy.copy()}}
         candidate={**d,'version':max(d['version'],pair_version),'behavior':{**behavior,'strokeInput':identity_policy.copy(),'dual':{**dual,'brush':candidate_child}}}
-        if independent_drawing_angle_pair(candidate):
+        pair_ready=independent_drawing_angle_pair(candidate)
+        if pair_ready:
+            try:validate_independent_pair_assets(candidate,{aid:asset['size']for aid,asset in catalog.assets.items()})
+            except ValueError:pair_ready=False
+        if pair_ready:
             candidate['behavior']['dual']['brush']=finalize_identity(candidate_child,child_drawing_angle)
             d=candidate;behavior=d['behavior']
+            if pair_version==128:warnings[:]=[w for w in warnings if not w.startswith('masking.strokeInput:')]
             notes[:]=[n for n in notes if n['feature']!='masking.strokeInput']
             notes.append(compatibility('masking.strokeInput','Independent mask identity DrawingAngle follows its own emitted canonical requests; first angle uses the captured root cursor-history channel. No fan/lock/native spline pixel identity is claimed.','supported'))
         else:
-            notes.append(compatibility('masking.strokeInput','This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
+            notes.append(compatibility('masking.strokeInput','This static Lightness/Wash pair exceeds the closed128 source/pair/512-side limits; existing mask lowering retained.'if pair_version==128 else'This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

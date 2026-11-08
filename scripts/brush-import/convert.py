@@ -14,7 +14,7 @@ import re
 import struct
 import zipfile
 from sequential_xy import validate_policy as validate_sequential_xy_policy
-from stroke_input import validate_policy as validate_stroke_input_policy,independent_drawing_angle_pair
+from stroke_input import validate_policy as validate_stroke_input_policy,independent_drawing_angle_pair,validate_independent_pair_assets
 from PIL import Image, ImageOps
 from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
@@ -730,6 +730,7 @@ def portable_bundle(path,catalog):
             if any(raw[y*side+x]for y in range(side)for x in range(side)if x<ox or x>=ox+w or y<oy or y>=oy+h):raise ValueError('Nonzero portable Sketch101 padding')
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth,parent)
+        validate_independent_pair_assets(d,asset_sizes)
         profile=tip.get('profile',{})
         if depth and tip.get('autoNoise') is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):raise ValueError('Rectangle Auto-mask noise is root-only')
         if profile.get('kind')in('radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'):

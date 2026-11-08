@@ -774,5 +774,19 @@ portable, same-Git shared/CAS и Storage missing/restore. Каталог обн�
 180 определений/144 имени/252 прежнихCAS, все171 старых записи сохранены.
 Восемь акварелей теперь выбираются с native timer81; Shoujo Bubbles — с noise96.
 Новый каталог7 использует проверенные hardlink CAS; каталог6 сохранён для отката.
-Онлайн-проверка127 с настоящим stationary/moving вводом выполняется на ноутбуке.
+Все9 онлайн-пресетов127 с настоящим stationary/moving вводом прошли: peer,
+Undo/Redo, оба cold, сохранённые sourceTime/seeds и восстановление контекста.
+Dry4/Wet146/Shoujo13 стационарных запросов; максимум646 дабов на штрих <1000.
+Shoujo видимая шумная форма подтверждена, context restore точный/GL0.
 Отзывчивость на планшетах не подтверждена этим блоком.
+
+### Rake128: static Lightness/Wash и независимая маска
+
+Расширен существующий общий pair guard120/122: только static Lightness root
+с Wash и квадратная inverse-gray integer-image маска, обе с DrawingAngle128.
+Новые renderer/shader/wire/banks не добавлены. Согласованы native/portable/shared
+и загруженные размеры alpha/gray; границы обязательны до подготовки ресурсов.
+560 Python PASS; полный TS прогон986 PASS/1 новый fixture FAIL, затем исправлены
+только два теста: точное различие generic prewarm skip/reject и тип AssetId.
+Повтор40 TS/11 модулей и типы web/server прошли; lint0. Единого987PASS не заявляем.
+Код готов; genuine original CAPS, GPU и онлайн128 ещё впереди.
