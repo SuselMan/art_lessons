@@ -1178,5 +1178,34 @@ usesPixelOriginalRgba: прежний mixer-путь не переинтерпр
 130.76s. Python604/1 старый wash-negative FAIL31.211s. После test-only исправлений
 9 focused TS/3 модуля PASS4.45s,8 Python PASS1.589s. Web2606/server1256 inputs,
 0 diagnostics; selected lint --fix8 owned TS exit0, все workers завершены.
-Числовая GPU проверка, CAPS/Storage и online138 ещё впереди. Публичный QA53/56
-и каталог190/144/252 остаются на проверенном137 source15c622f3.
+138 завершён на QA54/backend57, immutable source `fea71dcd`.
+Авторский native-format KPP импортирован как `imported-46962b5f6afcf177d534796b@138`:
+2 CAS /8 bytes; старый Action1 сохраняет прежний100. CAPS admission и62
+Storage-проверки прошли. Это авторский механизм, подтверждённый stock gain0.
+
+Actual Linux AMD WebGL28/28 PASS:14 независимых расчётных случаев,
+11 инвариантов и3 старых97/100/Tangent136 контроля. Две намеренные подмены
+constant pigment / double global opacity обнаружены:7/11 числовых сбоев,
+инварианты и старые режимы зелёные. GL/JS0,152 consumed Git inputs без расхождений,
+восемь workers завершены, временные compiled bundles удалены по SHA.
+GPU proof `soft-author-gpu138-v3-execution-c5ea5e7a9da94c17ad1543c61b640d9a`,
+SHA256 `2a2691e5bdfdd5f7d05f64e55ff74eb580c687181bea8f6d67bd9d29e02d4e62`.
+Первый27/28 прогон сохранён: контрольный Tangent sample ошибочно оказался
+на краю вместо принятого центрального witness. Исправлены только две координаты
+QA; все138 входы, oracle, пороги и production code остались прежними.
+
+Два настоящих browser участника на ноутбуке, две сохранённые nonlinear palettes,
+по130 дабов при opacity.5. Never-selected peer с чужой палитрой видит рисунок
+до END; ACK/Undo/Redo/оба cold/настоящий WebGL loss+restore и persisted bindings
+прошли. Изменены28531/28168 RGB pixels, max alpha128, дальняя40px полоса RGBA exact.
+Четыре worker завершены, четыре contexts закрыты. Public catalog190/144/252
+не изменился; авторская кисть импортирована только в отдельную QA-учётную запись.
+Online proof `restore138-online-final-e4bc1610e70f45dfa07764268dfba5ff`,
+SHA256 `a0ccf0639a357db3714ae4507ff8949ff49ed26cc8056a2d141ec6833a7ca2b7`.
+
+Это функциональная проверка общего движка и онлайна через законные PointerData,
+не trusted DOM/планшетное перо, native ICC или попиксельная идентичность Krita.
+SourceAngle не требуется; RNG проверен при наличии captured seeds.
+Experiment Pattern требует отдельной явной authority: native fillType=1 берёт
+canvas CurrentPattern, ресурс из одного KPP не следует. Автоматически подставлять
+случайный PAT нельзя. Следующий пробел исследуется отдельно: Bristle soaking.
