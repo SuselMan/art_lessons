@@ -4,7 +4,7 @@ import{isIndependentDrawingAnglePair}from'@grafetto/shared'
 import {usesTextureLightness,usesTextureGradient,textureMaterialKind,textureLightnessPixels,type TextureMaterialVariant} from '../presets/textureLightness'
 import {pixelGradientSourcePixels,pixelGradientPalettePixels} from '../presets/pixelFilteredGradient'
 import {BristleSaturationResource} from './BristleSaturationResource'
-import {usesPixelOriginalRgba,usesFilteredPixelGradient} from '../presets/pixelOriginalRgba'
+import {usesPixelOriginalRgba,usesFilteredPixelGradient,pixelOriginalRgbaFrames} from '../presets/pixelOriginalRgba'
 import type{SprayScratchLease}from'./SprayRequestPainter'
 import{colorSmudgeTipPixels,colorSmudgeGradientTipPixels}from'../presets/colorSmudgeTip'
 import type {BristleInkSettings} from '../presets/brushBristleInk'
@@ -59,7 +59,7 @@ export class BrushPainter {
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut) => {
       const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut)
-      const required=this.recordedStampResources(brush,resources)
+      const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
       if(required)return this.acquireRecordedStampResources(required,false)
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
@@ -72,11 +72,13 @@ export class BrushPainter {
     },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),(brush,lut)=>this.preparedTextureLightness(brush,lut))
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
-  private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[]):readonly BrushPreparationResource[]|undefined {
+  private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
+    if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
-    if(!lightness&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     const resources=existing??brushPreparationResources(brush)
-    if(!lightness&&!resources.some(resource=>resource.nativeImage))return undefined
+    if(!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -93,11 +95,12 @@ export class BrushPainter {
     }
     return resources
   }
-  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor):()=>void {
+  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor,filteredGradient=false):()=>void {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
+        if(filteredGradient)this.prepareStampEffects(true)
+        else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
         if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
         if(brush?.tip.kind==='procedural'||brush?.behavior?.dual?.brush.tip.kind==='procedural')this.prepareProcedural()
         for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
@@ -217,7 +220,15 @@ export class BrushPainter {
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
     if(!usesPixelOriginalRgba(brush)||!brush.tip.color||!('gradient'in brush.tip.color))return
+    const sensor=!!brush.tip.animation
+    if(sensor){pixelOriginalRgbaFrames(brush);assertBrushExecutionContext(brush,execution)}
     const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+    if(sensor){
+      const required=this.recordedStampResources(brush,resources,true)
+      if(!required)throw Error('Bound Gradient125 resource owner is missing')
+      this.acquireRecordedStampResources(required,true,brush,true)()
+      return
+    }
     if(usesFilteredPixelGradient(brush))assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
     let failed=false

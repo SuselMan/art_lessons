@@ -4,7 +4,7 @@ import {textureMaterialKind} from '../presets/textureLightness'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
 import {BRISTLE_SATURATION_GPU_BYTES,BRISTLE_SATURATION_UPLOAD_BYTES,bristleSaturationResourceKey} from './BristleSaturationResource'
 import {prepareVariableGih,usesVariableGih} from '../presets/gihFramePreparation'
-import {usesPixelOriginalRgba,assertPixelOriginalRgba} from '../presets/pixelOriginalRgba'
+import {usesPixelOriginalRgba,assertPixelOriginalRgba,pixelOriginalRgbaFrames} from '../presets/pixelOriginalRgba'
 import {textureEraseId} from '../presets/brushTextureErase'
 import {validateRadialSoftnessTexture,type RadialSoftnessLayout} from '../raster/radialSoftness'
 import { radialCurveTextureSide } from '../raster/radialCurve'
@@ -141,7 +141,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
     if(b.behavior?.dual&&usesVariableGih(b.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
-    if(usesPixelOriginalRgba(b))assertPixelOriginalRgba(b)
+    if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b)}
     if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'

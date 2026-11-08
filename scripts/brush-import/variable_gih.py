@@ -12,13 +12,14 @@ def frame_bounds(width,height,side):
 def same_bounds(actual,expected):
     return isinstance(actual,dict) and set(actual)==set(expected) and all(type(actual[k])in(int,float) and math.isfinite(actual[k]) and actual[k]==v and not(v==0 and math.copysign(1,actual[k])<0) for k,v in expected.items())
 
-def _is_sensor_original_rgba(d,equal,lightness=False):
+def _is_sensor_original_rgba(d,equal,kind='rgba'):
+    lightness=kind=='lightness';gradient=kind=='gradient'
     """Common metadata eligibility; canonical sizes/padding/selectors validate later."""
-    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<(123 if lightness and equal else 124 if lightness else 121 if equal else 119) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
+    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<(125 if gradient else 123 if lightness and equal else 124 if lightness else 121 if equal else 119) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
     t=d.get('tip');b=d.get('behavior')
     if not isinstance(t,dict)or not isinstance(b,dict):return False
     a=t.get('animation');c=t.get('color')
-    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or not lightness and(not isinstance(c,dict)or set(c)!={'planes','frames'}):return False
+    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or kind=='rgba' and(not isinstance(c,dict)or set(c)!={'planes','frames'}):return False
     if equal:
         if 'geometry'in a:return False
     elif not isinstance(a.get('geometry'),dict)or a['geometry'].get('version')!=1 or not isinstance(a['geometry'].get('frames'),list)or len(a['geometry']['frames'])!=len(a['frames']):return False
@@ -27,6 +28,9 @@ def _is_sensor_original_rgba(d,equal,lightness=False):
     if lightness:
         material=t.get('material')
         if 'color'in t or not isinstance(material,dict)or set(material)!={'kind','gray','grayFrames','strength'}or material.get('kind')!='lightness'or not ref(material.get('gray'))or not isinstance(material.get('grayFrames'),list)or len(material['grayFrames'])!=len(a['frames'])or not all(ref(v)for v in material['grayFrames'])or material['grayFrames'][0]!=material['gray']or not all(ref(v)for v in a['frames'])or type(material.get('strength'))not in(int,float)or not math.isfinite(material['strength'])or not 0<=material['strength']<=1:return False
+    elif gradient:
+        g=c.get('gradient')if isinstance(c,dict)and set(c)=={'gradient'}else None
+        if not isinstance(g,dict)or set(g)!={'gray','grayFrames','sampling'}or g.get('sampling')!='filteredGray-v1'or not ref(g.get('gray'))or not isinstance(g.get('grayFrames'),list)or len(g['grayFrames'])!=len(a['frames'])or not all(ref(v)for v in a['frames']+g['grayFrames'])or g['grayFrames'][0]!=g['gray']:return False
     else:
         rgb=c['frames']
         if not all(ref(v)for v in a['frames'])or not triple(c['planes'])or not isinstance(rgb,list)or len(rgb)!=len(a['frames'])or not all(triple(v)for v in rgb)or rgb[0]!=c['planes']:return False
@@ -46,10 +50,13 @@ def is_sensor_original_rgba121(d):
     return _is_sensor_original_rgba(d,True)
 
 def is_equal_lightness_gih123(d):
-    return _is_sensor_original_rgba(d,True,True)
+    return _is_sensor_original_rgba(d,True,'lightness')
+
+def is_equal_gradient_gih125(d):
+    return _is_sensor_original_rgba(d,True,'gradient')
 
 def is_unequal_lightness_gih124(d):
-    return _is_sensor_original_rgba(d,False,True)
+    return _is_sensor_original_rgba(d,False,'lightness')
 
 def validate_variable_gih_descriptor(d,asset_sizes):
     tip=d.get('tip',{});animation=tip.get('animation',{});b=d.get('behavior',{})

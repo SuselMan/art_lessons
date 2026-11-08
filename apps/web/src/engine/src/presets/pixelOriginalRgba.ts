@@ -1,4 +1,4 @@
-import {isEqualOriginalRgbaGih121,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {isEqualOriginalRgbaGih121,isEqualGradientGih125,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
@@ -15,7 +15,7 @@ export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
  if(!color)throw Error('Expected original RGB planes')
  if('gradient' in color){
   if(color.gradient.sampling!==undefined&&(brush.version<100||color.gradient.sampling!=='filteredGray-v1'))throw Error('Unsupported Pixel gradient sampling policy')
-  if(brush.version<97||brush.tip.animation||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal')throw Error('Unsupported Pixel gradient map combination')
+  if(brush.version<97||brush.tip.animation&&!isEqualGradientGih125(brush)||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal')throw Error('Unsupported Pixel gradient map combination')
  }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
  if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
@@ -34,15 +34,17 @@ export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOri
  const animation=brush.tip.animation
  const equalSensor=!!animation&&!animation.geometry&&['angular','xtilt','ytilt','dimensions'].includes(animation.mode)&&!!brush.tip.color&&'planes'in brush.tip.color
  if(equalSensor&&!isEqualOriginalRgbaGih121(brush))throw Error('Equal original RGBA sensor requires121 closed scope')
+ const equalGradient=!!animation&&!!brush.tip.color&&'gradient'in brush.tip.color
+ if(equalGradient&&!isEqualGradientGih125(brush))throw Error('Equal Gradient sensor requires125 closed scope')
  let equalSide:number|undefined
  const frames=brush.tip.animation?.frames??(brush.tip.mask?[brush.tip.mask]:[])
  if(!frames.length||frames.length>256)throw new RangeError('Invalid Pixel original RGBA frame inventory')
  return Object.freeze(frames.map((id,index)=>{
   const planes=brushTipColorPlanes(brush.tip,index)
   if(!planes||planes.length!==3||planes.some(p=>typeof p!=='string'||!p))throw new RangeError('Missing Pixel original RGB planes')
-  if(equalSensor){
+  if(equalSensor||equalGradient){
    const length=importedAssetPixels(id).length,side=Math.sqrt(length)
-   if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0||equalSide!==undefined&&side!==equalSide||planes.some(plane=>importedAssetPixels(plane).length!==length))throw new RangeError('Equal121 physical RGBA plane dimensions differ')
+   if(!Number.isInteger(side)||side<2||side>(equalGradient?512:2048)||(side&(side-1))!==0||equalSide!==undefined&&side!==equalSide||planes.some(plane=>importedAssetPixels(plane).length!==length))throw new RangeError('Equal121 physical RGBA plane dimensions differ')
    equalSide=side
   }
   return Object.freeze({id,planes:Object.freeze([...planes]as [string,string,string])})
