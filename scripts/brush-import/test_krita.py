@@ -315,7 +315,7 @@ class KritaTests(unittest.TestCase):
             self.assertFalse(any(n['feature']=='activeDynamics' for n in c.brushes[0]['compatibility']))
 
     def test_native_krita_composite_identifiers(self):
-        for source,target in [('linear light','linearLight'),('hard mix','hardMix'),('darker color','darkerColor')]:
+        for source,target in [('linear light','linearLight'),('hard mix','kritaHardMix'),('darker color','darkerColor')]:
             with tempfile.TemporaryDirectory() as tmp:
                 p=Path(tmp)/'Mode.kpp';p.write_bytes(kpp(mode=source));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertEqual(c.brushes[0]['descriptor']['behavior']['rendering']['blendMode'],target)

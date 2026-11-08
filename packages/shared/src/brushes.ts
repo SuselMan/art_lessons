@@ -661,7 +661,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
         || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset'].includes(key))) return false
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
-      if(record(t.application)&&['darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))&&(d.model!=='stamp'||Number(d.version)<75))return false
+      if(record(t.application)&&['darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))){
+        const modern=Number(d.version)>=103&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'
+        if(!(d.model==='stamp'&&Number(d.version)>=75)&&!modern)return false
+      }
       if (t.application !== undefined && (!record(t.application) || !['multiply','subtract','darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
       if (t.patternSize !== undefined) {
@@ -684,10 +687,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.behavior !== undefined) {
       if (!isBrushBehavior(d.behavior)) return false
       if(d.behavior.rendering?.blendMode==='hardMixPhotoshop'&&(Number(d.version)<102||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if(d.behavior.rendering?.blendMode==='kritaHardMix'&&(Number(d.version)<104||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
-        if(secondary.behavior?.rendering?.blendMode==='hardMixPhotoshop')return false
+        if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false
+        if(secondary.behavior?.rendering?.blendMode==='hardMixPhotoshop'||secondary.behavior?.rendering?.blendMode==='kritaHardMix')return false
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
         if(secondary.sketch?.mode==='mask')return false

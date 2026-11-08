@@ -554,8 +554,9 @@ def validate_portable_profile(descriptor):
     behavior=descriptor.get('behavior',{})
     if isinstance(behavior,dict):
         rendering=behavior.get('rendering',{})
-        if any(isinstance(behavior.get(k),dict) and 'hardMixPhotoshop' in behavior[k].values() for k in ('grain','dual','wetMix')) or isinstance(rendering,dict) and rendering.get('burntEdgesMode')=='hardMixPhotoshop':raise ValueError('Extended composite is rendering-only')
+        if any(isinstance(behavior.get(k),dict) and any(mode in('hardMixPhotoshop','kritaHardMix') for mode in behavior[k].values()) for k in ('grain','dual','wetMix')) or isinstance(rendering,dict) and rendering.get('burntEdgesMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Extended composite is rendering-only')
         if isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
+        if isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
     filter_config=descriptor.get('filter')
     if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
@@ -704,7 +705,7 @@ def portable_bundle(path,catalog):
         from captured_bristle import validate_portable_bristle
         validate_portable_bristle(d,trusted_raw_assets)
         validate_portable_mixer(d)
-        if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')=='hardMixPhotoshop':raise ValueError('Photoshop Hard Mix is root-only')
+        if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']
         validate_portable_profile(d)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate'):raise ValueError('Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
@@ -867,6 +868,12 @@ def portable_bundle(path,catalog):
         if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids or d['texture'].get('eraseId',d['texture'].get('id')) not in ids): raise ValueError('Missing portable grain asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
+        texture=d.get('texture',{})
+        if d.get('model')=='mixer' and isinstance(texture,dict) and isinstance(texture.get('application'),dict) and texture['application'].get('mode')in('darken','overlay','linearDodge','linearBurn'):
+            m=d.get('mixer',{});application=texture['application']
+            if (depth or type(d.get('version'))!=int or d['version']<103 or set(application)!={'mode','soft'} or type(application['soft'])!=bool or m.get('algorithm')!='krita-mask' or m.get('source')!='previousCanvas' or m.get('colorRateComposite')is not None or m.get('paintThickness')is not None or tip.get('kind')!='bitmap' or any(k in tip for k in('animation','color','material')) or behavior.get('dual') or behavior.get('erase') or behavior.get('rendering',{}).get('blendMode')!='normal' or texture.get('eraseId')):
+                raise ValueError('Invalid portable modern texture103 Color Smudge')
+
         if 'spacing' in behavior:
             spacing=behavior['spacing']
             if (not isinstance(spacing,dict) or set(spacing)-{'mode','coefficient','dynamics','isotropic','axisScale','angleOffset'}

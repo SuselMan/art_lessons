@@ -31,3 +31,8 @@ it('requires actual extended preflight before state mutation and reuses it until
  f.painter.prepareCompositeEffects();f.painter.initGL();expect(()=>f.paint([24])).toThrow('Extended composite is not prepared')
  f.painter.destroy()
 })
+
+it('prepares Krita27 with the same private program and fails before state after reset',()=>{
+ const selected=structuredClone(brush);selected.version=104;selected.behavior!.rendering!.blendMode='kritaHardMix';const f=fixture(0,selected)
+ expect(()=>f.paint([20])).toThrow('Extended composite is not prepared');expect(f.scratch.brushBehavior).toBeUndefined();f.painter.prepareCompositeEffects();expect(()=>f.paint([20])).not.toThrow();expect(f.scratch.brushBehavior).toBeDefined();f.painter.initGL();expect(()=>f.paint([24])).toThrow('Extended composite is not prepared');f.painter.destroy()
+})

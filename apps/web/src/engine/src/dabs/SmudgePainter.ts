@@ -1,3 +1,4 @@
+import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
 import{CanvasEffectBatch}from'./CanvasEffectBatch'
 import{deformRequest}from'../presets/brushDeform'
 import{GridCellBatch}from'./GridCellBatch'
@@ -50,7 +51,7 @@ import { smudgeGrainRelief } from '../presets/smudgeGrain'
 import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
-import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
+import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, colorSmudgeTextureFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
 import { colorSmudgeRates, resolveColorSmudgeRate } from '../presets/colorSmudge'
@@ -224,6 +225,7 @@ export class SmudgePainter {
   private maximumImageSide?: number
   private materialProjection?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeTextureTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private colorSmudgeForegroundTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private colorSmudgeLegacyTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
@@ -274,6 +276,7 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
@@ -301,6 +304,7 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
@@ -331,6 +335,7 @@ export class SmudgePainter {
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
     if(this.colorMean)gl.deleteProgram(this.colorMean.program)
+    if(this.colorSmudgeTextureTransfer)gl.deleteProgram(this.colorSmudgeTextureTransfer.program)
     if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
     if(this.colorSmudgeForegroundTransfer)gl.deleteProgram(this.colorSmudgeForegroundTransfer.program)
     if(this.colorSmudgeLegacyTransfer)gl.deleteProgram(this.colorSmudgeLegacyTransfer.program)
@@ -339,6 +344,7 @@ export class SmudgePainter {
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
+    this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
     this.materialProjection = undefined
@@ -415,7 +421,7 @@ export class SmudgePainter {
     // read+write WebGL1 forbids. A harmless no-op: the real dabs below
     // always paint straight into the real layer regardless (see
     // the engine's _paintDabs doc comment on this parameter).
-    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs) }
+    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs); if(usesColorSmudgeTexture(paint.brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared') }
     if (target instanceof AccumulationBuffer) return
     const projectionRead=paint?.brush?.mixer?.source==='projectionCanvas' ? this.ctx.openProjection?.(execution!.brushSource!,target) : undefined
     let releaseTextures:(()=>void)|undefined,failed=false
@@ -1028,6 +1034,16 @@ export class SmudgePainter {
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
   }
 
+  prepareColorSmudgeTexture(): void {
+    this.prepareColorSmudgeMean()
+    this.prepareMaterialProjection()
+    if(this.colorSmudgeTextureTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeTextureFragment())
+    this.colorSmudgeTextureTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
   prepareColorSmudgeForeground():void {
     this.prepareColorSmudgeMean()
     this.prepareMaterialProjection()
@@ -1126,6 +1142,7 @@ export class SmudgePainter {
     // beginning the destination pass so allocation cannot redirect this dab.
     const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
+    if(brush&&usesColorSmudgeTexture(brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared')
     const composite=colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
     const legacyComposite=composite===4||composite===5||composite===6&&!brush?.mixer?.algorithm
     if(composite===6&&(!brush||brush.version<88||brush.model!=='mixer'||brush.behavior?.erase!==true||!brushSamplesCanvas(brush)))throw Error('Foreground erase requires Color Smudge88')
@@ -1157,6 +1174,7 @@ export class SmudgePainter {
       binding=this.colorSmudgeLegacyTransfer
     } else if (brush?.mixer?.algorithm) {
       if(composite>0){this.prepareColorSmudgeForeground();binding=this.colorSmudgeForegroundTransfer}
+      else if(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(brush.texture.application.mode)){binding=this.colorSmudgeTextureTransfer}
       else {this.prepareColorSmudge();binding=this.colorSmudgeTransfer}
     } else if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
       this.prepareRadialCurves()
@@ -1198,7 +1216,7 @@ export class SmudgePainter {
       gl.uniform1f(u.u_wickPx, wick)
       gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
     }
-    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeForegroundTransfer || binding === this.colorSmudgeLegacyTransfer) && binding) {
+    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeTextureTransfer || binding === this.colorSmudgeForegroundTransfer || binding === this.colorSmudgeLegacyTransfer) && binding) {
       gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
       gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
       const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
@@ -1235,7 +1253,7 @@ export class SmudgePainter {
     const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
-    if(binding && (binding===this.colorSmudgeTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
+    if(binding && (binding===this.colorSmudgeTransfer || binding===this.colorSmudgeTextureTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
     if(binding && (binding===this.colorSmudgeForegroundTransfer || binding===this.colorSmudgeLegacyTransfer))gl.uniform1f(u.u_colorSmudgeComposite,composite)
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)

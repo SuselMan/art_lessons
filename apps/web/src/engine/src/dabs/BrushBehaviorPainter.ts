@@ -306,8 +306,8 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
-    const extendedComposite=brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'?this.extendedComposite:undefined
-    if(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'&&!extendedComposite)throw Error('Extended composite is not prepared')
+    const extendedComposite=(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
+    if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')&&!extendedComposite)throw Error('Extended composite is not prepared')
     const gihFrames=usesVariableGih(brush.tip)?prepareVariableGih(brush):undefined
     if(brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.

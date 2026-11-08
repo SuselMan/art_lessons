@@ -1,3 +1,4 @@
+import {TEXTURE_ALPHA_EXTENDED_GLSL} from './textureAlphaModes'
 import { colorSmudgeTransferFragment } from './colorSmudgeShader'
 import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
@@ -362,4 +363,13 @@ export function wetTransferFragment(procedural = false, integerImages = false, r
     source = replace(source, 'wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle)', 'wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle,u_dual)')
   }
   return source
+}
+
+/** Only the admitted103 modern MASK program gets the Pixel75 alpha graph.
+ * Existing program strings, operands, samplers and historical1/2 stay intact. */
+export function colorSmudgeTextureFragment():string {
+ const legacy=wetTransferFragment(true,true,true,true)
+ const anchor=' if(application.x<1.5)'
+ if(legacy.split(anchor).length!==2)throw Error('Wet texture alpha anchor changed')
+ return legacy.replace(BRUSH_TEXTURE_APPLICATION_GLSL,TEXTURE_ALPHA_EXTENDED_GLSL+BRUSH_TEXTURE_APPLICATION_GLSL.replace(anchor,' if(application.x>2.5)return brushTextureAlphaExtended(a,t,s,application);\n'+anchor))
 }

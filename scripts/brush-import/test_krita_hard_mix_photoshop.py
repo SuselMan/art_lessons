@@ -1,4 +1,4 @@
-import tempfile,unittest
+import tempfile,unittest,copy
 from pathlib import Path
 import convert
 from krita_import import convert_krita
@@ -12,7 +12,8 @@ class HardMixPhotoshopTests(unittest.TestCase):
   d['version']=101
   with self.assertRaises(ValueError):convert.validate_portable_profile(d)
  def test_old_hard_mix_and_modern_smudge65_remain_distinct(self):
-  old=self.brush(mode='hard mix');self.assertEqual(old.brushes[0]['descriptor']['behavior']['rendering']['blendMode'],'hardMix')
+  old=self.brush(mode='hard mix');self.assertEqual(old.brushes[0]['descriptor']['behavior']['rendering']['blendMode'],'kritaHardMix');self.assertEqual(old.brushes[0]['descriptor']['version'],104)
+  stored=copy.deepcopy(old.brushes[0]['descriptor']);stored['version']=27;stored['behavior']['rendering']['blendMode']='hardMix';convert.validate_portable_profile(stored)
   modern=self.brush(engine='colorsmudge',extra='<param name="SmudgeRateUseNewEngine">true</param>');self.assertEqual(modern.skipped,[]);d=modern.brushes[0]['descriptor'];self.assertEqual(d['version'],65);self.assertEqual(d['behavior']['rendering']['blendMode'],'normal');self.assertEqual(d['mixer']['colorRateComposite'],'hardMixPhotoshop')
  def test_portable_nonrendering_operator_rejected(self):
   d=self.brush().brushes[0]['descriptor'];d['behavior']['rendering']['blendMode']='normal';d['behavior']['grain']={'blendMode':'hardMixPhotoshop'}

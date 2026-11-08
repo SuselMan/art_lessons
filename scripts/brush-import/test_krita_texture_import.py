@@ -10,13 +10,17 @@ from test_krita import kpp
 
 
 class TextureImportTests(unittest.TestCase):
-    def imported(self, tmp, extra=None, size=(3,2),engine='paintbrush'):
+    def imported(self, tmp, extra=None, size=(3,2),engine='paintbrush',rejected=False):
         image=Image.new('L',size);image.putdata(([0,64,128,192,255,32]*((image.width*image.height+5)//6))[:image.width*image.height])
         data=io.BytesIO();image.save(data,format='PNG')
         params={'Texture/Pattern/Enabled':'true','Texture/Pattern/PatternFileName':'authored.png','Texture/Strength/UseCurve':'false',**(extra or {})}
         text=''.join('<param name="'+key+'"><![CDATA['+value+']]></param>' for key,value in params.items())
         path=Path(tmp)/'Texture.kpp';path.write_bytes(kpp(resources=text,engine=engine))
         c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'authored.png':data.getvalue()})
+        if rejected:
+            self.assertEqual(c.brushes,[])
+            self.assertEqual(c.skipped,[{'name':'Texture','reasons':['Modern texture103 requires root static MASK previousCanvas normal Color Smudge']}])
+            return None
         self.assertEqual(c.skipped,[])
         brush=c.brushes[0];texture=brush['descriptor']['texture']
         asset=c.assets[texture['id']];raw=(c.output/asset['file']).read_bytes()
@@ -88,7 +92,7 @@ class TextureImportTests(unittest.TestCase):
             self.assertEqual(t['periodPx'],3000);self.assertEqual(t['patternSize'],{'width':2048,'height':3})
             self.assertTrue(any(n['feature']=='textureResolution' and n['status']=='unsupported' for n in b['compatibility']))
 
-    def test_extended_modes_are_stamp_only_and_versioned(self):
+    def test_extended_modes_are_versioned_and_legacy_smudge_is_rejected(self):
         for code,mode in [(4,'darken'),(5,'overlay'),(8,'linearDodge'),(9,'linearBurn')]:
             for soft in ['false','true']:
                 with tempfile.TemporaryDirectory() as tmp:
@@ -97,9 +101,7 @@ class TextureImportTests(unittest.TestCase):
                     self.assertGreaterEqual(b['descriptor']['version'],75)
                     self.assertFalse(any(n['feature']=='textureApplication'and n['status']=='unsupported'for n in b['compatibility']))
             with tempfile.TemporaryDirectory() as tmp:
-                b,t,_,_=self.imported(tmp,{'Texture/Pattern/TexturingMode':str(code)},engine='colorsmudge')
-                self.assertNotIn('application',t)
-                self.assertTrue(any(n['feature']=='textureApplication'and n['status']=='unsupported'for n in b['compatibility']))
+                self.imported(tmp,{'Texture/Pattern/TexturingMode':str(code)},engine='colorsmudge',rejected=True)
 
     def test_erase_invert_is_baked_before_neutral_remap(self):
         with tempfile.TemporaryDirectory() as tmp:

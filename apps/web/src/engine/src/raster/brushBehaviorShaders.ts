@@ -1,3 +1,4 @@
+import {KRITA_HARD_MIX_GLSL} from './kritaHardMix'
 import {PIXEL_FILTERED_GRADIENT_GLSL} from '../presets/pixelFilteredGradient'
 import {GIH_FRAME_SAMPLING_GLSL} from './gihFrameGeometry'
 import {PIXEL_ORIGINAL_RGBA_GLSL} from '../presets/pixelOriginalRgba'
@@ -439,7 +440,7 @@ void main() {
 /** One opt-in composite family; historical shader literals stay byte-identical. */
 export function createBrushCompositeFragment(extendedBlend=false):string {
   if(!extendedBlend)return BRUSH_COMPOSITE_FRAG
-  const extended=BRUSH_BLEND_GLSL.replace('  return brushSetLum(b,brushLum(s));','  if(mode>25.5) return vec3(b.r+s.r>1.0?1.0:0.0,b.g+s.g>1.0?1.0:0.0,b.b+s.b>1.0?1.0:0.0);\n  return brushSetLum(b,brushLum(s));')
+  const extended=BRUSH_BLEND_GLSL.replace('vec3 brushBlend(',KRITA_HARD_MIX_GLSL+'vec3 brushBlend(').replace('  return brushSetLum(b,brushLum(s));','  if(mode>26.5) return vec3(brushKritaHardMix(b.r,s.r),brushKritaHardMix(b.g,s.g),brushKritaHardMix(b.b,s.b));\n  if(mode>25.5) return vec3(b.r+s.r>1.0?1.0:0.0,b.g+s.g>1.0?1.0:0.0,b.b+s.b>1.0?1.0:0.0);\n  return brushSetLum(b,brushLum(s));')
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
 }
 

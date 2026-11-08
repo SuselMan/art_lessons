@@ -1,3 +1,4 @@
+import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
 import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
 import {captureHatchingBackground,type HatchingRgba8} from './src/raster/hatchingBackground'
 import type {ProjectionReadSession} from './src/raster/CanvasProjectionSampler'
@@ -3545,6 +3546,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor))
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
+      else if (painter === 'colorSmudgeTexture') this._smudge.prepareColorSmudgeTexture()
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
       else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
       else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy()
@@ -7618,7 +7620,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -7895,7 +7897,7 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
-    if(stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop')this._brush.prepareCompositeEffects()
+    if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush))
     if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
