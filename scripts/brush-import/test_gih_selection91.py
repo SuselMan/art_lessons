@@ -27,7 +27,7 @@ class Selection91(unittest.TestCase):
       self.assertEqual(d['tip']['animation']['mode'],mode)
       self.assertEqual('rank'in d['tip']['animation'],mode=='pressure')
  def test_hard_actual_cap_and_native_int_header_bounds(self):
-  for data in [pipe('pressure',257,257),pipe('pressure',2147483648),pipe('pressure',0),pipe('random',257),pipe('incremental',257),pipe('angular')]:
+  for data in [pipe('pressure',257,257),pipe('pressure',2147483648),pipe('pressure',0),pipe('random',257),pipe('incremental',257),pipe('xtilt')]:
    with self.assertRaises(ValueError):gih(data)
   with self.assertRaises(ValueError):gih(pipe('pressure').replace(b'rank0:5',b'rank0:4'))
  def test_portable_roundtrip_and_rejection_before_cas(self):

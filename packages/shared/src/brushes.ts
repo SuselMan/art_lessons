@@ -90,7 +90,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity'; rank?: number; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
+  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular'; rank?: number; cursorPolicy?: 'first-request-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -577,12 +577,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames','geometry','rank'].includes(key))
-        || !['random','incremental','constant','pressure','velocity'].includes(String(animation.mode))
+        || Object.keys(animation).some(key => !['mode','frames','geometry','rank','cursorPolicy'].includes(key))
+        || !['random','incremental','constant','pressure','velocity','angular'].includes(String(animation.mode))
         || (animation.mode==='constant'||animation.mode==='pressure') && Number(d.version)<91
         || animation.mode==='velocity' && Number(d.version)<92
-        || (animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
-        || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
+        || animation.mode==='angular' && (Number(d.version)<110||animation.cursorPolicy!=='first-request-v1'||!numberIn(animation.rank,2,256)||!Number.isInteger(animation.rank))
+        || animation.mode!=='angular' && animation.cursorPolicy!==undefined
+        || (animation.mode==='angular' ? false : animation.mode==='pressure'||animation.mode==='velocity' ? !numberIn(animation.rank,1,animation.mode==='velocity'?256:2147483647)||!Number.isInteger(animation.rank) : animation.rank!==undefined)
+        || !Array.isArray(animation.frames) || animation.frames.length < (animation.mode==='angular'?1:2) || animation.frames.length > 256
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
@@ -717,6 +719,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
+    }
+    const angularChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
+    if(record(angularChild)&&angularChild.mode==='angular')return false
+    if(record(d.tip.animation)&&d.tip.animation.mode==='angular'){
+      const tip=d.tip
+      const b=record(d.behavior)?d.behavior:undefined, input=b&&record(b.strokeInput)?b.strokeInput:undefined
+      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
     }
     // The engine captures speed from the ROOT preset, including for independent masks.
     // Child-only speedInput would not capture a channel on the author pipeline.

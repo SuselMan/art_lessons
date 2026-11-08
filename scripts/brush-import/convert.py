@@ -730,6 +730,7 @@ def portable_bundle(path,catalog):
         child=behavior.get('dual',{}).get('brush',{}) if isinstance(behavior.get('dual',{}),dict) else {}
         child_tip=child.get('tip',{}) if isinstance(child,dict) else {}
         own_animation=tip.get('animation',{});child_animation=child_tip.get('animation',{}) if isinstance(child_tip,dict) else {}
+        if isinstance(child_animation,dict)and child_animation.get('mode')=='angular':raise ValueError('Angular GIH secondary is unsupported')
         if (isinstance(own_animation,dict)and own_animation.get('mode')=='velocity')or(isinstance(child_animation,dict)and child_animation.get('mode')=='velocity'):
             speed=behavior.get('speedInput')
             if d['version']<92 or not isinstance(speed,dict) or speed!={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'} or type(speed.get('version'))is not int or type(speed.get('maximum'))not in(int,float):raise ValueError('GIH velocity requires root captured speedInput30')
@@ -795,15 +796,19 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure','velocity'): raise ValueError('Invalid portable tip animation')
+            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank','cursorPolicy'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure','velocity','angular'): raise ValueError('Invalid portable tip animation')
             if animation['mode'] in ('constant','pressure') and d['version']<91:raise ValueError('GIH sensor selection requires revision91')
             if animation['mode']=='velocity' and d['version']<92:raise ValueError('GIH velocity requires revision92')
+            if animation['mode']=='angular':
+                if (depth or d['version']<110 or animation.get('cursorPolicy')!='first-request-v1' or type(animation.get('rank'))is not int or not 2<=animation['rank']<=256 or 'geometry'in animation or d.get('model')!='stamp' or any(k in tip for k in('color','material','profile','imageSampling','autoNoise','autoShape')) or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('erase') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0 or behavior.get('strokeInput')!={'version':1,'initialDirection':'cursorHistory'}):raise ValueError('Invalid portable angular GIH scope/cursor policy')
+            elif 'cursorPolicy'in animation:raise ValueError('Unexpected portable GIH cursor policy')
             if animation['mode']in('pressure','velocity'):
+
                 maximum=256 if animation['mode']=='velocity'else 2147483647
                 if type(animation.get('rank')) is not int or not 1<=animation['rank']<=maximum:raise ValueError('Invalid portable GIH selector rank')
-            elif 'rank'in animation:raise ValueError('Unexpected portable GIH rank')
+            elif animation['mode']!='angular'and 'rank'in animation:raise ValueError('Unexpected portable GIH rank')
             frames=animation['frames']
-            if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
+            if not isinstance(frames,list) or not (1 if animation['mode']=='angular'else 2)<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
             if 'geometry'not in animation and len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
         if 'color' in tip:
             color=tip['color'];frames=tip.get('animation',{}).get('frames',[tip.get('mask')])

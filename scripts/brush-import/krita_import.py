@@ -168,7 +168,7 @@ def gih(data, preserve_color=False):
     """Read the documented image-pipe container without discarding any frame.
 
     One dimension, equal declared count/ncells/rank, bounded actual frames.
-    Random/incremental/constant/pressure plus bounded-rank captured velocity.
+    Random/incremental/constant/pressure plus bounded-rank captured velocity/angular.
     Other selection/rank combinations fail explicitly pending runtime support.
     Reference: https://developer.gimp.org/core/standards/gih/
     """
@@ -190,10 +190,11 @@ def gih(data, preserve_color=False):
     except (IndexError,ValueError) as error:
         raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
     mode=params.get('sel0',params.get('selection','incremental'))
-    if mode not in ('random','incremental','constant','pressure','velocity'):
+    if mode not in ('random','incremental','constant','pressure','velocity','angular'):
         raise ValueError('Unsupported GIH selection mode: '+mode)
     if mode in ('random','incremental') and count>256:
         raise ValueError('Unsupported legacy GIH declared frame count')
+    if mode=='angular' and not 2<=count<=256:raise ValueError('GIH angular rank must be2..256')
     if mode=='velocity' and count>256:
         raise ValueError('Unsupported GIH velocity declared rank above256')
     frames=[];offset=second+1;pixels=0;coloured=False
@@ -709,9 +710,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
-            if len(assets)>1:
+            # Private adapters rewrite paintopid to paintbrush; only genuine native Pixel origin may opt in.
+            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
+            if len(assets)>1 or pipe['mode']=='angular':
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
-                if pipe['mode']in('pressure','velocity'):d['tip']['animation']['rank']=pipe['declaredCount']
+                if pipe['mode']in('pressure','velocity','angular'):d['tip']['animation']['rank']=pipe['declaredCount']
+                if pipe['mode']=='angular':d['tip']['animation']['cursorPolicy']='first-request-v1'
                 if unequal:
                     variable_gih_bounds=[bounds for aid,bounds in assets]
                     d['tip']['animation']['geometry']={'version':1,'frames':[{'sourceWidth':frame.width,'sourceHeight':frame.height,'maskBounds':bounds}for frame,(aid,bounds)in zip(frames,assets)]}
@@ -721,7 +725,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['mode']=='velocity':d['version']=max(d['version'],92)
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
-            selection_note=('All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
+            selection_note=('All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Angular pipe selection uses captured DrawingAngle and explicit first-request-v1 per-attempt movement policy; see gihAngular qualification.' if pipe['mode']=='angular' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
             notes.append(compatibility('gihSelection',selection_note))
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
@@ -1366,6 +1370,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('strokeInput','Explicit source input metadata retained; cursor-history/fan execution requires the matching engine capability.'))
         except ValueError as error:
             notes.append(compatibility('strokeInput',str(error),'unsupported'))
+    if d['tip'].get('animation',{}).get('mode')=='angular':
+        # GIH selection uses DrawingAngle even without an active Rotation sensor.
+        # Enable the existing author capture by default, never a test-only CLI opt-in.
+        if enabled(params.get('PressureRotation')):
+            policy=stroke_input_policy(params,xml,native_transfer)
+            if policy is None or policy.get('fanCorners') or behavior.get('rotation')!={'follow':1,'random':'none'}:raise ValueError('Angular GIH active rotation requires identity unlocked DrawingAngle without fan')
+        behavior['strokeInput']={'version':1,'initialDirection':'cursorHistory'}
+        notes.append(compatibility('gihAngular','Captured DrawingAngle chooses floor(normalize(angle+135deg)/360deg*rank), modulo actual frames. Movement >=.5 is measured per logical attempt, including rejected attempts. Explicit first-request-v1 paints the first request; native first-point initialization and float-vector threshold rounding may differ.','supported'))
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     def native_keyed(value):
         if isinstance(value,dict):
@@ -1456,6 +1468,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('animation',{}).get('geometry') is not None:
         d['version']=max(d['version'],86)
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
+    if d['tip'].get('animation',{}).get('mode')=='angular':
+        if (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')
+        d['version']=max(d['version'],110)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

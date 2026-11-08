@@ -31,6 +31,9 @@ export interface BrushBehaviorState {
   /** Plain bounded cache, copied with preview/savepoints; never a native RNG instance. */
   strokeRandomCache?: {seed:number;values:[string,number][]}
   pending?: BehaviorPlaced[]
+  /** Angular movement history includes rejected logical requests, independently of painted geometry. */
+  angularCursor?: {x:number;y:number}
+  angularPreviousSize?: number
   dabOrdinal?: number
   dabSequence?: number
   washOpacity?: {average:number;maximum:number}
@@ -298,9 +301,15 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
-export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number): number | undefined {
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
+  if(animation.mode==='angular'){
+    const rank=animation.rank
+    if(animation.cursorPolicy!=='first-request-v1'||rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||sourceAngle===undefined||!Number.isFinite(sourceAngle))throw Error('Invalid GIH captured angular input')
+    const turn=2*Math.PI,wrapped=(sourceAngle+3*Math.PI/4)%turn,angle=wrapped<0?wrapped+turn:wrapped
+    return Math.trunc(angle/turn*rank)%animation.frames.length
+  }
   if(animation.mode==='velocity'){
     const rank=animation.rank
     if(!Number.isInteger(rank)||rank===undefined||rank<1||rank>256||normalizedSpeed===undefined||!Number.isFinite(normalizedSpeed)||normalizedSpeed<0||normalizedSpeed>1)throw Error('Invalid GIH captured velocity input')
@@ -323,8 +332,8 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
   return animation.mode==='incremental' ? ordinal%animation.frames.length
     : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
 }
-export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number): BrushDescriptor['tip']['mask'] {
-  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed)
+export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number): BrushDescriptor['tip']['mask'] {
+  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed,sourceAngle)
   return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
@@ -355,23 +364,44 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     if(brush.version<92||speed?.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')throw Error('GIH velocity requires root captured speedInput30')
     if(dab.normalizedSpeed===undefined||!Number.isFinite(dab.normalizedSpeed)||dab.normalizedSpeed<0||dab.normalizedSpeed>1)throw Error('Invalid GIH captured velocity input')
   }
+  if(brush.tip.animation?.mode==='angular'&&(!Number.isFinite(dab.x)||!Number.isFinite(dab.y)))throw Error('Invalid GIH angular request coordinates')
   const ordinal = state.dabOrdinal ?? 0
-  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed)
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle)
   // Independent sensor masks are queried only by their own resampled child dabs.
   // Preserve historical random/incremental parent metadata expressions unchanged.
   const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
   advanceBrushAnimation(brush, state)
+  if(brush.tip.animation?.mode==='angular'){
+    const previous=state.angularCursor
+    const x=Math.fround(dab.x),y=Math.fround(dab.y)
+    const travelled=previous?Math.hypot(x-previous.x,y-previous.y):0
+    // Native registers total stroke length even when canPaintFor emits no dab.
+    // Keep the canonical attempt polyline, not a chord between painted dabs.
+    if(brushUsesDistanceControl(brush)){
+      state.worldDistance=(state.worldDistance??0)+travelled
+      // The current sensor query must not add the current segment twice.
+      state.worldDistancePoint={x:dab.x,y:dab.y}
+    }
+    if(previous)state.distance+=travelled/Math.max(.5,(dab.size+(state.angularPreviousSize??dab.size))*.5)
+    state.angularPreviousSize=dab.size
+    state.angularCursor={x,y}
+    // first-request-v1 is explicit functional policy, not native initialization identity.
+    if(previous&&travelled<.5){
+      state.dabSequence=(state.dabSequence??0)+1
+      return []
+    }
+  }
   const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
   const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]
   const colorPlanes=brushTipColorPlanes(brush.tip,index)
   const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
   const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous
-  if(brushUsesDistanceControl(brush)){
+  if(brush.tip.animation?.mode!=='angular'&&brushUsesDistanceControl(brush)){
     state.worldDistance=worldDistanceForDab(dab,state)
     state.worldDistancePoint={x:dab.x,y:dab.y}
   }
-  if (prev)
+  if (prev&&brush.tip.animation?.mode!=='angular')
     state.distance += Math.hypot(dab.x - prev.x, dab.y - prev.y) / Math.max(0.5, (dab.size + prev.size) * 0.5)
   const direction = behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y - prev.y, dab.x - prev.x) : dab.angle
   if (!behavior?.strokeInput && prev && !state.directionSet && (prev.x !== dab.x || prev.y !== dab.y)) {
