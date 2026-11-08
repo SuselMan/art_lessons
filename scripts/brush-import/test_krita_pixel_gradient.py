@@ -15,9 +15,20 @@ class PixelGradientTests(unittest.TestCase):
   self.assertFalse(any(n['feature']=='brushApplication'and n['status']=='unsupported'for n in c.brushes[0]['compatibility']))
   # Full portable validator uses actual Catalog's published form in normal conversion.
   convert.validate_portable_profile(d)
- def test_wash_and_oversized_are_explicitly_not_admitted(self):
-  for kwargs in ({'side':1024},{'extra':'<param name="PaintOpAction">2</param>'}):
-   c=self.make(**kwargs);self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped)
+ def test_wash138_is_closed_positive_direct_over100_unchanged_and_oversized_stays_rejected(self):
+  over=self.make();wash=self.make(extra='<param name="PaintOpAction">2</param>')
+  self.assertEqual(over.skipped,[]);self.assertEqual(wash.skipped,[]);self.assertEqual(len(over.brushes),1);self.assertEqual(len(wash.brushes),1)
+  old=over.brushes[0]['descriptor'];new=wash.brushes[0]['descriptor']
+  self.assertEqual(old['version'],100);self.assertEqual(new['version'],138)
+  self.assertEqual(old['behavior']['rendering']['accumulation'],'directOver');self.assertEqual(new['behavior']['rendering']['accumulation'],'alphaDarken')
+  self.assertEqual(new['tip']['color']['gradient']['sampling'],'filteredGray-v1')
+  for key in ('tip','sizeByPressure','flowByPressure','opacityByPressure','flow','flowPer','opacity','spacing','paperInteraction'):
+   self.assertEqual(new[key],old[key],key)
+  self.assertEqual(wash.assets,over.assets);self.assertEqual(wash.brushes[0]['sourceDefaults'],over.brushes[0]['sourceDefaults'])
+  self.assertTrue(any(n['feature']=='pixelGradientWash'and n['status']=='approximate'for n in wash.brushes[0]['compatibility']))
+  convert.validate_portable_profile(old);convert.validate_portable_profile(new)
+  for extra in ('','<param name="PaintOpAction">2</param>'):
+   c=self.make(side=1024,extra=extra);self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped);self.assertEqual(c.assets,{})
 
  def test_gradient_notes_distinguish_filtered_pixel_from_legacy_smudge(self):
   pixel=self.make();self.assertEqual(pixel.skipped,[])

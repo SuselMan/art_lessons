@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
@@ -865,7 +866,7 @@ def portable_bundle(path,catalog):
             def tuple_ids(value):return isinstance(value,list) and len(value)==3 and all(isinstance(a,str) and a in ids for a in value)
             spray_image=d.get('model')=='stamp'and d.get('version',0)>=76 and d.get('spray',{}).get('particle',{}).get('image')is True
             pixel_gradient=d.get('model')=='stamp'and 'spray'not in d and isinstance(color,dict)and 'gradient'in color
-            if pixel_gradient and(depth or d['version']<97 or 'animation'in tip and not(is_equal_gradient_gih125(d)or is_unequal_gradient_gih126(d)) or asset_sizes.get(tip.get('mask'),100000)>512 or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid portable Pixel gradient combination')
+            if pixel_gradient and(depth or d['version']<97 or 'animation'in tip and not(is_equal_gradient_gih125(d)or is_unequal_gradient_gih126(d)) or asset_sizes.get(tip.get('mask'),100000)>512 or (behavior.get('rendering',{}).get('accumulation')!='directOver'and not pixel_gradient_wash138_scope(d))or behavior.get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid portable Pixel gradient combination')
             pixel_image=d.get('model')=='stamp'and 'spray'not in d and d.get('version',0)>=84 and isinstance(color,dict)and ('planes'in color or pixel_gradient)
             if pixel_image and(any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material'))or any(k in behavior for k in('dual','colorAdjustment','edgeBleed'))or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness'))):raise ValueError('Invalid portable Pixel original RGBA combination')
             if (not(d.get('model')=='mixer'and d.get('mixer',{}).get('algorithm')=='krita-stamp'or spray_image or pixel_image) or tip.get('kind')!='bitmap'

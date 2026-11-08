@@ -1,3 +1,5 @@
+import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
+export{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
 export {hasBristleWash135Scope}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
@@ -647,7 +649,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       }
     }
     const pixelGradient=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&record(d.tip.color.gradient)
-    if(pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined&&!equalSensorGradient125&&!unequalSensorGradient126||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined&&!equalSensorGradient125&&!unequalSensorGradient126||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasPixelGradientWash138Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
     if((equalSensorGradient125||unequalSensorGradient126)&&(d.tip.animation as {frames:string[]}).frames.some(id=>Number(assetSizes.get(id))>512))return false
     const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&(Array.isArray(d.tip.color.planes)||pixelGradient)
     if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.colorAdjustment!==undefined||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false

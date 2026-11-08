@@ -1163,3 +1163,20 @@ GPU/central; отдельный настоящий concurrent A→B→A онла
 Samsung/iPad latency/memory и межвендорная точность этим прогоном не аттестованы.
 Следующий authored блок138 — static Pixel filtered-gradient + Wash,
 подтверждённый stock gain0; admission до цельной интеграции остаётся закрытым.
+
+138: цельный static Pixel filtered-gradient + Wash код интегрирован.
+Shared/native/portable допускают только root filteredGray-v1, physical POT2..512,
+normal alphaDarken без дочерних/texture/timer/HSV/erase. Прежние97/100 directOver
+сохраняют свои правила. Подтверждённый stock gain0; это authored механизм.
+Renderer использует прежние captured palette100, originalRGBA varying-pigment
+feedback и RequestWashBatch. Новые shader/source bank/cache/wire не добавлены.
+Подготовка и проверка полного alpha/gray inventory предшествуют leases/state;
+отсутствующий program138 не компилируется внутри paint. Ранний guard ограничен
+usesPixelOriginalRgba: прежний mixer-путь не переинтерпретируется.
+
+Первый central:1171 TS PASS/1 ошибочная immutable-CAS fixture FAIL,236 модулей,
+130.76s. Python604/1 старый wash-negative FAIL31.211s. После test-only исправлений
+9 focused TS/3 модуля PASS4.45s,8 Python PASS1.589s. Web2606/server1256 inputs,
+0 diagnostics; selected lint --fix8 owned TS exit0, все workers завершены.
+Числовая GPU проверка, CAPS/Storage и online138 ещё впереди. Публичный QA53/56
+и каталог190/144/252 остаются на проверенном137 source15c622f3.

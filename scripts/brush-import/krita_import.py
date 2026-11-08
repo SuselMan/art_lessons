@@ -4,6 +4,7 @@ KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
 from child_clock132 import independent_child_clock132_pair,has_time_control132
+from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
@@ -1530,8 +1531,16 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if engine=='paintbrush' and 'gradient'in d['tip'].get('color',{}):
-        if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
-        d['version']=max(d['version'],100)
+        if behavior.get('rendering',{}).get('accumulation')=='alphaDarken':
+            # New138 is native Pixel-origin only, not a grant to private bridges/children.
+            d['version']=max(d['version'],138)
+            if (depth or not _allow_texture_material or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not pixel_gradient_wash138_scope(d)
+                or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip']['mask'],d['tip']['color']['gradient']['gray']))):
+                raise ValueError('Pixel Gradient Wash138 requires closed root static filtered-gray normal scope')
+            notes.append(compatibility('pixelGradientWash','Filtered adjusted gray indexes the captured palette; palette alpha multiplies mask alpha once, then existing varying-pigment Wash feedback and one final captured stroke opacity. Functional normalized colour, QImage filtering and ICC/U8 identity are not claimed.'))
+        else:
+            if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
+            d['version']=max(d['version'],100)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)
