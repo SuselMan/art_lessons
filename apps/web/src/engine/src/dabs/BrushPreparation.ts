@@ -1,3 +1,4 @@
+import {assertBristleSource143Ready} from '../presets/bristleInitialization140'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
@@ -147,6 +148,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    // Source143 is CPU initialization data, never a GPU sampler or lease.
+    assertBristleSource143Ready(b)
     if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
       if(b!==brush||b.version<105)throw Error('Texture105 requires a root prepared brush')
       if(b.model==='mixer')usesColorSmudgeTexture(b)

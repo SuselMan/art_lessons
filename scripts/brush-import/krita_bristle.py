@@ -24,7 +24,8 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];tip=d['tip']
+    original_source={}
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False,_bristle_source_capture=original_source);d=result['descriptor'];tip=d['tip']
     if tip['kind']!='bitmap':raise ValueError('Bristle requires an authored bitmap tip')
     asset=catalog.assets[tip['mask']];mask=Image.frombytes('L',(asset['size'],asset['size']),(catalog.output/asset['file']).read_bytes())
     bounds=tip['maskBounds'];side=max(1,round(result['sourceDefaults']['sizePx']))
@@ -113,11 +114,19 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
             from bristle_soak139 import bristle_resize141_scope
             candidate={**d,'version':141,'bristle':{**d['bristle'],'initialization':{'sourceSide':side,'resizePolicy':'mask-population-v1'}}}
             if not enabled(params.get('Krita/erase'))and not enabled(params.get('EraserMode'))and bristle_resize141_scope(candidate):
-                if candidate['bristle']['antialias'] and candidate['bristle']['compositing']:
-                    candidate['version']=142
-                    result['compatibility'].append(compatibility('bristleAntialias','Ordinary no-ink AA with compositing uses revision142 native major-axis bilinear U8 point coverage, retained stepped endpoint and one request-opacity composite; old recorded capsule revisions are preserved.'))
+                # Original CAS alpha is the initialization authority; saved GUI
+                # size only controls legacy hairs, never this source domain.
+                if original_source and 2<=asset['size']<=1024:
+                    width,height=original_source['width'],original_source['height'];angle=-original_source['angle']
+                    quarter=round(angle/(math.pi/2))
+                    if abs(angle-quarter*math.pi/2)<=1e-5:
+                        rotation=([65536,0],[0,65536],[-65536,0],[0,-65536])[quarter%4]
+                    else:rotation=[round(math.cos(angle)*65536),round(math.sin(angle)*65536)]
+                    candidate['version']=143
+                    candidate['bristle']['initialization']={'resizePolicy':'source-area143-v1','sourceSide':asset['size'],'sourceMask':tip['mask'],'sourceBounds':{'x':(asset['size']-width)//2,'y':(asset['size']-height)//2,'width':width,'height':height},'rotation':list(rotation)}
+                    result['compatibility'].append(compatibility('bristleSource','Original padded alpha CAS and image footprint/angle retained until captured GUI size; area resize preserves aspect before bounded Q16 rotation. Fast capsule raster retained; no alpha boost or native Qt pixel identity claim.'))
                 d=candidate
-                result['compatibility'].append(compatibility('bristleInitialization','Full nonzero source alpha grid is captured once; recorded sourceSize1..64 rebuilds a dense mask population at gesture BEGIN with deterministic bilinear pixel-center/clamped-edge/U8 sampling. Pressure, negative Bristle Scale, shear and jitter transform that population afterwards; native Qt mask filtering bytes differ.'))
+                result['compatibility'].append(compatibility('bristleInitialization','Original source-area143 initialization is retained when available; otherwise legacy141 saved-size grid is rebuilt. Recorded sourceSize1..64 fixes population at BEGIN; pressure and Bristle Scale act afterwards. Native filtering/raster bytes may differ.'))
             else:
                 result['compatibility'].append(compatibility('bristleInitialization','Legacy fixed imported hairs retained: this ordinary preset is outside the closed141 no-ink initialization scope. Toolbar resizing stretches existing hairs.'))
         else:

@@ -15,7 +15,7 @@ export function bristleStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,c
 }
 /** Bounded geometry only. Ink state belongs to the request owner, before visibility/tile filtering. */
 export function bristleGeometryStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,color:[number,number,number],seed:number):BristleGeometryStamp[]{
- const b=brush.bristle!,previous=state.previous,ordinaryResize=brush.version>=141&&b.version===1&&b.initialization?.resizePolicy==='mask-population-v1',resize=ordinaryResize||b.version===2&&b.soak?.resizePolicy==='mask-population-v1'
+ const b=brush.bristle!,previous=state.previous,ordinaryResize=b.version===1&&((brush.version>=141&&b.initialization?.resizePolicy==='mask-population-v1')||(brush.version>=143&&b.initialization?.resizePolicy==='source-area143-v1')),resize=ordinaryResize||b.version===2&&b.soak?.resizePolicy==='mask-population-v1'
  if(resize){
   const sourceSize=assertBristleInitializationSize140(state.initialization,[dab])
   if(ordinaryResize&&!state.initialization){
@@ -40,7 +40,7 @@ export function bristleGeometryStamps(brush:BrushDescriptor,dab:Dab,state:Bristl
   if(b.threshold&&length<1-dab.pressure)continue
   const sampled=state.soak?bristleSoakHair139(state.soak,i):undefined
   const x1=previous.x+start[0],y1=previous.y+start[1],x2=dab.x+end[0],y2=dab.y+end[1],distance=Math.hypot(x2-x1,y2-y1)
-  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:sampled?[sampled[0],sampled[1],sampled[2]]:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...(ordinaryResize&&brush.version>=142&&b.antialias&&b.compositing?{bristleTrajectory142:{start:[x1,y1] as const,end:[x2,y2] as const}}:{}),...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,...(sampled?{sampleAlpha:sampled[3]}:{}),start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
+  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:sampled?[sampled[0],sampled[1],sampled[2]]:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...(ordinaryResize&&brush.version===142&&b.antialias&&b.compositing?{bristleTrajectory142:{start:[x1,y1] as const,end:[x2,y2] as const}}:{}),...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,...(sampled?{sampleAlpha:sampled[3]}:{}),start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
  }
  return out
 }

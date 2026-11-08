@@ -442,7 +442,7 @@ def size_like_controls(params, option, notes, *, allow_time=False):
 # Public native entry policy; private adapters and explicit legacyFalse stay unchanged.
 DEFAULT_NATIVE_INPUT_POLICY='bounded-root-pixel-timing-v1'
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None, _primary_clock_read=False):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None, _primary_clock_read=False, _bristle_source_capture=None):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
@@ -797,6 +797,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
+            if _bristle_source_capture is not None and kind in('png_brush','gbr_brush') and max(mask.size)<=1024:
+                _bristle_source_capture.update(width=mask.width,height=mask.height,angle=numeric(definition.get('angle'),0))
             if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
                 sampling=integer_image_sampling(original_sampling_image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:

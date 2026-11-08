@@ -92,3 +92,9 @@ it('ordinary141 preflights complete captured size identity before the existing b
  expect(()=>painter.paint(target,[{...first,sourceSize:8}],preset,stamp,[1,0,0],scratch,undefined)).toThrow('size changed');expect(paint).not.toHaveBeenCalled();expect(prior).toEqual(before)
  painter.paint(target,[first],preset,stamp,[1,0,0],scratch,undefined);expect(paint).toHaveBeenCalledOnce()
 })
+it('public143 missing source CAS fails before creating behavior or advancing the initial anchor',()=>{
+ const selected=resizedBrush();if(selected.bristle?.version!==2)throw Error('fixture');const{ink:_ink,soak:_soak,saturationLookup:_lookup,...geometry}=selected.bristle
+ selected.version=143;selected.bristle={...geometry,version:1,initialization:{resizePolicy:'source-area143-v1',sourceSide:4,sourceMask:`asset:${'cb'.repeat(32)}`,sourceBounds:{x:0,y:0,width:4,height:4},rotation:[65536,0]}}
+ const paint=vi.fn(),painter=Object.assign(Object.create(BrushPainter.prototype),{behavior:{paint}})as BrushPainter,scratch={}as BehaviorScratch
+ expect(()=>painter.paint({}as ILayerBuffer,[{...dab,sourceSize:4,sourceScale:1}],{sizeMultiplier:1}as PencilPreset,{brush:selected,pressure:{size:true,opacity:true}},[1,0,0],scratch,undefined)).toThrow('Brush asset unavailable');expect(paint).not.toHaveBeenCalled();expect(scratch.brushBehavior).toBeUndefined()
+})

@@ -53,7 +53,11 @@ def bristle_resize141_scope(d):
         key=tuple(round(x*side)for x in hair[:2])
         if key in seen:return False
         seen.add(key)
-    return(_int(d.get('version'),141,float('inf'))and d.get('model')=='stamp'and _num(d.get('paperInteraction'),0,0)
+    return _ordinary_initialization_scope(d,141)
+
+def _ordinary_initialization_scope(d,minimum):
+    h,b,t=d['bristle'],d['behavior'],d['tip'];r=b.get('rendering')
+    return(_int(d.get('version'),minimum,float('inf'))and d.get('model')=='stamp'and _num(d.get('paperInteraction'),0,0)
       and set(h)=={'version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','initialization'}and _int(h.get('version'),1,1)
       and _num(h.get('scale'),-10,10)and _num(h.get('shear'),-10,10)and _num(h.get('random'),0,100)and all(type(h.get(k))is bool for k in('mousePressure','threshold','connected','antialias','compositing'))
       and not any(k in d for k in('mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'))
@@ -67,4 +71,18 @@ def bristle_resize141_scope(d):
 def validate_bristle_initialization141(d,parent=None):
     h=d.get('bristle')if isinstance(d,dict)else None
     if isinstance(h,dict)and'initialization'in h:
-        if parent is not None or not bristle_resize141_scope(d):raise ValueError('Bristle initialization141 requires root ordinary no-ink full-mask directOver scope')
+        if parent is not None or not(bristle_resize141_scope(d)or bristle_source143_scope(d)):raise ValueError('Bristle initialization141 requires root ordinary no-ink full-mask directOver scope')
+
+
+def bristle_source143_scope(d):
+    import re
+    if not isinstance(d,dict)or not all(isinstance(d.get(k),dict)for k in('bristle','behavior','tip')):return False
+    h=d['bristle'];v=h.get('initialization')
+    if not isinstance(v,dict)or set(v)!={'resizePolicy','sourceSide','sourceMask','sourceBounds','rotation'}or v.get('resizePolicy')!='source-area143-v1':return False
+    side=v.get('sourceSide');b=v.get('sourceBounds');r=v.get('rotation')
+    if not _int(side,2,1024)or int(side)&(int(side)-1)or not isinstance(v.get('sourceMask'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',v['sourceMask']):return False
+    if not isinstance(b,dict)or set(b)!={'x','y','width','height'}or not all(_int(b[k],0 if k in('x','y')else 1,side)for k in b)or b['x']+b['width']>side or b['y']+b['height']>side:return False
+    if not isinstance(r,list)or len(r)!=2 or not all(_int(x,-65536,65536)for x in r)or abs((r[0]*r[0]+r[1]*r[1])/4294967296-1)>2e-4:return False
+    hairs=h.get('hairs')
+    if not isinstance(hairs,list)or not 1<=len(hairs)<=8192 or not all(isinstance(a,list)and len(a)==3 and all(_num(x,-.5,.5)for x in a[:2])and _num(a[2],0,1)for a in hairs):return False
+    return _ordinary_initialization_scope(d,143)

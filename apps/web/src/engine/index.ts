@@ -3982,7 +3982,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid'){if(this._isGrid137Brush(descriptor))this._brush.prepareGridWash();this._smudge.prepareGrid()}
       else if(painter === 'hatching')this._brush.prepareHatching()
-      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(descriptor.version>=142&&descriptor.bristle?.version===1&&descriptor.bristle.initialization?.resizePolicy==='mask-population-v1'&&descriptor.bristle.antialias&&descriptor.bristle.compositing)this._brush.prepareBristleNativeAA142();else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(descriptor.version===142&&descriptor.bristle?.version===1&&descriptor.bristle.initialization?.resizePolicy==='mask-population-v1'&&descriptor.bristle.antialias&&descriptor.bristle.compositing)this._brush.prepareBristleNativeAA142();else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'requestWash')this._brush.prepareParticleWash()
       else if(painter === 'bristleWash')this._brush.prepareBristleWash()
       else if(painter === 'sprayWash')this._brush.prepareSpraySources(true)
@@ -8485,7 +8485,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)
     else if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
-    else if(stamp.brush.version>=142&&stamp.brush.bristle?.version===1&&stamp.brush.bristle.initialization?.resizePolicy==='mask-population-v1'&&stamp.brush.bristle.antialias&&stamp.brush.bristle.compositing)this._brush.prepareBristleNativeAA142()
+    else if(stamp.brush.version===142&&stamp.brush.bristle?.version===1&&stamp.brush.bristle.initialization?.resizePolicy==='mask-population-v1'&&stamp.brush.bristle.antialias&&stamp.brush.bristle.compositing)this._brush.prepareBristleNativeAA142()
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
     if(stamp.brush.bristle&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareBristleWash()
     else if(stamp.brush.particle&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareParticleWash()

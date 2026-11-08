@@ -737,6 +737,8 @@ def portable_bundle(path,catalog):
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         from captured_bristle import validate_portable_bristle
         validate_portable_bristle(d,trusted_raw_assets)
+        h=d.get('bristle');initial=h.get('initialization')if isinstance(h,dict)else None
+        if isinstance(initial,dict)and initial.get('resizePolicy')=='source-area143-v1'and asset_sizes.get(initial.get('sourceMask'))!=initial.get('sourceSide'):raise ValueError('Bristle143 source asset dimensions missing/mismatched')
         validate_portable_mixer(d)
         if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']

@@ -19,10 +19,10 @@ class BristleWash135(unittest.TestCase):
   raw=authored(action,extra);path=Path(tmp)/'Own.kpp';path.write_bytes(raw);c=Catalog(Path(tmp)/'native');convert_krita(path,c,{'own.gbr':GBR});self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);return c,raw
  def test_new135_and_new141_share_hairs_size_rotation_curves_but_different_request_law(self):
   rows=[]
-  for action,version,law in[('2',135,'alphaDarken'),('1',141,'directOver')]:
+  for action,version,law in[('2',135,'alphaDarken'),('1',143,'directOver')]:
    with tempfile.TemporaryDirectory()as tmp:
     c,raw=self.native(tmp,action);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],version);self.assertEqual(d['behavior']['rendering']['accumulation'],law);self.assertEqual(d['id'],finalize_identity(copy.deepcopy(d),raw)['id']);self.assertEqual(bristle_wash135_scope(d),action=='2');self.assertTrue(c.assets);rows.append(copy.deepcopy(d));self.assertTrue(all((c.output/v['file']).stat().st_size==v['size']**2 for v in c.assets.values()))
-  self.assertEqual(rows[1]['bristle'].pop('initialization'),{'sourceSide':4,'resizePolicy':'mask-population-v1'})
+  self.assertEqual(rows[1]['bristle'].pop('initialization')['resizePolicy'],'source-area143-v1')
   for key in('bristle','sizeByPressure','opacityByPressure','tip'):self.assertEqual(rows[0][key],rows[1][key])
   self.assertEqual(rows[0]['bristle']['scale'],1.03);self.assertEqual(rows[0]['bristle']['random'],7.47);self.assertTrue(rows[0]['bristle']['antialias']);self.assertFalse(rows[0]['bristle']['compositing'])
  def test_portable_shared_scope_negatives_before_any_published_outputs(self):

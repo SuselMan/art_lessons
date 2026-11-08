@@ -21,7 +21,7 @@ export interface BrushBristleInk {
  inkDepletionWeight:number
 }
 export interface BrushBristleSoak {sourcePolicy:'canonical-begin-v1';initialSide:number;resizePolicy?:'mask-population-v1'}
-export interface BrushBristleInitialization {sourceSide:number;resizePolicy:'mask-population-v1'}
+export type BrushBristleInitialization = {sourceSide:number;resizePolicy:'mask-population-v1'} | {sourceSide:number;resizePolicy:'source-area143-v1';sourceMask:AssetId;sourceBounds:{x:number;y:number;width:number;height:number};rotation:[number,number]}
 interface BristleGeometry {
  hairs:[number,number,number][]
  scale:number
@@ -37,7 +37,7 @@ export type BrushBristle=BristleGeometry&({version:1;ink?:never;saturationLookup
 export function isBrushBristle(value:unknown):value is BrushBristle{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,n=(x:unknown,a:number,b:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=a&&x<=b
- return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak','initialization'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined&&(v.initialization===undefined||isBristleInitialization141(v.initialization,v.hairs)))||(v.version===2&&v.initialization===undefined&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,v.version===1?-10:0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=(v.version===1?8192:4096)&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
+ return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak','initialization'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined&&(v.initialization===undefined||(isBristleInitialization141(v.initialization,v.hairs)||isBristleInitialization143(v.initialization))))||(v.version===2&&v.initialization===undefined&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,v.version===1?-10:0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=(v.version===1?8192:4096)&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
 }
 
 export function isBristleSaturationLookup(value:unknown):value is BrushBristleSaturationLookup {
@@ -163,12 +163,22 @@ function isBristleInitialization141(value:unknown,hairs:unknown):value is BrushB
  }
  return true
 }
+function isBristleInitialization143(value:unknown):boolean {
+ if(!value||typeof value!=='object'||Array.isArray(value))return false
+ const v=value as Record<string,unknown>,side=v.sourceSide,b=v.sourceBounds,r=v.rotation
+ const integer=(x:unknown,lo:number,hi:number):x is number=>typeof x==='number'&&Number.isInteger(x)&&x>=lo&&x<=hi
+ if(Object.keys(v).length!==5||v.resizePolicy!=='source-area143-v1'||!integer(side,2,1024)||(side&(side-1))!==0||typeof v.sourceMask!=='string'||!/^asset:[a-f0-9]{64}$/.test(v.sourceMask)||!b||typeof b!=='object'||Array.isArray(b)||!Array.isArray(r)||r.length!==2||!r.every(x=>integer(x,-65536,65536)))return false
+ const bounds=b as Record<string,unknown>
+ return Object.keys(bounds).length===4&&integer(bounds.x,0,side-1)&&integer(bounds.y,0,side-1)&&integer(bounds.width,1,side)&&integer(bounds.height,1,side)&&bounds.x+bounds.width<=side&&bounds.y+bounds.height<=side&&Math.abs((r[0]*r[0]+r[1]*r[1])/4294967296-1)<=2e-4
+}
+const immutableSource143Scopes=new WeakSet<object>()
 const immutableResize141Scopes=new WeakSet<object>()
 /** New ordinary no-ink/directOver initialization; old45/66/135 are not inferred. */
-export function hasBristleResize141Scope(value:unknown):boolean {
- if(value!==null&&typeof value==='object'&&immutableResize141Scopes.has(value))return true
+function ordinaryInitializationScope(value:unknown,source143:boolean):boolean {
+ const cache=source143?immutableSource143Scopes:immutableResize141Scopes
+ if(value!==null&&typeof value==='object'&&cache.has(value))return true
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
- if(!obj(value)||!Number.isInteger(value.version)||Number(value.version)<141||!obj(value.bristle)||value.bristle.version!==1||value.bristle.initialization===undefined||!isBrushBristle(value.bristle)||!obj(value.behavior)||!obj(value.tip))return false
+ if(!obj(value)||!Number.isInteger(value.version)||Number(value.version)<141||!obj(value.bristle)||value.bristle.version!==1||!obj(value.bristle.initialization)||value.bristle.initialization.resizePolicy!==(source143?'source-area143-v1':'mask-population-v1')||source143&&Number(value.version)<143||!isBrushBristle(value.bristle)||!obj(value.behavior)||!obj(value.tip))return false
  const b=value.behavior,t=value.tip,r=b.rendering
  const valid=Number.isInteger(value.version)&&Number(value.version)>=141&&value.model==='stamp'&&value.paperInteraction===0
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
@@ -178,13 +188,15 @@ export function hasBristleResize141Scope(value:unknown):boolean {
  &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
  &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
  &&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))&&r.mode==='buildUp'&&r.accumulation==='directOver'&&r.blendMode==='normal'&&(r.wetEdges===undefined||r.wetEdges===0)&&(r.burntEdges===undefined||r.burntEdges===0)&&(r.burntEdgesMode===undefined||r.burntEdgesMode==='multiply')&&(r.opacityCeiling===undefined||r.opacityCeiling==='uniform')
- if(valid&&immutableSoakData(value))immutableResize141Scopes.add(value)
+ if(valid&&immutableSoakData(value))cache.add(value)
  return valid
 }
-export function hasBristleInitializationScope(value:unknown):boolean{return hasBristleResize141Scope(value)||hasBristleSoak140Scope(value)}
+export function hasBristleResize141Scope(value:unknown):boolean{return ordinaryInitializationScope(value,false)}
+export function hasBristleSource143Scope(value:unknown):boolean{return ordinaryInitializationScope(value,true)}
+export function hasBristleInitializationScope(value:unknown):boolean{return hasBristleResize141Scope(value)||hasBristleSource143Scope(value)||hasBristleSoak140Scope(value)}
 export function bristleInitializationSourceSide(brush:import('./brushes.js').BrushDescriptor):number|undefined {
  const h=brush.bristle
- if(hasBristleResize141Scope(brush)&&h?.version===1)return h.initialization!.sourceSide
+ if((hasBristleResize141Scope(brush)||hasBristleSource143Scope(brush))&&h?.version===1)return h.initialization!.sourceSide
  if(hasBristleSoak140Scope(brush)&&h?.version===2)return h.soak!.initialSide
  return undefined
 }

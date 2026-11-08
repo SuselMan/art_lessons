@@ -1,7 +1,7 @@
-import {hasBristleSoak139Scope,hasBristleResize141Scope} from '@grafetto/shared'
+import {hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleSource143Scope} from '@grafetto/shared'
 import {BristleSoakGather139} from '../raster/BristleSoakGather139'
 import {bristleSoakPoints139} from '../presets/bristleSoak139'
-import {buildBristleInitialization140,assertBristleInitializationSize140} from '../presets/bristleInitialization140'
+import {buildBristleInitialization140,assertBristleInitializationSize140,assertBristleSource143Ready} from '../presets/bristleInitialization140'
 import {createBristleInkState} from '../presets/brushBristleInk'
 import {beginBrushBehavior} from '../presets/brushBehavior'
 import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
@@ -158,11 +158,12 @@ export class BrushPainter {
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext,runtime?:CanonicalBeginRuntime):void|CanonicalBeginPaintResult {
     const brush=stamp.brush
     if(brush.bristle?.version===1&&brush.bristle.initialization){
-      if(!hasBristleResize141Scope(brush))throw Error('Invalid Bristle initialization141 scope')
+      if(!hasBristleInitializationScope(brush))throw Error('Invalid Bristle initialization scope')
       if(dabs.length){
         assertBrushSourceInputs(brush,dabs)
         const previous=scratch.brushBehavior?.previous
         assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
+        if(!scratch.brushBehavior?.bristle?.initialization&&hasBristleSource143Scope(brush))assertBristleSource143Ready(brush)
       }
     }
     if(brush.bristle?.version===2&&brush.bristle.soak){
