@@ -435,11 +435,16 @@ def size_like_controls(params, option, notes, *, allow_time=False):
     return sensor_controls(params,option,notes,allow_time=allow_time)
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True):
+# Public native entry policy; private adapters and explicit legacyFalse stay unchanged.
+DEFAULT_NATIVE_INPUT_POLICY='bounded-root-pixel-timing-v1'
+
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
+    if _default_input_policy not in(None,DEFAULT_NATIVE_INPUT_POLICY):raise ValueError('Unknown default native input policy')
+    inherited_timed_input=timed_input
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
@@ -465,6 +470,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             params[p.get('name')]=base64.b64decode(''.join((p.text or '').split()),validate=True).decode('utf-8')
     if len(params) != len(root.findall('param')):
         raise ValueError('Duplicate Krita parameter')
+    # Only genuine root Pixel with its checked canonical native timer opts in.
+    # The alias AirbrushOption alone, private PNG bridges and child descriptors
+    # cannot activate this policy. Explicit True still retains its old breadth.
+    if (_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and engine=='paintbrush'
+            and depth==0 and _allow_texture_material and enabled(params.get('PaintOpSettings/isAirbrushing'))):
+        timed_input=True
     eraser=params.get('CompositeOp') in ('erase','destination-out') or enabled(params.get('Krita/erase'))
     resources = dict(external)
     for resource in root.findall('./resources/resource'):
@@ -1299,7 +1310,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input,_allow_texture_material=False)
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=inherited_timed_input,_allow_texture_material=False)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
         if stroke_input:
             child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
@@ -1595,13 +1606,16 @@ def _native_preset_transaction(catalog, produce):
         raise
 
 
-def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=None):
+    # None is the new shared CLI/API/stock default, False is explicit legacy.
+    default_policy=DEFAULT_NATIVE_INPUT_POLICY if timed_input is None else None
+    if timed_input is None:timed_input=False
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input)))
+            catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -1625,6 +1639,6 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
                     preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
                     catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(archive.read(name),name,catalog,archive.read(preview)if preview in names else None)))
                 else:
-                    catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input)))
+                    catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_default_input_policy=default_policy)))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})

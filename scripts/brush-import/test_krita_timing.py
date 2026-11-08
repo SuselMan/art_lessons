@@ -13,7 +13,7 @@ class TimingTests(unittest.TestCase):
    meta.add_text('preset','<Preset name="Generic" paintopid="paintbrush">'+text+'</Preset>');Image.new('RGB',(2,2)).save(path,format="PNG",pnginfo=meta)
    c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,timed_input=flag)
    self.assertEqual(c.skipped,[]);return c.brushes[0]
- def test_default_off_and_canonical_only(self):
+ def test_explicit_legacy_false_and_canonical_only(self):
   p={'PaintOpSettings/isAirbrushing':'true','PaintOpSettings/rate':'20'}
   self.assertNotIn('timing',self.brush(p)['descriptor']['behavior'])
   self.assertEqual(self.brush(p,True)['descriptor']['behavior']['timing'],{'version':1,'rate':20,'ignoreDistanceSpacing':False})

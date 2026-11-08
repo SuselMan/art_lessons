@@ -43,10 +43,12 @@ def verified_source(entry, commit, cache):
     return target
 
 
-def build(lock, cache, output, include_legacy=False, *, sequential_xy=False, stroke_input=False, timed_input=False):
+def build(lock, cache, output, include_legacy=False, *, sequential_xy=False, stroke_input=False, timed_input=None):
     policies={'sequential_xy':sequential_xy,'stroke_input':stroke_input,'timed_input':timed_input}
-    if any(type(value)is not bool for value in policies.values()):raise ValueError('Stock source policy flags must be explicit booleans')
-    convert_options={key:value for key,value in policies.items()if value}
+    if any(type(value)is not bool and not(key=='timed_input'and value is None)for key,value in policies.items()):raise ValueError('Stock source policy flags must be explicit booleans')
+    # Omit None to use the SAME public native default as CLI/API; preserve an
+    # explicit False rather than accidentally reopening it through omission.
+    convert_options={key:value for key,value in policies.items()if value is True or key=='timed_input'and value is False}
     catalog = Catalog(output)
     sources = []
     duplicates = []

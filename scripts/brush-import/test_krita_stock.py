@@ -27,12 +27,12 @@ class StockTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Unsafe'):
             verified_source({'path':'../escape'},'commit',Path('/tmp'))
 
-    def test_source_policies_default_off_and_forward_only_explicit_true_flags(self):
+    def test_default_native_entry_and_explicit_source_policy_forwarding(self):
         entry={'path':'test.kpp','group':'default'}
         lock={'files':[entry],'sourceCommit':'pin','kritaVersion':'test'}
         with tempfile.TemporaryDirectory()as tmp:
             root=Path(tmp)
-            for index,flags in enumerate([{}, {'timed_input':True},{'sequential_xy':True,'stroke_input':True,'timed_input':True}]):
+            for index,flags in enumerate([{}, {'timed_input':False},{'timed_input':True},{'sequential_xy':True,'stroke_input':True,'timed_input':True}]):
                 with patch('krita_stock.verified_source',return_value=root/'test.kpp'),patch('krita_stock.convert_krita')as convert:
                     build(lock,root,root/str(index),**flags)
                     self.assertEqual(convert.call_args.kwargs,flags)
