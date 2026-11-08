@@ -64,7 +64,7 @@ export function isBristleInk(value:unknown):value is BrushBristleInk {
  * still validate dynamics, captured source policies and every ordinary field. */
 export function hasBristleWash135Scope(value:unknown):boolean {
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
- if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!isBrushBristle(value.bristle))return false
+ if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!obj(value.behavior.rendering)||value.behavior.rendering.accumulation!=='alphaDarken'||!isBrushBristle(value.bristle))return false
  const t=value.tip,b=value.behavior,r=b.rendering,h=value.bristle
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  return Number.isInteger(value.version)&&Number(value.version)>=135&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
