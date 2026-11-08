@@ -35,3 +35,12 @@ it('115 admits sequence dimensions only at115 and randomPolicy IFF random; old f
  for(const edit of[(b:typeof d)=>{b.version=114},(b:typeof d)=>{delete b.tip.animation!.randomPolicy},(b:typeof d)=>{b.tip.animation!.dimensions![0].mode='incremental'}]){const bad=structuredClone(c);edit(bad.brushes[0].descriptor);expect(isBrushLibrary(bad)).toBe(false)}
  d.tip.animation!.dimensions![0].mode='incremental';delete d.tip.animation!.randomPolicy;expect(isBrushLibrary(c)).toBe(true);d.version=113;expect(isBrushLibrary(c)).toBe(false)
 })
+
+it('118 admits original alpha geometry only with canonical rows and no active positional scatter',()=>{
+ const c=tensor(),d=c.brushes[0].descriptor,id=c.assets[0].id;c.assets[0].size=8;d.version=118;d.tip.maskBounds={x:.25,y:.25,width:.5,height:.5};d.tip.animation!.frames=[id,id];d.tip.animation!.geometry={version:1,frames:[{sourceWidth:4,sourceHeight:2,maskBounds:d.tip.maskBounds},{sourceWidth:8,sourceHeight:6,maskBounds:{x:0,y:0,width:1,height:1}}]}
+ expect(isBrushLibrary(c)).toBe(true)
+ d.scatter={count:3,radius:0,scale:1,sizeJitter:0,angleJitter:0,flowJitter:0};d.behavior!.scatter={countJitter:0,bothAxes:true,placement:'xyUniform'};expect(isBrushLibrary(c)).toBe(true)
+ const edits:Array<(b:typeof d)=>void>=[b=>{b.version=117},b=>{b.scatter!.radius=.01},b=>{b.tip.animation!.geometry!.frames[1].maskBounds.width=.5},b=>{b.tip.animation!.geometry!.frames.pop()},b=>{b.tip.color={planes:[id,id,id],frames:[[id,id,id],[id,id,id]]}},b=>{b.tip.material={kind:'lightness',gray:id,grayFrames:[id,id],strength:1}},b=>{b.behavior!.rendering!.blendMode='multiply'}]
+ for(const edit of edits){const bad=structuredClone(c);edit(bad.brushes[0].descriptor);expect(isBrushLibrary(bad)).toBe(false)}
+ for(const mode of['angular','xtilt','ytilt']as const){const other=structuredClone(c),b=other.brushes[0].descriptor;b.tip.animation={mode,rank:8,frames:[id,id],geometry:d.tip.animation!.geometry,...mode==='angular'?{cursorPolicy:'first-request-v1'}:{roundingPolicy:'qt5-half-up-v1'}};expect(isBrushLibrary(other)).toBe(true);b.version=117;expect(isBrushLibrary(other)).toBe(false)}
+})

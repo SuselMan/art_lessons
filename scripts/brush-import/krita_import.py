@@ -724,9 +724,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
             # Private adapters rewrite paintopid to paintbrush; only genuine native Pixel origin may opt in.
-            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
-            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
-            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or unequal or application!=0 or pipe['coloured'] or len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
+            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
+            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
+            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
             if len(assets)>1 or pipe['mode']in('angular','dimensions'):
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
                 if pipe['mode']in('pressure','velocity','angular','xtilt','ytilt'):d['tip']['animation']['rank']=pipe['declaredCount']
@@ -740,7 +740,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 if unequal:
                     variable_gih_bounds=[bounds for aid,bounds in assets]
                     d['tip']['animation']['geometry']={'version':1,'frames':[{'sourceWidth':frame.width,'sourceHeight':frame.height,'maskBounds':bounds}for frame,(aid,bounds)in zip(frames,assets)]}
-                    d['version']=max(d['version'],86)
+                    d['version']=max(d['version'],118 if pipe['mode']in('angular','xtilt','ytilt','dimensions')else 86)
                     notes.append(compatibility('gihOriginalGeometry','Original per-frame dimensions/padding retained without resize; first-frame nominal size/spacing and selected-frame hotspot placement use browser functional filtering.','supported'))
             if pipe['mode'] in ('constant','pressure'):d['version']=max(d['version'],91)
             if pipe['mode']=='velocity':d['version']=max(d['version'],92)
@@ -1488,7 +1488,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)
     if d['tip'].get('animation',{}).get('geometry') is not None:
-        d['version']=max(d['version'],86)
+        d['version']=max(d['version'],118 if d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions')else 86)
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     if d['tip'].get('animation',{}).get('mode')=='angular':
         if (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')

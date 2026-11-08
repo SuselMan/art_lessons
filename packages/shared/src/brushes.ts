@@ -593,7 +593,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       if(animation.mode==='dimensions'){
         const dims=animation.dimensions
-        if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
+        if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined&&Number(d.version)<118||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
         const product=dims.reduce((n,v)=>n*Number(v.rank),1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
         if(product>256||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
         const random=brushAnimationUsesMode(animation,'random'),sequence=random||brushAnimationUsesMode(animation,'incremental')
@@ -604,7 +604,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (animation.geometry === undefined) { if (sizes.size !== 1) return false }
       else {
         // Revision86 preserves original per-frame geometry; legacy animations retain their equal-size law.
-        const geometry=animation.geometry
+        const geometry=animation.geometry,tip=d.tip
+        const sensorGeometry=['angular','xtilt','ytilt','dimensions'].includes(String(animation.mode))
+        if(sensorGeometry&&(Number(d.version)<118||frameIds.length<2||record(d.scatter)&&Number(d.scatter.radius)>0||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)))return false
         if(Number(d.version)<86||d.model!=='stamp'||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
           ||d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined
           ||record(d.behavior)&&(d.behavior.edgeBleed!==undefined||d.behavior.colorAdjustment!==undefined||record(d.behavior.rendering)&&!!d.behavior.rendering.wetEdges||record(d.behavior.dynamics)&&d.behavior.dynamics.sharpness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.sharpness!==undefined)
@@ -737,14 +739,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(tiltChild)&&(tiltChild.mode==='xtilt'||tiltChild.mode==='ytilt'))return false
     if(record(d.tip.animation)&&(d.tip.animation.mode==='xtilt'||d.tip.animation.mode==='ytilt')){
       const tip=d.tip,b=record(d.behavior)?d.behavior:undefined
-      if(d.model!=='stamp'||tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||record(b.strokeInput)&&b.strokeInput.fanCorners!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0)return false
+      if(d.model!=='stamp'||tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||record(b.strokeInput)&&b.strokeInput.fanCorners!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0)return false
     }
     const angularChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
     if(record(angularChild)&&angularChild.mode==='angular')return false
     if(record(d.tip.animation)&&d.tip.animation.mode==='angular'){
       const tip=d.tip
       const b=record(d.behavior)?d.behavior:undefined, input=b&&record(b.strokeInput)?b.strokeInput:undefined
-      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
+      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
     }
     const dimensionsChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
     if(record(dimensionsChild)&&dimensionsChild.mode==='dimensions')return false

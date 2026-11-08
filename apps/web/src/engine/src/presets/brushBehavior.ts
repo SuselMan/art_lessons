@@ -331,7 +331,7 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
   if(!animation) return undefined
   if(animation.mode==='dimensions'){
     const dims=animation.dimensions
-    if(animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
+    if(animation.rank!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
     const product=dims.reduce((n,d)=>n*d.rank,1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
     if(product>256||animation.frames.length<1||animation.frames.length>product||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))throw Error('Invalid multidimensional product/policy')
     const random=brushAnimationUsesMode(animation,'random')
@@ -351,7 +351,7 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
 
   if(animation.mode==='xtilt'||animation.mode==='ytilt'){
     const rank=animation.rank,index=gihTiltIndex(animation.mode==='xtilt'?tiltX:tiltY,rank)
-    if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||animation.geometry!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||index===undefined)throw Error('Invalid GIH captured tilt input')
+    if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||index===undefined)throw Error('Invalid GIH captured tilt input')
     // Qt5.15 qRound: nearest with negative half-ties toward positive infinity.
     // Degrees are NOT normalized; the native unsigned accumulation precedes actual EOF modulo.
     return(index>>>0)%animation.frames.length
@@ -406,6 +406,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const noiseSeed=activeNoise?state.execution?.brushRandom?.strokeSeed:undefined
   if(activeNoise&&noiseSeed===undefined)throw Error('Auto-mask noise requires a captured stroke seed')
   const dimensions=brush.tip.animation?.mode==='dimensions',angular=brushAnimationUsesMode(brush.tip.animation,'angular')
+  const sensorGeometry=!!brush.tip.animation?.geometry&&(dimensions||brush.tip.animation.mode==='angular'||brush.tip.animation.mode==='xtilt'||brush.tip.animation.mode==='ytilt')
+  if(sensorGeometry&&(brush.version<118||brush.tip.animation!.frames.length<2||(brush.scatter?.radius??0)>0||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.color||brush.tip.material||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','wet','texture','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('Sensor GIH geometry requires118 alpha without positional scatter')
   const native=!!behavior?.sequentialRandom
   if(native || behavior?.strokeInput || dimensions) {
     assertBrushExecutionContext(brush,state.execution)
@@ -416,7 +418,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   // Tilt112 is root-only; reject forged child/mixed descriptors before any selector/counter mutation.
   const tiltSelector=brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt',childTilt=behavior?.dual?.brush.tip.animation?.mode==='xtilt'||behavior?.dual?.brush.tip.animation?.mode==='ytilt'
   if(childTilt)throw Error('GIH tilt child is unsupported')
-  if(tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry||brush.tip.color||brush.tip.material||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
+  if(tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry&&brush.version<118||brush.tip.color||brush.tip.material||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
   // Validate both selectors before advancing any real gesture state.
   const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'||dimensions&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   if(velocity){

@@ -7,7 +7,8 @@ def validate_dimensions(d,depth=0,native_pixel=True):
     tip=d.get('tip',{});a=tip.get('animation',{})if isinstance(tip,dict)else{}
     if not isinstance(a,dict)or a.get('mode')!='dimensions':return
     dims=a.get('dimensions')
-    if(set(a)-{'mode','frames','dimensions','cursorPolicy','roundingPolicy','randomPolicy'}or not isinstance(dims,list)or not 2<=len(dims)<=4 or any(not isinstance(v,dict)or set(v)!={'mode','rank'}or v.get('mode')not in MODES or type(v.get('rank'))is not int or not 2<=v['rank']<=256 for v in dims)or all(v['mode']=='constant'for v in dims)):raise ValueError('Invalid GIH dimensions')
+    if(set(a)-{'mode','frames','dimensions','cursorPolicy','roundingPolicy','randomPolicy','geometry'}or not isinstance(dims,list)or not 2<=len(dims)<=4 or any(not isinstance(v,dict)or set(v)!={'mode','rank'}or v.get('mode')not in MODES or type(v.get('rank'))is not int or not 2<=v['rank']<=256 for v in dims)or all(v['mode']=='constant'for v in dims)):raise ValueError('Invalid GIH dimensions')
+    if 'geometry'in a and d.get('version',0)<118:raise ValueError('Sensor GIH original geometry requires118')
     product=math.prod(v['rank']for v in dims);frames=a.get('frames');angular=uses_mode(a,'angular');tilt=uses_mode(a,'xtilt')or uses_mode(a,'ytilt')
     if(product>256 or not isinstance(frames,list)or not 1<=len(frames)<=product or(angular and a.get('cursorPolicy')!='first-request-v1')or(not angular and 'cursorPolicy'in a)or(tilt and a.get('roundingPolicy')!='qt5-half-up-v1')or(not tilt and 'roundingPolicy'in a)):raise ValueError('Invalid GIH dimension product/policies')
     random=uses_mode(a,'random');sequence=random or uses_mode(a,'incremental')

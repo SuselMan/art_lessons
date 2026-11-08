@@ -33,8 +33,8 @@ class Tilt112(unittest.TestCase):
     bad=copy.deepcopy(env);edit(bad['library']['brushes'][0]['descriptor']);p.write_text(json.dumps(bad));out=convert.Catalog(Path(tmp)/('bad'+str(i)))
     with self.assertRaises(ValueError):convert.portable_bundle(p,out)
     self.assertEqual(list(out.output.iterdir()),[]);self.assertFalse(out.assets);self.assertEqual(out.brushes,[])
- def test_unequal_coloured_and_foreign_private_origins_never_claim112(self):
-  for data in[pipe(unequal=True),pipe(coloured=True)]:
+ def test_coloured_and_foreign_private_origins_remain_closed(self):
+  for data in[pipe(coloured=True)]:
    with tempfile.TemporaryDirectory()as tmp:
     path=Path(tmp)/'Bad.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="own.gih"/>'));c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'own.gih':data});self.assertFalse(c.brushes);self.assertTrue(c.skipped)
   for engine in['hatchingbrush','sketchbrush','hairybrush','curvebrush']:

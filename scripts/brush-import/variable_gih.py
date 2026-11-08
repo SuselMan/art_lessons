@@ -21,6 +21,9 @@ def validate_variable_gih_descriptor(d,asset_sizes):
     if not isinstance(animation,dict)or 'geometry'not in animation:return
     if any(k in b and not isinstance(b[k],dict)for k in('rendering','dynamics','modulations')):raise ValueError('Invalid variable GIH behavior')
     g=animation['geometry'];frames=animation.get('frames')
+    if animation.get('mode')in('angular','xtilt','ytilt','dimensions'):
+        scatter=d.get('scatter',{})
+        if d.get('version',0)<118 or not isinstance(scatter,dict)or scatter.get('radius',0)>0 or any(k in tip for k in('color','material','imageSampling','profile','autoNoise','autoShape')):raise ValueError('Sensor GIH original geometry requires118 alpha without positional scatter')
     if type(d.get('version'))is not int or d['version']<86 or d.get('model')!='stamp' or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or tip.get('kind')!='bitmap' or any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material')) or any(k in b for k in('dual','edgeBleed','colorAdjustment')) or b.get('rendering',{}).get('wetEdges') or any('sharpness'in b.get(k,{}) for k in('dynamics','modulations')):
         raise ValueError('Unsupported variable GIH geometry combination')
     if not isinstance(g,dict) or set(g)!={'version','frames'} or type(g['version'])is not int or g['version']!=1 or not isinstance(frames,list) or not 2<=len(frames)<=256 or any(not isinstance(a,str)or a not in asset_sizes for a in frames) or not isinstance(g['frames'],list) or len(g['frames'])!=len(frames):
