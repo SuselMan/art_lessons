@@ -94,3 +94,17 @@ export function isUnequalLightnessGih124(value:unknown):boolean{
  const first=rows[0]as Record<string,unknown>
  return rows.some(v=>(v as Record<string,unknown>).sourceWidth!==first.sourceWidth||(v as Record<string,unknown>).sourceHeight!==first.sourceHeight)
 }
+
+/** Unequal126 extends the same gradient scope with original118 geometry.
+ * Physical alpha/gray CAS sides and canonical rows validate before preparation. */
+export function hasUnequalGradientGih126Scope(value:unknown):boolean{return hasOriginalSensorRgbaScope(value,126,true,'gradient')}
+export function isUnequalGradientGih126(value:unknown):boolean{
+ if(!hasUnequalGradientGih126Scope(value))return false
+ const d=value as Record<string,unknown>,t=d.tip as Record<string,unknown>,a=t.animation as Record<string,unknown>,g=(t.color as Record<string,unknown>).gradient as Record<string,unknown>,frames=a.frames as unknown[],gray=g.grayFrames
+ const ref=(v:unknown)=>typeof v==='string'&&/^asset:[a-f0-9]{64}$/.test(v)
+ if(!hasEqualSensorPolicy(t,d.behavior as Record<string,unknown>,true)||!frames.every(ref)||!ref(g.gray)||!Array.isArray(gray)||gray.length!==frames.length||!gray.every(ref)||gray[0]!==g.gray)return false
+ const rows=(a.geometry as Record<string,unknown>).frames as unknown[],record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!rows.every(v=>record(v)&&Number.isInteger(v.sourceWidth)&&Number(v.sourceWidth)>=1&&Number(v.sourceWidth)<=512&&Number.isInteger(v.sourceHeight)&&Number(v.sourceHeight)>=1&&Number(v.sourceHeight)<=512&&record(v.maskBounds)))return false
+ const first=rows[0]as Record<string,unknown>
+ return rows.some(v=>(v as Record<string,unknown>).sourceWidth!==first.sourceWidth||(v as Record<string,unknown>).sourceHeight!==first.sourceHeight)
+}

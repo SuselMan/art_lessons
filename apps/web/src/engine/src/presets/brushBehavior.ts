@@ -1,5 +1,5 @@
 import{sourceDrawingDirection}from'../input/kritaStrokeInput'
-import{hasOriginalRgbaGih119Scope,hasEqualOriginalRgbaGih121Scope,hasEqualLightnessGih123Scope,hasEqualGradientGih125Scope,hasUnequalLightnessGih124Scope}from'@grafetto/shared'
+import{hasOriginalRgbaGih119Scope,hasEqualOriginalRgbaGih121Scope,hasEqualLightnessGih123Scope,hasEqualGradientGih125Scope,hasUnequalGradientGih126Scope,hasUnequalLightnessGih124Scope}from'@grafetto/shared'
 import{assertSketchDistanceOpacityPolicy,prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
@@ -418,7 +418,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const noiseSeed=activeNoise?state.execution?.brushRandom?.strokeSeed:undefined
   if(activeNoise&&noiseSeed===undefined)throw Error('Auto-mask noise requires a captured stroke seed')
   const dimensions=brush.tip.animation?.mode==='dimensions',angular=brushAnimationUsesMode(brush.tip.animation,'angular')
-  const originalSensorRgba119=brush.tip.color!==undefined&&(hasOriginalRgbaGih119Scope(brush)||hasEqualOriginalRgbaGih121Scope(brush)||hasEqualGradientGih125Scope(brush))
+  const originalSensorRgba119=brush.tip.color!==undefined&&(hasOriginalRgbaGih119Scope(brush)||hasEqualOriginalRgbaGih121Scope(brush)||hasEqualGradientGih125Scope(brush)||hasUnequalGradientGih126Scope(brush))
   const equalSensorLightness123=brush.tip.material!==undefined&&(hasEqualLightnessGih123Scope(brush)||hasUnequalLightnessGih124Scope(brush))
   const sensorGeometry=!!brush.tip.animation?.geometry&&(dimensions||brush.tip.animation.mode==='angular'||brush.tip.animation.mode==='xtilt'||brush.tip.animation.mode==='ytilt')
   if(sensorGeometry&&(brush.version<118||brush.tip.animation!.frames.length<2||(brush.scatter?.radius??0)>0||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','wet','texture','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('Sensor GIH geometry requires118 alpha without positional scatter')

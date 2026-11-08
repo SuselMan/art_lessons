@@ -23,10 +23,12 @@ class GihOriginalRgba119Tests(unittest.TestCase):
       expected=bytearray(side*side);value=128 if channel==3 and i==1 else 255 if channel==3 or channel==i else 0
       for y in range(h):expected[(y+oy)*side+ox:(y+oy)*side+ox+w]=bytes([value])*w
       self.assertEqual(aid,'asset:'+hashlib.sha256(expected).hexdigest());self.assertEqual((c.output/c.assets[aid]['file']).read_bytes(),bytes(expected))
- def test_foreign_gradient_and_child_scope_remain_closed_old86_118_unchanged(self):
-  for kwargs in[{'engine':'hairybrush'},{'application':3},{'actual':1},{'extra':'<param name="PressureScatter">true</param><param name="ScatterValue">.2</param><param name="ScatterUseCurve">false</param>'}]:
+ def test_foreign_and_child_scope_remain_closed_old86_118_unchanged(self):
+  for kwargs in[{'engine':'hairybrush'},{'actual':1},{'extra':'<param name="PressureScatter">true</param><param name="ScatterValue">.2</param><param name="ScatterUseCurve">false</param>'}]:
    with self.subTest(kwargs=kwargs),tempfile.TemporaryDirectory()as tmp:
     c,_=self.imported(tmp,**kwargs);self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped);self.assertEqual(c.assets,{})
+  with tempfile.TemporaryDirectory()as tmp:
+   c,_=self.imported(tmp,application=3);self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],126);self.assertEqual(d['tip']['color']['gradient']['sampling'],'filteredGray-v1');self.assertEqual([(v['sourceWidth'],v['sourceHeight'])for v in d['tip']['animation']['geometry']['frames']],SIZES)
   with tempfile.TemporaryDirectory()as tmp:
    c,_=self.imported(tmp,[('incremental',3)],application=1);self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['version'],86)
   from test_gih_geometry118 import data as alpha118_data

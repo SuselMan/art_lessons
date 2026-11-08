@@ -36,7 +36,7 @@ class UnequalLightness124(unittest.TestCase):
    with self.subTest(engine=engine),tempfile.TemporaryDirectory()as tmp:
     c,_=self.imported(tmp,engine=engine);self.assertFalse(any(b['descriptor']['version']==124 for b in c.brushes))
   with tempfile.TemporaryDirectory()as tmp:
-   c,_=self.imported(tmp,app=3);self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped)
+   c,_=self.imported(tmp,app=3);self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['version'],126);self.assertIn('gradient',c.brushes[0]['descriptor']['tip']['color'])
  def test_portable_whole124_tuple_admission_rejects_before_outputs(self):
   with tempfile.TemporaryDirectory()as tmp:
    c,_=self.imported(tmp);payload={'library':c.write(),'assets':{aid:base64.b64encode((c.output/a['file']).read_bytes()).decode()for aid,a in c.assets.items()}};p=Path(tmp)/'Own.grafetto-brushes.json';p.write_text(json.dumps(payload));good=convert.Catalog(Path(tmp)/'good');convert.portable_bundle(p,good);self.assertEqual(good.brushes,c.brushes)

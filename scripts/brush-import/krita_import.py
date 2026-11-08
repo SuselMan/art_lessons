@@ -3,7 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
-from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_lightness_gih124
+from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
 import hashlib
@@ -698,7 +698,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
-        material_gray=[]; gradient_gray=[];stamp_images=[];variable_gih_bounds=None;equal_gradient_gih125=False
+        material_gray=[]; gradient_gray=[];stamp_images=[];variable_gih_bounds=None;equal_gradient_gih125=False;unequal_gradient_gih126=False
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
@@ -717,8 +717,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
             unequal=len({frame.size for frame in frames})!=1
             unequal_lightness_gih124=bool(unequal and len(frames)>=2 and material_gray and application==2 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
+            unequal_gradient_gih126=bool(unequal and len(frames)>=2 and gradient_gray and application==3 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             if unequal:
-                if engine!='paintbrush' or material_gray and not unequal_lightness_gih124 or gradient_gray or (pipe['coloured'] and application!=0 and not stamp_images and not unequal_lightness_gih124):
+                if engine!='paintbrush' or material_gray and not unequal_lightness_gih124 or gradient_gray and not unequal_gradient_gih126 or (pipe['coloured'] and application!=0 and not stamp_images and not unequal_lightness_gih124 and not unequal_gradient_gih126):
                     raise ValueError('Unequal GIH material/colour combination is unsupported')
                 if any(max(frame.size)>2048 for frame in frames):raise ValueError('Unequal GIH original dimensions exceed 2048; resizing is forbidden')
 
@@ -730,9 +731,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             original_sensor_rgba121=bool(not unequal and len(frames)>=2 and stamp_images and application==1 and len(stamp_images)==len(frames)and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=2048 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             equal_lightness_gih123=bool(not unequal and len(frames)>=2 and material_gray and application==2 and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=2048 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             equal_gradient_gih125=bool(not unequal and len(frames)>=2 and gradient_gray and application==3 and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
-            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
-            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
-            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
+            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
+            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
+            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
             if len(assets)>1 or pipe['mode']in('angular','dimensions'):
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
                 if pipe['mode']in('pressure','velocity','angular','xtilt','ytilt'):d['tip']['animation']['rank']=pipe['declaredCount']
@@ -798,9 +799,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('pixelOriginalRgba'if engine=='paintbrush'else'colorSmudgeStamp','Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.'))
         elif gradient_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in gradient_gray]
-            if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):raise ValueError('Gradient/alpha plane bounds mismatch')
+            if any(bounds!=(variable_gih_bounds[index]if variable_gih_bounds is not None else d['tip']['maskBounds'])for index,(asset,bounds)in enumerate(gray_assets)):raise ValueError('Gradient/alpha plane bounds mismatch')
             d['tip']['color']={'gradient':{'gray':gray_assets[0][0]}}
-            if engine=='paintbrush' and (len(gray_assets)!=1 and not equal_gradient_gih125 or any(catalog.assets[asset]['size']>512 for asset,bounds in gray_assets)):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
+            if engine=='paintbrush' and (len(gray_assets)!=1 and not(equal_gradient_gih125 or unequal_gradient_gih126) or any(catalog.assets[asset]['size']>512 for asset,bounds in gray_assets)):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
             if engine=='paintbrush':d['tip']['color']['gradient']['sampling']='filteredGray-v1'
             if len(gray_assets)>1:d['tip']['color']['gradient']['grayFrames']=[asset for asset,bounds in gray_assets]
             notes.append(compatibility('gradientTip','Independent adjusted gray and alpha are filtered before lookup in the captured 256-sample canvas palette; palette alpha is multiplied once by filtered source alpha. Native QImage filtering kernel, ICC and colour-space rounding may differ.' if engine=='paintbrush' else 'Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))
@@ -1522,9 +1523,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if not is_unequal_lightness_gih124(d):raise ValueError('Unequal Lightness sensor requires124 closed scope')
         notes.append(compatibility('gihUnequalSensorLightness','Original selected LIGHTNESSMAP gray/alpha and118 physical geometry retained under124; existing per-size material groups and required finite readiness reused. Native ICC/filtering and byte projection differ.'))
     if d['tip'].get('animation',{}).get('mode')in('angular','xtilt','ytilt','dimensions')and 'gradient'in d['tip'].get('color',{}):
-        d['version']=max(d['version'],125)
-        if not _allow_texture_material or engine!='paintbrush' or depth or not equal_gradient_gih125 or not is_equal_gradient_gih125(d):raise ValueError('Equal Gradient sensor requires125 closed native Pixel scope')
-        notes.append(compatibility('gihEqualSensorGradient','Equal native GRADIENTMAP frames filter selected independent adjusted gray and alpha before the captured 256-sample palette. Required finite bound bank readiness is reused. Native ICC, subpixel filtering and byte projection differ.'))
+        geometry='geometry'in d['tip']['animation']
+        d['version']=max(d['version'],126 if geometry else 125)
+        if not _allow_texture_material or engine!='paintbrush' or depth or not(unequal_gradient_gih126 and is_unequal_gradient_gih126(d)if geometry else equal_gradient_gih125 and is_equal_gradient_gih125(d)):raise ValueError('Gradient sensor requires125 equal or126 unequal closed native Pixel scope')
+        notes.append(compatibility('gihUnequalSensorGradient'if geometry else'gihEqualSensorGradient',('Unequal original GRADIENTMAP frames retain118 physical geometry; selected adjusted gray and alpha are filtered before the captured256 palette. Existing bound finite bank readiness reused; native ICC/filtering/byte projection differ.'if geometry else'Equal native GRADIENTMAP frames filter selected independent adjusted gray and alpha before the captured 256-sample palette. Required finite bound bank readiness is reused. Native ICC, subpixel filtering and byte projection differ.')))
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     if d['tip'].get('animation',{}).get('mode')=='angular':
         if (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')

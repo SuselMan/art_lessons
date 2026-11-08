@@ -15,7 +15,7 @@ def same_bounds(actual,expected):
 def _is_sensor_original_rgba(d,equal,kind='rgba'):
     lightness=kind=='lightness';gradient=kind=='gradient'
     """Common metadata eligibility; canonical sizes/padding/selectors validate later."""
-    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<(125 if gradient else 123 if lightness and equal else 124 if lightness else 121 if equal else 119) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
+    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<(125 if gradient and equal else 126 if gradient else 123 if lightness and equal else 124 if lightness else 121 if equal else 119) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
     t=d.get('tip');b=d.get('behavior')
     if not isinstance(t,dict)or not isinstance(b,dict):return False
     a=t.get('animation');c=t.get('color')
@@ -55,6 +55,9 @@ def is_equal_lightness_gih123(d):
 def is_equal_gradient_gih125(d):
     return _is_sensor_original_rgba(d,True,'gradient')
 
+def is_unequal_gradient_gih126(d):
+    return _is_sensor_original_rgba(d,False,'gradient')
+
 def is_unequal_lightness_gih124(d):
     return _is_sensor_original_rgba(d,False,'lightness')
 
@@ -66,10 +69,10 @@ def validate_variable_gih_descriptor(d,asset_sizes):
     if isinstance(child_animation,dict)and 'geometry'in child_animation:raise ValueError('Variable GIH child is unsupported')
     if not isinstance(animation,dict)or 'geometry'not in animation:return
     if any(k in b and not isinstance(b[k],dict)for k in('rendering','dynamics','modulations')):raise ValueError('Invalid variable GIH behavior')
-    g=animation['geometry'];frames=animation.get('frames');lightness=is_unequal_lightness_gih124(d)
+    g=animation['geometry'];frames=animation.get('frames');lightness=is_unequal_lightness_gih124(d);gradient=is_unequal_gradient_gih126(d)
     if animation.get('mode')in('angular','xtilt','ytilt','dimensions'):
         scatter=d.get('scatter',{})
-        if d.get('version',0)<118 or not isinstance(scatter,dict)or scatter.get('radius',0)>0 or('color'in tip and not is_sensor_original_rgba119(d))or any(k in tip and(k!='material'or not lightness)for k in('material','imageSampling','profile','autoNoise','autoShape')):raise ValueError('Sensor GIH original geometry requires118 alpha without positional scatter')
+        if d.get('version',0)<118 or not isinstance(scatter,dict)or scatter.get('radius',0)>0 or('color'in tip and not(is_sensor_original_rgba119(d)or gradient))or any(k in tip and(k!='material'or not lightness)for k in('material','imageSampling','profile','autoNoise','autoShape')):raise ValueError('Sensor GIH original geometry requires118 alpha without positional scatter')
     if type(d.get('version'))is not int or d['version']<86 or d.get('model')!='stamp' or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or tip.get('kind')!='bitmap' or any(k in tip and(k!='material'or not lightness)for k in('profile','autoNoise','autoShape','imageSampling','material')) or any(k in b for k in('dual','edgeBleed','colorAdjustment')) or b.get('rendering',{}).get('wetEdges') or any('sharpness'in b.get(k,{}) for k in('dynamics','modulations')):
         raise ValueError('Unsupported variable GIH geometry combination')
     if not isinstance(g,dict) or set(g)!={'version','frames'} or type(g['version'])is not int or g['version']!=1 or not isinstance(frames,list) or not 2<=len(frames)<=256 or any(not isinstance(a,str)or a not in asset_sizes for a in frames) or not isinstance(g['frames'],list) or len(g['frames'])!=len(frames):
@@ -79,7 +82,10 @@ def validate_variable_gih_descriptor(d,asset_sizes):
         side=asset_sizes.get(frames[index],0);expected=frame_bounds(row['sourceWidth'],row['sourceHeight'],side)
         if not same_bounds(row['maskBounds'],expected):raise ValueError('Variable GIH geometry differs from original padding')
         if index==0 and not same_bounds(tip.get('maskBounds'),expected):raise ValueError('Variable GIH reference bounds differ')
-    if 'color'in tip:
+    if gradient:
+        gray=tip['color']['gradient']['grayFrames']
+        if any(asset_sizes.get(alpha,100000)>512 or asset_sizes.get(alpha)!=asset_sizes.get(gray[index])for index,alpha in enumerate(frames)):raise ValueError('Unequal Gradient126 paired dimensions differ or exceed512')
+    elif 'color'in tip:
         c=tip['color']
         if not isinstance(c,dict)or set(c)!={'planes','frames'} or not isinstance(c['frames'],list)or len(c['frames'])!=len(frames)or c['frames'][0]!=c['planes']:raise ValueError('Variable GIH colour frames are unsupported or incomplete')
         for index,planes in enumerate(c['frames']):
