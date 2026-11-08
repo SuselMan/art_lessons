@@ -3,6 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
+from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
@@ -1164,7 +1165,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             compiled=preprocess_texture(authored_pattern,**tone,preserve_alpha=True) if texture_mode in(2,3) else preprocess_texture(authored_pattern,**tone)
             pattern_alpha=(compiled.getchannel('A') if compiled.mode=='RGBA'else Image.new('L',compiled.size,255)) if texture_mode in(2,3) else None
             mask=compiled.getchannel('R') if compiled.mode=='RGBA' else compiled
-            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and texture_mode not in(2,3) and enabled(params.get(prefix+'AutoInvertOnErase')) else None
+            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if (engine=='paintbrush'and texture_mode not in(2,3)or engine=='colorsmudge'and _allow_texture_material and depth==0 and eraser and enabled(params.get('SmudgeRateUseNewEngine','false'))and numeric(params.get(prefix+'TexturingMode'),0)in(0,1)) and enabled(params.get(prefix+'AutoInvertOnErase')) else None
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
             padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
@@ -1590,6 +1591,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     # every legacy/pair revision assignment, and only an admitted active timer.
     if legacy_refresh129 and timed_input and behavior.get('timing') is not None:
         d['version']=max(d['version'],129)
+    if engine=='colorsmudge'and d.get('texture',{}).get('eraseId'):
+        if depth or not _allow_texture_material or not smudge_texture_erase131_scope(d,False)or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip'].get('mask'),d['texture']['id'],d['texture']['eraseId'])):raise ValueError('Texture erase131 requires root static modern MASK previousCanvas foreground erase')
+        d['version']=max(d['version'],131)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

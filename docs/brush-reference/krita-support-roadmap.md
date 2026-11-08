@@ -842,3 +842,28 @@ sampler для admitted independent DrawingAngle pair: child сам выбира
 timeout. Повтор:1009 TS/197 модулей PASS118.17s,569 Python PASS32.349s,
 типы клиента/сервера0 и lint0. Оригинальный CAPS, GPU и онлайн130 ещё не
 выполнены; наличие кода не считается завершением поддержки.
+
+
+### Color Smudge131: AutoInvertOnErase через общий texture owner
+
+Закрытый root modern MASK/previousCanvas/static bitmap/normal buildUp с
+записанными foreground erase88 и raw Multiply/Subtract поддерживает пару
+normal/erase texture. Дополнительная инверсия применяется существующим
+preprocess_texture до neutral-point/cutoff; это не инверсия готового байта.
+Planner, protect и bind используют один textureEraseId с записанным effective
+mode. Shader, wire, sampler, framebuffer и отдельный путь не добавлены.
+
+Shared/native/portable guards и loaded CAS проверяют scope, POT<=512 и равные
+стороны пары до leases/state. Старые77/88/103/105/129 не переинтерпретированы;
+raw2/3 fallback109 не получает новый131. Универсальный portable mixer owner
+теперь отклоняет malformed behavior/rendering через ValueError до разыменования,
+включая старый88. Бюджеты GPU16MiB/CPU4MiB прежние. Среди проверенных137
+официальных KPP нет активных потребителей этого флага: прирост штатных имён0.
+
+Код: полный TS прогон1016 PASS/1 исторический error-message FAIL; возвращена
+прежняя подстрока «stamp renderer» без изменения условий, затем12/3 модуля PASS.
+Единого полного1017PASS не заявляем. Типы web/server0, lint0. После исправления
+реального раннего portable consumer весь577 Python набор PASS11.383s.
+Первый TS запуск не начался из-за опечатки ROOT в QA-конфиге; конфиг исправлен,
+его ошибка не считалась сбоем runtime. Authored native CAPS, GPU и онлайн131
+ещё впереди; код не является доказательством поддержки всех сочетаний.

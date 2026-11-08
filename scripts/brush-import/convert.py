@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import validate_dimensions
@@ -501,6 +502,9 @@ def validate_portable_mixer(descriptor):
     if mixer is None:
         if descriptor['model']=='mixer': raise ValueError('Missing portable mixer')
         return
+    behavior=descriptor.get('behavior',{})
+    if not isinstance(behavior,dict)or not isinstance(behavior.get('rendering',{}),dict):
+        raise ValueError('Invalid portable mixer behavior/rendering')
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if (descriptor['model']!='mixer' or not isinstance(mixer,dict)
@@ -909,6 +913,8 @@ def portable_bundle(path,catalog):
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
         texture=d.get('texture',{})
+        if d.get('model')=='mixer'and isinstance(texture,dict)and'eraseId'in texture:
+            if depth or not smudge_texture_erase131_scope(d)or asset_sizes.get(texture.get('id'))!=asset_sizes.get(texture.get('eraseId'))or any(asset_sizes.get(a,513)>512 for a in(tip.get('mask'),texture.get('id'),texture.get('eraseId'))):raise ValueError('Invalid portable Texture erase131')
         if isinstance(texture,dict)and 'material'in texture:
             m=texture['material'];size=asset_sizes.get(texture.get('id'));grid=texture.get('patternSize');render=behavior.get('rendering',{})
             if (depth or not isinstance(m,dict)or set(m)!={'kind','alpha'}or m.get('kind')not in('lightness','gradient')or d['version']<(111 if m.get('kind')=='gradient'else 108)or m.get('alpha')not in ids or size!=asset_sizes.get(m.get('alpha'))or 'application'in texture or 'eraseId'in texture or d.get('model')!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or not isinstance(grid,dict)or set(grid)!={'width','height'}or any(type(grid[k])!=int or not 1<=grid[k]<=size for k in('width','height'))):

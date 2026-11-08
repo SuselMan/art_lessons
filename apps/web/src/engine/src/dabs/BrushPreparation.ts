@@ -1,3 +1,4 @@
+import{hasSmudgeTextureErase131Scope}from'@grafetto/shared'
 import{assertIndependentLightness128}from'../presets/independentLightness128'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
@@ -145,7 +146,12 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     if(b.behavior?.dual&&usesVariableGih(b.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b)}
     if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
-    if(painter!=='stamp'&&b.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
+    if(painter!=='stamp'&&b.texture?.eraseId){
+      if(b!==brush||!hasSmudgeTextureErase131Scope(b))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
+      const ids=[b.tip.kind==='bitmap'?b.tip.mask:undefined,b.texture.id,b.texture.eraseId]
+      const sides=ids.map(id=>id?.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):NaN)
+      if(sides.some(side=>!Number.isInteger(side)||side<2||side>512||(side&(side-1))!==0)||sides[1]!==sides[2])throw Error('Texture erase131 requires bounded paired CAS')
+    }
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
     if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray)||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
     if(b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')

@@ -1,3 +1,5 @@
+import{hasSmudgeTextureErase131Scope}from'./smudgeTextureErase131.js'
+export{hasSmudgeTextureErase131Scope}from'./smudgeTextureErase131.js'
 import{hasLegacySmudgeTiming129Scope}from'./legacySmudgeTiming129.js'
 export{hasLegacySmudgeTiming129Scope}from'./legacySmudgeTiming129.js'
 import{isOriginalRgbaGih119,isEqualOriginalRgbaGih121,isEqualLightnessGih123,isEqualGradientGih125,isUnequalGradientGih126,isUnequalLightnessGih124}from'./gihOriginalRgba119.js'
@@ -693,7 +695,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         const m=t.material
         if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||d.behavior.rendering.accumulation!=='directOver')return false
       }
-      if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
+      if(t.eraseId!==undefined&&(!ref(t.eraseId)||(d.model!=='stamp'&&!hasSmudgeTextureErase131Scope(d))||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
+      if(d.model==='mixer'&&t.eraseId!==undefined&&((assetSizes.get(String(d.tip.mask))??Infinity)>512||(assetSizes.get(String(t.id))??Infinity)>512))return false
       if(record(t.application)&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))){
         const modern=Number(d.version)>=105&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'&&t.eraseId===undefined
         const pixel=Number(d.version)>=105&&d.model==='stamp'&&['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)&&record(d.behavior)&&d.behavior.dual===undefined
@@ -960,6 +963,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
 /** Recorded source channels are mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
+  if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
   const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush))return false
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
