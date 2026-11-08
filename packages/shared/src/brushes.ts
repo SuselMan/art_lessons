@@ -8,6 +8,7 @@ import{isCloneDescriptor,type BrushClone}from'./brushClone.js'
 export type{BrushClone}from'./brushClone.js'
 import{isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
+export{isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
 import{isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
 import{isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
@@ -723,7 +724,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
         if(secondary.sketch?.mode==='mask')return false
-        if(secondary.filter?.kind==='invert'||secondary.filter?.kind==='desaturate')return false
+        if(secondary.filter?.kind==='invert'||secondary.filter?.kind==='desaturate'||secondary.filter?.kind==='posterize')return false
         if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
