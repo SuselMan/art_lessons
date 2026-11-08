@@ -34,7 +34,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external)
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False)
     d=result['descriptor'];d['version']=44 if simple else 101
     # Pixel's derived integer-image bank is not Sketch's native selection mask.
     # New101 reads the already-captured alpha plane with its explicit own law.

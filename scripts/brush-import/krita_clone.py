@@ -15,7 +15,7 @@ def clone_preset(data,root,params,name,catalog,external):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d.update(version=54,model='stamp',category='paint',paperInteraction=0)
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d.update(version=54,model='stamp',category='paint',paperInteraction=0)
     for key in ('mixer','scatter','texture','wet'):d.pop(key,None)
     d['clone']={'version':1,'moveSourcePoint':enabled(params.get('Duplicateop/MoveSourcePoint','true'))}
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}

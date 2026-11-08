@@ -41,7 +41,9 @@ class TextureAlpha105Tests(unittest.TestCase):
      child=copy.deepcopy(d);d.pop('mixer');d.pop('texture');d['model']='stamp';d['behavior']['dual']={'brush':child,'blendMode':'multiply'}
     with self.assertRaises(ValueError):self.portable(root,c,d)
     out=root/'portable';self.assertFalse(any(out.iterdir()))
- def test_raw2_and3_not_reclassified_as_alpha(self):
+ def test_raw2_and3_use_native_colorsmudge_subtract_fallback109(self):
+  # Color Smudge's missing native flags select SUBTRACT before preprocessing;
+  # raw2/raw3 are not new colour texture modes in that native engine.
   for raw in (2,3):
    with tempfile.TemporaryDirectory()as tmp:
-    c=self.fixture(Path(tmp),raw);self.assertEqual(c.skipped,[]);self.assertNotIn('application',c.brushes[0]['descriptor'].get('texture',{}));self.assertTrue(any(n['feature']=='textureApplication'and n['status']=='unsupported'for n in c.brushes[0]['compatibility']))
+    c=self.fixture(Path(tmp),raw);self.assertEqual(c.skipped,[]);b=c.brushes[0];self.assertNotIn('material',b['descriptor']['texture']);self.assertEqual(b['descriptor']['texture']['application'],{'mode':'subtract','soft':True});self.assertTrue(any(n['feature']=='nativeTextureModeFallback'and n['status']=='supported'for n in b['compatibility']));self.assertFalse(any(n['feature']=='textureApplication'and n['status']=='unsupported'for n in b['compatibility']))

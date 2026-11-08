@@ -444,7 +444,8 @@ export function createBrushCompositeFragment(extendedBlend=false):string {
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
 }
 
-export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false): string {
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false,textureLightness=false): string {
+  if(textureLightness&&(!autoNoise||filteredGradient))throw Error('Texture Lightness requires its own effects capability')
   if(filteredGradient&&!autoNoise)throw Error('Filtered gradient requires the private effects capability')
   if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')
   if (!procedural && !integerImages && !radialCurves) return BRUSH_STAMP_FRAG
@@ -583,6 +584,16 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
   if(filteredGradient){
     replace('  void main() {',PIXEL_FILTERED_GRADIENT_GLSL+'\n  void main() {')
     replace('if(u_originalRgbaTip>0.5){shape=tipSample.a;pigment=brushOriginalRgbaPigment(tipSample);}', 'if(u_originalRgbaTip>0.5){vec4 mapped=brushFilteredGradient(tipSample);shape=mapped.a;pigment=mapped.rgb;}')
+  }
+  if(textureLightness){
+    const grid=BRUSH_TEXTURE_APPLICATION_GLSL.slice(BRUSH_TEXTURE_APPLICATION_GLSL.indexOf('float brushTextureGrid(')).replace('float brushTextureGrid(','vec4 brushTextureGridRgba(').replace('return mix(value.r,value.a,alphaChannel);','return value;')
+    replace('  void main() {',grid+'\n  uniform float u_textureMaterial;\n  void main() {')
+    replace('    if(u_textureApplication.x>0.5) {',`    if(u_textureMaterial>0.5) {
+      vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+      vec4 pattern=brushTextureGridRgba(u_texture,local,u_textureApplication,u_textureMapping,0.0);
+      pigment=brushMaterialColor(pigment,pattern.r,clamp(u_texStrength,0.0,1.0));
+      shape=min(shape,pattern.a);
+    } else if(u_textureApplication.x>0.5) {`)
   }
   return source
 }

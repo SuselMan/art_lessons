@@ -1,3 +1,4 @@
+import {usesTextureLightness,textureLightnessPixels} from '../presets/textureLightness'
 import {pixelGradientSourcePixels,pixelGradientPalettePixels} from '../presets/pixelFilteredGradient'
 import {BristleSaturationResource} from './BristleSaturationResource'
 import {usesPixelOriginalRgba,usesFilteredPixelGradient} from '../presets/pixelOriginalRgba'
@@ -55,14 +56,15 @@ export class BrushPainter {
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut) => {
       const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut)
-      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
-      const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+      const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)||usesTextureLightness(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+      if(usesTextureLightness(brush)){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Texture Lightness108 resource was not prepared');return release}catch(error){release();throw error}}
       if(!usesPixelOriginalRgba(brush)&&!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
       if(gradientLut){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Pixel gradient resource was not prepared');return release}catch(error){release();throw error}}
       // Peer/cold use the same admitted cache/lease; selection is not readiness.
       try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
       catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
-    },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle))
+    },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),brush=>this.preparedTextureLightness(brush))
   }
   initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {
@@ -107,13 +109,13 @@ export class BrushPainter {
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
-  prepareStampEffects(filteredGradient=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient)}
+  prepareStampEffects(filteredGradient=false,textureLightness=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient,textureLightness)}
   prepareCompositeEffects():void{this.behavior.prepareCompositeEffects()}
   prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
-    if(group.some(r=>r.gradientSource||r.gradientPalette)){
+    if(group.some(r=>r.gradientSource||r.gradientPalette||r.patternAlpha)){
       const release=this.textures.leaseRequired(brushTextureLeasePlan(group,'stamp'))
       let failed=false
       try{this.prepareTextureOwned(group,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve primary, including undefined. */}}else release()}
@@ -121,6 +123,13 @@ export class BrushPainter {
   }
   private prepareTextureOwned(group:readonly BrushPreparationResource[],resource:BrushPreparationResource):void{
     this.textures.protect(group.map(brushTextureResourceKey))
+    if(resource.patternAlpha){
+      const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
+      const size=resource.patternSize;if(!size)throw Error('Lightness pattern dimensions missing')
+      const pixels=textureLightnessPixels(importedAssetPixels(resource.id),importedAssetPixels(resource.patternAlpha),size.width,size.height),side=Math.sqrt(pixels.length/4)
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,{width:side,height:side,nearest:true,straight:true})
+      try{this.textures.put(key,entry.texture,entry.bytes)}catch(error){this.gl.deleteTexture(entry.texture);throw error}return
+    }
     if(resource.gradientPalette){
       if(!resource.gradientLut)throw Error('Filtered gradient palette is not captured')
       const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
@@ -140,6 +149,14 @@ export class BrushPainter {
     else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage,resource.lookup32)
   }
 
+  /** Texture material preflight owns no persistent lease; paint acquires its exact required union. */
+  prepareTextureLightness(brush:BrushDescriptor):void{
+    if(!usesTextureLightness(brush))return
+    const resources=brushPreparationResources(brush);assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
+    try{this.prepareStampEffects(false,true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+  }
+
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
     if(!usesPixelOriginalRgba(brush)||!brush.tip.color||!('gradient'in brush.tip.color))return
@@ -148,6 +165,14 @@ export class BrushPainter {
     const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
     let failed=false
     try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
+  }
+  private preparedTextureLightness(brush:BrushDescriptor){
+    if(!usesTextureLightness(brush))throw Error('Texture Lightness108 material is missing')
+    const resource=brushPreparationResources(brush).find(r=>r.patternAlpha),epoch=this.colorEpoch
+    if(!resource)throw Error('Texture Lightness108 resource is missing')
+    const key=brushTextureResourceKey(resource),texture=this.textures.get(key),side=Math.sqrt(importedAssetPixels(resource.id).length)
+    if(!texture)throw Error('Texture Lightness108 resource was not prepared')
+    return{texture,width:side,height:side,crop:{x:0,y:0,width:side,height:side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Texture Lightness108 owner was retired')}}
   }
   private preparedSprayMask(id:TipMaskId,bounds?:BrushDescriptor["tip"]["maskBounds"]){
     const key=brushTextureResourceKey({id,grain:false}),texture=this.textures.get(key),epoch=this.colorEpoch

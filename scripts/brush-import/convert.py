@@ -869,6 +869,13 @@ def portable_bundle(path,catalog):
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
         texture=d.get('texture',{})
+        if isinstance(texture,dict)and 'material'in texture:
+            m=texture['material'];size=asset_sizes.get(texture.get('id'));grid=texture.get('patternSize');render=behavior.get('rendering',{})
+            if (depth or d['version']<108 or not isinstance(m,dict)or set(m)!={'kind','alpha'}or m.get('kind')!='lightness'or m.get('alpha')not in ids or size!=asset_sizes.get(m.get('alpha'))or 'application'in texture or 'eraseId'in texture or d.get('model')!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or not isinstance(grid,dict)or set(grid)!={'width','height'}or any(type(grid[k])!=int or not 1<=grid[k]<=size for k in('width','height'))):
+                raise ValueError('Invalid portable Texture Lightness108')
+            for aid in(texture['id'],m['alpha']):
+                plane=trusted_raw_assets[aid]
+                if any(plane[y*size+x]for y in range(size)for x in range(size)if x>=grid['width']or y>=grid['height']):raise ValueError('Nonzero portable Lightness108 pattern padding')
         if isinstance(texture,dict) and isinstance(texture.get('application'),dict) and texture['application'].get('mode')in('colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
             application=texture['application']
             if set(application)!={'mode','soft'} or type(application.get('soft'))is not bool:raise ValueError('Invalid Texture105 application')

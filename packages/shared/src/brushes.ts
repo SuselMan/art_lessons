@@ -285,6 +285,8 @@ export interface BrushDescriptor {
    *  continuous stroke. `periodPx` is the world size of one tile of it. */
   texture?: {
     id: BrushTextureId; eraseId?:AssetId; periodPx: number; strength: number
+    /** Pixel108: compiled pattern gray id + independent alpha plane. */
+    material?: {kind:'lightness';alpha:AssetId}
     /** Explicit operation on the dab mask; absent preserves historical grain. */
     application?: { mode: 'multiply' | 'subtract' | 'darken' | 'overlay' | 'linearDodge' | 'linearBurn' | 'colorDodge' | 'colorBurn' | 'hardMixPhotoshop' | 'hardMixSofterPhotoshop'; soft: boolean }
     /** Integer repeat grid at the top-left of its padded square asset. */
@@ -659,7 +661,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.texture !== undefined) {
       const t = d.texture
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
-        || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset'].includes(key))) return false
+        || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset','material'].includes(key))) return false
+      if(t.material!==undefined){
+        const m=t.material
+        if(Number(d.version)<108||!record(m)||m.kind!=='lightness'||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||d.behavior.rendering.accumulation!=='directOver')return false
+      }
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
       if(record(t.application)&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))){
         const modern=Number(d.version)>=105&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'&&t.eraseId===undefined
@@ -696,6 +702,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false
         if(secondary.behavior?.rendering?.blendMode==='hardMixPhotoshop'||secondary.behavior?.rendering?.blendMode==='kritaHardMix')return false
@@ -764,7 +771,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
     add(value.tip.material?.gray)
     add(value.bristle?.saturationLookup?.asset)
     for(const id of value.tip.material?.grayFrames ?? [])add(id)
-    add(value.texture?.id);add(value.texture?.eraseId)
+    add(value.texture?.id);add(value.texture?.eraseId);add(value.texture?.material?.alpha)
     if(value.tip.profile?.kind==='radialCurve'||value.tip.profile?.kind==='radialCurveSoftness'||value.tip.profile?.kind==='curveRectangle'||value.tip.profile?.kind==='curveRectangleSoftness')add(value.tip.profile.lookup)
     if(value.behavior?.dual)visit(value.behavior.dual.brush)
   }

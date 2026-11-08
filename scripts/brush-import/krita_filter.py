@@ -35,7 +35,7 @@ def filter_preset(data,root,params,name,catalog,external):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d.update(version=99 if kind=='desaturate'else 95 if kind=='invert'else 52,model='mixer',category='wet',paperInteraction=0,flow=1)
+    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d.update(version=99 if kind=='desaturate'else 95 if kind=='invert'else 52,model='mixer',category='wet',paperInteraction=0,flow=1)
     for key in ('scatter','texture','wet'):d.pop(key,None)
     d['flowByPressure']=[[0,1],[1,1]]
     d['mixer']={'load':0,'initialLoad':0,'pickup':1,'strength':1,'source':'previousCanvas'}

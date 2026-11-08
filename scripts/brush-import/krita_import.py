@@ -421,9 +421,10 @@ def size_like_controls(params, option, notes, *, allow_time=False):
     return sensor_controls(params,option,notes,allow_time=allow_time)
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
+    if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
@@ -1074,13 +1075,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             payload=base64.b64decode(''.join(embedded.split()),validate=True)
             mask=raster(payload,'embedded.png')
         texture_mode=numeric(params.get('Texture/Pattern/TexturingMode'),0)
+        # Native Color Smudge passes textureFlags=None. This substitution is
+        # BEFORE preserveAlpha/tone/cutoff selection, not a colour-texture mode.
+        if engine=='colorsmudge' and texture_mode in (2,3):
+            captured_texture_mode=texture_mode
+            texture_mode=1
+            notes.append(compatibility('nativeTextureModeFallback','Native Color Smudge does not enable Lightness/Gradient texture flags; captured raw mode '+str(int(captured_texture_mode))+' uses SUBTRACT before scalar pattern preprocessing. No palette is read by this texture mode.','supported'))
         # KisStrengthOption is checkable: unchecked (also the missing-key
         # default) returns1 before reading strength or sensors. UseCurve is
         # independent: stale enabled curves must not revive an unchecked option.
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
         texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'linearDodge',9:'linearBurn',10:'hardMixPhotoshop',11:'hardMixSofterPhotoshop'}
-        texture_supported=texture_mode in (0,1)or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
+        texture_supported=texture_mode in (0,1)or(engine=='paintbrush'and _allow_texture_material and texture_mode==2)or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
         if texture_supported:
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
@@ -1106,17 +1113,22 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                   'cutoff_policy':int(numeric(params.get(prefix+'CutoffPolicy'),0)),
                   'cutoff_left':int(numeric(params.get(prefix+'CutoffLeft'),0)),
                   'cutoff_right':int(numeric(params.get(prefix+'CutoffRight'),255))}
-            mask=preprocess_texture(authored_pattern,**tone)
-            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and enabled(params.get(prefix+'AutoInvertOnErase')) else None
+            compiled=preprocess_texture(authored_pattern,**tone,preserve_alpha=True) if texture_mode==2 else preprocess_texture(authored_pattern,**tone)
+            pattern_alpha=(compiled.getchannel('A') if compiled.mode=='RGBA'else Image.new('L',compiled.size,255)) if texture_mode==2 else None
+            mask=compiled.getchannel('R') if compiled.mode=='RGBA' else compiled
+            erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if engine=='paintbrush'and texture_mode!=2 and enabled(params.get(prefix+'AutoInvertOnErase')) else None
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
             padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
             aid=catalog.asset(padded,warnings,grain=True)
+            alpha_id=None
+            if pattern_alpha is not None:
+                alpha_padded=Image.new('L',(pot,pot));alpha_padded.paste(pattern_alpha,(0,0));alpha_id=catalog.asset(alpha_padded,warnings,grain=True)
             offset={axis:clamp(numeric(params.get(prefix+'Offset'+axis.upper()),0),-8192,8192) for axis in ('x','y')}
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
             d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
-                          'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+                          **({'material':{'kind':'lightness','alpha':alpha_id}}if texture_mode==2 else{'application':{'mode':texture_modes[texture_mode],'soft':enabled(params.get(prefix+'UseSoftTexturing'))}}),'offset':offset}
             if erase_pattern is not None:
                 erase_padded=Image.new('L',(pot,pot));erase_padded.paste(erase_pattern,(0,0))
                 d['texture']['eraseId']=catalog.asset(erase_padded,warnings,grain=True);d['version']=max(d['version'],77)
@@ -1130,7 +1142,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
             controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
-            notes.append(compatibility('texture','Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
+            if texture_mode==2 and any('combine'in c for c in controls):d['texture']['strength']=1
+            if texture_mode==2 and any(n['status']=='unsupported'and n['feature'].startswith('Texture/Strength/') for n in notes):raise ValueError('Unsupported Texture Lightness108 strength sensors')
+            notes.append(compatibility('texture','Native pattern grid, phase and strength retained; texture Lightness108 consumes independent gray/alpha planes.'if texture_mode==2 else'Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
         else:
             aid=catalog.asset(mask,warnings,grain=True)
             d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
@@ -1242,7 +1256,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or d.get('texture',{}).get('application'))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or (d.get('texture',{}).get('application')or d.get('texture',{}).get('material')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1252,7 +1266,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input)
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input,_allow_texture_material=False)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
         if stroke_input:
             child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
@@ -1410,6 +1424,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if engine=='paintbrush'and 'planes'in d['tip'].get('color',{}):
         if behavior.get('dual')or behavior.get('colorAdjustment')or behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour/dual adjustments are not implemented')
         d['version']=max(d['version'],84)
+    if d.get('texture',{}).get('material'):
+        tip=d['tip'];t=d['texture'];render=behavior.get('rendering',{})
+        if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
+            raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
+        d['version']=max(d['version'],108)
+        notes.append(compatibility('textureLightness','Pattern gray is compiled after white-compositing/tone while original alpha remains independent. Lightness changes current opaque-source RGB; alpha=min(patternAlpha,dabAlpha) before flow/opacity even at strength0. Functional HSL graph shares the existing material helper; native U8/ICC identity is not claimed.','supported'))
     if d.get('texture',{}).get('eraseId'):d['version']=max(d['version'],77)
     if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
         if engine=='colorsmudge':
