@@ -1444,13 +1444,49 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     return result
 
 
+def _native_preset_transaction(catalog, produce):
+    """Only convert_krita owns rollback; direct preset() retains its old API.
+
+    Snapshot before the entire preset, including recursive masking children.
+    Never remove a pre-existing path, shared CAS or an unrelated non-CAS file.
+    """
+    assets_before={key:dict(value) for key,value in catalog.assets.items()}
+    files_before={path.name for path in catalog.output.iterdir()}
+    brush_count,skipped_count=len(catalog.brushes),len(catalog.skipped)
+    try:
+        return produce()
+    except (ValueError, ET.ParseError, OSError):
+        cleanup_error=None
+        candidates={asset.get('file') for asset in catalog.assets.values()}
+        try:
+            for name in candidates:
+                if not isinstance(name,str) or not re.fullmatch(r'[a-f0-9]{64}\.bin',name) or name in files_before:
+                    continue
+                path=catalog.output/name
+                try:
+                    if path.is_symlink():
+                        raise OSError('Refusing native-preset rollback of a symlink')
+                    path.unlink(missing_ok=True)
+                except OSError as error:
+                    cleanup_error=error
+        finally:
+            catalog.assets.clear();catalog.assets.update(assets_before)
+            del catalog.brushes[brush_count:]
+            del catalog.skipped[skipped_count:]
+        if cleanup_error is not None:
+            # Abort the whole CLI, rather than publishing a manifest after a
+            # failed rollback. The API removes its owned work directory.
+            raise RuntimeError('Native preset rollback failed') from cleanup_error
+        raise
+
+
 def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
+            catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input)))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -1472,8 +1508,8 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
                 if name.lower().endswith('.myb'):
                     from mypaint_import import mypaint_preset
                     preview=str(PurePosixPath(name).with_suffix(''))+'_prev.png'
-                    catalog.brushes.append(mypaint_preset(archive.read(name),name,catalog,archive.read(preview)if preview in names else None))
+                    catalog.brushes.append(_native_preset_transaction(catalog,lambda:mypaint_preset(archive.read(name),name,catalog,archive.read(preview)if preview in names else None)))
                 else:
-                    catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
+                    catalog.brushes.append(_native_preset_transaction(catalog,lambda:preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input)))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})
