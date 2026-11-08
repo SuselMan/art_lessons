@@ -1,3 +1,8 @@
+import{FilterSmudge147Pass,FilterSmudge147State,FilterSmudge147Blocked,type FilterSmudge147Request}from'./FilterSmudge147'
+import{hasFilterSmudge147Scope}from'@grafetto/shared'
+import {CanonicalBeginSource} from './CanonicalBeginSource'
+import {canonicalBeginBindingKey,type CanonicalBeginRuntime,type CanonicalBeginPrepareResult,type CanonicalBeginBinding} from './CanonicalBeginRuntime'
+import {hasSpraySource146Scope} from '@grafetto/shared'
 import {bristleNativeAA142Bounds} from './bristleNativeAA142'
 import {firstBristleLine139} from './CanonicalBeginRuntime'
 import {hasBristleSoak139Scope,hasBristleNativePointCoverage} from '@grafetto/shared'
@@ -89,6 +94,8 @@ const STAMP_UNIFORMS = [ 'u_autoSpikes','u_autoSpikeAngle','u_dualFlip', 'u_hatc
 ]
 type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>
 export interface BehaviorScratch extends BrushScratch {
+  canonicalSource?:CanonicalBeginSource
+  filterSmudge147State?:FilterSmudge147State
   brushSecondary(): {scratch:BehaviorScratch;sampling:SecondarySamplingState;tile:(source:AccumulationBuffer)=>AccumulationBuffer}
   brushNative?:{destroy():void}
   brushBehavior?: BrushBehaviorState
@@ -134,6 +141,7 @@ export class BrushBehaviorPainter {
   private bindings = new WeakMap<BehaviorScratch, {
     execution?: BrushExecutionContext
     effectiveErase:boolean
+    runtime?:CanonicalBeginRuntime
     target: BrushTarget
     preset: PencilPreset
     brush: BrushDescriptor
@@ -179,11 +187,14 @@ export class BrushBehaviorPainter {
   private mypaintPass?:MyPaintStrokePainter
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
+  private filterSmudge147?:FilterSmudge147Pass
+  prepareFilterSmudge147():void{(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare()}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
     this.mypaintPass?.destroy();this.mypaintPass=undefined
     this.clonePass?.forget()
+    this.filterSmudge147?.forget()
     this.filterPass?.forget()
     this.polygonBatch?.reset()
     this.sketchBatch?.reset()
@@ -311,13 +322,81 @@ export class BrushBehaviorPainter {
     }
     return this.proceduralStamp
   }
+  sprayBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.canonicalSource?.capability==='spray146'?scratch.canonicalSource.binding:undefined}
+  invalidateSprayBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability==='spray146'){const owner=scratch.canonicalSource;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;owner.release()}}
+  prepareSprayBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
+    const brush=paint.brush,binding=runtime.binding
+    if(!hasSpraySource146Scope(brush)||runtime.capability!=='spray146'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid Spray146 BEGIN identity')
+    assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution)
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    const existing=scratch.canonicalSource
+    if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='spray146'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':spray146'}}
+    if(scratch.brushBehavior?.dabSequence)throw Error('Spray146 capture after accepted request is forbidden')
+    if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Spray146 canonical source owner is unavailable')
+    if(!this.sprayRequestPainter)throw Error('Spray146 source pipeline is not prepared');this.sprayRequestPainter.assertSourcePrepared()
+    const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'spray146')
+    if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'spray146')
+    if(captured.kind==='notReady')return captured
+    if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Spray146 owner changed during capture')}
+    scratch.canonicalSource=captured.owner
+    return{kind:'ready'}
+  }
+  filterBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.canonicalSource?.capability==='filterSmudge147'?scratch.canonicalSource.binding:undefined}
+  invalidateFilterBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability!=='filterSmudge147')return;const state=scratch.filterSmudge147State,source=scratch.canonicalSource;scratch.filterSmudge147State=undefined;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;let failed=false,error:unknown;try{state?.release()}catch(e){failed=true;error=e}try{source.release()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}
+  prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
+    const brush=paint.brush,binding=runtime.binding
+    if(!hasFilterSmudge147Scope(brush)||runtime.capability!=='filterSmudge147'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid Filter147 BEGIN identity')
+    assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    const existing=scratch.canonicalSource;if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='filterSmudge147'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':filter147'}}
+    if(scratch.brushBehavior?.dabSequence)throw Error('Filter147 capture after accepted request forbidden')
+    if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource||!this.filterSmudge147)throw Error('Filter147 canonical source/prewarm unavailable')
+    this.filterSmudge147.assertPrepared();const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'filterSmudge147');if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'filterSmudge147');if(captured.kind==='notReady')return captured
+    if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Filter147 owner changed during capture')}scratch.canonicalSource=captured.owner;return{kind:'ready'}
+  }
+  private paintFilter147Requests(target:BrushTarget,dabs:readonly Dab[],preset:PencilPreset,brush:BrushDescriptor,pressure:BrushPressureSettings,color:[number,number,number],scratch:BehaviorScratch,finish:boolean,endpoint:(Dab&{baseSize:number})|undefined,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):void{
+    assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    if(!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Filter147 resource owner unavailable')
+    let accepted=0
+    for(const dab of dabs){
+      const prior=scratch.brushBehavior,base=prior?structuredClone(prior):beginBrushBehavior(dab,execution),probe=structuredClone(base),stamps=behaviorStampsForDab(brush,dab,probe,color)
+      let bounds:BrushBounds|undefined
+      for(const stamp of stamps){const radius=stamp.size*preset.sizeMultiplier*.5;if(radius<.25)continue;const footprint=brushFootprintBounds(stamp.x,stamp.y,radius,stamp.aspect,stamp.angle,1);if(footprint)bounds=unionBounds(bounds,footprint)}
+      if(!bounds){scratch.brushBehavior=probe;accepted++;continue}
+      // Recovery/reentrant replay must finish before any outer request lease.
+      const tiles=target.resolveForPaint(bounds)
+      if(scratch.brushBehavior!==prior)throw Error('Filter147 gesture changed during recovery')
+      const existing=scratch.filterSmudge147State,state=existing??new FilterSmudge147State(scratch.canonicalSource!.retain(),(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes))
+      let request:FilterSmudge147Request|undefined,published=false,failed=false,failure:unknown
+      try{
+        const planned=state.prepareRequest(tiles);if(planned.kind==='notReady')throw new FilterSmudge147Blocked(planned,accepted);request=planned.request
+        let staged=base
+        const proxy=new Proxy(scratch,{get:(target,key)=>key==='brushBehavior'?staged:typeof Reflect.get(target,key)==='function'?Reflect.get(target,key).bind(target):Reflect.get(target,key),set:(target,key,value)=>{if(key==='brushBehavior'){staged=value;return true}return Reflect.set(target,key,value)}})
+        this.paint(target,[dab],preset,brush,pressure,color,proxy,finish&&accepted===dabs.length-1,finish?endpoint:undefined,execution,false,runtime,{state,request,tiles})
+        scratch.brushBehavior=staged;scratch.filterSmudge147State=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase:false,runtime});published=true;accepted++
+      }catch(error){failed=true;failure=error}
+      finally{for(const release of[()=>request?.release(),()=>{if(!existing&&!published)state.release()}])try{release()}catch(error){if(!failed){failed=true;failure=error}}}
+      if(failed)throw failure
+    }
+  }
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
-    const b = this.bindings.get(scratch); if (b)
-      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase)
+    const b = this.bindings.get(scratch); if (!b)return
+    this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase,b.runtime)
+    if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'){
+      // END closes this source lifetime; duplicate END has no binding to dispatch.
+      this.bindings.delete(scratch)
+      const state=scratch.filterSmudge147State,source=scratch.canonicalSource
+      scratch.filterSmudge147State=undefined;scratch.canonicalSource=undefined
+      let failed=false,error:unknown
+      for(const release of[()=>state?.release(),()=>source?.release()])try{release()}catch(e){if(!failed){failed=true;error=e}}
+      if(failed)throw error
+    }
   }
   destroy(): void {
     this.mypaintPass?.destroy();this.mypaintPass=undefined
     this.clonePass?.destroy()
+    this.filterSmudge147?.destroy()
     this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
     this.polygonBatch?.destroy()
@@ -498,7 +577,14 @@ export class BrushBehaviorPainter {
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>}): void {
+    const filter147=!!brush.filter&&'smudgeMode'in brush.filter
+    if(filter147){
+      const source=scratch.canonicalSource
+      if(!hasFilterSmudge147Scope(brush)||effectiveErase||runtime?.capability!=='filterSmudge147'||!source||source.capability!=='filterSmudge147'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Filter147 requires its prepared canonical BEGIN source')
+      source.assertCurrent();this.filterSmudge147?.assertPrepared();if(!this.filterSmudge147)throw Error('Filter147 programs not prepared')
+      if(!filterRequest){this.paintFilter147Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}
+    }
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
     const gradientWash=usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(gradientWash&&(!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
@@ -525,11 +611,17 @@ export class BrushBehaviorPainter {
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
     if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle||brush.clone?1:4)){
-      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase)}
+      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime)}
       return
     }
     if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');if(brush.bristle.soak)this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true);else this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
     if(brush.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
+    const spray146=brush.spray?.color.sourcePolicy!==undefined
+    if(spray146){
+      const source=scratch.canonicalSource
+      if(!hasSpraySource146Scope(brush)||effectiveErase||runtime?.capability!=='spray146'||!source||source.capability!=='spray146'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Spray146 requires its prepared canonical BEGIN source')
+      source.assertCurrent();if(!this.sprayRequestPainter)throw Error('Spray146 source pipeline is not prepared');this.sprayRequestPainter.assertSourcePrepared()
+    }
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
     const materialVariant=textureMaterialVariant(brush),textureLightness=materialVariant===true,textureGradient=materialVariant==='gradient'
@@ -573,23 +665,23 @@ export class BrushBehaviorPainter {
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
-    if(!sprayWash&&!particleWash&&!bristleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
+    if(!filter147&&!sprayWash&&!particleWash&&!bristleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase, runtime })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? beginBrushBehavior(dabs[0],execution)
     if(bristleWash){
       if(!(target instanceof TiledLayerBuffer))throw Error('Bristle Wash requires its tiled stroke target')
-      this.paintBristleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,pressure,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})})
+      this.paintBristleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,pressure,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase,runtime})})
       return
     }
     if(particleWash){
       if(!(target instanceof TiledLayerBuffer))throw Error('Particle Wash requires its tiled stroke target')
-      this.paintParticleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})})
+      this.paintParticleWash(target,dabs,brush,state,color,scratch,preset.sizeMultiplier,()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase,runtime})})
       return
     }
     if(sprayWash){
       if(!(target instanceof TiledLayerBuffer))throw Error('Spray Wash requires its tiled stroke target')
       this.sprayRequestPainter!.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier,{
-        accepted:()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})},
+        accepted:()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase,runtime})},
         tile:tile=>{const entry=scratch.getOrCreate(tile.buffer);return{coverage:entry.coverage,previous:scratch.brushCeiling(tile.buffer)}},
         present:(tile,bounds)=>{const entry=scratch.getOrCreate(tile.buffer);this.presentStrokeTile(tile,bounds,entry.original,entry.coverage,scratch.brushCeiling(tile.buffer),brush,state.opacity)},
       })
@@ -598,7 +690,7 @@ export class BrushBehaviorPainter {
     scratch.brushBehavior=state
     if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)){
       if(effectiveErase||!(target instanceof TiledLayerBuffer)||!this.sprayRequestPainter)throw Error('Spray source pipeline is not prepared for this target')
-      this.sprayRequestPainter.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier)
+      this.sprayRequestPainter.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier,undefined,spray146?scratch.canonicalSource:undefined)
       return
     }
 
@@ -762,7 +854,7 @@ export class BrushBehaviorPainter {
     const g = behavior.grain
     const period = Math.max(0.5, (brush.texture?.periodPx ?? 1) * (g ? 0.1 + g.zoom * 1.9 : 1))
     const wrap = (v: number): number => ((v % period) + period) % period
-    for (const tile of target.resolveForPaint(bounds)) {
+    for (const tile of filterRequest?.tiles??target.resolveForPaint(bounds)) {
       const original = scratch.getOrCreate(tile.buffer).original
       let coverage = scratch.getOrCreate(tile.buffer).coverage
       let ceiling = scratch.brushCeiling(tile.buffer)
@@ -1129,6 +1221,7 @@ export class BrushBehaviorPainter {
         if (!circleBand) gl.blendColor(0,0,0,0)
         gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,paper.texture)
       }
+      if(filter147)coverage.clear()
       if(accumulation)drawPhysical(tail.ready)
       else {drawStamps(tail.ready,false);coverage.endDraw();drawCeilings(tail.ready)}
       if (tail.preview.length) {
@@ -1150,6 +1243,10 @@ export class BrushBehaviorPainter {
         const source=execution?.brushSource?.clone
         if(!source)throw Error('Clone requires a recorded source')
         ;(this.clonePass??=new CloneBrushPass(gl)).paint(tile,bounds,coverage,scratch,target,source,dabs[0],brush.clone.moveSourcePoint,state.opacity)
+        continue
+      }
+      if(filter147){
+        this.filterSmudge147!.paint(brush,filterRequest!.state,filterRequest!.request,tile,bounds,coverage,1)
         continue
       }
       if(brush.filter){

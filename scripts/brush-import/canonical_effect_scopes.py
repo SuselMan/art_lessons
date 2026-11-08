@@ -1,0 +1,27 @@
+"""Portable-only closed source opt-ins; historical descriptors are untouched."""
+import math
+
+def _record(v):return isinstance(v,dict)
+def _number(v,lo,hi):return type(v)in(int,float)and math.isfinite(v)and lo<=v<=hi
+
+def validate_canonical_effect_scopes(d,depth=0):
+    deform=d.get('deform');f=d.get('filter')
+    if _record(deform)and 'sourcePolicy'in deform:
+        b=d.get('behavior');m=d.get('mixer');r=b.get('rendering')if _record(b)else None
+        if(depth or type(d.get('version'))is not int or d['version']!=145 or deform.get('sourcePolicy')!='canonical-begin-v1'
+           or set(deform)-{'version','sourcePolicy','mode','amount','counter','bilinear','density','jitter','baseScale'}or type(deform.get('version'))is not int or deform['version']!=1
+           or type(deform.get('mode'))is not int or not 1<=deform['mode']<=8 or any(not _number(deform.get(k),lo,hi)for k,lo,hi in(('amount',0,1),('density',0,1),('jitter',0,10),('baseScale',.01,10)))or any(type(deform.get(k))is not bool for k in('counter','bilinear'))
+           or d.get('model')!='mixer'or not _record(m)or m.get('source')!='previousCanvas'or any(k in m for k in('algorithm','sampling','foreground','paintThickness'))
+           or any(k in d for k in('experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet','clone','mypaint','tangentNormal','filter'))or not _number(d.get('paperInteraction'),0,0)
+           or not _record(b)or b.get('version')!=2 or any(k in b for k in('erase','dual','timing','wetMix','taper'))or not _record(r)or r.get('accumulation')!='directOver'or r.get('blendMode')!='normal'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)):
+            raise ValueError('Deform145 requires closed root canonical BEGIN scope')
+    if _record(f)and('smudgeMode'in f or 'sourcePolicy'in f):
+        b=d.get('behavior');m=d.get('mixer');t=d.get('tip');r=b.get('rendering')if _record(b)else None
+        kind=f.get('kind');keys={'version','kind','smudgeMode','sourcePolicy'}|({'type'}if kind=='desaturate'else{'steps'}if kind=='posterize'else set())
+        if(depth or type(d.get('version'))is not int or d['version']<147 or f.get('smudgeMode')is not True or f.get('sourcePolicy')!='canonical-begin-v1'or set(f)!=keys or type(f.get('version'))is not int or f['version']!=2 or kind not in('invert','desaturate','posterize')
+           or kind=='desaturate'and(type(f.get('type'))is not int or not 0<=f['type']<=5)or kind=='posterize'and(type(f.get('steps'))is not int or not 2<=f['steps']<=128)
+           or d.get('model')!='mixer'or not _record(m)or m.get('source')!='previousCanvas'or any(k in m for k in('algorithm','foreground','sampling','paintThickness'))
+           or any(k in d for k in('deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet','clone','mypaint','tangentNormal'))or not _number(d.get('paperInteraction'),0,0)
+           or not _record(t)or not(t.get('kind')=='round'and 'profile'not in t or t.get('kind')=='procedural'and _record(t.get('profile'))and t['profile'].get('kind')=='standard'and t['profile'].get('shape')=='ellipse')or any(k in t for k in('animation','color','material','imageSampling','autoShape','autoNoise'))
+           or not _record(b)or b.get('version')!=2 or b.get('erase')is True or any(k in b for k in('dual','timing','wetMix','taper','scatter','colorAdjustment'))or not _record(r)or r.get('accumulation')!='directOver'or r.get('blendMode')!='normal'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)):
+            raise ValueError('Filter smudge147 requires closed root pointwise canonical BEGIN scope')

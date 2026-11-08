@@ -27,6 +27,30 @@ def inverse_cdf(pdf, upper=1):
     return out
 
 
+def spray_source146_scope(d):
+    """New root-only source policy; ordinary schema/resource validation is separate."""
+    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<146 or d.get('model')!='stamp':return False
+    s,t,b=d.get('spray'),d.get('tip'),d.get('behavior')
+    if not all(isinstance(x,dict)for x in(s,t,b)):return False
+    c,p,r=s.get('color'),s.get('particle'),b.get('rendering')
+    if not all(isinstance(x,dict)for x in(c,p,r)):return False
+    if c.get('sourcePolicy')!='canonical-begin-v1'or c.get('sampleInput')is not True or 'image'in p or type(d.get('paperInteraction'))not in(int,float)or d.get('paperInteraction')!=0:return False
+    if any(k in d for k in('mixer','wet','texture','scatter','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
+    if b.get('version')!=2 or b.get('erase')is True or any(k in b for k in('dual','taper','edgeBleed','wetMix','grain'))or r.get('blendMode')!='normal'or r.get('accumulation')!='directOver'or type(r.get('wetEdges',0))not in(int,float)or r.get('wetEdges',0)!=0 or type(r.get('burntEdges',0))not in(int,float)or r.get('burntEdges',0)!=0:return False
+    if any(k in t for k in('material','color','imageSampling','autoShape','autoNoise'))or p.get('shape')=='tip'and 'profile'in t:return False
+    return True
+
+
+def validate_spray_source146(d,depth=0):
+    s=d.get('spray')if isinstance(d,dict)else None
+    c=s.get('color')if isinstance(s,dict)else None
+    if not isinstance(c,dict)or 'sourcePolicy'not in c:return
+    if depth or not spray_source146_scope(d):raise ValueError('Spray146 requires its closed root canonical BEGIN source')
+    from spray_wash133 import _spray133_metadata
+    normalized=dict(s);normalized['color']={k:v for k,v in c.items()if k not in('sourcePolicy','sampleInput','mixBackground','fillBackground')}
+    if any(k in c and c[k]is not True for k in('sampleInput','mixBackground','fillBackground'))or not _spray133_metadata(normalized):raise ValueError('Invalid Spray146 metadata')
+
+
 def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     from krita_import import preset, enabled, numeric, xml, native_transfer
     def number(key,default,lo,hi):
@@ -135,13 +159,20 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         from spray_wash133 import spray_wash133_scope
         d['version']=max(d['version'],133);behavior['rendering']['accumulation']='alphaDarken'
         if not spray_wash133_scope(d):raise ValueError('Spray Wash133 combination is outside the closed root scope')
+    if source_flags.get('sampleInput') and not image_shape:
+        # New imports opt in only after the complete closed root exists.
+        # Other formerly supported combinations retain their historical policy.
+        previous_version=d['version'];spray['color']['sourcePolicy']='canonical-begin-v1';d['version']=max(146,previous_version)
+        if not spray_source146_scope(d):
+            spray['color'].pop('sourcePolicy');d['version']=previous_version
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
     if behavior['rendering']['accumulation']=='alphaDarken':result['compatibility'].append(compatibility('sprayWash','Particles OVER into one logical request image, then creamy alpha-darken into stroke-owned coverage; captured stroke opacity composites once. Bounded tile-region scratch preserves large clouds and image-pipe colours. Native ICC/RNG/U8 identity is not claimed.','approximate'))
     if image_shape:result['compatibility'].append(compatibility('sprayImageParticle','Captured resource RGB/alpha, independent particle dimensions, centred rotation and per-particle HSV/opacity retained. Native Qt initial resize and smooth transformed-image filtering differ from canonical GPU filtering.','approximate'))
     if image_shape and params.get('SprayShape/imageUrl','').lower().endswith('.svg'):result['compatibility'].append(compatibility('capturedSvgImage','Captured bounded SVG subset rasterized to explicit RGBA pixel dimensions with librsvg. Fonts/external images/filters/use are rejected; Qt SVG plugin/ICC/filtering byte identity is not claimed.'))
-    if source_flags and not image_shape:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
+    if source_flags.get('sampleInput') and not image_shape and spray['color'].get('sourcePolicy') is None:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
+    if spray['color'].get('sourcePolicy'):result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour uses the verified canonical stroke-BEGIN layer with fixed source membership; request RNG, particle order and recorded background remain unchanged. Native ICC/concurrent-layer byte identity is not claimed.','approximate'))
     if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
     if source_randomness and not d['tip'].get('autoNoise'):result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']

@@ -1,6 +1,9 @@
+import{CanonicalBeginSource}from'./CanonicalBeginSource'
+import{canonicalBeginBindingKey,type CanonicalBeginRuntime,type CanonicalBeginBinding,type CanonicalBeginOwnerInfo,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginResult}from'./CanonicalBeginRuntime'
+import{hasDeformOldData145Scope}from'@grafetto/shared'
 import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
 import{hasGridWash137Scope,hasGridBeginIdentity137}from'@grafetto/shared'
-import{GridWashOwner,GridWashBudget,gridGestureKey137,isGridRenderableDab137,gridGeometryNotReady,gridNotReady,gridCapacity,gridDestinationPlan,type GridBounds,type GridWashRuntime,type GridWashBinding,type GridBeginResult,type GridDestinationPinsResult,type GridWashPrepareResult,type GridWashPaintResult,type GridWashOwnerInfo,type BorrowedGridWash}from'./GridWashRuntime'
+import{GridWashOwner,GridWashBudget,gridGestureKey137,isGridRenderableDab137,gridGeometryNotReady,gridNotReady,gridCapacity,gridDestinationPlan,type GridBounds,type GridWashRuntime,type GridWashNotReady,type GridWashBinding,type GridBeginResult,type GridDestinationPinsResult,type GridWashPrepareResult,type GridWashPaintResult,type GridWashOwnerInfo,type BorrowedGridWash}from'./GridWashRuntime'
 import{sprayWashRegions}from'../presets/sprayWash133'
 import {textureEraseId} from '../presets/brushTextureErase'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
@@ -64,7 +67,7 @@ import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeLegacy
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
-interface WetGesture extends WetMixState { gridWash?:GridWashOwner; behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
+interface WetGesture extends WetMixState { deformSource?:CanonicalBeginSource; gridWash?:GridWashOwner; behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
 type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveVisible?:ILayerBuffer['resolveVisible'];resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
 interface WetStamp { gradientLut?:string;foregroundAlpha?:number; projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
@@ -124,6 +127,7 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:'deformOld145'):CanonicalBeginResult
   openGridBegin?(target:ILayerBuffer,binding:GridWashBinding):GridBeginResult
   pinGridDestinations?(target:ILayerBuffer,binding:GridWashBinding,tiles:readonly PaintTarget[]):GridDestinationPinsResult
   assertGridWashPrepared?():void
@@ -309,6 +313,7 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.sprayLeaseEpoch.live=false;this.sprayLeaseEpoch.lost=true
     this.effectBatch?.reset()
     this.gridBatch?.reset()
     this.projectionSampler.forget()
@@ -370,6 +375,7 @@ export class SmudgePainter {
 
   /** Release a presentation-only owner without touching a newer gesture. */
   releaseGesture(userId: string, strokeId: string, lost: boolean): void {
+    this.finishDeformIdentity(userId,strokeId)
     this.finishGridIdentity(userId,strokeId,lost)
     const imprint = this.imprints.get(userId)
     if (imprint?.strokeId === strokeId) {
@@ -387,7 +393,7 @@ export class SmudgePainter {
    * rather than a canonical strokeId. A stale end cannot free a newer owner.
    */
   finishGesture(userId: string, strokeId: string | null): void {
-    if(strokeId!==null)this.finishGridIdentity(userId,strokeId,false)
+    if(strokeId!==null){this.finishDeformIdentity(userId,strokeId);this.finishGridIdentity(userId,strokeId,false)}
     const imprint = this.imprints.get(userId)
     if (!imprint || imprint.strokeId !== strokeId) return
     this.finishSecondary(userId)
@@ -426,8 +432,16 @@ export class SmudgePainter {
      *  loaded with and how it lays it down. Absent for the smudge tool. */
     paint?: MixerPaint,
     execution?: BrushExecutionContext,
-    gridRuntime?:GridWashRuntime,
+    gridRuntime?:CanonicalBeginRuntime,
   ): GridWashPaintResult|void {
+    if(paint?.brush?.deform?.sourcePolicy!==undefined){
+      if(!hasDeformOldData145Scope(paint.brush))throw Error('Invalid Deform145 scope')
+      assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
+      if(target instanceof AccumulationBuffer)throw Error('Deform145 requires its ordinary layer')
+      if(!gridRuntime||gridRuntime.capability!=='deformOld145')return{...gridNotReady({prefixKey:'missing-host'}as GridWashBinding,'prefix'),acceptedDabs:0}
+      if(strokeId!==undefined&&strokeId!==gridRuntime.binding.strokeId)throw Error('Deform145 stroke identity mismatch')
+      return this.paintDeformOld(target,dabs,userId,paint,execution,gridRuntime)
+    }
     if(paint?.brush?.grid&&(paint.brush.grid.sourcePolicy!==undefined||(paint.brush.version>=137&&paint.brush.behavior?.rendering?.accumulation==='alphaDarken'))){
       if(!hasGridWash137Scope(paint.brush))throw Error('Invalid Grid Wash137 scope')
       assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
@@ -504,7 +518,7 @@ export class SmudgePainter {
       const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
       try{
         for(const value of this.imprints.values())if(value.buf)attempt(()=>this.releaseScratch(value.buf!))
-        for(const value of this.wetGestures.values()){if(value.gridWash)attempt(()=>this.retireGridState(value));if(value.secondary)attempt(()=>value.secondary!.destroy())}
+        for(const value of this.wetGestures.values()){if(value.gridWash||value.deformSource)attempt(()=>this.retireGridState(value));if(value.secondary)attempt(()=>value.secondary!.destroy())}
       }finally{
         this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
         for(const [key,value]of imprints)this.imprints.set(key,value)
@@ -595,20 +609,49 @@ export class SmudgePainter {
 
   /** One bounded source image before the first cell write; never GPU readback.
    * Source dependencies/replay ordering are the common canvas mixer contract. */
-  private paintDeformDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
+  private paintDeformDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState,frozen?:CanonicalBeginSource):void{
     const brush=paint.brush!,g=brush.deform!,motion=state.deform??={counter:1}
     for(const stamp of behaviorStampsForDab(brush,dab,state,paint.color)){
       const request=deformRequest(g,dab,stamp,paint.sizeMultiplier,motion,state.seed)
       if(!request)continue
       const size=Math.min(512,request.span),source=this.acquireScratch(size)
       try{
-        this.gatherPatch(source,target.resolveForRead?.(request.source)??target.resolveVisible?.(request.source)??target.resolveForPaint(request.source),request.source,size,request.span)
+        frozen?.assertCurrent();this.gatherPatch(source,frozen?[...frozen.resolveForRead(request.source)]:target.resolveForRead?.(request.source)??target.resolveVisible?.(request.source)??target.resolveForPaint(request.source),request.source,size,request.span)
         const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity*stamp.opacityScale,0,1)
         const batch=this.effectBatch??=new CanvasEffectBatch(this.gl)
         for(const tile of target.resolveForPaint(request.bounds))batch.paint(request,tile.buffer,tile.originX,tile.originY,source,opacity,!!brush.mixer?.smearAlpha)
         target.markContentPainted(request.bounds)
       }finally{this.releaseScratch(source)}
     }
+  }
+
+  /** Shared with Grid/Spray; admission happens before any source pool call. */
+  reserveCanonicalBeginSource(binding:CanonicalBeginBinding,bytes:number):(()=>void)|GridWashNotReady{return this.gridBudget.reserve(bytes)??gridCapacity(binding,this.gridBudget,bytes)}
+  private deformKey(binding:CanonicalBeginBinding):string{return'deform145:'+gridGestureKey137(binding)}
+  activeDeformOwners(target?:ILayerBuffer):readonly CanonicalBeginOwnerInfo[]{return[...this.wetGestures.values()].flatMap(s=>s.deformSource&&(!target||s.deformSource.target===target)?[{target:s.deformSource.target,binding:s.deformSource.binding,capability:'deformOld145' as const}]:[])}
+  hasDeformBinding(target:ILayerBuffer,binding:CanonicalBeginBinding):boolean{const source=this.wetGestures.get(this.deformKey(binding))?.deformSource;return!!source&&source.target===target&&canonicalBeginBindingKey(source.binding)===canonicalBeginBindingKey(binding)}
+  invalidateDeformOwners(target:ILayerBuffer,_reason:string):void{let failed=false,first:unknown;for(const[key,s]of this.wetGestures){if(s.deformSource?.target!==target)continue;this.wetGestures.delete(key);try{this.retireGridState(s)}catch(e){if(!failed){failed=true;first=e}}}if(failed)throw first}
+  private finishDeformIdentity(userId:string,strokeId:string):void{let failed=false,first:unknown;for(const[key,s]of this.wetGestures){const b=s.deformSource?.binding;if(!b||b.userId!==userId||b.strokeId!==strokeId)continue;this.wetGestures.delete(key);try{this.retireGridState(s)}catch(e){if(!failed){failed=true;first=e}}}if(failed)throw first}
+  prepareDeformGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):CanonicalBeginPrepareResult{
+    if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
+    const brush=paint.brush,binding=runtime.binding
+    if(!brush||!hasDeformOldData145Scope(brush)||runtime.capability!=='deformOld145'||binding.userId!==userId||!binding.layerId||!binding.strokeId||!binding.prefixKey)throw Error('Invalid Deform145 BEGIN')
+    assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,[firstDab])
+    const key=this.deformKey(binding),prior=this.wetGestures.get(key)
+    if(prior?.deformSource){if(!this.hasDeformBinding(target,binding))return gridNotReady(binding,'prefix');assertSameBrushExecutionContext(prior.behavior.execution,execution);prior.deformSource.assertCurrent();return{kind:'ready'}}
+    if(!this.effectBatch)throw Error('Deform145 effect was not prepared');this.effectBatch.assertPrepared()
+    if(!this.ctx.openCanonicalBegin)return gridNotReady(binding,'context')
+    const opened=this.ctx.openCanonicalBegin(target,binding,'deformOld145');if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.leaseSprayScratch(w,h),bytes=>this.reserveCanonicalBeginSource(binding,bytes+512*512*4),()=>this.ctx.gridResourcesReleased?.(),'deformOld145')
+    if(captured.kind==='notReady')return captured
+    try{this.wetGestures.set(key,{charge:1,behavior:beginBrushBehavior(firstDab,execution),deformSource:captured.owner});return{kind:'ready'}}catch(error){try{captured.owner.release()}catch{/* preserve primary, including undefined */}throw error}
+  }
+  private paintDeformOld(target:ILayerBuffer,dabs:readonly Dab[],userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):CanonicalBeginPaintResult{
+    const first=dabs.find(isGridRenderableDab137);if(!first)return{kind:'painted',acceptedDabs:dabs.length}
+    const ready=this.prepareDeformGesture(target,first,userId,paint,execution,runtime);if(ready.kind==='notReady')return{...ready,acceptedDabs:0}
+    const state=this.wetGestures.get(this.deformKey(runtime.binding))!,source=state.deformSource!;source.assertCurrent()
+    for(const dab of dabs){if(!isGridRenderableDab137(dab))continue;this.paintDeformDab(target,dab,paint,state.behavior,source);state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1}
+    return{kind:'painted',acceptedDabs:dabs.length}
   }
 
   /** Same map across chunks; the budget counter remains shared during isolated-map swaps. */
@@ -631,10 +674,11 @@ export class SmudgePainter {
     if(failed)throw first
   }
   private retireGridState(state:WetGesture,lost=false):void{
-    const owner=state.gridWash;if(!owner)return;state.gridWash=undefined
+    const deform=state.deformSource,owner=state.gridWash;state.deformSource=undefined;state.gridWash=undefined
     let failed=false,first:unknown
-    try{owner.retire(lost)}catch(error){failed=true;first=error}
-    try{this.ctx.gridResourcesReleased?.()}catch(error){if(!failed){failed=true;first=error}}
+    try{deform?.release()}catch(error){failed=true;first=error}
+    if(owner){try{owner.retire(lost)}catch(error){if(!failed){failed=true;first=error}}
+    try{this.ctx.gridResourcesReleased?.()}catch(error){if(!failed){failed=true;first=error}}}
     if(failed)throw first
   }
   prepareGridDestinationMutation(target:ILayerBuffer):void{

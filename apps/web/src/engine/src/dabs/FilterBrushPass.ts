@@ -1,3 +1,4 @@
+import{FILTER_POINTWISE_GLSL}from'./filterPointwise'
 import{isPosterizeBrushFilter,type BrushFilter}from'@grafetto/shared'
 import{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer,PaintTarget}from'../buffers/ILayerBuffer'
@@ -9,14 +10,9 @@ import{filterKernel,filterReach}from'../presets/brushFilter'
 const VERT=`attribute vec2 a_position;uniform vec2 u_resolution;uniform vec4 u_rect;void main(){vec2 p=(u_rect.xy+(a_position*.5+.5)*u_rect.zw)/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
 const BLUR=`precision highp float;uniform sampler2D u_source;uniform vec2 u_resolution;uniform vec2 u_step;uniform float u_weights[37];void main(){vec2 uv=gl_FragCoord.xy/u_resolution;vec4 v=vec4(0.);for(int i=0;i<37;i++)if(u_weights[i]>0.)v+=texture2D(u_source,uv+float(i-18)*u_step)*u_weights[i];gl_FragColor=v;}`
 const COMPOSITE=`precision highp float;uniform sampler2D u_original;uniform sampler2D u_mask;uniform sampler2D u_filtered;uniform vec2 u_resolution;uniform vec3 u_patch;uniform vec4 u_filter;
-// Positive integer trial quotient corrected by exact residual; every product
-// is <=255*65535 <2^24, including captured PMA-byte unpremultiplication.
-float p117floor(float n,float d){float q=floor(n/d),r=n-q*d;return r<0.?q-1.:(r>=d?q+1.:q);}
-float p117nearest(float n,float d){float q=p117floor(n,d),r=n-q*d;return q+(2.*r>=d?1.:0.);}
-float p117channel(float u,float m,float h){float q=p117floor(u,m),r=u-q*m;return q*m+(r>h?m:0.);}
-vec4 p117posterize(vec4 original,float steps){vec4 bytes=floor(clamp(original,0.,1.)*255.+.5);float a=bytes.a,m=p117floor(65535.,steps),h=floor(m*.5);vec3 u=a>0.?vec3(p117nearest(bytes.r*65535.,a),p117nearest(bytes.g*65535.,a),p117nearest(bytes.b*65535.,a)):vec3(0.);vec4 q=vec4(p117channel(u.r,m,h),p117channel(u.g,m,h),p117channel(u.b,m,h),p117channel(a*257.,m,h))/65535.;return vec4(q.rgb*q.a,q.a);}
+${FILTER_POINTWISE_GLSL}
 vec3 straight(vec4 c){return c.a>0.?c.rgb/c.a:vec3(0.);}
-void main(){vec2 uv=gl_FragCoord.xy/u_resolution,pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);vec4 original=texture2D(u_original,uv);float mask=texture2D(u_mask,uv).a;vec4 filtered;if(u_filter.w>3.5){filtered=p117posterize(original,u_filter.x);}else if(u_filter.w>2.5){float lo=min(min(original.r,original.g),original.b),hi=max(max(original.r,original.g),original.b);float gray;if(u_filter.x<.5)gray=(lo+hi)*.5;else if(u_filter.x<1.5)gray=dot(original.rgb,vec3(.2126,.7152,.0722));else if(u_filter.x<2.5)gray=dot(original.rgb,vec3(.299,.587,.114));else if(u_filter.x<3.5)gray=(original.r+original.g+original.b)/3.;else if(u_filter.x<4.5)gray=lo;else gray=hi;filtered=vec4(vec3(gray),original.a);}else if(u_filter.w>1.5){filtered=vec4(original.aaa-original.rgb,original.a);}else{vec4 blur=texture2D(u_filtered,vec2((pixel.x-u_patch.x)/u_patch.z,1.-(pixel.y-u_patch.y)/u_patch.z));filtered=blur;
+void main(){vec2 uv=gl_FragCoord.xy/u_resolution,pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);vec4 original=texture2D(u_original,uv);float mask=texture2D(u_mask,uv).a;vec4 filtered;if(u_filter.w>1.5){filtered=filterPointwise(original,u_filter);}else{vec4 blur=texture2D(u_filtered,vec2((pixel.x-u_patch.x)/u_patch.z,1.-(pixel.y-u_patch.y)/u_patch.z));filtered=blur;
 if(u_filter.w>.5){vec3 a=straight(original),b=straight(blur),delta=a-b;float difference=max(max(abs(delta.r),abs(delta.g)),abs(delta.b));if(u_filter.z>.5){float l=dot(delta,vec3(.2126,.7152,.0722));delta=vec3(l);}filtered=vec4(clamp(a+(difference*255.>=u_filter.y?u_filter.x:0.)*delta,0.,1.)*original.a,original.a);}}gl_FragColor=mix(original,filtered,mask);}`
 /** Reuses the stroke's original tile images. No second stroke snapshot,
  * GPU readback or whole-layer filter; only dirty bounds plus kernel reach. */

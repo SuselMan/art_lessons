@@ -10,7 +10,7 @@ def deform_preset(data,root,params,name,catalog,external):
     if enabled(params.get('EraserMode')):raise ValueError('Deform eraser is unsupported')
     composite=params.get('CompositeOp','copy')
     if composite not in ('copy','normal'):raise ValueError('Unsupported Deform composition')
-    if enabled(params.get('Deform/useOldData')):raise ValueError('Deform frozen transaction source is unsupported')
+    old_data=enabled(params.get('Deform/useOldData'))
     if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Deform timed input is unsupported')
     def number(key,default,lo,hi):
         value=numeric(params.get(key),default)
@@ -38,8 +38,13 @@ def deform_preset(data,root,params,name,catalog,external):
     b=d['behavior'];b['spacing']={'mode':'diameter','coefficient':spacing,'isotropic':True}
     b['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
     d['deform']={'version':1,'mode':int(mode),'amount':number('Deform/deformAmount',.05,0,1),'counter':enabled(params.get('Deform/useCounter')),'bilinear':enabled(params.get('Deform/bilinear')),'density':min(1,number('Brush/density',1,0,100)),'jitter':number('Brush/jitterMovement',0,0,10)if enabled(params.get('Brush/jitterMovementEnabled'))else 0,'baseScale':scale}
+    if old_data:
+        d['version']=145
+        d['deform']['sourcePolicy']='canonical-begin-v1'
     result['sourceDefaults']={'sizePx':diameter*scale,'opacity':d['opacity'],'flow':1}
     note=compatibility('deform','Squared elliptical distance, Grow/Shrink, swirl, Move, lenses, colour displacement and COPY transparency retained. Current pre-request source only. Sampling capped at512px and2048 world pixels; singular/oversized requests skipped. Native rounding, density RNG and rotation details differ. Frozen transaction source and timers rejected.')
+    if old_data:
+        note=compatibility('deform','Frozen canonical stroke-BEGIN source. Current destination COPY/OVER remains per request. Sampling capped at512px and2048 world pixels; singular/oversized requests skipped. Native rounding, density RNG and rotation details remain functionally qualified; timers rejected.')
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ('kritaEngine','standardMaskProfile','autoSpacing')]+[note]
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)

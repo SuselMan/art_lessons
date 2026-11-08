@@ -1,3 +1,5 @@
+import type {CanonicalBeginSource} from './CanonicalBeginSource'
+import {hasSpraySource146Scope} from '@grafetto/shared'
 import type{RequestWashBatch}from'./RequestWashBatch'
 import{hasSprayWash133Scope}from'@grafetto/shared'
 import{advanceWashOpacity}from'../presets/brushWash'
@@ -30,19 +32,25 @@ export class SprayRequestPainter{
  private readonly batch:SpraySourceBatch
  private images?:SprayImageBatch
  private epoch={}
+ private sourcePrepared=false
  private readonly ctx:BrushContext
  private readonly acquire:(w:number,h:number)=>SprayScratchLease
  private readonly image:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView
  private readonly mask:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView|undefined
  constructor(ctx:BrushContext,acquire:(w:number,h:number)=>SprayScratchLease,image:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView,mask:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView|undefined){this.ctx=ctx;this.acquire=acquire;this.image=image;this.mask=mask;this.batch=new SpraySourceBatch(ctx.gl)}
- prepare(wash=false,kernel?:RequestWashBatch){if(wash)this.batch.prepare(true,kernel);else{(this.source??=new SpraySourceAtlas(this.ctx.gl)).prepare();this.batch.prepare();(this.images??=new SprayImageBatch(this.ctx.gl)).prepare()}}
+ prepare(wash=false,kernel?:RequestWashBatch){if(wash)this.batch.prepare(true,kernel);else{(this.source??=new SpraySourceAtlas(this.ctx.gl)).prepare();this.batch.prepare();(this.images??=new SprayImageBatch(this.ctx.gl)).prepare();this.sourcePrepared=true}}
+ assertSourcePrepared(){if(!this.sourcePrepared)throw Error('Spray146 source pipeline is not prepared')}
  assertWashPrepared(){this.batch.assertWashPrepared()}
- reset(){this.epoch={};this.source?.reset();this.batch.reset();this.images?.reset()}
- destroy(){this.epoch={};this.source?.destroy();this.batch.destroy();this.images?.destroy()}
- paint(target:TiledLayerBuffer,dabs:readonly Dab[],brush:BrushDescriptor,state:SprayRequestState,color:[number,number,number],pressure:BrushPressureSettings,sizeMultiplier:number,washOwner?:SprayWashOwner133){
+ reset(){this.sourcePrepared=false;this.epoch={};this.source?.reset();this.batch.reset();this.images?.reset()}
+ destroy(){this.sourcePrepared=false;this.epoch={};this.source?.destroy();this.batch.destroy();this.images?.destroy()}
+ paint(target:TiledLayerBuffer,dabs:readonly Dab[],brush:BrushDescriptor,state:SprayRequestState,color:[number,number,number],pressure:BrushPressureSettings,sizeMultiplier:number,washOwner?:SprayWashOwner133,source?:CanonicalBeginSource){
+  const canonical=brush.spray?.color.sourcePolicy!==undefined
+  if(canonical&&(!hasSpraySource146Scope(brush)||!source||source.capability!=='spray146'||source.target!==target))throw Error('Spray146 frozen source is missing')
+  if(canonical)this.assertSourcePrepared()
+  source?.assertCurrent()
   const wash=hasSprayWash133Scope(brush)
   if(wash){if(!washOwner)throw Error('Spray Wash requires its stroke owner');this.assertWashPrepared()}else if(washOwner)throw Error('Invalid Spray Wash scope')
-  const spray=brush.spray!,epoch=this.epoch,current=()=>{if(epoch!==this.epoch)throw Error('Spray request GL generation changed')}
+  const spray=brush.spray!,epoch=this.epoch,current=()=>{if(epoch!==this.epoch)throw Error('Spray request GL generation changed');source?.assertCurrent()}
   if(!wash&&brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior?.rendering?.blendMode!=='normal'||brush.texture||brush.paperInteraction||brush.tip.material||(spray.particle.shape==='tip'&&(brush.tip.imageSampling||brush.tip.profile||brush.tip.autoShape||brush.tip.autoNoise))||brush.behavior?.taper||brush.behavior?.edgeBleed||brush.behavior?.wetMix)throw Error('Spray source combination is not admitted')
   const dimensions=target.coarseWorldSize(1),bg=state.execution?.brushSource?.background
   if((spray.color.fillBackground||spray.color.mixBackground)&&!bg)throw Error('Spray requires recorded background')
@@ -73,7 +81,7 @@ export class SprayRequestPainter{
     const washBounds=wash?measureBounds():undefined
     const washTiles=washBounds&&Number.isFinite(washBounds.minX)?target.resolveForPaint(washBounds):undefined
     current()
-    if(spray.color.sampleInput&&!spray.particle.image&&stamps.length){const points=(spray.color.perParticle?stamps:[stamps[0]]).map(s=>({x:s.x,y:s.y}));atlas=(this.source??=new SpraySourceAtlas(this.ctx.gl)).collect(points,{cellWidth:dimensions.w,cellHeight:dimensions.h,assertCurrent:current,acquire:size=>this.acquire(size,size),resolveCells:rect=>target.resolveVisible(rect)})}
+    if(spray.color.sampleInput&&!spray.particle.image&&stamps.length){const points=(spray.color.perParticle?stamps:[stamps[0]]).map(s=>({x:s.x,y:s.y}));atlas=(this.source??=new SpraySourceAtlas(this.ctx.gl)).collect(points,{cellWidth:dimensions.w,cellHeight:dimensions.h,assertCurrent:current,acquire:size=>this.acquire(size,size),resolveCells:rect=>source?source.resolveForRead(rect):target.resolveVisible(rect)})}
     const views=stamps.map(s=>spray.particle.image?this.image(s,brush):this.mask(s,brush));for(const view of views)view?.assertCurrent()
     request=this.acquire(wash?Math.min(512,dimensions.w):dimensions.w,wash?Math.min(512,dimensions.h):dimensions.h);request.assertCurrent();current()
     if(wash&&(request.buffer.width>512||request.buffer.height>512))throw Error('Spray Wash lease exceeds512')

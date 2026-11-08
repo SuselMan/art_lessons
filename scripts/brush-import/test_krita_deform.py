@@ -12,6 +12,9 @@ class DeformTests(unittest.TestCase):
         d=result['descriptor'];self.assertEqual(d['version'],51);self.assertTrue(d['mixer']['smearAlpha']);self.assertEqual(d['deform']['density'],1);self.assertEqual(d['mixer']['source'],'previousCanvas')
     def test_normal_and_move(self):
         d=self.convert('<param name="Deform/deformAction">5</param>',mode='normal')['descriptor'];self.assertFalse(d['mixer']['smearAlpha']);self.assertEqual(d['deform']['mode'],5)
-    def test_old_data_and_bad_mode_rejected(self):
-        with self.assertRaisesRegex(ValueError,'transaction'):self.convert('<param name="Deform/useOldData">true</param>')
+    def test_old_data_is_explicit_version145_only(self):
+        d=self.convert('<param name="Deform/useOldData">true</param>')['descriptor']
+        self.assertEqual(d['version'],145);self.assertEqual(d['deform']['sourcePolicy'],'canonical-begin-v1');self.assertEqual(d['mixer']['source'],'previousCanvas')
+        current=self.convert('<param name="Deform/useOldData">false</param>')['descriptor'];self.assertEqual(current['version'],51);self.assertNotIn('sourcePolicy',current['deform'])
+    def test_bad_mode_rejected(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.convert('<param name="Deform/deformAction">1.5</param>')

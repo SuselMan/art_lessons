@@ -14,3 +14,8 @@ it('chunked first line keeps the original negative-world anchor and ignores zero
  expect(firstBristleLine139([zero,b],a)).toEqual({previous:a,current:b})
  expect(firstBristleLine139([] ,a)).toBeUndefined()
 })
+
+it('Deform, Spray and Filter capture on first positive logical dab, independently of the Soak first-line rule',()=>{
+ const positive=dab139(),zero={...positive,size:0}
+ for(const cap of ['deformOld145','spray146','filterSmudge147'] as const){expect(canonicalBeginRenderable139(cap,[zero])).toBe(false);expect(canonicalBeginRenderable139(cap,[zero,positive])).toBe(true);expect(canonicalBeginRenderable139(cap,[],positive)).toBe(false)}
+})

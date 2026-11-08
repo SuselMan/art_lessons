@@ -29,6 +29,6 @@ it('actual six-mode pass draws existing stroke-original only without source gath
  try{
   for(const type of[0,1,2,3,4,5]as const){pass.paint({version:2,kind:'desaturate',type},{buffer:tile,originX:-4,originY:8,contentRect:null},{minX:-3.5,minY:8.5,maxX:-.5,maxY:11.5},mask,{getOrCreate,noteBrushEdgePx:()=>0},{resolveVisible:resolve,resolveForPaint:resolve});expect(uniform.mock.calls.some(c=>JSON.stringify(c.slice(1))===JSON.stringify([type,0,0,3]))).toBe(true)}
   expect(draw).toHaveBeenCalledTimes(6);expect(getOrCreate).toHaveBeenCalledTimes(6);expect(resolve).not.toHaveBeenCalled();expect(textures).not.toHaveBeenCalled()
-  const shader=shaders.mock.calls.map(c=>c[1]).find(s=>s.includes('float gray;'))!;expect(shader).toContain('vec3(.2126,.7152,.0722)');expect(shader).toContain('vec3(.299,.587,.114)');expect(shader).toContain('filtered=vec4(vec3(gray),original.a)');expect(shader.match(/uniform sampler2D/g)).toHaveLength(3)
+  const shader=shaders.mock.calls.map(c=>c[1]).find(s=>s.includes('float gray;'))!;expect(shader).toContain('vec3(.2126,.7152,.0722)');expect(shader).toContain('vec3(.299,.587,.114)');expect(shader).toContain('return vec4(vec3(gray),original.a)');expect(shader.match(/uniform sampler2D/g)).toHaveLength(3)
  }finally{pass.destroy();tile.destroy();original.destroy();mask.destroy()}
 })

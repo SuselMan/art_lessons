@@ -25,7 +25,7 @@ it('actual pass uses existing original/mask only: no gather, new textures or blu
  try{for(const steps of[2,7,16,128])pass.paint({version:2,kind:'posterize',steps},{buffer:tile,originX:-4,originY:8,contentRect:null},{minX:-3.5,minY:8.5,maxX:-.5,maxY:11.5},mask,{getOrCreate,noteBrushEdgePx:()=>0},{resolveVisible:resolve,resolveForPaint:resolve})
  expect(draw).toHaveBeenCalledTimes(4);expect(getOrCreate).toHaveBeenCalledTimes(4);expect(resolve).not.toHaveBeenCalled();expect(textures).not.toHaveBeenCalled();expect(uniform.mock.calls.some(c=>JSON.stringify(c.slice(1))===JSON.stringify([16,0,0,4]))).toBe(true)
  const shader=shaders.mock.calls.map(c=>c[1]).find(s=>s.includes('p117posterize'))!;expect(shader).toContain('r>h?m:0.');expect(shader).toContain('q.rgb*q.a');expect(shader).toContain('p117channel(a*257.,m,h)');expect(shader).toContain('r<0.?q-1.:(r>=d?q+1.:q)');expect(shader).not.toContain('steps-1');expect(shader.match(/uniform sampler2D/g)).toHaveLength(3)
- expect(shader).toContain('filtered=vec4(original.aaa-original.rgb,original.a)');expect(shader).toContain('filtered=vec4(vec3(gray),original.a)');expect(shader).toContain('gl_FragColor=mix(original,filtered,mask)')
+ expect(shader).toContain('return vec4(original.aaa-original.rgb,original.a)');expect(shader).toContain('return vec4(vec3(gray),original.a)');expect(shader).toContain('gl_FragColor=mix(original,filtered,mask)')
  }finally{pass.destroy();tile.destroy();original.destroy();mask.destroy()}
 })
 it('low-level invalid117 shape fails before compile, textures, original snapshot or any target access',()=>{

@@ -21,6 +21,7 @@ export class CanvasEffectBatch{
  private quad?:WebGLBuffer
  private noise?:WebGLTexture
  constructor(gl:WebGLRenderingContext){this.gl=gl}
+ assertPrepared():void{if(!this.program||!this.quad||!this.noise)throw Error('Canvas effect is not prepared')}
  reset():void{this.program=undefined;this.quad=undefined;this.noise=undefined}
  destroy():void{const gl=this.gl;if(this.program)gl.deleteProgram(this.program);if(this.quad)gl.deleteBuffer(this.quad);if(this.noise)gl.deleteTexture(this.noise);this.reset()}
  prepare():void{

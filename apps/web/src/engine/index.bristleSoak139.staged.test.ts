@@ -15,7 +15,7 @@ it('successful SAME-owner transfer is not double-freed; loss forgets only untran
 
 it('source notReady returns zero accepted INPUT prefix before raster and preserves previously accepted scratch state',()=>{
  const previous={x:-4,y:0},state={bristle:{ordinal:7,previous}},scratch={brushBehavior:state},notReady={kind:'notReady',reason:'prefix',retryKey:'changed-prefix'}
- const paint=vi.fn(),host={_replayRibbonChunks:new Map(),_brush:{bristleSoakBinding:()=>({prefixKey:'accepted-A'})},_gridBinding:vi.fn(()=>notReady),_paintRibbonDabs:paint}
+ const paint=vi.fn(),host={_beginCapability:()=>'bristleSoak139',_replayRibbonChunks:new Map(),_brush:{bristleSoakBinding:()=>({prefixKey:'accepted-A'})},_gridBinding:vi.fn(()=>notReady),_paintRibbonDabs:paint}
  const d={x:4,y:0,size:12,pressure:.5,opacity:.5,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:1}
  const result=Reflect.apply(PencilEngine.prototype['_paintSoak139'],host,[{},[d],'u','stroke-A','brush:own139@139',[1,0,0],undefined,undefined,scratch])
  expect(result).toEqual({...notReady,acceptedDabs:0});expect(paint).not.toHaveBeenCalled();expect(scratch.brushBehavior).toBe(state);expect(state.bristle.ordinal).toBe(7)

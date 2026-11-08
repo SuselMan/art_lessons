@@ -19,11 +19,12 @@ import{isMyPaintDescriptor,type BrushMyPaint}from'./brushMyPaint.js'
 export type{BrushMyPaint}from'./brushMyPaint.js'
 import{isCloneDescriptor,type BrushClone}from'./brushClone.js'
 export type{BrushClone}from'./brushClone.js'
-import{isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
+import{hasFilterSmudge147Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
-export{isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
-import{isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
+export{hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
+import{hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
+export{hasDeformOldData145Scope}from'./brushDeform.js'
 import{isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
 export type{BrushExperiment}from'./brushExperiment.js'
 import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
@@ -39,9 +40,9 @@ import {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleInitializationSc
 export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup,BrushBristleSoak,BrushBristleInitialization} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
-import { hasSprayWash133Scope,isBrushSpray, type BrushSpray } from './brushSpray.js'
+import { hasSpraySource146Scope,hasSprayWash133Scope,isBrushSpray, type BrushSpray } from './brushSpray.js'
 export type { BrushSpray } from './brushSpray.js'
-export {hasSprayWash133Scope,isBrushSpray} from './brushSpray.js'
+export {hasSpraySource146Scope,hasSprayWash133Scope,isBrushSpray} from './brushSpray.js'
 import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
@@ -468,6 +469,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if(d.tip.autoShape!==undefined&&(!record(d.tip.autoShape)||Object.keys(d.tip.autoShape).some(k=>!['version','spikes'].includes(k))||d.tip.autoShape.version!==1||!numberIn(d.tip.autoShape.spikes,3,20)||!Number.isInteger(d.tip.autoShape.spikes)||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(record(d.behavior)&&d.behavior.mirror!==undefined&&(['sketch','bristle','curveTrace','particle','grid','experiment','deform','mypaint'].some(k=>d[k]!==undefined)||d.hatching!==undefined&&Number(d.version)<94))return false
+    // New canonical source policies require their complete root scope. Schema
+    // validators alone cannot establish an operation-owned BEGIN capability.
+    if(record(d.spray)&&record(d.spray.color)&&d.spray.color.sourcePolicy!==undefined&&!hasSpraySource146Scope(d))return false
+    if(record(d.deform)&&d.deform.sourcePolicy!==undefined&&!hasDeformOldData145Scope(d))return false
+    if(record(d.filter)&&(d.filter.smudgeMode!==undefined||d.filter.sourcePolicy!==undefined)&&!hasFilterSmudge147Scope(d))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
@@ -751,6 +757,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.spray?.color.sourcePolicy!==undefined||secondary.deform?.sourcePolicy!==undefined||secondary.filter&&('smudgeMode'in secondary.filter||'sourcePolicy'in secondary.filter))return false
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.bristle?.version===1&&secondary.bristle.initialization!==undefined)return false

@@ -18,7 +18,7 @@ class FilterInvert95Tests(unittest.TestCase):
                 self.assertEqual(result['descriptor']['version'],95);self.assertEqual(result['descriptor']['filter'],{'version':2,'kind':'invert'})
         self.assertEqual(baseline['descriptor']['mixer']['source'],'previousCanvas')
     def test_existing_safety_guards_not_relaxed(self):
-        for key,value in [('Filter/smudgeMode','true'),('EraserMode','true'),('PaintOpSettings/isAirbrushing','true')]:
+        for key,value in [('EraserMode','true'),('PaintOpSettings/isAirbrushing','true')]:
             with self.subTest(key=key),self.assertRaises(ValueError):self.convert(extra='<param name="'+key+'">'+value+'</param>')
     def test_portable_preserves_exact_descriptor(self):
         result=self.convert();library={'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]}

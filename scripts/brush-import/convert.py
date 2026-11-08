@@ -567,8 +567,12 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_bristle_wash135(descriptor,parent)
     from particle_wash134 import validate_particle_wash134
     validate_particle_wash134(descriptor,parent)
+    from canonical_effect_scopes import validate_canonical_effect_scopes
+    validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     from spray_wash133 import validate_spray_wash133
     validate_spray_wash133(descriptor)
+    from krita_spray import validate_spray_source146
+    validate_spray_source146(descriptor)
     from child_clock132 import validate_child_clock132_profile
     validate_child_clock132_profile(descriptor,parent)
     tip=descriptor['tip']
@@ -580,6 +584,10 @@ def validate_portable_profile(descriptor, *, parent=None):
         if isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
         if isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
     filter_config=descriptor.get('filter')
+    if isinstance(filter_config,dict)and filter_config.get('smudgeMode')is True:
+        # The complete new147 scope was validated above. Reuse unchanged
+        # legacy pointwise config checks after stripping ONLY its two markers.
+        filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy')}
     if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate','posterize') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
         desaturate=filter_config.get('kind')=='desaturate';posterize=filter_config.get('kind')=='posterize'
@@ -743,8 +751,12 @@ def portable_bundle(path,catalog):
         if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']
         validate_portable_profile(d,parent=parent)
+        from canonical_effect_scopes import validate_canonical_effect_scopes
+        validate_canonical_effect_scopes(d,depth)
         from spray_wash133 import validate_spray_wash133
         validate_spray_wash133(d,depth)
+        from krita_spray import validate_spray_source146
+        validate_spray_source146(d,depth)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate','posterize'):raise ValueError('Portable Posterize filter is root-only'if d['filter'].get('kind')=='posterize'else'Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
         if d.get('sketch',{}).get('mode')=='mask':
             dims=d['sketch']['maskSize'];w,h=dims;longest=max(dims);side=2**math.ceil(math.log2(max(2,longest)))

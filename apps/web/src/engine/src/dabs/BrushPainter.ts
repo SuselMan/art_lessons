@@ -4,7 +4,7 @@ import {bristleSoakPoints139} from '../presets/bristleSoak139'
 import {buildBristleInitialization140,assertBristleInitializationSize140,assertBristleSource143Ready} from '../presets/bristleInitialization140'
 import {createBristleInkState} from '../presets/brushBristleInk'
 import {beginBrushBehavior} from '../presets/brushBehavior'
-import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
+import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginNotReady,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
 import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
@@ -41,6 +41,8 @@ import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
 export interface BrushContext {
+  canonicalResourcesReleased?():void
+  reserveCanonicalBeginSource?(binding:CanonicalBeginBinding,bytes:number):(()=>void)|CanonicalBeginNotReady
   openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:CanonicalBeginCapability):CanonicalBeginResult
   readonly gl: WebGLRenderingContext
   acquireSprayScratch?(width:number,height:number):SprayScratchLease
@@ -185,13 +187,20 @@ export class BrushPainter {
       if(valid.length)this.behavior.paint(target,valid,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution)
       return{kind:'painted',acceptedDabs:dabs.length}
     }
-    this.behavior.paint(target,dabs,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution)
+    this.behavior.paint(target,dabs,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution,!!brush.behavior?.erase,runtime)
   }
   prepareBristleSoak(brush:BrushDescriptor):void {
     if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2)throw Error('Invalid Bristle Soak139 scope')
     this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)
     ;(this.soakGather??=new BristleSoakGather139(this.ctx.gl)).prepare()
   }
+  prepareFilterSmudge147():void{this.behavior.prepareFilterSmudge147()}
+  prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{return this.behavior.prepareFilterBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
+  filterBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.filterBeginBinding(scratch)}
+  invalidateFilterBegin(scratch:BehaviorScratch):void{this.behavior.invalidateFilterBegin(scratch)}
+  prepareSprayBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{return this.behavior.prepareSprayBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
+  sprayBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.sprayBeginBinding(scratch)}
+  invalidateSprayBegin(scratch:BehaviorScratch):void{this.behavior.invalidateSprayBegin(scratch)}
   bristleSoakBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.brushBehavior?.bristle?.soak?.binding}
   invalidateBristleSoak(scratch:BehaviorScratch):void {if(this.bristleSoakBinding(scratch))scratch.brushBehavior=undefined}
   prepareBristleSoakGesture(target:ILayerBuffer,line:BristleFirstLine139,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
