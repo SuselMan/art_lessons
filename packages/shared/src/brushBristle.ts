@@ -85,8 +85,29 @@ function isBristleSoak139(value:unknown,hairs:unknown):value is BrushBristleSoak
  return Object.keys(s).length===2&&s.sourcePolicy==='canonical-begin-v1'&&typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256
  &&Array.isArray(hairs)&&hairs.length>0&&hairs.length<=4096&&hairs.every(h=>Array.isArray(h)&&h.length===3&&h.slice(0,2).every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v*n-Math.round(v*n))<=1e-9&&Math.round(v*n)>=-Math.floor(n/2)&&Math.round(v*n)<=n-1-Math.floor(n/2)))
 }
-/** Staged descriptor capability. Canonical source host + palette consumer required. */
+const immutableSoakScopes=new WeakSet<object>()
+/** Imported canonical descriptors are frozen recursively. A shallow freeze or
+ * accessor cannot authorize caching: its nested/effective values may change. */
+function immutableSoakData(value:unknown,seen=new WeakSet<object>()):boolean {
+ if(value===null||typeof value!=='object')return typeof value!=='function'
+ if(seen.has(value))return true
+ const prototype=Object.getPrototypeOf(value)
+ if(!Object.isFrozen(value)||(prototype!==Object.prototype&&prototype!==Array.prototype&&prototype!==null))return false
+ seen.add(value)
+ for(const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))){
+  if(!('value'in descriptor)||!immutableSoakData(descriptor.value,seen))return false
+ }
+ return true
+}
+/** Staged descriptor capability. Canonical source host + palette consumer required.
+ * Mutable external descriptors retain full validation on every call. */
 export function hasBristleSoak139Scope(value:unknown):boolean {
+ if(value!==null&&typeof value==='object'&&immutableSoakScopes.has(value))return true
+ const valid=hasBristleSoak139ScopeUncached(value)
+ if(valid&&value!==null&&typeof value==='object'&&immutableSoakData(value))immutableSoakScopes.add(value)
+ return valid
+}
+function hasBristleSoak139ScopeUncached(value:unknown):boolean {
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  if(!obj(value)||!isBrushBristle(value.bristle)||value.bristle.version!==2||value.bristle.soak===undefined||!obj(value.tip)||!obj(value.behavior))return false
