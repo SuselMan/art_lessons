@@ -436,6 +436,13 @@ void main() {
 
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
+/** One opt-in composite family; historical shader literals stay byte-identical. */
+export function createBrushCompositeFragment(extendedBlend=false):string {
+  if(!extendedBlend)return BRUSH_COMPOSITE_FRAG
+  const extended=BRUSH_BLEND_GLSL.replace('  return brushSetLum(b,brushLum(s));','  if(mode>25.5) return vec3(b.r+s.r>1.0?1.0:0.0,b.g+s.g>1.0?1.0:0.0,b.b+s.b>1.0?1.0:0.0);\n  return brushSetLum(b,brushLum(s));')
+  return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
+}
+
 export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false): string {
   if(filteredGradient&&!autoNoise)throw Error('Filtered gradient requires the private effects capability')
   if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')

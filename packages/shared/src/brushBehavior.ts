@@ -2,7 +2,7 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 /** Shared brush behavior schema; built-in defaults are normalized by the engine. */
 import type { BrushDescriptor } from './brushes.js'
 
-export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
+export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity' | 'hardMixPhotoshop'
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time' | 'distance'
 export interface BrushDynamic {
   /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
@@ -97,7 +97,7 @@ export interface BrushImportJob {
   error?: string
 }
 
-export const BRUSH_BLEND_MODES: readonly BrushBlendMode[] = ['normal','multiply','screen','overlay','darken','lighten','colorBurn','linearBurn','colorDodge','add','subtract','difference','exclusion','softLight','hardLight','divide','linearLight','vividLight','pinLight','hardMix','darkerColor','lighterColor','hue','saturation','color','luminosity']
+export const BRUSH_BLEND_MODES: readonly BrushBlendMode[] = ['normal','multiply','screen','overlay','darken','lighten','colorBurn','linearBurn','colorDodge','add','subtract','difference','exclusion','softLight','hardLight','divide','linearLight','vividLight','pinLight','hardMix','darkerColor','lighterColor','hue','saturation','color','luminosity','hardMixPhotoshop']
 
 /** Fail closed, including unknown keys, before a descriptor reaches the GPU. */
 export function isBrushBehavior(value: unknown): value is BrushBehavior {
@@ -106,6 +106,8 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
   if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  // Extended composition is not a grain, dual, wet-edge or wet-mix operator.
+  if([value.grain,value.dual,value.wetMix].some(v=>obj(v)&&Object.values(v).includes('hardMixPhotoshop')) || obj(value.rendering)&&value.rendering.burntEdgesMode==='hardMixPhotoshop')return false
   const random=value.sequentialRandom
   if(random!==undefined && (!obj(random)||!keys(random,['version','kind','policy'])||random.version!==1||random.kind!=='qt5Taus88'||random.policy!=='scatterXY'))return false
   const input=value.strokeInput

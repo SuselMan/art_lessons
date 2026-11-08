@@ -683,9 +683,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.wet.bloom !== undefined && !numberIn(d.wet.bloom, 0, 1)) || (d.wet.feather !== undefined && !numberIn(d.wet.feather, 0, 1)))) return false
     if (d.behavior !== undefined) {
       if (!isBrushBehavior(d.behavior)) return false
+      if(d.behavior.rendering?.blendMode==='hardMixPhotoshop'&&(Number(d.version)<102||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.behavior?.rendering?.blendMode==='hardMixPhotoshop')return false
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
         if(secondary.sketch?.mode==='mask')return false

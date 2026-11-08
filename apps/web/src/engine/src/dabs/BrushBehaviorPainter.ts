@@ -46,7 +46,7 @@ import type { PencilPreset } from '../presets/pencilPresets'
 import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail, type BehaviorPlaced, type BrushBehaviorState, type SecondarySamplingState } from '../presets/brushBehavior'
 import { digitalBrushCeiling, brushDabRandom, curveAt, type BrushPressureSettings } from '../presets/digitalBrushPresets'
 import type { BrushTextureId, TipMaskId } from '../presets/tipMasks'
-import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from '../raster/brushBehaviorShaders'
+import { BRUSH_COMPOSITE_FRAG, createBrushCompositeFragment, BRUSH_STAMP_FRAG, createBrushStampFragment } from '../raster/brushBehaviorShaders'
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
@@ -137,6 +137,7 @@ export class BrushBehaviorPainter {
   private curveStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private extendedComposite?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private composite!: WebGLProgram
   private su!: Uniforms
   private cu!: Uniforms
@@ -183,6 +184,7 @@ export class BrushBehaviorPainter {
       MAX_EXT: number
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
+    this.extendedComposite=undefined
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
     this.su = getUniforms(gl, this.stamp, STAMP_UNIFORMS)
     this.cu = getUniforms(gl, this.composite, ['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
@@ -190,6 +192,7 @@ export class BrushBehaviorPainter {
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
+  prepareCompositeEffects():void{if(!this.extendedComposite){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(true));this.extendedComposite={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase']),position:gl.getAttribLocation(program,'a_position')}}}
   preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
   prepareHatching():void{this.hatchingProgram()}
   private hatchingProgram():{program:WebGLProgram;uniforms:Uniforms;position:number}{
@@ -284,6 +287,8 @@ export class BrushBehaviorPainter {
     this.hatchingStamp=undefined
     this.circleStamp = undefined
     gl.deleteProgram(this.stamp)
+    if(this.extendedComposite)gl.deleteProgram(this.extendedComposite.program)
+    this.extendedComposite=undefined
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
@@ -301,6 +306,8 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    const extendedComposite=brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'?this.extendedComposite:undefined
+    if(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'&&!extendedComposite)throw Error('Extended composite is not prepared')
     const gihFrames=usesVariableGih(brush.tip)?prepareVariableGih(brush):undefined
     if(brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
@@ -903,8 +910,8 @@ export class BrushBehaviorPainter {
         continue
       }
       tile.buffer.beginReplaceDraw()
-      gl.useProgram(this.composite)
-      const c = this.cu, render = behavior.rendering
+      gl.useProgram(extendedComposite?.program??this.composite)
+      const c = extendedComposite?.uniforms??this.cu, render = behavior.rendering
       gl.uniform2f(c.u_resolution, tile.buffer.width, tile.buffer.height)
       for (const [unit, tex, name] of [[0, original.texture, 'u_original'], [1, coverage.texture, 'u_strokeCoverage'], [2, ceiling.texture, 'u_ceiling']] as const) {
         gl.activeTexture(gl.TEXTURE0 + unit)
@@ -940,8 +947,9 @@ export class BrushBehaviorPainter {
 
       const cx = (bounds.minX + bounds.maxX) * 0.5, cy = (bounds.minY + bounds.maxY) * 0.5
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-      gl.enableVertexAttribArray(this.cp)
-      gl.vertexAttribPointer(this.cp, 2, gl.FLOAT, false, 0, 0)
+      const compositePosition=extendedComposite?.position??this.cp
+      gl.enableVertexAttribArray(compositePosition)
+      gl.vertexAttribPointer(compositePosition, 2, gl.FLOAT, false, 0, 0)
       gl.uniform2f(c.u_dabCenter, cx - tile.originX, cy - tile.originY)
       // Tight axis-aligned quad: partial preview storage is valid only in
       // bounds (+ sampling halo). The former enclosing square wrote outside it.

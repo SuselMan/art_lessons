@@ -3530,7 +3530,8 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if(painter === 'cloneBrush')this._brush.prepareClone()
+      if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
+      else if(painter === 'cloneBrush')this._brush.prepareClone()
       else if(painter === 'filterBrush')this._brush.prepareFilter()
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
       else if(painter === 'polygonFill')this._brush.preparePolygon()
@@ -7894,6 +7895,7 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
+    if(stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop')this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush))
     if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)

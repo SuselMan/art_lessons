@@ -552,6 +552,10 @@ def validate_portable_profile(descriptor):
     tip=descriptor['tip']
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
+    if isinstance(behavior,dict):
+        rendering=behavior.get('rendering',{})
+        if any(isinstance(behavior.get(k),dict) and 'hardMixPhotoshop' in behavior[k].values() for k in ('grain','dual','wetMix')) or isinstance(rendering,dict) and rendering.get('burntEdgesMode')=='hardMixPhotoshop':raise ValueError('Extended composite is rendering-only')
+        if isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
     filter_config=descriptor.get('filter')
     if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
@@ -700,6 +704,7 @@ def portable_bundle(path,catalog):
         from captured_bristle import validate_portable_bristle
         validate_portable_bristle(d,trusted_raw_assets)
         validate_portable_mixer(d)
+        if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')=='hardMixPhotoshop':raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']
         validate_portable_profile(d)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate'):raise ValueError('Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')

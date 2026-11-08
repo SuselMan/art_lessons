@@ -873,14 +873,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if angle!=0: profile['angleOffset']=-angle
     if spacing_checked or isotropic:
         notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
-    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
+    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMixPhotoshop' if engine=='paintbrush' else 'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
     if mode in modes:
         behavior['rendering']['blendMode']=modes[mode]
     else:
         notes.append(compatibility('blendMode','Unsupported Krita blend '+mode+'; normal used.','unsupported'))
-    if mode=='hard_mix_photoshop':notes.append(compatibility('hardMixPhotoshop','Photoshop Hard Mix requires a foreground-specific strategy; legacy Hard Mix fallback is not equivalent.','unsupported'))
+    if mode=='hard_mix_photoshop' and engine!='paintbrush':notes.append(compatibility('hardMixPhotoshop','Photoshop Hard Mix requires a foreground-specific strategy; legacy Hard Mix fallback is not equivalent.','unsupported'))
+    if mode=='hard_mix_photoshop' and engine=='paintbrush':
+        d['version']=max(d['version'],102)
+        notes.append(compatibility('hardMixPhotoshop','Strict source-plus-destination channel threshold (>1; equality black), composed through the existing premultiplied blend shell. Native colour-space and quantization differences remain.'))
     # Native checked Size keeps its constant even when UseCurve=false.
     # Missing PressureSize is unchecked; stale UseCurve/Value do not enable it.
     size_checked=enabled(params.get('PressureSize','false'))
@@ -1418,6 +1421,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=max(d['version'],86)
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
+    if behavior['rendering'].get('blendMode')=='hardMixPhotoshop' and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

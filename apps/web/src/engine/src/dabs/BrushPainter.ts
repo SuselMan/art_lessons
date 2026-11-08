@@ -108,6 +108,7 @@ export class BrushPainter {
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
   prepareStampEffects(filteredGradient=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient)}
+  prepareCompositeEffects():void{this.behavior.prepareCompositeEffects()}
   prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
