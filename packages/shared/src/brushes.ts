@@ -1,3 +1,5 @@
+import{gihTiltIndex}from'./gihTilt.js'
+export{gihTiltIndex}from'./gihTilt.js'
 import{isTangentNormalDescriptor,type BrushTangentNormal}from'./brushTangentNormal.js'
 export type{BrushTangentNormal}from'./brushTangentNormal.js'
 import{isMyPaintDescriptor,type BrushMyPaint}from'./brushMyPaint.js'
@@ -895,12 +897,20 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined
   if(!brushRequiresSourceInputs(brush))return true
-  const dims=brush.tip.animation?.mode==='dimensions',x=dims&&brushAnimationUsesMode(brush.tip.animation,'xtilt'),y=dims&&brushAnimationUsesMode(brush.tip.animation,'ytilt'),pressure=dims&&brushAnimationUsesMode(brush.tip.animation,'pressure')
+  const animation=brush.tip.animation,dims=animation?.mode==='dimensions',pressure=dims&&brushAnimationUsesMode(animation,'pressure')
+  const validTilt=(d:import('./stroke.js').Dab):boolean=>{
+    if(tilt)return gihTiltIndex(d[tilt],animation?.rank)!==undefined
+    if(!dims||!animation?.dimensions)return true
+    let stride=animation.dimensions.reduce((n,v)=>n*v.rank,1)
+    for(const dimension of animation.dimensions){
+      stride/=dimension.rank
+      if((dimension.mode==='xtilt'||dimension.mode==='ytilt')&&gihTiltIndex(d[dimension.mode==='xtilt'?'tiltX':'tiltY'],dimension.rank,stride)===undefined)return false
+    }
+    return true
+  }
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
-    &&(!x||(Number.isFinite(d.tiltX)&&Math.abs(Math.fround(d.tiltX))<=90))
-    &&(!y||(Number.isFinite(d.tiltY)&&Math.abs(Math.fround(d.tiltY))<=90))
+    &&validTilt(d)
     &&(!pressure||(Number.isFinite(d.pressure)&&Math.fround(d.pressure)>=0&&Math.fround(d.pressure)<=1))
-    &&(!tilt||(typeof d[tilt]==='number'&&Number.isFinite(d[tilt])&&Math.abs(Math.fround(d[tilt]))<=90))
     &&(!time||isDabSourceTime(d.sourceTime))
     &&(!velocity||(typeof d.normalizedSpeed==='number'&&Number.isFinite(d.normalizedSpeed)&&d.normalizedSpeed>=0&&d.normalizedSpeed<=1))
     &&(!direction||(typeof d.sourceAngle==='number'&&Number.isFinite(d.sourceAngle)))

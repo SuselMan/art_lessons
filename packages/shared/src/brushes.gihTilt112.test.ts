@@ -11,10 +11,10 @@ describe('GIH tilt112 narrow shared contract',()=>{
   const c=library(),d=c.brushes[0].descriptor,child=structuredClone(d);delete d.tip.animation;if(!d.behavior)throw Error('fixture');d.behavior.dual={brush:child,blendMode:'normal',sampling:'independent'};expect(isBrushLibrary(c)).toBe(false)
   const one=library();if(!one.brushes[0].descriptor.tip.animation)throw Error('fixture');one.brushes[0].descriptor.tip.animation.frames.pop();expect(isBrushLibrary(one)).toBe(false)
  })
- it('requires selected-axis finite captured F32[-90,90] on every raw dab/endpoint but preserves valid zero/default/no-wire',()=>{
-  const d=library().brushes[0].descriptor;for(const tiltX of[0,-90,90,-.500000001])expect(hasBrushSourceInputs(d,[{...input,tiltX}])).toBe(true)
-  for(const tiltX of[NaN,Infinity,-Infinity,90.01,-90.01]){expect(hasBrushSourceInputs(d,[{...input,tiltX}])).toBe(false);expect(hasBrushSourceInputs(d,[],{...input,tiltX})).toBe(false)}
+ it('requires selected-axis finite native-safe captured F32 on every raw dab/endpoint but preserves valid zero/default/no-wire',()=>{
+  const d=library().brushes[0].descriptor;for(const tiltX of[0,-90,90,-.500000001,91.93536376953125,-96.094,101.520])expect(hasBrushSourceInputs(d,[{...input,tiltX}])).toBe(true)
+  for(const tiltX of[NaN,Infinity,-Infinity,1e30,-1e30]){expect(hasBrushSourceInputs(d,[{...input,tiltX}])).toBe(false);expect(hasBrushSourceInputs(d,[],{...input,tiltX})).toBe(false)}
   const missing={...input};Reflect.deleteProperty(missing,'tiltX');expect(hasBrushSourceInputs(d,[missing])).toBe(false)
-  const y=library('ytilt').brushes[0].descriptor;expect(hasBrushSourceInputs(y,[{...input,tiltY:90.01}])).toBe(false);expect(hasBrushSourceInputs(y,[input])).toBe(true)
+  const y=library('ytilt').brushes[0].descriptor;expect(hasBrushSourceInputs(y,[{...input,tiltY:101.520}])).toBe(true);expect(hasBrushSourceInputs(y,[input])).toBe(true)
  })
 })

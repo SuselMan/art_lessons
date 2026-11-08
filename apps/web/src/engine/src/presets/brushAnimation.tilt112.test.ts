@@ -25,13 +25,22 @@ describe('tilt112 Qt5 degree-axis selection',()=>{
   const b=brush(),inputs=[-1,1,0,-2,1].map((tiltX,i)=>({...d,tiltX,t:i})),run=(chunk:number)=>{let state=beginBrushBehavior(inputs[0]);const out=[];for(let i=0;i<inputs.length;i+=chunk){state=structuredClone(state);for(const dab of unpackDabs(packDabs(inputs.slice(i,i+chunk))))out.push(...behaviorStampsForDab(b,dab,state,color))}return{out,state}}
   const all=run(5);expect(all).toEqual(run(1));expect(all).toEqual(run(2));expect(all.out).toHaveLength(15);expect(all.state.dabOrdinal).toBe(5);expect(all.state.angularCursor).toBeUndefined();expect(all.out.map(s=>s.mask)).toEqual([frames[0],frames[1],frames[0],frames[1],frames[1]].flatMap(mask=>[mask,mask,mask]))
  })
- it('rejects missing/nonfinite/out-of-browser captured axis, invalid policy/rank/revision and forged child BEFORE state mutation',()=>{
+ it('rejects missing/nonfinite/signed-overflow captured axis, invalid policy/rank/revision and forged child BEFORE state mutation',()=>{
   const b=brush(),state=beginBrushBehavior(d),before=structuredClone(state)
-  for(const tiltX of[NaN,Infinity,-Infinity,90.01,-90.01]){expect(()=>behaviorStampsForDab(b,{...d,tiltX},state,color)).toThrow();expect(state).toEqual(before)}
+  for(const tiltX of[NaN,Infinity,-Infinity,1e30,-1e30]){expect(()=>behaviorStampsForDab(b,{...d,tiltX},state,color)).toThrow();expect(state).toEqual(before)}
   const badVersion=brush();badVersion.version=111;expect(()=>behaviorStampsForDab(badVersion,d,state,color)).toThrow();expect(state).toEqual(before)
   const badPolicy=brush();if(!badPolicy.tip.animation)throw Error('fixture');delete badPolicy.tip.animation.roundingPolicy;expect(()=>behaviorStampsForDab(badPolicy,d,state,color)).toThrow();expect(state).toEqual(before)
   for(const rank of[1,257,NaN]){const bad=brush();if(!bad.tip.animation)throw Error('fixture');bad.tip.animation.rank=rank;expect(()=>behaviorStampsForDab(bad,d,state,color)).toThrow();expect(state).toEqual(before)}
   const parent=brush();delete parent.tip.animation;if(!parent.behavior)throw Error('fixture');parent.behavior.dual={brush:b,blendMode:'normal',sampling:'independent'};expect(()=>behaviorStampsForDab(parent,d,state,color)).toThrow('child');expect(state).toEqual(before)
+ })
+ it('accepts interpolated overshoot and rejects unsafe tensor stride products before state advances',()=>{
+  const b=brush(),state=beginBrushBehavior(d)
+  expect(()=>behaviorStampsForDab(b,{...d,tiltX:91.93536376953125},state,color)).not.toThrow()
+  expect(state.dabOrdinal).toBe(1)
+  b.version=113;b.tip.animation={mode:'dimensions',dimensions:[{mode:'xtilt',rank:2},{mode:'constant',rank:2}],roundingPolicy:'qt5-half-up-v1',frames:frames.slice(0,3)}
+  const before=structuredClone(state)
+  expect(()=>behaviorStampsForDab(b,{...d,tiltX:1073741824},state,color)).toThrow()
+  expect(state).toEqual(before)
  })
  it('keeps91pressure/constant,92velocity and110Angular graphs in their historical argument slots',()=>{
   const b=brush();b.tip.animation={mode:'pressure',rank:5,frames:frames.slice(0,2)};expect(brushAnimationIndex(b.tip,1,0,0,.375)).toBe(0);b.tip.animation={mode:'constant',frames:frames.slice(0,2)};expect(brushAnimationIndex(b.tip,1,99)).toBe(0);b.tip.animation={mode:'velocity',rank:5,frames:frames.slice(0,2)};expect(brushAnimationIndex(b.tip,1,0,0,1,.125)).toBe(0);b.tip.animation={mode:'angular',rank:8,cursorPolicy:'first-request-v1',frames:frames.slice(0,2)};expect(brushAnimationIndex(b.tip,1,0,0,1,undefined,0)).toBe(1)

@@ -15,7 +15,8 @@ it('requires the complete tensor113 source union in raw packed and endpoint pack
   for(const bad of[{...d,sourceAngle:undefined},{...d,normalizedSpeed:undefined}]){
    for(const packet of[{dabs:[bad]},{dabsPacked:packDabs([bad])},{dabs:[],strokeEndSample:{...bad,baseSize:10}}])expect(storage.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(false)
   }
-  for(const bad of[{...d,tiltX:NaN},{...d,pressure:-1}])expect(storage.acceptsExecutionInputs('room','author',{...base,dabs:[bad]})).toBe(false)
+  for(const bad of[{...d,tiltX:1073741824},{...d,tiltX:NaN},{...d,pressure:-1}])expect(storage.acceptsExecutionInputs('room','author',{...base,dabs:[bad]})).toBe(false)
+  for(const tiltX of[91.93536376953125,-96.094,101.520]){const captured={...d,tiltX};for(const packet of[{dabs:[captured]},{dabsPacked:packDabs([captured])},{dabs:[],strokeEndSample:{...captured,baseSize:10}}])expect(storage.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(true)}
   for(const packet of[{dabs:[d]},{dabsPacked:packDabs([d])},{dabs:[],strokeEndSample:{...d,baseSize:10}}])expect(storage.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(true)
  }finally{rmSync(dir,{recursive:true,force:true})}
 })

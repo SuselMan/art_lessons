@@ -1,7 +1,7 @@
 import{assertSketchDistanceOpacityPolicy,prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
-import{brushUsesDistanceControl,brushAnimationUsesMode}from'@grafetto/shared'
+import{brushUsesDistanceControl,brushAnimationUsesMode,gihTiltIndex}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
@@ -300,7 +300,7 @@ export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturati
   return [sector[0]+m,sector[1]+m,sector[2]+m]
 }
 /** New113 raw signed selector: reduction is deliberately owned by the combined branch. */
-function dimensionSelector(mode:string,rank:number,pressure?:number,speed?:number,angle?:number,x?:number,y?:number):number {
+function dimensionSelector(mode:string,rank:number,pressure?:number,speed?:number,angle?:number,x?:number,y?:number,stride=1):number {
   if(mode==='constant')return 0
   if(mode==='pressure'){
     const p=Math.fround(pressure??NaN)
@@ -318,9 +318,9 @@ function dimensionSelector(mode:string,rank:number,pressure?:number,speed?:numbe
     return Math.trunc((wrapped<0?wrapped+turn:wrapped)/turn*rank)
   }
   if(mode==='xtilt'||mode==='ytilt'){
-    const v=Math.fround((mode==='xtilt'?x:y)??NaN)
-    if(!Number.isFinite(v)||Math.abs(v)>90)throw Error('Invalid multidimensional tilt input')
-    return Math.floor(v/2*rank+.5)+Math.trunc(rank/2)
+    const index=gihTiltIndex(mode==='xtilt'?x:y,rank,stride)
+    if(index===undefined)throw Error('Invalid multidimensional tilt input')
+    return index
   }
   throw Error('Unsupported multidimensional selector')
 }
@@ -337,17 +337,16 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
     let stride=product,index=0
     for(const dimension of dims){
       stride/=dimension.rank
-      index=(index+stride*dimensionSelector(dimension.mode,dimension.rank,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY))>>>0
+      index=(index+stride*dimensionSelector(dimension.mode,dimension.rank,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY,stride))>>>0
     }
     return index%animation.frames.length
   }
 
   if(animation.mode==='xtilt'||animation.mode==='ytilt'){
-    const rank=animation.rank,axis=Math.fround((animation.mode==='xtilt'?tiltX:tiltY)??NaN)
-    if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||animation.geometry!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||!Number.isFinite(axis)||Math.abs(axis)>90)throw Error('Invalid GIH captured tilt input')
+    const rank=animation.rank,index=gihTiltIndex(animation.mode==='xtilt'?tiltX:tiltY,rank)
+    if(rank===undefined||!Number.isInteger(rank)||rank<2||rank>256||animation.roundingPolicy!=='qt5-half-up-v1'||animation.cursorPolicy!==undefined||animation.geometry!==undefined||!Array.isArray(animation.frames)||animation.frames.length<2||animation.frames.length>256||index===undefined)throw Error('Invalid GIH captured tilt input')
     // Qt5.15 qRound: nearest with negative half-ties toward positive infinity.
     // Degrees are NOT normalized; the native unsigned accumulation precedes actual EOF modulo.
-    const index=Math.floor(axis/2*rank+.5)+Math.trunc(rank/2)
     return(index>>>0)%animation.frames.length
   }
   if(animation.mode==='angular'){
