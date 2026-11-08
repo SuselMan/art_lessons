@@ -122,9 +122,11 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
                     if abs(angle-quarter*math.pi/2)<=1e-5:
                         rotation=([65536,0],[0,65536],[-65536,0],[0,-65536])[quarter%4]
                     else:rotation=[round(math.cos(angle)*65536),round(math.sin(angle)*65536)]
-                    candidate['version']=143
+                    candidate['version']=144 if candidate['bristle']['antialias']and candidate['bristle']['compositing']else 143
                     candidate['bristle']['initialization']={'resizePolicy':'source-area143-v1','sourceSide':asset['size'],'sourceMask':tip['mask'],'sourceBounds':{'x':(asset['size']-width)//2,'y':(asset['size']-height)//2,'width':width,'height':height},'rotation':list(rotation)}
-                    result['compatibility'].append(compatibility('bristleSource','Original padded alpha CAS and image footprint/angle retained until captured GUI size; area resize preserves aspect before bounded Q16 rotation. Fast capsule raster retained; no alpha boost or native Qt pixel identity claim.'))
+                    result['compatibility'].append(compatibility('bristleSource','Original padded alpha CAS and image footprint/angle retained until captured GUI size; area resize preserves aspect before bounded Q16 rotation. '+('Fast capsule raster retained; 'if candidate['version']==143 else'Versioned raster retained; ')+'no alpha boost or native Qt pixel identity claim.'))
+                if candidate['version']==144:
+                    result['compatibility'].append(compatibility('bristleRaster','Original source mask with native major-axis bilinear U8 point coverage and bounded oriented segment mesh; historical142 keeps its original full-AABB mesh. Request opacity remains applied once.'))
                 d=candidate
                 result['compatibility'].append(compatibility('bristleInitialization','Original source-area143 initialization is retained when available; otherwise legacy141 saved-size grid is rebuilt. Recorded sourceSize1..64 fixes population at BEGIN; pressure and Bristle Scale act afterwards. Native filtering/raster bytes may differ.'))
             else:

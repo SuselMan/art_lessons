@@ -1,3 +1,4 @@
+import {bristleNativePoint144Quad} from './bristleNativePoint144'
 import {BRISTLE_NATIVE_AA142_VERT,BRISTLE_NATIVE_AA142_FRAG} from './bristleNativeAA142'
 import type {PreparedBristleSaturationResource} from './BristleSaturationResource'
 import {writeBristleSaturationParameter,type BristleSaturationTable,type BristleSaturationGpuLayout} from '../presets/brushBristleSaturationTable'
@@ -231,11 +232,12 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
   if(failed)throw primary
  }
  destroy():void{this.reset()}
- paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,request:AccumulationBuffer,originX:number,originY:number,ink?:{antialias:boolean;compositing:boolean},nativeAA142=false):void{
+ paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,request:AccumulationBuffer,originX:number,originY:number,ink?:{antialias:boolean;compositing:boolean},nativeAA142=false,oriented144=false):void{
   if(this.busy)throw Error('Bristle winner is busy')
   const gl=this.gl,w=coverage.width,h=coverage.height,saturation=!!ink&&!!this.inkProfile?.useSaturation
   const composite=ink&&ink.antialias&&!ink.compositing?this.inkAddComposite:this.composite
   const soak=!!ink&&stamps.some(s=>(s as BehaviorPlaced&{bristleInkSpan?:BristleInkSpan}).bristleInkSpan?.sampleAlpha!==undefined)
+  if(oriented144&&!nativeAA142)throw Error('Oriented144 requires native point raster')
   if(nativeAA142&&ink)throw Error('Native AA142 is no-ink only')
   if(nativeAA142&&!this.nativeAA142Program)throw Error('Native AA142 is not prewarmed')
   if(nativeAA142)for(const s of stamps){const line=(s as BehaviorPlaced&{bristleTrajectory142?:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142;if(!line||![...line.start,...line.end].every(Number.isFinite))throw Error('Missing native AA142 trajectory')}
@@ -306,7 +308,8 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
       const s=stamps[i],line=(s as BehaviorPlaced&{bristleTrajectory142:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142,sx=line.start[0]-originX,sy=line.start[1]-originY,ex=line.end[0]-originX,ey=line.end[1]-originY,minX=Math.min(sx,ex)-3,maxX=Math.max(sx,ex)+3,minY=Math.min(sy,ey)-3,maxY=Math.max(sy,ey)+3
       if(maxX<0||maxY<0||minX>w||minY>h)continue
       if(vertices===2048*6)flush()
-      for(const[a,b]of CORNERS){const at=vertices++*stride;data![at]=a<0?minX:maxX;data![at+1]=b<0?minY:maxY;data![at+2]=sx;data![at+3]=sy;data![at+4]=s.color[0];data![at+5]=s.color[1];data![at+6]=s.color[2];data![at+7]=Math.round(s.flow*255)/255;data![at+8]=ex;data![at+9]=ey}
+      const oriented=oriented144?bristleNativePoint144Quad([sx,sy],[ex,ey]):undefined
+      for(const[a,b]of CORNERS){const at=vertices++*stride;data![at]=oriented?oriented.cx+a*oriented.ux*oriented.halfLength-b*oriented.uy*oriented.halfWidth:a<0?minX:maxX;data![at+1]=oriented?oriented.cy+a*oriented.uy*oriented.halfLength+b*oriented.ux*oriented.halfWidth:b<0?minY:maxY;data![at+2]=sx;data![at+3]=sy;data![at+4]=s.color[0];data![at+5]=s.color[1];data![at+6]=s.color[2];data![at+7]=Math.round(s.flow*255)/255;data![at+8]=ex;data![at+9]=ey}
       continue
      }
      const s=stamps[i],length=(s.segmentLength??0)*.5,width=s.radius,cx=s.x-originX,cy=s.y-originY,rx=length+width+1,ry=width+1

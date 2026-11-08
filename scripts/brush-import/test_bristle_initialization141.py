@@ -19,7 +19,7 @@ class Initialization141(unittest.TestCase):
    for comp in(False,True):
     with self.subTest(aa=aa,compositing=comp),tempfile.TemporaryDirectory()as tmp:
      c,raw=self.native(tmp,{'HairyBristle/antialias':str(aa).lower(),'HairyBristle/useCompositing':str(comp).lower()});d=c.brushes[0]['descriptor']
-     self.assertEqual(d['version'],143);self.assertEqual(d['bristle']['antialias'],aa);self.assertEqual(d['bristle']['compositing'],comp);self.assertTrue(bristle_source143_scope(d));self.assertEqual(d['bristle']['initialization']['resizePolicy'],'source-area143-v1')
+     self.assertEqual(d['version'],144 if aa and comp else 143);self.assertEqual(d['bristle']['antialias'],aa);self.assertEqual(d['bristle']['compositing'],comp);self.assertTrue(bristle_source143_scope(d));self.assertEqual(d['bristle']['initialization']['resizePolicy'],'source-area143-v1')
      old=preset(raw,'own.kpp',Catalog(Path(tmp)/'legacy'),{'own.gbr':fixture.GBR},_allow_texture_material=False)['descriptor'];self.assertNotIn('initialization',old['bristle']);self.assertEqual(old['version'],45 if aa or comp else 66)
  def test_native_erase_preserves_old45_fallback(self):
   with tempfile.TemporaryDirectory()as tmp:

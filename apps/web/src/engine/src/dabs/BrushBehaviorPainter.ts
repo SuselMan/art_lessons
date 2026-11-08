@@ -1,6 +1,6 @@
 import {bristleNativeAA142Bounds} from './bristleNativeAA142'
 import {firstBristleLine139} from './CanonicalBeginRuntime'
-import {hasBristleSoak139Scope} from '@grafetto/shared'
+import {hasBristleSoak139Scope,hasBristleNativePointCoverage} from '@grafetto/shared'
 import{hasPixelGradientWash138Scope}from'@grafetto/shared'
 import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
@@ -628,7 +628,7 @@ export class BrushBehaviorPainter {
     const gihPlan=(stamp:BehaviorPlaced)=>{if(!gihFrames)return undefined;let p=gihPlans.get(stamp);if(!p){p=variableGihStamp(brush,gihFrames,stamp);gihPlans.set(stamp,p)}return p}
     const allocationFor=(stamp:BehaviorPlaced)=>brush.tip.autoShape?autoSpikeAllocation(stamp.radius,stamp.aspect,brush.tip.autoShape.spikes):stamp
     const footprintFor=(stamp:BehaviorPlaced,pad:number)=>{
-      if(brush.version===142&&brush.bristle?.version===1&&brush.bristle.initialization?.resizePolicy==='mask-population-v1'&&brush.bristle.antialias&&brush.bristle.compositing){const line=(stamp as BehaviorPlaced&{bristleTrajectory142?:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142;if(!line)throw Error('Missing native AA142 footprint');return bristleNativeAA142Bounds(line,pad)}
+      if(hasBristleNativePointCoverage(brush)){const line=(stamp as BehaviorPlaced&{bristleTrajectory142?:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142;if(!line)throw Error('Missing native AA142 footprint');return bristleNativeAA142Bounds(line,pad)}
       const selected=gihPlan(stamp);if(selected)return {minX:selected.x-pad,minY:selected.y-pad,maxX:selected.x+selected.width+pad,maxY:selected.y+selected.height+pad}
       const allocation=allocationFor(stamp)
       return brushFootprintBounds(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,pad)
@@ -1058,10 +1058,10 @@ export class BrushBehaviorPainter {
           (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintCurves(list,coverage,ceiling,scratch.brushCeilingCopy(tile.buffer),tile.originX,tile.originY)
           return
         }
-        if(brush.version===142&&brush.bristle?.version===1&&brush.bristle.initialization?.resizePolicy==='mask-population-v1'&&brush.bristle.antialias&&brush.bristle.compositing){
+        if(hasBristleNativePointCoverage(brush)){
           if(!this.bristleRequests)throw Error('Native Bristle AA142 is not prepared')
           this.bristleRequests.prepareDimensions(coverage.width,coverage.height,true)
-          this.bristleRequests.paint(list,coverage,ceiling,tile.originX,tile.originY,undefined,true)
+          this.bristleRequests.paint(list,coverage,ceiling,tile.originX,tile.originY,undefined,true,brush.version===144)
           return
         }
         if(brush.bristle?.version===2){

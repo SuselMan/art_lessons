@@ -200,3 +200,12 @@ export function bristleInitializationSourceSide(brush:import('./brushes.js').Bru
  if(hasBristleSoak140Scope(brush)&&h?.version===2)return h.soak!.initialSide
  return undefined
 }
+
+/** Versioned native point raster only; later unrelated revisions never opt in. */
+export function hasBristleNativePointCoverage(value:unknown):boolean {
+ if(!value||typeof value!=='object'||Array.isArray(value))return false
+ const b=value as Record<string,unknown>,h=b.bristle
+ if((b.version!==142&&b.version!==144)||!h||typeof h!=='object'||Array.isArray(h))return false
+ const bristle=h as Record<string,unknown>
+ return bristle.version===1&&bristle.antialias===true&&bristle.compositing===true&&(b.version===142?hasBristleResize141Scope(value):hasBristleSource143Scope(value))
+}

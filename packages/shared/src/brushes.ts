@@ -1,7 +1,7 @@
 import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
-export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,hasBristleResize141Scope,hasBristleSource143Scope,hasBristleInitializationScope,bristleInitializationSourceSide,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
+export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,hasBristleResize141Scope,hasBristleSource143Scope,hasBristleNativePointCoverage,hasBristleInitializationScope,bristleInitializationSourceSide,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'

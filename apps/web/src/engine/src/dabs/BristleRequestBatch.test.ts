@@ -168,3 +168,13 @@ it('142 applies global opacity only at the request composite and restores its ow
  expect(opacity.mock.calls.filter(([u]:any[])=>u.name==='u_opacity').map(([,value]:any[])=>value)).toEqual([.5]);expect(s.snapshot()).toEqual(before)
  s.fail();let threw=false,error:unknown='sentinel';try{s.batch.paint([item],s.coverage,s.request,0,0,undefined,true)}catch(e){threw=true;error=e}expect(threw).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(()=>s.batch.reset()).not.toThrow()
 })
+it('144 changes only native mesh vertices; historical142 keeps AABB and no extra programs or depth',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();const programCount=s.gl.createProgram.mock.calls.length,uploads:Float32Array[]=[];const upload=s.gl.bufferData;s.gl.bufferData=(t:number,v:Float32Array)=>{uploads.push(new Float32Array(v));upload(t,v)}
+ const item={...stamp(.5,[1,0,0]),bristleTrajectory142:{start:[1,1]as const,end:[9,9]as const}}
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true);const old=uploads.find(v=>v.length===60)!;uploads.length=0
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true,true);const narrow=uploads.find(v=>v.length===60)!
+ expect([...old.slice(0,2)]).toEqual([-2,-2]);expect([...narrow.slice(0,2)]).not.toEqual([...old.slice(0,2)])
+ for(let i=0;i<6;i++)expect([...narrow.slice(i*10+2,i*10+10)]).toEqual([...old.slice(i*10+2,i*10+10)])
+ expect(s.gl.createProgram.mock.calls.length).toBe(programCount);expect(s.gl.createRenderbuffer).not.toHaveBeenCalled()
+ expect(()=>s.batch.paint([item],s.coverage,s.request,0,0,undefined,false,true)).toThrow('requires native')
+})
