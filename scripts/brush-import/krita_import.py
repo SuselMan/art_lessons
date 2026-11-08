@@ -3,7 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
-from variable_gih import validate_variable_gih_descriptor
+from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
 import hashlib
@@ -724,9 +724,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
             # Private adapters rewrite paintopid to paintbrush; only genuine native Pixel origin may opt in.
-            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
-            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
-            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or application!=0 or pipe['coloured'] or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
+            original_sensor_rgba119=bool(unequal and stamp_images and application==1 and len(stamp_images)==len(frames)and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
+            if pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not original_sensor_rgba119)or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
+            if pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not original_sensor_rgba119)or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
+            if pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not original_sensor_rgba119)or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
             if len(assets)>1 or pipe['mode']in('angular','dimensions'):
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
                 if pipe['mode']in('pressure','velocity','angular','xtilt','ytilt'):d['tip']['animation']['rank']=pipe['declaredCount']
@@ -1488,7 +1489,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)
     if d['tip'].get('animation',{}).get('geometry') is not None:
-        d['version']=max(d['version'],118 if d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions')else 86)
+        d['version']=max(d['version'],(119 if 'planes'in d['tip'].get('color',{})else 118)if d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions')else 86)
+        if 'planes'in d['tip'].get('color',{})and d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions'):
+            if not is_sensor_original_rgba119(d):raise ValueError('Original RGBA sensor geometry requires unequal119 scope')
+            notes.append(compatibility('gihSensorOriginalRgba','Unequal original ImageStamp RGBA frames retain selected RGB/alpha planes and86 geometry under119 sensor policies. Foreground colour is not substituted; existing prepared RGBA cache/leases and finite admission are reused. Qt filtering, native ICC and byte projection differ.'))
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     if d['tip'].get('animation',{}).get('mode')=='angular':
         if (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')

@@ -1,3 +1,5 @@
+import{isOriginalRgbaGih119}from'./gihOriginalRgba119.js'
+export{isOriginalRgbaGih119,hasOriginalRgbaGih119Scope}from'./gihOriginalRgba119.js'
 import{gihTiltIndex}from'./gihTilt.js'
 export{gihTiltIndex}from'./gihTilt.js'
 import{isTangentNormalDescriptor,type BrushTangentNormal}from'./brushTangentNormal.js'
@@ -575,6 +577,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         return size === undefined || right > size || bottom > size
       })) return false
     }
+    const originalSensorRgba119=isOriginalRgbaGih119(d)
     const variableChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)?d.behavior.dual.brush:undefined
     if(record(variableChild)&&record(variableChild.tip)&&record(variableChild.tip.animation)&&variableChild.tip.animation.geometry!==undefined)return false
     if (d.tip.animation !== undefined) {
@@ -606,7 +609,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         // Revision86 preserves original per-frame geometry; legacy animations retain their equal-size law.
         const geometry=animation.geometry,tip=d.tip
         const sensorGeometry=['angular','xtilt','ytilt','dimensions'].includes(String(animation.mode))
-        if(sensorGeometry&&(Number(d.version)<118||frameIds.length<2||record(d.scatter)&&Number(d.scatter.radius)>0||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)))return false
+        if(sensorGeometry&&(Number(d.version)<118||frameIds.length<2||record(d.scatter)&&Number(d.scatter.radius)>0||(tip.color!==undefined&&!originalSensorRgba119)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)))return false
         if(Number(d.version)<86||d.model!=='stamp'||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
           ||d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined
           ||record(d.behavior)&&(d.behavior.edgeBleed!==undefined||d.behavior.colorAdjustment!==undefined||record(d.behavior.rendering)&&!!d.behavior.rendering.wetEdges||record(d.behavior.dynamics)&&d.behavior.dynamics.sharpness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.sharpness!==undefined)
@@ -739,20 +742,20 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(tiltChild)&&(tiltChild.mode==='xtilt'||tiltChild.mode==='ytilt'))return false
     if(record(d.tip.animation)&&(d.tip.animation.mode==='xtilt'||d.tip.animation.mode==='ytilt')){
       const tip=d.tip,b=record(d.behavior)?d.behavior:undefined
-      if(d.model!=='stamp'||tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||record(b.strokeInput)&&b.strokeInput.fanCorners!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0)return false
+      if(d.model!=='stamp'||tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||(tip.color!==undefined&&!originalSensorRgba119)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||record(b.strokeInput)&&b.strokeInput.fanCorners!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0)return false
     }
     const angularChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
     if(record(angularChild)&&angularChild.mode==='angular')return false
     if(record(d.tip.animation)&&d.tip.animation.mode==='angular'){
       const tip=d.tip
       const b=record(d.behavior)?d.behavior:undefined, input=b&&record(b.strokeInput)?b.strokeInput:undefined
-      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
+      if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||(tip.color!==undefined&&!originalSensorRgba119)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
     }
     const dimensionsChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
     if(record(dimensionsChild)&&dimensionsChild.mode==='dimensions')return false
     if(record(d.tip.animation)&&d.tip.animation.mode==='dimensions'){
       const tip=d.tip,b=record(d.behavior)?d.behavior:undefined,input=b&&record(b.strokeInput)?b.strokeInput:undefined,angular=brushAnimationUsesMode(tip.animation,'angular')
-      if(d.model!=='stamp'||tip.kind!=='bitmap'||['color','material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||input?.fanCorners!==undefined||angular&&(!input||input.version!==1||input.initialDirection!=='cursorHistory'))return false
+      if(d.model!=='stamp'||tip.kind!=='bitmap'||(tip.color!==undefined&&!originalSensorRgba119)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||input?.fanCorners!==undefined||angular&&(!input||input.version!==1||input.initialDirection!=='cursorHistory'))return false
     }
     // The engine captures speed from the ROOT preset, including for independent masks.
     // Child-only speedInput would not capture a channel on the author pipeline.
