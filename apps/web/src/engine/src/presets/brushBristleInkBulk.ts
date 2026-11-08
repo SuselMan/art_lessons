@@ -2,6 +2,7 @@ import {beginBristleInkLine,type BristleInkProfile,type BristleInkState} from '.
 /** Immutable per-trajectory shader input. Counters are clamped only in the GPU
  * representation; the gesture state keeps the exact safe-integer count. */
 export interface BristleInkSpan {
+ readonly sampleAlpha?:number
  readonly counter:number
  readonly initialInk:number
  readonly samples:number
@@ -25,7 +26,7 @@ export function advanceBristleInkBulk(profile:BristleInkProfile,state:BristleInk
 export function bristleInkSpanOpacity(profile:BristleInkProfile,span:BristleInkSpan,index:number):number {
  if(!Number.isSafeInteger(index)||index<0||index>=span.samples)throw new RangeError('Invalid Bristle ink sample')
  const previous=index===0?span.initialInk:Math.fround(1-profile.depletion[Math.min(profile.amount-1,span.counter+index-1)])
- if(!profile.useOpacity)return span.length
+ if(!profile.useOpacity)return span.sampleAlpha??span.length
  const depletion=profile.depletion[Math.min(profile.amount-1,span.counter+index)]
  const value=profile.useWeights?span.pressure*profile.pressureWeight+span.length*profile.bristleLengthWeight+previous*profile.bristleInkAmountWeight+(1-depletion)*profile.inkDepletionWeight:span.length*previous
  return Math.max(0,Math.min(1,value))

@@ -1,3 +1,8 @@
+import {hasBristleSoak139Scope} from '@grafetto/shared'
+import {BristleSoakGather139} from '../raster/BristleSoakGather139'
+import {bristleSoakPoints139} from '../presets/bristleSoak139'
+import {beginBrushBehavior} from '../presets/brushBehavior'
+import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
 import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
@@ -13,7 +18,7 @@ import {usesPixelOriginalRgba,usesFilteredPixelGradient,pixelOriginalRgbaFrames}
 import type{SprayScratchLease}from'./SprayRequestPainter'
 import{colorSmudgeTipPixels,colorSmudgeGradientTipPixels}from'../presets/colorSmudgeTip'
 import type {BristleInkSettings} from '../presets/brushBristleInk'
-import {assertBrushExecutionContext,type  BrushExecutionContext } from '../presets/brushExecutionContext'
+import {assertSameBrushExecutionContext,assertBrushSourceInputs,assertBrushExecutionContext,type  BrushExecutionContext } from '../presets/brushExecutionContext'
 import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { BrushMipCache } from './BrushMipCache'
@@ -34,6 +39,7 @@ import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
 export interface BrushContext {
+  openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:CanonicalBeginCapability):CanonicalBeginResult
   readonly gl: WebGLRenderingContext
   acquireSprayScratch?(width:number,height:number):SprayScratchLease
   readonly brushMipCache?: BrushMipCache
@@ -47,15 +53,18 @@ export interface BrushScratch {
 }
 
 export class BrushPainter {
+  private readonly ctx:BrushContext
   private readonly behavior: BrushBehaviorPainter
   private readonly gl: WebGLRenderingContext
   private readonly materialMips: BrushMipCache
   private readonly ownsMipCache: boolean
   private maximumImageSide: number | undefined
   private colorEpoch={}
+  private soakGather?:BristleSoakGather139
   private readonly saturationResources:BristleSaturationResource
   private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
+    this.ctx=ctx
     this.gl=ctx.gl
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
@@ -132,19 +141,71 @@ export class BrushPainter {
     if(!resources)return
     this.acquireRecordedStampResources(resources,true,brush)()
   }
-  initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
+  initGL():void {this.soakGather?.reset();this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {
     this.colorEpoch={}
     let failed=false,primary:unknown
     const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;primary=error}}}
+    cleanup(()=>this.soakGather?.reset())
     cleanup(()=>this.behavior.destroy())
     cleanup(()=>this.textures.clear());this.saturationResources.reset()
     if(this.ownsMipCache)cleanup(()=>this.materialMips.clear())
     if(failed)throw primary
   }
   finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
-  paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext):void {
-    this.behavior.paint(target,dabs,preset,normalizeBrush(stamp.brush),stamp.pressure,color,scratch,false,undefined,execution)
+  paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext,runtime?:CanonicalBeginRuntime):void|CanonicalBeginPaintResult {
+    const brush=stamp.brush
+    if(brush.bristle?.version===2&&brush.bristle.soak){
+      if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope')
+      const valid=dabs.filter(d=>Number.isFinite(d.size)&&d.size>0),state=scratch.brushBehavior,oldAnchor=state?.bristle?.previous
+      const previous=oldAnchor?{...(state?.previous??valid[0]??_previous!),...oldAnchor}:_previous
+      const line=firstBristleLine139(valid,previous)
+      if(line){
+        if(!runtime)throw Error('Bristle Soak requires canonical BEGIN runtime')
+        const ready=this.prepareBristleSoakGesture(target,line,runtime.binding.userId,runtime.binding.strokeId,stamp,execution,runtime,scratch)
+        if(ready.kind==='notReady')return{...ready,acceptedDabs:0}
+      }
+      if(state?.bristle?.soak&&(!runtime||canonicalBeginBindingKey(state.bristle.soak.binding)!==canonicalBeginBindingKey(runtime.binding)))return{kind:'notReady',reason:'prefix',retryKey:(runtime?.binding.prefixKey??'missing')+':bristle-soak',acceptedDabs:0}
+      if(valid.length)this.behavior.paint(target,valid,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution)
+      return{kind:'painted',acceptedDabs:dabs.length}
+    }
+    this.behavior.paint(target,dabs,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution)
+  }
+  prepareBristleSoak(brush:BrushDescriptor):void {
+    if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2)throw Error('Invalid Bristle Soak139 scope')
+    this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)
+    ;(this.soakGather??=new BristleSoakGather139(this.ctx.gl)).prepare()
+  }
+  bristleSoakBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.brushBehavior?.bristle?.soak?.binding}
+  invalidateBristleSoak(scratch:BehaviorScratch):void {if(this.bristleSoakBinding(scratch))scratch.brushBehavior=undefined}
+  prepareBristleSoakGesture(target:ILayerBuffer,line:BristleFirstLine139,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    const brush=paint.brush,binding=runtime.binding
+    if(!hasBristleSoak139Scope(brush)||runtime.capability!=='bristleSoak139'||userId!==binding.userId||strokeId!==binding.strokeId||!firstBristleLine139([line.previous,line.current]))throw Error('Invalid Bristle Soak BEGIN identity')
+    assertBrushSourceInputs(brush,[line.previous,line.current]);assertBrushExecutionContext(brush,execution)
+    this.behavior.assertBristleSoakPrepared139(brush);this.soakGather?.assertPrepared()
+    if(!this.soakGather||!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch)throw Error('Bristle Soak source/gather owner is unavailable')
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    const existing=scratch.brushBehavior?.bristle?.soak
+    if(existing)return canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':bristle-soak'}
+    const prior=scratch.brushBehavior
+    if(prior?.bristle?.ordinal)throw Error('Bristle Soak capture after accepted line is forbidden')
+    const points=bristleSoakPoints139(brush,line.previous),opened=this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
+    if(opened.kind==='notReady')return opened
+    let failed=false,primary:unknown,rgba:Uint8Array|undefined
+    try{
+      if(canonicalBeginBindingKey(opened.view.binding)!==canonicalBeginBindingKey(binding))throw Error('Bristle Soak source authority mismatch')
+      rgba=this.soakGather.gather(opened.view,points,()=>this.ctx.acquireSprayScratch!(64,64))
+      opened.view.assertCurrent()
+    }catch(error){failed=true;primary=error}
+    finally{try{opened.view.release()}catch(error){if(!failed){failed=true;primary=error}}}
+    if(failed)throw primary
+    if(scratch.brushBehavior!==prior)throw Error('Bristle Soak owner changed during capture')
+    // Publish only after successful gather, authority checks AND source release.
+    const state=prior??beginBrushBehavior(line.previous,execution)
+    const bristle=state.bristle??{ordinal:0,oldPressure:1,ends:[]}
+    state.bristle={...bristle,soak:{binding:structuredClone(binding),rgba:rgba!}}
+    scratch.brushBehavior=state
+    return{kind:'ready'}
   }
   paintMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:BehaviorScratch,sizeMultiplier:number,execution?:BrushExecutionContext):void {
     this.behavior.paint(target,dabs,{opacity:1,hardness:1,sizeMultiplier},normalizeBrush(brush),{size:true,opacity:pressure},[1,1,1],scratch,false,undefined,execution)

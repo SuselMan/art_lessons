@@ -1,11 +1,12 @@
+import {bristleSoakHair139,type BristleSoakState139} from './bristleSoak139'
 import type {BristleInkState} from './brushBristleInk'
 import type {BrushDescriptor,Dab} from '@grafetto/shared'
 import {brushDabRandom} from './digitalBrushPresets'
 import type {SketchStamp} from './brushSketch'
-export interface BristleState {ordinal:number;oldPressure:number;previous?:{x:number;y:number};ends:[number,number][];ink?:BristleInkState}
+export interface BristleState {ordinal:number;oldPressure:number;previous?:{x:number;y:number};ends:[number,number][];ink?:BristleInkState;soak?:BristleSoakState139}
 /** Hair positions are gesture state, never tile/frame state. Connected paths
  * preserve transformed endpoints across pressure/rotation changes. */
-export interface BristleInkGeometry {hair:number;length:number;pressure:number;start:readonly[number,number];end:readonly[number,number]}
+export interface BristleInkGeometry {hair:number;length:number;pressure:number;start:readonly[number,number];end:readonly[number,number];sampleAlpha?:number}
 export interface BristleGeometryStamp extends SketchStamp {bristleInk?:BristleInkGeometry}
 export function bristleStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,color:[number,number,number],seed:number):SketchStamp[]{
  if(brush.bristle&&'ink' in brush.bristle)throw Error('Bristle depletion requires the prepared spatial ink route')
@@ -24,8 +25,9 @@ export function bristleGeometryStamps(brush:BrushDescriptor,dab:Dab,state:Bristl
   const xx=(x+shear*y)*scale+random(0)*scale/Math.max(1,dab.size),yy=(y+shear*x)*scale+random(1)*scale/Math.max(1,dab.size),end:[number,number]=[c*xx-sn*yy,sn*xx+c*yy],start=b.connected?state.ends[i]??end:end
   state.ends[i]=end
   if(b.threshold&&length<1-dab.pressure)continue
+  const sampled=state.soak?bristleSoakHair139(state.soak,i):undefined
   const x1=previous.x+start[0],y1=previous.y+start[1],x2=dab.x+end[0],y2=dab.y+end[1],distance=Math.hypot(x2-x1,y2-y1)
-  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
+  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:sampled?[sampled[0],sampled[1],sampled[2]]:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,...(sampled?{sampleAlpha:sampled[3]}:{}),start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
  }
  return out
 }

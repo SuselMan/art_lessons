@@ -1,7 +1,6 @@
 """Mask-derived persistent Bristle hairs; native option names are preserved.
 
-Ink depletion / canvas soaking are explicitly rejected until their complete
-state/source contract is available. No per-frame or per-tile random selection.
+Soaking is staged behind the canonical-BEGIN139 palette contract. No per-frame or per-tile random selection.
 """
 import io,math,hashlib
 import xml.etree.ElementTree as ET
@@ -12,7 +11,8 @@ from brush_contract import finalize_identity,compatibility
 def bristle_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric
     ink_enabled=enabled(params.get('HairyInk/enabled'))
-    if ink_enabled and enabled(params.get('HairyInk/soak')):raise ValueError('Bristle ink depletion soaking is not implemented')
+    soak=ink_enabled and enabled(params.get('HairyInk/soak'))
+    if soak and(params.get('PaintOpAction','1')!='1'or enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))):raise ValueError('Bristle Soak139 requires normal directOver untimed input')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Bristle timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     aa=enabled(params.get('HairyBristle/antialias'));compositing=enabled(params.get('HairyBristle/useCompositing'))
@@ -75,6 +75,10 @@ def bristle_preset(data,root,params,name,catalog,external):
         from captured_bristle import install_bristle
         lookup,_quality=install_bristle(d['bristle']['ink'],catalog)
         d['version']=93;d['bristle']['saturationLookup']=lookup
+    if soak:
+        from bristle_soak139 import bristle_soak139_scope
+        d['version']=139;d['bristle']['soak']={'sourcePolicy':'canonical-begin-v1','initialSide':side}
+        if not bristle_soak139_scope(d):raise ValueError('Bristle Soak139 requires closed root canonical-BEGIN ink palette scope')
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]
     result['compatibility'].append(compatibility('bristle','Mask-derived fixed hairs, pressure contact, shear, jitter, mouse pressure and connected paths retained. Initialization uses the first pipe frame and deterministic Grafetto population; GPU capsule coverage/additive AA differs from native per-pixel DDA/Wu. Aliased maximum-alpha preserves the whole winning pigment via batched depth ranking; Opacity depletion uses persistent per-hair counters and a bounded GPU curve; saturation/soaking remain rejected.'))
@@ -91,6 +95,10 @@ def bristle_preset(data,root,params,name,catalog,external):
         d['version']=135;d['behavior']['rendering']['accumulation']='alphaDarken'
         if enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or not bristle_wash135_scope(d):raise ValueError('Bristle Wash135 requires closed no-ink AA additive request')
         result['compatibility'].append(compatibility('bristleWash','One existing additive-AA hair-line request is transferred through common creamy Wash; captured external stroke opacity is applied once. Hair geometry/seed and first-anchor policy are unchanged; capsule coverage is a functional approximation to native Wu/DDA.'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if soak:
+        result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation requires its trusted compiled lookup. Soaking uses canonical-BEGIN source palette.').replace('soaking remains rejected.','Soaking uses canonical-BEGIN source palette.').replace('Canvas soaking remains unsupported.','Canvas soaking uses canonical-BEGIN source palette.'))if n['feature']in('bristle','bristleSaturation')else n for n in result['compatibility']]
+        result['compatibility'].append(compatibility('bristleSoak','All hair colors sampled once before the first line writes, from canonical-BEGIN active-layer old pixels at nearest-integer initialization coordinates. Source alpha is retained unless opacity depletion replaces it; palette is rebuilt by full BEGIN replay. Functional canonical concurrency, color-space and raster behavior are not native pixel identity.'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

@@ -33,10 +33,10 @@ it('zero-size metadata before B does not become canonical first renderable BEGIN
 
 it('resource pending is not history repair, and clear/delete remain read-independent recovery controls',()=>{
  const{h,target}=setup()
- type RecoveryHost=Host&{_rebuildJobs:Map<string,{gridBlocked:GridWashNotReady}>;_cancelRebuildJob:(id:string)=>void;isSnapshotHistoryRepairPending:(id:string)=>boolean;gridReadiness:(id:string)=>{layer:GridWashNotReady|null};appendOperation:(op:Operation,source:'remote')=>void}
+ type RecoveryHost=Host&{_rebuildJobs:Map<string,{gridBlocked:GridWashNotReady;chunks:Map<string,never>;fresh:ILayerBuffer}>;_cancelRebuildJob:(id:string)=>void;isSnapshotHistoryRepairPending:(id:string)=>boolean;gridReadiness:(id:string)=>{layer:GridWashNotReady|null};appendOperation:(op:Operation,source:'remote')=>void}
  const r=h as RecoveryHost
  const blocked:GridWashNotReady={kind:'notReady',reason:'resource',retryKey:'busy'}
- r._rebuildJobs.set('L',{gridBlocked:blocked})
+ r._rebuildJobs.set('L',{gridBlocked:blocked,chunks:new Map<string,never>(),fresh:target})
  expect(r.isSnapshotHistoryRepairPending('L')).toBe(false)
  expect(r.gridReadiness('L').layer).toEqual(blocked)
  const cancel=vi.spyOn(r,'_cancelRebuildJob').mockImplementation(id=>{r._rebuildJobs.delete(id)})
@@ -44,16 +44,16 @@ it('resource pending is not history repair, and clear/delete remain read-indepen
  r.appendOperation({id:'clear-recovery',type:'layer_clear',userId:'u',timestamp:0,layerId:'L',seq:1},'remote')
  expect(cancel).toHaveBeenCalledWith('L');expect(clear).toHaveBeenCalled()
  expect(r.gridReadiness('L').layer).toBe(null)
- r._rebuildJobs.set('L',{gridBlocked:blocked})
+ r._rebuildJobs.set('L',{gridBlocked:blocked,chunks:new Map<string,never>(),fresh:target})
  r.appendOperation({id:'delete-recovery',type:'layer_delete',userId:'u',timestamp:0,layerIds:['L'],seq:2},'remote')
  expect(r._layers.has('L')).toBe(false)
 })
 
 it('resource readiness follows the existing three-hop source graph without becoming history repair',()=>{
- const{h}=setup()
- type Dependencies=Host&{_rebuildJobs:Map<string,{gridBlocked:GridWashNotReady}>;_snapshotDependentLayers:Map<string,Set<string>>;gridReadiness:(id:string)=>{layer:GridWashNotReady|null};isSnapshotHistoryRepairPending:(id:string)=>boolean}
+ const{h,target}=setup()
+ type Dependencies=Host&{_rebuildJobs:Map<string,{gridBlocked:GridWashNotReady;chunks:Map<string,never>;fresh:ILayerBuffer}>;_snapshotDependentLayers:Map<string,Set<string>>;gridReadiness:(id:string)=>{layer:GridWashNotReady|null};isSnapshotHistoryRepairPending:(id:string)=>boolean}
  const d=h as Dependencies
- d._rebuildJobs.set('A',{gridBlocked:{kind:'notReady',reason:'resource',retryKey:'busy:A'}})
+ d._rebuildJobs.set('A',{gridBlocked:{kind:'notReady',reason:'resource',retryKey:'busy:A'},chunks:new Map<string,never>(),fresh:target})
  d._snapshotDependentLayers.set('B',new Set(['A']));d._snapshotDependentLayers.set('C',new Set(['B']));d._snapshotDependentLayers.set('D',new Set(['C']))
  expect(d.gridReadiness('D').layer).toMatchObject({reason:'resource'})
  expect(d.isSnapshotHistoryRepairPending('D')).toBe(false)

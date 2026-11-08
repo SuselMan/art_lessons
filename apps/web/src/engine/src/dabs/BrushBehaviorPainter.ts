@@ -1,3 +1,5 @@
+import {firstBristleLine139} from './CanonicalBeginRuntime'
+import {hasBristleSoak139Scope} from '@grafetto/shared'
 import{hasPixelGradientWash138Scope}from'@grafetto/shared'
 import type{BorrowedGridWash}from'./GridWashRuntime'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
@@ -224,8 +226,10 @@ export class BrushBehaviorPainter {
     const batch=this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())
     if(settings.useSaturation){
       if(!bristle||bristle.version!==2||bristle.ink!==settings||!this.saturationResource)throw Error('Compiled Bristle saturation owner is not installed')
-      batch.prepareCompiledSaturation(settings,this.saturationResource(bristle),!antialias&&!compositing)
-    }else batch.prepareInkProfile(settings,!antialias&&!compositing)
+      if(bristle.version===2&&bristle.soak)batch.prepareCompiledSaturation(settings,this.saturationResource(bristle),!antialias&&!compositing,true)
+      else batch.prepareCompiledSaturation(settings,this.saturationResource(bristle),!antialias&&!compositing)
+    }else if(bristle?.version===2&&bristle.soak)batch.prepareInkProfile(settings,!antialias&&!compositing,true)
+    else batch.prepareInkProfile(settings,!antialias&&!compositing)
   }
   releaseBristleSaturation():void{this.bristleRequests?.releaseSaturationResource()}
   prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
@@ -484,11 +488,16 @@ export class BrushBehaviorPainter {
       if(failed)throw failure
     }
   }
+  assertBristleSoakPrepared139(brush:BrushDescriptor):void {
+    if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2||!this.bristleRequests)throw Error('Bristle Soak scope/prewarm unavailable')
+    this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true)
+  }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
     const gradientWash=usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(gradientWash&&(!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
     if(gradientWash&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
@@ -517,7 +526,7 @@ export class BrushBehaviorPainter {
       for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase)}
       return
     }
-    if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
+    if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');if(brush.bristle.soak)this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true);else this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
     if(brush.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
@@ -659,7 +668,7 @@ export class BrushBehaviorPainter {
         if(!geometry)throw Error('Missing Bristle ink geometry')
         const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
         const span=saturationTable?advancePreparedBristleSaturationInk(saturationTable,bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias):advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
-        return {...st,flowScale:1,bristleInkSpan:span}
+        return {...st,flowScale:1,bristleInkSpan:geometry.sampleAlpha===undefined?span:{...span,sampleAlpha:geometry.sampleAlpha}}
       }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.

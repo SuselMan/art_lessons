@@ -43,3 +43,14 @@ float bristleInkAlpha(vec2 pixel){
  return a;
 }
 `
+
+/** Opt-in139 only; old72/93 shader constants above remain byte-for-byte. */
+export function bristleSoakInkFragment139(fragment:string):string {
+ const anchor='float opacity=v_inkState.z;'
+ if(fragment.split(anchor).length!==2)throw Error('Bristle Soak shader anchor drift')
+ return fragment.replace('float bristleInkAt(float k){','varying highp float v_soakAlpha;\nfloat bristleInkAt(float k){').replace(anchor,'float opacity=v_soakAlpha;')
+}
+export function bristleSoakInkVertex139(vertex:string):string {
+ if(vertex.split('void main(){').length!==2)throw Error('Bristle Soak vertex anchor drift')
+ return vertex.replace('void main(){','attribute float a_soakAlpha;varying highp float v_soakAlpha;void main(){v_soakAlpha=a_soakAlpha;')
+}

@@ -25,6 +25,7 @@ export interface BristleInkLine {
  readonly steps:number
  readonly samples:number
  readonly axis:'x'|'y'
+ readonly sampleAlpha?:number
  index:number
  color:[number,number,number]
 }
@@ -42,11 +43,12 @@ export function createBristleInkState(population:number):BristleInkState {
  // Native Bristle starts at zero, then adopts 1-depletion after the first sample.
  return {hairs:Array.from({length:population},()=>({counter:0,inkAmount:0}))}
 }
-export function beginBristleInkLine(state:BristleInkState,hair:number,start:readonly[number,number],end:readonly[number,number],length:number,pressure:number,color:readonly[number,number,number],antialias:boolean):BristleInkLine {
+export function beginBristleInkLine(state:BristleInkState,hair:number,start:readonly[number,number],end:readonly[number,number],length:number,pressure:number,color:readonly[number,number,number],antialias:boolean,sampleAlpha?:number):BristleInkLine {
  if(!Number.isInteger(hair)||!state.hairs[hair]||!unit(length)||!Number.isFinite(pressure)||pressure<0||pressure>2||![...start,...end].every(Number.isFinite)||![...start,...end].every(v=>Math.abs(v)<=Number.MAX_SAFE_INTEGER)||!color.every(unit)||typeof antialias!=='boolean')throw new RangeError('Invalid Bristle ink line')
+ if(sampleAlpha!==undefined&&!unit(sampleAlpha))throw RangeError('Invalid Bristle sampled alpha')
  const dx=end[0]-start[0],dy=end[1]-start[1],axis=Math.abs(dy)>Math.abs(dx)?'y':'x',at=axis==='x'?0:1,steps=Math.abs(Math.trunc(end[at])-Math.trunc(start[at]))
  if(!Number.isSafeInteger(steps))throw new RangeError('Bristle ink trajectory exceeds safe domain')
- return {hair,length,pressure,start:[...start],end:[...end],steps,samples:steps+(antialias?1:2),axis,index:0,color:[...color]}
+ return {hair,length,pressure,...(sampleAlpha===undefined?{}:{sampleAlpha}),start:[...start],end:[...end],steps,samples:steps+(antialias?1:2),axis,index:0,color:[...color]}
 }
 /** HSL compatibility saturation: native type=1, compatibilityMode default=true.
  * Functional RGB bytes are quantized at every sample, including transparent ones. */
@@ -70,7 +72,7 @@ export function advanceBristleInkLine(profile:BristleInkProfile,state:BristleInk
   const index=line.index++,depletion=profile.depletion[Math.min(hair.counter,profile.amount-1)]
   const weighted=line.pressure*profile.pressureWeight+line.length*profile.bristleLengthWeight+hair.inkAmount*profile.bristleInkAmountWeight+(1-depletion)*profile.inkDepletionWeight
   if(profile.useSaturation)line.color=bristleHslSaturationRgb8(line.color,profile.useWeights?weighted:line.pressure*line.length*hair.inkAmount*(1-depletion))
-  const opacity=profile.useOpacity?clamp(profile.useWeights?weighted:line.length*hair.inkAmount):line.length
+  const opacity=profile.useOpacity?clamp(profile.useWeights?weighted:line.length*hair.inkAmount):(line.sampleAlpha??line.length)
   const final=index>line.steps,t=dominant===0?0:index/Math.abs(dominant)
   samples.push({x:final?line.end[0]:line.start[0]+t*dx,y:final?line.end[1]:line.start[1]+t*dy,opacity,color:[...line.color]})
   hair.inkAmount=Math.fround(1-depletion);hair.counter++

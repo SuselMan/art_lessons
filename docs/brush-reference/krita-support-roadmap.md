@@ -1209,3 +1209,31 @@ SourceAngle не требуется; RNG проверен при наличии 
 Experiment Pattern требует отдельной явной authority: native fillType=1 берёт
 canvas CurrentPattern, ресурс из одного KPP не следует. Автоматически подставлять
 случайный PAT нельзя. Следующий пробел исследуется отдельно: Bristle soaking.
+
+
+139: цельный Bristle Soak код интегрирован в общий путь, GPU/online ещё не выполнены.
+Root normal directOver ink2, descriptor139, immutable initialSide<=256 и canonical
+raw hair grid<=4096. Native источник — old pixels активного слоя на первой реальной
+линии; lone anchor не захватывает цвета. Все волосы собираются одним bounded
+64×64 readback до geometry/threshold, затем detached RGBA8 palette<=16KiB хранится
+в существующем BristleState/RibbonStrokeScratch. useOpacity заменяет sampled alpha,
+иначе сохраняется sampled alpha; saturation начинает каждый trajectory с sampled RGB.
+Исходный PMA unpremultiply функционален; hidden RGB при alpha0 не восстанавливается.
+Pinned Qt5.15.7 qRound использует half-up к +∞, включая -.5→0.
+
+Canonical BEGIN authority обобщает137 host/FIFO/readiness/checkpoint/replay; Grid
+сохраняет прежний return shape. Нет новой history queue/gesture registry/wire.
+Same staged author scratch передаётся существующему owner; отмена до queued start
+его освобождает. Runtime передаётся явно через прежний Ribbon painter. Prefix
+invalidation/full-BEGIN recovery не подменяются чтением текущего слоя. Old72/93/135
+сохраняют прежние shader constants и не готовят дополнительные139 ресурсы.
+
+Первый central:1200 TS PASS/2 FAIL,245 модулей130.84s. Два старых prototype/mock
+объекта не создавали constructor/job поля, нужные общему owner inventory; assertions
+не менялись, mock поля восстановлены. Python609 PASS32.721s, server1257 inputs0
+типа ошибок. Исправлены null→undefined на новом bridge и обязательные поля fixture;
+48 focused TS/11 модулей PASS12.02s, web2618 inputs0 diagnostics. Последняя правка
+Map<string,never> — только типовая. Selected lint28 owned TS exit0; initial syntax
+26 TS/6 Python PASS, все workers завершены. GPU color/source laws, canonical CAPS
+и online139 ещё не доказаны; публичный QA54/backend57 остаётся на проверенном138.
+Подтверждённый stock gain0: это внешний authored механизм, не новое штатное имя.

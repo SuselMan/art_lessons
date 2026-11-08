@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { hasGridWash137Scope,hasGridBeginIdentity137,brushAssetIds, brushUsesGradient,brushRequiresRandomContext, brushRequiresSourceInputs, hasValidBrushRandomContext,hasValidBrushSourceContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
+import { hasBristleSoak139Scope,hasBristleSoakBeginIdentity139,hasGridWash137Scope,hasGridBeginIdentity137,brushAssetIds, brushUsesGradient,brushRequiresRandomContext, brushRequiresSourceInputs, hasValidBrushRandomContext,hasValidBrushSourceContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
@@ -164,6 +164,7 @@ export class BrushStorage {
     if(brush.descriptor.clone&&op.brushSource?.clone===undefined)return false
     if(brushUsesGradient(brush.descriptor)&&op.brushSource?.gradient===undefined)return false
     if(hasGridWash137Scope(brush.descriptor)&&!hasGridBeginIdentity137(op))return false
+    if(hasBristleSoak139Scope(brush.descriptor)&&!hasBristleSoakBeginIdentity139(op))return false
     if (!brushRequiresSourceInputs(brush.descriptor)) return true
     try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), strokeEndSample(op)) }
     catch { return false }

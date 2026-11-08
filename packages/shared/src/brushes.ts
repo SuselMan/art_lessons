@@ -1,7 +1,7 @@
 import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
-export {hasBristleWash135Scope}from'./brushBristle.js'
+export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
@@ -35,8 +35,8 @@ import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
-import {hasBristleWash135Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
-export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup} from './brushBristle.js'
+import {hasBristleWash135Scope,hasBristleSoak139Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
+export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup,BrushBristleSoak} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
 import { hasSprayWash133Scope,isBrushSpray, type BrushSpray } from './brushSpray.js'
@@ -469,6 +469,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(record(d.bristle)&&d.bristle.soak!==undefined&&!hasBristleSoak139Scope(d))return false
     // Saturation requires an explicitly compiled immutable lookup (revision93).
     if(record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics.lightnessStrength!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations.lightnessStrength!==undefined))&&!(Number(d.version)>=90&&d.model==='stamp'&&record(d.tip.material)&&d.tip.material.kind==='lightness'&&['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)))return false
     if(record(d.bristle)&&d.bristle.version===2){
@@ -747,6 +748,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.bristle?.version===2&&secondary.bristle.soak!==undefined)return false
         if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.tangentNormal&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.grid&&(secondary.grid.sourcePolicy!==undefined||secondary.version>=137&&secondary.behavior?.rendering?.accumulation==='alphaDarken'))return false
