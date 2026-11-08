@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from pixel_original_dual151 import pixel_original_dual151_scope, validate_pixel_original_dual151
 from pixel_original_hsv150 import pixel_original_hsv150_scope, validate_pixel_original_hsv150
 from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
@@ -574,6 +575,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
+    validate_pixel_original_dual151(descriptor,1 if parent is not None else 0)
     from spray_wash133 import validate_spray_wash133
     validate_spray_wash133(descriptor)
     from krita_spray import validate_spray_source146
@@ -761,6 +763,7 @@ def portable_bundle(path,catalog):
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
         validate_pixel_original_hsv150(d,depth)
+        validate_pixel_original_dual151(d,depth)
         def policy_controls(v):
             if isinstance(v,dict):return ([v]if isinstance(v.get('combine'),dict)and v['combine'].get('policy')=='native-scatter-v1'else[])+[c for child in v.values()for c in policy_controls(child)]
             return [c for child in v for c in policy_controls(child)]if isinstance(v,list)else[]
@@ -903,7 +906,10 @@ def portable_bundle(path,catalog):
             pixel_gradient=d.get('model')=='stamp'and 'spray'not in d and isinstance(color,dict)and 'gradient'in color
             if pixel_gradient and(depth or d['version']<97 or 'animation'in tip and not(is_equal_gradient_gih125(d)or is_unequal_gradient_gih126(d)) or asset_sizes.get(tip.get('mask'),100000)>512 or (behavior.get('rendering',{}).get('accumulation')!='directOver'and not pixel_gradient_wash138_scope(d))or behavior.get('rendering',{}).get('blendMode')!='normal'):raise ValueError('Invalid portable Pixel gradient combination')
             pixel_image=d.get('model')=='stamp'and 'spray'not in d and d.get('version',0)>=84 and isinstance(color,dict)and ('planes'in color or pixel_gradient)
-            if pixel_image and(any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material'))or (any(k in behavior for k in('dual','edgeBleed'))or 'colorAdjustment'in behavior and not pixel_original_hsv150_scope(d))or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness'))):raise ValueError('Invalid portable Pixel original RGBA combination')
+            if pixel_original_dual151_scope(d):
+                child=d['behavior']['dual']['brush'];ct=child['tip']
+                if asset_sizes.get(tip.get('mask'),100000)>512 or ct.get('kind')=='bitmap'and asset_sizes.get(ct.get('mask'),100000)>512:raise ValueError('Original RGBA ALPHAMASK151 physical planes exceed512')
+            if pixel_image and(any(k in tip for k in('profile','autoNoise','autoShape','imageSampling','material'))or ('dual'in behavior and not pixel_original_dual151_scope(d)or 'edgeBleed'in behavior or 'colorAdjustment'in behavior and not(pixel_original_hsv150_scope(d)or pixel_original_dual151_scope(d)))or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness'))):raise ValueError('Invalid portable Pixel original RGBA combination')
             if (not(d.get('model')=='mixer'and d.get('mixer',{}).get('algorithm')=='krita-stamp'or spray_image or pixel_image) or tip.get('kind')!='bitmap'
                     or 'material' in tip or 'imageSampling' in tip or not isinstance(color,dict)):
                 raise ValueError('Invalid portable colour material')

@@ -1,3 +1,5 @@
+import{hasPixelOriginalDual151Scope}from'./brushPixelOriginalDual151.js'
+export{hasPixelOriginalDual151Scope}from'./brushPixelOriginalDual151.js'
 import{hasPixelOriginalHsv150Scope}from'./brushPixelOriginalHsv150.js'
 export{hasPixelOriginalHsv150Scope}from'./brushPixelOriginalHsv150.js'
 import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
@@ -668,9 +670,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined&&!equalSensorGradient125&&!unequalSensorGradient126||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasPixelGradientWash138Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
     if((equalSensorGradient125||unequalSensorGradient126)&&(d.tip.animation as {frames:string[]}).frames.some(id=>Number(assetSizes.get(id))>512))return false
     const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&(Array.isArray(d.tip.color.planes)||pixelGradient)
-    if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.colorAdjustment!==undefined&&!hasPixelOriginalHsv150Scope(d)||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
+    if(hasPixelOriginalDual151Scope(d)){const b=d.behavior;if(!record(b)||!record(b.dual)||!record(b.dual.brush)||!record(b.dual.brush.tip))return false;const childTip=b.dual.brush.tip,main=assetSizes.get(String(d.tip.mask)),secondary=childTip.kind==='bitmap'?assetSizes.get(String(childTip.mask)):undefined;if(!main||main>512||childTip.kind==='bitmap'&&(!secondary||secondary>512))return false}
+    if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined&&!hasPixelOriginalDual151Scope(d)||d.behavior.colorAdjustment!==undefined&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d)||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
     if(d.tip.color !== undefined) {
-      if(record(d.tip.color)&&'adjustmentPolicy'in d.tip.color&&!hasPixelOriginalHsv150Scope(d))return false
+      if(record(d.tip.color)&&'adjustmentPolicy'in d.tip.color&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d))return false
       const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
       const tuple=(v:unknown):v is AssetId[]=>Array.isArray(v)&&v.length===3&&v.every(ref)
       if(!(d.model==='mixer'&&(d.mixer as {algorithm?:string}|undefined)?.algorithm==='krita-stamp'||sprayImage||pixelImage)||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined||!record(color))return false
@@ -784,7 +787,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
-        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput&&!isIndependentDrawingAnglePair(d) || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
+        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput&&!isIndependentDrawingAnglePair(d)&&!hasPixelOriginalDual151Scope(d) || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         if(record(d.tip.material)&&secondary.behavior?.strokeInput){
           const alpha=assetSizes.get(String(d.tip.mask)),gray=assetSizes.get(String(d.tip.material.gray)),mask=assetSizes.get(String(secondary.tip.mask)),rect=secondary.tip.imageSampling?.sourceRect
           if(!isIndependentDrawingAnglePair(d)||!alpha||alpha>512||gray!==alpha||!mask||mask>512||!rect||rect.x+rect.width>mask||rect.y+rect.height>mask)return false

@@ -14,5 +14,6 @@ def pixel_original_hsv150_scope(v):
 
 def validate_pixel_original_hsv150(v,depth=0):
     t=v.get('tip',{});c=t.get('color') if isinstance(t,dict) else None
-    if isinstance(c,dict) and 'adjustmentPolicy'in c and (depth or not pixel_original_hsv150_scope(v)):
+    from pixel_original_dual151 import pixel_original_dual151_scope
+    if isinstance(c,dict) and 'adjustmentPolicy'in c and (depth or not(pixel_original_hsv150_scope(v)or pixel_original_dual151_scope(v))):
         raise ValueError('Invalid native IMAGESTAMP150 policy')

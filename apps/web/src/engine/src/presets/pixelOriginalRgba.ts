@@ -1,5 +1,5 @@
 import{captureGihFrameMetadata}from'../raster/gihFrameGeometry'
-import {hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {hasPixelOriginalDual151Scope,hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
@@ -21,9 +21,9 @@ export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
   }
  }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
- if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
- if(color&&'adjustmentPolicy'in color&&!hasPixelOriginalHsv150Scope(brush))throw Error('Unsupported native IMAGESTAMP150 policy')
- if(b?.colorAdjustment&&!hasPixelOriginalHsv150Scope(brush)||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')
+ if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual&&!hasPixelOriginalDual151Scope(brush)||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
+ if(color&&'adjustmentPolicy'in color&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush))throw Error('Unsupported native IMAGESTAMP150 policy')
+ if(b?.colorAdjustment&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush)||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')
 }
 export interface PixelOriginalRgbaFrame {
  readonly id:TipMaskId
@@ -37,6 +37,7 @@ export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOri
  // before Painter acquires leases, invokes prepared owners or mutates scratch.
  const animation=brush.tip.animation
  const gradientWash=hasPixelGradientWash138Scope(brush)
+ const originalDual=hasPixelOriginalDual151Scope(brush)
  const equalSensor=!!animation&&!animation.geometry&&['angular','xtilt','ytilt','dimensions'].includes(animation.mode)&&!!brush.tip.color&&'planes'in brush.tip.color
  if(equalSensor&&!isEqualOriginalRgbaGih121(brush))throw Error('Equal original RGBA sensor requires121 closed scope')
  const sensorGradient=!!animation&&!!brush.tip.color&&'gradient'in brush.tip.color
@@ -51,9 +52,9 @@ export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOri
  return Object.freeze(frames.map((id,index)=>{
   const planes=brushTipColorPlanes(brush.tip,index)
   if(!planes||planes.length!==3||planes.some(p=>typeof p!=='string'||!p))throw new RangeError('Missing Pixel original RGB planes')
-  if(equalSensor||sensorGradient||gradientWash){
+  if(equalSensor||sensorGradient||gradientWash||originalDual){
    const length=importedAssetPixels(id).length,side=Math.sqrt(length)
-   if(!Number.isInteger(side)||side<2||side>(sensorGradient||gradientWash?512:2048)||(side&(side-1))!==0||!unequalGradient&&equalSide!==undefined&&side!==equalSide||planes.some(plane=>importedAssetPixels(plane).length!==length))throw new RangeError('Equal121 physical RGBA plane dimensions differ')
+   if(!Number.isInteger(side)||side<2||side>(sensorGradient||gradientWash||originalDual?512:2048)||(side&(side-1))!==0||!unequalGradient&&equalSide!==undefined&&side!==equalSide||planes.some(plane=>importedAssetPixels(plane).length!==length))throw new RangeError('Equal121 physical RGBA plane dimensions differ')
    equalSide=side
   }
   return Object.freeze({id,planes:Object.freeze([...planes]as [string,string,string])})
@@ -95,3 +96,16 @@ vec3 brushOriginalRgbaPigment(vec4 sampleValue) {
  return sampleValue.a>0.0?clamp(sampleValue.rgb/sampleValue.a,0.0,1.0):vec3(0.0);
 }
 `
+
+export function assertPixelOriginalDual151Resources(brush:BrushDescriptor):boolean{
+ if(!hasPixelOriginalDual151Scope(brush)){if(usesPixelOriginalRgba(brush)&&brush.behavior?.dual)throw Error('Invalid original RGBA dual151 scope');return false}
+ pixelOriginalRgbaFrames(brush)
+ const child=brush.behavior!.dual!.brush,t=child.tip
+ if(t.kind==='bitmap'){
+  if(!t.mask)throw Error('Missing ALPHAMASK151 source')
+  const side=Math.sqrt(importedAssetPixels(t.mask).length),rect=t.imageSampling?.sourceRect
+  if(!Number.isInteger(side)||side<2||side>512||(side&(side-1))!==0)throw Error('ALPHAMASK151 physical source exceeds bounds')
+  if(rect&&(![rect.x,rect.y,rect.width,rect.height].every(Number.isInteger)||rect.x<0||rect.y<0||rect.width<1||rect.height<1||rect.x+rect.width>side||rect.y+rect.height>side))throw Error('ALPHAMASK151 source rectangle exceeds asset')
+ }
+ return true
+}

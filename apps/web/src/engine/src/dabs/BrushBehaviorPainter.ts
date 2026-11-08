@@ -1,3 +1,4 @@
+import{hasPixelOriginalDual151Scope}from'@grafetto/shared'
 import {hasCloneProjection149Scope}from'@grafetto/shared'
 import{FilterSmudge147Pass,FilterSmudge147State,FilterSmudge147Blocked,type FilterSmudge147Request}from'./FilterSmudge147'
 import{hasFilterSmudge147Scope}from'@grafetto/shared'
@@ -660,6 +661,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     const filteredGradient=usesFilteredPixelGradient(brush)
     const originalRgba=usesPixelOriginalRgba(brush)
+    if(originalRgba&&brush.behavior?.dual&&(!hasPixelOriginalDual151Scope(brush)||effectiveErase))throw Error('Invalid original RGBA dual151 scope')
     const originalFrames=originalRgba?pixelOriginalRgbaFrames(brush):undefined
     if(originalRgba)assertPixelOriginalRgba(brush)
     if(brush.behavior?.dual&&usesPixelOriginalRgba(brush.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
