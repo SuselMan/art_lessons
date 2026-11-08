@@ -4,6 +4,7 @@ KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
 from child_clock132 import independent_child_clock132_pair,has_time_control132
+from pixel_original_hsv150 import pixel_original_hsv150_scope
 from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
@@ -1509,7 +1510,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return isinstance(node,list)and any(has_time_random(value)for value in node)
     if has_time_random(behavior):d['version']=max(d['version'],81)
     if engine=='paintbrush'and 'planes'in d['tip'].get('color',{}):
-        if behavior.get('dual')or behavior.get('colorAdjustment')or behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour/dual adjustments are not implemented')
+        if behavior.get('colorAdjustment'):
+            d['tip']['color']['adjustmentPolicy']='native-image-stamp-v1'
+            d['version']=max(d['version'],150)
+            if depth or not pixel_original_hsv150_scope(d):raise ValueError('Pixel original RGBA HSV150 requires root static native IMAGESTAMP')
+            notes.append(compatibility('hsvImageStamp150','Native IMAGESTAMP ignores transformed foreground HSV; controls and existing stochastic evaluation are retained. Native RNG query/ICC bit identity is not claimed.','supported'))
+        if behavior.get('dual')or behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour/dual adjustments are not implemented')
         d['version']=max(d['version'],84)
     if d.get('texture',{}).get('material'):
         tip=d['tip'];t=d['texture'];render=behavior.get('rendering',{})

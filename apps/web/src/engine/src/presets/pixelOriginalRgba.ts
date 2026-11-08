@@ -1,5 +1,5 @@
 import{captureGihFrameMetadata}from'../raster/gihFrameGeometry'
-import {hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
@@ -22,7 +22,8 @@ export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
  }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
  if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
- if(b?.colorAdjustment||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')
+ if(color&&'adjustmentPolicy'in color&&!hasPixelOriginalHsv150Scope(brush))throw Error('Unsupported native IMAGESTAMP150 policy')
+ if(b?.colorAdjustment&&!hasPixelOriginalHsv150Scope(brush)||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')
 }
 export interface PixelOriginalRgbaFrame {
  readonly id:TipMaskId
