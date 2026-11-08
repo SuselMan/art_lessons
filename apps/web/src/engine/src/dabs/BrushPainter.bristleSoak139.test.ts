@@ -82,3 +82,13 @@ it('rejects source size changes between the prior anchor packet and first captur
  prior.previous={...dab,sourceSize:4,sourceScale:1};prior.bristle={ordinal:0,oldPressure:1,previous:{x:dab.x,y:dab.y},ends:[]};f.scratch.brushBehavior=prior
  const before=structuredClone(prior);expect(()=>f.prepare()).toThrow('size changed');expect(prior).toEqual(before);expect(f.ctx.openCanonicalBegin).not.toHaveBeenCalled();expect(f.gather.gather).not.toHaveBeenCalled()
 })
+it('ordinary141 preflights complete captured size identity before the existing behavior painter',()=>{
+ const selected=resizedBrush();if(selected.bristle?.version!==2)throw Error('fixture')
+ const{ink:_ink,soak:_soak,saturationLookup:_lookup,...geometry}=selected.bristle
+ selected.version=141;selected.bristle={...geometry,version:1,initialization:{sourceSide:1,resizePolicy:'mask-population-v1'}}
+ const paint=vi.fn(),painter=Object.assign(Object.create(BrushPainter.prototype),{behavior:{paint}})as BrushPainter,scratch={}as BehaviorScratch,target={}as ILayerBuffer,preset={sizeMultiplier:1}as PencilPreset,stamp={brush:selected,pressure:{size:true,opacity:true}}
+ expect(()=>painter.paint(target,[dab],preset,stamp,[1,0,0],scratch,undefined)).toThrow();expect(paint).not.toHaveBeenCalled();expect(scratch.brushBehavior).toBeUndefined()
+ const first={...dab,sourceSize:4,sourceScale:1},prior=beginBrushBehavior(first);prior.previous=first;prior.bristle={ordinal:0,oldPressure:1,ends:[]};scratch.brushBehavior=prior;const before=structuredClone(prior)
+ expect(()=>painter.paint(target,[{...first,sourceSize:8}],preset,stamp,[1,0,0],scratch,undefined)).toThrow('size changed');expect(paint).not.toHaveBeenCalled();expect(prior).toEqual(before)
+ painter.paint(target,[first],preset,stamp,[1,0,0],scratch,undefined);expect(paint).toHaveBeenCalledOnce()
+})

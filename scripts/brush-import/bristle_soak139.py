@@ -39,3 +39,32 @@ def validate_bristle_soak139(d,parent=None):
     h=d.get('bristle')if isinstance(d,dict)else None
     if isinstance(h,dict)and'soak'in h:
         if parent is not None or not bristle_soak139_scope(d):raise ValueError('Bristle Soak139 requires closed root canonical-BEGIN ink palette scope')
+
+
+def bristle_resize141_scope(d):
+    if not isinstance(d,dict)or not all(isinstance(d.get(k),dict)for k in('bristle','behavior','tip')):return False
+    h,b,t=d['bristle'],d['behavior'],d['tip'];v=h.get('initialization');r=b.get('rendering')
+    if not isinstance(v,dict)or set(v)!={'sourceSide','resizePolicy'}or v.get('resizePolicy')!='mask-population-v1'or not _int(v.get('sourceSide'),1,256):return False
+    side=v['sourceSide'];hairs=h.get('hairs');seen=set()
+    if not isinstance(hairs,list)or not 1<=len(hairs)<=8192:return False
+    for hair in hairs:
+        if not isinstance(hair,list)or len(hair)!=3 or not _num(hair[2],0,1)or hair[2]<=0 or abs(hair[2]*255-round(hair[2]*255))>1e-9:return False
+        if not all(_num(x,-.5,.5)and abs(x*side-round(x*side))<=1e-9 and -int(side//2)<=round(x*side)<=side-1-int(side//2)for x in hair[:2]):return False
+        key=tuple(round(x*side)for x in hair[:2])
+        if key in seen:return False
+        seen.add(key)
+    return(_int(d.get('version'),141,float('inf'))and d.get('model')=='stamp'and _num(d.get('paperInteraction'),0,0)
+      and set(h)=={'version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','initialization'}and _int(h.get('version'),1,1)
+      and _num(h.get('scale'),-10,10)and _num(h.get('shear'),-10,10)and _num(h.get('random'),0,100)and all(type(h.get(k))is bool for k in('mousePressure','threshold','connected','antialias','compositing'))
+      and not any(k in d for k in('mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'))
+      and not set(t)-{'kind','hardness','aspect','rotation','angle'}and t.get('kind')=='round'and _num(t.get('hardness'),1,1)and _num(t.get('aspect'),1,1)and t.get('rotation')=='fixed'and _num(t.get('angle'),0,0)
+      and _int(b.get('version'),2,2)and not set(b)-{'version','rendering','modulations','rotation','strokeInput','speedInput'}
+      and('modulations'not in b or isinstance(b['modulations'],dict)and not set(b['modulations'])-{'size','rotation'})
+      and('strokeInput'not in b or isinstance(b['strokeInput'],dict)and'fanCorners'not in b['strokeInput'])
+      and('speedInput'not in b or isinstance(b['speedInput'],dict)and b['speedInput']=={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'}and _int(b['speedInput'].get('version'),1,1)and _num(b['speedInput'].get('maximum'),30,30))
+      and isinstance(r,dict)and not set(r)-{'mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'}and r.get('mode')=='buildUp'and r.get('blendMode')=='normal'and r.get('accumulation')=='directOver'and _num(r.get('wetEdges',0),0,0)and _num(r.get('burntEdges',0),0,0)and r.get('burntEdgesMode','multiply')=='multiply'and r.get('opacityCeiling','uniform')=='uniform')
+
+def validate_bristle_initialization141(d,parent=None):
+    h=d.get('bristle')if isinstance(d,dict)else None
+    if isinstance(h,dict)and'initialization'in h:
+        if parent is not None or not bristle_resize141_scope(d):raise ValueError('Bristle initialization141 requires root ordinary no-ink full-mask directOver scope')

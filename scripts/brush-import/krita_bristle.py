@@ -8,8 +8,9 @@ from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 
-def bristle_preset(data,root,params,name,catalog,external):
+def bristle_preset(data,root,params,name,catalog,external,*,_allow_initialization=True):
     from krita_import import preset,enabled,numeric
+    if type(_allow_initialization)is not bool:raise ValueError('Private Bristle initialization origin must be boolean')
     ink_enabled=enabled(params.get('HairyInk/enabled'))
     soak=ink_enabled and enabled(params.get('HairyInk/soak'))
     if soak and(params.get('PaintOpAction','1')!='1'or enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))):raise ValueError('Bristle Soak139 requires normal directOver untimed input')
@@ -106,6 +107,18 @@ def bristle_preset(data,root,params,name,catalog,external):
             result['compatibility'].append(compatibility('bristleResize','Complete initialization alpha grid retained: captured sourceSize1..64 rebuilds a dense mask population once per gesture using deterministic bilinear pixel-center/clamped-edge/U8 filtering; pressure and Bristle Scale transform this population afterwards. Native Qt filtering bytes are not identical.'))
         else:
             result['compatibility'].append(compatibility('bristleResize','This Soak preset keeps legacy139 fixed imported hairs: density below100% or initialization side above64 is outside the mask-population resize policy. Toolbar resizing stretches existing hairs; native reinitialization population differs.'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if not ink_enabled:
+        if _allow_initialization and density==1 and params.get('PaintOpAction','1')=='1':
+            from bristle_soak139 import bristle_resize141_scope
+            candidate={**d,'version':141,'bristle':{**d['bristle'],'initialization':{'sourceSide':side,'resizePolicy':'mask-population-v1'}}}
+            if not enabled(params.get('Krita/erase'))and not enabled(params.get('EraserMode'))and bristle_resize141_scope(candidate):
+                d=candidate
+                result['compatibility'].append(compatibility('bristleInitialization','Full nonzero source alpha grid is captured once; recorded sourceSize1..64 rebuilds a dense mask population at gesture BEGIN with deterministic bilinear pixel-center/clamped-edge/U8 sampling. Pressure, negative Bristle Scale, shear and jitter transform that population afterwards; native Qt mask filtering bytes differ.'))
+            else:
+                result['compatibility'].append(compatibility('bristleInitialization','Legacy fixed imported hairs retained: this ordinary preset is outside the closed141 no-ink initialization scope. Toolbar resizing stretches existing hairs.'))
+        else:
+            result['compatibility'].append(compatibility('bristleInitialization','Legacy fixed imported hairs retained: non-full density, masking/private origin or Wash is outside ordinary141 initialization. Toolbar resizing stretches these hairs rather than rebuilding the native mask population.'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

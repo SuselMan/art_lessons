@@ -10,6 +10,9 @@ export function normalizeBrush(brush: BrushDescriptor): BrushDescriptor & {behav
     version:2 as const,
     rendering:{mode:'buildUp' as const,blendMode:brush.wet?.glaze?'multiply' as const:'normal' as const,wetEdges:brush.wet?.edge??0,burntEdges:0,burntEdgesMode:'multiply' as const},
   }}
+  // Imported descriptors are frozen. Preserve that top-level proof on the
+  // normalized view so deep-immutable policy caches remain usable.
+  if(Object.isFrozen(brush))Object.freeze(result)
   normalized.set(brush,result)
   return result
 }

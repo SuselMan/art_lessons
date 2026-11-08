@@ -1,5 +1,5 @@
 import { importedBrushes } from '../../engine/brushLibrary'
-import {hasBristleSoak140Scope}from'@grafetto/shared'
+import {hasBristleInitializationScope}from'@grafetto/shared'
 import { pickerImportedBrushes } from './brushCatalog'
 
 import {
@@ -1592,9 +1592,9 @@ export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
  *  `Math.min(120, …)`/`Math.max(1, …)`, which both survived past the smudge
  *  tool getting its own 4..160 range and would have survived #336's move to
  *  MAX_TOOL_SIZE_PX too. */
-/** Only the new bounded initialization policy constrains the authoring size. */
+/** The shared bounded initialization policy constrains Soak140 and ordinary141 authoring. */
 export function usesBristleSizeLimit140(toolId:UiToolId,values?:ToolSettingsValue):boolean {
-  return toolId==='digitalBrush'&&!!values&&typeof values.brush==='string'&&values.brush.length>0&&importedBrushes().some(b=>b.descriptor.id===values.brush&&hasBristleSoak140Scope(b.descriptor))
+  return toolId==='digitalBrush'&&!!values&&typeof values.brush==='string'&&values.brush.length>0&&importedBrushes().some(b=>b.descriptor.id===values.brush&&hasBristleInitializationScope(b.descriptor))
 }
 export function clampToolSize140(toolId:UiToolId,values:ToolSettingsValue):ToolSettingsValue {
   if(!usesBristleSizeLimit140(toolId,values))return values

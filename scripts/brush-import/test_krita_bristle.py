@@ -11,7 +11,7 @@ class BristleTests(unittest.TestCase):
         name=b'hair\0';header=struct.pack('>7I',28+len(name),2,4,4,1,0x47494d50,25)
         with tempfile.TemporaryDirectory() as d:return preset(data,'test.kpp',Catalog(Path(d)),{'hair.gbr':header+name+bytes([255]*16)})
     def test_population_is_fixed_and_bounded(self):
-        a=self.convert();b=self.convert();self.assertEqual(a['descriptor'],b['descriptor']);self.assertEqual(a['descriptor']['version'],45);self.assertEqual(len(a['descriptor']['bristle']['hairs']),16)
+        a=self.convert();b=self.convert();self.assertEqual(a['descriptor'],b['descriptor']);self.assertEqual(a['descriptor']['version'],141);self.assertEqual(len(a['descriptor']['bristle']['hairs']),16)
     def test_soak_is_explicit_new139_not_reinterpreted_old72(self):
         d=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/soak">true</param><param name="HairyInk/inkAmount">4</param>')['descriptor']
         self.assertEqual(d['version'],140);self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4,'resizePolicy':'mask-population-v1'})
@@ -27,7 +27,7 @@ class BristleTests(unittest.TestCase):
 
     def test_aliased_alpha_winner_is_admitted_separately_from_legacy(self):
         b=self.convert('<param name="HairyBristle/useCompositing">false</param>',aa=False)['descriptor']
-        self.assertEqual(b['version'],66);self.assertFalse(b['bristle']['antialias']);self.assertFalse(b['bristle']['compositing'])
+        self.assertEqual(b['version'],141);self.assertFalse(b['bristle']['antialias']);self.assertFalse(b['bristle']['compositing'])
 
     def test_opacity_depletion_and_native_weight_units(self):
         d=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/inkAmount">4</param><param name="HairyInk/pressureWeights">25</param><param name="HairyInk/inkDepletionWeight">70</param>')['descriptor']

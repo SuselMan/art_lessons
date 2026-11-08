@@ -1,4 +1,4 @@
-import {hasBristleSoak139Scope} from '@grafetto/shared'
+import {hasBristleSoak139Scope,hasBristleResize141Scope} from '@grafetto/shared'
 import {BristleSoakGather139} from '../raster/BristleSoakGather139'
 import {bristleSoakPoints139} from '../presets/bristleSoak139'
 import {buildBristleInitialization140,assertBristleInitializationSize140} from '../presets/bristleInitialization140'
@@ -157,6 +157,14 @@ export class BrushPainter {
   finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext,runtime?:CanonicalBeginRuntime):void|CanonicalBeginPaintResult {
     const brush=stamp.brush
+    if(brush.bristle?.version===1&&brush.bristle.initialization){
+      if(!hasBristleResize141Scope(brush))throw Error('Invalid Bristle initialization141 scope')
+      if(dabs.length){
+        assertBrushSourceInputs(brush,dabs)
+        const previous=scratch.brushBehavior?.previous
+        assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
+      }
+    }
     if(brush.bristle?.version===2&&brush.bristle.soak){
       if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope')
       if(brush.bristle.soak.resizePolicy==='mask-population-v1'&&dabs.length){

@@ -1,4 +1,4 @@
-import {hasBristleSoak140Scope,type BrushDescriptor,type Dab} from '@grafetto/shared'
+import {hasBristleInitializationScope,bristleInitializationSourceSide,type BrushDescriptor,type Dab} from '@grafetto/shared'
 export interface BristleInitialization140 {readonly side:number;readonly hairs:[number,number,number][]}
 export function assertBristleInitializationSize140(initialization:BristleInitialization140|undefined,dabs:readonly Dab[]):number {
  let side=initialization?.side
@@ -14,8 +14,9 @@ export function assertBristleInitializationSize140(initialization:BristleInitial
 /** Full-mask population, fixed at BEGIN. Pixel centres, clamped edges and
  * integer bilinear weights make U8 rounding independent of float filter noise. */
 export function buildBristleInitialization140(brush:BrushDescriptor,sourceSize:number):BristleInitialization140 {
- if(!hasBristleSoak140Scope(brush)||!Number.isInteger(sourceSize)||sourceSize<1||sourceSize>64)throw Error('Invalid Bristle mask-population140 initialization')
- const b=brush.bristle!,side=b.version===2?b.soak!.initialSide:0,half=Math.floor(side/2),alpha=new Uint8Array(side*side),seen=new Set<number>()
+ const side=bristleInitializationSourceSide(brush)
+ if(!hasBristleInitializationScope(brush)||side===undefined||!Number.isInteger(sourceSize)||sourceSize<1||sourceSize>64)throw Error('Invalid Bristle mask-population initialization')
+ const b=brush.bristle!,half=Math.floor(side/2),alpha=new Uint8Array(side*side),seen=new Set<number>()
  for(const[x,y,length]of b.hairs){
   const ix=Math.round(x*side)+half,iy=Math.round(y*side)+half,index=iy*side+ix,value=Math.round(length*255)
   if(ix<0||ix>=side||iy<0||iy>=side||seen.has(index)||value<1||value>255)throw Error('Invalid full Bristle source mask')

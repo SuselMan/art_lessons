@@ -1,7 +1,7 @@
 import{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasPixelGradientWash138Scope}from'./brushPixelGradientWash138.js'
 export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
-export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
+export {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,hasBristleResize141Scope,hasBristleInitializationScope,bristleInitializationSourceSide,hasBristleSoakBeginIdentity139}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
@@ -35,8 +35,8 @@ import{isBrushHatching,type BrushHatching}from'./brushHatching.js'
 export type{BrushHatching}from'./brushHatching.js'
 import {isBrushCurveTrace,type BrushCurveTrace}from'./brushCurveTrace.js'
 export type {BrushCurveTrace}from'./brushCurveTrace.js'
-import {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleSoak140Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
-export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup,BrushBristleSoak} from './brushBristle.js'
+import {hasBristleWash135Scope,hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleResize141Scope,isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brushBristle.js'
+export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup,BrushBristleSoak,BrushBristleInitialization} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
 import { hasSprayWash133Scope,isBrushSpray, type BrushSpray } from './brushSpray.js'
@@ -472,6 +472,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
     if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(record(d.bristle)&&d.bristle.initialization!==undefined&&!hasBristleResize141Scope(d))return false
     if(record(d.bristle)&&d.bristle.soak!==undefined&&!hasBristleSoak139Scope(d))return false
     // Saturation requires an explicitly compiled immutable lookup (revision93).
     if(record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics.lightnessStrength!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations.lightnessStrength!==undefined))&&!(Number(d.version)>=90&&d.model==='stamp'&&record(d.tip.material)&&d.tip.material.kind==='lightness'&&['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)))return false
@@ -751,6 +752,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.bristle?.version===1&&secondary.bristle.initialization!==undefined)return false
         if(secondary.bristle?.version===2&&secondary.bristle.soak!==undefined)return false
         if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.tangentNormal&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
@@ -979,7 +981,7 @@ export function brushAnimationUsesMode(animation:unknown,mode:string):boolean {
 }
 /** Shared fast-path predicate for client and server packet admission. */
 export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
- return hasBristleSoak140Scope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+ return hasBristleInitializationScope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
   ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
 }
 
@@ -987,7 +989,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
-  const resize140=hasBristleSoak140Scope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
+  const resize140=hasBristleInitializationScope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush))return false
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined

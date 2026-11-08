@@ -1,4 +1,4 @@
-import {hasBristleSoak139Scope,hasBristleSoak140Scope} from '@grafetto/shared'
+import {hasBristleSoak139Scope,hasBristleInitializationScope} from '@grafetto/shared'
 import {canonicalBeginBindingKey,firstBristleLine139,isBristleAnchor139,type CanonicalBeginCapability,type CanonicalBeginRuntime,type CanonicalBeginOwnerInfo} from './src/dabs/CanonicalBeginRuntime'
 import {isGridRenderableDab137} from './src/dabs/GridWashRuntime'
 import {hasOpenGridGesture,type WashOp} from './src/oplog/checkpointStore'
@@ -2467,7 +2467,7 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection
     sampler.captureSourceAngle=!!spacingBrush?.tangentNormal
-    sampler.captureSourceSize = !!spacingBrush && (!!spacingBrush.behavior?.sequentialRandom || hasBristleSoak140Scope(spacingBrush))
+    sampler.captureSourceSize = !!spacingBrush && (!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
     const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     sampler.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
@@ -3223,7 +3223,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -4371,7 +4371,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -6508,7 +6508,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
@@ -8276,7 +8276,7 @@ export class PencilEngine implements PencilEngineAPI {
       const brush=digitalBrushFromPreset(presetName)
       assertBrushSourceInputs(brush,dabs,strokeEndSample)
       assertBrushExecutionContext(brush,execution)
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush)) {
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) {
         // The source response has the same canonical F32 boundary on sliced
         // rebuilds as on immediate/live painting. Never infer it from size.
         dabs=dabs.map(codecDab)

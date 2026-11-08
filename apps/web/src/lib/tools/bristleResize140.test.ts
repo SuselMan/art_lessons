@@ -1,5 +1,6 @@
 import{expect,it}from'vitest'
 import{library140}from'../../../../../packages/shared/src/bristleResize140.testFixture'
+import{library141}from'../../../../../packages/shared/src/bristleInitialization141.testFixture'
 import{installBrushLibrary,retainImportedBrushResources}from'../../engine/brushLibrary'
 import{useRoomStore,resetRoomStore}from'../../stores/roomStore'
 import{defaultToolSettings,toolSettingDescriptor,toolSizeRange,MAX_TOOL_SIZE_PX}from'./toolSchemas'
@@ -26,4 +27,9 @@ it('140 exposes1..64 and clamps direct, remembered and restored sizes while old1
   useRoomStore.getState().setAllToolSettings(restored);expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(64)
   set('digitalBrush','brush',old.id);set('digitalBrush','size',200);expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(200)
  }finally{resetRoomStore();retainImportedBrushResources([])}
+})
+
+it('ordinary141 uses the common bounded size setting and selection clamp',()=>{
+ const library=library141();installBrushLibrary(library);resetRoomStore()
+ try{const set=useRoomStore.getState().setToolSetting;set('digitalBrush','brush',library.brushes[0].descriptor.id);set('digitalBrush','size',900);expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(64);expect(toolSizeRange('digitalBrush',useRoomStore.getState().toolSettings.digitalBrush)).toEqual({min:1,max:64})}finally{resetRoomStore();retainImportedBrushResources([])}
 })

@@ -21,6 +21,7 @@ export interface BrushBristleInk {
  inkDepletionWeight:number
 }
 export interface BrushBristleSoak {sourcePolicy:'canonical-begin-v1';initialSide:number;resizePolicy?:'mask-population-v1'}
+export interface BrushBristleInitialization {sourceSide:number;resizePolicy:'mask-population-v1'}
 interface BristleGeometry {
  hairs:[number,number,number][]
  scale:number
@@ -32,11 +33,11 @@ interface BristleGeometry {
  antialias:boolean
  compositing:boolean
 }
-export type BrushBristle=BristleGeometry&({version:1;ink?:never;saturationLookup?:never;soak?:never}|{version:2;ink:BrushBristleInk;saturationLookup?:BrushBristleSaturationLookup;soak?:BrushBristleSoak})
+export type BrushBristle=BristleGeometry&({version:1;ink?:never;saturationLookup?:never;soak?:never;initialization?:BrushBristleInitialization}|{version:2;initialization?:never;ink:BrushBristleInk;saturationLookup?:BrushBristleSaturationLookup;soak?:BrushBristleSoak})
 export function isBrushBristle(value:unknown):value is BrushBristle{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,n=(x:unknown,a:number,b:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=a&&x<=b
- return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined)||(v.version===2&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,v.version===1?-10:0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=(v.version===1?8192:4096)&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
+ return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak','initialization'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined&&(v.initialization===undefined||isBristleInitialization141(v.initialization,v.hairs)))||(v.version===2&&v.initialization===undefined&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,v.version===1?-10:0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=(v.version===1?8192:4096)&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
 }
 
 export function isBristleSaturationLookup(value:unknown):value is BrushBristleSaturationLookup {
@@ -127,7 +128,7 @@ export function hasBristleSoak139Scope(value:unknown):boolean {
 function hasBristleSoak139ScopeUncached(value:unknown):boolean {
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
- if(!obj(value)||!isBrushBristle(value.bristle)||value.bristle.version!==2||value.bristle.soak===undefined||!obj(value.tip)||!obj(value.behavior))return false
+ if(!obj(value)||!obj(value.bristle)||value.bristle.version!==2||value.bristle.soak===undefined||!isBrushBristle(value.bristle)||value.bristle.version!==2||!obj(value.tip)||!obj(value.behavior))return false
  const h=value.bristle,t=value.tip,b=value.behavior,r=b.rendering
  return Number.isInteger(value.version)&&Number(value.version)>=139&&(h.soak?.resizePolicy===undefined||Number(value.version)>=140&&isResizeMask140(h))&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
@@ -144,4 +145,46 @@ export function hasBristleSoakBeginIdentity139(op:unknown):boolean {
  if(!op||typeof op!=='object'||Array.isArray(op))return false
  const v=op as Record<string,unknown>
  return v.type==='stroke'&&typeof v.strokeId==='string'&&v.strokeId.length>0&&v.strokeId.length<=200
+}
+
+/** Captured complete source alpha grid; no density-decimated initialization. */
+function isBristleInitialization141(value:unknown,hairs:unknown):value is BrushBristleInitialization {
+ if(!value||typeof value!=='object'||Array.isArray(value))return false
+ const v=value as Record<string,unknown>,side=v.sourceSide
+ if(Object.keys(v).length!==2||v.resizePolicy!=='mask-population-v1'||typeof side!=='number'||!Number.isInteger(side)||side<1||side>256||!Array.isArray(hairs)||hairs.length<1||hairs.length>8192)return false
+ const seen=new Set<number>(),half=Math.floor(side/2)
+ for(const h of hairs){
+  if(!Array.isArray(h)||h.length!==3||typeof h[2]!=='number'||!Number.isFinite(h[2])||h[2]<=0||h[2]>1||Math.abs(h[2]*255-Math.round(h[2]*255))>1e-9)return false
+  const raw=h.slice(0,2).map(x=>typeof x==='number'&&Number.isFinite(x)?x*side:NaN)
+  if(raw.some(x=>!Number.isFinite(x)||Math.abs(x-Math.round(x))>1e-9||Math.round(x)<-half||Math.round(x)>side-1-half))return false
+  const key=(Math.round(raw[1])+half)*side+Math.round(raw[0])+half
+  if(seen.has(key))return false
+  seen.add(key)
+ }
+ return true
+}
+const immutableResize141Scopes=new WeakSet<object>()
+/** New ordinary no-ink/directOver initialization; old45/66/135 are not inferred. */
+export function hasBristleResize141Scope(value:unknown):boolean {
+ if(value!==null&&typeof value==='object'&&immutableResize141Scopes.has(value))return true
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||!Number.isInteger(value.version)||Number(value.version)<141||!obj(value.bristle)||value.bristle.version!==1||value.bristle.initialization===undefined||!isBrushBristle(value.bristle)||!obj(value.behavior)||!obj(value.tip))return false
+ const b=value.behavior,t=value.tip,r=b.rendering
+ const valid=Number.isInteger(value.version)&&Number(value.version)>=141&&value.model==='stamp'&&value.paperInteraction===0
+ &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
+ &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
+ &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
+ &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
+ &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
+ &&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))&&r.mode==='buildUp'&&r.accumulation==='directOver'&&r.blendMode==='normal'&&(r.wetEdges===undefined||r.wetEdges===0)&&(r.burntEdges===undefined||r.burntEdges===0)&&(r.burntEdgesMode===undefined||r.burntEdgesMode==='multiply')&&(r.opacityCeiling===undefined||r.opacityCeiling==='uniform')
+ if(valid&&immutableSoakData(value))immutableResize141Scopes.add(value)
+ return valid
+}
+export function hasBristleInitializationScope(value:unknown):boolean{return hasBristleResize141Scope(value)||hasBristleSoak140Scope(value)}
+export function bristleInitializationSourceSide(brush:import('./brushes.js').BrushDescriptor):number|undefined {
+ const h=brush.bristle
+ if(hasBristleResize141Scope(brush)&&h?.version===1)return h.initialization!.sourceSide
+ if(hasBristleSoak140Scope(brush)&&h?.version===2)return h.soak!.initialSide
+ return undefined
 }

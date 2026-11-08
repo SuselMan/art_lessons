@@ -26,7 +26,7 @@ class Soak139(unittest.TestCase):
    with tempfile.TemporaryDirectory()as tmp:
     c,_=self.native(tmp,{'HairyInk/useOpacity':alpha});self.assertEqual(c.brushes[0]['descriptor']['bristle']['ink']['useOpacity'],alpha=='true')
   with tempfile.TemporaryDirectory()as tmp:
-   c,_=self.native(tmp,{'HairyInk/enabled':'false'});self.assertEqual(c.brushes[0]['descriptor']['version'],45);self.assertNotIn('soak',c.brushes[0]['descriptor']['bristle'])
+   c,_=self.native(tmp,{'HairyInk/enabled':'false'});self.assertEqual(c.brushes[0]['descriptor']['version'],141);self.assertNotIn('soak',c.brushes[0]['descriptor']['bristle'])
  def test_portable_closed_scope_and_fail_before_published_outputs(self):
   with tempfile.TemporaryDirectory()as tmp:
    c,_=self.native(tmp);env={'library':c.write(),'assets':{k:base64.b64encode((c.output/v['file']).read_bytes()).decode()for k,v in c.assets.items()}};p=Path(tmp)/'Soak.grafetto-brushes.json';p.write_text(json.dumps(env));good=Catalog(Path(tmp)/'good');portable_bundle(p,good);self.assertEqual(good.brushes,c.brushes)

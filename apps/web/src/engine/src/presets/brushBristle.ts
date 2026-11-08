@@ -1,6 +1,6 @@
 import {bristleSoakHair139,type BristleSoakState139} from './bristleSoak139'
 import type {BristleInkState} from './brushBristleInk'
-import {assertBristleInitializationSize140,type BristleInitialization140} from './bristleInitialization140'
+import {assertBristleInitializationSize140,buildBristleInitialization140,type BristleInitialization140} from './bristleInitialization140'
 import type {BrushDescriptor,Dab} from '@grafetto/shared'
 import {brushDabRandom} from './digitalBrushPresets'
 import type {SketchStamp} from './brushSketch'
@@ -15,9 +15,15 @@ export function bristleStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,c
 }
 /** Bounded geometry only. Ink state belongs to the request owner, before visibility/tile filtering. */
 export function bristleGeometryStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,color:[number,number,number],seed:number):BristleGeometryStamp[]{
- const b=brush.bristle!,previous=state.previous,resize=b.version===2&&b.soak?.resizePolicy==='mask-population-v1'
+ const b=brush.bristle!,previous=state.previous,ordinaryResize=brush.version>=141&&b.version===1&&b.initialization?.resizePolicy==='mask-population-v1',resize=ordinaryResize||b.version===2&&b.soak?.resizePolicy==='mask-population-v1'
  if(resize){
-  assertBristleInitializationSize140(state.initialization,[dab])
+  const sourceSize=assertBristleInitializationSize140(state.initialization,[dab])
+  if(ordinaryResize&&!state.initialization){
+   if(previous)throw Error('Bristle initialization is missing before the first anchor')
+   // Pure bounded reconstruction succeeds before publishing any anchor/state.
+   const initialization=buildBristleInitialization140(brush,sourceSize)
+   state.initialization=initialization
+  }
   if(previous&&!state.initialization)throw Error('Bristle resized initialization was not prepared')
  }
  state.previous={x:dab.x,y:dab.y}
