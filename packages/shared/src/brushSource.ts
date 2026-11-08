@@ -66,6 +66,28 @@ export function createBrushSourceNonce(nonce:string,source?:BrushSourceContext):
   return source ? `bs1_${brushSourceKey(source)}_${nonce}` : nonce
 }
 
+/** JSON persistence may round a captured double to its immediate IEEE-754
+ * neighbour. Keep the recorded source and normal key unchanged; only the
+ * integrity-word check has this one-ULP compatibility window for rotation. */
+function matchesSourceKey(source:BrushSourceContext,key:string):boolean {
+  if(brushSourceKey(source)===key)return true
+  const rotation=source.normalRotation
+  if(rotation===undefined)return false
+  const bytes=new DataView(new ArrayBuffer(8))
+  bytes.setFloat64(0,rotation)
+  const bits=bytes.getBigUint64(0)
+  for(const direction of[-1,1]as const){
+    let adjacent:number
+    if(rotation===0)adjacent=direction*Number.MIN_VALUE
+    else{
+      bytes.setBigUint64(0,bits+BigInt(rotation>0?direction:-direction))
+      adjacent=bytes.getFloat64(0)
+    }
+    if(Number.isFinite(adjacent)&&Math.abs(adjacent)<=Math.PI*2&&brushSourceKey({...source,normalRotation:adjacent})===key)return true
+  }
+  return false
+}
+
 export function hasValidBrushSourceContext(value:unknown):boolean {
   if(!object(value))return false
   const id=typeof value.strokeId==='string'?value.strokeId:''
@@ -73,7 +95,7 @@ export function hasValidBrushSourceContext(value:unknown):boolean {
   const marker=/^bs1_([a-f0-9]{16})_[A-Za-z0-9_-]{10,32}$/.exec(nonce)
   if(value.brushSource===undefined)return !/^bs[0-9]+_/.test(nonce)
   return !!marker&&(value.type===undefined||value.type==='stroke')&&value.tool==='digitalBrush'
-    &&isBrushSourceContext(value.brushSource)&&marker[1]===brushSourceKey(value.brushSource)
+    &&isBrushSourceContext(value.brushSource)&&matchesSourceKey(value.brushSource,marker[1])
 }
 
 /** Read dependencies stay separate from the layer an operation writes. */

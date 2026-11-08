@@ -39,3 +39,35 @@ it('captures and binds the author hatching background independently of receiver 
  expect(key).not.toBe(brushSourceKey(raw));expect(isBrushSourceContext(owned)).toBe(true)
  for(const c of [[0,0,0],[0,0,0,256],[0,0,NaN,0],[0,0,.5,0]])expect(isBrushSourceContext({version:1,background:c})).toBe(false)
 })
+
+
+it('accepts only the immediate rotation-double persistence neighbour without changing source or seed integrity',()=>{
+ const brushSource:BrushSourceContext={version:1,normalRotation:-0.0001621773962222628}
+ expect(brushSourceKey(brushSource)).toBe('e3a9ade88089b464')
+ const original:BrushSourceContext={version:1,normalRotation:-0.00016217739622226282}
+ expect(brushSourceKey(original)).toBe('f87c3238926e9eb4')
+ const packets=[
+  {strokeId:'br1.bs1_f87c3238926e9eb4_9r5XUjeU2K.b77cef00.9cfb1d19',brushRandom:{version:1,sequentialSeed:3078418176,strokeSeed:2633702681}},
+  {strokeId:'br1.bs1_f87c3238926e9eb4_0R7bKtbaqu.8c0af572.c380e582',brushRandom:{version:1,sequentialSeed:2349528434,strokeSeed:3280004482}},
+ ]
+ for(const values of packets){
+  const op={type:'stroke',tool:'digitalBrush',...values,brushSource}
+  expect(hasValidBrushSourceContext(op)).toBe(true);expect(hasValidBrushRandomContext(op)).toBe(true)
+  expect(hasValidBrushRandomContext({...op,brushRandom:{...op.brushRandom,strokeSeed:0}})).toBe(false)
+  expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,normalRotation:-0.00016217739622226276}})).toBe(false)
+  expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,normalRotation:0}})).toBe(false)
+  expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,background:[0,0,0,255]}})).toBe(false)
+  expect(hasValidBrushSourceContext({...op,strokeId:values.strokeId.replace('f87c3238926e9eb4','0000000000000000')})).toBe(false)
+ }
+ expect(brushSource.normalRotation).toBe(-0.0001621773962222628)
+ expect(brushSourceKey(brushSource)).toBe('e3a9ade88089b464')
+})
+
+it('keeps the one-ULP rotation exception symmetric and never applies it to projection opacity',()=>{
+ const original:BrushSourceContext={version:1,normalRotation:.25,projection:[{id:'L',opacity:.5}]}
+ const strokeId=createBrushSourceNonce('rotation_0123',original),op={tool:'digitalBrush',strokeId,brushSource:original}
+ const bytes=new DataView(new ArrayBuffer(8));bytes.setFloat64(0,.25);const bits=bytes.getBigUint64(0)
+ for(const delta of[-1n,1n]){bytes.setBigUint64(0,bits+delta);expect(hasValidBrushSourceContext({...op,brushSource:{...original,normalRotation:bytes.getFloat64(0)}})).toBe(true)}
+ for(const delta of[-2n,2n]){bytes.setBigUint64(0,bits+delta);expect(hasValidBrushSourceContext({...op,brushSource:{...original,normalRotation:bytes.getFloat64(0)}})).toBe(false)}
+ expect(hasValidBrushSourceContext({...op,brushSource:{...original,projection:[{id:'L',opacity:.5000000000000001}]}})).toBe(false)
+})
