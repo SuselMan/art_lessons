@@ -555,6 +555,8 @@ def validate_portable_mixer(descriptor):
 def validate_portable_profile(descriptor, *, parent=None):
     """Bound the portable Python boundary; shared isBrushLibrary remains the
     authoritative whole-library validator before installation."""
+    from particle_wash134 import validate_particle_wash134
+    validate_particle_wash134(descriptor,parent)
     from spray_wash133 import validate_spray_wash133
     validate_spray_wash133(descriptor)
     from child_clock132 import validate_child_clock132_profile

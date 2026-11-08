@@ -1,3 +1,4 @@
+export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
 export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
 import{hasSmudgeTextureErase131Scope}from'./smudgeTextureErase131.js'
@@ -739,6 +740,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false

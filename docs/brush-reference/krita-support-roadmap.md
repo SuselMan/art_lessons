@@ -965,3 +965,28 @@ ROOT central:1044 TS/207 модулей PASS126.19s и586 Python PASS28.817s.
 с0diagnostics, selected lint --fix0. Production после полной suite не менялся.
 Genuine CAPS/GPU/онлайн ещё не запускались; MockGL не доказывает пиксели,
 native pixel identity и планшетная производительность не заявлены.
+
+### Checkpoint134 — Particle Wash и общий request kernel
+
+132 завершён: CAPS,22 GPU проверки, actual онлайн/live/history/cold/context
+restore прошли; QA frontend48/backend51 на dd7a9844 остаётся опубликован.
+133 CAPS завершён:2 genuine original,20 portable/shared negatives,74Storage
+проверки. GPU actual38/38 PASS, wrong-over CF6numericFAIL при зелёных
+контролях; per-particle CF оказался слабым: различие1U8 внутри исходного
+допуска. Сохраняем этот FAIL, требуется новый независимый witness без
+ослабления допуска. 133 ещё не опубликован и online не запущен.
+
+134 добавляет закрытый root Particle Wash для native Experimental_Webs
+(65×15=975 точек/request), сохраняя существующий solver/geometry.
+Один BBP-owned RequestWashBatch обслуживает Spray и Particle; заимствованный
+request scratch<=512², прежние original/coverage/inkLoad, без нового wire
+формата или четвёртой постоянной плоскости. Particle складывает точки
+аддитивно внутри request, переносит через общий kernel, captured opacity
+применяет один раз в существующем final composite. Flat pigment исключает
+искажение цвета при насыщении additive RGB. Old49 сохранён.
+
+ROOT central1058TS/211модулей PASS138.49s,589Python PASS37.352s;
+web2579/server1245inputs,0type diagnostics; selected oxlint0, код не менялся
+после suite. Independent static review BLOCK0. CAPS/GPU/actualonline134
+ещё не запускались. Общий kernel требует GPU регрессии133 на новом source;
+MockGL не доказывает пиксели, полную поддержку/планшетную скорость не заявляем.

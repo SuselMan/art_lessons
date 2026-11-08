@@ -34,6 +34,7 @@ export class SprayShapeBatch {
  reset():void{this.program=undefined;this.buffer=undefined}
  destroy():void{if(this.program)this.gl.deleteProgram(this.program);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
  prepare():void{this.program??=createProgram(this.gl,VERT,FRAG);this.buffer??=this.gl.createBuffer()!}
+ assertPrepared():void{if(!this.program||!this.buffer)throw Error('Particle points program was not prepared')}
  paint(list:readonly BehaviorPlaced[],shape:BrushSpray['particle']['shape'],x:number,y:number,width:number,height:number):void{
   const gl=this.gl
   this.prepare()

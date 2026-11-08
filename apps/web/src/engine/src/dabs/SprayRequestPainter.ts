@@ -1,3 +1,4 @@
+import type{RequestWashBatch}from'./RequestWashBatch'
 import{hasSprayWash133Scope}from'@grafetto/shared'
 import{advanceWashOpacity}from'../presets/brushWash'
 import{sprayWashRegions}from'../presets/sprayWash133'
@@ -34,7 +35,7 @@ export class SprayRequestPainter{
  private readonly image:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView
  private readonly mask:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView|undefined
  constructor(ctx:BrushContext,acquire:(w:number,h:number)=>SprayScratchLease,image:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView,mask:(s:BehaviorStamp,brush:BrushDescriptor)=>PreparedBrushImageView|undefined){this.ctx=ctx;this.acquire=acquire;this.image=image;this.mask=mask;this.batch=new SpraySourceBatch(ctx.gl)}
- prepare(wash=false){if(wash)this.batch.prepare(true);else{(this.source??=new SpraySourceAtlas(this.ctx.gl)).prepare();this.batch.prepare();(this.images??=new SprayImageBatch(this.ctx.gl)).prepare()}}
+ prepare(wash=false,kernel?:RequestWashBatch){if(wash)this.batch.prepare(true,kernel);else{(this.source??=new SpraySourceAtlas(this.ctx.gl)).prepare();this.batch.prepare();(this.images??=new SprayImageBatch(this.ctx.gl)).prepare()}}
  assertWashPrepared(){this.batch.assertWashPrepared()}
  reset(){this.epoch={};this.source?.reset();this.batch.reset();this.images?.reset()}
  destroy(){this.epoch={};this.source?.destroy();this.batch.destroy();this.images?.destroy()}

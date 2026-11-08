@@ -19,6 +19,12 @@ def particle_preset(data,root,params,name,catalog,external):
     d=descriptor(data,'');d.update(version=49,model='stamp',category='line',paperInteraction=0)
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     d['behavior']={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}};d['particle']=p
+    if params.get('PaintOpAction','1')=='2':
+        if enabled(params.get('Krita/erase')):raise ValueError('Particle Wash134 eraser is not implemented')
+        from particle_wash134 import particle_wash134_scope
+        d['version']=134;d['behavior']['rendering']['accumulation']='alphaDarken'
+        if not particle_wash134_scope(d):raise ValueError('Particle Wash134 combination is outside the closed root scope')
     note=compatibility('particle','Fixed0.00003 integration, initial absolute next-position, per-particle acceleration, gravity, axis force and iterative bilinear additive deposits retained. No native Size option; Grafetto size does not alter solver. GPU U8/bilinear rounding differs. Negative/unstable forces, airbrush timer, eraser and nonnormal composite rejected.16384 points per input request maximum.')
+    if d['version']==134:note=compatibility('particleWash','Existing additive bilinear solver output is grouped once per logical request, then creamy Wash at unit request opacity; captured external gesture opacity projects once. Native solver/RNG/U8 identity is not claimed.','approximate')
     im=Image.open(io.BytesIO(data));im.load()
     return{'descriptor':finalize_identity(d,data),'name':root.get('name')or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'preview':preset_preview(im),'sourceDefaults':{'sizePx':100,'opacity':1,'flow':1},'compatibility':[note],'warnings':[note['feature']+': '+note['detail']]}

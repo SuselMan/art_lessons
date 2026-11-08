@@ -1,3 +1,4 @@
+import{hasParticleWash134Scope}from'@grafetto/shared'
 import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
@@ -74,8 +75,10 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const wash=hasSprayWash133Scope(brush)
-    if(wash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
+    const particleWash=hasParticleWash134Scope(brush)
+    if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
+    const wash=hasSprayWash133Scope(brush)||particleWash
+    if(wash&&!particleWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
     if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
@@ -159,6 +162,7 @@ export class BrushPainter {
   }
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
+  prepareParticleWash():void{this.behavior.prepareParticleWash()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
   prepareSpraySources(wash=false):void{this.behavior.prepareSpraySources(wash)}
   prepareSprayImages():void {this.behavior.prepareSprayImages()}

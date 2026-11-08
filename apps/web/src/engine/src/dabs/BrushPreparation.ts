@@ -1,3 +1,4 @@
+import{hasParticleWash134Scope}from'@grafetto/shared'
 import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{hasSmudgeTextureErase131Scope}from'@grafetto/shared'
 import{assertIndependentLightness128}from'../presets/independentLightness128'
@@ -89,8 +90,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  const particleWash=hasParticleWash134Scope(brush)
+  if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
   const sprayWash=hasSprayWash133Scope(brush)
   if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&(!sprayWash||!isBrushSpray(brush.spray)))throw Error('Invalid Spray Wash133 scope')
   if(assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
@@ -100,10 +103,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
-  if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
+  if(particleWash)capabilities.add('requestWash')
+  else if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.clone)capabilities.add('cloneBrush')
   if(brush.filter)capabilities.add('filterBrush')
   if(brush.deform)capabilities.add('canvasEffect')
@@ -206,7 +210,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(dual.brush.texture?.application)add('wet',textureEraseId(dual.brush.texture,capturedErase),true,true)
     }
   }
-  visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash)
+  visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 

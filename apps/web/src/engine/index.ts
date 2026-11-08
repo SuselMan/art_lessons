@@ -3540,6 +3540,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'grid')this._smudge.prepareGrid()
       else if(painter === 'hatching')this._brush.prepareHatching()
       else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'requestWash')this._brush.prepareParticleWash()
       else if(painter === 'sprayWash')this._brush.prepareSpraySources(true)
       else if(painter === 'spraySources')this._brush.prepareSpraySources()
       else if(painter === 'sprayImages')this._brush.prepareSprayImages()
@@ -7907,7 +7908,8 @@ export class PencilEngine implements PencilEngineAPI {
     else if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
-    if(stamp.brush.spray&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareSpraySources(true)
+    if(stamp.brush.particle&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareParticleWash()
+    else if(stamp.brush.spray&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareSpraySources(true)
     else if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()
     else if(stamp.brush.spray?.particle.image)this._brush.prepareSprayImages()
     this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution)
