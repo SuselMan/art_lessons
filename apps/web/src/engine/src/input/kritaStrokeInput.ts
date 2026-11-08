@@ -1,7 +1,8 @@
 import { sourceAtan2F32 } from './sourceAtan2F32'
 
 /** Pinned bd6e8d0 history/fan laws with explicit AOSP13 source-version F32
- * direction math. Authoring only: render/replay consumes recorded sourceAngle.
+ * direction math. Root authoring records sourceAngle; independent child replay
+ * also uses the same deterministic direction helper on canonical child requests.
  * This does not assert identity with every installed platform libm binary. */
 export interface CursorPoint { x: number; y: number }
 export interface CursorHistory { first: CursorPoint; second: CursorPoint }

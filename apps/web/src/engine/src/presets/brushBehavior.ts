@@ -1,8 +1,9 @@
+import{sourceDrawingDirection}from'../input/kritaStrokeInput'
 import{hasOriginalRgbaGih119Scope}from'@grafetto/shared'
 import{assertSketchDistanceOpacityPolicy,prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
-import{brushUsesDistanceControl,brushAnimationUsesMode,gihTiltIndex}from'@grafetto/shared'
+import{brushUsesDistanceControl,brushAnimationUsesMode,gihTiltIndex,isIndependentDrawingAnglePair}from'@grafetto/shared'
 import type{DeformState}from'./brushDeform'
 import{experimentStamps,type ExperimentState,type PolygonGeometry}from'./brushExperiment'
 import{particleStamps,type ParticleState}from'./brushParticle'
@@ -82,10 +83,20 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
   const x=axis(diameter*stamp.aspect*(axisScale?.x ?? 1)),y=axis(diameter*(brush.tip.autoShape?stamp.aspect:1)*(axisScale?.y ?? 1))
   return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:angleOffset === undefined ? stamp.angle : stamp.angle+angleOffset}
 }
-export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
+export interface SecondarySamplingState { sourceCursor?:{x:number;y:number;angle:number}; previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
 /** Resample the recorded centreline using the child's own source geometry.
  * The bounded segment loop and independent phase survive network chunks. */
 export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true, endpoint?: Dab & {baseSize:number}, execution?: BrushExecutionContext): Dab[] {
+  const sourceAware=child.behavior?.strokeInput!==undefined
+  if(sourceAware&&!isIndependentDrawingAnglePair(primary))throw Error('Independent DrawingAngle requires matching120 root/child policies')
+  if(sourceAware)assertBrushSourceInputs(primary,dabs,endpoint)
+  const capture=sourceAware?((dab:Dab):void=>{
+    const previous=state.sourceCursor
+    const angle=previous?sourceDrawingDirection(previous,dab,previous.angle):dab.sourceAngle
+    if(angle===undefined||!Number.isFinite(angle))throw Error('Missing independent DrawingAngle seed')
+    dab.sourceAngle=angle
+    state.sourceCursor={x:dab.x,y:dab.y,angle}
+  }):undefined
   const result: Dab[] = []
   const baseSize=(d:Dab):number=>endpoint ? endpoint.baseSize : d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
   const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
@@ -99,7 +110,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   }
   for (const raw of endpoint ? [...dabs,endpoint] : dabs) {
     const dab=size(raw),previous=state.previous
-    if(!previous){result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous={...raw};continue}
+    if(!previous){capture?.(dab);result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous={...raw};continue}
     const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
     if(!length){state.previous={...raw};continue}
     const direction=Math.atan2(dab.y-previous.y,dab.x-previous.x)
@@ -110,7 +121,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
       const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
       const pressure=lerp(previous.pressure,raw.pressure)
       const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.sourceTime===undefined||raw.sourceTime===undefined?{}:{sourceTime:(1-t)*previous.sourceTime+t*raw.sourceTime}),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
-      result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
+      capture?.(point);result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
     }
     state.remaining=travel-length;state.direction=direction;state.previous={...raw}
   }

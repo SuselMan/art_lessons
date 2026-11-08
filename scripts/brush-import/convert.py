@@ -14,7 +14,7 @@ import re
 import struct
 import zipfile
 from sequential_xy import validate_policy as validate_sequential_xy_policy
-from stroke_input import validate_policy as validate_stroke_input_policy
+from stroke_input import validate_policy as validate_stroke_input_policy,independent_drawing_angle_pair
 from PIL import Image, ImageOps
 from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
@@ -711,7 +711,7 @@ def portable_bundle(path,catalog):
     seen=set()
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
-    def validate_descriptor(d,depth=0):
+    def validate_descriptor(d,depth=0,parent=None):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         from captured_bristle import validate_portable_bristle
@@ -729,7 +729,7 @@ def portable_bundle(path,catalog):
             raw=trusted_raw_assets[tip['mask']];ox=(side-w)//2;oy=(side-h)//2
             if any(raw[y*side+x]for y in range(side)for x in range(side)if x<ox or x>=ox+w or y<oy or y>=oy+h):raise ValueError('Nonzero portable Sketch101 padding')
         validate_sequential_xy_policy(d,depth)
-        validate_stroke_input_policy(d,depth)
+        validate_stroke_input_policy(d,depth,parent)
         profile=tip.get('profile',{})
         if depth and tip.get('autoNoise') is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):raise ValueError('Rectangle Auto-mask noise is root-only')
         if profile.get('kind')in('radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'):
@@ -937,7 +937,9 @@ def portable_bundle(path,catalog):
             if 'dynamics' in spacing: validate_portable_dynamics(spacing['dynamics'])
         if 'dual' in behavior:
             if not isinstance(behavior['dual'],dict): raise ValueError('Invalid portable dual component')
-            validate_descriptor(behavior['dual'].get('brush'),depth+1)
+            child=behavior['dual'].get('brush')
+            if isinstance(child,dict)and isinstance(child.get('behavior'),dict)and 'strokeInput'in child['behavior']and not independent_drawing_angle_pair(d):raise ValueError('Independent DrawingAngle requires matching120 root/child policies')
+            validate_descriptor(child,depth+1,d)
     for brush in brushes:
         if not isinstance(brush,dict) or not isinstance(brush.get('name'),str) or len(brush['name'])>256 or not isinstance(brush.get('source'),str) or len(brush['source'])>256 or not isinstance(brush.get('warnings'),list) or len(brush['warnings'])>100 or any(not isinstance(w,str) or len(w)>2000 for w in brush['warnings']): raise ValueError('Invalid portable brush metadata')
         validate_descriptor(brush.get('descriptor'))

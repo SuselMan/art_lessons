@@ -56,12 +56,17 @@ class StrokeInputTests(unittest.TestCase):
         self.assertEqual(curved['version'],61)
         self.assertEqual(curved['behavior']['strokeInput'],POLICY)
         self.assertIn('absolute',curved['behavior']['rotation']['composition'])
-    def test_enabled_child_never_emits_policy_and_reports_gap(self):
+    def test_checked_pair120_and_malformed_child_keeps_unsupported_gap(self):
         for childsensor in ('<params id="drawingangle"/>','<params id="drawingangle" fanCornersEnabled="1" fanCornersStep="91"/>'):
             p={**PARAMS,'MaskingBrush/Enabled':'true','MaskingBrush/Preset/brush_definition':'<Brush type="auto_brush"><MaskGenerator type="circle" diameter="30" ratio="1"/></Brush>','MaskingBrush/Preset/PressureRotation':'true','MaskingBrush/Preset/RotationSensor':childsensor}
             b=self.brush(p,stroke_input=True);self.assertEqual(b['descriptor']['behavior']['strokeInput'],POLICY)
-            self.assertNotIn('strokeInput',b['descriptor']['behavior']['dual']['brush']['behavior'])
-            self.assertTrue(any(n['feature']=='masking.strokeInput' and n['status']=='unsupported' for n in b['compatibility']))
+            if childsensor=='<params id="drawingangle"/>':
+                self.assertEqual(b['descriptor']['version'],120)
+                self.assertEqual(b['descriptor']['behavior']['dual']['brush']['behavior']['strokeInput'],POLICY)
+                self.assertTrue(any(n['feature']=='masking.strokeInput'and n['status']=='supported'for n in b['compatibility']))
+            else:
+                self.assertNotIn('strokeInput',b['descriptor']['behavior']['dual']['brush']['behavior'])
+                self.assertTrue(any(n['feature']=='masking.strokeInput'and n['status']=='unsupported'for n in b['compatibility']))
             p['MaskingBrush/Enabled']='false';b=self.brush(p,stroke_input=True)
             self.assertFalse(any(n['feature']=='masking.strokeInput' for n in b['compatibility']))
     def test_portable_primary_valid_and_invalid_atomic(self):

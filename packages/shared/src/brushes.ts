@@ -733,7 +733,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
-        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
+        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput&&!isIndependentDrawingAnglePair(d) || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
@@ -855,6 +855,26 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
 
 /** Whether execution requires an explicit recorded gesture random context.
  * Inspect only sensor-bearing fields; ordinary metadata must not opt in. */
+/**120: both native Pixel components have identity/no-fan DrawingAngle.
+ * The root captures the existing wire channel; the child owns its resampled cursor.
+ */
+export function isIndependentDrawingAnglePair(value:unknown):boolean {
+  if(!record(value)||!record(value.behavior)||!record(value.behavior.dual))return false
+  const dual=value.behavior.dual
+  const component=(d:unknown,root:boolean):boolean=>{
+    if(!record(d)||typeof d.version!=='number'||!Number.isInteger(d.version)||d.version<120||d.model!=='stamp'||!record(d.tip)||!record(d.behavior))return false
+    const tip=d.tip,b=d.behavior,rotation=b.rotation,input=b.strokeInput,render=b.rendering
+    if(b.version!==2||b.spacing!==undefined&&!record(b.spacing))return false
+    if(!['round','bitmap','procedural'].includes(String(tip.kind))||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||tip.profile!==undefined&&(!record(tip.profile)||tip.profile.kind!=='standard'))return false
+    if(['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+    if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(root?['dual']:[])].includes(k)))return false
+    if(!record(rotation)||Object.keys(rotation).length!==2||rotation.follow!==1||rotation.random!=='none'||!record(input)||Object.keys(input).length!==2||input.version!==1||input.initialDirection!=='cursorHistory')return false
+    if(record(b.spacing)&&Array.isArray(b.spacing.dynamics)&&b.spacing.dynamics.length)return false
+    return record(render)&&render.blendMode==='normal'&&(root?render.accumulation==='directOver':['directOver','alphaDarken'].includes(String(render.accumulation)))&&Number(render.wetEdges??0)===0&&Number(render.burntEdges??0)===0
+  }
+  return dual.sampling==='independent'&&component(value,true)&&component(dual.brush,false)
+}
+
 export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
   const seen = new Set<BrushDescriptor>()
   const native = (d: BrushDynamic | undefined): boolean => d?.control === 'strokeRandom' && d.randomSource?.kind === 'qt5Taus88'||d?.control==='random'&&d.randomSource?.kind==='grafettoSourceTime-v1'
