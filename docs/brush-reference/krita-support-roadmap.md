@@ -1077,3 +1077,23 @@ ROOT1114 тестов /222 модуля PASS123.22s, web2590/server1251 inputs,
 0 типовых ошибок, selected oxlint0. Все три gate worker reaped.
 Python не менялся и повторно не запускался. Реальный GPU137a ещё впереди;
 публичный стенд остаётся на проверенном источнике6ca0145 (136).
+
+137a прошёл actual GPU111 без ошибок;151 Git-вход без расхождений.
+Собственные Chrome/profile, два туннеля, contexts и workers закрыты.
+Публичный QA52/55 остаётся на6ca0145.
+
+137b: исторический replay использует временные ссылки существующих cache
+и field, не завершает live settle и не публикует wet/timer effects.
+Синхронные water solver/finish/composite сохранены. Ошибки и cleanup
+восстанавливают live refs независимо, включая throw undefined. Найденный
+при independent review случай пяти nonspillable owners исправлен: только
+исторический frame удерживает открытые chunks до своего завершения.
+Обычная четырёхслотовая policy не изменена.
+ROOT1125 тестов /223 модуля PASS128.48s; три type diagnostics из-за
+сужения изменяемого callback поля исправлены typed getter без изменения
+получаемого значения. Повтор11 focused тестов PASS9.44s, web2591 inputs /
+0 diagnostics. Selected lint exit0,15 прежних предупреждений. После
+fullsuite добавлены только getter для type-flow и комментарии о намеренном
+guarded cleanup. Python/shared/server не менялись, повтор не требовался.
+Это local code prerequisite: дополнительные historical fields/chunks
+ещё не имеют нового общего preallocation admission; Grid не включён.

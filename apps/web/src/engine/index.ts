@@ -1754,23 +1754,26 @@ export class PencilEngine implements PencilEngineAPI {
     ? GPU_BUDGET_TOUCH_BYTES : Infinity
   /** (§17.70) A rebuild's step is running: the cache is the job's own. */
   private _inJobStep = false
+  /** Synchronous historical-source frames never own live queues/presentation. */
+  private _historicalSourceDepth = 0
 
   private readonly _ribbonCache = new RibbonReplayCache({
     ribbonScratchPool: () => this._ribbonScratchPool,
     destroyed: () => this._destroyed,
     contextLost: () => this._contextLost,
-    inJobStep: () => this._inJobStep,
+    inJobStep: () => this._historicalSourceDepth>0 || this._inJobStep,
+    preserveOpenChunks: () => this._historicalSourceDepth>0,
     gpuBudget: () => this._gpuBudget,
-    settlingScratch: () => this._settle?.scratch,
-    completeSettle: () => this._completeSettle(),
-    finishedChunk: () => [...this._replayRibbonChunks].find(([key, chunk]) => {
+    settlingScratch: () => this._historicalSourceDepth>0 ? undefined : this._settle?.scratch,
+    completeSettle: () => { if(!this._historicalSourceDepth)this._completeSettle() },
+    finishedChunk: () => this._historicalSourceDepth>0 ? undefined : [...this._replayRibbonChunks].find(([key, chunk]) => {
       const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
       if (!job) return false
       const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
       return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
     }),
-    rebuildLostWash: target => this._rebuildLostWash(target),
-    scheduleBudgetCheck: () => this._scheduleBudgetCheck(),
+    rebuildLostWash: target => {if(!this._historicalSourceDepth)this._rebuildLostWash(target)},
+    scheduleBudgetCheck: () => {if(!this._historicalSourceDepth)this._scheduleBudgetCheck()},
     washGpuBytes: () => this._washGpuBytes(),
   })
   private get _replayRibbonChunks() { return this._ribbonCache.chunks }
@@ -5016,7 +5019,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  still being painted live by SmudgePainter.paint and must not have its imprint
    *  reset under it by, say, a peer's undo arriving mid-stroke. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
-    if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
+    if (!this._historicalSourceDepth && this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
       if (chunk.target !== buf) continue
       chunk.scratch.destroy()
@@ -5040,38 +5043,76 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _releaseProjectionScope(scope:NonNullable<PencilEngine['_projectionReadScope']>):void {
-    for(const entry of scope.store.cache.values()){this._forgetWashesOf(entry.buffer);entry.buffer.destroy()}
-    scope.store.cache.clear();scope.store.bytes=0
+    this._withHistoricalSourceReplay(()=>{
+      let failed=false,first:unknown
+      for(const entry of scope.store.cache.values()){
+        try{this._forgetWashesOf(entry.buffer)}catch(error){if(!failed){failed=true;first=error}}
+        try{entry.buffer.destroy()}catch(error){if(!failed){failed=true;first=error}}
+      }
+      scope.store.cache.clear();scope.store.bytes=0
+      if(failed)throw first
+    })
+  }
+
+  /** Same cache/pools/solver, with temporary synchronous state. Never spans a yield. */
+  private _withHistoricalSourceReplay<T>(work:()=>T):T {
+    const cache=this._ribbonCache
+    const saved={chunks:cache.chunks,authors:cache.authors,spilled:cache.spilled,lost:cache.lost,
+      spillJob:cache.spillJob,spillPumpTimer:cache.spillPumpTimer,fields:this._fieldCache,
+      depth:this._historicalSourceDepth??0,projection:this._projectionReadScope}
+    cache.chunks=new Map();cache.authors=new Map();cache.spilled=new Map();cache.lost=new Map()
+    cache.spillJob=null;cache.spillPumpTimer=0;this._fieldCache=[];this._historicalSourceDepth=saved.depth+1
+    // Work may install a spill job after the frame clears it. Read across the callback boundary.
+    const currentSpillJob=():RibbonReplayCache['spillJob']=>cache.spillJob
+    let failed=false
+    try{return this._smudge.withIsolatedGestures(work)}catch(error){failed=true;throw error}
+    finally {
+      let cleanupFailed=false,cleanupError:unknown
+      const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}}
+      try {
+        const job=currentSpillJob()
+        if(job){if(job.timer)attempt(()=>clearTimeout(job.timer));attempt(()=>{job.work.return(null)})}
+        if(cache.spillPumpTimer)attempt(()=>clearTimeout(cache.spillPumpTimer))
+        for(const chunk of cache.chunks.values())attempt(()=>chunk.scratch.destroy())
+        for(const entry of cache.spilled.values())attempt(()=>entry.spill.dispose())
+        for(const field of this._fieldCache)for(const buffer of [field.a,field.b,field.c,field.coverage,field.ca,field.cb,field.cc,field.mask,field.pressure,field.band])attempt(()=>buffer.destroy())
+      }finally {
+        cache.chunks=saved.chunks;cache.authors=saved.authors;cache.spilled=saved.spilled;cache.lost=saved.lost
+        cache.spillJob=saved.spillJob;cache.spillPumpTimer=saved.spillPumpTimer
+        this._fieldCache=saved.fields;this._projectionReadScope=saved.projection;this._historicalSourceDepth=saved.depth
+      }
+      // eslint-disable-next-line no-unsafe-finally -- Preserve any body failure; expose cleanup failure only after success.
+      if(!failed&&cleanupFailed)throw cleanupError
+    }
   }
 
   private _historicalProjectionLayer(scope:NonNullable<PencilEngine['_projectionReadScope']>,id:string):ILayerBuffer {
     const operations=this._log.layerPixelOps(id,scope.beforeSeq)
-    // Distinct readers can see the same source prefix. Share that immutable
-    // reconstruction through the whole read tree, not merely through one dab.
     const key=JSON.stringify([id,operations.map(op=>op.id)])
     const cached=scope.store.cache.get(key)
     if(cached){scope.store.cache.delete(key);scope.store.cache.set(key,cached);return cached.buffer}
     const fresh=this._makeLayerBuffer()
-    const savedChunks=this._replayRibbonChunks, savedAuthors=[...this._chunkAuthors]
-    this._replayRibbonChunks=new Map();this._chunkAuthors.clear()
-    try {
-      this._smudge.withIsolatedGestures(()=>this._replayInto(fresh,id,operations))
-    } catch(error){fresh.destroy();throw error}
-    finally {
-      for(const chunk of this._replayRibbonChunks.values())chunk.scratch.destroy()
-      this._replayRibbonChunks=savedChunks;this._chunkAuthors.clear()
-      for(const [key,value]of savedAuthors)this._chunkAuthors.set(key,value)
-    }
-    const bytes=fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)
-    const budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
-    // Proxies resolve one source at a time, so an older cached layer can be
-    // released after its draw instead of retaining copies of every room layer.
-    for(const [key,entry]of scope.store.cache){
-      if(scope.store.bytes+bytes<=budget)break
-      this._forgetWashesOf(entry.buffer);entry.buffer.destroy();scope.store.cache.delete(key);scope.store.bytes-=entry.bytes
-    }
-    scope.store.cache.set(key,{buffer:fresh,bytes});scope.store.bytes+=bytes
-    return fresh
+    try{
+      const bytes=this._withHistoricalSourceReplay(()=>{
+        this._replayInto(fresh,id,operations)
+        const bytes=fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)
+        const budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
+        // Same existing cap/order; strict allocation admission is a separate prerequisite.
+        for(const [key,entry]of scope.store.cache){
+          if(scope.store.bytes+bytes<=budget)break
+          // Retire before cleanup: a throwing destroy must not leave a cached stale view.
+          scope.store.cache.delete(key);scope.store.bytes-=entry.bytes
+          let cleanupFailed=false,cleanupError:unknown
+          try{this._forgetWashesOf(entry.buffer)}catch(error){cleanupFailed=true;cleanupError=error}
+          try{entry.buffer.destroy()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}
+          if(cleanupFailed)throw cleanupError
+        }
+        return bytes
+      })
+      // Publish only after replay AND independent transient cleanup succeeded.
+      scope.store.cache.set(key,{buffer:fresh,bytes});scope.store.bytes+=bytes
+      return fresh
+    }catch(error){try{fresh.destroy()}catch{/* Preserve primary, including undefined. */}throw error}
   }
 
   private _applyPixelOp(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
@@ -5080,9 +5121,11 @@ export class PencilEngine implements PencilEngineAPI {
     const previous=this._projectionReadScope
     const scope={beforeSeq:op.seq,target:buf,layerId,store:previous?.store ?? {cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}}
     this._projectionReadScope=scope
-    try{this._applyPixelOpBody(buf,layerId,op,spreadSettle)}finally{
+    let failed=false
+    try{this._applyPixelOpBody(buf,layerId,op,spreadSettle)}catch(error){failed=true;throw error}finally{
       this._projectionReadScope=previous
-      if(!previous)this._releaseProjectionScope(scope)
+      // eslint-disable-next-line no-unsafe-finally -- A primary paint failure always wins over scope cleanup.
+      if(!previous){try{this._releaseProjectionScope(scope)}catch(error){if(!failed)throw error}}
     }
   }
 
@@ -7751,7 +7794,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(strokeEnd && open?.target===target)this._brush.finish(open.scratch,strokeEndSample)
       return undefined
     }
-    this._washActiveAt = performance.now() // (§17.68)
+    if(!this._historicalSourceDepth)this._washActiveAt = performance.now() // (§17.68)
     const preset = this._resolvePreset(tool, presetName)
     // (#536) The paper's own wetness where this gesture came down, read from
     // what the stroke recorded rather than from the live field: a replay has no
@@ -8671,7 +8714,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _diffuseFieldFor(w: number, h: number): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
-    if (this._settle) this._completeSettle()
+    if (!this._historicalSourceDepth && this._settle) this._completeSettle()
     const need = (n: number): number => Math.max(WC_FIELD_PX, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
@@ -8695,24 +8738,28 @@ export class PencilEngine implements PencilEngineAPI {
     if (cur) destroyField(cur)
     this._fieldCache = []
     const { gl } = this
+    const partial:AccumulationBuffer[]=[]
+    const historicalBuffer=(filter:'linear'|'nearest'):AccumulationBuffer=>{const buffer=new AccumulationBuffer(gl,W,H,filter);partial.push(buffer);return buffer}
+    try {
     const field = {
       w: W, h: H,
-      a: new AccumulationBuffer(gl, W, H, 'nearest'),
-      b: new AccumulationBuffer(gl, W, H, 'nearest'),
-      c: new AccumulationBuffer(gl, W, H, 'nearest'),
-      coverage: new AccumulationBuffer(gl, W, H, 'nearest'),
-      ca: new AccumulationBuffer(gl, W, H, 'nearest'),
-      cb: new AccumulationBuffer(gl, W, H, 'nearest'),
-      cc: new AccumulationBuffer(gl, W, H, 'nearest'),
+      a: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      b: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      c: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      coverage: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      ca: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      cb: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      cc: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
       // (#536, §17.23) The operation's footprint and the pressure dome over
       // it, for the bloom and the tideline. Linear: the dome is read at
       // warped positions.
-      mask: new AccumulationBuffer(gl, W, H, 'linear'),
-      pressure: new AccumulationBuffer(gl, W, H, 'linear'),
-      band: new AccumulationBuffer(gl, W, H, 'nearest'),
+      mask: this._historicalSourceDepth ? historicalBuffer('linear') : new AccumulationBuffer(gl, W, H, 'linear'),
+      pressure: this._historicalSourceDepth ? historicalBuffer('linear') : new AccumulationBuffer(gl, W, H, 'linear'),
+      band: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._fieldCache.push(field)
     return field
+    }catch(error){for(const buffer of partial){try{buffer.destroy()}catch{/* Preserve primary, including undefined. */}}throw error}
   }
 
   private _holdAsyncScratch(scratch: RibbonStrokeScratch): void {
@@ -9186,12 +9233,12 @@ export class PencilEngine implements PencilEngineAPI {
     // building the dry target and nobody is watching it happen.
     if (owned?.diffusePending ?? scratch.diffusePending) {
       if (!owned) scratch.diffusePending = false
-      if (this._settle) this._completeSettle()
+      if (!this._historicalSourceDepth && this._settle) this._completeSettle()
       // (§17.26) …and a loaded brush pushes the wash under it less than a
       // brush of clean water: its own paint lands where the water goes.
       const bloom = watercolorBloomStrength(ctx.landedWet, profile.pigmentLevel) * watercolorBloomPush(profile.pigmentLevel)
       // Dev probe for the rig: what this settle was given.
-      Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
+      if(!this._historicalSourceDepth)Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)
       const standing = delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet))
       // (§17.42) ...and what the group tide will need, should the wash dry
@@ -9266,7 +9313,7 @@ export class PencilEngine implements PencilEngineAPI {
           for (const op of job.ops) op()
           complete()
         } finally { job.dispose() }
-        this._scheduleFieldRelease()
+        if(!this._historicalSourceDepth)this._scheduleFieldRelease()
         return
       }
     }
@@ -9502,6 +9549,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  it did not paint. */
     standing?: ReadonlyMap<Dab, number>, opId?: string,
   ): void {
+    if(this._historicalSourceDepth)return // Temporary source pixels do not publish live paper wetness.
     if (opId) {
       if (this._wetReplayRevision !== this._log.revision) {
         this._wetReplayIds = wetReplayOperationIds(this._log.doneOperations())

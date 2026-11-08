@@ -477,13 +477,21 @@ export class SmudgePainter {
   withIsolatedGestures<T>(work:()=>T):T {
     const imprints=[...this.imprints],gestures=[...this.wetGestures],chunks=[...this.replayChunks]
     this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
-    try{return work()}finally{
-      for(const value of this.imprints.values())if(value.buf)this.releaseScratch(value.buf)
-      for(const value of this.wetGestures.values())value.secondary?.destroy()
-      this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
-      for(const [key,value]of imprints)this.imprints.set(key,value)
-      for(const [key,value]of gestures)this.wetGestures.set(key,value)
-      for(const [key,value]of chunks)this.replayChunks.set(key,value)
+    let failed=false
+    try{return work()}catch(error){failed=true;throw error}finally{
+      let cleanupFailed=false,first:unknown
+      const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
+      try{
+        for(const value of this.imprints.values())if(value.buf)attempt(()=>this.releaseScratch(value.buf!))
+        for(const value of this.wetGestures.values())if(value.secondary)attempt(()=>value.secondary!.destroy())
+      }finally{
+        this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
+        for(const [key,value]of imprints)this.imprints.set(key,value)
+        for(const [key,value]of gestures)this.wetGestures.set(key,value)
+        for(const [key,value]of chunks)this.replayChunks.set(key,value)
+      }
+      // eslint-disable-next-line no-unsafe-finally -- Cleanup may fail after success; never replace the primary exception.
+      if(!failed&&cleanupFailed)throw first
     }
   }
 
