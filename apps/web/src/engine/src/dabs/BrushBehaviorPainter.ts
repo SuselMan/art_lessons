@@ -1,3 +1,4 @@
+import{planCloneHealing152}from'./cloneHealing152Math'
 import{cloneSourceOffset152}from'./cloneHealing152Request'
 import{hasCloneHealing152Scope}from'@grafetto/shared'
 import{CanonicalBeginBlocked}from'./CanonicalBeginRuntime'
@@ -619,7 +620,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
    if(!full){scratch.brushBehavior=probe;accepted++;continue}
    // Full logical mask allocation, NEVER tileclip or alpha nonzero ROI.
    const rect={minX:Math.floor(full.minX),minY:Math.floor(full.minY),maxX:Math.ceil(full.maxX),maxY:Math.ceil(full.maxY)},source=scratch.canonicalSource!
-   if(rect.maxX-rect.minX<3||rect.maxY-rect.minY<3||Math.max(rect.maxX-rect.minX,rect.maxY-rect.minY)>512)throw new CanonicalBeginBlocked({kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'},accepted)
+   try{if(!planCloneHealing152(rect)){scratch.brushBehavior=probe;accepted++;continue}}catch(error){if(error instanceof RangeError)throw new CanonicalBeginBlocked({kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'},accepted);throw error}
    const offset=cloneSourceOffset152(rect,dab,execution!.brushSource!.clone!,brush.clone!.moveSourcePoint)
    const tiles=target.resolveForPaint(rect);source.assertCurrent();if(scratch.brushBehavior!==prior)throw Error('Healing gesture changed during recovery')
    let staged=base

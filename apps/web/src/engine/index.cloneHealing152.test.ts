@@ -19,7 +19,7 @@ it('live END retains any canonical source until durable tail acceptance includin
 })
 for(const merged of [false,true])it(`author152 captures ${merged?'frozen ordered projection':'local BEGIN without projection'} before queued input`,async()=>{
  const{filter147}=await import('../../../../packages/shared/src/filterSmudge147.testFixture'),{hasCloneHealing152Scope}=await import('@grafetto/shared'),{installBrushLibrary}=await import('./brushLibrary'),{createTestEngine,paperReady,pointerSample}=await import('./testing/engineTestUtils')
- const brush=filter147();delete brush.filter;delete brush.mixer;brush.version=152;brush.model='stamp';brush.clone={version:1,moveSourcePoint:true,sourcePolicy:'canonical-begin-v1',healing:'lab-ratio-v1',...(merged?{source:'projectionCanvas' as const}:{})}
+ const brush=filter147();brush.id=merged?'imported-152152152152152152152153':'imported-152152152152152152152152';delete brush.filter;delete brush.mixer;brush.version=152;brush.model='stamp';brush.clone={version:1,moveSourcePoint:true,sourcePolicy:'canonical-begin-v1',healing:'lab-ratio-v1',...(merged?{source:'projectionCanvas' as const}:{})}
  expect(hasCloneHealing152Scope(brush)).toBe(true)
  installBrushLibrary({schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Own152',source:'qa',warnings:[],descriptor:brush}]})
  const{engine}=createTestEngine();try{await paperReady(engine);engine.initLayer('bottom');engine.initLayer('dest');engine.setActiveLayer('dest');engine.setTool('digitalBrush');engine.setPencil(`brush:${brush.id}@152`);engine.setCompositeOrder([{id:'bottom',opacity:.25},{id:'dest',opacity:.75}]);engine['_cloneSource']={x:3,y:4};const captured=engine['_captureAuthorStart'](pointerSample(10,20),0)

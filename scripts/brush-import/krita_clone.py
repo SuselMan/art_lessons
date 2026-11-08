@@ -7,8 +7,7 @@ from brush_contract import finalize_identity,compatibility
 def clone_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled
     healing=enabled(params.get('Duplicateop/Healing'))
-    for key in ('Duplicateop/CorrectPerspective',):
-        if enabled(params.get(key)):raise ValueError('Unsupported Clone mode: '+key)
+    ignored_perspective=enabled(params.get('Duplicateop/CorrectPerspective'))
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','normal')!='normal':raise ValueError('Clone requires normal OVER')
     if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Clone timers unsupported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
@@ -33,6 +32,8 @@ def clone_preset(data,root,params,name,catalog,external):
         if not clone_healing152_scope(d):raise ValueError('Healing152 requires ordinary static root mask')
     note=compatibility('clone','Ordinary mask and sensors; source is a captured world position/offset per gesture. Reads frozen pre-stroke layer, NORMAL OVER per dab. No merged projection, healing, perspective or timer; source subpixel rounding and colour-space quantization may differ.')
     if projection:note=compatibility('cloneProjection','Ordinary Clone mask/offset with immutable merged RGBA from verified canonical stroke-BEGIN layers, captured order/opacity and existing source nonce. NORMAL OVER and transparent source semantics unchanged; ICC/subpixel/native concurrent projection identity are qualified.')
-    if healing:note=compatibility('cloneHealing152','Immutable local or merged canonical-BEGIN source and destination-guide; one whole integer request Lab16-ratio fixed-edge100 solve, then ordinary mask/opacity OVER. Domain3..512 and highp/working-set admission explicit. Functional analytic sRGB/Lab, not ICC or native early-stop byte identity.')
-    result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
+    if healing:note=compatibility('cloneHealing152','Immutable local or merged canonical-BEGIN source and destination-guide; one whole integer request Lab16-ratio fixed-edge100 solve, then ordinary mask/opacity OVER. Native tiny request expands both solve axes by2; original source starts at0,0 and output crops top-left original extent. Expanded solve<=512 plus highp/working-set admission explicit; no native uninitialized scratch carry is reproduced. Functional analytic sRGB/Lab, not ICC or native early-stop byte identity.')
+    ignored=[]
+    if ignored_perspective:ignored.append(compatibility('nativeIgnored.cloneCorrectPerspective','KDE/krita 41bef33e41ebf15d394096d275c49c7c52b25f9a kis_duplicateop.cpp144-179 comments out perspective correction; active180-188 always copies OLD source. Checked setting retained in original source identity; no homography or canvas perspective-grid support is claimed.','supported'))
+    result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note]+ignored;result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result

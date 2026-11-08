@@ -1,4 +1,5 @@
 import{createProgram,createFullscreenQuad}from'../raster/utils'
+import{planCloneHealing152,type CloneHealing152Plan}from'./cloneHealing152Math'
 import{CanvasProjectionSampler}from'../raster/CanvasProjectionSampler'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
@@ -7,7 +8,7 @@ import type{CanonicalBeginSource,CanonicalSourceLease,CanonicalSourceClaim}from'
 import type{CanonicalBeginNotReady}from'./CanonicalBeginRuntime'
 const VERT='attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.,1.);}'
 const COMMON=`precision highp float;
-uniform vec2 u_size;uniform float u_storage;uniform int u_channel;
+uniform vec2 u_size;uniform vec2 u_outputSize;uniform float u_storage;uniform int u_channel;
 vec4 packRatio(float v){if(v<=0.)return vec4(0.);float e=floor(log2(v)),m=floor((v/exp2(e)-1.)*8388608.+.5);if(m<0.){e-=1.;m=floor((v/exp2(e)-1.)*8388608.+.5);}if(m>=8388608.){m=0.;e+=1.;}return vec4(mod(m,256.),mod(floor(m/256.),256.),floor(m/65536.),e+127.)/255.;}
 float unpackRatio(vec4 c){vec4 b=floor(c*255.+.5);if(b.a==0.)return 0.;return(1.+dot(b.rgb,vec3(1.,256.,65536.))/8388608.)*exp2(b.a-127.);}
 vec3 linearRgb(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));}
@@ -23,7 +24,7 @@ const INITIAL=COMMON+`uniform sampler2D u_source;uniform sampler2D u_guide;void 
 const ITERATE=COMMON+`uniform sampler2D u_ratio;void main(){vec2 p=gl_FragCoord.xy/u_size;float c=unpackRatio(texture2D(u_ratio,p));if(gl_FragCoord.x<1.||gl_FragCoord.y<1.||gl_FragCoord.x>u_size.x-1.||gl_FragCoord.y>u_size.y-1.){gl_FragColor=packRatio(c);return;}vec2 d=1./u_size;float sum=unpackRatio(texture2D(u_ratio,p+vec2(d.x,0.)))+unpackRatio(texture2D(u_ratio,p-vec2(d.x,0.)))+unpackRatio(texture2D(u_ratio,p+vec2(0.,d.y)))+unpackRatio(texture2D(u_ratio,p-vec2(0.,d.y)));gl_FragColor=packRatio((sum+2.*c)/6.);}`
 const COMPOSITE_VERT=`attribute vec2 a_position;uniform vec2 u_resolution;uniform vec4 u_rect;void main(){vec2 p=(u_rect.xy+(a_position*.5+.5)*u_rect.zw)/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
 const COMPOSITE_FRAG=`precision highp float;uniform sampler2D u_healed;uniform sampler2D u_mask;uniform vec2 u_resolution;uniform vec4 u_patchRect;uniform float u_opacity;void main(){vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y),p=(local-u_patchRect.xy)/u_patchRect.zw;gl_FragColor=texture2D(u_healed,vec2(p.x,1.-p.y))*texture2D(u_mask,gl_FragCoord.xy/u_resolution).a*u_opacity;}`
-const FINAL=COMMON+`uniform sampler2D u_source;uniform sampler2D u_ratioL;uniform sampler2D u_ratioA;uniform sampler2D u_ratioB;void main(){vec4 s=texture2D(u_source,sourceUv());vec2 p=gl_FragCoord.xy/u_size;vec3 ratios=vec3(unpackRatio(texture2D(u_ratioL,p)),unpackRatio(texture2D(u_ratioA,p)),unpackRatio(texture2D(u_ratioB,p)));vec3 outLab=floor(clamp(ratios*max(lab16(s),vec3(1.)),0.,65535.));gl_FragColor=vec4(fromLab16(outLab)*s.a,s.a);}`
+const FINAL=COMMON+`uniform sampler2D u_source;uniform sampler2D u_ratioL;uniform sampler2D u_ratioA;uniform sampler2D u_ratioB;void main(){vec4 s=texture2D(u_source,vec2(gl_FragCoord.x,u_storage-u_outputSize.y+gl_FragCoord.y)/u_storage);vec2 p=vec2(gl_FragCoord.x,u_size.y-u_outputSize.y+gl_FragCoord.y)/u_size;vec3 ratios=vec3(unpackRatio(texture2D(u_ratioL,p)),unpackRatio(texture2D(u_ratioA,p)),unpackRatio(texture2D(u_ratioB,p)));vec3 outLab=floor(clamp(ratios*max(lab16(s),vec3(1.)),0.,65535.));gl_FragColor=vec4(fromLab16(outLab)*s.a,s.a);}`
 /** Request-scoped functional Healing. Native weighted Jacobi mechanism;
  * D65 sRGB Lab16 approximation, fixed100, no ICC/early-stop identity claim. */
 export class CloneHealingPass152{
@@ -39,34 +40,43 @@ export class CloneHealingPass152{
   let failed=false;try{this.quad=createFullscreenQuad(gl);for(const frag of[INITIAL,ITERATE,FINAL])this.programs.push(createProgram(gl,VERT,frag));this.programs.push(createProgram(gl,COMPOSITE_VERT,COMPOSITE_FRAG));this.sampler.prepare()}catch(e){failed=true;throw e}finally{if(failed)try{this.destroy()}catch{/* Preserve preparation primary, including undefined. */}}
  }
  assertPrepared():void{if(this.programs.length!==4||!this.quad)throw Error('Healing152 not prepared')}
- /** WHOLE actual logical rect (integerWxH>=3). Never invoke independently for destination tiles.
+ /** WHOLE actual logical rect (positive integerWxH; tiny normalization is native-aligned). Never invoke independently for destination tiles.
   * Source offset already integer-rounded under captured Clone coordinates.
   * consume synchronously performs existing mask/opacity OVER; output cannot escape. */
  withHealedPatch<T>(source:CanonicalBeginSource,rect:WorldRect,offset:{x:number;y:number},acquire:(w:number,h:number)=>CanonicalSourceLease,claim:CanonicalSourceClaim,consume:(patch:AccumulationBuffer,rect:WorldRect)=>T,forbiddenTextures:ReadonlySet<WebGLTexture>=new Set()):{kind:'ready';value:T}|CanonicalBeginNotReady{
-  this.assertPrepared();source.assertCurrent();const w=rect.maxX-rect.minX,h=rect.maxY-rect.minY,n=Math.max(w,h)
-  if(![rect.minX,rect.minY,rect.maxX,rect.maxY,offset.x,offset.y].every(Number.isSafeInteger)||w<3||h<3||n>512)return{kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'}
+  this.assertPrepared();source.assertCurrent();let plan:CloneHealing152Plan|null
+  try{plan=planCloneHealing152(rect)}catch(error){if(!(error instanceof RangeError))throw error;return{kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'}}
+  if(!plan||![offset.x,offset.y].every(Number.isSafeInteger))return{kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'}
+  const{paintWidth:w,paintHeight:h,solveWidth:sw,solveHeight:sh,storageSide:n}=plan
+  const sourceStorageRect={minX:rect.minX+offset.x,minY:rect.minY+offset.y,maxX:rect.minX+offset.x+n,maxY:rect.minY+offset.y+n},guideStorageRect={minX:plan.guideRect.minX,minY:plan.guideRect.minY,maxX:plan.guideRect.minX+n,maxY:plan.guideRect.minY+n}
+  if(![...Object.values(sourceStorageRect),...Object.values(guideStorageRect)].every(Number.isSafeInteger))return{kind:'notReady',reason:'resource',retryKey:source.binding.prefixKey+':healing-geometry',detail:'geometry'}
+
   if(source.tiles.some(t=>t.buffer.gl!==this.gl))throw Error('Healing source GL mismatch')
-  const bytes=4*(2*n*n+7*w*h),reservation=claim(bytes);if(typeof reservation!=='function')return reservation
+  const reservation=claim(plan.bytes);if(typeof reservation!=='function')return reservation
   const gl=this.gl,leases:CanonicalSourceLease[]=[];let failed=false,restore:(()=>void)|undefined
   try{
    // Installed BEFORE acquire; pool mutation/throw cannot lose caller state.
-   const framebuffer=gl.getParameter(gl.FRAMEBUFFER_BINDING),program=gl.getParameter(gl.CURRENT_PROGRAM),viewport=gl.getParameter(gl.VIEWPORT),array=gl.getParameter(gl.ARRAY_BUFFER_BINDING),active=gl.getParameter(gl.ACTIVE_TEXTURE),mask=gl.getParameter(gl.COLOR_WRITEMASK)
+   const framebuffer=gl.getParameter(gl.FRAMEBUFFER_BINDING),program=gl.getParameter(gl.CURRENT_PROGRAM),viewport=gl.getParameter(gl.VIEWPORT),array=gl.getParameter(gl.ARRAY_BUFFER_BINDING),active=gl.getParameter(gl.ACTIVE_TEXTURE),mask=gl.getParameter(gl.COLOR_WRITEMASK),scissorBox=gl.getParameter(gl.SCISSOR_BOX),clearColor=gl.getParameter(gl.COLOR_CLEAR_VALUE)
    const units:[number,WebGLTexture|null][]=[]
    const blend=[gl.BLEND_SRC_RGB,gl.BLEND_DST_RGB,gl.BLEND_SRC_ALPHA,gl.BLEND_DST_ALPHA,gl.BLEND_EQUATION_RGB,gl.BLEND_EQUATION_ALPHA].map(p=>gl.getParameter(p))
    const attributes=Array.from({length:gl.getParameter(gl.MAX_VERTEX_ATTRIBS)as number},(_,index)=>({index,enabled:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_ENABLED),buffer:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING),size:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_SIZE),type:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_TYPE),normalized:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_NORMALIZED),stride:gl.getVertexAttrib(index,gl.VERTEX_ATTRIB_ARRAY_STRIDE),offset:gl.getVertexAttribOffset(index,gl.VERTEX_ATTRIB_ARRAY_POINTER)}))
    const flags=[gl.BLEND,gl.DITHER,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST].map(flag=>[flag,gl.isEnabled(flag)]as const)
-   restore=()=>{let bad=false,primary:unknown;const attempt=(f:()=>void)=>{try{f()}catch(e){if(!bad){bad=true;primary=e}}};for(const[unit,texture]of units){attempt(()=>gl.activeTexture(unit));attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture))}for(const[flag,on]of flags)attempt(()=>on?gl.enable(flag):gl.disable(flag));attempt(()=>gl.activeTexture(active));attempt(()=>gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer));attempt(()=>gl.useProgram(program));attempt(()=>gl.blendFuncSeparate(blend[0],blend[1],blend[2],blend[3]));attempt(()=>gl.blendEquationSeparate(blend[4],blend[5]));for(const a of attributes){if(a.buffer){attempt(()=>gl.bindBuffer(gl.ARRAY_BUFFER,a.buffer));attempt(()=>gl.vertexAttribPointer(a.index,a.size,a.type,a.normalized,a.stride,a.offset))}attempt(()=>a.enabled?gl.enableVertexAttribArray(a.index):gl.disableVertexAttribArray(a.index))}attempt(()=>gl.bindBuffer(gl.ARRAY_BUFFER,array));attempt(()=>gl.viewport(...Array.from(viewport)as[number,number,number,number]));attempt(()=>gl.colorMask(...Array.from(mask)as[boolean,boolean,boolean,boolean]));if(bad)throw primary}
+   restore=()=>{let bad=false,primary:unknown;const attempt=(f:()=>void)=>{try{f()}catch(e){if(!bad){bad=true;primary=e}}};for(const[unit,texture]of units){attempt(()=>gl.activeTexture(unit));attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture))}for(const[flag,on]of flags)attempt(()=>on?gl.enable(flag):gl.disable(flag));attempt(()=>gl.activeTexture(active));attempt(()=>gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer));attempt(()=>gl.useProgram(program));attempt(()=>gl.blendFuncSeparate(blend[0],blend[1],blend[2],blend[3]));attempt(()=>gl.blendEquationSeparate(blend[4],blend[5]));for(const a of attributes){if(a.buffer){attempt(()=>gl.bindBuffer(gl.ARRAY_BUFFER,a.buffer));attempt(()=>gl.vertexAttribPointer(a.index,a.size,a.type,a.normalized,a.stride,a.offset))}attempt(()=>a.enabled?gl.enableVertexAttribArray(a.index):gl.disableVertexAttribArray(a.index))}attempt(()=>gl.bindBuffer(gl.ARRAY_BUFFER,array));attempt(()=>gl.viewport(...Array.from(viewport)as[number,number,number,number]));attempt(()=>gl.clearColor(...Array.from(clearColor)as[number,number,number,number]));attempt(()=>gl.scissor(...Array.from(scissorBox)as[number,number,number,number]));attempt(()=>gl.colorMask(...Array.from(mask)as[boolean,boolean,boolean,boolean]));if(bad)throw primary}
    try{for(let i=0;i<4;i++){gl.activeTexture(gl.TEXTURE0+i);units.push([gl.TEXTURE0+i,gl.getParameter(gl.TEXTURE_BINDING_2D)])}}finally{gl.activeTexture(active)}
    const outputs=new Set<WebGLTexture>(),originals=new Set(source.tiles.map(t=>t.buffer.texture))
    const take=(width:number,height:number)=>{const lease=acquire(width,height);leases.push(lease);lease.assertCurrent();if(lease.buffer.width!==width||lease.buffer.height!==height||originals.has(lease.buffer.texture)||outputs.has(lease.buffer.texture)||forbiddenTextures.has(lease.buffer.texture))throw Error('Healing scratch alias/dimensions');outputs.add(lease.buffer.texture);return lease.buffer}
-   const s=take(n,n),g=take(n,n),a=[take(w,h),take(w,h),take(w,h)],b=[take(w,h),take(w,h),take(w,h)],out=take(w,h)
+   const s=take(n,n),g=take(n,n),a=[take(sw,sh),take(sw,sh),take(sw,sh)],b=[take(sw,sh),take(sw,sh),take(sw,sh)],out=take(w,h)
    const layer={opacity:1,buffer:{resolveVisible:(r:WorldRect)=>{source.assertCurrent();return[...source.resolveForRead(r)]}}}
    for(const flag of[gl.DITHER,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST])gl.disable(flag);gl.colorMask(true,true,true,true);gl.blendEquation(gl.FUNC_ADD)
-   this.sampler.gather(s,{minX:rect.minX+offset.x,minY:rect.minY+offset.y,maxX:rect.minX+offset.x+n,maxY:rect.minY+offset.y+n},[layer])
-   this.sampler.gather(g,{minX:rect.minX,minY:rect.minY,maxX:rect.minX+n,maxY:rect.minY+n},[layer]);source.assertCurrent()
+   if(plan.expanded){
+    // Clear ALL storage before scissoredgather: borrowed pool contents are never source.
+    s.clear();gl.enable(gl.SCISSOR_TEST);gl.scissor(0,n-h,w,h)
+    try{this.sampler.gather(s,sourceStorageRect,[layer])}finally{gl.disable(gl.SCISSOR_TEST)}
+   }else this.sampler.gather(s,sourceStorageRect,[layer])
+   this.sampler.gather(g,guideStorageRect,[layer]);source.assertCurrent()
    const draw=(dest:AccumulationBuffer,p:WebGLProgram,textures:readonly(readonly[string,WebGLTexture])[],channel=0)=>{
     for(const lease of leases)lease.assertCurrent();dest.beginReplaceDraw()
-    try{for(const flag of[gl.BLEND,gl.DITHER,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST])gl.disable(flag);gl.colorMask(true,true,true,true);gl.viewport(0,0,w,h);gl.useProgram(p);gl.uniform2f(gl.getUniformLocation(p,'u_size'),w,h);gl.uniform1f(gl.getUniformLocation(p,'u_storage'),n);gl.uniform1i(gl.getUniformLocation(p,'u_channel'),channel)
+    try{for(const flag of[gl.BLEND,gl.DITHER,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST])gl.disable(flag);gl.colorMask(true,true,true,true);gl.viewport(0,0,dest.width,dest.height);gl.useProgram(p);gl.uniform2f(gl.getUniformLocation(p,'u_size'),sw,sh);gl.uniform2f(gl.getUniformLocation(p,'u_outputSize'),w,h);gl.uniform1f(gl.getUniformLocation(p,'u_storage'),n);gl.uniform1i(gl.getUniformLocation(p,'u_channel'),channel)
      textures.forEach(([name,t],unit)=>{gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(gl.getUniformLocation(p,name),unit)});gl.bindBuffer(gl.ARRAY_BUFFER,this.quad!);const position=gl.getAttribLocation(p,'a_position');gl.enableVertexAttribArray(position);try{gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(position)}
     }finally{dest.endDraw()}
    }

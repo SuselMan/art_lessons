@@ -1,3 +1,4 @@
+import type{WorldRect}from'../buffers/tileMath'
 /** Functional D65 sRGB/Lab16 reference; not ICC/Qt byte identity. */
 export type Lab3=readonly[number,number,number]
 export function srgbLab16(rgb:readonly number[]):Lab3{
@@ -28,4 +29,25 @@ export function packRatio152(value:number):[number,number,number,number]{
  return[mantissa%256,Math.floor(mantissa/256)%256,Math.floor(mantissa/65536),exponent+127]
 }
 export function unpackRatio152(bytes:readonly number[]):number{return bytes[3]===0?0:(1+(bytes[0]+256*bytes[1]+65536*bytes[2])/8388608)*2**(bytes[3]-127)}
-export function healingBytes152(width:number,height=width):number{if(![width,height].every(v=>Number.isSafeInteger(v)&&v>=3&&v<=512))throw Error('Healing rectangular domain3..512');const side=Math.max(width,height);return 4*(2*side*side+7*width*height)}
+export interface CloneHealing152Plan{readonly paintRect:WorldRect;readonly guideRect:WorldRect;readonly paintWidth:number;readonly paintHeight:number;readonly solveWidth:number;readonly solveHeight:number;readonly storageSide:number;readonly bytes:number;readonly expanded:boolean}
+/** Native geometry, deterministic cleared-zero source fringe (not native scratchcarry).
+ * Emptyrect ->null/noPaint; unsupportedgeometry throwsRangeError beforeanyallocation. */
+export function planCloneHealing152(rect:WorldRect):CloneHealing152Plan|null{
+ const w=rect.maxX-rect.minX,h=rect.maxY-rect.minY
+ if(![rect.minX,rect.minY,rect.maxX,rect.maxY,w,h].every(Number.isSafeInteger)||w<0||h<0)throw new RangeError('Healing152 geometry')
+ if(!w||!h)return null
+ const expanded=w<3||h<3,pad=expanded?1:0,sw=w+2*pad,sh=h+2*pad,n=Math.max(sw,sh)
+ const guideRect={minX:rect.minX-pad,minY:rect.minY-pad,maxX:rect.maxX+pad,maxY:rect.maxY+pad}
+ if(n>512||![guideRect.minX,guideRect.minY,guideRect.maxX,guideRect.maxY,guideRect.minX+n,guideRect.minY+n].every(Number.isSafeInteger))throw new RangeError('Healing152 geometry')
+ return{paintRect:{...rect},guideRect,paintWidth:w,paintHeight:h,solveWidth:sw,solveHeight:sh,storageSide:n,bytes:4*(2*n*n+6*sw*sh+w*h),expanded}
+}
+export function healingBytes152(width:number,height=width):number{return planCloneHealing152({minX:0,minY:0,maxX:width,maxY:height})?.bytes??0}
+export type HealingPma152=readonly[number,number,number,number]
+/** Independent CPU reference of ONErequest sourceCOPY/guide/solve/top-leftcrop. */
+export function healPma152(source:readonly HealingPma152[],guide:readonly HealingPma152[],width:number,height:number):[number,number,number,number][]{
+ const plan=planCloneHealing152({minX:0,minY:0,maxX:width,maxY:height});if(!plan){if(source.length||guide.length)throw Error('Empty healing inputs');return[]}
+ const{solveWidth:sw,solveHeight:sh}=plan;if(source.length!==width*height||guide.length!==sw*sh)throw Error('Healing reference dimensions')
+ const lab=(p:HealingPma152)=>srgbLab16(p[3]?[p[0]/p[3],p[1]/p[3],p[2]/p[3]]:[0,0,0]),s=Array.from({length:sw*sh},()=>srgbLab16([0,0,0]));for(let y=0;y<height;y++)for(let x=0;x<width;x++)s[y*sw+x]=lab(source[y*width+x])
+ const healed=healLab152(s,guide.map(lab),sw,sh),result:[number,number,number,number][]=[]
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const alpha=source[y*width+x][3],rgb=lab16Srgb(healed[y*sw+x]);result.push([Math.round(rgb[0]*alpha),Math.round(rgb[1]*alpha),Math.round(rgb[2]*alpha),alpha])}return result
+}
