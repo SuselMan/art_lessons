@@ -45,9 +45,9 @@ export function isOriginalRgbaGih119(value:unknown):boolean{
 }
 
 /** Full policy checks are once per preflight, never per logical dab. */
-function hasEqualSensorPolicy(t:Record<string,unknown>,b:Record<string,unknown>):boolean{
+function hasEqualSensorPolicy(t:Record<string,unknown>,b:Record<string,unknown>,geometry=false):boolean{
  const a=t.animation as Record<string,unknown>,frames=a.frames as unknown[]
- if(frames[0]!==t.mask||Object.keys(a).some(k=>!['mode','frames','rank','cursorPolicy','roundingPolicy','dimensions','randomPolicy'].includes(k)))return false
+ if(frames[0]!==t.mask||Object.keys(a).some(k=>![...['mode','frames','rank','cursorPolicy','roundingPolicy','dimensions','randomPolicy'],...(geometry?['geometry']:[])].includes(k)))return false
  const dims=a.mode==='dimensions'?a.dimensions:undefined,integerRank=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=2&&v<=256
  if(a.mode==='dimensions'){
   if(a.rank!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===2&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&integerRank(v.rank)))return false
@@ -68,4 +68,17 @@ export function isEqualLightnessGih123(value:unknown):boolean{
  const d=value as Record<string,unknown>,t=d.tip as Record<string,unknown>,a=t.animation as Record<string,unknown>,m=t.material as Record<string,unknown>,frames=a.frames as unknown[],gray=m.grayFrames
  const ref=(v:unknown)=>typeof v==='string'&&/^asset:[a-f0-9]{64}$/.test(v)
  return hasEqualSensorPolicy(t,d.behavior as Record<string,unknown>)&&frames.every(ref)&&ref(m.gray)&&Array.isArray(gray)&&gray.length===frames.length&&gray.every(ref)&&gray[0]===m.gray&&typeof m.strength==='number'&&Number.isFinite(m.strength)&&m.strength>=0&&m.strength<=1
+}
+
+/** Unequal124 reuses123 Lightness scope and existing118 original geometry. */
+export function hasUnequalLightnessGih124Scope(value:unknown):boolean{return hasOriginalSensorRgbaScope(value,124,true,true)}
+export function isUnequalLightnessGih124(value:unknown):boolean{
+ if(!hasUnequalLightnessGih124Scope(value))return false
+ const d=value as Record<string,unknown>,t=d.tip as Record<string,unknown>,a=t.animation as Record<string,unknown>,m=t.material as Record<string,unknown>,frames=a.frames as unknown[],gray=m.grayFrames
+ const ref=(v:unknown)=>typeof v==='string'&&/^asset:[a-f0-9]{64}$/.test(v)
+ if(!hasEqualSensorPolicy(t,d.behavior as Record<string,unknown>,true)||!frames.every(ref)||!ref(m.gray)||!Array.isArray(gray)||gray.length!==frames.length||!gray.every(ref)||gray[0]!==m.gray||typeof m.strength!=='number'||!Number.isFinite(m.strength)||m.strength<0||m.strength>1)return false
+ const rows=(a.geometry as Record<string,unknown>).frames as unknown[],record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!rows.every(v=>record(v)&&Number.isInteger(v.sourceWidth)&&Number(v.sourceWidth)>=1&&Number(v.sourceWidth)<=2048&&Number.isInteger(v.sourceHeight)&&Number(v.sourceHeight)>=1&&Number(v.sourceHeight)<=2048&&record(v.maskBounds)))return false
+ const first=rows[0]as Record<string,unknown>
+ return rows.some(v=>(v as Record<string,unknown>).sourceWidth!==first.sourceWidth||(v as Record<string,unknown>).sourceHeight!==first.sourceHeight)
 }

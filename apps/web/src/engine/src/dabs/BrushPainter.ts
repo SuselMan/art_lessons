@@ -1,3 +1,4 @@
+import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import{isIndependentDrawingAnglePair}from'@grafetto/shared'
 import {usesTextureLightness,usesTextureGradient,textureMaterialKind,textureLightnessPixels,type TextureMaterialVariant} from '../presets/textureLightness'
@@ -13,7 +14,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -72,7 +73,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[]):readonly BrushPreparationResource[]|undefined {
-    const lightness=assertEqualLightnessGih123(brush)
+    const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
     if(!lightness&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     const resources=existing??brushPreparationResources(brush)
     if(!lightness&&!resources.some(resource=>resource.nativeImage))return undefined
@@ -96,6 +97,7 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
+        if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
         if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
         if(brush?.tip.kind==='procedural'||brush?.behavior?.dual?.brush.tip.kind==='procedural')this.prepareProcedural()
         for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)

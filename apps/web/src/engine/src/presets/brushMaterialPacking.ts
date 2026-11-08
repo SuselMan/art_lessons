@@ -26,19 +26,22 @@ function validSize(size: number): boolean {
  * Ordered JSON tuples make the pair key unambiguous even for non-CAS test IDs.
  * A fresh plan holds metadata only; callers may weakly cache it per descriptor.
  */
-export function materialPackingPlan(sources: readonly MaterialFrameSource[], size: number): MaterialPackingPlan {
+export function materialPackingPlan(sources: readonly MaterialFrameSource[], size: number, sizes?:readonly number[]): MaterialPackingPlan {
   if (!validSize(size) || sources.length < 1 || sources.length > 256)
     throw Error('Invalid material animation dimensions/count')
+  if(sizes&&(sizes.length!==sources.length||sizes[0]!==size||!sizes.every(validSize)))throw Error('Invalid per-frame material sides')
   for (const source of sources) {
     if (!source.alpha || !source.gray) throw Error('Missing material plane identity')
   }
   const groups: MaterialTextureGroup[] = [], frames: MaterialFrameView[] = []
-  for (let index = 0; index < sources.length; index += 2) {
-    const pair = sources.slice(index, index + 2).map(source => Object.freeze({ ...source }))
+  for (let index = 0; index < sources.length;) {
+    const groupSize=sizes?.[index]??size,count=sizes&&sizes[index+1]!==groupSize?1:2
+    const pair = sources.slice(index, index + count).map(source => Object.freeze({ ...source }))
     const singleton = pair.length === 1
     const key = singleton ? `t:lightness:${pair[0].alpha}:${pair[0].gray}`
-      : `t:materialPair:v1:${size}:${JSON.stringify(pair.map(frame => [frame.alpha, frame.gray]))}`
-    const group: MaterialTextureGroup = Object.freeze({ key, size, frames: Object.freeze(pair), format: singleton ? 'la' : 'rgba' })
+      : `t:materialPair:v1:${groupSize}:${JSON.stringify(pair.map(frame => [frame.alpha, frame.gray]))}`
+    const group: MaterialTextureGroup = Object.freeze({ key, size:groupSize, frames: Object.freeze(pair), format: singleton ? 'la' : 'rgba' })
+    index+=pair.length
     groups.push(group)
     pair.forEach((_, offset) => frames.push(Object.freeze({ group, channels: singleton ? 'ra' : offset === 0 ? 'rg' : 'ba' })))
   }

@@ -32,8 +32,8 @@ class EqualLightness123Tests(unittest.TestCase):
    out,_=self.imported(tmp,application=1);self.assertEqual(out.skipped,[]);self.assertEqual(out.brushes[0]['descriptor']['version'],121);self.assertIn('color',out.brushes[0]['descriptor']['tip'])
   with tempfile.TemporaryDirectory()as tmp:
    out,_=self.imported(tmp,dims=[('incremental',3)],actual=1);self.assertEqual(out.skipped,[]);d=out.brushes[0]['descriptor'];self.assertLess(d['version'],123);self.assertNotIn('animation',d['tip']);self.assertIn('material',d['tip'])
- def test_foreign_unequal_gradient_and_actual1_sensor_remain_closed(self):
-  for kwargs in[{'engine':e}for e in['hairybrush','hatchingbrush','sketchbrush','curvebrush']]+[{'sizes':[(4,2),(8,6),(4,2)]},{'application':3},{'actual':1}]:
+ def test_foreign_gradient_and_actual1_sensor_remain_closed(self):
+  for kwargs in[{'engine':e}for e in['hairybrush','hatchingbrush','sketchbrush','curvebrush']]+[{'application':3},{'actual':1}]:
    with self.subTest(kwargs=kwargs),tempfile.TemporaryDirectory()as tmp:
     out,_=self.imported(tmp,**kwargs);self.assertFalse(any(v['descriptor']['version']==123 for v in out.brushes))
     if 'engine'not in kwargs:self.assertEqual(out.brushes,[]);self.assertTrue(out.skipped)

@@ -1,3 +1,4 @@
+import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import {textureMaterialKind} from '../presets/textureLightness'
 import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
@@ -72,7 +73,8 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
   let plan=materialPlans.get(tip)
   if(!plan){
     const frames=tip.animation.frames.map((alpha,index)=>({alpha,gray:tip.material!.grayFrames?.[index] ?? tip.material!.gray}))
-    plan=materialPackingPlan(frames,Math.sqrt(importedAssetPixels(frames[0].alpha).length))
+    const sizes=tip.animation?.geometry&&tip.material?frames.map(frame=>Math.sqrt(importedAssetPixels(frame.alpha).length)):undefined
+    plan=materialPackingPlan(frames,Math.sqrt(importedAssetPixels(frames[0].alpha).length),sizes)
     materialPlans.set(tip,plan)
   }
   const index=tip.animation.frames.findIndex((alpha,index)=>alpha===id && (tip.material!.grayFrames?.[index] ?? tip.material!.gray)===gray)
@@ -88,7 +90,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
 } {
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
-  if(assertEqualLightnessGih123(brush))materialPlans.delete(brush.tip)
+  if(assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush))materialPlans.delete(brush.tip)
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)

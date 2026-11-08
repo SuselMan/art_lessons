@@ -1,12 +1,14 @@
+import{assertUnequalLightnessGih124}from'./gihUnequalLightness124'
 import{isOriginalRgbaGih119}from'@grafetto/shared'
 import type {BrushDescriptor,BrushTip} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import {captureGihFrameMetadata,gihFrameSampleTransform,type GihFrameMetadata} from '../raster/gihFrameGeometry'
 export function usesVariableGih(tip:BrushTip):boolean{return tip.animation?.geometry!==undefined}
 export function prepareVariableGih(brush:BrushDescriptor):readonly GihFrameMetadata[]{
+ const unequalLightness=assertUnequalLightnessGih124(brush)
  const tip=brush.tip,a=tip.animation,g=a?.geometry,b=brush.behavior
  if(tip.color&&a&&['angular','xtilt','ytilt','dimensions'].includes(a.mode)&&!isOriginalRgbaGih119(brush))throw Error('Original RGBA sensor geometry requires unequal119 scope')
- if(!g||brush.version<86||brush.model!=='stamp'||tip.kind!=='bitmap'||brush.mixer||(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const).some(k=>brush[k]!==undefined)||b?.dual||tip.profile||tip.autoNoise||tip.autoShape||tip.imageSampling||tip.material||b?.colorAdjustment||b?.edgeBleed||b?.rendering?.wetEdges||b?.dynamics?.sharpness||b?.modulations?.sharpness?.length)throw Error('Unsupported variable GIH geometry combination')
+ if(!g||brush.version<86||brush.model!=='stamp'||tip.kind!=='bitmap'||brush.mixer||(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const).some(k=>brush[k]!==undefined)||b?.dual||tip.profile||tip.autoNoise||tip.autoShape||tip.imageSampling||tip.material&&!unequalLightness||b?.colorAdjustment||b?.edgeBleed||b?.rendering?.wetEdges||b?.dynamics?.sharpness||b?.modulations?.sharpness?.length)throw Error('Unsupported variable GIH geometry combination')
  if(tip.color&& !('planes' in tip.color))throw Error('Variable GIH gradient is unsupported')
  if(g.version!==1||!a||g.frames.length!==a.frames.length)throw Error('Invalid variable GIH geometry')
  const sides=a.frames.map(id=>Math.sqrt(importedAssetPixels(id).length))
