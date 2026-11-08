@@ -869,7 +869,12 @@ def portable_bundle(path,catalog):
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
         texture=d.get('texture',{})
-        if d.get('model')=='mixer' and isinstance(texture,dict) and isinstance(texture.get('application'),dict) and texture['application'].get('mode')in('darken','overlay','linearDodge','linearBurn'):
+        if isinstance(texture,dict) and isinstance(texture.get('application'),dict) and texture['application'].get('mode')in('colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
+            application=texture['application']
+            if set(application)!={'mode','soft'} or type(application.get('soft'))is not bool:raise ValueError('Invalid Texture105 application')
+            if depth or d['version']<105 or behavior.get('dual'):raise ValueError('Texture105 is root-only at revision105')
+            if d.get('model')=='stamp' and any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Texture105 requires Pixel or modern MASK')
+        if d.get('model')=='mixer' and isinstance(texture,dict) and isinstance(texture.get('application'),dict) and texture['application'].get('mode')in('darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
             m=d.get('mixer',{});application=texture['application']
             if (depth or type(d.get('version'))!=int or d['version']<103 or set(application)!={'mode','soft'} or type(application['soft'])!=bool or m.get('algorithm')!='krita-mask' or m.get('source')!='previousCanvas' or m.get('colorRateComposite')is not None or m.get('paintThickness')is not None or tip.get('kind')!='bitmap' or any(k in tip for k in('animation','color','material')) or behavior.get('dual') or behavior.get('erase') or behavior.get('rendering',{}).get('blendMode')!='normal' or texture.get('eraseId')):
                 raise ValueError('Invalid portable modern texture103 Color Smudge')

@@ -27,13 +27,14 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
         if not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Sketch setting outside bounded range: '+key)
         return value
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
-    from native_ignored_flow import strip_unused_native_flow
+    from native_ignored_options import strip_unused_native_flow,strip_unused_native_mirror,strip_unused_native_rotation
     ignored_flow=strip_unused_native_flow(transformed)
+    ignored_mirror=strip_unused_native_mirror(transformed)
+    ignored_rotation=strip_unused_native_rotation(transformed) if simple else False
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external)
-    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the sketch adapter')
     d=result['descriptor'];d['version']=44 if simple else 101
     # Pixel's derived integer-image bank is not Sketch's native selection mask.
     # New101 reads the already-captured alpha plane with its explicit own law.
@@ -66,6 +67,8 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
     result['compatibility'].append(compatibility('sketch','Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu.'if simple else'Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu.'))
     if not simple:result['compatibility'].append(compatibility('sketchMask','Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
+    if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
+    if ignored_rotation:result['compatibility'].append(compatibility('ignoredNativeRotation','This native paintop mode does not consume the generic brush Rotation option. Active family-specific angle controls remain independent.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

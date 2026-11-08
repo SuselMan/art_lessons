@@ -1174,7 +1174,7 @@ export class SmudgePainter {
       binding=this.colorSmudgeLegacyTransfer
     } else if (brush?.mixer?.algorithm) {
       if(composite>0){this.prepareColorSmudgeForeground();binding=this.colorSmudgeForegroundTransfer}
-      else if(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(brush.texture.application.mode)){binding=this.colorSmudgeTextureTransfer}
+      else if(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)){binding=this.colorSmudgeTextureTransfer}
       else {this.prepareColorSmudge();binding=this.colorSmudgeTransfer}
     } else if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
       this.prepareRadialCurves()

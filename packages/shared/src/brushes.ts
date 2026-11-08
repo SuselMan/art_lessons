@@ -286,7 +286,7 @@ export interface BrushDescriptor {
   texture?: {
     id: BrushTextureId; eraseId?:AssetId; periodPx: number; strength: number
     /** Explicit operation on the dab mask; absent preserves historical grain. */
-    application?: { mode: 'multiply' | 'subtract' | 'darken' | 'overlay' | 'linearDodge' | 'linearBurn'; soft: boolean }
+    application?: { mode: 'multiply' | 'subtract' | 'darken' | 'overlay' | 'linearDodge' | 'linearBurn' | 'colorDodge' | 'colorBurn' | 'hardMixPhotoshop' | 'hardMixSofterPhotoshop'; soft: boolean }
     /** Integer repeat grid at the top-left of its padded square asset. */
     patternSize?: { width: number; height: number }
     /** Canvas phase in world pixels; random axes are selected once per gesture. */
@@ -661,11 +661,16 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
         || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset'].includes(key))) return false
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||d.model!=='stamp'||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
+      if(record(t.application)&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))){
+        const modern=Number(d.version)>=105&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'&&t.eraseId===undefined
+        const pixel=Number(d.version)>=105&&d.model==='stamp'&&['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)&&record(d.behavior)&&d.behavior.dual===undefined
+        if(!pixel&&!modern)return false
+      }
       if(record(t.application)&&['darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))){
         const modern=Number(d.version)>=103&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'
         if(!(d.model==='stamp'&&Number(d.version)>=75)&&!modern)return false
       }
-      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract','darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))
+      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract','darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))
         || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
       if (t.patternSize !== undefined) {
         const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
@@ -691,6 +696,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false
         if(secondary.behavior?.rendering?.blendMode==='hardMixPhotoshop'||secondary.behavior?.rendering?.blendMode==='kritaHardMix')return false
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false

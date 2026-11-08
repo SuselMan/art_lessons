@@ -17,8 +17,10 @@ def curve_preset(data,root,params,name,catalog,external):
     if int(history)!=history:raise ValueError('Curve history must be an integer')
     width=number('lineWidth',1,.1,1000)
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
-    from native_ignored_flow import strip_unused_native_flow
+    from native_ignored_options import strip_unused_native_flow,strip_unused_native_mirror,strip_unused_native_rotation
     ignored_flow=strip_unused_native_flow(transformed)
+    ignored_mirror=strip_unused_native_mirror(transformed)
+    ignored_rotation=strip_unused_native_rotation(transformed)
     # Curve has no stamp/Size/Rotation option. Supply a harmless initialization
     # tip only for the common parser, and remove stale unrelated settings.
     for node in list(transformed):
@@ -27,7 +29,6 @@ def curve_preset(data,root,params,name,catalog,external):
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d['version']=53
-    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the curve adapter')
     d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('rotation','scatter','spacing'):d['behavior'].pop(key,None)
@@ -52,6 +53,8 @@ def curve_preset(data,root,params,name,catalog,external):
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]+notes
     result['compatibility'].append(compatibility('curveTrace','Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
+    if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
+    if ignored_rotation:result['compatibility'].append(compatibility('ignoredNativeRotation','This native paintop mode does not consume the generic brush Rotation option. Active family-specific angle controls remain independent.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

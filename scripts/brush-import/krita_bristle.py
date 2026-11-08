@@ -17,13 +17,13 @@ def bristle_preset(data,root,params,name,catalog,external):
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     aa=enabled(params.get('HairyBristle/antialias'));compositing=enabled(params.get('HairyBristle/useCompositing'))
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
-    from native_ignored_flow import strip_unused_native_flow
+    from native_ignored_options import strip_unused_native_flow,strip_unused_native_mirror
     ignored_flow=strip_unused_native_flow(transformed)
+    ignored_mirror=strip_unused_native_mirror(transformed)
     for node in transformed.findall('param'):
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];tip=d['tip']
-    if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the bristle adapter')
     if tip['kind']!='bitmap':raise ValueError('Bristle requires an authored bitmap tip')
     asset=catalog.assets[tip['mask']];mask=Image.frombytes('L',(asset['size'],asset['size']),(catalog.output/asset['file']).read_bytes())
     bounds=tip['maskBounds'];side=max(1,round(result['sourceDefaults']['sizePx']))
@@ -82,6 +82,7 @@ def bristle_preset(data,root,params,name,catalog,external):
         result['compatibility']=[dict(n,detail=n['detail'].replace('saturation/soaking remain rejected.','Saturation uses a compiled functional lookup; soaking remains rejected.'))if n['feature']=='bristle'else n for n in result['compatibility']]
         result['compatibility'].append(compatibility('bristleSaturation','Immutable profile compiled once into a trusted bounded CAS lookup. Functional clamped HSL interval transfer; deterministic quality-screen evidence is not a native RGB8/ICC identity or universal error bound. Canvas soaking remains unsupported.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
+    if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

@@ -25,7 +25,7 @@ export function bindBrushGradient(resources:readonly BrushPreparationResource[],
 /** Small preflight shared by selected and never-selected READ paths. */
 export function brushUsesStampEffects(brush:BrushDescriptor):boolean {
  const activeNoise=!!brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)
- const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'}
+ const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'||mode==='colorDodge'||mode==='colorBurn'||mode==='hardMixPhotoshop'||mode==='hardMixSofterPhotoshop'}
  const inline=brush.behavior?.dual?.sampling!=='independent'?brush.behavior?.dual?.brush:undefined
  return usesVariableGih(brush.tip)||usesPixelOriginalRgba(brush)||activeNoise||extended(brush)||extended(inline)||brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'
 }
@@ -99,7 +99,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')
   else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
-  if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
+  if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
   else if(['multiply','screen','erase'].includes(brush.mixer?.colorRateComposite ?? ''))capabilities.add('colorSmudgeLegacy')
   if(brush.mixer?.source==='projectionCanvas')capabilities.add('projectionCanvas')
   if(brush.mixer?.sampling?.mode==='adaptiveMean')capabilities.add('colorSmudgeMean')
@@ -122,6 +122,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
+      if(b!==brush||b.version<105)throw Error('Texture105 requires a root prepared brush')
+      if(b.model==='mixer')usesColorSmudgeTexture(b)
+      else if(b.model!=='stamp'||b.behavior?.dual||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>b[k as keyof BrushDescriptor]!==undefined))throw Error('Texture105 requires root Pixel or modern MASK')
+    }
     if(b.bristle?.version===2&&b.bristle.ink.useSaturation){
       if(painter!=='stamp'||!b.bristle.saturationLookup)throw Error('Compiled Bristle saturation requires the stamp renderer')
       const resource:BrushPreparationResource={painter,id:b.bristle.saturationLookup.asset,grain:false,bristleSaturation:b.bristle}

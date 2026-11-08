@@ -1079,7 +1079,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # independent: stale enabled curves must not revive an unchecked option.
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
-        texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',8:'linearDodge',9:'linearBurn'}
+        texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'linearDodge',9:'linearBurn',10:'hardMixPhotoshop',11:'hardMixSofterPhotoshop'}
         texture_supported=texture_mode in (0,1)or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
         if texture_supported:
             prefix='Texture/Pattern/'
@@ -1411,14 +1411,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if behavior.get('dual')or behavior.get('colorAdjustment')or behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour/dual adjustments are not implemented')
         d['version']=max(d['version'],84)
     if d.get('texture',{}).get('eraseId'):d['version']=max(d['version'],77)
-    if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn'):
+    if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
         if engine=='colorsmudge':
             m=d.get('mixer',{});tip=d['tip']
             if (m.get('algorithm')!='krita-mask'or m.get('source')!='previousCanvas'or m.get('colorRateComposite')is not None or m.get('paintThickness')is not None or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material'))or behavior.get('dual')or behavior.get('erase')or behavior.get('rendering',{}).get('blendMode')!='normal'or d['texture'].get('eraseId')):
                 raise ValueError('Modern texture103 requires root static MASK previousCanvas normal Color Smudge')
             d['version']=max(d['version'],103)
-            notes.append(compatibility('colorSmudgeTexture','Modern MASK applies native alpha-role darken/overlay/linearDodge/linearBurn through the shared Pixel75 functional graph; GPU/native U8 staging is not byte-identical.','supported'))
+            if d['texture']['application']['mode']in('darken','overlay','linearDodge','linearBurn'):
+                notes.append(compatibility('colorSmudgeTexture','Modern MASK applies native alpha-role darken/overlay/linearDodge/linearBurn through the shared Pixel75 functional graph; GPU/native U8 staging is not byte-identical.','supported'))
         else:d['version']=max(d['version'],75)
+        if d['texture']['application']['mode']in('colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
+            if engine not in('paintbrush','colorsmudge')or behavior.get('dual'):raise ValueError('Texture105 requires root Pixel or modern MASK')
+            d['version']=max(d['version'],105)
+            notes.append(compatibility('textureAlpha105','Native alpha-role Dodge/Burn/Photoshop Hard Mix/Softer strength laws retained, including no-resurrection and soft union factors; normalized functional math differs from staged native U8 rounding.'))
     if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if engine=='paintbrush' and 'gradient'in d['tip'].get('color',{}):

@@ -3,7 +3,7 @@ import tempfile,unittest,struct,json,hashlib
 from test_krita import kpp
 from brush_contract import Catalog
 from krita_import import preset
-from native_ignored_flow import strip_unused_native_flow
+from native_ignored_options import strip_unused_native_flow
 import xml.etree.ElementTree as ET
 
 def convert(family,extra=''):

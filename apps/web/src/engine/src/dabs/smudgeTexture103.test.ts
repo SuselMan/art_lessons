@@ -49,7 +49,7 @@ it('actual transfer selects derived capability, uploads all4 existing alpha code
 })
 
 it('missing103 preflight rejects before source leases, imprint/gesture state and painting without lazy compilation',()=>{
- const gl=new MockGL(),allocate=vi.fn(()=>{throw Error('Scratch must not allocate')}),open=vi.fn(),p=new SmudgePainter({gl:gl as unknown as WebGLRenderingContext,createBrushScratch:allocate,openProjection:open}as SmudgeContext);p.initGL()
+ const gl=new MockGL(),allocate=vi.fn(()=>{throw Error('Scratch must not allocate')}),open=vi.fn(()=>{throw Error('Projection must not open')}),p=new SmudgePainter({gl:gl as unknown as WebGLRenderingContext,createBrushScratch:allocate,openProjection:open,paintBrushMask:allocate,quadBuf:allocate,screenBuf:allocate,get paper(){return allocate()}});p.initGL()
  const b=brush(),resolve=vi.fn(),mark=vi.fn(),target={resolveForPaint:resolve,resolveVisible:resolve,markContentPainted:mark}as unknown as import('../buffers/ILayerBuffer').ILayerBuffer
  const dab={x:10,y:10,size:8,pressure:1,opacity:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:0},paint={brush:b,color:[.8,.2,.6]as[number,number,number],load:0,pickup:.6,strength:.5,pressure:false,sizeMultiplier:1,curve:[[0,1],[1,1]]as[number,number][]},body=vi.fn(),compile=vi.spyOn(gl,'createProgram');Reflect.set(p,'paintBehaviorDab',body)
  const snapshots=['imprints','wetGestures','replayChunks'].map(key=>[key,Array.from((Reflect.get(p,key)as Map<unknown,unknown>).entries())]as const)
