@@ -1523,8 +1523,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     if child_drawing_angle is not None:
         dual=behavior['dual'];child=dual['brush'];identity_policy={'version':1,'initialDirection':'cursorHistory'}
-        candidate_child={**child,'version':max(child['version'],120),'behavior':{**child['behavior'],'strokeInput':identity_policy.copy()}}
-        candidate={**d,'version':max(d['version'],120),'behavior':{**behavior,'strokeInput':identity_policy.copy(),'dual':{**dual,'brush':candidate_child}}}
+        pair_version=122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
+        candidate_child={**child,'version':max(child['version'],pair_version),'behavior':{**child['behavior'],'strokeInput':identity_policy.copy()}}
+        candidate={**d,'version':max(d['version'],pair_version),'behavior':{**behavior,'strokeInput':identity_policy.copy(),'dual':{**dual,'brush':candidate_child}}}
         if independent_drawing_angle_pair(candidate):
             candidate['behavior']['dual']['brush']=finalize_identity(candidate_child,child_drawing_angle)
             d=candidate;behavior=d['behavior']

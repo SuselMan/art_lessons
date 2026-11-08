@@ -861,11 +861,20 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
 export function isIndependentDrawingAnglePair(value:unknown):boolean {
   if(!record(value)||!record(value.behavior)||!record(value.behavior.dual))return false
   const dual=value.behavior.dual
+  const child=record(dual.brush)?dual.brush:undefined
+  const images=record(value.tip)&&value.tip.imageSampling!==undefined||child&&record(child.tip)&&child.tip.imageSampling!==undefined
+  if(images&&(typeof value.version!=='number'||value.version<122||!child||typeof child.version!=='number'||child.version<122))return false
   const component=(d:unknown,root:boolean):boolean=>{
     if(!record(d)||typeof d.version!=='number'||!Number.isInteger(d.version)||d.version<120||d.model!=='stamp'||!record(d.tip)||!record(d.behavior))return false
     const tip=d.tip,b=d.behavior,rotation=b.rotation,input=b.strokeInput,render=b.rendering
     if(b.version!==2||b.spacing!==undefined&&!record(b.spacing))return false
-    if(!['round','bitmap','procedural'].includes(String(tip.kind))||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||tip.profile!==undefined&&(!record(tip.profile)||tip.profile.kind!=='standard'))return false
+    if(tip.imageSampling!==undefined){
+      const sampling=tip.imageSampling
+      if(d.version<122||tip.kind!=='bitmap'||tip.profile!==undefined||!record(sampling)||Object.keys(sampling).length!==3||sampling.kind!=='integer-pyramid'||sampling.signal!=='inverse-gray'||!record(sampling.sourceRect))return false
+      const rect=sampling.sourceRect
+      if(Object.keys(rect).length!==4||!['x','y','width','height'].every(k=>typeof rect[k]==='number'&&Number.isInteger(rect[k]))||Number(rect.x)<0||Number(rect.y)<0||Number(rect.width)<1||Number(rect.height)<1||Number(rect.x)+Number(rect.width)>2048||Number(rect.y)+Number(rect.height)>2048)return false
+    }
+    if(!['round','bitmap','procedural'].includes(String(tip.kind))||['animation','color','material','autoNoise','autoShape'].some(k=>tip[k]!==undefined)||tip.profile!==undefined&&(!record(tip.profile)||tip.profile.kind!=='standard'))return false
     if(['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
     if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(root?['dual']:[])].includes(k)))return false
     if(!record(rotation)||Object.keys(rotation).length!==2||rotation.follow!==1||rotation.random!=='none'||!record(input)||Object.keys(input).length!==2||input.version!==1||input.initialDirection!=='cursorHistory')return false

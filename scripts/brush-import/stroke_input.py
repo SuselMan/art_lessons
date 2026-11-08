@@ -48,7 +48,12 @@ def independent_drawing_angle_pair(value):
         if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<120 or d.get('model')!='stamp':return False
         tip=d.get('tip');b=d.get('behavior')
         if not isinstance(tip,dict)or not isinstance(b,dict):return False
-        if tip.get('kind')not in('round','bitmap','procedural')or any(k in tip for k in('animation','color','material','imageSampling','autoNoise','autoShape'))or 'profile'in tip and(not isinstance(tip['profile'],dict)or tip['profile'].get('kind')!='standard'):return False
+        if tip.get('kind')not in('round','bitmap','procedural')or any(k in tip for k in('animation','color','material','autoNoise','autoShape'))or 'profile'in tip and(not isinstance(tip['profile'],dict)or tip['profile'].get('kind')!='standard'):return False
+        if 'imageSampling'in tip:
+            sampling=tip['imageSampling']
+            if d['version']<122 or tip['kind']!='bitmap'or 'profile'in tip or not isinstance(sampling,dict)or set(sampling)!={'kind','signal','sourceRect'}or sampling['kind']!='integer-pyramid'or sampling['signal']!='inverse-gray'or not isinstance(sampling['sourceRect'],dict):return False
+            rect=sampling['sourceRect']
+            if set(rect)!={'x','y','width','height'}or any(type(rect[k])is not int for k in rect)or rect['x']<0 or rect['y']<0 or rect['width']<1 or rect['height']<1 or rect['x']+rect['width']>2048 or rect['y']+rect['height']>2048:return False
         if any(k in d for k in('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
         if set(b)-({'version','rendering','rotation','strokeInput','speedInput','spacing'}|({'dual'}if root else set())):return False
         rotation=b.get('rotation');policy=b.get('strokeInput')
@@ -58,7 +63,10 @@ def independent_drawing_angle_pair(value):
         return isinstance(render,dict)and render.get('blendMode')=='normal'and render.get('accumulation')in(('directOver',)if root else('directOver','alphaDarken'))and render.get('wetEdges',0)==0 and render.get('burntEdges',0)==0
     if not isinstance(value,dict)or not isinstance(value.get('behavior'),dict):return False
     dual=value['behavior'].get('dual')
-    return isinstance(dual,dict)and dual.get('sampling')=='independent'and component(value,True)and component(dual.get('brush'),False)
+    if not isinstance(dual,dict):return False
+    child=dual.get('brush');images=isinstance(value.get('tip'),dict)and 'imageSampling'in value['tip']or isinstance(child,dict)and isinstance(child.get('tip'),dict)and 'imageSampling'in child['tip']
+    if images and(type(value.get('version'))is not int or value['version']<122 or not isinstance(child,dict)or type(child.get('version'))is not int or child['version']<122):return False
+    return dual.get('sampling')=='independent'and component(value,True)and component(child,False)
 
 def validate_policy(brush, depth=0, parent=None):
     """Portable metadata validation mirrors shared strokeInput; independent children are not enabled."""

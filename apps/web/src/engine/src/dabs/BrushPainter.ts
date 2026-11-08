@@ -1,3 +1,4 @@
+import{isIndependentDrawingAnglePair}from'@grafetto/shared'
 import {usesTextureLightness,usesTextureGradient,textureMaterialKind,textureLightnessPixels,type TextureMaterialVariant} from '../presets/textureLightness'
 import {pixelGradientSourcePixels,pixelGradientPalettePixels} from '../presets/pixelFilteredGradient'
 import {BristleSaturationResource} from './BristleSaturationResource'
@@ -56,6 +57,8 @@ export class BrushPainter {
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut) => {
       const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut)
+      const required=this.recordedStampResources(brush,resources)
+      if(required)return this.acquireRecordedStampResources(required,false)
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
       if(textureMaterialKind(brush)){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Texture Lightness108 resource was not prepared');return release}catch(error){release();throw error}}
@@ -65,6 +68,41 @@ export class BrushPainter {
       try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
       catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
     },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),(brush,lut)=>this.preparedTextureLightness(brush,lut))
+  }
+  /** One capability owner for selected readiness, recorded dispatch and paint. */
+  private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[]):readonly BrushPreparationResource[]|undefined {
+    if(brush.version<122||!isIndependentDrawingAnglePair(brush))return undefined
+    const resources=existing??brushPreparationResources(brush)
+    if(!resources.some(resource=>resource.nativeImage))return undefined
+    // Borrowed source metadata only: no derivative or upload before admission.
+    for(const resource of resources){
+      const image=resource.nativeImage
+      if(!image)continue
+      const side=Math.sqrt(importedAssetPixels(resource.id).length),rect=image.rect
+      if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('DrawingAngle image source plane is not canonical')
+      if(!Number.isInteger(rect.x)||!Number.isInteger(rect.y)||!Number.isInteger(rect.width)||!Number.isInteger(rect.height)||rect.x<0||rect.y<0||rect.width<1||rect.height<1||rect.x+rect.width>side||rect.y+rect.height>side)throw Error('DrawingAngle image source rectangle exceeds its asset')
+    }
+    assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    return resources
+  }
+  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor):()=>void {
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    try{
+      if(prepare){
+        this.prepareIntegerImages()
+        if(brush?.tip.kind==='procedural'||brush?.behavior?.dual?.brush.tip.kind==='procedural')this.prepareProcedural()
+        for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
+      }
+      if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('DrawingAngle image bank is not prepared')
+      return release
+    }catch(error){try{release()}catch{/* Preserve primary, including undefined. */}throw error}
+  }
+  /** Existing recorded dispatch calls this BEFORE any gesture/target mutation.
+   * Ordinary brushes remain no-op; selected RAF preparation is unchanged. */
+  prepareRecordedStampResources(brush:BrushDescriptor):void {
+    const resources=this.recordedStampResources(brush)
+    if(!resources)return
+    this.acquireRecordedStampResources(resources,true,brush)()
   }
   initGL():void {this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {

@@ -1,0 +1,19 @@
+import{it,expect}from'vitest'
+import{isBrushLibrary,isIndependentDrawingAnglePair,hasBrushSourceInputs,type BrushLibrary,type BrushDescriptor}from'./brushes.js'
+const id=`asset:${'a'.repeat(64)}`as const,policy={version:1 as const,initialDirection:'cursorHistory' as const}
+function component():BrushDescriptor{return{id:'imported-122122122122122122122122',version:122,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:id,hardness:1,aspect:2,angle:0,rotation:'path'},paperInteraction:0,spacing:.5,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],behavior:{version:2,strokeInput:{...policy},rotation:{follow:1,random:'none'},rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}}}
+function library():BrushLibrary{const root=component(),child=component();child.id='imported-121121121121121121121121';child.behavior!.rendering!.accumulation='alphaDarken';root.behavior!.dual={brush:child,sampling:'independent',blendMode:'multiply'};return{schemaVersion:1,assets:[{id,size:4,file:'a'.repeat(64)+'.bin'}],brushes:[{descriptor:root,name:'Own122',source:'Own.kpp',warnings:[]}],skipped:[]}}
+it('admits matching122 root+child policies and retains child native alphaDarken',()=>{const c=library(),d=c.brushes[0].descriptor;expect(isBrushLibrary(c)).toBe(true);expect(isIndependentDrawingAnglePair(d)).toBe(true);const dab={x:0,y:0,size:4,pressure:1,angle:0,tiltX:0,tiltY:0,aspectRatio:1,opacity:1,t:0,sourceAngle:Math.PI/2};expect(hasBrushSourceInputs(d,[dab],dab)).toBe(true);expect(hasBrushSourceInputs(d,[{...dab,sourceAngle:undefined}])).toBe(false)})
+it('closes parent/version/inline/fan/lock/special cases instead of blanket child admission',()=>{
+ const edits:Array<(d:BrushDescriptor)=>void>=[d=>{d.version=119},d=>{delete d.behavior!.strokeInput},d=>{Reflect.set(d.behavior!.dual!,'sampling','inline')},d=>{d.behavior!.dual!.brush.version=119},d=>{d.behavior!.dual!.brush.behavior!.strokeInput!.fanCorners={stepDegrees:30}},d=>{d.behavior!.strokeInput!.fanCorners={stepDegrees:30}},d=>{d.behavior!.dual!.brush.behavior!.rotation!.follow=.5},d=>{d.behavior!.dual!.brush.tip.color={planes:[id,id,id]}},d=>{d.behavior!.dual!.brush.tip.animation={mode:'incremental',frames:[id,id]}},d=>{d.behavior!.erase=true},d=>{d.texture={id,periodPx:4,strength:1}}]
+ for(const edit of edits){const c=library();edit(c.brushes[0].descriptor);expect(isBrushLibrary(c)).toBe(false);expect(isIndependentDrawingAnglePair(c.brushes[0].descriptor)).toBe(false)}
+ expect(isIndependentDrawingAnglePair(null)).toBe(false)
+ const old=library();delete old.brushes[0].descriptor.behavior!.dual!.brush.behavior!.strokeInput;old.brushes[0].descriptor.version=34;expect(isBrushLibrary(old)).toBe(true)
+})
+
+it('requires122 on BOTH components for canonical image and checks actual CAS bounds',()=>{
+ const value=library(),root=value.brushes[0].descriptor,child=root.behavior!.dual!.brush
+ child.tip.profile=undefined;child.tip.imageSampling={kind:'integer-pyramid',signal:'inverse-gray',sourceRect:{x:0,y:1,width:4,height:2}}
+ expect(isBrushLibrary(value)).toBe(true)
+ for(const edit of[(d:typeof root)=>{d.version=121},(d:typeof root)=>{d.behavior!.dual!.brush.version=121},(d:typeof root)=>{d.behavior!.dual!.brush.tip.imageSampling!.sourceRect.x=1},(d:typeof root)=>{d.behavior!.dual!.brush.tip.imageSampling!.signal='bad' as 'inverse-gray'}]){const bad=structuredClone(value);edit(bad.brushes[0].descriptor);expect(isBrushLibrary(bad)).toBe(false)}
+})
