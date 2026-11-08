@@ -1,3 +1,5 @@
+import{FilterGaussian153Pass}from'./FilterGaussian153'
+import{hasFilterGaussian153Scope}from'@grafetto/shared'
 import{hasFilterSmudge147Scope,type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
 import type{WorldRect}from'../buffers/tileMath'
@@ -13,8 +15,9 @@ const NEXT=`precision highp float;uniform sampler2D u_source;uniform sampler2D u
 void main(){vec2 pixel=vec2(gl_FragCoord.x,u_sourceResolution.y-gl_FragCoord.y);vec4 source=texture2D(u_source,gl_FragCoord.xy/u_sourceResolution);vec4 previous=texture2D(u_previous,vec2(pixel.x/u_previousResolution.x,1.-pixel.y/u_previousResolution.y));gl_FragColor=filterPointwise(source+previous*(1.-source.a),u_filter);}`
 const COPY=`precision highp float;uniform sampler2D u_current;uniform sampler2D u_next;uniform sampler2D u_mask;uniform vec2 u_resolution;uniform vec2 u_patchResolution;uniform float u_opacity;void main(){vec2 pixel=gl_FragCoord.xy;vec2 local=vec2(pixel.x,u_resolution.y-pixel.y);vec2 patch=vec2(local.x/u_patchResolution.x,1.-local.y/u_patchResolution.y);vec4 current=texture2D(u_current,patch),next=texture2D(u_next,patch);float mask=texture2D(u_mask,pixel/u_resolution).a;gl_FragColor=mix(current,next,clamp(mask*u_opacity,0.,1.));}`
 export{CanonicalBeginBlocked as FilterSmudge147Blocked}from'./CanonicalBeginRuntime'
+export interface FilterGaussian153Plan{readonly bounds:WorldRect;readonly needed:WorldRect;readonly side:number;readonly destinations:Array<{tile:PaintTarget;mask:AccumulationBuffer}>}
 interface StoredTemporary{tile:PaintTarget;lease:CanonicalSourceLease}
-export interface FilterSmudge147Request{readonly working:CanonicalSourceLease;readonly next:CanonicalSourceLease;temporary(tile:PaintTarget):AccumulationBuffer;assertCurrent():void;release():void}
+export interface FilterSmudge147Request{readonly working:CanonicalSourceLease;readonly next:CanonicalSourceLease;readonly stages:readonly CanonicalSourceLease[];readonly spatial?:FilterGaussian153Plan;temporaryTiles():readonly PaintTarget[];temporary(tile:PaintTarget):AccumulationBuffer;assertCurrent():void;release():void}
 /** Mutable T belongs only to this gesture scratch. Never retain/share it on a clone.
  * Restoring from a checkpoint must replay this capability from full BEGIN. */
 export class FilterSmudge147State{
@@ -25,13 +28,14 @@ export class FilterSmudge147State{
  private readonly acquire:(w:number,h:number)=>CanonicalSourceLease
  private readonly claim:CanonicalSourceClaim
  constructor(source:CanonicalBeginSource,acquire:(w:number,h:number)=>CanonicalSourceLease,claim:CanonicalSourceClaim){this.source=source;this.acquire=acquire;this.claim=claim}
- prepareRequest(tiles:readonly PaintTarget[]):{kind:'ready';request:FilterSmudge147Request}|CanonicalBeginNotReady{
+ prepareRequest(tiles:readonly PaintTarget[],spatial?:FilterGaussian153Plan):{kind:'ready';request:FilterSmudge147Request}|CanonicalBeginNotReady{
   this.assertCurrent();const distinct=new Map<string,PaintTarget>();let maxW=0,maxH=0,bytes=0
   for(const tile of tiles){const{width,height}=tile.buffer;if(![width,height].every(n=>Number.isSafeInteger(n)&&n>0)||![tile.originX,tile.originY].every(Number.isFinite))throw Error('Invalid Filter147 tile');const k=key(tile);if(distinct.has(k))throw Error('Duplicate Filter147 tile');distinct.set(k,tile);maxW=Math.max(maxW,width);maxH=Math.max(maxH,height);if(!this.temporary.has(k))bytes+=width*height*4}
   if(!tiles.length)throw Error('Filter147 empty request has no resources')
   // Existing projection sampler has one square world/pixel extent.
-  maxW=maxH=Math.max(maxW,maxH)
-  const transientBytes=2*maxW*maxH*4;if(!Number.isSafeInteger(bytes+transientBytes))throw Error('Filter147 byte overflow')
+  maxW=maxH=spatial?.side??Math.max(maxW,maxH)
+  if(spatial&&(!Number.isSafeInteger(maxW)||maxW<1))throw Error('Invalid Gaussian153 patch')
+  const transientBytes=(spatial?4:2)*maxW*maxH*4;if(!Number.isSafeInteger(bytes+transientBytes))throw Error('Filter147 byte overflow')
   const persistent=bytes?this.claim(bytes):()=>{};if(typeof persistent!=='function')return persistent
   let transientClaim:ReturnType<CanonicalSourceClaim>
   try{transientClaim=this.claim(transientBytes)}catch(error){try{persistent()}catch{/* Preserve the resource admission failure. */}throw error}
@@ -39,11 +43,11 @@ export class FilterSmudge147State{
   const fresh:StoredTemporary[]=[],transient:CanonicalSourceLease[]=[];let published=false,failed=false
   try{
    for(const[k,tile]of distinct){if(this.temporary.has(k))continue;const lease=this.acquire(tile.buffer.width,tile.buffer.height);fresh.push({tile,lease});lease.assertCurrent();if(lease.buffer===tile.buffer||lease.buffer.texture===tile.buffer.texture||lease.buffer.width!==tile.buffer.width||lease.buffer.height!==tile.buffer.height)throw Error('Filter147 temporary aliases destination');lease.buffer.clear()}
-   for(let n=0;n<2;n++){const lease=this.acquire(maxW,maxH);transient.push(lease);lease.assertCurrent();if(lease.buffer.width!==maxW||lease.buffer.height!==maxH)throw Error('Filter147 staging dimensions mismatch')}
+   for(let n=0;n<(spatial?4:2);n++){const lease=this.acquire(maxW,maxH);transient.push(lease);lease.assertCurrent();if(lease.buffer.width!==maxW||lease.buffer.height!==maxH)throw Error('Filter147 staging dimensions mismatch')}
    const all=[...this.temporary.values()].map(x=>x.lease).concat(fresh.map(x=>x.lease),transient);if(new Set(all.map(x=>x.buffer.texture)).size!==all.length)throw Error('Filter147 staging aliases')
    this.assertCurrent();for(const entry of fresh)this.temporary.set(key(entry.tile),entry)
    if(bytes)this.claims.push(persistent);published=true;let released=false
-   const request:FilterSmudge147Request={working:transient[0],next:transient[1],temporary:tile=>{const entry=this.temporary.get(key(tile));if(!entry)throw Error('Unplanned Filter147 tile');entry.lease.assertCurrent();return entry.lease.buffer},assertCurrent:()=>{if(released)throw Error('Filter147 request released');this.assertCurrent();for(const lease of transient)lease.assertCurrent()},release:()=>{if(released)return;released=true;let error:unknown,failed=false;for(const release of[...transient.map(lease=>()=>lease.release()),transientClaim])try{release()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}}
+   const request:FilterSmudge147Request={working:transient[0],next:transient[1],stages:transient,spatial,temporaryTiles:()=>[...this.temporary.values()].map(entry=>({...entry.tile,buffer:entry.lease.buffer})),temporary:tile=>{const entry=this.temporary.get(key(tile));if(!entry)throw Error('Unplanned Filter147 tile');entry.lease.assertCurrent();return entry.lease.buffer},assertCurrent:()=>{if(released)throw Error('Filter147 request released');this.assertCurrent();for(const lease of transient)lease.assertCurrent()},release:()=>{if(released)return;released=true;let error:unknown,failed=false;for(const release of[...transient.map(lease=>()=>lease.release()),transientClaim])try{release()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}}
    return{kind:'ready',request}
   }catch(error){failed=true;throw error}finally{if(!published){let first:unknown,cleanupFailed=false;for(const lease of[...fresh.map(x=>x.lease),...transient])try{lease.release()}catch(e){if(!cleanupFailed){cleanupFailed=true;first=e}}for(const release of[persistent,transientClaim])try{release()}catch(e){if(!cleanupFailed){cleanupFailed=true;first=e}}if(!failed&&cleanupFailed)throw first}}
  }
@@ -53,17 +57,19 @@ export class FilterSmudge147State{
 /** One pointwise request; S immutable, T unmasked persistent, D current.
  * Geometry/recovery/mask acceptance belongs to the existing BBP owner. */
 export class FilterSmudge147Pass{
+ private gaussian?:FilterGaussian153Pass
  private next?:WebGLProgram;private copy?:WebGLProgram;private geometry?:WebGLBuffer
  private readonly sampler:CanvasProjectionSampler
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl;this.sampler=new CanvasProjectionSampler(gl,()=>this.geometry!)}
- prepare():void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare()}
+ prepare():void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare();(this.gaussian??=new FilterGaussian153Pass(this.gl)).prepare()}
  assertPrepared():void{if(!this.geometry||!this.next||!this.copy)throw Error('Filter147 programs are not prepared')}
- forget():void{this.geometry=undefined;this.next=undefined;this.copy=undefined;this.sampler.forget()}
- destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.next)this.gl.deleteProgram(this.next);if(this.copy)this.gl.deleteProgram(this.copy);this.sampler.destroy();this.forget()}
+ forget():void{this.geometry=undefined;this.next=undefined;this.copy=undefined;this.sampler.forget();this.gaussian?.forget()}
+ destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.next)this.gl.deleteProgram(this.next);if(this.copy)this.gl.deleteProgram(this.copy);this.sampler.destroy();this.gaussian?.destroy();this.forget()}
  private draw(program:WebGLProgram,target:AccumulationBuffer,rect:WorldRect):void{const gl=this.gl;gl.useProgram(program);gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),target.width,target.height);gl.uniform4f(gl.getUniformLocation(program,'u_rect'),rect.minX,rect.minY,rect.maxX-rect.minX,rect.maxY-rect.minY);gl.bindBuffer(gl.ARRAY_BUFFER,this.geometry!);const at=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(at);gl.vertexAttribPointer(at,2,gl.FLOAT,false,0,0);try{gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(at)}}
  paint(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request,tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,opacity:number):void{
   if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');this.assertPrepared();request.assertCurrent();if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('Invalid Filter147 opacity')
+  if(hasFilterGaussian153Scope(brush)){if(!request.spatial)throw Error('Gaussian153 request plan missing');request.spatial.destinations.push({tile,mask});return}
   const filter=brush.filter as Exclude<BrushFilter,{version:1}>,gl=this.gl,working=request.working.buffer,next=request.next.buffer,previous=request.temporary(tile)
   if(new Set([working.texture,next.texture,previous.texture,tile.buffer.texture,mask.texture]).size!==5)throw Error('Filter147 sampled target alias')
   const left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY));if(right<=left||bottom<=top)return
@@ -74,4 +80,6 @@ export class FilterSmudge147Pass{
   next.copyRegionInto(previous,left,next.height-bottom,left,previous.height-bottom,right-left,bottom-top)
   tile.buffer.beginReplaceDraw();try{gl.useProgram(this.copy!);for(const[unit,texture,name]of[[0,working.texture,'u_current'],[1,next.texture,'u_next'],[2,mask.texture,'u_mask']]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(this.copy!,name),unit)}gl.uniform2f(gl.getUniformLocation(this.copy!,'u_patchResolution'),working.width,working.height);gl.uniform1f(gl.getUniformLocation(this.copy!,'u_opacity'),opacity);this.draw(this.copy!,tile.buffer,{minX:left,minY:top,maxX:right,maxY:bottom})}finally{tile.buffer.endDraw()}
  }
+ finishSpatial(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request):void{if(hasFilterGaussian153Scope(brush)){if(!this.gaussian)throw Error('Gaussian153 programs not prepared');this.gaussian.paint(brush,state,request)}}
+
 }

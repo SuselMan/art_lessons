@@ -1,3 +1,6 @@
+import{hasFilterGaussian153Scope}from'@grafetto/shared'
+import{planGaussian153}from'./filterGaussian153Plan'
+import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{planCloneHealing152}from'./cloneHealing152Math'
 import{cloneSourceOffset152}from'./cloneHealing152Request'
 import{hasCloneHealing152Scope}from'@grafetto/shared'
@@ -375,11 +378,13 @@ export class BrushBehaviorPainter {
       if(!bounds){scratch.brushBehavior=probe;accepted++;continue}
       // Recovery/reentrant replay must finish before any outer request lease.
       const tiles=target.resolveForPaint(bounds)
+      const f=brush.filter,spatial=hasFilterGaussian153Scope(brush)&&f&&'radiusX'in f?{...planGaussian153(bounds,f.radiusX,f.radiusY),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
+      const temporaryTiles=spatial?target.resolveForPaint(spatial.needed):tiles
       if(scratch.brushBehavior!==prior)throw Error('Filter147 gesture changed during recovery')
       const existing=scratch.filterSmudge147State,state=existing??new FilterSmudge147State(scratch.canonicalSource!.retain(),(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes))
       let request:FilterSmudge147Request|undefined,published=false,failed=false,failure:unknown
       try{
-        const planned=state.prepareRequest(tiles);if(planned.kind==='notReady')throw new FilterSmudge147Blocked(planned,accepted);request=planned.request
+        const planned=state.prepareRequest(temporaryTiles,spatial);if(planned.kind==='notReady')throw new FilterSmudge147Blocked(planned,accepted);request=planned.request
         let staged=base
         const proxy=new Proxy(scratch,{get:(target,key)=>key==='brushBehavior'?staged:typeof Reflect.get(target,key)==='function'?Reflect.get(target,key).bind(target):Reflect.get(target,key),set:(target,key,value)=>{if(key==='brushBehavior'){staged=value;return true}return Reflect.set(target,key,value)}})
         this.paint(target,[dab],preset,brush,pressure,color,proxy,finish&&accepted===dabs.length-1,finish?endpoint:undefined,execution,false,runtime,{state,request,tiles})
@@ -642,6 +647,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
     const healing=brush.clone?.healing!==undefined
     if(healing){const source=scratch.canonicalSource;if(!hasCloneHealing152Scope(brush)||effectiveErase||runtime?.capability!=='cloneHealing152'||!source||source.capability!=='cloneHealing152'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Healing152 requires prepared canonical BEGIN');source.assertCurrent();if(!this.healingPass)throw Error('Healing152 not prepared');this.healingPass.assertPrepared();if(!healingRequest){this.paintHealing152Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}}
+    const sprayRectangleNoise155=hasSprayRectangleNoise155Scope(brush)
+    if(brush.spray&&brush.version===155&&(!sprayRectangleNoise155||effectiveErase))throw Error('Invalid Spray rectangle noise155 scope')
     const clone149=!healing&&!!brush.clone&&(brush.clone.source!==undefined||brush.clone.sourcePolicy!==undefined)
     if(clone149){
       const source=scratch.canonicalSource
@@ -709,7 +716,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(brush.behavior?.dual&&usesPixelOriginalRgba(brush.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     const noise=brush.tip.autoNoise
     if(brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'){
-      if(brush.tip.autoNoise&&(brush.version<98||brush.tip.autoShape||brush.spray)||brush.behavior?.dual||brush.model!=='stamp')throw Error('New rectangle profiles require an unpaired stamp without noise')
+      if(brush.tip.autoNoise&&(brush.version<98||brush.tip.autoShape||brush.spray&&!sprayRectangleNoise155)||brush.behavior?.dual||brush.model!=='stamp')throw Error('New rectangle profiles require an unpaired stamp without noise')
     }
     const noiseSettings=noise&&(noise.density!==1||noise.randomness!==0)?prepareAutoMaskNoise(noise.density,noise.randomness):undefined
     const noiseConfig=noiseSettings?autoMaskNoiseUniforms(noiseSettings):undefined
@@ -1328,6 +1335,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       }
       this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite)
     }
+    if(filter147)this.filterSmudge147!.finishSpatial(brush,filterRequest!.state,filterRequest!.request)
     if(!healingRequest)target.markContentPainted(bounds)
     } finally { releaseTextures() }
   }

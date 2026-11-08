@@ -75,10 +75,12 @@ class SprayTest(unittest.TestCase):
     def test_canvas_strategy_keeps_explicit_source_timing_qualification(self):
         for key in ['sampleInputColor','mixBgColor','fillBackground']:
             b=self.convert('<param name="ColorOption/'+key+'">true</param>')
-            self.assertEqual(b['descriptor']['version'],76)
+            self.assertEqual(b['descriptor']['version'],146 if key=='sampleInputColor' else 76)
+            if key=='sampleInputColor':self.assertEqual(b['descriptor']['spray']['color']['sourcePolicy'],'canonical-begin-v1')
+            else:self.assertNotIn('sourcePolicy',b['descriptor']['spray']['color'])
             field={'sampleInputColor':'sampleInput','mixBgColor':'mixBackground','fillBackground':'fillBackground'}[key]
             self.assertTrue(b['descriptor']['spray']['color'][field])
-            self.assertTrue(any(n['feature']=='spraySourceTiming'and n['status']=='approximate'for n in b['compatibility']))
+            self.assertEqual(any(n['feature']=='spraySourceTiming'and n['status']=='approximate'for n in b['compatibility']),key=='sampleInputColor')
     def test_filesystem_image_not_followed(self):
         with self.assertRaisesRegex(ValueError,'image shape'):self.convert('<param name="SprayShape/shape">4</param>')
     def test_invalid_distribution_rejected(self):

@@ -96,6 +96,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     for key,value in base_params.items():ET.SubElement(transformed,'param',{'name':key}).text=value or ''
     im=Image.open(io.BytesIO(data));im.load();info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(transformed,encoding='unicode'));output=io.BytesIO();im.save(output,format='PNG',pnginfo=info)
     result=preset(output.getvalue(),name,catalog,external,timed_input=True,_allow_texture_material=False)
+    common_profile_revision=result['descriptor']['version']
     d=result['descriptor'];particle_size=result['sourceDefaults']['sizePx']
     if not shape:width=particle_size;height=particle_size/d['tip']['aspect']
     if image_shape:
@@ -165,6 +166,14 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         previous_version=d['version'];spray['color']['sourcePolicy']='canonical-begin-v1';d['version']=max(146,previous_version)
         if not spray_source146_scope(d):
             spray['color'].pop('sourcePolicy');d['version']=previous_version
+    if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness')and d['tip'].get('autoNoise'):
+        # Do not lose common98 source-profile semantics through the legacy96 bridge.
+        # Only this complete new consumer combination opts in; old96 remains literal.
+        import copy
+        from spray_rectangle_noise155 import spray_rectangle_noise155_scope
+        candidate=copy.deepcopy(d);candidate['version']=max(155,common_profile_revision)
+        if not spray_rectangle_noise155_scope(candidate):raise ValueError('Spray rectangle noise155 is outside the closed static root scope')
+        d=candidate
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
@@ -173,6 +182,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     if image_shape and params.get('SprayShape/imageUrl','').lower().endswith('.svg'):result['compatibility'].append(compatibility('capturedSvgImage','Captured bounded SVG subset rasterized to explicit RGBA pixel dimensions with librsvg. Fonts/external images/filters/use are rejected; Qt SVG plugin/ICC/filtering byte identity is not claimed.'))
     if source_flags.get('sampleInput') and not image_shape and spray['color'].get('sourcePolicy') is None:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))
     if spray['color'].get('sourcePolicy'):result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour uses the verified canonical stroke-BEGIN layer with fixed source membership; request RNG, particle order and recorded background remain unchanged. Native ICC/concurrent-layer byte identity is not claimed.','approximate'))
+    if d['version']==155:result['compatibility'].append(compatibility('sprayRectangleNoise','Static Gaussian2D or rectangular curve is evaluated per particle with the existing captured-seed full-grid D16/R8 attenuation/density law; native mutable RNG, scalar/SIMD and raster byte identity are qualified.','supported'))
     if source_curve_aa:result['compatibility'].append(compatibility('sprayCurveAA','Authored radial curve retained; native supersampled edge AA remains approximate.'))
     if source_randomness and not d['tip'].get('autoNoise'):result['compatibility'].append(compatibility('sprayTipRandomness','Authored tip profile retained; internal source-mask density/randomness is not reproduced.','unsupported'))
     result['warnings']=[n['feature']+': '+n['detail'] for n in result['compatibility'] if n['status']!='supported']

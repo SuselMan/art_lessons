@@ -1,0 +1,1 @@
+export const FILTER_GAUSSIAN_BLUR_GLSL=`precision highp float;uniform sampler2D u_source;uniform vec2 u_resolution;uniform vec2 u_step;uniform float u_weights[37];void main(){vec2 uv=gl_FragCoord.xy/u_resolution;vec4 v=vec4(0.);for(int i=0;i<37;i++)if(u_weights[i]>0.)v+=texture2D(u_source,uv+float(i-18)*u_step)*u_weights[i];gl_FragColor=v;}`

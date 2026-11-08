@@ -12,5 +12,5 @@ class FilterTests(unittest.TestCase):
     def test_config_and_rejections(self):
         extra='<param name="Filter/configuration"><![CDATA[<params><param name="horizRadius">0</param><param name="vertRadius">8</param></params>]]></param>'
         f=self.convert(extra=extra)['descriptor']['filter'];self.assertEqual((f['radiusX'],f['radiusY']),(0,8))
-        with self.assertRaisesRegex(ValueError,'smudge'):self.convert(extra='<param name="Filter/smudgeMode">true</param>')
+        with self.assertRaisesRegex(ValueError,'smudge'):self.convert(kind='unsharp',extra='<param name="Filter/smudgeMode">true</param>')
         with self.assertRaisesRegex(ValueError,'Unsupported'):self.convert('unknown')

@@ -15,6 +15,13 @@ def validate_canonical_effect_scopes(d,depth=0):
            or any(k in d for k in('experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet','clone','mypaint','tangentNormal','filter'))or not _number(d.get('paperInteraction'),0,0)
            or not _record(b)or b.get('version')!=2 or any(k in b for k in('erase','dual','timing','wetMix','taper'))or not _record(r)or r.get('accumulation')!='directOver'or r.get('blendMode')!='normal'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)):
             raise ValueError('Deform145 requires closed root canonical BEGIN scope')
+    if _record(f)and 'spatialPolicy'in f:
+        keys={'version','kind','radiusX','radiusY','amount','threshold','lightnessOnly','smudgeMode','sourcePolicy','spatialPolicy'}
+        if(depth or not _number(d.get('version'),153,1e9)or d['version']!=int(d['version'])or set(f)!=keys or not _number(f.get('version'),1,1)or f.get('kind')!='gaussian'or f.get('smudgeMode')is not True or f.get('sourcePolicy')!='canonical-begin-v1'or f.get('spatialPolicy')!='gaussian-halo-v1'or any(not _number(f.get(k),0,16)for k in('radiusX','radiusY'))or not _number(f.get('amount'),.5,.5)or not _number(f.get('threshold'),0,0)or f.get('lightnessOnly')is not True):
+            raise ValueError('Gaussian153 requires closed bounded spatial policy')
+        proxy={**d,'version':int(d['version']),'filter':{'version':2,'kind':'invert','smudgeMode':True,'sourcePolicy':'canonical-begin-v1'}}
+        validate_canonical_effect_scopes(proxy,depth)
+        return
     if _record(f)and('smudgeMode'in f or 'sourcePolicy'in f):
         b=d.get('behavior');m=d.get('mixer');t=d.get('tip');r=b.get('rendering')if _record(b)else None
         kind=f.get('kind');keys={'version','kind','smudgeMode','sourcePolicy'}|({'type'}if kind=='desaturate'else{'steps'}if kind=='posterize'else set())

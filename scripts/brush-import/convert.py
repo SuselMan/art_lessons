@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
+from legacy_color_smudge_overlay154 import legacy_color_smudge_overlay154_scope, validate_legacy_color_smudge_overlay154
 from clone_healing152 import validate_clone_healing152
 from pixel_original_dual151 import pixel_original_dual151_scope, validate_pixel_original_dual151
 from pixel_original_hsv150 import pixel_original_hsv150_scope, validate_pixel_original_hsv150
@@ -522,7 +523,7 @@ def validate_portable_mixer(descriptor):
     if 'colorRateComposite'in mixer:
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
-        valid=(version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
+        valid=(legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
         if not valid or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
@@ -574,6 +575,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     from clone_projection149 import validate_clone_projection149
     validate_clone_projection149(descriptor,1 if parent is not None else 0)
     validate_clone_healing152(descriptor,1 if parent is not None else 0)
+    validate_legacy_color_smudge_overlay154(descriptor,1 if parent is not None else 0)
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
@@ -582,6 +584,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_spray_wash133(descriptor)
     from krita_spray import validate_spray_source146
     validate_spray_source146(descriptor)
+    from spray_rectangle_noise155 import validate_spray_rectangle_noise155,spray_rectangle_noise155_scope
+    validate_spray_rectangle_noise155(descriptor,1 if parent is not None else 0)
     from child_clock132 import validate_child_clock132_profile
     validate_child_clock132_profile(descriptor,parent)
     tip=descriptor['tip']
@@ -596,7 +600,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     if isinstance(filter_config,dict)and filter_config.get('smudgeMode')is True:
         # The complete new147 scope was validated above. Reuse unchanged
         # legacy pointwise config checks after stripping ONLY its two markers.
-        filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy')}
+        filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy','spatialPolicy')}
     if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate','posterize') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
         desaturate=filter_config.get('kind')=='desaturate';posterize=filter_config.get('kind')=='posterize'
@@ -660,7 +664,8 @@ def validate_portable_profile(descriptor, *, parent=None):
         minimum_version={'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[kind]
         if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
-                or any(k in descriptor for k in ('mixer','spray','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
+                or 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
+                or any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
                 or 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
         if kind=='gaussian2D':
             if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
@@ -763,6 +768,7 @@ def portable_bundle(path,catalog):
         from clone_projection149 import validate_clone_projection149
         validate_clone_projection149(d,depth)
         validate_clone_healing152(d,depth)
+        validate_legacy_color_smudge_overlay154(d,depth)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
         validate_pixel_original_hsv150(d,depth)

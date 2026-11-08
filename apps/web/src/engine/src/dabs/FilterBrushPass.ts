@@ -1,3 +1,4 @@
+import{FILTER_GAUSSIAN_BLUR_GLSL}from'./filterGaussianKernel'
 import{FILTER_POINTWISE_GLSL}from'./filterPointwise'
 import{isPosterizeBrushFilter,type BrushFilter}from'@grafetto/shared'
 import{AccumulationBuffer}from'../buffers/AccumulationBuffer'
@@ -8,7 +9,7 @@ import{CanvasProjectionSampler}from'../raster/CanvasProjectionSampler'
 import{createProgram,createFullscreenQuad}from'../raster/utils'
 import{filterKernel,filterReach}from'../presets/brushFilter'
 const VERT=`attribute vec2 a_position;uniform vec2 u_resolution;uniform vec4 u_rect;void main(){vec2 p=(u_rect.xy+(a_position*.5+.5)*u_rect.zw)/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
-const BLUR=`precision highp float;uniform sampler2D u_source;uniform vec2 u_resolution;uniform vec2 u_step;uniform float u_weights[37];void main(){vec2 uv=gl_FragCoord.xy/u_resolution;vec4 v=vec4(0.);for(int i=0;i<37;i++)if(u_weights[i]>0.)v+=texture2D(u_source,uv+float(i-18)*u_step)*u_weights[i];gl_FragColor=v;}`
+const BLUR=FILTER_GAUSSIAN_BLUR_GLSL
 const COMPOSITE=`precision highp float;uniform sampler2D u_original;uniform sampler2D u_mask;uniform sampler2D u_filtered;uniform vec2 u_resolution;uniform vec3 u_patch;uniform vec4 u_filter;
 ${FILTER_POINTWISE_GLSL}
 vec3 straight(vec4 c){return c.a>0.?c.rgb/c.a:vec3(0.);}
