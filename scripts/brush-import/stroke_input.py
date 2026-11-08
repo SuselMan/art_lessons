@@ -45,19 +45,24 @@ def source_policy(params, parse_xml, transfer):
 
 def independent_drawing_angle_pair(value):
     material=isinstance(value,dict)and isinstance(value.get('tip'),dict)and'material'in value['tip']
+    child=value.get('behavior',{}).get('dual',{}).get('brush',{})if isinstance(value,dict)and isinstance(value.get('behavior'),dict)and isinstance(value['behavior'].get('dual'),dict)else{}
+    rt=value.get('tip',{})if isinstance(value,dict)else{};ct=child.get('tip',{})if isinstance(child,dict)else{}
+    ra=rt.get('animation',{})if isinstance(rt,dict)else{};ca=ct.get('animation',{})if isinstance(ct,dict)else{};mat=rt.get('material',{})if isinstance(rt,dict)else{}
+    animated130=(isinstance(value,dict)and isinstance(child,dict)and type(value.get('version'))is int and value['version']>=130 and type(child.get('version'))is int and child['version']>=130 and isinstance(ra,dict)and isinstance(ca,dict)and set(ra)=={'mode','frames'}and set(ca)=={'mode','frames'}and ra['mode']==ca['mode']=='random'and isinstance(ra['frames'],list)and 2<=len(ra['frames'])<=256 and isinstance(ca['frames'],list)and 2<=len(ca['frames'])<=256 and rt.get('mask')==ra['frames'][0]and ct.get('mask')==ca['frames'][0]and isinstance(mat,dict)and isinstance(mat.get('grayFrames'),list)and len(mat['grayFrames'])==len(ra['frames']) and mat.get('gray')==mat['grayFrames'][0])
     def component(d,root):
         if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<120 or d.get('model')!='stamp':return False
         tip=d.get('tip');b=d.get('behavior')
         if not isinstance(tip,dict)or not isinstance(b,dict):return False
-        if tip.get('kind')not in('round','bitmap','procedural')or any(k in tip and(k!='material'or not material or not root)for k in('animation','color','material','autoNoise','autoShape'))or 'profile'in tip and(not isinstance(tip['profile'],dict)or tip['profile'].get('kind')!='standard'):return False
+        if tip.get('kind')not in('round','bitmap','procedural')or any(k in tip and(k!='material'or not material or not root)and(k!='animation'or not animated130)for k in('animation','color','material','autoNoise','autoShape'))or 'profile'in tip and(not isinstance(tip['profile'],dict)or tip['profile'].get('kind')!='standard'):return False
         if 'imageSampling'in tip:
             sampling=tip['imageSampling']
             if d['version']<122 or tip['kind']!='bitmap'or 'profile'in tip or not isinstance(sampling,dict)or set(sampling)!={'kind','signal','sourceRect'}or sampling['kind']!='integer-pyramid'or sampling['signal']!='inverse-gray'or not isinstance(sampling['sourceRect'],dict):return False
             rect=sampling['sourceRect']
             if set(rect)!={'x','y','width','height'}or any(type(rect[k])is not int for k in rect)or rect['x']<0 or rect['y']<0 or rect['width']<1 or rect['height']<1 or rect['x']+rect['width']>2048 or rect['y']+rect['height']>2048:return False
         if material and(tip['kind']!='bitmap'or'profile'in tip or'alphaThreshold'in tip):return False
-        if any(k in d for k in('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
-        if set(b)-({'version','rendering','rotation','strokeInput','speedInput','spacing'}|({'dual'}if root else set())):return False
+        if any(k in d and not(animated130 and root and k in('texture','scatter'))for k in('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
+        if animated130 and root and ('scatter'in d and(not isinstance(d['scatter'],dict)or d['scatter'].get('count')!=1)or'texture'in d and(not isinstance(d['texture'],dict)or not isinstance(d['texture'].get('application'),dict)or d['texture']['application'].get('mode')!='subtract'or'material'in d['texture']or'eraseId'in d['texture'])):return False
+        if set(b)-({'version','rendering','rotation','strokeInput','speedInput','spacing'}|({'dual'}|({'modulations','colorAdjustment','scatter'}if animated130 else set())if root else set())):return False
         rotation=b.get('rotation');policy=b.get('strokeInput')
         if not isinstance(rotation,dict)or set(rotation)!={'follow','random'}or type(rotation.get('follow'))not in(int,float)or rotation['follow']!=1 or rotation.get('random')!='none'or not isinstance(policy,dict)or set(policy)!={'version','initialDirection'}or type(policy.get('version'))is not int or policy['version']!=1 or policy.get('initialDirection')!='cursorHistory':return False
         if type(b.get('version'))is not int or b.get('version')!=2 or 'spacing'in b and not isinstance(b['spacing'],dict)or b.get('spacing',{}).get('dynamics'):return False
@@ -70,7 +75,7 @@ def independent_drawing_angle_pair(value):
     if images and(type(value.get('version'))is not int or value['version']<122 or not isinstance(child,dict)or type(child.get('version'))is not int or child['version']<122):return False
     if material:
         m=value['tip']['material'];ct=child.get('tip',{})if isinstance(child,dict)else{};sampling=ct.get('imageSampling',{});rect=sampling.get('sourceRect',{})if isinstance(sampling,dict)else{}
-        if(type(value.get('version'))is not int or value['version']<128 or not isinstance(child,dict)or type(child.get('version'))is not int or child['version']<128 or value.get('paperInteraction')!=0 or child.get('paperInteraction')!=0 or value['tip'].get('kind')!='bitmap'or'imageSampling'in value['tip']or'profile'in value['tip']or not isinstance(m,dict)or set(m)!={'kind','gray','strength'}or m.get('kind')!='lightness'or not isinstance(m.get('gray'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',m['gray'])or type(m.get('strength'))not in(int,float)or not math.isfinite(m['strength'])or not 0<=m['strength']<=1 or not isinstance(rect,dict)or type(rect.get('width'))is not int or not 1<=rect['width']<=512 or rect.get('height')!=rect['width']):return False
+        if(type(value.get('version'))is not int or value['version']<128 or not isinstance(child,dict)or type(child.get('version'))is not int or child['version']<128 or value.get('paperInteraction')!=0 or child.get('paperInteraction')!=0 or value['tip'].get('kind')!='bitmap'or'imageSampling'in value['tip']or'profile'in value['tip']or not isinstance(m,dict)or set(m)!=({'kind','gray','strength','grayFrames'}if animated130 else{'kind','gray','strength'})or m.get('kind')!='lightness'or not isinstance(m.get('gray'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',m['gray'])or type(m.get('strength'))not in(int,float)or not math.isfinite(m['strength'])or not 0<=m['strength']<=1 or not isinstance(rect,dict)or type(rect.get('width'))is not int or not 1<=rect['width']<=512 or rect.get('height')!=rect['width']):return False
     if material:
         bounds=value['tip'].get('maskBounds')
         if not isinstance(bounds,dict)or any(type(bounds.get(k))not in(int,float)or not math.isfinite(bounds[k])for k in('x','y','width','height'))or bounds['x']<0 or bounds['y']<0 or bounds['width']<=0 or bounds['height']<=0 or bounds['x']+bounds['width']>1 or bounds['y']+bounds['height']>1:return False
@@ -81,6 +86,8 @@ def validate_independent_pair_assets(brush,asset_sizes):
     if not independent_drawing_angle_pair(brush)or'material'not in brush['tip']:return
     t=brush['tip'];child=brush['behavior']['dual']['brush'];ct=child['tip'];alpha=asset_sizes.get(t.get('mask'),0);gray=asset_sizes.get(t['material']['gray'],0);mask=asset_sizes.get(ct.get('mask'),0);rect=ct['imageSampling']['sourceRect']
     if not 2<=alpha<=512 or alpha!=gray or not 2<=mask<=512 or rect['x']+rect['width']>mask or rect['y']+rect['height']>mask:raise ValueError('Lightness DrawingAngle128 paired source dimensions differ or exceed512')
+    if 'animation'in t:
+        if any(asset_sizes.get(a)!=alpha or asset_sizes.get(g)!=alpha for a,g in zip(t['animation']['frames'],t['material']['grayFrames']))or any(asset_sizes.get(a)!=mask for a in ct['animation']['frames']):raise ValueError('Animated Lightness DrawingAngle130 frame dimensions differ')
 
 
 def validate_policy(brush, depth=0, parent=None):

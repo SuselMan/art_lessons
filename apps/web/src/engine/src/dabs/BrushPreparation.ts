@@ -89,7 +89,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  assertIndependentLightness128(brush)
+  if(assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
   if(assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush))materialPlans.delete(brush.tip)

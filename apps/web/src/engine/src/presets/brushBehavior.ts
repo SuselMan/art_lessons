@@ -444,8 +444,9 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const ordinal = state.dabOrdinal ?? 0
   const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle,dab.tiltX,dab.tiltY,state.execution?.brushRandom?.strokeSeed)
   // Independent sensor masks are queried only by their own resampled child dabs.
-  // Preserve historical random/incremental parent metadata expressions unchanged.
-  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
+  // Admitted independent DrawingAngle pairs also choose random frames only in
+  // their own recursive paint. Historical non-pair metadata paths stay unchanged.
+  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity'||isIndependentDrawingAnglePair(brush))) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
   advanceBrushAnimation(brush, state)
   if(angular){
     const previous=state.angularCursor

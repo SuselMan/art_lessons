@@ -439,7 +439,7 @@ def size_like_controls(params, option, notes, *, allow_time=False):
 # Public native entry policy; private adapters and explicit legacyFalse stay unchanged.
 DEFAULT_NATIVE_INPUT_POLICY='bounded-root-pixel-timing-v1'
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
@@ -727,6 +727,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 frames=[frame.getchannel('A') for frame in stamp_images]
             else:
                 frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
+            if _native_sampling_candidate is not None and pipe['mode']=='random'and 2<=len(frames)<=256 and all(frame.mode=='L'for frame in pipe['frames'])and numeric(definition.get('BrightnessAdjustment'),0)==0 and numeric(definition.get('ContrastAdjustment'),0)==0 and numeric(definition.get('AdjustmentMidPoint'),127)==127 and not material_gray and not gradient_gray and not stamp_images and application==0 and len({frame.size for frame in frames})==1:
+                candidates=[integer_image_sampling(frame,application,512)for frame in pipe['frames']]
+                if all(candidates)and all(v==candidates[0]for v in candidates):_native_sampling_candidate.update({'width':frames[0].width,'height':frames[0].height})
             unequal=len({frame.size for frame in frames})!=1
             unequal_lightness_gih124=bool(unequal and len(frames)>=2 and material_gray and application==2 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             unequal_gradient_gih126=bool(unequal and len(frames)>=2 and gradient_gray and application==3 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
@@ -1311,7 +1314,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=inherited_timed_input,_allow_texture_material=False)
+        child_sampling_candidate={}
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=inherited_timed_input,_allow_texture_material=False,_native_sampling_candidate=child_sampling_candidate)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
         if stroke_input:
             child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
@@ -1563,8 +1567,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     if child_drawing_angle is not None:
         dual=behavior['dual'];child=dual['brush'];identity_policy={'version':1,'initialDirection':'cursorHistory'}
-        pair_version=128 if d['tip'].get('material',{}).get('kind')=='lightness'else 122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
+        animated_pair130=bool(d['tip'].get('material',{}).get('kind')=='lightness'and d['tip'].get('animation',{}).get('mode')=='random'and 2<=len(d['tip'].get('animation',{}).get('frames',[]))<=256 and child['tip'].get('animation',{}).get('mode')=='random'and 2<=len(child['tip'].get('animation',{}).get('frames',[]))<=256 and child_sampling_candidate)
+        pair_version=130 if animated_pair130 else 128 if d['tip'].get('material',{}).get('kind')=='lightness'else 122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
         candidate_child={**child,'version':max(child['version'],pair_version),'behavior':{**child['behavior'],'strokeInput':identity_policy.copy()}}
+        if animated_pair130:
+            side=catalog.assets[child['tip']['mask']]['size'];w=child_sampling_candidate['width'];h=child_sampling_candidate['height']
+            candidate_child={**candidate_child,'tip':{**candidate_child['tip'],'imageSampling':{'kind':'integer-pyramid','signal':'inverse-gray','sourceRect':{'x':(side-w)//2,'y':(side-h)//2,'width':w,'height':h}}}}
         candidate={**d,'version':max(d['version'],pair_version),'behavior':{**behavior,'strokeInput':identity_policy.copy(),'dual':{**dual,'brush':candidate_child}}}
         pair_ready=independent_drawing_angle_pair(candidate)
         if pair_ready:
@@ -1573,11 +1581,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if pair_ready:
             candidate['behavior']['dual']['brush']=finalize_identity(candidate_child,child_drawing_angle)
             d=candidate;behavior=d['behavior']
-            if pair_version==128:warnings[:]=[w for w in warnings if not w.startswith('masking.strokeInput:')]
+            if pair_version in(128,130):warnings[:]=[w for w in warnings if not w.startswith('masking.strokeInput:')]
             notes[:]=[n for n in notes if n['feature']!='masking.strokeInput']
             notes.append(compatibility('masking.strokeInput','Independent mask identity DrawingAngle follows its own emitted canonical requests; first angle uses the captured root cursor-history channel. No fan/lock/native spline pixel identity is claimed.','supported'))
         else:
-            notes.append(compatibility('masking.strokeInput','This static Lightness/Wash pair exceeds the closed128 source/pair/512-side limits; existing mask lowering retained.'if pair_version==128 else'This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
+            notes.append(compatibility('masking.strokeInput','This animated Lightness/Wash pair exceeds the closed130 equal random-frame source/pair limits; existing mask lowering retained.'if pair_version==130 else'This static Lightness/Wash pair exceeds the closed128 source/pair/512-side limits; existing mask lowering retained.'if pair_version==128 else'This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
     # Historical clock lowering above assigns version35; promote only after
     # every legacy/pair revision assignment, and only an admitted active timer.
     if legacy_refresh129 and timed_input and behavior.get('timing') is not None:

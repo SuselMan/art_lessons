@@ -744,6 +744,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(record(d.tip.material)&&secondary.behavior?.strokeInput){
           const alpha=assetSizes.get(String(d.tip.mask)),gray=assetSizes.get(String(d.tip.material.gray)),mask=assetSizes.get(String(secondary.tip.mask)),rect=secondary.tip.imageSampling?.sourceRect
           if(!isIndependentDrawingAnglePair(d)||!alpha||alpha>512||gray!==alpha||!mask||mask>512||!rect||rect.x+rect.width>mask||rect.y+rect.height>mask)return false
+          if(record(d.tip.animation)){const frames=d.tip.animation.frames,grays=d.tip.material.grayFrames,children=secondary.tip.animation?.frames;if(!Array.isArray(frames)||!Array.isArray(grays)||!Array.isArray(children)||frames.some((id,i)=>assetSizes.get(String(id))!==alpha||assetSizes.get(String(grays[i]))!==alpha)||children.some(id=>assetSizes.get(String(id))!==mask))return false}
         }
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
@@ -875,10 +876,18 @@ export function isIndependentDrawingAnglePair(value:unknown):boolean {
   const child=record(dual.brush)?dual.brush:undefined
   const images=record(value.tip)&&value.tip.imageSampling!==undefined||child&&record(child.tip)&&child.tip.imageSampling!==undefined
   if(images&&(typeof value.version!=='number'||value.version<122||!child||typeof child.version!=='number'||child.version<122))return false
+  //130 is a closed animated sibling: 2..256 equal Lightness frames and
+  // 2..256 equal native grayscale masks. Full loaded metadata is checked before planning.
+  const animated130=!!child&&Number(value.version)>=130&&Number(child.version)>=130&&record(value.tip)&&record(child.tip)&&record(value.tip.animation)&&record(child.tip.animation)
+    &&value.tip.animation.mode==='random'&&child.tip.animation.mode==='random'
+    &&Object.keys(value.tip.animation).every(k=>['mode','frames'].includes(k))&&Object.keys(child.tip.animation).every(k=>['mode','frames'].includes(k))
+    &&Array.isArray(value.tip.animation.frames)&&value.tip.animation.frames.length>=2&&value.tip.animation.frames.length<=256&&Array.isArray(child.tip.animation.frames)&&child.tip.animation.frames.length>=2&&child.tip.animation.frames.length<=256
+    &&value.tip.mask===value.tip.animation.frames[0]&&child.tip.mask===child.tip.animation.frames[0]
+    &&record(value.tip.material)&&Array.isArray(value.tip.material.grayFrames)&&value.tip.material.grayFrames.length===value.tip.animation.frames.length&&value.tip.material.gray===value.tip.material.grayFrames[0]
   //128 only: existing static Lightness/Wash root with independently sampled
   // native inverse-gray image mask. Old120/122 components keep their old law.
   const material=record(value.tip)&&value.tip.material!==undefined
-  if(material&&(!child||Number(value.version)<128||Number(child.version)<128||value.paperInteraction!==0||child.paperInteraction!==0||!record(value.tip)||value.tip.kind!=='bitmap'||value.tip.imageSampling!==undefined||value.tip.profile!==undefined||!record(value.tip.material)||Object.keys(value.tip.material).some(k=>!['kind','gray','strength'].includes(k))||value.tip.material.kind!=='lightness'||typeof value.tip.material.gray!=='string'||!/^asset:[a-f0-9]{64}$/.test(value.tip.material.gray)||!numberIn(value.tip.material.strength,0,1)||!record(child.tip)||!record(child.tip.imageSampling)||!record(child.tip.imageSampling.sourceRect)||child.tip.imageSampling.sourceRect.width!==child.tip.imageSampling.sourceRect.height||!numberIn(child.tip.imageSampling.sourceRect.width,1,512)))return false
+  if(material&&(!child||Number(value.version)<128||Number(child.version)<128||value.paperInteraction!==0||child.paperInteraction!==0||!record(value.tip)||value.tip.kind!=='bitmap'||value.tip.imageSampling!==undefined||value.tip.profile!==undefined||!record(value.tip.material)||Object.keys(value.tip.material).some(k=>!['kind','gray','strength',...(animated130?['grayFrames']:[])].includes(k))||value.tip.material.kind!=='lightness'||typeof value.tip.material.gray!=='string'||!/^asset:[a-f0-9]{64}$/.test(value.tip.material.gray)||!numberIn(value.tip.material.strength,0,1)||!record(child.tip)||!record(child.tip.imageSampling)||!record(child.tip.imageSampling.sourceRect)||child.tip.imageSampling.sourceRect.width!==child.tip.imageSampling.sourceRect.height||!numberIn(child.tip.imageSampling.sourceRect.width,1,512)))return false
   if(material){
     const bounds=record(value.tip)?value.tip.maskBounds:undefined
     if(!record(bounds)||['x','y','width','height'].some(k=>typeof bounds[k]!=='number'||!Number.isFinite(bounds[k]))||Number(bounds.x)<0||Number(bounds.y)<0||Number(bounds.width)<=0||Number(bounds.height)<=0||Number(bounds.x)+Number(bounds.width)>1||Number(bounds.y)+Number(bounds.height)>1)return false
@@ -893,10 +902,11 @@ export function isIndependentDrawingAnglePair(value:unknown):boolean {
       const rect=sampling.sourceRect
       if(Object.keys(rect).length!==4||!['x','y','width','height'].every(k=>typeof rect[k]==='number'&&Number.isInteger(rect[k]))||Number(rect.x)<0||Number(rect.y)<0||Number(rect.width)<1||Number(rect.height)<1||Number(rect.x)+Number(rect.width)>2048||Number(rect.y)+Number(rect.height)>2048)return false
     }
-    if(!['round','bitmap','procedural'].includes(String(tip.kind))||['animation','color','material','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!material||!root))||tip.profile!==undefined&&(!record(tip.profile)||tip.profile.kind!=='standard'))return false
+    if(!['round','bitmap','procedural'].includes(String(tip.kind))||['animation','color','material','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!material||!root)&&(k!=='animation'||!animated130))||tip.profile!==undefined&&(!record(tip.profile)||tip.profile.kind!=='standard'))return false
     if(material&&(tip.kind!=='bitmap'||tip.profile!==undefined||tip.alphaThreshold!==undefined))return false
-    if(['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
-    if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(root?['dual']:[])].includes(k)))return false
+    if(['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined&&!(animated130&&root&&['texture','scatter'].includes(k))))return false
+    if(animated130&&root&&((d.scatter!==undefined&&(!record(d.scatter)||d.scatter.count!==1))||(d.texture!==undefined&&(!record(d.texture)||!record(d.texture.application)||d.texture.application.mode!=='subtract'||d.texture.material!==undefined||d.texture.eraseId!==undefined))))return false
+    if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(root?['dual',...(animated130?['modulations','colorAdjustment','scatter']:[])]:[])].includes(k)))return false
     if(!record(rotation)||Object.keys(rotation).length!==2||rotation.follow!==1||rotation.random!=='none'||!record(input)||Object.keys(input).length!==2||input.version!==1||input.initialDirection!=='cursorHistory')return false
     if(record(b.spacing)&&Array.isArray(b.spacing.dynamics)&&b.spacing.dynamics.length)return false
     return record(render)&&render.blendMode==='normal'&&(material?render.accumulation==='alphaDarken':root?render.accumulation==='directOver':['directOver','alphaDarken'].includes(String(render.accumulation)))&&Number(render.wetEdges??0)===0&&Number(render.burntEdges??0)===0
