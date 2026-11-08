@@ -575,6 +575,14 @@ def validate_portable_profile(descriptor):
     if isinstance(sketch,dict):
         active=sketch.get('mode')=='mask'and sketch.get('distanceOpacity')is True
         if(active and(descriptor['version']<114 or sketch.get('distanceOpacityPolicy')!='generic-clamp-v1'))or(not active and 'distanceOpacityPolicy'in sketch):raise ValueError('Invalid portable Sketch114 distance opacity policy')
+        # Only the new114 opt-in: mirror shared Sketch/root scope before any
+        # portable assets are published. Presence rejects empty/null dual too.
+        if active and(descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0
+                or any(k in descriptor for k in('spray','bristle','curveTrace','scatter','mixer','texture','wet','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+                or not isinstance(behavior,dict) or behavior.get('version')!=2
+                or any(k in behavior for k in('dual','timing','wetMix','taper','mirror'))
+                or not isinstance(rendering,dict) or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal'):
+            raise ValueError('Invalid portable Sketch114 root scope')
     if isinstance(sketch,dict)and sketch.get('mode')=='mask':
         dims=sketch.get('maskSize');bounds=tip.get('maskBounds')
         if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
