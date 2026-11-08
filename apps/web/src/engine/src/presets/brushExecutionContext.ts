@@ -1,4 +1,4 @@
-import { isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
+import { hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
 export interface BrushExecutionContext {
@@ -20,6 +20,8 @@ export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   return result
 }
 export function assertBrushExecutionContext(brush: BrushDescriptor, context?: BrushExecutionContext): void {
+  if(brush.behavior?.clockRead!==undefined&&(!isPrimaryClockRead132Marker(brush.behavior.clockRead)||brush.version<132))throw Error('Invalid child clock132 marker')
+  if(brush.behavior?.dual&&(brush.behavior.dual.brush.behavior?.clockRead!==undefined||brush.behavior.dual.brush.version>=132&&hasTimeControl132(brush.behavior.dual.brush.behavior))&&!isIndependentChildClock132Pair(brush))throw Error('Child clock132 requires a matching primary timer pair')
   if(brush.behavior?.dual?.brush.behavior?.strokeInput&&!isIndependentDrawingAnglePair(brush))throw Error('Independent DrawingAngle requires matching120 root/child policies')
   if(context?.brushRandom !== undefined && !isBrushRandomSeeds(context.brushRandom)) throw Error('Invalid brush execution seeds')
   if(brushRequiresRandomContext(brush) && !context?.brushRandom) throw Error('Keyed brush source requires an explicit gesture context')

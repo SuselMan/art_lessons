@@ -1,3 +1,5 @@
+import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
+export{hasTimeControl132,isIndependentChildClock132Pair,isPrimaryClockRead132Marker}from'./brushChildClock132.js'
 import{hasSmudgeTextureErase131Scope}from'./smudgeTextureErase131.js'
 export{hasSmudgeTextureErase131Scope}from'./smudgeTextureErase131.js'
 import{hasLegacySmudgeTiming129Scope}from'./legacySmudgeTiming129.js'
@@ -727,6 +729,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.wet.bloom !== undefined && !numberIn(d.wet.bloom, 0, 1)) || (d.wet.feather !== undefined && !numberIn(d.wet.feather, 0, 1)))) return false
     if (d.behavior !== undefined) {
       if (!isBrushBehavior(d.behavior)) return false
+      if(d.behavior.clockRead!==undefined)return false
+      if(d.behavior.dual&&(d.behavior.dual.brush.behavior?.clockRead!==undefined||d.behavior.dual.brush.version>=132&&hasTimeControl132(d.behavior.dual.brush.behavior))&&!isIndependentChildClock132Pair(d))return false
       if(d.behavior.rendering?.blendMode==='hardMixPhotoshop'&&(Number(d.version)<102||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if(d.behavior.rendering?.blendMode==='kritaHardMix'&&(Number(d.version)<104||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
@@ -749,7 +753,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
           if(!isIndependentDrawingAnglePair(d)||!alpha||alpha>512||gray!==alpha||!mask||mask>512||!rect||rect.x+rect.width>mask||rect.y+rect.height>mask)return false
           if(record(d.tip.animation)){const frames=d.tip.animation.frames,grays=d.tip.material.grayFrames,children=secondary.tip.animation?.frames;if(!Array.isArray(frames)||!Array.isArray(grays)||!Array.isArray(children)||frames.some((id,i)=>assetSizes.get(String(id))!==alpha||assetSizes.get(String(grays[i]))!==alpha)||children.some(id=>assetSizes.get(String(id))!==mask))return false}
         }
-        const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
+        const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary.behavior?.clockRead===undefined?secondary:{...secondary,behavior:{...secondary.behavior,clockRead:undefined}} }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
     }

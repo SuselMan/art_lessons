@@ -3,6 +3,7 @@
 KPP thumbnails are never used as brush tips. Missing resources and unsupported
 paint operations fail explicitly rather than changing the meaning of a preset.
 """
+from child_clock132 import independent_child_clock132_pair,has_time_control132
 from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
@@ -440,10 +441,11 @@ def size_like_controls(params, option, notes, *, allow_time=False):
 # Public native entry policy; private adapters and explicit legacyFalse stay unchanged.
 DEFAULT_NATIVE_INPUT_POLICY='bounded-root-pixel-timing-v1'
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None, _primary_clock_read=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
+    if type(_primary_clock_read) is not bool: raise ValueError('Private primary clock read must be boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if _default_input_policy not in(None,DEFAULT_NATIVE_INPUT_POLICY):raise ValueError('Unknown default native input policy')
     inherited_timed_input=timed_input
@@ -950,7 +952,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
-        controls=sensor_controls(params,option,notes,allow_time=timed_input)
+        controls=sensor_controls(params,option,notes,allow_time=timed_input or(_primary_clock_read and option=='Size'))
         if controls:
             # Keep pressure in the canonical curves so dab spacing sees size
             # pressure before sampling; remaining sensors modulate the stamps.
@@ -1594,6 +1596,27 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if engine=='colorsmudge'and d.get('texture',{}).get('eraseId'):
         if depth or not _allow_texture_material or not smudge_texture_erase131_scope(d,False)or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip'].get('mask'),d['texture']['id'],d['texture']['eraseId'])):raise ValueError('Texture erase131 requires root static modern MASK previousCanvas foreground erase')
         d['version']=max(d['version'],131)
+    #132 internal permission only reads captured primary clock for Size. It
+    # cannot activate child timing or leak to a foreign/private adapter.
+    if _primary_clock_read and depth==1 and has_time_control132(behavior.get('modulations',{}).get('size')):
+        behavior['clockRead']={'version':1,'source':'primary'};d['version']=max(d['version'],132)
+    if (depth==0 and engine=='paintbrush'and _allow_texture_material and _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY
+            and 'timing'in behavior and isinstance(behavior.get('dual'),dict)):
+        child_params={key[len('MaskingBrush/Preset/'):]:value for key,value in params.items()if key.startswith('MaskingBrush/Preset/')}
+        size_sensor=xml(child_params.get('SizeSensor','<params id="pressure"/>')if enabled(child_params.get('PressureSize'))and enabled(child_params.get('SizeUseCurve','true'))else'<params id="pressure"/>')
+        nodes=list(size_sensor.findall('ChildSensor'))if size_sensor.get('id')=='sensorslist'else[size_sensor]
+        if (enabled(child_params.get('PressureSize'))and enabled(child_params.get('SizeUseCurve','true'))
+                and any(node.get('id')=='time'for node in nodes)and not enabled(child_params.get('PaintOpSettings/isAirbrushing'))):
+            # Baseline child lowering above remains untouched for all old and
+            # out-of-scope sources. Candidate reuses identical raw child input.
+            candidate_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=False,_allow_texture_material=False,_primary_clock_read=True)
+            child=candidate_result['descriptor'];child['sizeByPressure']=scaled_curve(child['sizeByPressure'],ratio)
+            candidate={**d,'version':max(d['version'],132),'behavior':{**behavior,'dual':{**behavior['dual'],'brush':child}}}
+            if independent_child_clock132_pair(candidate):
+                d=candidate;behavior=d['behavior'];behavior['dual']['brush']=finalize_identity(child,child_png.getvalue())
+                notes[:]=[n for n in notes if not(n['feature']=='masking.SizeSensor'and n['status']=='unsupported'and 'sensor time'in n['detail'])]
+                warnings[:]=[w for w in warnings if w!='masking.SizeSensor: Unsupported Krita sensor time']
+                notes.append(compatibility('masking.clockRead','Child Size reads recorded primary F64 sourceTime with its authored periodic transfer; no child timer, wire channel or native random-order identity is added.','supported'))
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

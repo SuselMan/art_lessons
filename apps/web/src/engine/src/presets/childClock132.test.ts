@@ -1,0 +1,12 @@
+import{it,expect}from'vitest'
+import type{Dab}from'@grafetto/shared'
+import{pair132,dab132}from'../../../../../../packages/shared/src/childClock132.testFixture'
+import{beginBrushBehavior,behaviorStampsForDab,secondaryBrushDabs,type SecondarySamplingState}from'./brushBehavior'
+import{assertBrushExecutionContext}from'./brushExecutionContext'
+it('actual child size footprint changes with recorded clock at identical geometry, seed and pressure',()=>{const p=pair132(),c=p.behavior!.dual!.brush,stamp=(t:number)=>{const d=dab132(t);return behaviorStampsForDab(c,d,beginBrushBehavior(d),[1,0,0])[0]};expect(stamp(0).size).toBe(2);expect(stamp(100).size).toBe(5);expect(stamp(200).size).toBe(2);const root=(t:number)=>{const d=dab132(t);return behaviorStampsForDab(p,d,beginBrushBehavior(d),[1,0,0])[0]};expect(root(0).size).toBe(root(100).size)})
+it('independent emitted requests interpolate primary F64 clock identically across whole and split packets',()=>{const p=pair132(),c=p.behavior!.dual!.brush,points=[dab132(0),{...dab132(100.123456789),x:22}],run=(chunks:Dab[][])=>{const sampling:SecondarySamplingState={remaining:0};return chunks.flatMap(d=>secondaryBrushDabs(p,c,d,sampling,true))};const full=run([points]),split=run(points.map(d=>[d]));expect(full).toEqual(split);expect(full.length).toBeGreaterThan(2);expect(full.slice(1).every(d=>d.sourceTime!>0&&d.sourceTime!<=100.123456789)).toBe(true);const behavior=beginBrushBehavior(full[0]);const radii=full.map(d=>behaviorStampsForDab(c,d,behavior,[1,0,0])[0].size);expect(new Set(radii).size).toBeGreaterThan(2)})
+it('runtime whole-pair marker guard refuses missing primary clock authority without modifying descriptor',()=>{const b=pair132();delete b.behavior!.timing;const before=JSON.stringify(b);expect(()=>assertBrushExecutionContext(b)).toThrow('matching primary timer pair');expect(JSON.stringify(b)).toBe(before)})
+
+it('clock read does not create extra zero-distance child requests or a child timer',()=>{const p=pair132(),c=p.behavior!.dual!.brush,s:SecondarySamplingState={remaining:0};expect(secondaryBrushDabs(p,c,[dab132(0)],s,true)).toHaveLength(1);expect(secondaryBrushDabs(p,c,[dab132(100)],s,true)).toEqual([]);expect(c.behavior!.timing).toBeUndefined();expect(p.behavior!.timing!.rate).toBe(20)})
+
+it('malformed internal child marker is denied even outside a whole-pair paint call',()=>{const c=pair132().behavior!.dual!.brush;Reflect.set(c.behavior!.clockRead!,'version',2);expect(()=>assertBrushExecutionContext(c)).toThrow('Invalid child clock132 marker')})

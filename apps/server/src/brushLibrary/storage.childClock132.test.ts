@@ -1,0 +1,8 @@
+import{it,expect}from'vitest'
+import{mkdtempSync,rmSync}from'node:fs'
+import{tmpdir}from'node:os'
+import{join}from'node:path'
+import{packDabs,type StrokeOperation}from'@grafetto/shared'
+import{library132,dab132,mask132,pixels132}from'../../../../packages/shared/src/childClock132.testFixture.js'
+import{BrushStorage}from'./storage.js'
+it('clock132 same GitStorage requires recorded clock on raw packed and endpoint; codec negatives classified honestly',()=>{const dir=mkdtempSync(join(tmpdir(),'clock132-'));try{const l=library132(),storage=new BrushStorage(dir),hash=mask132.slice(6);storage.install('author',l,new Map([[hash,Buffer.from(pixels132())]]));const preset='brush:'+l.brushes[0].descriptor.id+'@132';storage.pin('room','author',[preset]);const base:StrokeOperation={id:'clock132',type:'stroke',userId:'author',timestamp:0,layerId:'ink',tool:'digitalBrush',preset,color:[1,0,0],strokeId:'clock132-no-new-wire'};for(const t of[0,100.123456789,6340]){const d=dab132(t);for(const packet of[{dabs:[d]},{dabsPacked:packDabs([d])},{dabs:[],strokeEndSample:{...d,baseSize:8}}])expect(storage.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(true)}const missing={...dab132(),sourceTime:undefined};for(const packet of[{dabs:[missing]},{dabsPacked:packDabs([missing])},{dabs:[],strokeEndSample:{...missing,baseSize:8}}])expect(storage.acceptsExecutionInputs('room','author',{...base,...packet})).toBe(false);for(const t of[NaN,Infinity,-1]){const d=dab132(t);expect(storage.acceptsExecutionInputs('room','author',{...base,dabs:[d]})).toBe(false);expect(storage.acceptsExecutionInputs('room','author',{...base,dabs:[],strokeEndSample:{...d,baseSize:8}})).toBe(false);expect(()=>packDabs([d])).toThrow()} }finally{rmSync(dir,{recursive:true,force:true})}})

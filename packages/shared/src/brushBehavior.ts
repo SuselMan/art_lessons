@@ -30,6 +30,8 @@ export interface BrushBehavior {
   /** Explicit per-logical-request XY source. Absence retains legacy coordinate hashing.
    * Recorded sourceSize/sourceScale describe allocation, independently of coverage. */
   sequentialRandom?: { version: 1; kind: 'qt5Taus88'; policy: 'scatterXY' }
+  /** Child-only read of an already recorded primary clock; never a timer. */
+  clockRead?: { version: 1; source: 'primary' }
   /** Author-side input law. Raw direction and inserted corner requests are logged
    * once; replay must not consult local cursor history or insert them again.
    * Absence preserves the legacy input pipeline. */
@@ -105,9 +107,11 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','clockRead','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   // Extended composition is not a grain, dual, wet-edge or wet-mix operator.
   if([value.grain,value.dual,value.wetMix].some(v=>obj(v)&&Object.values(v).some(mode=>mode==='hardMixPhotoshop'||mode==='kritaHardMix')) || obj(value.rendering)&&(value.rendering.burntEdgesMode==='hardMixPhotoshop'||value.rendering.burntEdgesMode==='kritaHardMix'))return false
+  const clock=value.clockRead
+  if(clock!==undefined&&(!obj(clock)||!keys(clock,['version','source'])||clock.version!==1||clock.source!=='primary'))return false
   const random=value.sequentialRandom
   if(random!==undefined && (!obj(random)||!keys(random,['version','kind','policy'])||random.version!==1||random.kind!=='qt5Taus88'||random.policy!=='scatterXY'))return false
   const input=value.strokeInput
