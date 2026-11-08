@@ -1,5 +1,5 @@
-import{isOriginalRgbaGih119}from'./gihOriginalRgba119.js'
-export{isOriginalRgbaGih119,hasOriginalRgbaGih119Scope}from'./gihOriginalRgba119.js'
+import{isOriginalRgbaGih119,isEqualOriginalRgbaGih121}from'./gihOriginalRgba119.js'
+export{isOriginalRgbaGih119,hasOriginalRgbaGih119Scope,isEqualOriginalRgbaGih121,hasEqualOriginalRgbaGih121Scope}from'./gihOriginalRgba119.js'
 import{gihTiltIndex}from'./gihTilt.js'
 export{gihTiltIndex}from'./gihTilt.js'
 import{isTangentNormalDescriptor,type BrushTangentNormal}from'./brushTangentNormal.js'
@@ -577,7 +577,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         return size === undefined || right > size || bottom > size
       })) return false
     }
-    const originalSensorRgba119=isOriginalRgbaGih119(d)
+    const originalSensorRgba119=isOriginalRgbaGih119(d)||isEqualOriginalRgbaGih121(d)
     const variableChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)?d.behavior.dual.brush:undefined
     if(record(variableChild)&&record(variableChild.tip)&&record(variableChild.tip.animation)&&variableChild.tip.animation.geometry!==undefined)return false
     if (d.tip.animation !== undefined) {

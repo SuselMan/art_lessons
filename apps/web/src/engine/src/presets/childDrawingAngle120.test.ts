@@ -20,7 +20,7 @@ it('preserves split/codec/fork continuation and does not advance cursor on suppr
  const wrap=secondaryBrushDabs(root,child,[{...first,sourceAngle:350*Math.PI/180},{...first,x:4,sourceAngle:10*Math.PI/180}],{remaining:0});expect(wrap.slice(1).every(d=>d.sourceAngle===0)).toBe(true)
 })
 it('rejects parent proof and missing captured channel before any sampler/geometry mutation',()=>{
- for(const edit of[(b:BrushDescriptor)=>{b.version=119},(b:BrushDescriptor)=>{delete b.behavior!.strokeInput},(b:BrushDescriptor)=>{b.behavior!.dual!.sampling='inline'}]){const root=pair();edit(root);const s:SecondarySamplingState={remaining:0},before=structuredClone(s);expect(()=>secondaryBrushDabs(root,root.behavior!.dual!.brush,[first],s)).toThrow('matching120');expect(s).toEqual(before)}
+ for(const edit of[(b:BrushDescriptor)=>{b.version=119},(b:BrushDescriptor)=>{delete b.behavior!.strokeInput},(b:BrushDescriptor)=>{Reflect.set(b.behavior!.dual!,'sampling','inline')}]){const root=pair();edit(root);const s:SecondarySamplingState={remaining:0},before=structuredClone(s);expect(()=>secondaryBrushDabs(root,root.behavior!.dual!.brush,[first],s)).toThrow('matching120');expect(s).toEqual(before)}
  const root=pair(),s:SecondarySamplingState={remaining:0};expect(()=>secondaryBrushDabs(root,root.behavior!.dual!.brush,[{...first,sourceAngle:undefined}],s)).toThrow();expect(s).toEqual({remaining:0})
  const legacy=pair();delete legacy.behavior!.strokeInput;delete legacy.behavior!.dual!.brush.behavior!.strokeInput;legacy.version=34;const state:SecondarySamplingState={remaining:0};secondaryBrushDabs(legacy,legacy.behavior!.dual!.brush,[first,{...first,x:4}],state);expect(state.sourceCursor).toBeUndefined()
 })

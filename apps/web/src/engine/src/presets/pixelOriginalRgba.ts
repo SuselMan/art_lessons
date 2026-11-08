@@ -1,4 +1,5 @@
-import {brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {isEqualOriginalRgbaGih121,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
  * This module captures geometry only; it never packs, uploads or caches pixels. */
@@ -28,11 +29,22 @@ export interface PixelOriginalRgbaFrame {
  * appear with different RGB frames; never deduplicate by alpha ID alone. */
 export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOriginalRgbaFrame[] {
  assertPixelOriginalRgba(brush)
+ // Equal121 skips prepareVariableGih: full inventory validation belongs HERE,
+ // before Painter acquires leases, invokes prepared owners or mutates scratch.
+ const animation=brush.tip.animation
+ const equalSensor=!!animation&&!animation.geometry&&['angular','xtilt','ytilt','dimensions'].includes(animation.mode)&&!!brush.tip.color&&'planes'in brush.tip.color
+ if(equalSensor&&!isEqualOriginalRgbaGih121(brush))throw Error('Equal original RGBA sensor requires121 closed scope')
+ let equalSide:number|undefined
  const frames=brush.tip.animation?.frames??(brush.tip.mask?[brush.tip.mask]:[])
  if(!frames.length||frames.length>256)throw new RangeError('Invalid Pixel original RGBA frame inventory')
  return Object.freeze(frames.map((id,index)=>{
   const planes=brushTipColorPlanes(brush.tip,index)
   if(!planes||planes.length!==3||planes.some(p=>typeof p!=='string'||!p))throw new RangeError('Missing Pixel original RGB planes')
+  if(equalSensor){
+   const length=importedAssetPixels(id).length,side=Math.sqrt(length)
+   if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0||equalSide!==undefined&&side!==equalSide||planes.some(plane=>importedAssetPixels(plane).length!==length))throw new RangeError('Equal121 physical RGBA plane dimensions differ')
+   equalSide=side
+  }
   return Object.freeze({id,planes:Object.freeze([...planes]as [string,string,string])})
  }))
 }

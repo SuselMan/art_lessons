@@ -12,23 +12,34 @@ def frame_bounds(width,height,side):
 def same_bounds(actual,expected):
     return isinstance(actual,dict) and set(actual)==set(expected) and all(type(actual[k])in(int,float) and math.isfinite(actual[k]) and actual[k]==v and not(v==0 and math.copysign(1,actual[k])<0) for k,v in expected.items())
 
-def is_sensor_original_rgba119(d):
-    """New119 eligibility only; canonical sizes/padding/selectors validate later."""
-    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<119 or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
+def _is_sensor_original_rgba(d,equal):
+    """Common metadata eligibility; canonical sizes/padding/selectors validate later."""
+    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']<(121 if equal else 119) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
     t=d.get('tip');b=d.get('behavior')
     if not isinstance(t,dict)or not isinstance(b,dict):return False
     a=t.get('animation');c=t.get('color')
-    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or not isinstance(a.get('geometry'),dict)or a['geometry'].get('version')!=1 or not isinstance(a['geometry'].get('frames'),list)or len(a['geometry']['frames'])!=len(a['frames'])or not isinstance(c,dict)or set(c)!={'planes','frames'}:return False
+    if t.get('kind')!='bitmap'or not isinstance(a,dict)or a.get('mode')not in('angular','xtilt','ytilt','dimensions')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or not isinstance(c,dict)or set(c)!={'planes','frames'}:return False
+    if equal:
+        if 'geometry'in a:return False
+    elif not isinstance(a.get('geometry'),dict)or a['geometry'].get('version')!=1 or not isinstance(a['geometry'].get('frames'),list)or len(a['geometry']['frames'])!=len(a['frames']):return False
     def ref(v):return isinstance(v,str)and len(v)==70 and v.startswith('asset:')and all(x in'0123456789abcdef'for x in v[6:])
     def triple(v):return isinstance(v,list)and len(v)==3 and all(ref(x)for x in v)
-    rgb=c['frames'];rows=a['geometry']['frames']
+    rgb=c['frames']
     if not all(ref(v)for v in a['frames'])or not triple(c['planes'])or not isinstance(rgb,list)or len(rgb)!=len(a['frames'])or not all(triple(v)for v in rgb)or rgb[0]!=c['planes']:return False
-    if not all(isinstance(v,dict)and all(type(v.get(k))is int and 1<=v[k]<=2048 for k in('sourceWidth','sourceHeight'))and isinstance(v.get('maskBounds'),dict)for v in rows):return False
-    if not any((v['sourceWidth'],v['sourceHeight'])!=(rows[0]['sourceWidth'],rows[0]['sourceHeight'])for v in rows):return False
+    if not equal:
+        rows=a['geometry']['frames']
+        if not all(isinstance(v,dict)and all(type(v.get(k))is int and 1<=v[k]<=2048 for k in('sourceWidth','sourceHeight'))and isinstance(v.get('maskBounds'),dict)for v in rows):return False
+        if not any((v['sourceWidth'],v['sourceHeight'])!=(rows[0]['sourceWidth'],rows[0]['sourceHeight'])for v in rows):return False
     if any(k in t for k in('profile','autoNoise','autoShape','imageSampling','material'))or any(k in d for k in('mixer','wet','texture','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))or not isinstance(d.get('scatter',{}),dict)or d.get('scatter',{}).get('radius',0)>0:return False
     r=b.get('rendering');source=b.get('strokeInput')
     if b.get('version')!=2 or any(k in b for k in('dual','timing','sequentialRandom','wetMix','edgeBleed','colorAdjustment'))or b.get('erase')is True or isinstance(source,dict)and'fanCorners'in source or not isinstance(r,dict)or r.get('blendMode')!='normal'or r.get('accumulation')!='directOver'or r.get('wetEdges',0)!=0 or r.get('burntEdges',0)!=0:return False
     return not any(isinstance(b.get(section),dict)and any(k in b[section]for k in('hue','saturation','brightness','sharpness'))for section in('dynamics','modulations'))
+
+def is_sensor_original_rgba119(d):
+    return _is_sensor_original_rgba(d,False)
+
+def is_sensor_original_rgba121(d):
+    return _is_sensor_original_rgba(d,True)
 
 def validate_variable_gih_descriptor(d,asset_sizes):
     tip=d.get('tip',{});animation=tip.get('animation',{});b=d.get('behavior',{})
