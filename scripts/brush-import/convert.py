@@ -801,7 +801,8 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable colour material')
             if 'gradient' in color:
                 g=color['gradient']
-                if spray_image or pixel_image and not pixel_gradient or set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
+                if spray_image or pixel_image and not pixel_gradient or set(color)!={'gradient'} or not isinstance(g,dict) or set(g)-{'gray','grayFrames','sampling'} or not isinstance(g.get('gray'),str) or g['gray'] not in ids:raise ValueError('Invalid portable gradient material')
+                if 'sampling'in g and(not pixel_gradient or d['version']<100 or g['sampling']!='filteredGray-v1'):raise ValueError('Invalid filtered-gray gradient sampling policy')
                 colors=g.get('grayFrames',[g['gray']])
                 if not isinstance(colors,list) or any(not isinstance(a,str) or a not in ids for a in colors) or ('animation' in tip and ('grayFrames' not in g or len(colors)!=len(frames) or colors[0]!=g['gray'])) or ('animation' not in tip and 'grayFrames' in g):raise ValueError('Invalid portable gradient frames')
                 paired=frames+colors

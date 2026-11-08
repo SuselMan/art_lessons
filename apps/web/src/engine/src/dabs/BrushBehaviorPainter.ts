@@ -1,7 +1,7 @@
 import type {PreparedBristleSaturationResource} from './BristleSaturationResource'
 import {advancePreparedBristleSaturationInk} from '../presets/brushBristleSaturationTable'
 import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
-import {usesPixelOriginalRgba,assertPixelOriginalRgba,pixelOriginalRgbaFrames,capturePixelOriginalRgbaView,type PixelOriginalRgbaView} from '../presets/pixelOriginalRgba'
+import {usesPixelOriginalRgba,usesFilteredPixelGradient,assertPixelOriginalRgba,pixelOriginalRgbaFrames,capturePixelOriginalRgbaView,type PixelOriginalRgbaView} from '../presets/pixelOriginalRgba'
 import{SprayRequestPainter}from'./SprayRequestPainter'
 import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
 import{SprayImageBatch}from'./SprayImageBatch'
@@ -131,6 +131,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private gradientStamp?:{program:WebGLProgram;uniforms:Uniforms;position:number}
   private effectsStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private curveStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
@@ -146,9 +147,9 @@ export class BrushBehaviorPainter {
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void
-  private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string)=>PreparedBrushImageView
+  private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView
   private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string)=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource) { this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource) { this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -173,6 +174,7 @@ export class BrushBehaviorPainter {
     this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.curveStamp = undefined
+    this.gradientStamp=undefined
     this.effectsStamp = undefined
     this.imageStamp = undefined
     const gl = this.ctx.gl
@@ -222,12 +224,16 @@ export class BrushBehaviorPainter {
     return this.circleStamp
   }
 
-  prepareStampEffects():void{this.stampFor(true,true,true,true)}
+  prepareStampEffects(filteredGradient=false):void{this.stampFor(true,true,true,true,filteredGradient)}
   prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.stampFor(true,true,true) }
   prepareIntegerImages(): void { this.stampFor(true, true) }
 
-  private stampFor(procedural: boolean, integerImages = false, radialCurves = false,autoNoise=false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+  private stampFor(procedural: boolean, integerImages = false, radialCurves = false,autoNoise=false,filteredGradient=false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if(filteredGradient){
+      if(!this.gradientStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true,true,true));this.gradientStamp={program,uniforms:getUniforms(gl,program,[...STAMP_UNIFORMS,...NOISE_UNIFORMS,'u_gradientPalette']),position:gl.getAttribLocation(program,'a_position')}}
+      return this.gradientStamp
+    }
     if(autoNoise){
       if(!this.effectsStamp){
         const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true,true))
@@ -280,6 +286,8 @@ export class BrushBehaviorPainter {
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
+    if(this.gradientStamp)gl.deleteProgram(this.gradientStamp.program)
+    this.gradientStamp=undefined
     if(this.effectsStamp)gl.deleteProgram(this.effectsStamp.program)
     this.effectsStamp=undefined
     if (this.curveStamp) gl.deleteProgram(this.curveStamp.program)
@@ -306,6 +314,7 @@ export class BrushBehaviorPainter {
     assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
+    const filteredGradient=usesFilteredPixelGradient(brush)
     const originalRgba=usesPixelOriginalRgba(brush)
     const originalFrames=originalRgba?pixelOriginalRgbaFrames(brush):undefined
     if(originalRgba)assertPixelOriginalRgba(brush)
@@ -321,7 +330,7 @@ export class BrushBehaviorPainter {
       return
     const gradientLut=originalRgba&&brush.tip.color&&'gradient' in brush.tip.color?execution?.brushSource?.gradient:undefined
     if(originalRgba&&brush.tip.color&&'gradient' in brush.tip.color&&!gradientLut)throw Error('Pixel gradient map requires a captured palette')
-    const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(gradientLut?{gradientMap:true as const,gradientLut}:{})})
+    const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(filteredGradient?{gradientSource:true as const}:gradientLut?{gradientMap:true as const,gradientLut}:{})})
     const releaseTextures = this.leaseTextures(brush,effectiveErase,gradientLut)
     try {
     // The common prepared callback/lease is installed by Spray V2. No lazy
@@ -329,8 +338,9 @@ export class BrushBehaviorPainter {
     const originalViews=originalFrames?new Map<string,PixelOriginalRgbaView>():undefined
     if(originalFrames&&originalViews)for(const [frameIndex,frame] of originalFrames.entries()){
       const key=(gihFrames?frameIndex+':':'')+brushTextureResourceKey(imageResource(frame.id,frame.planes))
-      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds,gradientLut)))
+      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds,gradientLut,filteredGradient?'filteredGray-v1':undefined)))
     }
+    if(filteredGradient)for(const image of originalViews?.values()??[]){if(!image.palette)throw Error('Filtered gradient palette view is missing');image.palette.assertCurrent()}
     const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined,frameIndex?:number):PixelOriginalRgbaView=>{
       if(!id||!planes)throw Error('Pixel original RGBA frame identity is missing')
       const view=originalViews?.get((gihFrames?frameIndex+':':'')+brushTextureResourceKey(imageResource(id,planes)))
@@ -481,6 +491,7 @@ export class BrushBehaviorPainter {
       if(originalRgba&&tip&&!colorPlanes)throw Error('Missing protected RGB frame')
       this.protectTextures([
       'g:cloud','g:grit',
+      ...(filteredGradient&&brush.tip.mask?[brushTextureResourceKey({id:brush.tip.mask,grain:false,gradientPalette:true,gradientLut})]:[]),
       ...(tip&&originalRgba ? [brushTextureResourceKey(imageResource(tip,colorPlanes))] : tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
       ...(dual && (!secondary?.tip.imageSampling || dualImage) ? [brushTextureResourceKey({...brushTipResource(dual,dualGray,secondary?.tip),nativeImage:dualImage})] : []),
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
@@ -493,7 +504,7 @@ export class BrushBehaviorPainter {
     const primaryTextureId=textureEraseId(brush.texture,effectiveErase),secondaryTextureId=textureEraseId(secondary?.texture,effectiveErase)
     protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),primaryTextureId,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondaryTextureId,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray,undefined,undefined,stamps[0]?.colorPlanes)
     const procedural = !!brush.hatching || brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects)
+    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects,filteredGradient)
     const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(primaryTextureId!,!!brush.texture.application) : paper.texture
@@ -533,6 +544,7 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.uniform1i(u[name], unit)
       }
+      if(filteredGradient){gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,paper.texture);gl.uniform1i(u.u_gradientPalette,6)}
       const threshold=brush.tip.alphaThreshold, dualThreshold=secondary?.tip.alphaThreshold
       gl.uniform3f(u.u_alphaThreshold,threshold?.value ?? 0,threshold?.softness ?? 0,threshold ? 1 : 0)
       gl.uniform3f(u.u_dualAlphaThreshold,dualThreshold?.value ?? 0,dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
@@ -600,6 +612,7 @@ export class BrushBehaviorPainter {
             // state and cannot evict another sampler in this protected group.
             const rgbaView=originalRgba?originalView(currentMask,s.colorPlanes,s.frameIndex):undefined
             if(rgbaView&&(rgbaView.texture===coverage.texture||rgbaView.texture===original.texture||rgbaView.texture===tile.buffer.texture||rgbaView.texture===ceiling.texture))throw Error('Pixel RGBA sampler aliases its paint target')
+            if(filteredGradient){const palette=rgbaView?.palette;if(!palette)throw Error('Filtered gradient palette view is missing');palette.assertCurrent();if([coverage.texture,original.texture,tile.buffer.texture,ceiling.texture].includes(palette.texture))throw Error('Gradient palette sampler aliases its paint target');gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,palette.texture)}
             const mainView=rgbaView ? {texture:rgbaView.texture,mode:0} : currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip,mainImage) : {texture:paper.texture,mode:0}
             if(rgbaView)gl.uniform4f(u.u_tipBounds,...rgbaView.bounds)
             const mainTexture=mainView.texture

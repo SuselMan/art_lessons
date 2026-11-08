@@ -1,3 +1,4 @@
+import {PIXEL_FILTERED_GRADIENT_GLSL} from '../presets/pixelFilteredGradient'
 import {GIH_FRAME_SAMPLING_GLSL} from './gihFrameGeometry'
 import {PIXEL_ORIGINAL_RGBA_GLSL} from '../presets/pixelOriginalRgba'
 import {BRUSH_AUTO_RECTANGLE_GLSL} from './autoRectangle'
@@ -435,7 +436,8 @@ void main() {
 
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
-export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false): string {
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false): string {
+  if(filteredGradient&&!autoNoise)throw Error('Filtered gradient requires the private effects capability')
   if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')
   if (!procedural && !integerImages && !radialCurves) return BRUSH_STAMP_FRAG
   let source = BRUSH_STAMP_FRAG
@@ -569,6 +571,10 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       vec4 noiseY=brushNoiseAddOffset(u_autoNoiseGridY,floor(gl_FragCoord.y)*u_autoNoiseConfig.w);
       shape=brushAutoMaskNoiseU8(floor(clamp(shape,0.0,1.0)*255.0+0.5),u_autoNoiseConfig.xy,u_autoNoiseKey,noiseX,noiseY)/255.0;
       shape=brushAlphaThreshold(shape,u_alphaThreshold);`)
+  }
+  if(filteredGradient){
+    replace('  void main() {',PIXEL_FILTERED_GRADIENT_GLSL+'\n  void main() {')
+    replace('if(u_originalRgbaTip>0.5){shape=tipSample.a;pigment=brushOriginalRgbaPigment(tipSample);}', 'if(u_originalRgbaTip>0.5){vec4 mapped=brushFilteredGradient(tipSample);shape=mapped.a;pigment=mapped.rgb;}')
   }
   return source
 }

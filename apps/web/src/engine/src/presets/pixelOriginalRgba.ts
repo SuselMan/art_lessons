@@ -5,11 +5,15 @@ import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 export function usesPixelOriginalRgba(brush:BrushDescriptor):boolean {
  return brush.model==='stamp'&&!brush.spray&&!!brush.tip.color&&('planes' in brush.tip.color||'gradient' in brush.tip.color)
 }
+export function usesFilteredPixelGradient(brush:BrushDescriptor):boolean{
+ return usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.tip.color.gradient.sampling==='filteredGray-v1'
+}
 export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
  if(!usesPixelOriginalRgba(brush))throw Error('Expected Pixel original RGBA stamp')
  const color=brush.tip.color
  if(!color)throw Error('Expected original RGB planes')
  if('gradient' in color){
+  if(color.gradient.sampling!==undefined&&(brush.version<100||color.gradient.sampling!=='filteredGray-v1'))throw Error('Unsupported Pixel gradient sampling policy')
   if(brush.version<97||brush.tip.animation||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal')throw Error('Unsupported Pixel gradient map combination')
  }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
@@ -35,6 +39,7 @@ export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOri
 export interface PixelOriginalRgbaView {
  readonly texture:WebGLTexture
  readonly bounds:readonly[number,number,number,number]
+ readonly palette?:Readonly<{texture:WebGLTexture;assertCurrent():void}>
  assertCurrent():void
 }
 /** Caller already holds the common real texture lease. No authority is inferred
@@ -46,11 +51,13 @@ export function capturePixelOriginalRgbaView(view:PreparedBrushImageView):PixelO
  const assertCurrent=()=>check.call(view)
  assertCurrent()
  const {texture,width,height}=view,c=view.crop
+ const palette=view.palette
+ if(palette){if(!palette.texture||typeof palette.assertCurrent!=='function')throw Error('Invalid prepared gradient palette');palette.assertCurrent()}
  const x=c.x,y=c.y,w=c.width,h=c.height
  if(!texture||![width,height].every(n=>Number.isSafeInteger(n)&&n>0)||!Number.isSafeInteger(width*height)||![x,y,w,h].every(Number.isFinite)||x<0||y<0||w<1||h<1||x+w>width||y+h>height)throw new RangeError('Invalid Pixel original RGBA crop')
  assertCurrent()
  const bounds=Object.freeze([x/width,y/height,w/width,h/height]as const)
- return Object.freeze({texture,bounds,assertCurrent})
+ return Object.freeze({texture,bounds,...(palette?{palette}:{}),assertCurrent:()=>{assertCurrent();palette?.assertCurrent()}})
 }
 /** Reference for one filtered PREMULTIPLIED sampler value. Foreground colour is
  * intentionally absent. Flow/opacity/texture modify alpha later in the common

@@ -1,3 +1,4 @@
+import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
 import {captureHatchingBackground,type HatchingRgba8} from './src/raster/hatchingBackground'
 import type {ProjectionReadSession} from './src/raster/CanvasProjectionSampler'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
@@ -3522,7 +3523,7 @@ export class PencilEngine implements PencilEngineAPI {
     const gradient=descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     const resources=bindBrushGradient(plan.resources,gradient)
     const preparationKey=gradient ? preset+':gradient:'+gradient : preset
-    if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
@@ -3540,7 +3541,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'sprayImages')this._brush.prepareSprayImages()
       else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
       else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
-      else if (painter === 'stampEffects') this._brush.prepareStampEffects()
+      else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor))
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
@@ -3571,7 +3572,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.
     if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) {
-      if (resources.some(resource => resource.nativeImage || resource.lookup32)) throw Error('Native image bank lost residency during preparation')
+      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette)) throw Error('Native image bank lost residency during preparation')
       return { status: 'skipped' }
     }
     return result
@@ -7893,7 +7894,7 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
-    if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects()
+    if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush))
     if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
     if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
     else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()

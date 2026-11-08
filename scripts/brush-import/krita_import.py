@@ -768,8 +768,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):raise ValueError('Gradient/alpha plane bounds mismatch')
             d['tip']['color']={'gradient':{'gray':gray_assets[0][0]}}
             if engine=='paintbrush' and (len(gray_assets)!=1 or catalog.assets[d['tip']['mask']]['size']>512):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
+            if engine=='paintbrush':d['tip']['color']['gradient']['sampling']='filteredGray-v1'
             if len(gray_assets)>1:d['tip']['color']['gradient']['grayFrames']=[asset for asset,bounds in gray_assets]
-            notes.append(compatibility('gradientTip','Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))
+            notes.append(compatibility('gradientTip','Independent adjusted gray and alpha are filtered before lookup in the captured 256-sample canvas palette; palette alpha is multiplied once by filtered source alpha. Native QImage filtering kernel, ICC and colour-space rounding may differ.' if engine=='paintbrush' else 'Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))
         elif material_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
             if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
@@ -1409,7 +1410,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
     if engine=='paintbrush' and 'gradient'in d['tip'].get('color',{}):
         if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
-        d['version']=max(d['version'],97)
+        d['version']=max(d['version'],100)
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
     if any(behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get(key,{}).get('lightnessStrength') for key in ('dynamics','modulations')):d['version']=max(d['version'],90)

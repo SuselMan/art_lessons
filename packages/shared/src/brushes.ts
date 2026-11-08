@@ -95,7 +95,7 @@ export interface BrushTip {
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
   color?: { planes: [AssetId, AssetId, AssetId]; frames?: [AssetId, AssetId, AssetId][] }
-    | {gradient:{gray:AssetId;grayFrames?:AssetId[]}}
+    | {gradient:{gray:AssetId;grayFrames?:AssetId[];sampling?:'filteredGray-v1'}}
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -613,8 +613,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       let planes:unknown[]
       if('gradient' in color){
         const g=color.gradient
-        if(sprayImage||pixelImage&&!pixelGradient||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames'].includes(k))||!ref(g.gray)
+        if(sprayImage||pixelImage&&!pixelGradient||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames','sampling'].includes(k))||!ref(g.gray)
           ||(d.tip.animation ? !Array.isArray(g.grayFrames)||g.grayFrames.length!==frames.length||!g.grayFrames.every(ref)||g.grayFrames[0]!==g.gray : g.grayFrames!==undefined))return false
+        if(g.sampling!==undefined&&(!pixelGradient||Number(d.version)<100||g.sampling!=='filteredGray-v1'))return false
         planes=Array.isArray(g.grayFrames)?g.grayFrames:[g.gray]
       }else {
         if(Object.keys(color).some(k=>!['planes','frames'].includes(k))||!tuple(color.planes)

@@ -3,6 +3,7 @@
 export interface PreparedBrushImageView{
  readonly texture:WebGLTexture
  readonly width:number;readonly height:number
+ readonly palette?:Readonly<{texture:WebGLTexture;assertCurrent():void}>
  readonly crop:Readonly<{x:number;y:number;width:number;height:number}>
  /** Owner must assert its real asset/context generation. Called before GL work. */
  readonly assertCurrent:()=>void

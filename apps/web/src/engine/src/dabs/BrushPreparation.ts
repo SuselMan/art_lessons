@@ -10,13 +10,13 @@ import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } fr
 import { importedAssetPixels } from '../presets/importedBrushes'
 import {brushTipColorPlanes,isBrushGradient,type BrushBristle,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;gradientSource?:true;gradientPalette?:true;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
 export interface BrushPreparationOptions { gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'|'bristleSaturation'>): string => (resource.bristleSaturation ? bristleSaturationResourceKey(resource.bristleSaturation) : undefined) ?? (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'|'gradientSource'|'gradientPalette'|'bristleSaturation'>): string => (resource.bristleSaturation ? bristleSaturationResourceKey(resource.bristleSaturation) : undefined) ?? (resource.gradientSource ? `t:gradient-source:filteredGray-v1:${resource.id}:${resource.colorPlanes?.[0]}` : undefined) ?? (resource.gradientPalette ? `t:gradient-palette:filteredGray-v1:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export function bindBrushGradient(resources:readonly BrushPreparationResource[],lut:string|undefined):BrushPreparationResource[] {
  return resources.map(resource=>{
-  if(!resource.gradientMap)return resource
+  if(!resource.gradientMap&&!resource.gradientPalette)return resource
   if(!isBrushGradient(lut))throw Error('Gradient tip preparation requires a captured palette')
   return {...resource,gradientLut:lut}
  })
@@ -110,6 +110,10 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
         }
         return
       }
+      if(colorPlanes&&tip?.color&&'gradient'in tip.color&&tip.color.gradient.sampling==='filteredGray-v1'){
+        const source:BrushPreparationResource={painter,id,grain:false,colorPlanes,gradientSource:true},palette:BrushPreparationResource={painter,id,grain:false,gradientPalette:true}
+        resources.set(`${painter}:${brushTextureResourceKey(source)}`,source);resources.set(`${painter}:${brushTextureResourceKey(palette)}`,palette);return
+      }
       const resource:BrushPreparationResource=colorPlanes ? {painter,id,grain:false,colorPlanes,...(tip?.color&&'gradient' in tip.color?{gradientMap:true as const}:{})} : {painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
@@ -180,6 +184,7 @@ export function brushPreparationResources(brush: BrushDescriptor, capturedErase?
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
   return resources.reduce((total, resource) => {
     if (resource.bristleSaturation) return total+BRISTLE_SATURATION_GPU_BYTES
+    if(resource.gradientPalette)return total+1024
     if (resource.colorPlanes) return total + size(resource.id) ** 2 * 4
     if (resource.lookup32) return total + size(resource.id) ** 2
     if (resource.nativeImage) return total + resource.nativeImage.width * resource.nativeImage.height * 4
@@ -193,10 +198,11 @@ export function brushPreparationBytes(resources: readonly BrushPreparationResour
 /** Native policy promises a complete finite working bank, never a legacy
  * lazy-upload fallback after readiness reported an oversized skip. */
 export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {
-  if (!resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation)) return
+  if (!resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette)) return
   const bytes = brushPreparationBytes(resources, id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
   if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) throw Error('Native image bank exceeds the brush texture budget')
   for (const resource of resources) {
+    if(resource.gradientPalette&&maximumTextureSide<256||resource.gradientSource&&Math.sqrt(importedAssetPixels(resource.id).length)>maximumTextureSide)throw Error('Filtered-gradient resources exceed GPU dimension limit')
     if(resource.bristleSaturation&&(!Number.isFinite(maximumTextureSide)||maximumTextureSide<1024))throw Error('Bristle saturation exceeds GPU texture dimension limit')
     if (resource.lookup32 && (!Number.isFinite(maximumTextureSide) || Math.sqrt(importedAssetPixels(resource.id).length)/2 > maximumTextureSide)) throw Error('Radial curve exceeds GPU texture dimension limit')
     const image = resource.nativeImage
@@ -312,5 +318,5 @@ export class BrushPreparation {
 /** At most one selected page is repacked at once. This is CPU upload staging,
  * separate from both GPU residency and the room-owned raw CAS byte plane. */
 export function brushPreparationTransientBytes(resources:readonly BrushPreparationResource[]):number {
- return resources.some(r=>r.bristleSaturation)?BRISTLE_SATURATION_UPLOAD_BYTES:0
+ return Math.max(resources.some(r=>r.bristleSaturation)?BRISTLE_SATURATION_UPLOAD_BYTES:0,...resources.map(r=>r.gradientSource?importedAssetPixels(r.id).length*4:r.gradientPalette?1024:0))
 }
