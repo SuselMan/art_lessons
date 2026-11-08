@@ -385,6 +385,8 @@ export interface ImportedBrush {
   descriptor: BrushDescriptor
   name: string
   source: string
+  /** Hidden from new selection only; immutable descriptors remain available to replay. */
+  archived?: boolean
   /** Original author artwork, sanitized PNG at most 128px; display only. */
   preview?: string
   /** Source editor defaults; opacity/flow already contribute to descriptor rendering. */
@@ -439,6 +441,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (!record(b) || typeof b.name !== 'string' || b.name.length > 256 || typeof b.source !== 'string' || b.source.length > 256
       || !Array.isArray(b.warnings) || b.warnings.length > 100 || !b.warnings.every(w => typeof w === 'string' && w.length <= 2000)
       || !record(b.descriptor)) return false
+    if (b.archived !== undefined && typeof b.archived !== 'boolean') return false
     if (b.sourceDefaults !== undefined && (!record(b.sourceDefaults)
       || Object.keys(b.sourceDefaults).some(key => !['sizePx','opacity','flow'].includes(key))
       || !numberIn(b.sourceDefaults.sizePx, 0.01, 10000)

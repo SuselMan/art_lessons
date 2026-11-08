@@ -39,7 +39,8 @@ def bristle_preset(data,root,params,name,catalog,external):
             alpha=mask.getpixel((xx,yy))/255
             random=int.from_bytes(hashlib.sha256(f'{xx},{yy}'.encode()).digest()[:4],'big')/2**32
             if alpha>0 and random<=density:hairs.append([(xx-side//2)/side,(yy-side//2)/side,alpha])
-    if not 0<len(hairs)<=4096:raise ValueError('Bristle population outside1..4096; reduce source mask/density')
+    population_limit=4096 if ink_enabled else 8192
+    if not 0<len(hairs)<=population_limit:raise ValueError(f'Bristle population outside1..{population_limit}; reduce source mask/density')
     def number(key,default,lo,hi):
         v=numeric(params.get('HairyBristle/'+key),default)
         if not math.isfinite(v) or not lo<=v<=hi:raise ValueError('Bristle setting outside bounded range: '+key)
@@ -48,7 +49,7 @@ def bristle_preset(data,root,params,name,catalog,external):
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('scatter','spacing'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    d['bristle']={'version':1,'hairs':hairs,'scale':number('scale',2,0,10),'shear':number('shear',0,-10,10),'random':number('random',2,0,100),'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
+    d['bristle']={'version':1,'hairs':hairs,'scale':number('scale',2,0 if ink_enabled else -10,10),'shear':number('shear',0,-10,10),'random':number('random',2,0,100),'mousePressure':enabled(params.get('HairyBristle/useMousePressure')),'threshold':enabled(params.get('HairyBristle/threshold')),'connected':enabled(params.get('HairyBristle/isConnected')),'antialias':aa,'compositing':compositing}
     if ink_enabled:
         from curve_transfer import native_transfer
         import struct

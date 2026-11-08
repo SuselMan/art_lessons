@@ -17,6 +17,11 @@ class BristleTests(unittest.TestCase):
         self.assertEqual(d['version'],140);self.assertEqual(d['bristle']['soak'],{'sourcePolicy':'canonical-begin-v1','initialSide':4,'resizePolicy':'mask-population-v1'})
         old=self.convert('<param name="HairyInk/enabled">true</param><param name="HairyInk/inkAmount">4</param>')['descriptor']
         self.assertEqual(old['version'],72);self.assertNotIn('soak',old['bristle'])
+    def test_signed_scale_retains_authored_noink_geometry_but_not_ink_scope(self):
+        d=self.convert('<param name="HairyBristle/scale">-0.78</param>')['descriptor']
+        self.assertEqual(d['bristle']['scale'],-.78)
+        with self.assertRaisesRegex(ValueError,'scale'):self.convert('<param name="HairyInk/enabled">true</param><param name="HairyBristle/scale">-0.78</param>')
+
     def test_density_is_checked(self):
         with self.assertRaisesRegex(ValueError,'density'):self.convert('<param name="HairyBristle/density">101</param>')
 

@@ -24,7 +24,7 @@ export function brushRole(brush: BrushDescriptor): BrushRole {
 export const pickerImportedBrushes = (role: BrushRole = 'drawing') => {
   // Focus the selectable library on Krita while matching its reference renderer.
   // Keep every imported descriptor available to existing strokes and replay.
-  const all = importedBrushes().filter(b => !/\.(abr|brush|brushset)$/i.test(b.source))
+  const all = importedBrushes().filter(b => b.archived!==true&&!/\.(abr|brush|brushset)$/i.test(b.source))
   const latest = new Map<string, { version: number; behavior: boolean }>()
   const key = (source: string, name: string) => JSON.stringify([source, name])
   for (const brush of all) {

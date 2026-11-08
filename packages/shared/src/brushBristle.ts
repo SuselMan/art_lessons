@@ -36,7 +36,7 @@ export type BrushBristle=BristleGeometry&({version:1;ink?:never;saturationLookup
 export function isBrushBristle(value:unknown):value is BrushBristle{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,n=(x:unknown,a:number,b:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=a&&x<=b
- return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined)||(v.version===2&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=4096&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
+ return Object.keys(v).every(k=>['version','hairs','scale','shear','random','mousePressure','threshold','connected','antialias','compositing','ink','saturationLookup','soak'].includes(k))&&((v.version===1&&v.ink===undefined&&v.saturationLookup===undefined&&v.soak===undefined)||(v.version===2&&isBristleInk(v.ink)&&(v.soak===undefined||isBristleSoak139(v.soak,v.hairs))&&(v.saturationLookup===undefined||v.ink.useSaturation&&isBristleSaturationLookup(v.saturationLookup))))&&n(v.scale,v.version===1?-10:0,10)&&n(v.shear,-10,10)&&n(v.random,0,100)&&['mousePressure','threshold','connected','antialias','compositing'].every(k=>typeof v[k]==='boolean')&&Array.isArray(v.hairs)&&v.hairs.length>0&&v.hairs.length<=(v.version===1?8192:4096)&&v.hairs.every(h=>Array.isArray(h)&&h.length===3&&n(h[0],-.5,.5)&&n(h[1],-.5,.5)&&n(h[2],0,1))
 }
 
 export function isBristleSaturationLookup(value:unknown):value is BrushBristleSaturationLookup {
@@ -67,7 +67,7 @@ export function hasBristleWash135Scope(value:unknown):boolean {
  const t=value.tip,b=value.behavior,r=b.rendering,h=value.bristle
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  return Number.isInteger(value.version)&&Number(value.version)>=135&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
- &&h.version===1&&h.antialias===true&&h.compositing===false
+ &&h.version===1&&h.hairs.length<=4096&&h.scale>=0&&h.antialias===true&&h.compositing===false
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
  &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))

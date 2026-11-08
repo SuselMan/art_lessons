@@ -79,7 +79,7 @@ it('restores all changed state and detaches depth on an original throw undefined
 })
 it('rejects excess request work before touching GL and refuses unprepared/aliased surfaces',()=>{
  const s=fixture();expect(()=>s.batch.paint([stamp(1,[1,0,0])],s.coverage,s.request,0,0)).toThrow('prepared')
- s.batch.prepare(16,16);const before=s.snapshot();expect(()=>s.batch.paint(Array.from({length:4097},()=>stamp(.5,[1,0,0])),s.coverage,s.request,0,0)).toThrow('4096');expect(s.snapshot()).toEqual(before)
+ s.batch.prepare(16,16);const before=s.snapshot();expect(()=>s.batch.paint(Array.from({length:8193},()=>stamp(.5,[1,0,0])),s.coverage,s.request,0,0)).toThrow('8192');expect(s.snapshot()).toEqual(before)
  expect(()=>s.batch.paint([stamp(1,[1,0,0])],s.coverage,s.coverage,0,0)).toThrow('distinct')
 })
 
@@ -143,4 +143,9 @@ it('invalidates readiness on profile upload failure and preserves original undef
  expect(caught).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before)
  expect(()=>s.batch.assertInkPrepared(inkSettings,false)).toThrow('not prepared');expect(()=>s.batch.assertInkPrepared(next,false)).toThrow('not prepared')
  s.gl.texImage2D=upload;s.batch.prepareInkProfile(next,false);expect(()=>s.batch.assertInkPrepared(next,false)).not.toThrow();expect(s.gl.createTexture).toHaveBeenCalledTimes(1)
+})
+
+it('streams the6686-hair author population through fixed2048 staging with one final request composite',()=>{
+ const s=fixture();s.batch.prepare(16,16);const before=s.snapshot();s.batch.paint(Array.from({length:6686},()=>stamp(.5,[1,0,0])),s.coverage,s.request,0,0)
+ expect(s.gl.drawArrays).toHaveBeenCalledTimes(5);expect(s.gl.createBuffer).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);expect(s.pixels()).toEqual([expect.closeTo(128/255),0,0,expect.closeTo(128/255)])
 })

@@ -15,7 +15,7 @@ const CORNERS=[[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]] as const
 /** Aliased, constant-alpha candidates only. Depth16 ranks all256 U8 alphas:
  * GREATER writes whole RGBA, equal ranks preserve the earlier candidate.
  * No componentwise MAX, feedback sampling, per-hair GL calls or readback.
- * One reusable2WH depth surface; staging<=2048 quads, request<=4096 hairs.
+ * One reusable2WH depth surface; staging<=2048 quads, request<=8192 no-ink hairs (4096 with ink).
  * This does not grant a new descriptor or support fractional AA coverage. */
 export class BristleRequestBatch{
  private readonly gl:WebGLRenderingContext
@@ -228,10 +228,11 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
   if(ink)for(const stamp of stamps){const span=(stamp as BehaviorPlaced&{bristleInkSpan?:BristleInkSpan}).bristleInkSpan;if(!span||soak&&(span.sampleAlpha===undefined||!Number.isFinite(span.sampleAlpha)||span.sampleAlpha<0||span.sampleAlpha>1)||!Number.isSafeInteger(span.counter)||span.counter<0||!Number.isSafeInteger(span.samples)||span.samples<1||!Number.isSafeInteger(span.steps)||span.steps<0||(span.axis!=='x'&&span.axis!=='y')||![span.initialInk,span.length].every(v=>Number.isFinite(v)&&v>=0&&v<=1)||!Number.isFinite(span.pressure)||span.pressure<0||span.pressure>2||![...span.start,...span.end].every(Number.isFinite))throw Error('Missing or invalid Bristle ink span')}
   if(!this.program||!composite||!this.buffer||!this.quad||!this.depth||w!==this.width||h!==this.height||request.width!==w||request.height!==h||request.texture===coverage.texture||request.fbo===coverage.fbo)throw Error('Bristle winner not prepared for distinct request/coverage')
   if(!Number.isFinite(originX)||!Number.isFinite(originY))throw RangeError('Invalid Bristle origin')
-  if(stamps.length>16384)throw RangeError('Bristle batch exceeds four requests')
+  const populationLimit=ink?4096:8192
+  if(stamps.length>populationLimit*4)throw RangeError('Bristle batch exceeds four requests')
   for(const s of stamps)if(![s.x,s.y,s.radius,s.angle,s.segmentLength??0,s.flow,s.ceiling,...s.color].every(Number.isFinite)||s.radius<0||(s.segmentLength??0)<0||s.flow<0||s.flow>1||s.ceiling<0||s.ceiling>1||s.color.some(v=>v<0||v>1))throw RangeError('Invalid aliased Bristle candidate')
   let groups=0
-  for(let first=0;first<stamps.length;){if(++groups>4)throw RangeError('Bristle batch exceeds four requests');let end=first+1;while(end<stamps.length&&stamps[end].group===stamps[first].group)end++;if(end-first>4096)throw RangeError('Bristle request exceeds4096 hairs');first=end}
+  for(let first=0;first<stamps.length;){if(++groups>4)throw RangeError('Bristle batch exceeds four requests');let end=first+1;while(end<stamps.length&&stamps[end].group===stamps[first].group)end++;if(end-first>populationLimit)throw RangeError('Bristle request exceeds'+populationLimit+' hairs');first=end}
   if(!stamps.length)return
   if(!this.vaoExtension)this.assertRestorableAttributes(program)
   this.busy=true
