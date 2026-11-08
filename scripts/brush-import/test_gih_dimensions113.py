@@ -27,8 +27,8 @@ class Dimensions113(unittest.TestCase):
     bad=copy.deepcopy(data);edit(bad['library']['brushes'][0]['descriptor']);p.write_text(json.dumps(bad));o=convert.Catalog(Path(tmp)/('bad'+str(i)))
     with self.assertRaises(ValueError):convert.portable_bundle(p,o)
     self.assertEqual(list(o.output.iterdir()),[])
- def test_rejects_random_incremental_bad_product_and_incomplete_headers(self):
-  for mode in['random','incremental']:
+ def test_rejects_unknown_selectors_bad_product_and_incomplete_headers(self):
+  for mode in['future','unknown']:
    with self.assertRaises(ValueError):gih(pipe([(mode,2),('pressure',2)]))
   data=pipe([('pressure',2),('xtilt',3)],3)
   for bad in[data.replace(b'ncells:6',b'ncells:5'),data.replace(b'rank1:3',b'rank1:2'),data.replace(b'sel1:xtilt',b'sel2:xtilt'),data.replace(b'dim:2',b'dim:5'),data+b'X']:

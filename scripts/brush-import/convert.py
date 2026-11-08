@@ -810,7 +810,8 @@ def portable_bundle(path,catalog):
                 raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
-            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank','cursorPolicy','roundingPolicy','dimensions'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'): raise ValueError('Invalid portable tip animation')
+            if not isinstance(animation,dict) or set(animation)-{'mode','frames','geometry','rank','cursorPolicy','roundingPolicy','dimensions','randomPolicy'} or not {'mode','frames'}<=set(animation) or animation['mode'] not in ('random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'): raise ValueError('Invalid portable tip animation')
+            if animation['mode']!='dimensions'and 'randomPolicy'in animation:raise ValueError('Unexpected portable GIH random policy')
             if animation['mode']!='dimensions'and 'dimensions'in animation:raise ValueError('Unexpected portable dimensions')
             if animation['mode'] in ('constant','pressure') and d['version']<91:raise ValueError('GIH sensor selection requires revision91')
             if animation['mode']=='velocity' and d['version']<92:raise ValueError('GIH velocity requires revision92')

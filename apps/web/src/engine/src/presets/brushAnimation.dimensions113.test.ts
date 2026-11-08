@@ -28,6 +28,6 @@ describe('113 runtime signed tensor selection',()=>{
  })
  it('retains Qt5 signed half policy and rejects unsupported tensor selectors',()=>{
   const b=brush([{mode:'constant',rank:2},{mode:'xtilt',rank:3}]);expect(brushAnimationIndex(b.tip,0,0,0,1,0,0,-1,0)).toBe(0)
-  Object.assign(b.tip.animation!.dimensions![0],{mode:'random'});expect(()=>brushAnimationIndex(b.tip,0,0,0,1,0,0,-1,0)).toThrow()
+  Object.assign(b.tip.animation!.dimensions![0],{mode:'future-selector'});expect(()=>brushAnimationIndex(b.tip,0,0,0,1,0,0,-1,0)).toThrow()
  })
 })

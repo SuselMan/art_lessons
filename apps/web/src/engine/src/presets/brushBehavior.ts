@@ -326,18 +326,25 @@ function dimensionSelector(mode:string,rank:number,pressure?:number,speed?:numbe
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
-export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number): number | undefined {
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number,strokeSeed?:number): number | undefined {
   const animation=tip.animation
   if(!animation) return undefined
   if(animation.mode==='dimensions'){
     const dims=animation.dimensions
-    if(animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
+    if(animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(d=>['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(d.mode)&&Number.isInteger(d.rank)&&d.rank>=2&&d.rank<=256)||dims.every(d=>d.mode==='constant'))throw Error('Invalid multidimensional pipe')
     const product=dims.reduce((n,d)=>n*d.rank,1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
     if(product>256||animation.frames.length<1||animation.frames.length>product||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))throw Error('Invalid multidimensional product/policy')
+    const random=brushAnimationUsesMode(animation,'random')
+    if((random?animation.randomPolicy!=='grafetto-dim-stream-v1':animation.randomPolicy!==undefined)||random&&(strokeSeed===undefined||!Number.isInteger(strokeSeed)||strokeSeed<0||strokeSeed>4294967295)||!Number.isSafeInteger(ordinal)||ordinal<0)throw Error('Invalid multidimensional random policy/seed/ordinal')
     let stride=product,index=0
-    for(const dimension of dims){
+    for(const [dimensionIndex,dimension] of dims.entries()){
+
       stride/=dimension.rank
-      index=(index+stride*dimensionSelector(dimension.mode,dimension.rank,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY,stride))>>>0
+      // Per-axis stateless stream: no scatter/sourceRandom draws and no mutable RNG.
+      const raw=dimension.mode==='incremental'?ordinal%dimension.rank:dimension.mode==='random'
+        ?Math.floor(brushDabRandom((strokeSeed!^Math.imul(0x47494844+dimensionIndex,0x9e3779b1))>>>0,ordinal)*dimension.rank)
+        :dimensionSelector(dimension.mode,dimension.rank,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY,stride)
+      index=(index+stride*raw)>>>0
     }
     return index%animation.frames.length
   }
@@ -377,8 +384,8 @@ export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, o
   return animation.mode==='incremental' ? ordinal%animation.frames.length
     : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
 }
-export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number): BrushDescriptor['tip']['mask'] {
-  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY)
+export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0, pressure?: number, normalizedSpeed?: number, sourceAngle?: number, tiltX?:number,tiltY?:number,strokeSeed?:number): BrushDescriptor['tip']['mask'] {
+  const index=brushAnimationIndex(tip,seed,ordinal,stream,pressure,normalizedSpeed,sourceAngle,tiltX,tiltY,strokeSeed)
   return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
@@ -405,7 +412,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     assertBrushSourceInputs(brush,[dab])
   }
   if(behavior?.dual?.brush.tip.animation?.mode==='dimensions')throw Error('Multidimensional GIH child is unsupported')
-  if(dimensions&&(brush.version<113||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.color||brush.tip.material||brush.tip.profile||brush.tip.imageSampling||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0||angular&&(!behavior.strokeInput||behavior.strokeInput.version!==1||behavior.strokeInput.initialDirection!=='cursorHistory')))throw Error('Multidimensional GIH requires root static Pixel source policy')
+  if(dimensions&&(brush.version<(brushAnimationUsesMode(brush.tip.animation,'random')||brushAnimationUsesMode(brush.tip.animation,'incremental')?115:113)||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.color||brush.tip.material||brush.tip.profile||brush.tip.imageSampling||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0||angular&&(!behavior.strokeInput||behavior.strokeInput.version!==1||behavior.strokeInput.initialDirection!=='cursorHistory')))throw Error('Multidimensional GIH requires root static Pixel source policy')
   // Tilt112 is root-only; reject forged child/mixed descriptors before any selector/counter mutation.
   const tiltSelector=brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt',childTilt=behavior?.dual?.brush.tip.animation?.mode==='xtilt'||behavior?.dual?.brush.tip.animation?.mode==='ytilt'
   if(childTilt)throw Error('GIH tilt child is unsupported')
@@ -419,7 +426,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   }
   if(angular&&(!Number.isFinite(dab.x)||!Number.isFinite(dab.y)))throw Error('Invalid GIH angular request coordinates')
   const ordinal = state.dabOrdinal ?? 0
-  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle,dab.tiltX,dab.tiltY)
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal,0,dab.pressure,dab.normalizedSpeed,dab.sourceAngle,dab.tiltX,dab.tiltY,state.execution?.brushRandom?.strokeSeed)
   // Independent sensor masks are queried only by their own resampled child dabs.
   // Preserve historical random/incremental parent metadata expressions unchanged.
   const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity')) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined

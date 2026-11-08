@@ -195,7 +195,7 @@ def gih(data, preserve_color=False):
             keys=list(params)
             if any(keys.index('dim')>keys.index(key)for key in names):raise ValueError('GIH dim must precede dimension selectors')
             dimensions=[{'mode':params[f'sel{i}'],'rank':int(params[f'rank{i}'])}for i in range(dim)]
-            if any(v['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt')or not 2<=v['rank']<=256 for v in dimensions)or all(v['mode']=='constant'for v in dimensions):raise ValueError('Unsupported GIH dimension selector')
+            if any(v['mode']not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental')or not 2<=v['rank']<=256 for v in dimensions)or all(v['mode']=='constant'for v in dimensions):raise ValueError('Unsupported GIH dimension selector')
             if math.prod(v['rank']for v in dimensions)!=count:raise ValueError('GIH ncells must equal rank product')
         elif not 1<=count<=2147483647 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
             raise ValueError('Unsupported GIH frame count or dimensions/ranks')
@@ -733,6 +733,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 if pipe['mode']=='angular':d['tip']['animation']['cursorPolicy']='first-request-v1'
                 if pipe['mode']=='dimensions':
                     d['tip']['animation']['dimensions']=pipe['dimensions']
+                    if gih_uses_mode(d['tip']['animation'],'random'):d['tip']['animation']['randomPolicy']='grafetto-dim-stream-v1'
                     if gih_uses_mode(d['tip']['animation'],'angular'):d['tip']['animation']['cursorPolicy']='first-request-v1'
                     if gih_uses_mode(d['tip']['animation'],'xtilt')or gih_uses_mode(d['tip']['animation'],'ytilt'):d['tip']['animation']['roundingPolicy']='qt5-half-up-v1'
                 if pipe['mode']in('xtilt','ytilt'):d['tip']['animation']['roundingPolicy']='qt5-half-up-v1'
@@ -746,7 +747,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             selection_note=('Tilt selection collapses to the single actual EOF frame; no selector policy is emitted.'if pipe['mode']in('xtilt','ytilt')and len(frames)==1 else'Captured degree-axis F32 chooses Qt5 half-up round(tilt/2*rank)+integer(rank/2), uint32 then actual frame modulo; explicit qt5-half-up-v1, not normalized or native-device precision identity.'if pipe['mode']in('xtilt','ytilt')else'All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.' if pipe['mode']=='incremental' else 'Constant pipe selection retains the first frame.' if pipe['mode']=='constant' else 'Pressure pipe selection uses captured float32 pressure, native signed-int truncation and uint32 modulo actual frame count; declared rank is retained. Native input precision is not claimed.' if pipe['mode']=='pressure' else 'Angular pipe selection uses captured DrawingAngle and explicit first-request-v1 per-attempt movement policy; see gihAngular qualification.' if pipe['mode']=='angular' else 'Velocity pipe selection uses captured normalized float32 speed and round(log(1+speed)/3*(declared rank-.5)), modulo actual frames; declared rank<=256. Grafetto view-space EMA/max30 input differs from native smoothing; no native float-bit identity is claimed.')
-            if pipe['mode']=='dimensions':selection_note='Deterministic row-major GIH dimensions use signed raw sensor indices, uint32 sum and one final actual-EOF modulo; explicit angular first-request/Qt5 tilt policies retained. Native first-point/filter/input rounding remains qualified.'
+            if pipe['mode']=='dimensions':selection_note='Versioned row-major GIH dimensions use signed raw sensor indices, uint32 sum and one final actual-EOF modulo; explicit angular first-request/Qt5 tilt policies retained. Incremental axes share the logical attempt ordinal (LCM correlation, not odometer); random axes use captured strokeSeed with dimension salts under grafetto-dim-stream-v1, not native RNG sequence identity. Native first-point/filter/input rounding remains qualified.'
             notes.append(compatibility('gihSelection',selection_note))
             if pipe['coloured'] and application!=0 and not material_gray and not gradient_gray and not stamp_images:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
@@ -1497,7 +1498,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=max(d['version'],112)
         notes.append(compatibility('gihTilt','Captured degree-axis F32, Qt5-half-up-v1 rounding and unsigned actual-EOF modulo retained; other Qt rounding/device calibration and native subpixel precision are not claimed. Tilt does not require Angular movement gating.','supported'))
     if d['tip'].get('animation',{}).get('mode')=='dimensions':
-        d['version']=max(d['version'],113)
+        d['version']=max(d['version'],115 if gih_uses_mode(d['tip']['animation'],'random')or gih_uses_mode(d['tip']['animation'],'incremental')else 113)
         validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')

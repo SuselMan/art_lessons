@@ -1,5 +1,5 @@
 import{describe,it,expect}from'vitest'
-import{isBrushLibrary,hasBrushSourceInputs,type BrushLibrary}from'./brushes.js'
+import{isBrushLibrary,hasBrushSourceInputs,brushRequiresRandomContext,type BrushLibrary}from'./brushes.js'
 function library(): BrushLibrary {
   const hash = 'a'.repeat(64)
   return {
@@ -27,3 +27,11 @@ describe('113 closed tensor admission',()=>{
 })
 
 it('checks each tilt signed product with its own suffix stride before packet admission',()=>{const d=tensor().brushes[0].descriptor,input={x:0,y:0,size:10,pressure:1,tiltX:91.93536376953125,tiltY:0,sourceAngle:0,normalizedSpeed:.5,angle:0,aspectRatio:1,opacity:1,t:0};expect(hasBrushSourceInputs(d,[input],input)).toBe(true);const bad={...input,tiltX:1073741824};expect(hasBrushSourceInputs(d,[bad])).toBe(false);expect(hasBrushSourceInputs(d,[],bad)).toBe(false)})
+
+it('115 admits sequence dimensions only at115 and randomPolicy IFF random; old flat random has no new seed trait',()=>{
+ const c=tensor(),d=c.brushes[0].descriptor;d.version=115;d.tip.animation!.dimensions![0].mode='random';d.tip.animation!.randomPolicy='grafetto-dim-stream-v1'
+ expect(isBrushLibrary(c)).toBe(true);expect(brushRequiresRandomContext(d)).toBe(true)
+ const flat=structuredClone(d);flat.tip.animation={mode:'random',frames:[c.assets[0].id,c.assets[0].id]};expect(brushRequiresRandomContext(flat)).toBe(false)
+ for(const edit of[(b:typeof d)=>{b.version=114},(b:typeof d)=>{delete b.tip.animation!.randomPolicy},(b:typeof d)=>{b.tip.animation!.dimensions![0].mode='incremental'}]){const bad=structuredClone(c);edit(bad.brushes[0].descriptor);expect(isBrushLibrary(bad)).toBe(false)}
+ d.tip.animation!.dimensions![0].mode='incremental';delete d.tip.animation!.randomPolicy;expect(isBrushLibrary(c)).toBe(true);d.version=113;expect(isBrushLibrary(c)).toBe(false)
+})

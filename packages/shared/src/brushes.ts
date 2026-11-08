@@ -92,7 +92,7 @@ export interface BrushTip {
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
-  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular' | 'xtilt' | 'ytilt' | 'dimensions'; dimensions?: {mode:'constant'|'pressure'|'velocity'|'angular'|'xtilt'|'ytilt';rank:number}[]; rank?: number; cursorPolicy?: 'first-request-v1'; roundingPolicy?:'qt5-half-up-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
+  animation?: { mode: 'random' | 'incremental' | 'constant' | 'pressure' | 'velocity' | 'angular' | 'xtilt' | 'ytilt' | 'dimensions'; dimensions?: {mode:'constant'|'pressure'|'velocity'|'angular'|'xtilt'|'ytilt'|'random'|'incremental';rank:number}[]; randomPolicy?:'grafetto-dim-stream-v1'; rank?: number; cursorPolicy?: 'first-request-v1'; roundingPolicy?:'qt5-half-up-v1'; frames: AssetId[]; geometry?: {version:1;frames:{sourceWidth:number;sourceHeight:number;maskBounds:{x:number;y:number;width:number;height:number}}[]} }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
   material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** RGB planes or adjusted gray for a captured gradient, paired with mask alpha. */
@@ -579,7 +579,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
-        || Object.keys(animation).some(key => !['mode','frames','geometry','rank','cursorPolicy','roundingPolicy','dimensions'].includes(key))
+        || Object.keys(animation).some(key => !['mode','frames','geometry','rank','cursorPolicy','roundingPolicy','dimensions','randomPolicy'].includes(key))
         || !['random','incremental','constant','pressure','velocity','angular','xtilt','ytilt','dimensions'].includes(String(animation.mode))
         || (animation.mode==='constant'||animation.mode==='pressure') && Number(d.version)<91
         || animation.mode==='velocity' && Number(d.version)<92
@@ -592,10 +592,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
       if(animation.mode==='dimensions'){
         const dims=animation.dimensions
-        if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
+        if(Number(d.version)<113||animation.rank!==undefined||animation.geometry!==undefined||!Array.isArray(dims)||dims.length<2||dims.length>4||!dims.every(v=>record(v)&&Object.keys(v).every(k=>k==='mode'||k==='rank')&&['constant','pressure','velocity','angular','xtilt','ytilt','random','incremental'].includes(String(v.mode))&&numberIn(v.rank,2,256)&&Number.isInteger(v.rank)))return false
         const product=dims.reduce((n,v)=>n*Number(v.rank),1),angular=brushAnimationUsesMode(animation,'angular'),tilt=brushAnimationUsesMode(animation,'xtilt')||brushAnimationUsesMode(animation,'ytilt')
         if(product>256||animation.frames.length>product||dims.every(v=>v.mode==='constant')||(angular?animation.cursorPolicy!=='first-request-v1':animation.cursorPolicy!==undefined)||(tilt?animation.roundingPolicy!=='qt5-half-up-v1':animation.roundingPolicy!==undefined))return false
-      }else if(animation.dimensions!==undefined)return false
+        const random=brushAnimationUsesMode(animation,'random'),sequence=random||brushAnimationUsesMode(animation,'incremental')
+        if(sequence&&Number(d.version)<115||(random?animation.randomPolicy!=='grafetto-dim-stream-v1':animation.randomPolicy!==undefined))return false
+      }else if(animation.dimensions!==undefined||animation.randomPolicy!==undefined)return false
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (animation.geometry === undefined) { if (sizes.size !== 1) return false }
@@ -854,7 +856,7 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
     if (seen.has(b)) return false
     seen.add(b)
     const v = b.behavior
-    if(b.mypaint||v?.sequentialRandom||b.tip?.autoNoise)return true
+    if(b.mypaint||v?.sequentialRandom||b.tip?.autoNoise||b.tip?.animation?.mode==='dimensions'&&brushAnimationUsesMode(b.tip.animation,'random'))return true
     const controls = brushDynamicInputs(b)
     return controls.some(native) || !!(v?.dual && visit(v.dual.brush))
   }
