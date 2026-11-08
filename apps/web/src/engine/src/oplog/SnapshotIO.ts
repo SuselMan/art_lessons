@@ -150,7 +150,7 @@ export class SnapshotIO {
    *     the layer is left out, keeps whatever coverage it had, and a joiner
    *     replays its operations instead. */
   bake(layerId: string): Uint8Array | null {
-    if (!this.ctx.quiet(layerId)) return null
+    if (this.historyRepairPending(layerId) || !this.ctx.quiet(layerId)) return null
     const buf = this.ctx.layer(layerId)
     if (!buf) return null
     if (!this.ctx.ledger.mayPublish(layerId)) return null
@@ -473,10 +473,15 @@ export class SnapshotIO {
    *  Discard that base only when every original server operation up to it is
    *  available, so rebuilding from empty cannot discard an unknown prefix. */
   private readonly historyRepairs = new Map<string, number>()
+  // Metadata-only authority checks share the existing backfill queue. Unlike
+  // repairs, completing these must not discard an otherwise valid pixel base.
+  private readonly historyProofs = new Map<string, number>()
 
   pendingHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
     const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
-    return [...this.historyRepairs].flatMap(([layerId, coveredSeq]) => {
+    const pending = new Map(this.historyProofs)
+    for (const [id, seq] of this.historyRepairs) pending.set(id, Math.max(seq, pending.get(id) ?? 0))
+    return [...pending].flatMap(([layerId, coveredSeq]) => {
       let missing = coveredSeq
       while (missing > 0 && sequences.has(missing)) missing--
       return missing > 0 ? [{ layerId, beforeSeq: missing + 1 }] : []
@@ -489,7 +494,26 @@ export class SnapshotIO {
     this.historyRepairs.set(layerId,Math.max(coveredSeq,this.historyRepairs.get(layerId)??0))
     this.ctx.ledger.markDirty(layerId);this.ctx.ledger.refusePublishing(layerId)
   }
-  historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
+  historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) || this.historyProofs.has(layerId) }
+
+  requireHistoryProof(layerId: string, throughSeq: number): void {
+    if (!Number.isSafeInteger(throughSeq) || throughSeq < 1) throw Error('Invalid BEGIN history proof')
+    this.historyProofs.set(layerId, Math.max(throughSeq, this.historyProofs.get(layerId) ?? 0))
+  }
+
+  /** Return only metadata-ready layers; retain every checkpoint and ledger bit.
+   * A destructive repair always owns the next transition when both are pending. */
+  resolveHistoryProofs(): string[] {
+    const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
+    const ready: string[] = []
+    for (const [id, through] of this.historyProofs) {
+      if (this.historyRepairs.has(id)) continue
+      let complete = true
+      for (let seq = 1; seq <= through; seq++) if (!sequences.has(seq)) { complete = false; break }
+      if (complete) { this.historyProofs.delete(id); ready.push(id) }
+    }
+    return ready
+  }
 
   /** Until an ACK or historical ID resolves membership, a pending stroke may
    * already be baked into the downloaded prefix. Preserve visible pixels;
@@ -526,6 +550,8 @@ export class SnapshotIO {
       this.ctx.ledger.forgetCoverage(layerId)
       this.ctx.ledger.allowPublishing(layerId)
       this.historyRepairs.delete(layerId)
+      // A larger metadata proof must survive this older destructive repair.
+      if ((this.historyProofs.get(layerId) ?? Infinity) <= coveredSeq) this.historyProofs.delete(layerId)
       ready.push(layerId)
     }
     return ready

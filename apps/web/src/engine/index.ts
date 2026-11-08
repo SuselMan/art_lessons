@@ -2343,10 +2343,18 @@ export class PencilEngine implements PencilEngineAPI {
     const standing=this._canonicalBeginOwners(target).find(x=>x.binding.userId===userId&&x.binding.strokeId===strokeId)
     if(first&&snapshot?.coveredSeq&&!standing){
       const coveredSeq=snapshot.coveredSeq
-      const confirmed=new Set(this._log.entries.map(e=>e.serverSeq).filter((seq):seq is number=>seq!==undefined&&Number.isSafeInteger(seq)&&seq>=1&&seq<=coveredSeq))
-      const complete=confirmed.size===coveredSeq
-      if(!complete||first.serverSeq!==undefined&&first.serverSeq<=snapshot.coveredSeq){
-        this._snapshotIO.requireHistoryRepair(layerId,snapshot.coveredSeq)
+      // Absence of an earlier chunk is authoritative only after the COMPLETE
+      // confirmed prefix, including undone/anchor-only chunks, is available.
+      // Neither a seeded identity nor first-retained/t=0 proves a fresh BEGIN.
+      const all=this._log.entries
+      const through=Math.max(coveredSeq,first.serverSeq??all.reduce((n,e)=>Math.max(n,e.serverSeq??0),0))
+      const confirmed=new Set(all.map(e=>e.serverSeq).filter((seq):seq is number=>seq!==undefined&&Number.isSafeInteger(seq)&&seq>=1&&seq<=through))
+      let complete=confirmed.size===through
+      if(complete)for(let seq=1;seq<=through;seq++)if(!confirmed.has(seq)){complete=false;break}
+      const coveredGesture=all.some(e=>e.serverSeq!==undefined&&e.serverSeq<=coveredSeq&&e.op.type==='stroke'&&e.op.userId===userId&&e.op.strokeId===strokeId)
+      if(!complete||coveredGesture||first.serverSeq!==undefined&&first.serverSeq<=coveredSeq){
+        if(coveredGesture||first.serverSeq!==undefined&&first.serverSeq<=coveredSeq)this._snapshotIO.requireHistoryRepair(layerId,coveredSeq)
+        else this._snapshotIO.requireHistoryProof(layerId,through)
         queueMicrotask(()=>{if(!this._destroyed){this._resolveSnapshotHistoryRepairs();if(this.pendingSnapshotHistoryRepairs().length)this._onSnapshotHistoryRepairNeeded?.()}})
         return{kind:'notReady',reason:'history',retryKey:'begin-prefix:'+snapshot.coveredSeq}
       }
@@ -6496,11 +6504,15 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _resolveSnapshotHistoryRepairs(): void {
     if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+    // Metadata completion resumes the SAME blocked job with its pinned base;
+    // only the destructive result below may schedule a replacement rebuild.
+    const proven = this._snapshotIO.resolveHistoryProofs()
     for (const id of this._snapshotIO.resolveHistoryRepairs(id => !this._strokeLayerId && !this._hasUnrecordedInk(id))) {
       this._snapshotRepairRebuilds.add(id)
       this._rebuildLayerOrDefer(id)
       if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
     }
+    if (this._snapshotIO.resolveHistoryProofs().length || proven.length) this._wakeGridResources()
     this._flushSnapshotDependentLayers()
   }
 
