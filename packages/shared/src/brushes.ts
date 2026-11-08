@@ -439,7 +439,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(brushDynamicInputs(d as unknown as BrushDescriptor).some(control=>control.randomSource?.kind==='grafettoSourceTime-v1')&&(Number(d.version)<81||d.model!=='stamp'||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
     if(d.tip.autoNoise!==undefined){
       const noise=d.tip.autoNoise
-      if(!record(noise)||Object.keys(noise).length!==3||Object.keys(noise).some(k=>!['version','density','randomness'].includes(k))||noise.version!==1||!numberIn(noise.density,0,1)||!numberIn(noise.randomness,0,1)||Number(d.version)<74||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness'].includes(String(d.tip.profile.kind))||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+      if(!record(noise)||Object.keys(noise).length!==3||Object.keys(noise).some(k=>!['version','density','randomness'].includes(k))||noise.version!==1||!numberIn(noise.density,0,1)||!numberIn(noise.randomness,0,1)||Number(d.version)<74||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(d.tip.profile.kind))||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
       if(d.spray!==undefined&&(Number(d.version)<96||!record(d.spray)||!record(d.spray.particle)||d.spray.particle.shape!=='tip'||d.spray.particle.image===true||!record(d.spray.color)||['sampleInput','mixBackground','fillBackground'].some(k=>(d.spray as {color:Record<string,unknown>}).color[k]===true)||!record(d.behavior)||d.behavior.dual!==undefined))return false
     }
     if(d.tip.autoShape!==undefined&&(!record(d.tip.autoShape)||Object.keys(d.tip.autoShape).some(k=>!['version','spikes'].includes(k))||d.tip.autoShape.version!==1||!numberIn(d.tip.autoShape.spikes,3,20)||!Number.isInteger(d.tip.autoShape.spikes)||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
@@ -479,7 +479,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || (record(d.behavior.rendering) && d.behavior.rendering.wetEdges !== undefined && d.behavior.rendering.wetEdges !== 0)
         || typeof profile.antialias !== 'boolean') return false
       const rectangleProfile=['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(profile.kind))
-      if(rectangleProfile&&(d.model!=='stamp'||d.tip.kind!=='procedural'||d.tip.autoNoise!==undefined||d.behavior.dual!==undefined||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if(rectangleProfile&&(d.model!=='stamp'||d.tip.kind!=='procedural'||d.tip.autoNoise!==undefined&&(Number(d.version)<98||d.tip.autoShape!==undefined)||d.behavior.dual!==undefined||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if(profile.kind==='gaussian2D'){
         if(Number(d.version)<78||!['ellipse','rectangle'].includes(String(profile.shape))||Object.keys(profile).some(k=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))||!numberIn(profile.horizontalFade,0,1)||!numberIn(profile.verticalFade,0,1))return false
       }else if(profile.kind==='curveRectangle'||profile.kind==='curveRectangleSoftness'){
@@ -681,7 +681,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.bristle?.version===2&&secondary.bristle.ink.useSaturation)return false
         if(secondary.hatching&&secondary.behavior?.mirror)return false
-        if(secondary.filter?.kind==='invert')return false
+        if(secondary.filter?.kind==='invert'||secondary.filter?.kind==='desaturate')return false
         if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false

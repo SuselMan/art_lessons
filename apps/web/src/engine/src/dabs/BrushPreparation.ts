@@ -125,7 +125,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId)throw Error('Texture erase variants require the stamp renderer')
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
-    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
+    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray)||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
     if(b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
     if(b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     if(b.tip.autoNoise&&painter!=='stamp')throw Error('Auto-mask noise requires the stamp renderer')

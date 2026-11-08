@@ -10,7 +10,7 @@ const VERT=`attribute vec2 a_position;uniform vec2 u_resolution;uniform vec4 u_r
 const BLUR=`precision highp float;uniform sampler2D u_source;uniform vec2 u_resolution;uniform vec2 u_step;uniform float u_weights[37];void main(){vec2 uv=gl_FragCoord.xy/u_resolution;vec4 v=vec4(0.);for(int i=0;i<37;i++)if(u_weights[i]>0.)v+=texture2D(u_source,uv+float(i-18)*u_step)*u_weights[i];gl_FragColor=v;}`
 const COMPOSITE=`precision highp float;uniform sampler2D u_original;uniform sampler2D u_mask;uniform sampler2D u_filtered;uniform vec2 u_resolution;uniform vec3 u_patch;uniform vec4 u_filter;
 vec3 straight(vec4 c){return c.a>0.?c.rgb/c.a:vec3(0.);}
-void main(){vec2 uv=gl_FragCoord.xy/u_resolution,pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);vec4 original=texture2D(u_original,uv);float mask=texture2D(u_mask,uv).a;vec4 filtered;if(u_filter.w>1.5){filtered=vec4(original.aaa-original.rgb,original.a);}else{vec4 blur=texture2D(u_filtered,vec2((pixel.x-u_patch.x)/u_patch.z,1.-(pixel.y-u_patch.y)/u_patch.z));filtered=blur;
+void main(){vec2 uv=gl_FragCoord.xy/u_resolution,pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);vec4 original=texture2D(u_original,uv);float mask=texture2D(u_mask,uv).a;vec4 filtered;if(u_filter.w>2.5){float lo=min(min(original.r,original.g),original.b),hi=max(max(original.r,original.g),original.b);float gray;if(u_filter.x<.5)gray=(lo+hi)*.5;else if(u_filter.x<1.5)gray=dot(original.rgb,vec3(.2126,.7152,.0722));else if(u_filter.x<2.5)gray=dot(original.rgb,vec3(.299,.587,.114));else if(u_filter.x<3.5)gray=(original.r+original.g+original.b)/3.;else if(u_filter.x<4.5)gray=lo;else gray=hi;filtered=vec4(vec3(gray),original.a);}else if(u_filter.w>1.5){filtered=vec4(original.aaa-original.rgb,original.a);}else{vec4 blur=texture2D(u_filtered,vec2((pixel.x-u_patch.x)/u_patch.z,1.-(pixel.y-u_patch.y)/u_patch.z));filtered=blur;
 if(u_filter.w>.5){vec3 a=straight(original),b=straight(blur),delta=a-b;float difference=max(max(abs(delta.r),abs(delta.g)),abs(delta.b));if(u_filter.z>.5){float l=dot(delta,vec3(.2126,.7152,.0722));delta=vec3(l);}filtered=vec4(clamp(a+(difference*255.>=u_filter.y?u_filter.x:0.)*delta,0.,1.)*original.a,original.a);}}gl_FragColor=mix(original,filtered,mask);}`
 /** Reuses the stroke's original tile images. No second stroke snapshot,
  * GPU readback or whole-layer filter; only dirty bounds plus kernel reach. */
@@ -37,7 +37,7 @@ export class FilterBrushPass{
   const gl=this.gl;gl.useProgram(program);gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),target.width,target.height);gl.uniform4f(gl.getUniformLocation(program,'u_rect'),rect.minX,rect.minY,rect.maxX-rect.minX,rect.maxY-rect.minY);gl.bindBuffer(gl.ARRAY_BUFFER,this.quad());const position=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);try{gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(position)}
  }
  paint(filter:BrushFilter,tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,scratch:BrushScratch,target:Pick<ILayerBuffer,'resolveForPaint'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>):void{
-  if(filter.kind==='invert'){
+  if(filter.kind==='invert'||filter.kind==='desaturate'){
    this.prepare();const gl=this.gl,left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY))
    if(right<=left||bottom<=top)return
    const original=scratch.getOrCreate(tile.buffer).original,program=this.composite!
@@ -45,7 +45,7 @@ export class FilterBrushPass{
     gl.useProgram(program)
     // All active sampler uniforms bind valid owned textures; no target feedback.
     for(const[unit,texture,name]of[[0,original.texture,'u_original'],[1,mask.texture,'u_mask'],[2,original.texture,'u_filtered']]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,name),unit)}
-    gl.uniform3f(gl.getUniformLocation(program,'u_patch'),0,0,1);gl.uniform4f(gl.getUniformLocation(program,'u_filter'),0,0,0,2)
+    gl.uniform3f(gl.getUniformLocation(program,'u_patch'),0,0,1);gl.uniform4f(gl.getUniformLocation(program,'u_filter'),filter.kind==='desaturate'?filter.type:0,0,0,filter.kind==='desaturate'?3:2)
     this.draw(program,tile.buffer,{minX:left,minY:top,maxX:right,maxY:bottom})
    }finally{tile.buffer.endDraw()}
    return

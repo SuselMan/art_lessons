@@ -553,25 +553,28 @@ def validate_portable_profile(descriptor):
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
     filter_config=descriptor.get('filter')
-    if isinstance(filter_config,dict) and (filter_config.get('kind')=='invert' or filter_config.get('version')==2):
+    if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
-        if (set(filter_config)!={'version','kind'} or type(filter_config.get('version'))is not int or filter_config['version']!=2 or filter_config.get('kind')!='invert'
-                or descriptor['version']<95 or descriptor.get('model')!='mixer' or not isinstance(mixer,dict) or mixer.get('source')!='previousCanvas'
+        desaturate=filter_config.get('kind')=='desaturate'
+        shape=(set(filter_config)=={'version','kind','type'}and type(filter_config.get('type'))is int and 0<=filter_config['type']<=5)if desaturate else(set(filter_config)=={'version','kind'}and filter_config.get('kind')=='invert')
+        if (not shape or type(filter_config.get('version'))is not int or filter_config['version']!=2
+                or descriptor['version']<(99 if desaturate else 95) or descriptor.get('model')!='mixer' or not isinstance(mixer,dict) or mixer.get('source')!='previousCanvas'
                 or any(k in mixer for k in ('algorithm','foreground','sampling','paintThickness'))
                 or any(k in descriptor for k in ('deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet'))
                 or descriptor.get('paperInteraction')!=0 or not isinstance(behavior,dict) or behavior.get('version')!=2
                 or any(k in behavior for k in ('dual','timing','wetMix','taper')) or not isinstance(rendering,dict)
                 or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal' or rendering.get('wetEdges')!=0 or rendering.get('burntEdges')!=0):
-            raise ValueError('Invalid portable Invert filter; requires revision95 and ordinary canvas-filter strategy')
+            raise ValueError('Invalid portable Desaturate filter; requires revision99 and ordinary canvas-filter strategy'if desaturate else'Invalid portable Invert filter; requires revision95 and ordinary canvas-filter strategy')
     noise=tip.get('autoNoise')
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
-            or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness')):raise ValueError('Invalid portable auto mask noise')
+            or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid portable auto mask noise')
     if noise is not None and 'spray'in descriptor:
         spray=descriptor['spray']
         if not isinstance(spray,dict) or not isinstance(spray.get('particle'),dict) or not isinstance(spray.get('color'),dict) or not isinstance(behavior,dict):raise ValueError('Invalid portable Spray Auto-mask noise records')
         particle=spray['particle'];color=spray['color']
         if descriptor.get('version',0)<96 or particle.get('shape')!='tip' or particle.get('image') or any(color.get(k) for k in ('sampleInput','mixBackground','fillBackground')) or 'dual'in behavior:raise ValueError('Invalid portable Spray Auto-mask noise combination')
+    if noise is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness') and(descriptor['version']<98 or 'autoShape'in tip):raise ValueError('Rectangle Auto-mask noise requires revision98 without spikes')
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
             or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
@@ -599,7 +602,7 @@ def validate_portable_profile(descriptor):
         if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
                 or any(k in descriptor for k in ('mixer','spray','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
-                or 'dual'in behavior or 'autoNoise'in tip):raise ValueError('Invalid portable rectangle profile combination')
+                or 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
         if kind=='gaussian2D':
             if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
                     or any(not finite(profile.get(k),0,1)for k in('horizontalFade','verticalFade'))):raise ValueError('Invalid portable 2D Gaussian profile')
@@ -695,10 +698,11 @@ def portable_bundle(path,catalog):
         validate_portable_mixer(d)
         tip=d['tip']
         validate_portable_profile(d)
-        if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')=='invert':raise ValueError('Portable Invert filter is root-only')
+        if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate'):raise ValueError('Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})
+        if depth and tip.get('autoNoise') is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):raise ValueError('Rectangle Auto-mask noise is root-only')
         if profile.get('kind')in('radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'):
             size=asset_sizes.get(profile['lookup'],0)
             if size<4 or size*size<(8 if profile['kind']in('radialCurveSoftness','curveRectangleSoftness')else 4)*(profile['resolution']+2):

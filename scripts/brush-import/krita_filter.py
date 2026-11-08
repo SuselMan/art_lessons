@@ -7,7 +7,7 @@ from brush_contract import finalize_identity,compatibility
 
 def filter_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,xml
-    kind={'gaussian blur':'gaussian','unsharp':'unsharp','invert':'invert'}.get(params.get('Filter/id'))
+    kind={'gaussian blur':'gaussian','unsharp':'unsharp','invert':'invert','desaturate':'desaturate'}.get(params.get('Filter/id'))
     if kind is None:raise ValueError('Unsupported brush filter: '+str(params.get('Filter/id')))
     if enabled(params.get('Filter/smudgeMode')):raise ValueError('Filter smudge mode is unsupported')
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','copy')!='copy':raise ValueError('Filter requires COPY compositing')
@@ -18,25 +18,31 @@ def filter_preset(data,root,params,name,catalog,external):
         config={p.get('name'):p.text or ''for p in cfg.iter('param')}
         if len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
     allowed={'horizRadius','vertRadius','lockAspect'}if kind=='gaussian'else{'halfSize','amount','threshold','lightnessOnly'}
-    if kind!='invert'and set(config)-allowed:raise ValueError('Unknown Filter configuration setting')
+    if kind not in('invert','desaturate')and set(config)-allowed:raise ValueError('Unknown Filter configuration setting')
     def number(key,default,lo,hi):
         value=numeric(config.get(key),default)
         if not math.isfinite(value)or not lo<=value<=hi:raise ValueError('Filter setting outside bounded range: '+key)
         return value
-    radiusX=0 if kind=='invert'else(number('horizRadius',5,0,16)if kind=='gaussian'else number('halfSize',1,0,16))
-    radiusY=0 if kind=='invert'else(number('vertRadius',5,0,16)if kind=='gaussian'else radiusX)
+    radiusX=0 if kind in('invert','desaturate')else(number('horizRadius',5,0,16)if kind=='gaussian'else number('halfSize',1,0,16))
+    radiusY=0 if kind in('invert','desaturate')else(number('vertRadius',5,0,16)if kind=='gaussian'else radiusX)
+    desaturate_type=0
+    if kind=='desaturate':
+        try:desaturate_type=float(config.get('type','0'))
+        except ValueError:raise ValueError('Desaturate type must be an integer0..5')from None
+        if not math.isfinite(desaturate_type)or not 0<=desaturate_type<=5 or desaturate_type!=int(desaturate_type):raise ValueError('Desaturate type must be an integer0..5')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in list(transformed):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d.update(version=95 if kind=='invert'else 52,model='mixer',category='wet',paperInteraction=0,flow=1)
+    result=preset(out.getvalue(),name,catalog,external);d=result['descriptor'];d.update(version=99 if kind=='desaturate'else 95 if kind=='invert'else 52,model='mixer',category='wet',paperInteraction=0,flow=1)
     for key in ('scatter','texture','wet'):d.pop(key,None)
     d['flowByPressure']=[[0,1],[1,1]]
     d['mixer']={'load':0,'initialLoad':0,'pickup':1,'strength':1,'source':'previousCanvas'}
-    d['filter']={'version':2,'kind':'invert'}if kind=='invert'else{'version':1,'kind':kind,'radiusX':radiusX,'radiusY':radiusY,'amount':number('amount',.5,0,5),'threshold':number('threshold',0,0,255),'lightnessOnly':enabled(config.get('lightnessOnly','true'))}
+    d['filter']={'version':2,'kind':'desaturate','type':int(desaturate_type)}if kind=='desaturate'else{'version':2,'kind':'invert'}if kind=='invert'else{'version':1,'kind':kind,'radiusX':radiusX,'radiusY':radiusY,'amount':number('amount',.5,0,5),'threshold':number('threshold',0,0,255),'lightnessOnly':enabled(config.get('lightnessOnly','true'))}
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
     note=compatibility('filter','Frozen pre-stroke source reuses ordinary original tiles, common brush mask/sensors and COPY coverage. Separable Gaussian radius-to-sigma/support retained; radius0 is identity. Unsharp threshold/amount retained; lightness uses weighted RGB luminance rather than native colour-space conversion. RGBA8 intermediate quantization differs. Radius<=16; other filters, smudgeMode, non-COPY and timers rejected.')
     if kind=='invert':note=compatibility('filter','Pointwise native Invert changes colour channels and preserves alpha. Canonical premultipliedRGBA8 complement uses existing stroke-original tile and COPY mask once, without blur/gather/readback. Native ICC/HDR/Alpha-only models are outside this functional RGBA profile; unused native filter configuration does not change output.')
+    if kind=='desaturate':note=compatibility('filter','Native Desaturate six explicit types preserve alpha: lightness, BT709(.2126,.7152,.0722), BT601(.299,.587,.114), average, min and max. Canonical homogeneous premultipliedRGBA pointwise graph reuses stroke-original tiles and COPY mask once; native straight-channel intermediate quantization/ICC/HDR may differ. Missing type is lightness0; unused native configuration has no effect.')
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result

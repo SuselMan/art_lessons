@@ -312,7 +312,7 @@ export class BrushBehaviorPainter {
     if(brush.behavior?.dual&&usesPixelOriginalRgba(brush.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     const noise=brush.tip.autoNoise
     if(brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'){
-      if(brush.tip.autoNoise||brush.behavior?.dual||brush.model!=='stamp')throw Error('New rectangle profiles require an unpaired stamp without noise')
+      if(brush.tip.autoNoise&&(brush.version<98||brush.tip.autoShape||brush.spray)||brush.behavior?.dual||brush.model!=='stamp')throw Error('New rectangle profiles require an unpaired stamp without noise')
     }
     const noiseSettings=noise&&(noise.density!==1||noise.randomness!==0)?prepareAutoMaskNoise(noise.density,noise.randomness):undefined
     const noiseConfig=noiseSettings?autoMaskNoiseUniforms(noiseSettings):undefined
