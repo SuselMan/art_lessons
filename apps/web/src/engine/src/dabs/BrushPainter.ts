@@ -1,3 +1,4 @@
+import type{CanonicalBeginLayeredView}from'./CanonicalBeginSource'
 import {hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleSource143Scope} from '@grafetto/shared'
 import {BristleSoakGather139} from '../raster/BristleSoakGather139'
 import {bristleSoakPoints139} from '../presets/bristleSoak139'
@@ -43,6 +44,7 @@ import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPaint
 export interface BrushContext {
   canonicalResourcesReleased?():void
   reserveCanonicalBeginSource?(binding:CanonicalBeginBinding,bytes:number):(()=>void)|CanonicalBeginNotReady
+  openLayeredCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,projection:NonNullable<NonNullable<BrushExecutionContext['brushSource']>['projection']>):{kind:'ready';view:CanonicalBeginLayeredView}|CanonicalBeginNotReady
   openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:CanonicalBeginCapability):CanonicalBeginResult
   readonly gl: WebGLRenderingContext
   acquireSprayScratch?(width:number,height:number):SprayScratchLease
@@ -189,6 +191,12 @@ export class BrushPainter {
     }
     this.behavior.paint(target,dabs,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution,!!brush.behavior?.erase,runtime)
   }
+prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
+ return this.behavior.prepareCloneBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)
+}
+cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.cloneBeginBinding(scratch)}
+invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateCloneBegin(scratch)}
+
   prepareBristleSoak(brush:BrushDescriptor):void {
     if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2)throw Error('Invalid Bristle Soak139 scope')
     this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)

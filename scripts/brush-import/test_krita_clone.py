@@ -10,6 +10,6 @@ class CloneTests(unittest.TestCase):
         a=self.convert()['descriptor'];self.assertEqual(a['clone'],{'version':1,'moveSourcePoint':True});self.assertEqual(a['model'],'stamp');self.assertNotIn('mixer',a);self.assertEqual(a['version'],54)
         b=self.convert('<param name="Duplicateop/MoveSourcePoint">false</param>')['descriptor'];self.assertFalse(b['clone']['moveSourcePoint'])
     def test_rejections(self):
-        for key in ('Duplicateop/Healing','Duplicateop/CorrectPerspective','Duplicateop/CloneFromProjection'):
+        for key in ('Duplicateop/Healing','Duplicateop/CorrectPerspective'):
             with self.assertRaisesRegex(ValueError,'Unsupported Clone'):self.convert('<param name="'+key+'">true</param>')
         with self.assertRaisesRegex(ValueError,'OVER'):self.convert(mode='multiply')

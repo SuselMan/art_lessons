@@ -1,3 +1,5 @@
+import {CanonicalBeginSource,type CanonicalBeginLayeredView,type CanonicalSourceLease,type CanonicalSourceClaim}from'./CanonicalBeginSource'
+import type{CanonicalBeginBinding}from'./CanonicalBeginRuntime'
 import type{BrushSourceContext,Dab}from'@grafetto/shared'
 import{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer,PaintTarget}from'../buffers/ILayerBuffer'
@@ -11,23 +13,30 @@ const FRAG=`precision highp float;uniform sampler2D u_source;uniform sampler2D u
  * scratch. Destination uses OVER per dab, including transparent source pixels. */
 export class CloneBrushPass{
  private program?:WebGLProgram
+ private prepared=false
  private geometry?:WebGLBuffer
  private patch?:AccumulationBuffer
  private readonly sampler:CanvasProjectionSampler
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl;this.sampler=new CanvasProjectionSampler(gl,()=>this.quad())}
  private quad():WebGLBuffer{return this.geometry??=createFullscreenQuad(this.gl)}
- prepare():void{this.program??=createProgram(this.gl,VERT,FRAG);this.sampler.prepare()}
- forget():void{this.program=undefined;this.geometry=undefined;this.patch=undefined;this.sampler.forget()}
+ prepare():void{this.program??=createProgram(this.gl,VERT,FRAG);this.sampler.prepare();this.quad();this.prepared=true}
+ assertPrepared():void{if(!this.prepared||!this.program||!this.geometry)throw Error('Merged Clone149 program is not prepared')}
+ captureMergedSource(target:ILayerBuffer,binding:CanonicalBeginBinding,view:CanonicalBeginLayeredView,acquire:(w:number,h:number)=>CanonicalSourceLease,claim:CanonicalSourceClaim,onReleased?:()=>void){
+  this.assertPrepared()
+  return CanonicalBeginSource.captureMerged(target,binding,view,acquire,claim,onReleased,'cloneProjection149',this.sampler)
+ }
+ forget():void{this.prepared=false;this.program=undefined;this.geometry=undefined;this.patch=undefined;this.sampler.forget()}
  destroy():void{if(this.program)this.gl.deleteProgram(this.program);if(this.geometry)this.gl.deleteBuffer(this.geometry);this.patch?.destroy();this.sampler.destroy();this.forget()}
- paint(tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,scratch:BrushScratch,target:Pick<ILayerBuffer,'resolveForPaint'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>,source:NonNullable<BrushSourceContext['clone']>,dab:Dab,aligned:boolean,opacity:number):void{
-  this.prepare();const gl=this.gl,left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY))
+ paint(tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,scratch:BrushScratch,target:Pick<ILayerBuffer,'resolveForPaint'>&Partial<Pick<ILayerBuffer,'resolveVisible'>>,source:NonNullable<BrushSourceContext['clone']>,dab:Dab,aligned:boolean,opacity:number,projection?:CanonicalBeginSource):void{
+  if(projection){projection.assertCurrent();this.assertPrepared()}else this.prepare();const gl=this.gl,left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY))
   if(right<=left||bottom<=top)return
   const size=2**Math.ceil(Math.log2(Math.max(8,right-left,bottom-top)))
   if(size>2048)throw Error('Clone patch exceeds bounded tile size')
   if(this.patch?.width!==size){this.patch?.destroy();this.patch=new AccumulationBuffer(gl,size,size)}
   const dx=aligned?source.offsetX:source.x-dab.x,dy=aligned?source.offsetY:source.y-dab.y,x=tile.originX+left+dx,y=tile.originY+top+dy
-  this.sampler.gather(this.patch,{minX:x,minY:y,maxX:x+size,maxY:y+size},[{opacity:1,buffer:{resolveVisible:r=>(target.resolveVisible?.(r)??target.resolveForPaint(r)).map(t=>({...t,buffer:scratch.getOrCreate(t.buffer).original}))}}])
+  this.sampler.gather(this.patch,{minX:x,minY:y,maxX:x+size,maxY:y+size},[{opacity:1,buffer:{resolveVisible:r=>{projection?.assertCurrent();return projection?[...projection.resolveForRead(r)]:(target.resolveVisible?.(r)??target.resolveForPaint(r)).map(t=>({...t,buffer:scratch.getOrCreate(t.buffer).original}))}}}])
+  projection?.assertCurrent()
   tile.buffer.beginDraw();try{
    const program=this.program!;gl.useProgram(program)
    for(const[unit,texture,name]of[[0,this.patch.texture,'u_source'],[1,mask.texture,'u_mask']]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,name),unit)}

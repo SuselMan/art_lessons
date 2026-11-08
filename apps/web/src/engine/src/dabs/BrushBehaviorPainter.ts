@@ -1,3 +1,4 @@
+import {hasCloneProjection149Scope}from'@grafetto/shared'
 import{FilterSmudge147Pass,FilterSmudge147State,FilterSmudge147Blocked,type FilterSmudge147Request}from'./FilterSmudge147'
 import{hasFilterSmudge147Scope}from'@grafetto/shared'
 import {CanonicalBeginSource} from './CanonicalBeginSource'
@@ -380,10 +381,30 @@ export class BrushBehaviorPainter {
       if(failed)throw failure
     }
   }
+cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.canonicalSource?.capability==='cloneProjection149'?scratch.canonicalSource.binding:undefined}
+invalidateCloneBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability==='cloneProjection149'){const owner=scratch.canonicalSource;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;owner.release()}}
+prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
+ const brush=paint.brush,binding=runtime.binding
+ if(!hasCloneProjection149Scope(brush)||runtime.capability!=='cloneProjection149'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid merged Clone149 BEGIN identity')
+ assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution)
+ if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+ const existing=scratch.canonicalSource
+ if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='cloneProjection149'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':clone149'}}
+ if(scratch.brushBehavior?.dabSequence)throw Error('Merged Clone149 capture after accepted request is forbidden')
+ if(!this.clonePass||!this.ctx.openLayeredCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Merged Clone149 source owner unavailable')
+ this.clonePass.assertPrepared()
+ const prior=scratch.brushBehavior,opened=this.ctx.openLayeredCanonicalBegin(target,binding,execution!.brushSource!.projection!)
+ if(opened.kind==='notReady')return opened
+ const captured=this.clonePass.captureMergedSource(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.())
+ if(captured.kind==='notReady')return captured
+ if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Merged Clone149 owner changed during capture')}
+ scratch.canonicalSource=captured.owner;return{kind:'ready'}
+}
+
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (!b)return
     this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase,b.runtime)
-    if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'){
+    if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'||b.runtime?.capability==='cloneProjection149'){
       // END closes this source lifetime; duplicate END has no binding to dispatch.
       this.bindings.delete(scratch)
       const state=scratch.filterSmudge147State,source=scratch.canonicalSource
@@ -578,6 +599,13 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>}): void {
+    const clone149=!!brush.clone&&(brush.clone.source!==undefined||brush.clone.sourcePolicy!==undefined)
+    if(clone149){
+      const source=scratch.canonicalSource
+      if(!hasCloneProjection149Scope(brush)||effectiveErase||runtime?.capability!=='cloneProjection149'||!source||source.capability!=='cloneProjection149'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Merged Clone149 requires its prepared canonical BEGIN source')
+      source.assertCurrent();if(!this.clonePass)throw Error('Merged Clone149 program is not prepared');this.clonePass.assertPrepared()
+    }
+
     const filter147=!!brush.filter&&'smudgeMode'in brush.filter
     if(filter147){
       const source=scratch.canonicalSource
@@ -1242,7 +1270,7 @@ export class BrushBehaviorPainter {
       if(brush.clone){
         const source=execution?.brushSource?.clone
         if(!source)throw Error('Clone requires a recorded source')
-        ;(this.clonePass??=new CloneBrushPass(gl)).paint(tile,bounds,coverage,scratch,target,source,dabs[0],brush.clone.moveSourcePoint,state.opacity)
+        ;(this.clonePass??=new CloneBrushPass(gl)).paint(tile,bounds,coverage,scratch,target,source,dabs[0],brush.clone.moveSourcePoint,state.opacity,clone149?scratch.canonicalSource:undefined)
         continue
       }
       if(filter147){

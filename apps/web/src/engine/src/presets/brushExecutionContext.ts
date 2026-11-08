@@ -29,6 +29,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(brush.mixer?.source==='projectionCanvas' && !context?.brushSource?.projection)throw Error('Merged brush requires recorded projection sources')
   if(brush.tangentNormal&&context?.brushSource?.normalRotation===undefined)throw Error('Normal brush requires recorded viewport rotation')
   if(brush.clone&&!context?.brushSource?.clone)throw Error('Clone requires a recorded source')
+  if(brush.clone?.source==='projectionCanvas'&&!context?.brushSource?.projection)throw Error('Merged Clone149 requires recorded projection sources')
   if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
   if(brush.hatching?.opaqueBackground&&!context?.brushSource?.background)throw Error('Hatching requires a captured background')
   if((brush.grid?.fillBackground||brush.grid?.mixBackground)&&!context?.brushSource?.background)throw Error('Grid requires a captured background')

@@ -568,6 +568,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_bristle_wash135(descriptor,parent)
     from particle_wash134 import validate_particle_wash134
     validate_particle_wash134(descriptor,parent)
+    from clone_projection149 import validate_clone_projection149
+    validate_clone_projection149(descriptor,1 if parent is not None else 0)
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     from spray_wash133 import validate_spray_wash133
@@ -752,6 +754,8 @@ def portable_bundle(path,catalog):
         if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']
         validate_portable_profile(d,parent=parent)
+        from clone_projection149 import validate_clone_projection149
+        validate_clone_projection149(d,depth)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
         def policy_controls(v):

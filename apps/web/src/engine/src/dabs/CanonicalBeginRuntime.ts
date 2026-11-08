@@ -3,7 +3,7 @@ import type {ILayerBuffer} from '../buffers/ILayerBuffer'
 export {gridBindingKey as canonicalBeginBindingKey} from './GridWashRuntime'
 import type {GridWashBinding,GridWashNotReady,GridWashLease,GridBeginResult,GridWashPaintResult,GridWashPrepareResult} from './GridWashRuntime'
 /** Runtime-only authority. No operation/Dab field and no second source registry. */
-export type CanonicalBeginCapability='grid137'|'bristleSoak139'|'deformOld145'|'spray146'|'filterSmudge147'
+export type CanonicalBeginCapability='grid137'|'bristleSoak139'|'deformOld145'|'spray146'|'filterSmudge147'|'cloneProjection149'
 export type CanonicalBeginBinding=GridWashBinding
 export type CanonicalBeginNotReady=GridWashNotReady
 export type CanonicalBeginLease=GridWashLease
@@ -24,4 +24,4 @@ export function canonicalBeginRenderable139(capability:CanonicalBeginCapability,
  return capability==='bristleSoak139'?firstBristleLine139(dabs,previous)!==undefined:dabs.some(isBristleAnchor139)
 }
 
-export function canonicalBeginIsStamp(capability:CanonicalBeginCapability):boolean{return capability==='bristleSoak139'||capability==='spray146'||capability==='filterSmudge147'}
+export function canonicalBeginIsStamp(capability:CanonicalBeginCapability):boolean{return capability==='bristleSoak139'||capability==='spray146'||capability==='filterSmudge147'||capability==='cloneProjection149'}
