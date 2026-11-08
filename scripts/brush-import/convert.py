@@ -455,10 +455,11 @@ def validate_portable_dynamics(controls):
         if isinstance(control,dict) and 'combine'in control:
             c=control['combine']
             if (set(control)!={'control','minimum','jitter','combine'} or control.get('control')!='off' or not finite(control.get('minimum'),0,0) or not finite(control.get('jitter'),0,0)
-                    or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute'} or c.get('mode')not in('product','sum','max','min','difference')
+                    or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute','policy'} or c.get('mode')not in('product','sum','max','min','difference')
                     or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
                 raise ValueError('Invalid portable combined dynamic')
-            if 'constant'in c and not finite(c['constant']):raise ValueError('Invalid combined dynamic constant')
+            if 'policy'in c and c['policy']!='native-scatter-v1':raise ValueError('Invalid combined dynamic policy')
+            if 'constant'in c and not finite(c['constant'],0,4 if c.get('policy')=='native-scatter-v1'else 1):raise ValueError('Invalid combined dynamic constant')
             children=c['scaling']+c['additive']
             absolute=c.get('absolute')
             if absolute is not None:
@@ -753,6 +754,16 @@ def portable_bundle(path,catalog):
         validate_portable_profile(d,parent=parent)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
+        def policy_controls(v):
+            if isinstance(v,dict):return ([v]if isinstance(v.get('combine'),dict)and v['combine'].get('policy')=='native-scatter-v1'else[])+[c for child in v.values()for c in policy_controls(child)]
+            return [c for child in v for c in policy_controls(child)]if isinstance(v,list)else[]
+        native_scatter=policy_controls(d)
+        if native_scatter:
+            behavior=d.get('behavior',{})
+            if not isinstance(behavior,dict)or not isinstance(behavior.get('modulations'),dict):raise ValueError('Native scatter expression requires one scatter target')
+            allowed=behavior['modulations'].get('scatter',[]);scatter=d.get('scatter',{})
+            if len(native_scatter)!=1 or not isinstance(allowed,list)or len(allowed)!=1 or depth or type(d.get('version'))not in(int,float)or d['version']<148 or d.get('model')!='stamp'or not isinstance(scatter,dict)or not isinstance(scatter.get('radius'),(int,float))or not 0<=scatter['radius']<=4 or any(not any(c is a for a in allowed)or c['combine'].get('constant')!=scatter['radius']for c in native_scatter)or behavior.get('dual')or any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Native scatter expression requires root Pixel148')
+
         from spray_wash133 import validate_spray_wash133
         validate_spray_wash133(d,depth)
         from krita_spray import validate_spray_source146

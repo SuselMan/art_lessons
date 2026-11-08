@@ -31,3 +31,15 @@ it('Filter resource pause reports the whole call input prefix across renderer sl
  const result=Reflect.apply(PencilEngine.prototype['_paintSoak139'],host,[{},dabs,'u','A','brush:filter147@147',[1,0,0],undefined,undefined,scratch])
  expect(result).toEqual({...outcome,acceptedDabs:5});expect(scratch.brushBehavior.dabSequence).toBe(14)
 })
+
+for(const capability of ['deformOld145','spray146','filterSmudge147'] as const)it(capability+' closes a metadata-only cold END without another source capture or painting',()=>{
+ const target={},scratch={canonicalSource:{binding:{userId:'u',strokeId:'A'}}},finish=vi.fn(),finishGesture=vi.fn(),unexpected=()=>{throw Error('END must not capture or paint')}
+ const host={_beginCapability:()=>capability,_replayRibbonChunks:new Map([['A',{target,scratch}]]),_brush:{finish},_smudge:{finishGesture},_gridBinding:unexpected,_paintSoak139:unexpected,_paintGrid137:unexpected}
+ Reflect.apply(PencilEngine.prototype['_paintDabs'],host,[target,[],'digitalBrush','medium-round',[1,0,0],'u',undefined,undefined,'A',undefined,undefined,undefined,false,true])
+ if(capability==='deformOld145'){expect(finishGesture).toHaveBeenCalledWith('u','A');expect(finish).not.toHaveBeenCalled()}else{expect(finish).toHaveBeenCalledWith(scratch,undefined);expect(finishGesture).not.toHaveBeenCalled()}
+})
+
+it('metadata END for another identity cannot retire a stamp BEGIN source',()=>{
+ const target={},scratch={canonicalSource:{binding:{userId:'other',strokeId:'B'}}},finish=vi.fn(),host={_beginCapability:()=> 'spray146',_replayRibbonChunks:new Map([['A',{target,scratch}]]),_brush:{finish}}
+ Reflect.apply(PencilEngine.prototype['_paintDabs'],host,[target,[],'digitalBrush','medium-round',[1,0,0],'u',undefined,undefined,'A',undefined,undefined,undefined,false,true]);expect(finish).not.toHaveBeenCalled()
+})

@@ -763,6 +763,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.bristle?.version===1&&secondary.bristle.initialization!==undefined)return false
         if(secondary.bristle?.version===2&&secondary.bristle.soak!==undefined)return false
         if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(brushDynamicInputs(secondary).some(c=>c.combine?.policy==='native-scatter-v1'))return false
         if(secondary.tangentNormal&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.grid&&(secondary.grid.sourcePolicy!==undefined||secondary.version>=137&&secondary.behavior?.rendering?.accumulation==='alphaDarken'))return false
         if(secondary.texture?.material!==undefined)return false
@@ -835,6 +836,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         ||t.dynamics!==undefined&&!isBrushBehavior({version:2,modulations:{flow:t.dynamics}}))return false
     }
     if (d.model !== 'mixer' && d.mixer !== undefined) return false
+    const nativeScatterControls=brushDynamicInputs(d as unknown as BrushDescriptor).filter(c=>c.combine?.policy==='native-scatter-v1')
+    if(nativeScatterControls.length){
+      const scatter=d.scatter,allowed=record(d.behavior)&&record(d.behavior.modulations)&&Array.isArray(d.behavior.modulations.scatter)?d.behavior.modulations.scatter:[]
+      if(nativeScatterControls.length!==1||allowed.length!==1||Number(d.version)<148||d.model!=='stamp'||!record(scatter)||!numberIn(scatter.radius,0,4)||nativeScatterControls.some(c=>!allowed.includes(c)||c.combine?.constant!==scatter.radius)||['mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||record(d.behavior)&&d.behavior.dual!==undefined)return false
+    }
     if(brushDynamicInputs(d as unknown as BrushDescriptor).some(c=>c.combine?.absolute)&&(!record(d.behavior)||!d.behavior.strokeInput))return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
     if (d.screentonePx !== undefined) return false

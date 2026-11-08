@@ -8167,6 +8167,20 @@ export class PencilEngine implements PencilEngineAPI {
       assertBrushSourceInputs(brush,dabs,strokeEndSample)
       assertBrushExecutionContext(brush,execution)
     }
+    if(tool==='digitalBrush'&&strokeEnd&&strokeId&&!dabs.length){
+      const capability=this._beginCapability(digitalBrushFromPreset(presetName))
+      // A durable metadata-only END must close the existing source on cold
+      // replay too. It never captures another BEGIN or supplies a drawing dab.
+      if(capability&&capability!=='bristleSoak139'){
+        if(canonicalBeginIsStamp(capability)){
+          const open=this._replayRibbonChunks.get(strokeId)
+          const scratch=ribbonScratch??(open?.target===target?open.scratch:undefined)
+          const binding=scratch?.canonicalSource?.binding
+          if(binding?.userId===userId&&binding.strokeId===strokeId)this._brush.finish(scratch!,strokeEndSample)
+        }else this._smudge.finishGesture(userId,strokeId)
+        return undefined
+      }
+    }
     if(tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))&&!dabs.some(isGridRenderableDab137)){if(strokeEnd&&strokeId)this._smudge.finishGesture(userId,strokeId);return undefined}
     if (!dabs.length && !strokeEndSample) {if(strokeEnd&&strokeId&&tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName)))this._smudge.finishGesture(userId,strokeId);return undefined}
     if(!(tool==='digitalBrush' && digitalBrushFromPreset(presetName).mixer?.paintThickness))target.dryColorSmudge?.()

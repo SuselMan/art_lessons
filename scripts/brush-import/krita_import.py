@@ -355,7 +355,7 @@ def raster(data, name, brush=False, svg_policy=None):
     return image
 
 
-def sensor_controls(params, option, notes, *, allow_time=False):
+def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_policy=False):
     """Read native sensor groups; preserve legacy products or emit a bounded expression."""
     if not enabled(params.get(option+'UseCurve','true')):
         return []
@@ -411,14 +411,15 @@ def sensor_controls(params, option, notes, *, allow_time=False):
                 'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
                 else 'Distance follows canonical centreline length in world pixels; native input-curve subdivision may differ.'if name=='distance'else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
     if compound and controls:
-        constant=numeric(params.get(option+'Value'),1)
-        if not 0<=constant<=1:
+        constant=numeric(params.get(option+'Value',params.get('Scattering/Amount')if option=='Scatter'and allow_scatter_policy else None),1)
+        if not 0<=constant<=(4 if option=='Scatter'and allow_scatter_policy else 1):
             notes.append(compatibility(option+'SensorCombination','Nonunit option strength with a combined response requires constant-before-clamp execution; not approximated.','unsupported'))
             return []
         scaling=[control for control,name in zip(controls,source_ids)if name not in additive_ids and name!='drawingangle']
         additive=[control for control,name in zip(controls,source_ids)if name in additive_ids]
         notes.append(compatibility(option+'SensorCombination','Native scaling product/sum/max/min/difference and signed additive sum retained; constant applied before the final size-like clamp; external multiplier is retained exactly once.','supported'))
         combine={'mode':{0:'product',1:'sum',2:'max',3:'min',4:'difference'}[int(mode)],'scaling':scaling,'additive':additive,**({'constant':constant}if constant!=1 else {})}
+        if option=='Scatter'and allow_scatter_policy:combine.update(policy='native-scatter-v1',constant=constant)
         if 'drawingangle'in source_ids:
             control=controls[source_ids.index('drawingangle')];node=next(n for n in sensors if n.get('id')=='drawingangle')
             offset=numeric(node.get('angleOffset'),0)
@@ -956,7 +957,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
-        controls=sensor_controls(params,option,notes,allow_time=timed_input or(_primary_clock_read and option=='Size'))
+        controls=sensor_controls(params,option,notes,allow_time=timed_input or(_primary_clock_read and option=='Size'),allow_scatter_policy=option=='Scatter'and engine=='paintbrush'and depth==0 and _allow_texture_material and not enabled(params.get('MaskingBrush/Enabled')))
         if controls:
             # Keep pressure in the canonical curves so dab spacing sees size
             # pressure before sampling; remaining sensors modulate the stamps.
@@ -1629,6 +1630,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes[:]=[n for n in notes if not(n['feature']=='masking.SizeSensor'and n['status']=='unsupported'and 'sensor time'in n['detail'])]
                 warnings[:]=[w for w in warnings if w!='masking.SizeSensor: Unsupported Krita sensor time']
                 notes.append(compatibility('masking.clockRead','Child Size reads recorded primary F64 sourceTime with its authored periodic transfer; no child timer, wire channel or native random-order identity is added.','supported'))
+    scatter_controls=behavior.get('modulations',{}).get('scatter',[])
+    if any(c.get('combine',{}).get('policy')=='native-scatter-v1'for c in scatter_controls):
+        if depth or engine!='paintbrush' or d.get('model')!='stamp' or behavior.get('dual') or any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Native scatter expression requires root Pixel')
+        d['version']=max(d['version'],148)
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

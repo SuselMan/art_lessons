@@ -239,7 +239,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     const constant=c.constant??1,a=c.absolute
     const direction=(a?.locked?state.firstAngle:dab.sourceAngle??dab.angle)/(2*Math.PI)+(a?.angleOffset??0)/360
     const absolute=a?((curveAt(a.curve,((direction%1)+1)%1)+.5)%1):1
-    return constant===0?0:clamp(constant*absolute*scaling*additive)/constant
+    return constant===0?0:(c.policy==='native-scatter-v1'?Math.max(0,Math.min(5,constant*absolute*scaling*additive)):clamp(constant*absolute*scaling*additive))/constant
   }
   const prev = state.previous
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0

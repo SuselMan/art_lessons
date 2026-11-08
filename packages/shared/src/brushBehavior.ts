@@ -6,7 +6,7 @@ export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'dar
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time' | 'distance'
 export interface BrushDynamic {
   /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
-  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number;absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve}}
+  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number;policy?:'native-scatter-v1';absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve}}
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
@@ -183,8 +183,9 @@ function isCombinedBrushDynamic(value:unknown):boolean {
   const keys=(v:Record<string,unknown>,allowed:string[]):boolean=>Object.keys(v).every(k=>allowed.includes(k))
   if(!obj(value)||!keys(value,['control','minimum','jitter','combine'])||value.control!=='off'||value.minimum!==0||value.jitter!==0||!obj(value.combine))return false
   const c=value.combine
-  if(!keys(c,['mode','scaling','additive','constant','absolute'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
-  if(c.constant!==undefined&&(typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>1))return false
+  if(!keys(c,['mode','scaling','additive','constant','absolute','policy'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
+  if(c.policy!==undefined&&c.policy!=='native-scatter-v1')return false
+  if(c.constant!==undefined&&(typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>(c.policy==='native-scatter-v1'?4:1)))return false
   const absolute=c.absolute
   if(absolute!==undefined&&(!obj(absolute)||!keys(absolute,['locked','angleOffset','curve'])||typeof absolute.locked!=='boolean'||typeof absolute.angleOffset!=='number'||!Number.isFinite(absolute.angleOffset)||Math.abs(absolute.angleOffset)>360||!isBrushCurve(absolute.curve,1,256,true)))return false
   const children=[...c.scaling,...c.additive]
