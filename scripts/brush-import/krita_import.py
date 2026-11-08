@@ -508,7 +508,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return bristle_preset(data,root,params,name,catalog,external)
     if engine == 'sketchbrush':
         from krita_sketch import sketch_preset
-        return sketch_preset(data,root,params,name,catalog,external)
+        return sketch_preset(data,root,params,name,catalog,external,resource)
     if engine == 'spraybrush':
         from krita_spray import spray_preset
         return spray_preset(data,root,params,name,catalog,external,resource)

@@ -10,9 +10,16 @@ from PIL import Image, PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 
-def sketch_preset(data,root,params,name,catalog,external):
-    from krita_import import preset,enabled,numeric,size_like_controls
-    if not enabled(params.get('Sketch/simpleMode')):raise ValueError('Sketch mask-selected connections are not implemented')
+def sketch_preset(data,root,params,name,catalog,external,resource):
+    from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml
+    simple=enabled(params.get('Sketch/simpleMode'))
+    mask_size=None
+    if not simple:
+        definition=xml(params.get('brush_definition',''))
+        if definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
+        filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
+        mask_size=list(image.size)
+        if min(mask_size)<1 or max(mask_size)>256 or enabled(params.get('Sketch/distanceOpacity')):raise ValueError('Sketch101 bitmap size<=256 and distanceOpacity disabled required')
     if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Sketch timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Sketch supports normal compositing only')
     def number(key,default,lo,hi):
@@ -27,12 +34,18 @@ def sketch_preset(data,root,params,name,catalog,external):
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external)
     if result['descriptor'].get('behavior',{}).get('mirror'):raise ValueError('Mirror is not implemented by the sketch adapter')
-    d=result['descriptor'];d['version']=44
-    d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
+    d=result['descriptor'];d['version']=44 if simple else 101
+    # Pixel's derived integer-image bank is not Sketch's native selection mask.
+    # New101 reads the already-captured alpha plane with its explicit own law.
+    if not simple:d['tip'].pop('imageSampling',None)
+    if simple:d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
+    elif d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256:raise ValueError('Unsupported Sketch101 captured alpha bitmap')
     d.pop('scatter',None);d.pop('texture',None);d.pop('wet',None)
-    behavior=d['behavior'];behavior.pop('rotation',None);behavior.pop('scatter',None);behavior.pop('spacing',None)
+    behavior=d['behavior']
+    if simple:behavior.pop('rotation',None)
+    behavior.pop('scatter',None);behavior.pop('spacing',None)
     behavior['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    d['sketch']={'version':1,'mode':'simple','width':number('Sketch/lineWidth',1,.01,1000),'offset':number('Sketch/offset',30,-1000,1000)/100,'probability':number('Sketch/probability',.5,0,1),
+    d['sketch']={'version':1,'mode':'simple'if simple else'mask',**({'maskSize':mask_size}if not simple else{}),'width':number('Sketch/lineWidth',1,.01,1000),'offset':number('Sketch/offset',30,-1000,1000)/100,'probability':number('Sketch/probability',.5,0,1),
                  **{target:enabled(params.get('Sketch/'+source,str(default).lower())) for target,source,default in [('connect','makeConnection',True),('magnetify','magnetify',True),('randomRGB','randomRGB',False),('randomOpacity','randomOpacity',False),('distanceDensity','distanceDensity',True),('distanceOpacity','distanceOpacity',False),('antialias','antiAliasing',False)]}}
     notes=[];controls={}
     for option,key in [('Line width','width'),('Offset scale','offset'),('Density','probability')]:
@@ -50,7 +63,8 @@ def sketch_preset(data,root,params,name,catalog,external):
     for n in result['compatibility']:
         if n['feature']=='activeDynamics':n['detail']=', '.join(v for v in n['detail'].split(', ')if v not in ('PressureLine width','PressureOffset scale','PressureDensity','PressureRotation'))
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='activeDynamics' or n['detail']]
-    result['compatibility'].append(compatibility('sketch','Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu.'))
+    result['compatibility'].append(compatibility('sketch','Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu.'if simple else'Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu.'))
+    if not simple:result['compatibility'].append(compatibility('sketchMask','Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)

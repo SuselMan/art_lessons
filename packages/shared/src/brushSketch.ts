@@ -2,7 +2,8 @@ import {isBrushBehavior,type BrushDynamic} from './brushBehavior.js'
 /** Connections between canonical author input points within one gesture. */
 export interface BrushSketch {
  version:1
- mode:'simple'
+ mode:'simple'|'mask'
+ maskSize?:readonly[number,number]
  width:number
  offset:number
  probability:number
@@ -18,8 +19,9 @@ export interface BrushSketch {
 export function isBrushSketch(value:unknown):value is BrushSketch{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,number=(x:unknown,lo:number,hi:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=lo&&x<=hi
- if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics'].includes(k)))return false
- if(v.version!==1||v.mode!=='simple'||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
+ if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize'].includes(k)))return false
+ if(v.version!==1||(v.mode!=='simple'&&v.mode!=='mask')||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
+ if(v.mode==='simple'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n))||v.distanceOpacity!==false)return false
  if(v.dynamics!==undefined){
   if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false
   for(const [key,controls]of Object.entries(v.dynamics))if(!['width','offset','probability'].includes(key)||!isBrushBehavior({version:2,modulations:{size:controls}}))return false

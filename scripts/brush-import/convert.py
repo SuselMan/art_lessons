@@ -565,6 +565,10 @@ def validate_portable_profile(descriptor):
                 or any(k in behavior for k in ('dual','timing','wetMix','taper')) or not isinstance(rendering,dict)
                 or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal' or rendering.get('wetEdges')!=0 or rendering.get('burntEdges')!=0):
             raise ValueError('Invalid portable Desaturate filter; requires revision99 and ordinary canvas-filter strategy'if desaturate else'Invalid portable Invert filter; requires revision95 and ordinary canvas-filter strategy')
+    sketch=descriptor.get('sketch')
+    if isinstance(sketch,dict)and sketch.get('mode')=='mask':
+        dims=sketch.get('maskSize');bounds=tip.get('maskBounds')
+        if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or sketch.get('distanceOpacity')is not False or any(k in tip for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
     noise=tip.get('autoNoise')
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
@@ -699,6 +703,13 @@ def portable_bundle(path,catalog):
         tip=d['tip']
         validate_portable_profile(d)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate'):raise ValueError('Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
+        if d.get('sketch',{}).get('mode')=='mask':
+            dims=d['sketch']['maskSize'];w,h=dims;longest=max(dims);side=2**math.ceil(math.log2(max(2,longest)))
+            if longest==side and((side-w)%2 or(side-h)%2):side*=2
+            bounds={'x':((side-w)//2+(w-longest)/2)/side,'y':((side-h)//2+(h-longest)/2)/side,'width':longest/side,'height':longest/side}
+            if depth or side>256 or asset_sizes.get(tip.get('mask'))!=side or tip.get('maskBounds')!=bounds:raise ValueError('Portable Sketch101 root mask geometry differs')
+            raw=trusted_raw_assets[tip['mask']];ox=(side-w)//2;oy=(side-h)//2
+            if any(raw[y*side+x]for y in range(side)for x in range(side)if x<ox or x>=ox+w or y<oy or y>=oy+h):raise ValueError('Nonzero portable Sketch101 padding')
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})

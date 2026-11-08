@@ -1,3 +1,4 @@
+import{prepareSketchMask}from'../presets/sketchMask'
 import type {PreparedBristleSaturationResource} from './BristleSaturationResource'
 import {advancePreparedBristleSaturationInk} from '../presets/brushBristleSaturationTable'
 import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
@@ -312,6 +313,7 @@ export class BrushBehaviorPainter {
     if(brush.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
+    const sketchMask=brush.sketch?.mode==='mask'?prepareSketchMask(brush):undefined
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     const filteredGradient=usesFilteredPixelGradient(brush)
@@ -418,7 +420,7 @@ export class BrushBehaviorPainter {
       // Only admitted paint dabs enter the native-style opacity history.
       // Geometry/RNG still advance above, but a discarded tiny footprint must
       // not leave a high average behind for the next visible low-opacity dab.
-      return behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color).map(st=>{
+      return behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color,sketchMask?{sketchMask}:undefined).map(st=>{
         if(brush.bristle?.version!==2)return st
         const geometry=(st as typeof st&{bristleInk?:BristleInkGeometry}).bristleInk
         if(!geometry)throw Error('Missing Bristle ink geometry')
