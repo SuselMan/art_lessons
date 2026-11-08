@@ -13,15 +13,18 @@ export interface BrushSketch {
  randomOpacity:boolean
  distanceDensity:boolean
  distanceOpacity:boolean
+ /** Explicit functional policy for negative rectangular-mask corners. */
+ distanceOpacityPolicy?:'generic-clamp-v1'
  antialias:boolean
  dynamics?:{width?:BrushDynamic[];offset?:BrushDynamic[];probability?:BrushDynamic[]}
 }
 export function isBrushSketch(value:unknown):value is BrushSketch{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,number=(x:unknown,lo:number,hi:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=lo&&x<=hi
- if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize'].includes(k)))return false
+ if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy'].includes(k)))return false
  if(v.version!==1||(v.mode!=='simple'&&v.mode!=='mask')||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
- if(v.mode==='simple'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n))||v.distanceOpacity!==false)return false
+ if(v.mode==='simple'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n)) )return false
+ if(v.mode==='mask'&&v.distanceOpacity?v.distanceOpacityPolicy!=='generic-clamp-v1':v.distanceOpacityPolicy!==undefined)return false
  if(v.dynamics!==undefined){
   if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false
   for(const [key,controls]of Object.entries(v.dynamics))if(!['width','offset','probability'].includes(key)||!isBrushBehavior({version:2,modulations:{size:controls}}))return false

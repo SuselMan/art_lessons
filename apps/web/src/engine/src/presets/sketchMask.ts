@@ -5,10 +5,15 @@ import{importedAssetPixels}from'./importedBrushes'
 export interface SketchMaskRequest{readonly left:number;readonly top:number;readonly width:number;readonly height:number;readonly radius:number;contains(x:number,y:number):boolean}
 export interface SketchMaskView{forDab(dab:Dab):SketchMaskRequest}
 const qRound=(x:number)=>x<0?-Math.floor(-x+.5):Math.floor(x+.5)
+export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
+ const policy=brush.sketch?.distanceOpacityPolicy
+ if(policy!==undefined&&(brush.version<114||brush.sketch?.mode!=='mask'||!brush.sketch.distanceOpacity||policy!=='generic-clamp-v1')||brush.sketch?.mode==='mask'&&brush.sketch.distanceOpacity&&policy!=='generic-clamp-v1')throw Error('Invalid Sketch114 distance opacity policy')
+}
 export function prepareSketchMask(brush:BrushDescriptor):SketchMaskView|undefined{
+ assertSketchDistanceOpacityPolicy(brush)
  if(brush.sketch?.mode!=='mask')return undefined
  const tip=brush.tip,dimensions=brush.sketch.maskSize
- if(brush.version<101||tip.kind!=='bitmap'||!tip.mask||!dimensions||brush.sketch.distanceOpacity||tip.animation||tip.color||tip.profile||tip.material||tip.imageSampling||tip.autoNoise||tip.autoShape)throw Error('Unsupported Sketch101 static alpha mask')
+ if(brush.version<101||tip.kind!=='bitmap'||!tip.mask||!dimensions||(brush.sketch.distanceOpacity?(brush.version<114||brush.sketch.distanceOpacityPolicy!=='generic-clamp-v1'):brush.sketch.distanceOpacityPolicy!==undefined)||tip.animation||tip.color||tip.profile||tip.material||tip.imageSampling||tip.autoNoise||tip.autoShape)throw Error('Unsupported Sketch101 static alpha mask')
  const pixels=importedAssetPixels(tip.mask),side=Math.sqrt(pixels.length),[w,h]=dimensions,longest=Math.max(w,h)
  if(!Number.isInteger(side)||side<2||side>256||!dimensions.every(n=>Number.isInteger(n)&&n>=1&&n<=256)||w>side||h>side)throw Error('Invalid Sketch101 mask dimensions')
  let canonicalSide=2**Math.ceil(Math.log2(Math.max(2,longest)));if(longest===canonicalSide&&((canonicalSide-w)%2||(canonicalSide-h)%2))canonicalSide*=2

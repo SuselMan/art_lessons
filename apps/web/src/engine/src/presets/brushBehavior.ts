@@ -1,4 +1,4 @@
-import{prepareSketchMask,type SketchMaskView}from'./sketchMask'
+import{assertSketchDistanceOpacityPolicy,prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import {sourceTimeRandomValue} from './sourceTimeRandom'
 import {autoMaskNoiseKey} from '../raster/autoMaskNoise'
 import{brushUsesDistanceControl,brushAnimationUsesMode}from'@grafetto/shared'
@@ -392,6 +392,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number,
   number
 ], options: {sketchMask?:SketchMaskView;geometryOnly?:boolean;sprayRequest?:{spray?:{geometry:{x:number;y:number;radius:number};opacityScale:number;foreground:readonly[number,number,number]}}} = {}): BehaviorStamp[] {
+  assertSketchDistanceOpacityPolicy(brush)
   const sketchMask=brush.sketch?.mode==='mask'?(options.sketchMask??prepareSketchMask(brush)):undefined
   const behavior = brush.behavior
   const noise=brush.tip.autoNoise

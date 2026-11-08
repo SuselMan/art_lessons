@@ -18,7 +18,7 @@ class SketchMask101Tests(unittest.TestCase):
    b,c=self.convert(w,h);d=b['descriptor'];self.assertEqual(d['version'],101);self.assertEqual(d['sketch']['mode'],'mask');self.assertEqual(d['sketch']['maskSize'],[w,h]);self.assertEqual(d['tip']['kind'],'bitmap');self.assertLessEqual(c.assets[d['tip']['mask']]['size'],256)
   b,_=self.convert(simple=True);self.assertEqual(b['descriptor']['version'],44);self.assertEqual(b['descriptor']['sketch']['mode'],'simple');self.assertNotIn('maskSize',b['descriptor']['sketch']);self.assertEqual(b['descriptor']['tip']['kind'],'round')
  def test_unsupported_masks_distanceopacity_and_caps_remain_explicit(self):
-  for args in[{'w':257},{'extra':'<param name="Sketch/distanceOpacity">true</param>'}]:
+  for args in[{'w':257}]:
    with self.assertRaises(ValueError):self.convert(**args)
  def test_full_portable_cas_roundtrip_and_corrupt_metadata_before_output(self):
   b,c=self.convert(4,2);m=c.write();portable={'library':m,'assets':{a['id']:base64.b64encode((c.output/a['file']).read_bytes()).decode()for a in m['assets']}};p=Path(self.folder)/'roundtrip.json';p.write_text(json.dumps(portable));out=Catalog(Path(self.folder)/'good');portable_bundle(p,out);self.assertEqual(out.brushes,[b])

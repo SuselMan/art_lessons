@@ -1,4 +1,4 @@
-import{prepareSketchMask,type SketchMaskView}from'./sketchMask'
+import{assertSketchDistanceOpacityPolicy,prepareSketchMask,type SketchMaskView}from'./sketchMask'
 import type {BrushDescriptor,Dab} from '@grafetto/shared'
 import {brushDabRandom,type BrushStamp} from './digitalBrushPresets'
 const WINDOW=32768,CELL=32,MAX_CONNECTIONS=4096
@@ -16,6 +16,8 @@ const key=(x:number,y:number)=>`${Math.floor(x/CELL)},${Math.floor(y/CELL)}`
 /** State is plain cloneable values; spatial buckets preserve chronological order
  * within the retained gesture window. No viewport/tile/frame enters selection. */
 export function sketchStamps(brush:BrushDescriptor,dab:Dab,state:SketchState,baseColor:[number,number,number],seed:number,controls:{width:number;offset:number;probability:number},groupOpacity:number,prepared?:SketchMaskView):SketchStamp[]{
+ const policy=brush.sketch?.distanceOpacityPolicy
+ assertSketchDistanceOpacityPolicy(brush)
  const mask=brush.sketch?.mode==='mask'?(prepared??prepareSketchMask(brush))?.forDab(dab):undefined
  const maskGeometry=mask
  const s=brush.sketch!,ordinal=state.ordinal++,point={x:dab.x,y:dab.y,ordinal},slot=ordinal%WINDOW,old=state.points[slot]
@@ -40,6 +42,9 @@ export function sketchStamps(brush:BrushDescriptor,dab:Dab,state:SketchState,bas
   if(random(0)<reject)continue
   if(s.randomRGB)state.color=[baseColor[0]*random(1),baseColor[1]*random(2),baseColor[2]*random(3)]
   state.alpha=(s.distanceOpacity?Math.floor(1-distance/threshold+.5):1)*(s.randomOpacity?random(4):1)
+  // Native signed Qt5 factor and random consumption above; only114 opts into
+  // generic U8 normalization before AA and temporary request-image union.
+  if(policy==='generic-clamp-v1')state.alpha=Math.max(0,Math.min(1,state.alpha))
   const ox=dx*offset,oy=dy*offset
   segment(point.x+ox,point.y+oy,s.magnetify?p.x-ox:point.x-ox,s.magnetify?p.y-oy:point.y-oy)
  }
