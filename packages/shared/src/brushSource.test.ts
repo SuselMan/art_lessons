@@ -54,7 +54,7 @@ it('accepts only the immediate rotation-double persistence neighbour without cha
   const op={type:'stroke',tool:'digitalBrush',...values,brushSource}
   expect(hasValidBrushSourceContext(op)).toBe(true);expect(hasValidBrushRandomContext(op)).toBe(true)
   expect(hasValidBrushRandomContext({...op,brushRandom:{...op.brushRandom,strokeSeed:0}})).toBe(false)
-  expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,normalRotation:-0.00016217739622226276}})).toBe(false)
+  expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,normalRotation:-0.00016217739622226277}})).toBe(false)
   expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,normalRotation:0}})).toBe(false)
   expect(hasValidBrushSourceContext({...op,brushSource:{...brushSource,background:[0,0,0,255]}})).toBe(false)
   expect(hasValidBrushSourceContext({...op,strokeId:values.strokeId.replace('f87c3238926e9eb4','0000000000000000')})).toBe(false)
