@@ -4609,7 +4609,11 @@ export class PencilEngine implements PencilEngineAPI {
       // A live-end packet can precede the durable operation carrying points
       // omitted from the throttled live stream. Curve's buffered input must
       // stay open until that operation has supplied its final points.
-      if (open && !open.scratch.brushNative && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
+      // A throttled live END is not the durable END: final recorded dabs
+      // can still be owed. Keep immutable BEGIN and carried Filter T until
+      // that operation has painted its tail, then its strokeEnd closes them.
+      const deferredBegin=!!open?.scratch.canonicalSource&&['spray146','filterSmudge147','cloneProjection149'].includes(open.scratch.canonicalSource.capability)
+      if (open && !deferredBegin && !open.scratch.brushNative && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
       live.ended = true
       const owed = Math.max(0, live.paintedTotal - live.committedOffset)
       outstanding += owed
