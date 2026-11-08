@@ -1,3 +1,4 @@
+import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
 import{RequestWashBatch}from'./RequestWashBatch'
@@ -478,6 +479,9 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    const tangentWash=!!brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'
+    if(tangentWash&&(!hasTangentNormalWash136Scope(brush)||effectiveErase))throw Error('Invalid Tangent Wash136 scope')
+    if(tangentWash&&!this.proceduralStamp)throw Error('Tangent Wash136 procedural program was not prepared')
     const bristleWash=!!brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(bristleWash&&(!hasBristleWash135Scope(brush)||effectiveErase))throw Error('Invalid Bristle Wash135 scope')
     if(bristleWash){if(!this.requestWash||!this.sketchBatch)throw Error('Bristle Wash pipeline was not prepared');this.requestWash.assertPrepared();this.sketchBatch.assertPrepared()}
@@ -616,7 +620,7 @@ export class BrushBehaviorPainter {
       if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
       state.washColor??=[...color]
     }
-    const constantPigment=!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    const constantPigment=!tangentWash&&!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
     const saturationTable=brush.bristle?.version===2&&brush.bristle.ink.useSaturation?this.bristleRequests!.preparedSaturationTable(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {

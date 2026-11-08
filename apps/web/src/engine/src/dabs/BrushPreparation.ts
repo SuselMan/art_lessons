@@ -1,3 +1,4 @@
+import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
 import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
@@ -93,6 +94,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
   const bristleWash=hasBristleWash135Scope(brush)
   if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
   const particleWash=hasParticleWash134Scope(brush)

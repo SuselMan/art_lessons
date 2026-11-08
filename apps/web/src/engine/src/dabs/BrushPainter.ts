@@ -1,3 +1,4 @@
+import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import{hasBristleWash135Scope}from'@grafetto/shared'
 import{hasParticleWash134Scope}from'@grafetto/shared'
 import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
@@ -76,12 +77,14 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const tangentWash=hasTangentNormalWash136Scope(brush)
+    if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!tangentWash)throw Error('Invalid Tangent Wash136 scope')
     const bristleWash=hasBristleWash135Scope(brush)
     if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
     const particleWash=hasParticleWash134Scope(brush)
     if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
-    const wash=hasSprayWash133Scope(brush)||particleWash||bristleWash
-    if(wash&&!particleWash&&!bristleWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
+    const wash=hasSprayWash133Scope(brush)||particleWash||bristleWash||tangentWash
+    if(wash&&!particleWash&&!bristleWash&&!tangentWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
     if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}

@@ -1,3 +1,4 @@
+import{hasTangentNormalWash136Scope}from'@grafetto/shared'
 import {textureMaterialVariant} from './src/presets/textureLightness'
 import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
 import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
@@ -7899,6 +7900,10 @@ export class PencilEngine implements PencilEngineAPI {
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,execution?:BrushExecutionContext,
   ): void {
+    if(stamp.brush.tangentNormal&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken'){
+      if(!hasTangentNormalWash136Scope(stamp.brush))throw Error('Invalid Tangent Wash136 scope')
+      assertBrushSourceInputs(stamp.brush,dabs);assertBrushExecutionContext(stamp.brush,execution)
+    }
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
     this._brush.prepareRecordedStampResources(stamp.brush)

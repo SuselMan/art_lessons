@@ -1,3 +1,4 @@
+export{hasTangentNormalWash136Scope}from'./brushTangentNormal.js'
 export {hasBristleWash135Scope}from'./brushBristle.js'
 export {hasParticleWash134Scope,isBrushParticle}from'./brushParticle.js'
 import{hasTimeControl132,isIndependentChildClock132Pair}from'./brushChildClock132.js'
@@ -744,6 +745,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.particle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.bristle&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
+        if(secondary.tangentNormal&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false
