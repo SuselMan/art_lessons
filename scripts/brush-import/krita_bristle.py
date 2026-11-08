@@ -113,6 +113,9 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
             from bristle_soak139 import bristle_resize141_scope
             candidate={**d,'version':141,'bristle':{**d['bristle'],'initialization':{'sourceSide':side,'resizePolicy':'mask-population-v1'}}}
             if not enabled(params.get('Krita/erase'))and not enabled(params.get('EraserMode'))and bristle_resize141_scope(candidate):
+                if candidate['bristle']['antialias'] and candidate['bristle']['compositing']:
+                    candidate['version']=142
+                    result['compatibility'].append(compatibility('bristleAntialias','Ordinary no-ink AA with compositing uses revision142 native major-axis bilinear U8 point coverage, retained stepped endpoint and one request-opacity composite; old recorded capsule revisions are preserved.'))
                 d=candidate
                 result['compatibility'].append(compatibility('bristleInitialization','Full nonzero source alpha grid is captured once; recorded sourceSize1..64 rebuilds a dense mask population at gesture BEGIN with deterministic bilinear pixel-center/clamped-edge/U8 sampling. Pressure, negative Bristle Scale, shear and jitter transform that population afterwards; native Qt mask filtering bytes differ.'))
             else:

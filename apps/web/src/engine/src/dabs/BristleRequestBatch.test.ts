@@ -149,3 +149,22 @@ it('streams the6686-hair author population through fixed2048 staging with one fi
  const s=fixture();s.batch.prepare(16,16);const before=s.snapshot();s.batch.paint(Array.from({length:6686},()=>stamp(.5,[1,0,0])),s.coverage,s.request,0,0)
  expect(s.gl.drawArrays).toHaveBeenCalledTimes(5);expect(s.gl.createBuffer).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);expect(s.pixels()).toEqual([expect.closeTo(128/255),0,0,expect.closeTo(128/255)])
 })
+it('prewarms142 only explicitly and reuses fixed staging for4096 ordinary AA hairs with one request-opacity composite',()=>{
+ const s=fixture(true);s.batch.preparePrograms();const oldPrograms=s.gl.createProgram.mock.calls.length
+ s.batch.prepareNativeAA142();s.batch.prepareNativeAA142();expect(s.gl.createProgram.mock.calls.length).toBe(oldPrograms+1);s.batch.prepareDimensions(16,16,true)
+ const before=s.snapshot(),programs=s.gl.createProgram.mock.calls.length,buffers=s.gl.createBuffer.mock.calls.length
+ const items=Array.from({length:4096},()=>({...stamp(.5,[1,0,0]),ceiling:.5,bristleTrajectory142:{start:[-.2,.25]as const,end:[2.8,.25]as const}}))
+ s.batch.paint(items,s.coverage,s.request,0,0,undefined,true)
+ expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.gl.createBuffer.mock.calls.length).toBe(buffers);expect(s.snapshot()).toEqual(before);expect(s.gl.createRenderbuffer).not.toHaveBeenCalled()
+})
+it('142 rejects missing original endpoints before drawing and cannot alias the ink mode',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();s.batch.prepareDimensions(16,16,true);const before=s.snapshot()
+ expect(()=>s.batch.paint([stamp(1,[1,0,0])],s.coverage,s.request,0,0,undefined,true)).toThrow('trajectory');expect(s.snapshot()).toEqual(before);expect(s.gl.drawArrays).not.toHaveBeenCalled()
+ expect(()=>s.batch.paint([],s.coverage,s.request,0,0,{antialias:true,compositing:true},true)).toThrow('no-ink')
+})
+it('142 applies global opacity only at the request composite and restores its own state on throw undefined',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();const opacity=vi.spyOn(s.gl,'uniform1f'),before=s.snapshot(),item={...stamp(.75,[1,0,0]),ceiling:.5,bristleTrajectory142:{start:[-.9,-.9]as const,end:[-.8,-.8]as const}}
+ s.batch.paint([item,item],s.coverage,s.request,0,0,undefined,true)
+ expect(opacity.mock.calls.filter(([u]:any[])=>u.name==='u_opacity').map(([,value]:any[])=>value)).toEqual([.5]);expect(s.snapshot()).toEqual(before)
+ s.fail();let threw=false,error:unknown='sentinel';try{s.batch.paint([item],s.coverage,s.request,0,0,undefined,true)}catch(e){threw=true;error=e}expect(threw).toBe(true);expect(error).toBeUndefined();expect(s.snapshot()).toEqual(before);expect(()=>s.batch.reset()).not.toThrow()
+})

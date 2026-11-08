@@ -249,6 +249,7 @@ export class BrushPainter {
     this.behavior.prepareBristleInk(settings,antialias,compositing,brush?.bristle)
   }
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
+  prepareBristleNativeAA142():void{this.behavior.prepareBristleNativeAA142()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareGridWash():void{
     const resources:BrushPreparationResource[]=[{id:'cloud',grain:true,painter:'stamp'},{id:'grit',grain:true,painter:'stamp'}]

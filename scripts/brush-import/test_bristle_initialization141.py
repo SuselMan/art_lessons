@@ -14,6 +14,13 @@ class Initialization141(unittest.TestCase):
     c,_=self.native(tmp,{'HairyBristle/density':density});d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],version);self.assertEqual(d['bristle']['scale'],-1);self.assertEqual(bristle_resize141_scope(d),version==141)
     if version==141:self.assertEqual(d['bristle']['initialization'],{'sourceSide':4,'resizePolicy':'mask-population-v1'})
     else:self.assertNotIn('initialization',d['bristle'])
+ def test_native142_only_antialiased_compositing_true_promotes(self):
+  for aa in(False,True):
+   for comp in(False,True):
+    with self.subTest(aa=aa,compositing=comp),tempfile.TemporaryDirectory()as tmp:
+     c,raw=self.native(tmp,{'HairyBristle/antialias':str(aa).lower(),'HairyBristle/useCompositing':str(comp).lower()});d=c.brushes[0]['descriptor']
+     self.assertEqual(d['version'],142 if aa and comp else 141);self.assertEqual(d['bristle']['antialias'],aa);self.assertEqual(d['bristle']['compositing'],comp);self.assertTrue(bristle_resize141_scope(d));self.assertEqual(d['bristle']['initialization'],{'sourceSide':4,'resizePolicy':'mask-population-v1'})
+     old=preset(raw,'own.kpp',Catalog(Path(tmp)/'legacy'),{'own.gbr':fixture.GBR},_allow_texture_material=False)['descriptor'];self.assertNotIn('initialization',old['bristle']);self.assertEqual(old['version'],45 if aa or comp else 66)
  def test_native_erase_preserves_old45_fallback(self):
   with tempfile.TemporaryDirectory()as tmp:
    c,raw=self.native(tmp,{'Krita/erase':'true'});d=c.brushes[0]['descriptor']

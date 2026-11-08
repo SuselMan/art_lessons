@@ -8,7 +8,7 @@ export interface BristleState {ordinal:number;oldPressure:number;previous?:{x:nu
 /** Hair positions are gesture state, never tile/frame state. Connected paths
  * preserve transformed endpoints across pressure/rotation changes. */
 export interface BristleInkGeometry {hair:number;length:number;pressure:number;start:readonly[number,number];end:readonly[number,number];sampleAlpha?:number}
-export interface BristleGeometryStamp extends SketchStamp {bristleInk?:BristleInkGeometry}
+export interface BristleGeometryStamp extends SketchStamp {bristleInk?:BristleInkGeometry;bristleTrajectory142?:{start:readonly[number,number];end:readonly[number,number]}}
 export function bristleStamps(brush:BrushDescriptor,dab:Dab,state:BristleState,color:[number,number,number],seed:number):SketchStamp[]{
  if(brush.bristle&&'ink' in brush.bristle)throw Error('Bristle depletion requires the prepared spatial ink route')
  return bristleGeometryStamps(brush,dab,state,color,seed)
@@ -40,7 +40,7 @@ export function bristleGeometryStamps(brush:BrushDescriptor,dab:Dab,state:Bristl
   if(b.threshold&&length<1-dab.pressure)continue
   const sampled=state.soak?bristleSoakHair139(state.soak,i):undefined
   const x1=previous.x+start[0],y1=previous.y+start[1],x2=dab.x+end[0],y2=dab.y+end[1],distance=Math.hypot(x2-x1,y2-y1)
-  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:sampled?[sampled[0],sampled[1],sampled[2]]:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,...(sampled?{sampleAlpha:sampled[3]}:{}),start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
+  out.push({x:(x1+x2)/2,y:(y1+y2)/2,size:1,aspect:distance+1,angle:Math.atan2(y2-y1,x2-x1),flowScale:length,color:sampled?[sampled[0],sampled[1],sampled[2]]:[...color],group:ordinal,groupOpacity:1,segmentLength:distance,...(ordinaryResize&&brush.version>=142&&b.antialias&&b.compositing?{bristleTrajectory142:{start:[x1,y1] as const,end:[x2,y2] as const}}:{}),...('ink' in b?{bristleInk:{hair:i,length,pressure:2*dab.pressure*mouse,...(sampled?{sampleAlpha:sampled[3]}:{}),start:[x1,y1] as const,end:[x2,y2] as const}}:{})})
  }
  return out
 }

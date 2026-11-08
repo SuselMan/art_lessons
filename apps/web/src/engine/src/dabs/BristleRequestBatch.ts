@@ -1,3 +1,4 @@
+import {BRISTLE_NATIVE_AA142_VERT,BRISTLE_NATIVE_AA142_FRAG} from './bristleNativeAA142'
 import type {PreparedBristleSaturationResource} from './BristleSaturationResource'
 import {writeBristleSaturationParameter,type BristleSaturationTable,type BristleSaturationGpuLayout} from '../presets/brushBristleSaturationTable'
 import {BRISTLE_SATURATION_GLSL} from './bristleSaturationShader'
@@ -20,6 +21,7 @@ const CORNERS=[[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]] as const
 export class BristleRequestBatch{
  private readonly gl:WebGLRenderingContext
  private readonly data:Float32Array
+ private nativeAA142Program?:WebGLProgram
  private program?:WebGLProgram
  private composite?:WebGLProgram
  private inkProgram?:WebGLProgram
@@ -166,6 +168,11 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
   if(!this.inkData||this.inkData.length<2048*6*23)this.inkData=new Float32Array(2048*6*23)
  }
  prepare(width:number,height:number):void{this.preparePrograms();this.prepareDimensions(width,height)}
+ prepareNativeAA142():void{
+  this.preparePrograms()
+  this.nativeAA142Program??=createProgram(this.gl,BRISTLE_NATIVE_AA142_VERT,BRISTLE_NATIVE_AA142_FRAG)
+  if(!this.vaoExtension)this.assertRestorableAttributes(this.nativeAA142Program)
+ }
  preparePrograms():void{
   if(this.busy)throw Error('Bristle winner is busy')
   if(this.program&&this.composite&&this.buffer&&this.quad&&(this.vaoExtension===null||this.vao))return
@@ -185,7 +192,13 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
  }
  /** Only target-sized storage may be prepared at first tile resolution.
   * Shader/VAO construction must already have succeeded during prewarm. */
- prepareDimensions(width:number,height:number):void{
+ prepareDimensions(width:number,height:number,nativeAA142=false):void{
+  if(nativeAA142){
+   if(this.busy||!this.nativeAA142Program)throw Error('Native AA142 is not prepared')
+   const max=this.gl.getParameter(this.gl.MAX_RENDERBUFFER_SIZE)as number
+   if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>max||height>max)throw RangeError('Invalid Bristle dimensions')
+   return // OVER needs the existing colour request only, no depth surface.
+  }
   if(this.busy)throw Error('Bristle winner is busy')
   if(!this.program||!this.composite||!this.buffer||!this.quad)throw Error('Bristle programs are not prepared')
   if(this.depth&&width===this.width&&height===this.height)return
@@ -210,24 +223,28 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
   if(this.busy)throw Error('Bristle winner is busy')
   const gl=this.gl
   let failed=false,primary:unknown
-  for(const fn of [()=>{if(this.soakInkProgram)gl.deleteProgram(this.soakInkProgram)},()=>{if(this.soakInkWinnerProgram)gl.deleteProgram(this.soakInkWinnerProgram)},()=>{if(this.soakSaturationProgram)gl.deleteProgram(this.soakSaturationProgram)},()=>{if(this.soakSaturationWinnerProgram)gl.deleteProgram(this.soakSaturationWinnerProgram)},()=>{if(this.saturationProgram)gl.deleteProgram(this.saturationProgram)},()=>{if(this.saturationWinnerProgram)gl.deleteProgram(this.saturationWinnerProgram)},()=>{this.saturationResource?.release()},()=>{if(this.inkProgram)gl.deleteProgram(this.inkProgram)},()=>{if(this.inkAddComposite)gl.deleteProgram(this.inkAddComposite)},()=>{if(this.inkWinnerProgram)gl.deleteProgram(this.inkWinnerProgram)},()=>{if(this.inkTexture)gl.deleteTexture(this.inkTexture)},()=>{if(this.program)gl.deleteProgram(this.program)},()=>{if(this.composite)gl.deleteProgram(this.composite)},()=>{if(this.buffer)gl.deleteBuffer(this.buffer)},()=>{if(this.quad)gl.deleteBuffer(this.quad)},()=>{if(this.depth)gl.deleteRenderbuffer(this.depth)},()=>{if(this.vao)this.vaoExtension?.deleteVertexArrayOES(this.vao)}])try{fn()}catch(error){if(!failed){failed=true;primary=error}}
+  for(const fn of [()=>{if(this.nativeAA142Program)gl.deleteProgram(this.nativeAA142Program)},()=>{if(this.soakInkProgram)gl.deleteProgram(this.soakInkProgram)},()=>{if(this.soakInkWinnerProgram)gl.deleteProgram(this.soakInkWinnerProgram)},()=>{if(this.soakSaturationProgram)gl.deleteProgram(this.soakSaturationProgram)},()=>{if(this.soakSaturationWinnerProgram)gl.deleteProgram(this.soakSaturationWinnerProgram)},()=>{if(this.saturationProgram)gl.deleteProgram(this.saturationProgram)},()=>{if(this.saturationWinnerProgram)gl.deleteProgram(this.saturationWinnerProgram)},()=>{this.saturationResource?.release()},()=>{if(this.inkProgram)gl.deleteProgram(this.inkProgram)},()=>{if(this.inkAddComposite)gl.deleteProgram(this.inkAddComposite)},()=>{if(this.inkWinnerProgram)gl.deleteProgram(this.inkWinnerProgram)},()=>{if(this.inkTexture)gl.deleteTexture(this.inkTexture)},()=>{if(this.program)gl.deleteProgram(this.program)},()=>{if(this.composite)gl.deleteProgram(this.composite)},()=>{if(this.buffer)gl.deleteBuffer(this.buffer)},()=>{if(this.quad)gl.deleteBuffer(this.quad)},()=>{if(this.depth)gl.deleteRenderbuffer(this.depth)},()=>{if(this.vao)this.vaoExtension?.deleteVertexArrayOES(this.vao)}])try{fn()}catch(error){if(!failed){failed=true;primary=error}}
   this.inkSources=undefined;this.saturationSources=undefined;this.soakInkProgram=undefined;this.soakInkWinnerProgram=undefined;this.soakSaturationProgram=undefined;this.soakSaturationWinnerProgram=undefined;
   this.saturationProgram=undefined;this.saturationWinnerProgram=undefined;this.saturationTexture=undefined;this.saturationTable=undefined;this.saturationLayout=undefined;this.saturationResource=undefined;this.saturationParameterScratch=undefined;
   this.inkAddComposite=undefined;this.inkProgram=undefined;this.inkWinnerProgram=undefined;this.inkTexture=undefined;this.inkProfile=undefined;this.inkSettings=undefined;this.inkWidth=0;this.inkHeight=0;this.inkData=undefined
-  this.program=undefined;this.composite=undefined;this.buffer=undefined;this.quad=undefined;this.depth=undefined;this.width=0;this.height=0;this.vao=undefined;this.vaoExtension=undefined;this.instancing=undefined
+  this.nativeAA142Program=undefined;this.program=undefined;this.composite=undefined;this.buffer=undefined;this.quad=undefined;this.depth=undefined;this.width=0;this.height=0;this.vao=undefined;this.vaoExtension=undefined;this.instancing=undefined
   if(failed)throw primary
  }
  destroy():void{this.reset()}
- paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,request:AccumulationBuffer,originX:number,originY:number,ink?:{antialias:boolean;compositing:boolean}):void{
+ paint(stamps:readonly BehaviorPlaced[],coverage:AccumulationBuffer,request:AccumulationBuffer,originX:number,originY:number,ink?:{antialias:boolean;compositing:boolean},nativeAA142=false):void{
   if(this.busy)throw Error('Bristle winner is busy')
   const gl=this.gl,w=coverage.width,h=coverage.height,saturation=!!ink&&!!this.inkProfile?.useSaturation
   const composite=ink&&ink.antialias&&!ink.compositing?this.inkAddComposite:this.composite
   const soak=!!ink&&stamps.some(s=>(s as BehaviorPlaced&{bristleInkSpan?:BristleInkSpan}).bristleInkSpan?.sampleAlpha!==undefined)
-  const winner=!ink||(!ink.antialias&&!ink.compositing),program=ink?(soak?(saturation?(winner?this.soakSaturationWinnerProgram:this.soakSaturationProgram):(winner?this.soakInkWinnerProgram:this.soakInkProgram)):(saturation?(winner?this.saturationWinnerProgram:this.saturationProgram):(winner?this.inkWinnerProgram:this.inkProgram))):this.program,data=ink?this.inkData:this.data,stride=ink?(saturation?22:18)+(soak?1:0):10
+  if(nativeAA142&&ink)throw Error('Native AA142 is no-ink only')
+  if(nativeAA142&&!this.nativeAA142Program)throw Error('Native AA142 is not prewarmed')
+  if(nativeAA142)for(const s of stamps){const line=(s as BehaviorPlaced&{bristleTrajectory142?:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142;if(!line||![...line.start,...line.end].every(Number.isFinite))throw Error('Missing native AA142 trajectory')}
+  const winner=!nativeAA142&&(!ink||(!ink.antialias&&!ink.compositing)),program=nativeAA142?this.nativeAA142Program:ink?(soak?(saturation?(winner?this.soakSaturationWinnerProgram:this.soakSaturationProgram):(winner?this.soakInkWinnerProgram:this.soakInkProgram)):(saturation?(winner?this.saturationWinnerProgram:this.saturationProgram):(winner?this.inkWinnerProgram:this.inkProgram))):this.program,data=ink?this.inkData:this.data,stride=ink?(saturation?22:18)+(soak?1:0):10
   if(ink&&(!program||!data||!this.inkProfile||!this.inkTexture))throw Error('Bristle ink is not prewarmed')
   if(ink)for(const stamp of stamps){const span=(stamp as BehaviorPlaced&{bristleInkSpan?:BristleInkSpan}).bristleInkSpan;if(!span||soak&&(span.sampleAlpha===undefined||!Number.isFinite(span.sampleAlpha)||span.sampleAlpha<0||span.sampleAlpha>1)||!Number.isSafeInteger(span.counter)||span.counter<0||!Number.isSafeInteger(span.samples)||span.samples<1||!Number.isSafeInteger(span.steps)||span.steps<0||(span.axis!=='x'&&span.axis!=='y')||![span.initialInk,span.length].every(v=>Number.isFinite(v)&&v>=0&&v<=1)||!Number.isFinite(span.pressure)||span.pressure<0||span.pressure>2||![...span.start,...span.end].every(Number.isFinite))throw Error('Missing or invalid Bristle ink span')}
-  if(!this.program||!composite||!this.buffer||!this.quad||!this.depth||w!==this.width||h!==this.height||request.width!==w||request.height!==h||request.texture===coverage.texture||request.fbo===coverage.fbo)throw Error('Bristle winner not prepared for distinct request/coverage')
+  if(!this.program||!composite||!this.buffer||!this.quad||(!nativeAA142&&(!this.depth||w!==this.width||h!==this.height))||request.width!==w||request.height!==h||request.texture===coverage.texture||request.fbo===coverage.fbo)throw Error('Bristle winner not prepared for distinct request/coverage')
   if(!Number.isFinite(originX)||!Number.isFinite(originY))throw RangeError('Invalid Bristle origin')
+  if(nativeAA142)this.prepareDimensions(w,h,true)
   const populationLimit=ink?4096:8192
   if(stamps.length>populationLimit*4)throw RangeError('Bristle batch exceeds four requests')
   for(const s of stamps)if(![s.x,s.y,s.radius,s.angle,s.segmentLength??0,s.flow,s.ceiling,...s.color].every(Number.isFinite)||s.radius<0||(s.segmentLength??0)<0||s.flow<0||s.flow>1||s.ceiling<0||s.ceiling>1||s.color.some(v=>v<0||v>1))throw RangeError('Invalid aliased Bristle candidate')
@@ -266,7 +283,7 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
    if(saturation){gl.activeTexture(gl.TEXTURE2);texture2=gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture|null;texture2Known=true;gl.bindTexture(gl.TEXTURE_2D,this.saturationTexture!);gl.activeTexture(gl.TEXTURE0)}
    gl.bindFramebuffer(gl.FRAMEBUFFER,request.fbo)
    if(gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)!==gl.NONE||gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.STENCIL_ATTACHMENT,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)!==gl.NONE)throw Error('Foreign Bristle depth/stencil attachment')
-   attached=true;gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,this.depth)
+   if(!nativeAA142){attached=true;gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,this.depth!)}
    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Bristle framebuffer unavailable')
    for(const cap of caps)gl.disable(cap)
    gl.colorMask(true,true,true,true);gl.depthMask(true);gl.depthRange(0,1);gl.depthFunc(gl.GREATER);gl.clearDepth(0);gl.clearColor(0,0,0,0)
@@ -276,14 +293,22 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
      this.saturationResource!.assertCurrent()
      const layout=this.saturationLayout!;gl.useProgram(program!);gl.uniform1i(gl.getUniformLocation(program!,'u_saturation'),2);gl.uniform4f(gl.getUniformLocation(program!,'u_satTree'),layout.base,layout.segments,layout.tailStart,126);gl.uniform2f(gl.getUniformLocation(program!,'u_satTail'),layout.tailQ,Number(layout.multiplicative))
     }
-    request.beginReplaceDraw();gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(winner){gl.enable(gl.DEPTH_TEST);gl.disable(gl.BLEND)}else{gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendEquation(gl.FUNC_ADD);if(ink!.compositing)gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);else gl.blendFuncSeparate(gl.ONE,gl.ZERO,gl.ONE,gl.ONE)}gl.useProgram(program!);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer)
+    request.beginReplaceDraw();gl.clear(gl.COLOR_BUFFER_BIT|(nativeAA142?0:gl.DEPTH_BUFFER_BIT));if(winner){gl.enable(gl.DEPTH_TEST);gl.disable(gl.BLEND)}else{gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendEquation(gl.FUNC_ADD);if(nativeAA142||ink!.compositing)gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);else gl.blendFuncSeparate(gl.ONE,gl.ZERO,gl.ONE,gl.ONE)}gl.useProgram(program!);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer)
     gl.uniform2f(gl.getUniformLocation(program!,'u_resolution'),w,h)
+    if(nativeAA142)gl.uniform2f(gl.getUniformLocation(program!,'u_worldOrigin'),originX,originY)
     if(ink){const p=this.inkProfile!;gl.uniform1i(gl.getUniformLocation(program!,'u_inkCurve'),1);gl.uniform3f(gl.getUniformLocation(program!,'u_inkTable'),this.inkWidth,this.inkHeight,p.amount);gl.uniform4f(gl.getUniformLocation(program!,'u_inkWeights'),p.pressureWeight,p.bristleLengthWeight,p.bristleInkAmountWeight,p.inkDepletionWeight);gl.uniform2f(gl.getUniformLocation(program!,'u_inkFlags'),Number(p.useOpacity),Number(p.useWeights));gl.uniform1f(gl.getUniformLocation(program!,'u_targetHeight'),h);gl.uniform3f(gl.getUniformLocation(program!,'u_requestMode'),Number(ink.antialias),Number(!ink.compositing&&!winner),Number(ink.compositing))}
     const attributes:readonly(readonly[string,number,number])[]=ink?[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_extent',2,8],['a_inkState',4,10],['a_inkAxis',4,14],...(saturation?[['a_satParameter',4,18] as const]:[]),...(soak?[['a_soakAlpha',1,saturation?22:18] as const]:[])]:[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_extent',2,8]]
     for(const [name,size,offset]of attributes){const loc=gl.getAttribLocation(program!,name);if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,stride*4,offset*4);this.instancing?.vertexAttribDivisorANGLE(loc,0)}}
     let vertices=0
     const flush=()=>{if(vertices){gl.bufferData(gl.ARRAY_BUFFER,data!.subarray(0,vertices*stride),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices);vertices=0}}
     for(let i=first;i<end;i++){
+     if(nativeAA142){
+      const s=stamps[i],line=(s as BehaviorPlaced&{bristleTrajectory142:{start:readonly[number,number];end:readonly[number,number]}}).bristleTrajectory142,sx=line.start[0]-originX,sy=line.start[1]-originY,ex=line.end[0]-originX,ey=line.end[1]-originY,minX=Math.min(sx,ex)-3,maxX=Math.max(sx,ex)+3,minY=Math.min(sy,ey)-3,maxY=Math.max(sy,ey)+3
+      if(maxX<0||maxY<0||minX>w||minY>h)continue
+      if(vertices===2048*6)flush()
+      for(const[a,b]of CORNERS){const at=vertices++*stride;data![at]=a<0?minX:maxX;data![at+1]=b<0?minY:maxY;data![at+2]=sx;data![at+3]=sy;data![at+4]=s.color[0];data![at+5]=s.color[1];data![at+6]=s.color[2];data![at+7]=Math.round(s.flow*255)/255;data![at+8]=ex;data![at+9]=ey}
+      continue
+     }
      const s=stamps[i],length=(s.segmentLength??0)*.5,width=s.radius,cx=s.x-originX,cy=s.y-originY,rx=length+width+1,ry=width+1
      if(cx+rx+ry<0||cy+rx+ry<0||cx-rx-ry>w||cy-rx-ry>h)continue
      if(vertices===2048*6)flush()

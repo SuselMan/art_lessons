@@ -50,3 +50,11 @@ it('ordinary141 invalid capture is rejected before anchor state; legacy45 ignore
  expect(bristleGeometryStamps(old,dab,plain,[1,0,0],1)).toEqual(bristleGeometryStamps(old,dab,stale,[1,0,0],1))
  const a=bristleGeometryStamps(old,{...dab,x:4},plain,[1,0,0],1),c=bristleGeometryStamps(old,{...dab,x:4},stale,[1,0,0],1);expect(a).toHaveLength(1);expect(c).toEqual(a)
 })
+it('142 preserves initialized geometry and adds exact original endpoints only to its opt-in AA trajectory',()=>{
+ const old=ordinary(1,[[0,0,1]]);old.bristle!.antialias=true;old.bristle!.compositing=true;const next=structuredClone(old);next.version=142
+ const a:BristleState={ordinal:0,oldPressure:1,ends:[]},b=structuredClone(a),first={...dab,x:-.2,y:.25,sourceSize:1,sourceScale:1},last={...first,x:2.8}
+ bristleGeometryStamps(old,first,a,[1,0,0],1);bristleGeometryStamps(next,first,b,[1,0,0],1)
+ const legacy=bristleGeometryStamps(old,last,a,[1,0,0],1),native=bristleGeometryStamps(next,last,b,[1,0,0],1)
+ expect(legacy[0].bristleTrajectory142).toBeUndefined();expect(native[0].bristleTrajectory142).toEqual({start:[-.2,.25],end:[2.8,.25]})
+ expect(native.map(({bristleTrajectory142:_line,...geometry})=>geometry)).toEqual(legacy)
+})
