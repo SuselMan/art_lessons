@@ -27,3 +27,23 @@ export function isBrushSpray(value: unknown): value is BrushSpray {
   if(!object(v.dynamics)||Object.keys(v.dynamics).some(k=>!['randomSize','fixedAngle','randomAngle','radialAngle','pathAngle'].includes(k))||typeof v.dynamics.randomSize!=='boolean'||!n(v.dynamics.fixedAngle,-Math.PI*2,Math.PI*2)||!n(v.dynamics.randomAngle,0,1)||!n(v.dynamics.radialAngle,0,1)||!n(v.dynamics.pathAngle,0,1))return false
   return object(v.color)&&['sampleInput','mixBackground','fillBackground'].every(k=>(v.color as Record<string,unknown>)[k]===undefined||(v.color as Record<string,unknown>)[k]===true)&&!Object.keys(v.color).some(k=>!['sampleInput','mixBackground','fillBackground','perParticle','hue','saturation','value','randomOpacity'].includes(k))&&typeof v.color.perParticle==='boolean'&&typeof v.color.randomOpacity==='boolean'&&n(v.color.hue,-1,1)&&n(v.color.saturation,-1,1)&&n(v.color.value,-1,1)
 }
+
+/** New133 scope only. Ordinary schema/CAS validation remains mandatory. A request
+ * image is OVER internally, then alpha-darkened once into the EXISTING stroke
+ * coverage owner. Historical directOver Spray definitions never opt in. */
+export function hasSprayWash133Scope(value:unknown):boolean {
+ const obj=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v)
+ if(!obj(value)||!obj(value.spray)||!obj(value.tip)||!obj(value.behavior))return false
+ const s=value.spray,t=value.tip,b=value.behavior,r=b.rendering
+ if(value.model!=='stamp'||!Number.isInteger(value.version)||Number(value.version)<133||value.paperInteraction!==0||value.flow!==1||!Array.isArray(value.flowByPressure)||value.flowByPressure.length<2||!value.flowByPressure.every(v=>Array.isArray(v)&&v.length===2&&typeof v[0]==='number'&&Number.isFinite(v[0])&&v[0]>=0&&v[0]<=1&&v[1]===1))return false
+ if(['mixer','wet','texture','scatter','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>value[k]!==undefined))return false
+ if(b.version!==2||b.erase===true||['dual','taper','edgeBleed','wetMix','grain','colorAdjustment','sequentialRandom','strokeInput','clockRead'].some(k=>b[k]!==undefined)||!obj(r)||r.mode!=='buildUp'||r.blendMode!=='normal'||r.accumulation!=='alphaDarken'||(r.wetEdges??0)!==0||(r.burntEdges??0)!==0)return false
+ for(const key of ['dynamics','modulations'])if(obj(b[key])&&['flow','hue','saturation','brightness'].some(k=>(b[key] as Record<string,unknown>)[k]!==undefined))return false
+ if(!obj(s.particle)||!obj(s.color)||s.particle.image!==undefined||['sampleInput','mixBackground','fillBackground'].some(k=>(s.color as Record<string,unknown>)[k]!==undefined))return false
+ if(['color','material','imageSampling','autoShape','autoNoise','alphaThreshold'].some(k=>t[k]!==undefined))return false
+ if(!['round','procedural','bitmap'].includes(String(t.kind)))return false
+ if(t.profile!==undefined&&(!obj(t.profile)||t.profile.kind!=='standard'))return false
+ if(s.particle.shape==='tip'&&(t.kind!=='bitmap'||t.profile!==undefined||typeof t.mask!=='string'))return false
+ if(t.animation!==undefined){const a=t.animation;if(s.particle.shape!=='tip'||!obj(a)||!['random','incremental'].includes(String(a.mode))||Object.keys(a).some(k=>!['mode','frames'].includes(k))||!Array.isArray(a.frames)||a.frames.length<2||a.frames.length>256||!a.frames.every(x=>typeof x==='string'))return false}
+ return true
+}

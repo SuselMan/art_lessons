@@ -555,6 +555,8 @@ def validate_portable_mixer(descriptor):
 def validate_portable_profile(descriptor, *, parent=None):
     """Bound the portable Python boundary; shared isBrushLibrary remains the
     authoritative whole-library validator before installation."""
+    from spray_wash133 import validate_spray_wash133
+    validate_spray_wash133(descriptor)
     from child_clock132 import validate_child_clock132_profile
     validate_child_clock132_profile(descriptor,parent)
     tip=descriptor['tip']
@@ -727,6 +729,8 @@ def portable_bundle(path,catalog):
         if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
         tip=d['tip']
         validate_portable_profile(d,parent=parent)
+        from spray_wash133 import validate_spray_wash133
+        validate_spray_wash133(d,depth)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate','posterize'):raise ValueError('Portable Posterize filter is root-only'if d['filter'].get('kind')=='posterize'else'Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
         if d.get('sketch',{}).get('mode')=='mask':
             dims=d['sketch']['maskSize'];w,h=dims;longest=max(dims);side=2**math.ceil(math.log2(max(2,longest)))

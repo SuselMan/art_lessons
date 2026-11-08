@@ -1,3 +1,4 @@
+import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import{isFilterDescriptor}from'@grafetto/shared'
@@ -220,9 +221,9 @@ export class BrushBehaviorPainter {
   releaseBristleSaturation():void{this.bristleRequests?.releaseSaturationResource()}
   prepareBristleRequests():void{(this.bristleRequests??=new BristleRequestBatch(this.ctx.gl,this.sharedLineStaging())).preparePrograms()}
   prepareSketchLines():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).prepare()}
-  prepareSpraySources():void{
+  prepareSpraySources(wash=false):void{
     this.sprayRequestPainter??=new SprayRequestPainter(this.ctx,(w,h)=>{if(!this.ctx.acquireSprayScratch)throw Error('Spray scratch owner is unavailable');return this.ctx.acquireSprayScratch(w,h)},(stamp,brush)=>{const id=stamp.mask??brush.tip.mask,planes=stamp.colorPlanes;if(!id||!planes)throw Error('Spray original image is unavailable');return this.preparedImage(id,planes,brush.tip.maskBounds)},(stamp,brush)=>{if(brush.spray?.particle.shape!=='tip')return undefined;const id=stamp.mask??brush.tip.mask;return id?this.preparedSprayMask(id,brush.tip.maskBounds):undefined})
-    this.sprayRequestPainter.prepare()
+    this.sprayRequestPainter.prepare(wash)
   }
   prepareSprayImages():void{(this.sprayImageBatch??=new SprayImageBatch(this.ctx.gl)).prepare()}
   prepareSprayShapes():void{(this.sprayBatch??=new SprayShapeBatch(this.ctx.gl)).prepare()}
@@ -322,11 +323,69 @@ export class BrushBehaviorPainter {
     if (this.imageStamp) gl.deleteProgram(this.imageStamp.program)
     this.imageStamp = undefined
   }
+  /** One final composition owner for ordinary stamps and Spray request Wash.
+   * Frozen original and stroke coverage survive chunks/savepoints exactly as before. */
+  private presentStrokeTile(tile:{originX:number;originY:number;buffer:AccumulationBuffer},bounds:BrushBounds,original:AccumulationBuffer,coverage:AccumulationBuffer,ceiling:AccumulationBuffer,brush:BrushDescriptor,opacity:number,edge=0,secondaryState?:{tile:(source:AccumulationBuffer)=>AccumulationBuffer},extendedComposite?:{program:WebGLProgram;uniforms:Uniforms;position:number}):void{
+    const {gl,paper}=this.ctx,behavior=brush.behavior!,accumulation=behavior.rendering?.accumulation
+      tile.buffer.beginReplaceDraw()
+      gl.useProgram(extendedComposite?.program??this.composite)
+      const c = extendedComposite?.uniforms??this.cu, render = behavior.rendering
+      gl.uniform2f(c.u_resolution, tile.buffer.width, tile.buffer.height)
+      for (const [unit, tex, name] of [[0, original.texture, 'u_original'], [1, coverage.texture, 'u_strokeCoverage'], [2, ceiling.texture, 'u_ceiling']] as const) {
+        gl.activeTexture(gl.TEXTURE0 + unit)
+        gl.bindTexture(gl.TEXTURE_2D, tex)
+        gl.uniform1i(c[name], unit)
+      }
+      gl.uniform1f(c.u_opacity, accumulation==='directOver' ? 1 : opacity)
+      gl.uniform1f(c.u_physicalAccumulation,accumulation?1:0)
+      gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
+      gl.uniform1f(c.u_blend, blend(render?.blendMode))
+      gl.uniform1f(c.u_burntEdge, render?.burntEdges ?? 0)
+      gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
+      gl.uniform1f(c.u_edgePx, edge)
+      gl.uniform1f(c.u_luminance, render?.luminance ? 1 : 0)
+      gl.uniform1f(c.u_gammaCorrect, render?.gammaCorrect ? 1 : 0)
+      gl.activeTexture(gl.TEXTURE6)
+      gl.bindTexture(gl.TEXTURE_2D,secondaryState ? secondaryState.tile(tile.buffer).texture : paper.texture)
+      gl.uniform1i(c.u_secondaryCoverage,6)
+      gl.uniform1f(c.u_secondaryMode,blend(behavior.dual?.blendMode))
+      gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
+      const wet=brush.wet
+      const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
+      gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??0)
+      gl.uniform4f(c.u_surfaceOrigin,wrapSurface(tile.originX,640),wrapSurface(tile.originY,640),wrapSurface(tile.originX,224),wrapSurface(tile.originY,224))
+      for(const [unit,id,name] of [[3,'cloud','u_surfaceCloud'],[4,'grit','u_surfaceGrain']] as const){
+        gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.grain(id));gl.uniform1i(c[name],unit)
+      }
+      gl.uniform1f(c.u_screentone,brush.screentonePx??0)
+      gl.uniform1f(c.u_erase,behavior.erase?1:0)
+      const screenPeriod=(brush.screentonePx??0)*2
+      gl.uniform2f(c.u_screenOrigin,screenPeriod?wrapSurface(tile.originX,screenPeriod):0,screenPeriod?wrapSurface(tile.originY,screenPeriod):0)
+
+
+      const cx = (bounds.minX + bounds.maxX) * 0.5, cy = (bounds.minY + bounds.maxY) * 0.5
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
+      const compositePosition=extendedComposite?.position??this.cp
+      gl.enableVertexAttribArray(compositePosition)
+      gl.vertexAttribPointer(compositePosition, 2, gl.FLOAT, false, 0, 0)
+      gl.uniform2f(c.u_dabCenter, cx - tile.originX, cy - tile.originY)
+      // Tight axis-aligned quad: partial preview storage is valid only in
+      // bounds (+ sampling halo). The former enclosing square wrote outside it.
+      const width=bounds.maxX-bounds.minX,height=bounds.maxY-bounds.minY
+      gl.uniform1f(c.u_dabRadius, height*0.5)
+      gl.uniform1f(c.u_angle, 0)
+      gl.uniform1f(c.u_aspectRatio, width/height)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      tile.buffer.endDraw()
+  }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase): void {
+    const sprayWash=!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'
+    if(sprayWash&&(!hasSprayWash133Scope(brush)||!isBrushSpray(brush.spray)||effectiveErase))throw Error('Invalid Spray Wash133 scope')
+    if(sprayWash){if(!this.sprayRequestPainter)throw Error('Spray Wash pipeline was not prepared');this.sprayRequestPainter.assertWashPrepared()}
     if(brush.filter?.kind==='posterize'&&!isFilterDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Posterize117 brush scope')
     assertEqualLightnessGih123(brush)
     assertUnequalLightnessGih124(brush)
@@ -385,9 +444,19 @@ export class BrushBehaviorPainter {
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
-    this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
+    if(!sprayWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
-    const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
+    const state = scratch.brushBehavior ?? beginBrushBehavior(dabs[0],execution)
+    if(sprayWash){
+      if(!(target instanceof TiledLayerBuffer))throw Error('Spray Wash requires its tiled stroke target')
+      this.sprayRequestPainter!.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier,{
+        accepted:()=>{scratch.brushBehavior=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase})},
+        tile:tile=>{const entry=scratch.getOrCreate(tile.buffer);return{coverage:entry.coverage,previous:scratch.brushCeiling(tile.buffer)}},
+        present:(tile,bounds)=>{const entry=scratch.getOrCreate(tile.buffer);this.presentStrokeTile(tile,bounds,entry.original,entry.coverage,scratch.brushCeiling(tile.buffer),brush,state.opacity)},
+      })
+      return
+    }
+    scratch.brushBehavior=state
     if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)){
       if(effectiveErase||!(target instanceof TiledLayerBuffer)||!this.sprayRequestPainter)throw Error('Spray source pipeline is not prepared for this target')
       this.sprayRequestPainter.paint(target,dabs,brush,state,color,pressure,preset.sizeMultiplier)
@@ -941,56 +1010,7 @@ export class BrushBehaviorPainter {
         (this.filterPass??=new FilterBrushPass(gl)).paint(brush.filter,tile,bounds,coverage,scratch,target)
         continue
       }
-      tile.buffer.beginReplaceDraw()
-      gl.useProgram(extendedComposite?.program??this.composite)
-      const c = extendedComposite?.uniforms??this.cu, render = behavior.rendering
-      gl.uniform2f(c.u_resolution, tile.buffer.width, tile.buffer.height)
-      for (const [unit, tex, name] of [[0, original.texture, 'u_original'], [1, coverage.texture, 'u_strokeCoverage'], [2, ceiling.texture, 'u_ceiling']] as const) {
-        gl.activeTexture(gl.TEXTURE0 + unit)
-        gl.bindTexture(gl.TEXTURE_2D, tex)
-        gl.uniform1i(c[name], unit)
-      }
-      gl.uniform1f(c.u_opacity, accumulation==='directOver' ? 1 : state.opacity)
-      gl.uniform1f(c.u_physicalAccumulation,accumulation?1:0)
-      gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
-      gl.uniform1f(c.u_blend, blend(render?.blendMode))
-      gl.uniform1f(c.u_burntEdge, render?.burntEdges ?? 0)
-      gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
-      gl.uniform1f(c.u_edgePx, edge)
-      gl.uniform1f(c.u_luminance, render?.luminance ? 1 : 0)
-      gl.uniform1f(c.u_gammaCorrect, render?.gammaCorrect ? 1 : 0)
-      gl.activeTexture(gl.TEXTURE6)
-      gl.bindTexture(gl.TEXTURE_2D,secondaryState ? secondaryState.tile(tile.buffer).texture : paper.texture)
-      gl.uniform1i(c.u_secondaryCoverage,6)
-      gl.uniform1f(c.u_secondaryMode,blend(behavior.dual?.blendMode))
-      gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
-      const wet=brush.wet
-      const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
-      gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??0)
-      gl.uniform4f(c.u_surfaceOrigin,wrapSurface(tile.originX,640),wrapSurface(tile.originY,640),wrapSurface(tile.originX,224),wrapSurface(tile.originY,224))
-      for(const [unit,id,name] of [[3,'cloud','u_surfaceCloud'],[4,'grit','u_surfaceGrain']] as const){
-        gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.grain(id));gl.uniform1i(c[name],unit)
-      }
-      gl.uniform1f(c.u_screentone,brush.screentonePx??0)
-      gl.uniform1f(c.u_erase,behavior.erase?1:0)
-      const screenPeriod=(brush.screentonePx??0)*2
-      gl.uniform2f(c.u_screenOrigin,screenPeriod?wrapSurface(tile.originX,screenPeriod):0,screenPeriod?wrapSurface(tile.originY,screenPeriod):0)
-
-
-      const cx = (bounds.minX + bounds.maxX) * 0.5, cy = (bounds.minY + bounds.maxY) * 0.5
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-      const compositePosition=extendedComposite?.position??this.cp
-      gl.enableVertexAttribArray(compositePosition)
-      gl.vertexAttribPointer(compositePosition, 2, gl.FLOAT, false, 0, 0)
-      gl.uniform2f(c.u_dabCenter, cx - tile.originX, cy - tile.originY)
-      // Tight axis-aligned quad: partial preview storage is valid only in
-      // bounds (+ sampling halo). The former enclosing square wrote outside it.
-      const width=bounds.maxX-bounds.minX,height=bounds.maxY-bounds.minY
-      gl.uniform1f(c.u_dabRadius, height*0.5)
-      gl.uniform1f(c.u_angle, 0)
-      gl.uniform1f(c.u_aspectRatio, width/height)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      tile.buffer.endDraw()
+      this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite)
     }
     target.markContentPainted(bounds)
     } finally { releaseTextures() }

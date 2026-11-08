@@ -1,3 +1,4 @@
+import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{hasSmudgeTextureErase131Scope}from'@grafetto/shared'
 import{assertIndependentLightness128}from'../presets/independentLightness128'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
@@ -88,8 +89,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  const sprayWash=hasSprayWash133Scope(brush)
+  if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&(!sprayWash||!isBrushSpray(brush.spray)))throw Error('Invalid Spray Wash133 scope')
   if(assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
@@ -97,7 +100,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
@@ -107,7 +110,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.grid)capabilities.add('grid')
   if(brush.hatching)capabilities.add('hatching')
   if(brush.sketch||brush.bristle||brush.curveTrace)capabilities.add('sketchLines')
-  if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
+  if(sprayWash)capabilities.add('sprayWash')
+  else if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')
   else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
   if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
@@ -202,7 +206,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(dual.brush.texture?.application)add('wet',textureEraseId(dual.brush.texture,capturedErase),true,true)
     }
   }
-  visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp')
+  visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 

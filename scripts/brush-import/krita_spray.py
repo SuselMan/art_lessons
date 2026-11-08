@@ -65,7 +65,8 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         if generator is not None and generator.get('id')=='soft' and enabled(generator.get('antialiasEdges')):
             source_curve_aa=True;generator.set('antialiasEdges','0')
         base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
-    # Spray uses its own accumulation, not Pixel Wash/BuildUp selection.
+    # Common bridge remains BuildUp; native Wash is admitted only after the
+    # complete independent Spray descriptor exists, never via Pixel aliases.
     base_params['PaintOpAction']='1'
     for node in transformed.findall('param'):transformed.remove(node)
     for key,value in base_params.items():ET.SubElement(transformed,'param',{'name':key}).text=value or ''
@@ -130,9 +131,14 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         if d.get('texture')or d.get('paperInteraction')or behavior.get('erase'):raise ValueError('Spray sampled source combination is not supported')
     if d['tip'].get('autoNoise') and (image_shape or source_flags or behavior.get('dual')):raise ValueError('Spray Auto-mask noise requires an independent procedural particle')
     d['spray']=spray;d['version']=max(76 if source_flags or image_shape else 43,96 if d['tip'].get('autoNoise') else 0)
+    if params.get('PaintOpAction','1')=='2':
+        from spray_wash133 import spray_wash133_scope
+        d['version']=max(d['version'],133);behavior['rendering']['accumulation']='alphaDarken'
+        if not spray_wash133_scope(d):raise ValueError('Spray Wash133 combination is outside the closed root scope')
     result['descriptor']=finalize_identity(d,data);result['sourceDefaults']['sizePx']=diameter
     note=compatibility('spray','Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.')
     result['compatibility']=[n for n in result['compatibility'] if n['feature']!='kritaEngine']+[note]
+    if behavior['rendering']['accumulation']=='alphaDarken':result['compatibility'].append(compatibility('sprayWash','Particles OVER into one logical request image, then creamy alpha-darken into stroke-owned coverage; captured stroke opacity composites once. Bounded tile-region scratch preserves large clouds and image-pipe colours. Native ICC/RNG/U8 identity is not claimed.','approximate'))
     if image_shape:result['compatibility'].append(compatibility('sprayImageParticle','Captured resource RGB/alpha, independent particle dimensions, centred rotation and per-particle HSV/opacity retained. Native Qt initial resize and smooth transformed-image filtering differ from canonical GPU filtering.','approximate'))
     if image_shape and params.get('SprayShape/imageUrl','').lower().endswith('.svg'):result['compatibility'].append(compatibility('capturedSvgImage','Captured bounded SVG subset rasterized to explicit RGBA pixel dimensions with librsvg. Fonts/external images/filters/use are rejected; Qt SVG plugin/ICC/filtering byte identity is not claimed.'))
     if source_flags and not image_shape:result['compatibility'].append(compatibility('spraySourceTiming','Canvas colour is captured before each Spray request; native Krita reads the original layer at stroke start. Overlapping requests can differ.','approximate'))

@@ -33,8 +33,9 @@ import {isBrushBristle,isBristleSaturationLookup,type BrushBristle} from './brus
 export type {BrushBristle,BrushBristleInk,BrushBristleSaturationLookup} from './brushBristle.js'
 import {isBrushSketch,type BrushSketch} from './brushSketch.js'
 export type {BrushSketch} from './brushSketch.js'
-import { isBrushSpray, type BrushSpray } from './brushSpray.js'
+import { hasSprayWash133Scope,isBrushSpray, type BrushSpray } from './brushSpray.js'
 export type { BrushSpray } from './brushSpray.js'
+export {hasSprayWash133Scope,isBrushSpray} from './brushSpray.js'
 import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
@@ -481,6 +482,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const [w,h]=dims as number[],longest=Math.max(w,h);let side=2**Math.ceil(Math.log2(Math.max(2,longest)));if(longest===side&&((side-w)%2||(side-h)%2))side*=2
       if(size!==side||bounds.x!==(Math.floor((side-w)/2)+(w-longest)/2)/side||bounds.y!==(Math.floor((side-h)/2)+(h-longest)/2)/side||bounds.width!==longest/side||bounds.height!==longest/side)return false
     }
+    if(d.spray!==undefined&&record(d.behavior)&&record(d.behavior.rendering)&&d.behavior.rendering.accumulation==='alphaDarken'&&!hasSprayWash133Scope(d))return false
     const sprayImage=record(d.spray)&&record(d.spray.particle)&&d.spray.particle.image===true
     const spraySource=record(d.spray)&&record(d.spray.color)&&['sampleInput','mixBackground','fillBackground'].some(k=>(d.spray as {color:Record<string,unknown>}).color[k]===true)
     if(sprayImage||spraySource){
@@ -736,6 +738,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.spray&&secondary.behavior?.rendering?.accumulation==='alphaDarken')return false
         if(secondary.texture?.material!==undefined)return false
         if(secondary.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(secondary.texture.application.mode)))return false
         if(secondary.model==='mixer'&&secondary.texture?.application&&['darken','overlay','linearDodge','linearBurn'].includes(secondary.texture.application.mode))return false

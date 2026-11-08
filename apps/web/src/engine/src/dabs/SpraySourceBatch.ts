@@ -5,7 +5,7 @@ import type{PreparedBrushImageView}from'./PreparedBrushImageView'
 import type{SprayParticleColorControl}from'../presets/sprayParticleColor'
 import{createProgram}from'../raster/utils'
 export interface SpraySourceDraw{stamp:Pick<BehaviorStamp,'x'|'y'|'size'|'aspect'|'angle'|'flipX'|'flipY'>;control:SprayParticleColorControl;sourceIndex:number;flow:number}
-export interface SpraySourceStyle{shape:'ellipse'|'rectangle'|'pixel'|'bilinear'|'tip';sample:boolean;mix:boolean;pressure:number;foreground:readonly[number,number,number,number];background:readonly[number,number,number,number];painterOpacity:number;hardness:number}
+export interface SpraySourceStyle{shape:'ellipse'|'rectangle'|'pixel'|'bilinear'|'tip';sample:boolean;mix:boolean;pressure:number;foreground:readonly[number,number,number,number];background:readonly[number,number,number,number];painterOpacity:number;hardness:number;requestOver?:true}
 const VERT=`attribute vec2 a_position;attribute vec4 a_local;attribute vec2 a_source;attribute vec3 a_hsv;attribute vec4 a_control;uniform vec2 u_resolution;varying vec4 v_local;varying vec2 v_source;varying vec3 v_hsv;varying vec4 v_control;void main(){v_local=a_local;v_source=a_source;v_hsv=a_hsv;v_control=a_control;vec2 p=a_position/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
 const HSV=`vec3 adjustHsv(vec3 c,vec3 adj){float v=max(c.r,max(c.g,c.b)),lo=min(c.r,min(c.g,c.b)),ch=v-lo;float vv=clamp(adj.z>=0.?v+adj.z*(1.-v):v*(1.+adj.z),0.,1.);if(ch<=.000000001||v<=.000000001)return vec3(vv);float h=v==c.r?mod((c.g-c.b)/ch,6.):v==c.g?(c.b-c.r)/ch+2.:(c.r-c.g)/ch+4.;h=mod(h+adj.x*3.+12.,6.);float sc=adj.y>0.?1.+adj.y+2.*adj.y*adj.y:1.+adj.y;float cc=min(vv,min(1.,ch*sc)*(1.-abs(adj.z))),xx=cc*(1.-abs(mod(h,2.)-1.));vec3 q=h<1.?vec3(cc,xx,0.):h<2.?vec3(xx,cc,0.):h<3.?vec3(0.,cc,xx):h<4.?vec3(0.,xx,cc):h<5.?vec3(xx,0.,cc):vec3(cc,0.,xx);return q+vec3(vv-cc);}`
 const FRAG=`precision highp float;varying vec4 v_local;varying vec2 v_source;varying vec3 v_hsv;varying vec4 v_control;uniform sampler2D u_atlas;uniform sampler2D u_mask;uniform vec4 u_color;uniform vec4 u_background;uniform vec4 u_style;uniform vec4 u_modes;uniform vec4 u_maskBounds;${HSV}
@@ -16,17 +16,21 @@ const CORNERS=[[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]]as const
 /** Two samplers only: immutable point-colour atlas and optional prepared mask.
  * Request opacity is absent here; caller transfers the combined request once. */
 export class SpraySourceBatch{
- private program?:WebGLProgram;private buffer?:WebGLBuffer;private transferProgram?:WebGLProgram
+ private program?:WebGLProgram;private buffer?:WebGLBuffer;private transferProgram?:WebGLProgram;private washProgram?:WebGLProgram
  private readonly data=new Float32Array(512*6*15)
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl}
- reset(){this.program=undefined;this.buffer=undefined;this.transferProgram=undefined}
- destroy(){if(this.program)this.gl.deleteProgram(this.program);if(this.transferProgram)this.gl.deleteProgram(this.transferProgram);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
- prepare(){this.program??=createProgram(this.gl,VERT,FRAG);this.transferProgram??=createProgram(this.gl,`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`,`precision highp float;varying vec2 v_uv;uniform sampler2D u_source;uniform float u_opacity;void main(){gl_FragColor=texture2D(u_source,v_uv)*u_opacity;}`);this.buffer??=this.gl.createBuffer()!}
+ reset(){this.program=undefined;this.buffer=undefined;this.transferProgram=undefined;this.washProgram=undefined}
+ destroy(){if(this.program)this.gl.deleteProgram(this.program);if(this.transferProgram)this.gl.deleteProgram(this.transferProgram);if(this.washProgram)this.gl.deleteProgram(this.washProgram);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
+ private particles(){this.program??=createProgram(this.gl,VERT,FRAG);this.buffer??=this.gl.createBuffer()!}
+ prepare(wash=false){this.particles();if(wash){this.washProgram??=createProgram(this.gl,`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`,`precision highp float;varying vec2 v_uv;uniform sampler2D u_source;uniform sampler2D u_previous;uniform vec2 u_resolution;uniform vec2 u_sourceSize;uniform vec2 u_extent;uniform float u_opacity;uniform float u_average;
+void main(){vec2 uv=vec2(v_uv.x*u_extent.x/u_sourceSize.x,1.-u_extent.y/u_sourceSize.y+v_uv.y*u_extent.y/u_sourceSize.y);vec4 request=texture2D(u_source,uv),previous=texture2D(u_previous,gl_FragCoord.xy/u_resolution);float M=clamp(request.a,0.,1.),O=clamp(u_opacity,0.,1.),A=u_average,D=previous.a,T=M*O;float H=A>O?(A>D?T+(A-T)*D/max(A,.0000001):D):(O>D?D+(O-D)*M:D);vec3 pigment=M>0.?request.rgb/M:vec3(0.);vec3 C=D>0.?mix(previous.rgb/D,pigment,T):pigment;gl_FragColor=vec4(C*H,H);}`)}else{this.transferProgram??=createProgram(this.gl,`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`,`precision highp float;varying vec2 v_uv;uniform sampler2D u_source;uniform float u_opacity;void main(){gl_FragColor=texture2D(u_source,v_uv)*u_opacity;}`);this.buffer??=this.gl.createBuffer()!} }
+ assertWashPrepared(){if(!this.program||!this.buffer||!this.washProgram)throw Error('Spray Wash program was not prepared')}
+
  paint(list:readonly SpraySourceDraw[],style:SpraySourceStyle,target:AccumulationBuffer,originX:number,originY:number,atlas:SpraySourceAtlasView|undefined,mask:PreparedBrushImageView|undefined,fallback:WebGLTexture):void{
   if(list.length>4096||style.sample&&!atlas)throw Error('Spray source draw was not collected')
-  atlas?.assertCurrent();mask?.assertCurrent();this.prepare();const gl=this.gl,p=this.program!,locs:number[]=[];target.beginDraw()
-  try{if(style.shape==='pixel')gl.disable(gl.BLEND);gl.useProgram(p);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);gl.uniform2f(gl.getUniformLocation(p,'u_resolution'),target.width,target.height)
+  atlas?.assertCurrent();mask?.assertCurrent();if(style.requestOver)this.particles();else this.prepare();const gl=this.gl,p=this.program!,locs:number[]=[];target.beginDraw()
+  try{if(style.shape==='pixel'&&!style.requestOver)gl.disable(gl.BLEND);gl.useProgram(p);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);gl.uniform2f(gl.getUniformLocation(p,'u_resolution'),target.width,target.height)
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlas?.buffer.texture??fallback);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.texture??fallback);gl.uniform1i(gl.getUniformLocation(p,'u_mask'),1);gl.uniform4f(gl.getUniformLocation(p,'u_maskBounds'),mask?mask.crop.x/mask.width:0,mask?mask.crop.y/mask.height:0,mask?mask.crop.width/mask.width:1,mask?mask.crop.height/mask.height:1)
    gl.uniform4f(gl.getUniformLocation(p,'u_color'),style.foreground[0]*style.foreground[3],style.foreground[1]*style.foreground[3],style.foreground[2]*style.foreground[3],style.foreground[3]);gl.uniform4f(gl.getUniformLocation(p,'u_background'),style.background[0]*style.background[3],style.background[1]*style.background[3],style.background[2]*style.background[3],style.background[3]);gl.uniform4f(gl.getUniformLocation(p,'u_style'),style.shape==='ellipse'?0:style.shape==='rectangle'?1:style.shape==='pixel'?2:style.shape==='bilinear'?3:4,style.pressure,style.painterOpacity,style.hardness);gl.uniform4f(gl.getUniformLocation(p,'u_modes'),style.sample?1:0,style.mix?1:0,mask?1:0,0)
    for(const[name,n,offset]of[['a_position',2,0],['a_local',4,2],['a_source',2,6],['a_hsv',3,8],['a_control',4,11]]as const){const loc=gl.getAttribLocation(p,name);locs.push(loc);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,60,offset*4)}
@@ -37,4 +41,17 @@ export class SpraySourceBatch{
   }finally{for(const loc of locs)gl.disableVertexAttribArray(loc);target.endDraw()}
  }
  transfer(source:AccumulationBuffer,target:AccumulationBuffer,opacity:number){this.prepare();const gl=this.gl,p=this.transferProgram!,loc=gl.getAttribLocation(p,'a_position');target.beginDraw();try{gl.useProgram(p);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STREAM_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,source.texture);gl.uniform1i(gl.getUniformLocation(p,'u_source'),0);gl.uniform1f(gl.getUniformLocation(p,'u_opacity'),opacity);gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(loc);target.endDraw()}}
+ transferWash(source:AccumulationBuffer,previous:AccumulationBuffer,target:AccumulationBuffer,region:{x:number;y:number;width:number;height:number},opacity:number,average:number){
+  this.assertWashPrepared()
+  if(source.texture===target.texture||previous.texture===target.texture||source.texture===previous.texture)throw Error('Spray Wash transfer aliases coverage')
+  const gl=this.gl,p=this.washProgram!,loc=gl.getAttribLocation(p,'a_position'),bottom=target.height-region.y-region.height
+  if(region.width<1||region.height<1||region.width>source.width||region.height>source.height)throw RangeError('Spray Wash region exceeds its lease')
+  target.beginReplaceDraw()
+  try{gl.viewport(region.x,bottom,region.width,region.height);gl.useProgram(p);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STREAM_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0)
+   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,source.texture);gl.uniform1i(gl.getUniformLocation(p,'u_source'),0)
+   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,previous.texture);gl.uniform1i(gl.getUniformLocation(p,'u_previous'),1)
+   gl.uniform2f(gl.getUniformLocation(p,'u_resolution'),target.width,target.height);gl.uniform2f(gl.getUniformLocation(p,'u_sourceSize'),source.width,source.height);gl.uniform2f(gl.getUniformLocation(p,'u_extent'),region.width,region.height);gl.uniform1f(gl.getUniformLocation(p,'u_opacity'),opacity);gl.uniform1f(gl.getUniformLocation(p,'u_average'),average);gl.drawArrays(gl.TRIANGLES,0,6)
+  }finally{gl.disableVertexAttribArray(loc);target.endDraw()}
+ }
+
 }

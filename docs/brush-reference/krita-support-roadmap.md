@@ -935,6 +935,33 @@ ROOT central:1030 TS/203 модуля PASS123.57s,583 Python PASS33.660s. Пер
 web/server0, selected lint0. Python syntax blocker childor исправлен при RAM
 review до integration; gates на неверном helper не запускались.
 
-Оригинальный CAPS, GPU, онлайн и включение обновлённого штатного пресета ещё
-впереди; mock radius1→2.5 доказывает только прохождение через public Painter,
-не GPU pixels. Бюджеты GPU16MiB/CPU4MiB прежние.
+Оригинальный CAPS132 прошёл:1 определение/2 исходных CAS, portable/shared/Storage
+и F64 codec/seed binding проверки. Каталог184 версии/144 имени/252 прежних CAS
+проверен и подготовлен отдельно; публичный QA47/50 остаётся на183 определениях.
+GPU132 диагностически21/22: старые Fraction контролы восстановлены после
+исправления QA поворота90°. Исходный9-request свидетель не может пройти A>32:
+измерено maxA16, поскольку native opacity ramp100 даёт scales0..0.08. Child
+реально меняется, root unchanged; новая129-request проверка двух периодов6340ms
+подготовлена без изменения descriptor/CAS/oracle/порогов. GPU acceptance и онлайн
+ещё впереди. Бюджеты GPU16MiB/CPU4MiB прежние.
+
+
+### Spray133: request OVER и общий stroke Wash
+
+Код подключает native PaintOpAction2 для Pointillism и Hearts в закрытом
+root Spray scope: частицы сначала OVER в одном RGBA request, затем один
+creamy alpha-darken в существующий stroke coverage. Прозрачность жеста применяется
+один раз общим final composite. Frozen original/coverage/inkLoad остаются тремя
+прежними плоскостями; source atlas без соответствующих флагов не создаётся.
+Один временный request буфер не больше512² переиспользуется по subrect тайлов;
+восстановление tile выполняется до его получения. Empty request сохраняет ordinal
+и carry без буфера/тайла/Wash step. Уже принятая часть штриха сохраняет состояние
+и binding при отказе ресурса следующего request. Старый directOver43/76/96
+сохраняется; новые сочетания вне scope отвергаются до paint.
+
+ROOT central:1044 TS/207 модулей PASS126.19s и586 Python PASS28.817s.
+Первый types дал6web/2server замечания только в новых тестах; runtime значения
+сохранены,9 целевых тестов PASS7.23s, повтор types web2573/server1243 inputs
+с0diagnostics, selected lint --fix0. Production после полной suite не менялся.
+Genuine CAPS/GPU/онлайн ещё не запускались; MockGL не доказывает пиксели,
+native pixel identity и планшетная производительность не заявлены.

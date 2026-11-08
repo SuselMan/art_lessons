@@ -1,3 +1,4 @@
+import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
 import{isIndependentDrawingAnglePair}from'@grafetto/shared'
@@ -73,12 +74,16 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const wash=hasSprayWash133Scope(brush)
+    if(wash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
+    if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
-    if(!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
     const resources=existing??brushPreparationResources(brush)
-    if(!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
+    if(!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -89,6 +94,7 @@ export class BrushPainter {
     }
     const limit=this.imageDimensionLimit()
     assertNativeImageAdmission(resources,limit)
+    if(wash){if(!Number.isFinite(limit)||resources.some(r=>!r.grain&&r.id.startsWith('asset:')&&Math.sqrt(importedAssetPixels(r.id).length)>limit))throw Error('Spray Wash mask exceeds GPU dimensions');if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Spray Wash bank exceeds the brush texture budget')}
     if(lightness){
       if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
       if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
@@ -102,7 +108,7 @@ export class BrushPainter {
         if(filteredGradient)this.prepareStampEffects(true)
         else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
         if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
-        if(brush?.tip.kind==='procedural'||brush?.behavior?.dual?.brush.tip.kind==='procedural')this.prepareProcedural()
+        if(brush&&!hasSprayWash133Scope(brush)&&(brush.tip.kind==='procedural'||brush.behavior?.dual?.brush.tip.kind==='procedural'))this.prepareProcedural()
         for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
       }
       if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Recorded stamp bank is not prepared')
@@ -154,7 +160,7 @@ export class BrushPainter {
   prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
   prepareSketchLines():void{this.behavior.prepareSketchLines()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
-  prepareSpraySources():void{this.behavior.prepareSpraySources()}
+  prepareSpraySources(wash=false):void{this.behavior.prepareSpraySources(wash)}
   prepareSprayImages():void {this.behavior.prepareSprayImages()}
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
