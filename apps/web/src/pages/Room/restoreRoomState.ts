@@ -274,7 +274,7 @@ export async function restoreRoomState(
     // refused wet/pending layers after they become publishable. The ordinary
     // cadence path below still refuses rounding a113 picture down to100.
     const uploader = deps.getSnapshotUploader()
-    if (engine && latestSnapshotSeq === null && uploader) {
+    if (engine && uploader) {
       uploader.requestFirstSnapshot()
       uploader.onSeqObserved(
         alreadyHadSeq, deps.latestKnownSeqRef.current, engine, useRoomStore.getState().layerState,

@@ -140,6 +140,8 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
   const firstBaked = new Set<string>()
   let bootstrap = false
   let bootstrapUploading = false
+  let reconciledSeq = -1
+  let reconciling = false
   let retryAt = 0
   let failures = 0
   let candidate: {
@@ -152,7 +154,7 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
   } | undefined
 
   return {
-    /** Armed only by a completed catch-up that found no snapshot index. */
+    /** Armed by every completed catch-up: existing coverage does not cover newly created layers. */
     requestFirstSnapshot(): void { bootstrap = true },
 
     /** The caller reads this watermark and structure in the same task as bake.
@@ -170,6 +172,27 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
           candidate = { ...candidate, layerIds: uncovered, encoded: candidate.encoded.then(encoded =>
             Object.freeze(Object.fromEntries(uncovered.map(id => [id, encoded[id]])))) }
         }
+      }
+      // Once some index has been reconciled, covered-only activity needs
+      // neither another metadata GET nor GPU capture at each new seq.
+      // Unknown initial coverage is still reconciled once before deciding.
+      if (!candidate && reconciledSeq >= 0 && !Object.values(layerState.items).some(item =>
+        item.kind === 'layer' && !firstCovered.has(item.id)
+        && (engine.isLayerDirty(item.id) || firstBaked.has(item.id)))) return
+      // Coverage is per-layer, not a room-wide "snapshot exists" flag.
+      // Reconcile BEFORE any GPU capture at a new honest watermark. The
+      // asynchronous response never bakes: a later timer re-reads seq/state
+      // and all publishing/paint guards, so new pixels cannot receive old seq.
+      if (!candidate && reconciledSeq !== seq) {
+        if (reconciling) return
+        reconciling = true
+        void firstSnapshotIndex(roomId).then(index => {
+          for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
+          reconciledSeq = seq
+        }).catch(() => {
+          retryAt = Date.now() + BOOTSTRAP_RETRY_BASE_MS
+        }).finally(() => { reconciling = false })
+        return
       }
       if (!candidate) {
         const known = new Set(Object.keys(layerState.items))
