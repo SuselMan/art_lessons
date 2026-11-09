@@ -48,7 +48,7 @@ export function isBrushSourceContext(value:unknown):value is BrushSourceContext 
 export function copyBrushSourceContext(source:BrushSourceContext):BrushSourceContext {
   if(ownedSources.has(source))return source
   if(!isBrushSourceContext(source))throw Error('Invalid brush source context')
-  const copy:BrushSourceContext=Object.freeze({version:1,...(source.pattern===undefined?{}:{pattern:copyBrushPattern(source.pattern)}),...(source.background===undefined?{}:{background:Object.freeze([...source.background])as readonly[number,number,number,number]}),...(source.normalRotation===undefined?{}:{normalRotation:source.normalRotation}),...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({...source.clone})} : {})})
+  const copy:BrushSourceContext=Object.freeze({version:1,...(source.pattern===undefined?{}:{pattern:copyBrushPattern(source.pattern)}),...(source.background===undefined?{}:{background:Object.freeze([...source.background])as readonly[number,number,number,number]}),...(source.normalRotation===undefined?{}:{normalRotation:source.normalRotation}),...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({id:layer.id,opacity:layer.opacity})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({x:source.clone.x,y:source.clone.y,offsetX:source.clone.offsetX,offsetY:source.clone.offsetY})} : {})})
   ownedSources.add(copy);return copy
 }
 

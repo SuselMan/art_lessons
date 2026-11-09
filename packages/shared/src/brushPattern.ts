@@ -11,7 +11,7 @@ export function isBrushPattern(value:unknown):value is BrushPattern{
 }
 export function copyBrushPattern(value:BrushPattern):BrushPattern{
  if(!isBrushPattern(value))throw Error('Invalid captured canvas pattern')
- return value.kind==='none'?Object.freeze({version:1,kind:'none'}):Object.freeze({...value,planes:Object.freeze([...value.planes]) as typeof value.planes,sourceRect:Object.freeze({...value.sourceRect})})
+ return value.kind==='none'?Object.freeze({version:1,kind:'none'}):Object.freeze({version:1,kind:'rgba',alpha:value.alpha,planes:Object.freeze([...value.planes]) as typeof value.planes,side:value.side,sourceRect:Object.freeze({x:value.sourceRect.x,y:value.sourceRect.y,width:value.sourceRect.width,height:value.sourceRect.height}),sampling:value.sampling})
 }
 export function brushPatternAssetIds(value:BrushPattern|undefined):`asset:${string}`[]{
  if(value===undefined)return []
