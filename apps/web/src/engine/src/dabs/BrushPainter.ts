@@ -1,3 +1,4 @@
+import{assertPixelAlphaDual168Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{assertPixelOriginalDual151Resources}from'../presets/pixelOriginalRgba'
 import type{CanonicalBeginLayeredView}from'./CanonicalBeginSource'
@@ -96,6 +97,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const alphaDual=assertPixelAlphaDual168Scope(brush)
     const originalDual=assertPixelOriginalDual151Resources(brush)
     const tangentWash=hasTangentNormalWash136Scope(brush)
     if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!tangentWash)throw Error('Invalid Tangent Wash136 scope')
@@ -109,10 +111,10 @@ export class BrushPainter {
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
-    if(!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
     const resources=existing??brushPreparationResources(brush)
-    if(!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
+    if(!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -124,7 +126,7 @@ export class BrushPainter {
     const limit=this.imageDimensionLimit()
     assertNativeImageAdmission(resources,limit)
     if(wash){if(!Number.isFinite(limit)||resources.some(r=>!r.grain&&r.id.startsWith('asset:')&&Math.sqrt(importedAssetPixels(r.id).length)>limit))throw Error('Spray Wash mask exceeds GPU dimensions');if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Spray Wash bank exceeds the brush texture budget')}
-    if(lightness||originalDual){
+    if(lightness||originalDual||alphaDual){
       if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
       if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
     }

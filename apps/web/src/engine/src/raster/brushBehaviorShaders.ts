@@ -372,6 +372,7 @@ uniform sampler2D u_secondaryCoverage;
 uniform float u_secondaryMode;
 uniform float u_secondaryEnabled;
 ${BRUSH_BLEND_GLSL}
+${TEXTURE_ALPHA_EXTENDED_GLSL}
 void main() {
  vec2 uv=gl_FragCoord.xy/u_resolution;
  vec4 ink=texture2D(u_strokeCoverage,uv);
@@ -379,7 +380,11 @@ void main() {
  vec4 base=texture2D(u_original,uv);
  vec3 pigment=ink.rgb/max(ink.a,0.00392157);
  float coverage=ink.a;
- if(u_secondaryEnabled>0.5 && coverage>0.0) coverage=clamp(brushBlend(vec3(coverage),vec3(texture2D(u_secondaryCoverage,uv).a),u_secondaryMode).r,0.0,1.0);
+ if(u_secondaryEnabled>0.5 && coverage>0.0) {
+  float secondary=texture2D(u_secondaryCoverage,uv).a;
+  if(u_secondaryMode>99.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(10.0,0.0,0.0,0.0));
+  else coverage=clamp(brushBlend(vec3(coverage),vec3(secondary),u_secondaryMode).r,0.0,1.0);
+ }
  // Modes differ in optical density / accumulation, not in frame count.
  if(u_mode<0.5) coverage=1.0-pow(1.0-coverage,0.5);
  else if(u_mode<1.5) coverage=min(coverage,0.5)*2.0;

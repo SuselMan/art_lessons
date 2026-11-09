@@ -1361,8 +1361,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         child=finalize_identity(child,child_png.getvalue())
         if child['version']==31: d['version']=31
         mode=params.get('MaskingBrush/MaskingCompositeOp','multiply')
-        combine=modes.get(mode,'multiply')
-        if mode not in modes: notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
+        combine='hardMixSofterPhotoshop'if mode=='hard_mix_softer_photoshop'else modes.get(mode,'multiply')
+        if mode not in modes and mode!='hard_mix_softer_photoshop': notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
         behavior['dual']={'brush':child,'blendMode':combine,'sampling':'independent'}
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
     # The default policy stays the same public entry; no private bridge or child
@@ -1652,6 +1652,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if any(c.get('combine',{}).get('policy')=='native-scatter-v1'for c in scatter_controls):
         if depth or engine!='paintbrush' or d.get('model')!='stamp' or behavior.get('dual') or any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Native scatter expression requires root Pixel')
         d['version']=max(d['version'],148)
+    if behavior.get('dual',{}).get('blendMode')=='hardMixSofterPhotoshop':
+        from dual_mask168 import pixel_alpha_dual168_scope
+        d['version']=max(d['version'],168)
+        if depth or engine!='paintbrush'or not pixel_alpha_dual168_scope(d):raise ValueError('Native Hard Mix Softer masking requires closed root Pixel ALPHAMASK168')
+        notes.append(compatibility('masking.alphaHardMixSofter168','Native41bef no-strength GrayA masking applies clamp(3*primaryAlpha-2*(1-secondaryGrayAlpha),0,1) to accumulated primary alpha; parent pigment and independent mask geometry retained. No native U8/Qt sampling identity claim.','supported'))
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

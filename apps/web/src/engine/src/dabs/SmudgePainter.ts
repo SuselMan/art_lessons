@@ -440,6 +440,7 @@ export class SmudgePainter {
     execution?: BrushExecutionContext,
     gridRuntime?:CanonicalBeginRuntime,
   ): GridWashPaintResult|void {
+    if(paint?.brush?.behavior?.dual?.blendMode==='hardMixSofterPhotoshop')throw Error('Pixel alpha dual168 requires ordinary BrushPainter path')
     if(paint?.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}
     if(paint?.brush?.deform?.sourcePolicy!==undefined){
       if(!hasDeformOldData145Scope(paint.brush))throw Error('Invalid Deform145 scope')
@@ -1511,7 +1512,8 @@ export class SmudgePainter {
     const blend=(name:typeof BRUSH_BLEND_MODES[number] | undefined):number=>Math.max(0,BRUSH_BLEND_MODES.indexOf(name ?? 'normal'))
     const dualAngle=(dual?.brush.tip.angle ?? 0)-(brush?.tip.angle ?? 0)
     gl.uniform1f(u.u_dualKind,dual && !wet?.secondary ? dual.brush.tip.kind === 'bitmap' ? 2 : 1 : 0)
-    gl.uniform1f(u.u_dualBlend,blend(dual?.blendMode))
+    // New168 is final accumulated-mask only; this legacy per-dab selector is inactive.
+    gl.uniform1f(u.u_dualBlend,dual?.blendMode==='hardMixSofterPhotoshop'?0:blend(dual?.blendMode))
     gl.uniform4f(u.u_dualTransform,1+(wet?.stamp.edgeSoftness ?? 0)*.15,(1+(wet?.stamp.edgeSoftness ?? 0)*.15)*(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
     gl.activeTexture(gl.TEXTURE6)
     gl.bindTexture(gl.TEXTURE_2D,secondaryTexture)
