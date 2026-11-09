@@ -1,3 +1,4 @@
+import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchImageAlpha162Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,type BrushPattern} from '@grafetto/shared'
@@ -651,6 +652,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
+    if(brush.curveTrace&&brush.behavior?.timing){if(!hasCurveHostTimer167Scope(brush)||effectiveErase)throw Error('Invalid Curve host timer167 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     const canvasPattern=brush.experiment?.fill!==undefined
     if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
     if(brush.sketch?.maskSignal!==undefined&&(!hasSketchImageAlpha162Scope(brush)||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')

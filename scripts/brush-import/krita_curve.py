@@ -5,9 +5,17 @@ from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 
-def curve_preset(data,root,params,name,catalog,external):
+def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Curve timed input is not implemented')
+    timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
+    if timer or enabled(params.get('AirbrushOption/isAirbrushing')):
+        if not timer or not timed_input:raise ValueError('Curve timed input requires closed167 opt-in')
+        if any(enabled(params.get(k))for k in('PressureRate','PaintOpSettings/ignoreSpacing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Curve167 unsupported timer combination')
+        rate=numeric(params.get('PaintOpSettings/rate'),1)
+        if not math.isfinite(rate)or not 0<rate<=1000:raise ValueError('Curve167 native rate outside0..1000')
+        raw_interval=500/rate
+        if not math.isfinite(raw_interval)or raw_interval>320000000000:raise ValueError('Curve167 interval outside existing81 clock bound')
+        interval=max(1,math.floor(raw_interval))
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Curve supports normal compositing only')
     def number(key,default,lo,hi):
         v=numeric(params.get('Curve/'+key),default)
@@ -18,6 +26,9 @@ def curve_preset(data,root,params,name,catalog,external):
     width=number('lineWidth',1,.1,1000)
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     from native_ignored_options import strip_unused_native_flow,strip_unused_native_mirror,strip_unused_native_rotation
+    if timer:
+        for node in transformed.findall('param'):
+            if node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'):node.text='false'
     ignored_flow=strip_unused_native_flow(transformed)
     ignored_mirror=strip_unused_native_mirror(transformed)
     ignored_rotation=strip_unused_native_rotation(transformed)
@@ -56,5 +67,11 @@ def curve_preset(data,root,params,name,catalog,external):
     if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
     if ignored_rotation:result['compatibility'].append(compatibility('ignoredNativeRotation','This native paintop mode does not consume the generic brush Rotation option. Active family-specific angle controls remain independent.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if timer:
+        from curve_timer167 import curve_host_timer167_scope
+        d['version']=167;d['behavior']['timing']={'version':1,'rate':1000/interval,'ignoreDistanceSpacing':True}
+        if not curve_host_timer167_scope(d):raise ValueError('Curve167 outside closed static root scope')
+        result['compatibility'].append(compatibility('curveHostTimer167','Native host callback period max(1,floor(500/nativeRate)); every real input restarts its deadline. Existing BASIC curve input/history/path renderer retained; initial paintAt is anchor only. Author81 records F64 requests; replay never retimes. Event-loop lateness, Qt pixels and native RNG sequence not identical.','supported'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

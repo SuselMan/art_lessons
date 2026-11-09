@@ -1,3 +1,5 @@
+import{hasCurveHostTimer167Scope}from'./brushCurveTrace.js'
+export{hasCurveHostTimer167Scope,curveHostInterval167}from'./brushCurveTrace.js'
 import{hasSketchImageAlpha162Scope}from'./brushSketch.js'
 export{hasSketchImageAlpha162Scope}from'./brushSketch.js'
 import{hasSketchTimer161Scope}from'./brushSketch.js'
@@ -498,7 +500,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
-    if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(d.curveTrace!==undefined&&(!isBrushCurveTrace(d.curveTrace)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||(d.behavior.timing!==undefined&&!hasCurveHostTimer167Scope(d))||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(record(d.bristle)&&d.bristle.initialization!==undefined&&!hasBristleResize141Scope(d)&&!hasBristleSource143Scope(d))return false
     if(record(d.bristle)&&record(d.bristle.initialization)&&d.bristle.initialization.resizePolicy==='source-area143-v1'&&(!ref(d.bristle.initialization.sourceMask)||assetSizes.get(String(d.bristle.initialization.sourceMask))!==d.bristle.initialization.sourceSide))return false
     if(record(d.bristle)&&d.bristle.soak!==undefined&&!hasBristleSoak139Scope(d))return false
@@ -782,6 +784,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if(secondary.curveTrace&&secondary.behavior?.timing)return false
         if(secondary.mixer?.colorRateComposite==='overlay')return false
         if(secondary.tip.color&&'adjustmentPolicy'in secondary.tip.color)return false
         if(secondary.clone&&(secondary.clone.source!==undefined||secondary.clone.sourcePolicy!==undefined||secondary.clone.healing!==undefined))return false
@@ -1032,6 +1035,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
 /** Recorded source channels are mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
+  if(brush.curveTrace&&brush.behavior?.timing&&!hasCurveHostTimer167Scope(brush))return false
   if(brush.sketch&&brush.behavior?.timing&&!hasSketchTimer161Scope(brush))return false
   if(brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false

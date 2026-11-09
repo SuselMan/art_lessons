@@ -1,3 +1,4 @@
+import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,copyBrushPattern,isBrushPattern,type BrushPattern} from '@grafetto/shared'
@@ -2533,6 +2534,7 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.timing=spacingBrush?.behavior?.timing
     sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
     sampler.sketchTiming161=hasSketchTimer161Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.curveHostTiming167=hasCurveHostTimer167Scope(spacingBrush)?spacingBrush!:undefined
     sampler.particleTiming157=hasParticleTimer157Scope(spacingBrush)?spacingBrush!:undefined
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
@@ -7024,7 +7026,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(owner._haptic){owner._haptic.sample(owner._hapticX,owner._hapticY,input.x,input.y);owner._hapticX=input.x;owner._hapticY=input.y}
         owner._lastPointerX=input.x;owner._lastPointerY=input.y;owner._lastPointerPressure=input.pressure
         owner._lastPointerTiltX=input.tiltX;owner._lastPointerTiltY=input.tiltY
-        yield* owner._paintTimedInput(input,time,input.speed,cameraAngle)
+        yield* owner._paintTimedInput(input,time,input.speed,cameraAngle,'real')
       }else owner._executeAuthorMove(input,true)
     })
   }
@@ -7052,9 +7054,9 @@ export class PencilEngine implements PencilEngineAPI {
       }
     })
   }
-  private *_paintTimedInput(input:PointerData,time:number,speed:number,cameraAngle:number):Generator<void,void,void> {
+  private *_paintTimedInput(input:PointerData,time:number,speed:number,cameraAngle:number,role:'real'|'hold'='hold'):Generator<void,void,void> {
     if(!this._strokeLayerId)return
-    const stream=this._dabs.continueTimedStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,this._physicalSize,speed,this._normalizedBrushSpeed(input),time)
+    const stream=this._dabs.continueTimedStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,this._physicalSize,speed,this._normalizedBrushSpeed(input),time,role)
     let batch:Dab[]=[]
     try {
       while(true){

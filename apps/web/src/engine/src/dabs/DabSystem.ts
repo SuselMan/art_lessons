@@ -1,3 +1,4 @@
+import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
@@ -162,6 +163,7 @@ export class DabSystem {
   captureSourceAngle = false
   deformTiming160?:BrushDescriptor
   sketchTiming161?:BrushDescriptor
+  curveHostTiming167?:BrushDescriptor
   particleTiming157?:BrushDescriptor
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
@@ -569,6 +571,7 @@ export class DabSystem {
     fork.captureSourceAngle=this.captureSourceAngle
     fork.deformTiming160=this.deformTiming160
     fork.sketchTiming161=this.sketchTiming161
+    fork.curveHostTiming167=this.curveHostTiming167
     fork.particleTiming157=this.particleTiming157
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
@@ -615,6 +618,7 @@ export class DabSystem {
     if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
     if(this.sketchTiming161&&(!hasSketchTimer161Scope(this.sketchTiming161)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.sketchTiming161.behavior!.timing)))throw Error('Invalid author Sketch timer161')
     if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
+    if(this.curveHostTiming167&&(!hasCurveHostTimer167Scope(this.curveHostTiming167)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.curveHostTiming167.behavior!.timing)))throw Error('Invalid author Curve host timer167')
     this._reset()
     this._speed = speed
     // Seeds the filter (a no-op for every profile without one) — the first
@@ -653,7 +657,7 @@ export class DabSystem {
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
   continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     this._speed = speed
-    if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time)]
+    if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time,'real')]
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
     // see _filterPressure on why that case is the whole reason this sits here.
@@ -1069,18 +1073,26 @@ export class DabSystem {
   /** One serial author input. Pump in bounded batches; do not interleave inputs
    * or prediction forks while a stream is suspended. Replay never calls this.
    */
-  *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0):Generator<Dab,void> {
+  *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0,role:'real'|'hold'='hold'):Generator<Dab,void> {
     if(!this.timing)throw Error('Timed source policy required')
     if(this._timingStreamActive)throw Error('Cannot interleave source inputs')
     this._timingStreamActive=true
     this._speed=speed
-    try{yield* this._timedContinue({x,y,pressure,tiltX,tiltY,t:time,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)}
+    try{yield* this._timedContinue({x,y,pressure,tiltX,tiltY,t:time,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize,role)}
     finally{this._timingStreamActive=false}
   }
-  private *_timedContinue(next:SourcePaintInformation,baseSize:number):Generator<Dab,void> {
+  private *_timedContinue(next:SourcePaintInformation,baseSize:number,role:'real'|'hold'='hold'):Generator<Dab,void> {
     const previous=this._timingPoint
     if(!previous)return
     if(next.t<previous.t)throw Error('Source timing input moved backwards')
+    // Curve consumes the host callback itself, not an effectiveTiming dab.
+    // Every real event (even same-position pressure) restarts the QTimer deadline.
+    if(this.curveHostTiming167&&role==='real'){
+      this._timingState.resetAccumulators();this._timingState.updateTiming();this._timingState.updateSpacing()
+      yield* this._sourceRequestStream(next,baseSize)
+      this._timingPoint={...next};this._buf=[{...next,time:next.t}]
+      return
+    }
     // Native Particle and Sketch bypass base timing for moving host inputs; it does not
     // spend/reset the stationary accumulator on this branch. No spatial resampling.
     if((this.particleTiming157||this.sketchTiming161)&&(next.x!==previous.x||next.y!==previous.y)){

@@ -538,7 +538,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return hatching_preset(data,root,params,name,catalog,external)
     if engine == 'curvebrush':
         from krita_curve import curve_preset
-        return curve_preset(data,root,params,name,catalog,external)
+        return curve_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
     if engine == 'hairybrush':
         if enabled(params.get('HairyInk/enabled'))and enabled(params.get('HairyInk/soak'))and(depth or not _allow_texture_material):raise ValueError('Bristle Soak139 requires genuine root native Bristle origin')
         from krita_bristle import bristle_preset
