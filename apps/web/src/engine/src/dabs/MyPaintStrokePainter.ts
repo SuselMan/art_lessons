@@ -1,5 +1,5 @@
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
-import{MYPAINT_SCHEMA}from'@grafetto/shared'
+import{MYPAINT_SCHEMA,isMyPaintDescriptor}from'@grafetto/shared'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 import type{BehaviorScratch}from'./BrushBehaviorPainter'
@@ -41,6 +41,7 @@ export class MyPaintStrokePainter{
   }catch(e){state.destroy();throw e}
  }
  paint(target:Target,dabs:readonly Dab[],brush:BrushDescriptor,color:[number,number,number],pressure:BrushPressureSettings,scratch:BehaviorScratch,execution?:BrushExecutionContext,finish=false,endpoint?:Dab):void{
+  if((brush.version===156||brush.mypaint?.surfacePolicy!==undefined)&&!isMyPaintDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Krita legacy MyPaint156 policy')
   let state=this.states.get(scratch);if(!state&&!dabs.length)return
   state??=this.create(scratch,brush,dabs[0],color,pressure,execution)
   assertSameBrushExecutionContext(state.execution,execution)

@@ -1,3 +1,4 @@
+import{hasParticleTimer157Scope}from'@grafetto/shared'
 import {SourceDistanceTiming,sourceTimingInterval} from './sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, type SourcePaintInformation } from '../input/kritaStrokeInput'
 import { captureBrushSourceSize } from '../presets/brushRequestGeometry'
@@ -157,6 +158,7 @@ export class DabSystem {
   captureSourceSize = false
   captureSourceTime = false
   captureSourceAngle = false
+  particleTiming157?:BrushDescriptor
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
   private _timingPoint?: SourcePaintInformation
@@ -561,6 +563,7 @@ export class DabSystem {
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
     fork.captureSourceAngle=this.captureSourceAngle
+    fork.particleTiming157=this.particleTiming157
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
     fork._timingPoint=this._timingPoint?{...this._timingPoint}:undefined
@@ -603,6 +606,7 @@ export class DabSystem {
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
+    if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
     this._reset()
     this._speed = speed
     // Seeds the filter (a no-op for every profile without one) — the first
@@ -1062,6 +1066,13 @@ export class DabSystem {
     const previous=this._timingPoint
     if(!previous)return
     if(next.t<previous.t)throw Error('Source timing input moved backwards')
+    // Native Particle bypasses base timing for moving host inputs; it does not
+    // spend/reset the stationary accumulator on this branch. No spatial resampling.
+    if(this.particleTiming157&&(next.x!==previous.x||next.y!==previous.y)){
+      yield* this._sourceRequestStream(next,baseSize)
+      this._timingPoint={...next};this._buf=[{...next,time:next.t}]
+      return
+    }
     let current={...previous}
     while(true){
       const axes=this._spacingAxes??{x:this._pendingSpacing,y:this._pendingSpacing,angle:0}

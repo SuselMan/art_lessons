@@ -510,7 +510,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         from mypaint_import import mypaint_preset
         if params.get('CompositeOp','normal') not in ('normal','erase')or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Unsupported MyPaint composite/timing mode')
         if 'MyPaint/json'not in params:raise ValueError('MyPaint KPP missing JSON')
-        result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase')
+        result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase',surface_policy='krita-legacy-v1')
         result['name']=root.get('name')or result['name']
         result['descriptor']=finalize_identity(result['descriptor'],data)
         return result
@@ -528,7 +528,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return experiment_preset(data,root,params,name,catalog,external)
     if engine == 'particlebrush':
         from krita_particle import particle_preset
-        return particle_preset(data,root,params,name,catalog,external)
+        return particle_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
     if engine == 'gridbrush':
         from krita_grid import grid_preset
         return grid_preset(data,root,params,name,catalog,external)

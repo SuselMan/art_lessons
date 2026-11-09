@@ -1,3 +1,4 @@
+import{hasParticleTimer157Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
 import type{CanonicalBeginLayeredView}from'./src/dabs/CanonicalBeginSource'
 import {hasCloneHealing152Scope,hasCloneProjection149Scope,hasFilterSmudge147Scope,hasDeformOldData145Scope,hasSpraySource146Scope,hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleNativePointCoverage} from '@grafetto/shared'
@@ -2525,6 +2526,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     sampler.strokeInput=spacingBrush?.behavior?.strokeInput
     sampler.timing=spacingBrush?.behavior?.timing
+    sampler.particleTiming157=hasParticleTimer157Scope(spacingBrush)?spacingBrush!:undefined
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection

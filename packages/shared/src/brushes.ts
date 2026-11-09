@@ -1,3 +1,5 @@
+import{hasParticleTimer157Scope}from'./brushParticle.js'
+export{hasParticleTimer157Scope}from'./brushParticle.js'
 export{hasFilterGaussian153Scope,type GaussianSmudge153}from'./brushFilter.js'
 import{hasLegacyColorSmudgeOverlay154Scope}from'./legacyColorSmudgeOverlay154.js'
 export{hasLegacyColorSmudgeOverlay154Scope}from'./legacyColorSmudgeOverlay154.js'
@@ -26,6 +28,7 @@ import{isTangentNormalDescriptor,type BrushTangentNormal}from'./brushTangentNorm
 export type{BrushTangentNormal}from'./brushTangentNormal.js'
 import{isMyPaintDescriptor,type BrushMyPaint}from'./brushMyPaint.js'
 export type{BrushMyPaint}from'./brushMyPaint.js'
+export{isMyPaintDescriptor}from'./brushMyPaint.js'
 import{hasCloneHealing152Scope,hasCloneProjection149Scope,isCloneDescriptor,type BrushClone}from'./brushClone.js'
 export type{BrushClone}from'./brushClone.js'
 export{hasCloneHealing152Scope,hasCloneProjection149Scope}from'./brushClone.js'
@@ -1020,6 +1023,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
 /** Recorded source channels are mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
+  if(brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
   const resize140=hasBristleInitializationScope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush))return false

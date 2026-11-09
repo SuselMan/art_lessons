@@ -561,6 +561,8 @@ def validate_portable_mixer(descriptor):
 def validate_portable_profile(descriptor, *, parent=None):
     """Bound the portable Python boundary; shared isBrushLibrary remains the
     authoritative whole-library validator before installation."""
+    from mypaint_legacy156 import validate_mypaint_legacy156
+    validate_mypaint_legacy156(descriptor,parent)
     from bristle_soak139 import validate_bristle_soak139,validate_bristle_initialization141
     validate_bristle_soak139(descriptor,parent)
     validate_bristle_initialization141(descriptor,parent)
@@ -572,6 +574,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_bristle_wash135(descriptor,parent)
     from particle_wash134 import validate_particle_wash134
     validate_particle_wash134(descriptor,parent)
+    from particle_timer157 import validate_particle_timer157
+    validate_particle_timer157(descriptor,parent)
     from clone_projection149 import validate_clone_projection149
     validate_clone_projection149(descriptor,1 if parent is not None else 0)
     validate_clone_healing152(descriptor,1 if parent is not None else 0)
