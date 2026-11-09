@@ -18,7 +18,7 @@ class DeformTimer160Tests(unittest.TestCase):
             a=self.make(p);self.assertEqual(a,self.make(p,timed=True));self.assertEqual(a,self.make(p,default=True));self.assertEqual(a['descriptor']['version'],v)
     def test_alias_no_old_rate_dynamic_ignore_and_erase_rejected(self):
         old='<param name="Deform/useOldData">true</param>';timer='<param name="PaintOpSettings/isAirbrushing">true</param>'
-        for p in [old+'<param name="AirbrushOption/isAirbrushing">true</param>',timer,old+timer+'<param name="PressureRate">true</param>',old+timer+'<param name="PaintOpSettings/rate">0</param>',old+timer+'<param name="PaintOpSettings/ignoreSpacing">true</param>',old+timer+'<param name="EraserMode">true</param>']:
+        for p in [old+'<param name="AirbrushOption/isAirbrushing">true</param>',timer,old+timer+'<param name="PressureRate">true</param><param name="RateSensor">&lt;params id="fuzzy"/&gt;</param>',old+timer+'<param name="PaintOpSettings/rate">0</param>',old+timer+'<param name="PaintOpSettings/ignoreSpacing">true</param>',old+timer+'<param name="EraserMode">true</param>']:
             with self.assertRaises(ValueError):self.make(p,timed=True)
         # Native settings legacy fallback alone is NOT checked AirbrushOptionData.
         legacy=old+'<param name="Deform/useMovementPaint">true</param>';self.assertEqual(self.make(legacy),self.make(legacy,timed=True));self.assertEqual(self.make(legacy)['descriptor']['version'],145)

@@ -1,4 +1,4 @@
-import {isBrushBehavior,type BrushDynamic} from './brushBehavior.js'
+import {isBrushBehavior,isNativePressureRateTiming,type BrushDynamic} from './brushBehavior.js'
 /** Connections between canonical author input points within one gesture. */
 export interface BrushSketch {
  version:1
@@ -45,7 +45,7 @@ export function hasSketchTimer161Scope(value:unknown):boolean{
  &&['mixer','spray','bristle','particle','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx'].every(k=>value[k]===undefined)
  &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
  &&b.version===2&&Object.keys(b).every(k=>['version','rendering','timing','speedInput'].includes(k))&&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')&&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
- &&obj(c)&&Object.keys(c).every(k=>['version','rate','ignoreDistanceSpacing'].includes(k))&&c.version===1&&typeof c.rate==='number'&&Number.isFinite(c.rate)&&c.rate>0&&c.rate<=1000&&c.ignoreDistanceSpacing===false
+ &&isNativePressureRateTiming(c,Number(value.version)>=164)
 }
 
 /** Native static IMAGESTAMP -> existing alpha-only Sketch selector. */

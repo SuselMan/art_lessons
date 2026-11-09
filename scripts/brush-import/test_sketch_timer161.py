@@ -20,7 +20,7 @@ class SketchTimer161Tests(unittest.TestCase):
             a=self.make(p,timed=False);self.assertEqual(a,self.make(p,timed=True));self.assertEqual(a,self.make(p,default=True));self.assertEqual(a['descriptor']['version'],44)
     def test_active_unclosed_rate_wash_controls_rejected(self):
         timer='<param name="PaintOpSettings/isAirbrushing">true</param>'
-        for p in [timer+'<param name="PressureRate">true</param>',timer+'<param name="PaintOpAction">2</param>',timer+'<param name="PaintOpSettings/ignoreSpacing">true</param>',timer+'<param name="PaintOpSettings/rate">0</param>']:
+        for p in [timer+'<param name="PressureRate">true</param><param name="RateSensor">&lt;params id="fuzzy"/&gt;</param>',timer+'<param name="PaintOpAction">2</param>',timer+'<param name="PaintOpSettings/ignoreSpacing">true</param>',timer+'<param name="PaintOpSettings/rate">0</param>']:
             with self.assertRaises(ValueError):self.make(p,timed=True)
     def test_existing_density_distance_opacity_and_pressure_curves_retained(self):
         extra='<param name="PaintOpSettings/isAirbrushing">true</param><param name="Sketch/distanceDensity">true</param><param name="Sketch/distanceOpacity">true</param><param name="Sketch/probability">0.3</param><param name="PressureSize">true</param>'

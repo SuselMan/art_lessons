@@ -191,3 +191,13 @@ function isCombinedBrushDynamic(value:unknown):boolean {
   const children=[...c.scaling,...c.additive]
   return (children.length>=1||absolute!==undefined)&&children.length<=16&&children.every(child=>obj(child)&&child.combine===undefined&&isBrushBehavior({version:2,dynamics:{size:child}}))
 }
+
+/** Closed checked native Rate shared by the special-family author clocks.
+ * Generic Pixel timing retains its wider existing validator above. */
+export function isNativePressureRateTiming(value:unknown,allowFactors=false):value is NonNullable<BrushBehavior['timing']>{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||Object.keys(value).some(k=>!['version','rate','ignoreDistanceSpacing','rateDynamics'].includes(k))||value.version!==1||typeof value.rate!=='number'||!Number.isFinite(value.rate)||value.rate<=0||value.rate>1000||value.ignoreDistanceSpacing!==false)return false
+ if(!('rateDynamics'in value))return true
+ const controls=value.rateDynamics
+ return allowFactors&&Array.isArray(controls)&&controls.length>=1&&controls.length<=4&&controls.every(control=>obj(control)&&['pressure','off'].includes(String(control.control))&&control.jitter===0&&control.combine===undefined)&&isBrushBehavior({version:2,timing:value})
+}

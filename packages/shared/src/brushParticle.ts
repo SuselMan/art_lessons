@@ -1,4 +1,4 @@
-import{isBrushBehavior}from'./brushBehavior.js'
+import{isNativePressureRateTiming}from'./brushBehavior.js'
 export interface BrushParticle{version:1;count:number;iterations:number;gravity:number;weight:number;scaleX:number;scaleY:number}
 export function isBrushParticle(v:unknown):v is BrushParticle{
  if(!v||typeof v!=='object'||Array.isArray(v))return false
@@ -29,13 +29,10 @@ export function hasParticleTimer157Scope(value:unknown):boolean{
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!isBrushParticle(value.particle))return false
  const t=value.tip,b=value.behavior,r=b.rendering,c=b.timing
- const rateControls=obj(c)?c.rateDynamics:undefined
- const dynamic=obj(c)&&'rateDynamics'in c
- const validRateControls=!dynamic||Number(value.version)>=163&&Array.isArray(rateControls)&&rateControls.length>=1&&rateControls.length<=4&&rateControls.every(control=>obj(control)&&['pressure','off'].includes(String(control.control))&&control.jitter===0&&control.combine===undefined)&&isBrushBehavior({version:2,timing:c})
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  return Number.isInteger(value.version)&&Number(value.version)>=157&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&value.flowPer==='stamp'&&one(value.flowByPressure)&&one(value.opacityByPressure)
  &&['mixer','spray','bristle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx'].every(k=>value[k]===undefined)
  &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
  &&b.version===2&&Object.keys(b).every(k=>['version','rendering','timing'].includes(k))&&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
- &&obj(c)&&Object.keys(c).every(k=>['version','rate','ignoreDistanceSpacing','rateDynamics'].includes(k))&&validRateControls&&c.version===1&&typeof c.rate==='number'&&Number.isFinite(c.rate)&&c.rate>0&&c.rate<=1000&&c.ignoreDistanceSpacing===false
+ &&isNativePressureRateTiming(c,Number(value.version)>=163)
 }

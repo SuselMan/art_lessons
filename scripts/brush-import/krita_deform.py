@@ -14,9 +14,9 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
     if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
         if not timed_input:raise ValueError('Deform timed input requires closed160 opt-in')
-        if not timer or not old_data or enabled(params.get('PressureRate'))or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Deform160 requires static canonical checked timer and OLD source')
-        rate=numeric(params.get('PaintOpSettings/rate'),20)
-        if not math.isfinite(rate)or not 0<rate<=1000:raise ValueError('Deform160 rate outside0..1000')
+        if not timer or not old_data or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Deform160 requires static canonical checked timer and OLD source')
+        from native_pressure_rate import native_pressure_rate
+        timing=native_pressure_rate(params)
     def number(key,default,lo,hi):
         value=numeric(params.get(key),default)
         if not math.isfinite(value)or not lo<=value<=hi:raise ValueError('Deform setting outside bounded range: '+key)
@@ -29,6 +29,7 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     angle=number('Brush/rotation',0,-360,360)
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in list(transformed):
+        if timer and node.get('name')=='PressureRate':node.text='false'
         if node.get('name')in('brush_definition','CompositeOp','PaintOpAction','paintop')or(timer and node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal'
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
@@ -48,13 +49,14 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
         d['deform']['sourcePolicy']='canonical-begin-v1'
     if timer:
         from deform_timer160 import deform_timer160_scope
-        d['version']=160;b['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':False}
+        d['version']=165 if 'rateDynamics'in timing else 160;b['timing']=timing
         if not deform_timer160_scope(d):raise ValueError('Deform160 outside closed root scope')
     result['sourceDefaults']={'sizePx':diameter*scale,'opacity':d['opacity'],'flow':1}
     note=compatibility('deform','Squared elliptical distance, Grow/Shrink, swirl, Move, lenses, colour displacement and COPY transparency retained. Current pre-request source only. Sampling capped at512px and2048 world pixels; singular/oversized requests skipped. Native rounding, density RNG and rotation details differ. Frozen transaction source and timers rejected.')
     if old_data:
         note=compatibility('deform','Frozen canonical stroke-BEGIN source. Current destination COPY/OVER remains per request. Sampling capped at512px and2048 world pixels; singular/oversized requests skipped. Native rounding, density RNG and rotation details remain functionally qualified; timers rejected.')
     if timer:note=compatibility('deformTimer160','Existing canonical-BEGIN OLD source; static native Airbrush uses common81 F64 author distance/time requests and constructor spacing independent of pressure Size. Moving and stationary requests share accumulators; replay never retimes. Native RNG/U8 identity remains qualified.','supported')
+    if timer and d['version']==165:note=compatibility('deformRate165','Checked native Rate pressure/off factors and strength modulate existing81 time interval only; native constructor spacing/fixed baseScale and canonical OLD145 source remain. Movement and time share accumulators; factor0 suspends time without disabling distance requests. Recorded F64 events replay without retiming, no fuzzy/combined sensors/native pixel identity.','supported')
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ('kritaEngine','standardMaskProfile','autoSpacing')]+[note]
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)

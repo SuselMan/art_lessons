@@ -7,7 +7,8 @@ def deform_timer160_scope(d):
     b=d.get('behavior');t=d.get('tip');m=d.get('mixer')
     if not all(isinstance(v,dict)for v in(b,t,m)):return False
     c=b.get('timing');s=b.get('spacing');r=b.get('rendering')
-    if not isinstance(c,dict)or set(c)!={'version','rate','ignoreDistanceSpacing'}or type(c.get('version'))is not int or c['version']!=1 or type(c.get('rate'))not in(int,float)or not math.isfinite(c['rate'])or not 0<c['rate']<=1000 or c.get('ignoreDistanceSpacing')is not False:return False
+    from native_pressure_rate import pressure_rate_timing_scope
+    if not pressure_rate_timing_scope(c,d['version']>=165):return False
     if t.get('kind')!='round'or any(k in t for k in('profile','animation','color','material','imageSampling','autoNoise','autoShape'))or not isinstance(r,dict)or r.get('mode')!='buildUp':return False
     if not isinstance(s,dict)or set(s)!={'mode','coefficient','isotropic'}or s.get('mode')!='diameter'or s.get('isotropic')is not True or type(s.get('coefficient'))not in(int,float)or not math.isfinite(s['coefficient'])or not 0<s['coefficient']<=100:return False
     if any(type(m.get(k))not in(int,float)or m[k]!=v for k,v in [('load',0),('initialLoad',0),('pickup',1),('strength',1)])or type(m.get('smearAlpha'))is not bool or set(m)-{'load','initialLoad','pickup','strength','source','smearAlpha'}:return False

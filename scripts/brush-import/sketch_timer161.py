@@ -21,8 +21,8 @@ def sketch_timer161_scope(d):
     if 'speedInput'in b and b['speedInput']!={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'}:return False
     r=b.get('rendering');c=b.get('timing')
     if not isinstance(r,dict)or r.get('mode')!='buildUp'or r.get('blendMode')!='normal'or r.get('accumulation')!='directOver'or r.get('wetEdges',0)!=0 or r.get('burntEdges',0)!=0 or r.get('gammaCorrect')or r.get('luminance'):return False
-    if not isinstance(c,dict)or set(c)!={'version','rate','ignoreDistanceSpacing'}or type(c.get('version'))is not int or c['version']!=1 or c.get('ignoreDistanceSpacing')is not False:return False
-    if type(c.get('rate'))not in(int,float)or not math.isfinite(c['rate'])or not 0<c['rate']<=1000:return False
+    from native_pressure_rate import pressure_rate_timing_scope
+    if not pressure_rate_timing_scope(c,d['version']>=164):return False
     curve=d.get('flowByPressure')
     return isinstance(curve,list)and len(curve)>=2 and all(isinstance(p,list)and len(p)==2 and type(p[0])in(int,float)and math.isfinite(p[0])and 0<=p[0]<=1 and p[1]==1 for p in curve)
 
