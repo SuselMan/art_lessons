@@ -480,9 +480,10 @@ export class OperationLog {
    *  local seq has always meant "array index" (see append()), this keeps
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
-  prependHistorical(entries: readonly LogEntry[]): void {
+  prependHistorical(entries: readonly LogEntry[], reconcileCanonicalHistory = false): Operation[] {
     this._revision++;this.onRevision?.()
-    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
+    const held = this._entries
+    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...held]
     // A repair may fill a hole inside the known snapshot prefix, rather than
     // merely prepend an older page. Original server order is authoritative;
     // legacy seq-less callers keep their established prepend contract.
@@ -493,9 +494,48 @@ export class OperationLog {
     this._entries = merged
     this._nextSeq = merged.length
     this._confirmedCount += entries.length
-    for (const e of entries) {
-      if (e.state === 'done') this._bumpPixelOpCount(e.op, 1)
+    const changed: Operation[] = []
+    const newIds = new Set(entries.map(entry => entry.op.id))
+    // Conservative background-only admission: any canonical history metadata
+    // may interact with a newly supplied page in either direction. There is
+    // deliberately no directional target/branch shortcut here. Live append
+    // never enters this fold, and default/seq-less prepend stays unchanged.
+    const hasHistory = merged.some(entry => entry.op.type === 'operation_undo' || entry.op.type === 'operation_redo' || entry.op.type === 'operation_revoke')
+    const joinsOpacity = merged.some((entry, index) => index > 0 && newIds.has(entry.op.id) !== newIds.has(merged[index - 1].op.id) && coalesces(merged[index - 1].op, entry.op))
+    if (reconcileCanonicalHistory && (hasHistory || joinsOpacity) && incoming.every(entry => entry.pending || entry.serverSeq !== undefined)) {
+      const fold = (ordered: readonly LogEntry[]): OperationLog => {
+        const resolved = new OperationLog()
+        for (const entry of ordered) {
+          if (entry.pending && entry.state === 'gone') continue
+          const op = entry.op
+          resolved.append(op, entry.pending ? { pending: true } : { serverSeq: entry.serverSeq })
+          if (op.type === 'operation_undo') resolved.applyUndo(op.targetOpId, op.userId)
+          else if (op.type === 'operation_redo') resolved.applyRedo(op.targetOpId, op.userId)
+          else if (op.type === 'operation_revoke') resolved.revoke(op.targetOpId)
+        }
+        return resolved
+      }
+      // Compare against the held journal's OWN fold, with the same active
+      // pending rules. A non-done local override differs from that baseline;
+      // canonical gone does not, so a late Redo may legitimately recover it.
+      const heldNonDone = held.filter(entry => !entry.pending && entry.state !== 'done')
+      const heldCanonical = heldNonDone.length ? new Map(fold(held).entries.map(entry => [entry.op.id, entry.state])) : null
+      const localOverrides = new Set(heldNonDone.filter(entry => (heldCanonical?.get(entry.op.id) ?? 'gone') !== entry.state).map(entry => entry.op.id))
+      const resolved = fold(merged)
+      const states = new Map(resolved.entries.map(entry => [entry.op.id, entry.state]))
+      for (const entry of merged) {
+        if (entry.pending || localOverrides.has(entry.op.id)) continue
+        // Canonical append coalesces slider identities. Keep the immutable
+        // original id as terminal history, not as phantom done opacity.
+        const state = states.get(entry.op.id) ?? 'gone'
+        if (state !== entry.state) { entry.state = state; changed.push(entry.op) }
+      }
+      this._pixelOpDoneCount.clear()
+      for (const entry of merged) if (entry.state === 'done') this._bumpPixelOpCount(entry.op, 1)
+    } else {
+      for (const entry of entries) if (entry.state === 'done') this._bumpPixelOpCount(entry.op, 1)
     }
+    return changed
   }
 
   /** All `done` operations in seq order. */

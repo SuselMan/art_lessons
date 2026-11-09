@@ -6619,7 +6619,10 @@ export class PencilEngine implements PencilEngineAPI {
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
       if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
-    this._snapshotIO.absorbHistorical(pageOps)
+    const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
+    // A late page can resolve metadata already held by the other page. Use
+    // the ordinary history invalidation/rebuild path for those changed targets.
+    for (const target of historyChanges) this._applyHistoryChange(target)
     this._resolveSnapshotHistoryRepairs()
     this._settleLayers()
   }

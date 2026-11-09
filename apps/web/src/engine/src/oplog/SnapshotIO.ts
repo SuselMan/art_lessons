@@ -418,7 +418,7 @@ export class SnapshotIO {
    *  operation, just without ever touching a buffer — so the resulting
    *  entries' done/undone/gone states come from the exact same state machine,
    *  then merges them into the real log in one step. */
-  absorbHistorical(pageOps: Operation[]): void {
+  absorbHistorical(pageOps: Operation[]): Operation[] {
     const log = this.ctx.log()
     // Even an entirely duplicate page can follow a second snapshot restore.
     // Coverage reconciliation must precede the no-new-IDs early return.
@@ -433,7 +433,7 @@ export class SnapshotIO {
     const ops = pageOps.filter(op => !held.has(op.id))
     if (ops.length === 0) {
       this._invalidateSplitBrushSnapshots()
-      return
+      return []
     }
     const scratch = new OperationLog()
     for (const op of ops) {
@@ -442,7 +442,7 @@ export class SnapshotIO {
       else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
       else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
     }
-    log.prependHistorical(scratch.entries)
+    const changed = log.prependHistorical(scratch.entries, true)
     this._historicalEntryCount += scratch.entries.length
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
@@ -450,6 +450,7 @@ export class SnapshotIO {
     // deliberately not awaited, since backfill itself never blocks anything.
     this.ctx.preloadImages(ops)
     this._invalidateSplitBrushSnapshots()
+    return changed
   }
 
   /** A legacy snapshot may end inside a carried brush gesture. Pixels cannot
