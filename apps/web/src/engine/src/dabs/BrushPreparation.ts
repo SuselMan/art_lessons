@@ -1,3 +1,4 @@
+import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
 import {assertBristleSource143Ready} from '../presets/bristleInitialization140'
 import{hasTangentNormalWash136Scope}from'@grafetto/shared'
@@ -96,6 +97,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
   if(brush.mixer?.colorRateComposite==='overlay'&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Overlay154 scope')
   if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
   const bristleWash=hasBristleWash135Scope(brush)
@@ -172,7 +174,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(sides.some(side=>!Number.isInteger(side)||side<2||side>512||(side&(side-1))!==0)||sides[1]!==sides[2])throw Error('Texture erase131 requires bounded paired CAS')
     }
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
-    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray)||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
+    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray&&!hasSprayRectangleNoise155Scope(b))||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
     if(b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
     if(b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     if(b.tip.autoNoise&&painter!=='stamp')throw Error('Auto-mask noise requires the stamp renderer')

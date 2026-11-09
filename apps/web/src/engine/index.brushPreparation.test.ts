@@ -154,3 +154,43 @@ it('keeps an admitted pending preset alive when a different oversized bank is sk
     await expect(first).resolves.toEqual({status:'ready'})
   }finally{engine.destroy()}
 })
+
+it.each(['gaussian2D','curveRectangle'] as const)('public selected prepare admits155 %s noise and warms its actual stamp plan',async kind=>{
+ const {sprayRectangle155,library155,lookup155}=await import('../../../../packages/shared/src/brushSprayRectangle155.testFixture')
+ const {brushPreparationPlan}=await import('./src/dabs/BrushPreparation')
+ const brush=sprayRectangle155(kind);brush.id=`imported-${(++serial).toString(16).padStart(24,'0')}`;const library=library155(brush)
+ installBrushLibrary(library)
+ if(kind==='curveRectangle'){
+  const pixels=new Uint8Array(64),view=new DataView(pixels.buffer)
+  for(let i=0;i<6;i++)view.setUint32(i*4,Math.round(Math.min(1,i/4)*4294967295),false)
+  installBrushPixels(lookup155,pixels)
+ }
+ const plan=brushPreparationPlan(brush)
+ expect(plan.capabilities).toContain('stampEffects')
+ expect(plan.resources.filter(r=>r.grain).map(r=>r.id)).toEqual(['cloud','grit'])
+ expect(plan.resources.some(r=>r.id===lookup155)).toBe(kind==='curveRectangle')
+ const {engine}=createTestEngine({}, {width:32,height:32})
+ try{
+  await paperReady(engine)
+  const history=engine.getOperations()
+  const preset=`brush:${brush.id}@155`
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'})
+  expect(engine.getOperations()).toEqual(history)
+  const upload=vi.spyOn(engine['gl'],'texImage2D')
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'})
+  expect(upload).not.toHaveBeenCalled()
+ }finally{engine.destroy()}
+})
+
+it('retains98 unpaired noise and rejects invalid155/erase before selected resource work',async()=>{
+ const {sprayRectangle155}=await import('../../../../packages/shared/src/brushSprayRectangle155.testFixture')
+ const {brushPreparationPlan}=await import('./src/dabs/BrushPreparation')
+ const old=sprayRectangle155();old.version=98;delete old.spray
+ expect(brushPreparationPlan(old).capabilities).toContain('stampEffects')
+ const brush=sprayRectangle155()
+ expect(()=>brushPreparationPlan(brush,true)).toThrow('scope')
+ const invalid=sprayRectangle155();invalid.model='mixer'
+ expect(()=>brushPreparationPlan(invalid)).toThrow('scope')
+ const unversioned=sprayRectangle155();unversioned.version=154
+ expect(()=>brushPreparationPlan(unversioned)).toThrow('unpaired stamp without noise')
+})
