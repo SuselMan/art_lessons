@@ -16,7 +16,7 @@ class SketchTests(unittest.TestCase):
     def test_mask_mode_is_not_silently_approximated(self):
         data=kpp(engine='sketchbrush')
         with tempfile.TemporaryDirectory() as d:
-            with self.assertRaisesRegex(ValueError,'mask-selected'):preset(data,'test.kpp',Catalog(Path(d)),{})
+            b=preset(data,'test.kpp',Catalog(Path(d)),{});self.assertEqual(b['descriptor']['version'],173);self.assertEqual(b['descriptor']['sketch']['maskSignal'],'procedural-standard-v1')
     def test_active_timer_is_explicit(self):
         with self.assertRaisesRegex(ValueError,'timed input'):self.convert('<param name="PaintOpSettings/isAirbrushing">true</param>')
     def test_line_width_sensor_and_constant_value(self):

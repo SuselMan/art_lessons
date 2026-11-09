@@ -1,13 +1,15 @@
 import{hasTextureLightnessWash171Scope}from'./brushTextureLightnessWash171.js'
 export{hasTextureLightnessWash171Scope,assertTextureLightnessWash171Scope}from'./brushTextureLightnessWash171.js'
+import{hasLegacyColorSmudgeMinMax172Scope}from'./legacyColorSmudgeMinMax172.js'
+export{hasLegacyColorSmudgeMinMax172Scope}from'./legacyColorSmudgeMinMax172.js'
 import{hasPixelAlphaDual170Scope}from'./brushDualMask170.js'
 export{hasPixelAlphaDual170Scope,assertPixelAlphaDual170Scope}from'./brushDualMask170.js'
 import{hasPixelAlphaDual168Scope}from'./brushDualMask168.js'
 export{hasPixelAlphaDual168Scope,assertPixelAlphaDual168Scope}from'./brushDualMask168.js'
 import{hasCurveHostTimer167Scope}from'./brushCurveTrace.js'
 export{hasCurveHostTimer167Scope,curveHostInterval167}from'./brushCurveTrace.js'
-import{hasSketchImageAlpha162Scope}from'./brushSketch.js'
-export{hasSketchImageAlpha162Scope}from'./brushSketch.js'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope}from'./brushSketch.js'
+export{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope}from'./brushSketch.js'
 import{hasSketchTimer161Scope}from'./brushSketch.js'
 export{hasSketchTimer161Scope}from'./brushSketch.js'
 export {hasExperimentCurrentPattern158Scope} from './brushExperiment.js'
@@ -393,7 +395,7 @@ export interface BrushDescriptor {
     /** New mask strategy: feedback composition precedes foreground and mask. */
     algorithm?: 'krita-mask' | 'krita-stamp'
     /** Native foreground-only operation; final canvas transfer remains COPY. */
-    colorRateComposite?: 'overlay' | 'hardMixPhotoshop' | 'grainMerge' | 'grainExtract' | 'negation' | 'multiply' | 'screen' | 'erase'
+    colorRateComposite?: 'darken' | 'lighten' | 'overlay' | 'hardMixPhotoshop' | 'grainMerge' | 'grainExtract' | 'negation' | 'multiply' | 'screen' | 'erase'
     /** Uniform previous-canvas area mean. Fixed64 sample cap. */
     sampling?: { mode: 'uniformMean' | 'adaptiveMean' | 'maskMean'; radius: number; radiusDynamics?: BrushDynamic[] }
     /** Source-over foreground added to sampled canvas before masked transfer.
@@ -525,9 +527,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if(d.bristle!==undefined&&record(d.behavior)&&record(d.behavior.rendering)&&d.behavior.rendering.accumulation==='alphaDarken'&&!hasBristleWash135Scope(d))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasBristleWash135Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
-    if(record(d.sketch)&&d.sketch.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(d))return false
-    if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||(d.behavior.timing!==undefined&&!hasSketchTimer161Scope(d))||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
-    if(record(d.sketch)&&d.sketch.mode==='mask'){
+    if(record(d.sketch)&&d.sketch.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(d)&&!hasSketchProcedural173Scope(d))return false
+    if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||(d.behavior.timing!==undefined&&!hasSketchTimer161Scope(d))||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined&&!hasSketchProcedural173Scope(d)||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(record(d.sketch)&&d.sketch.mode==='mask'&&!hasSketchProcedural173Scope(d)){
       const sketchTip=d.tip,dims=d.sketch.maskSize,size=assetSizes.get(String(sketchTip.mask)),bounds=sketchTip.maskBounds
       if(Number(d.version)<101||(d.sketch.distanceOpacity===true&&Number(d.version)<114)||sketchTip.kind!=='bitmap'||!Array.isArray(dims)||dims.length!==2||!dims.every(n=>typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256)||!size||size>256||sketchTip.aspect!==1||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>sketchTip[k]!==undefined)||!record(bounds))return false
       const [w,h]=dims as number[],longest=Math.max(w,h);let side=2**Math.ceil(Math.log2(Math.max(2,longest)));if(longest===side&&((side-w)%2||(side-h)%2))side*=2
@@ -794,7 +796,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (secondary) {
         if(secondary.behavior?.dual?.blendMode==='hardMixSofterPhotoshop'||secondary.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')return false
         if(secondary.curveTrace&&secondary.behavior?.timing)return false
-        if(secondary.mixer?.colorRateComposite==='overlay')return false
+        if(secondary.mixer?.colorRateComposite==='overlay'||secondary.mixer?.colorRateComposite==='darken'||secondary.mixer?.colorRateComposite==='lighten')return false
         if(secondary.tip.color&&'adjustmentPolicy'in secondary.tip.color)return false
         if(secondary.clone&&(secondary.clone.source!==undefined||secondary.clone.sourcePolicy!==undefined||secondary.clone.healing!==undefined))return false
         if(secondary.spray?.color.sourcePolicy!==undefined||secondary.deform?.sourcePolicy!==undefined||secondary.filter&&('smudgeMode'in secondary.filter||'sourcePolicy'in secondary.filter))return false
@@ -859,7 +861,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
       || (d.mixer.source !== undefined && !isBrushCanvasSource(d.mixer.source))
       || (d.mixer.algorithm !== undefined && (!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) || !isBrushCanvasSource(d.mixer.source)))
-      || (d.mixer.colorRateComposite !== undefined && (d.model!=='mixer'||d.behavior?.rendering?.blendMode!=='normal'||(d.mixer.colorRateComposite==='overlay' ? !hasLegacyColorSmudgeOverlay154Scope(d) : d.mixer.colorRateComposite==='erase' ? Number(d.version)<88||d.behavior?.erase!==true||!isBrushCanvasSource(d.mixer.source) : d.mixer.colorRateComposite==='hardMixPhotoshop' ? !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['grainMerge','grainExtract','negation'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<82||!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['multiply','screen'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<83||d.mixer.algorithm!==undefined||(d.mixer.source!=='previousCanvas'&&!(Number(d.version)>=85&&d.mixer.source==='projectionCanvas')) : true)))
+      || (d.mixer.colorRateComposite !== undefined && (d.model!=='mixer'||d.behavior?.rendering?.blendMode!=='normal'||(d.mixer.colorRateComposite==='darken'||d.mixer.colorRateComposite==='lighten' ? !hasLegacyColorSmudgeMinMax172Scope(d) : d.mixer.colorRateComposite==='overlay' ? !hasLegacyColorSmudgeOverlay154Scope(d) : d.mixer.colorRateComposite==='erase' ? Number(d.version)<88||d.behavior?.erase!==true||!isBrushCanvasSource(d.mixer.source) : d.mixer.colorRateComposite==='hardMixPhotoshop' ? !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['grainMerge','grainExtract','negation'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<82||!['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)) : ['multiply','screen'].includes(String(d.mixer.colorRateComposite)) ? Number(d.version)<83||d.mixer.algorithm!==undefined||(d.mixer.source!=='previousCanvas'&&!(Number(d.version)>=85&&d.mixer.source==='projectionCanvas')) : true)))
       || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || !isBrushCanvasSource(d.mixer.source) || !['uniformMean','adaptiveMean','maskMean'].includes(String(d.mixer.sampling.mode)) || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.sampling?.mode === 'maskMean' && !['krita-mask','krita-stamp'].includes(String(d.mixer.algorithm)))
       || (d.mixer.sampling?.radiusDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.sampling.radiusDynamics } }))

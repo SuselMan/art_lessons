@@ -1,3 +1,4 @@
+import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
@@ -4082,6 +4083,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
       else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
       else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy(descriptor.mixer?.colorRateComposite==='overlay')
+      else if (painter === 'colorSmudgeLegacyMinMax172') this._smudge.prepareColorSmudgeLegacy(false,true)
       else if(painter === 'projectionCanvas')this._smudge.prepareProjectionSource()
       else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
       else if (painter === 'stamp') this._brush.prepareProcedural()
@@ -8313,7 +8315,7 @@ export class PencilEngine implements PencilEngineAPI {
         return undefined
       }
       if(paint?.brush&&this._beginCapability(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
-      if (paint) { if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite

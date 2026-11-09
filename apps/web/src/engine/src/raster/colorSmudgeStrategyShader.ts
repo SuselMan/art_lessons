@@ -1,6 +1,6 @@
 /** Private opt-in Color Smudge programs. Historical compiler inputs unchanged. */
-export function colorSmudgeCompositeCode(value:unknown):0|1|2|3|4|5|6|7 {
-  switch(value){case'grainMerge':return 1;case'grainExtract':return 2;case'negation':return 3;case'multiply':return 4;case'screen':return 5;case'erase':return 6;case'overlay':return 7;default:return 0}
+export function colorSmudgeCompositeCode(value:unknown):0|1|2|3|4|5|6|7|8|9 {
+  switch(value){case'grainMerge':return 1;case'grainExtract':return 2;case'negation':return 3;case'multiply':return 4;case'screen':return 5;case'erase':return 6;case'overlay':return 7;case'darken':return 8;case'lighten':return 9;default:return 0}
 }
 function replace(source:string,before:string,after:string):string {
   if(source.split(before).length!==2)throw new Error('Color Smudge strategy shader anchor changed')
@@ -23,7 +23,15 @@ export function colorSmudgeForegroundFragment(source:string):string {
   source=source.replaceAll('u_colorSmudgePhotoshop<0.5','u_colorSmudgeComposite<0.5 && u_colorSmudgePhotoshop<0.5')
   return replace(source,'vec3 blended=u_colorSmudgePhotoshop>0.5','vec3 blended=u_colorSmudgeComposite>0.5 ? colorSmudgeChannel(dst,src) : u_colorSmudgePhotoshop>0.5')
 }
-export function colorSmudgeLegacyFragment(source:string,overlay154=false):string {
+export function colorSmudgeLegacyFragment(source:string,overlay154=false,minmax172=false):string {
+  if(overlay154&&minmax172)throw Error('Ambiguous legacy Color Smudge variant')
+  if(minmax172){
+    const extended=COMPOSITE_GLSL.replace('   vec3 d=floor','   if(u_colorSmudgeComposite>8.5)return max(destination,source);\n   if(u_colorSmudgeComposite>7.5)return min(destination,source);\n   vec3 d=floor')
+    source=replace(source,' void main() {',extended+' void main() {')
+    return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));`)
+  }
   if(overlay154){
     const extended=COMPOSITE_GLSL.replace('   vec3 d=floor','   if(u_colorSmudgeComposite>6.5)return mix(2.0*destination*source,vec3(1.0)-2.0*(vec3(1.0)-destination)*(vec3(1.0)-source),step(vec3(0.5),destination));\n   vec3 d=floor')
     source=replace(source,' void main() {',extended+' void main() {')

@@ -3,7 +3,7 @@ import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash1
 import{hasFilterBitmap169Scope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
-import{hasSketchImageAlpha162Scope}from'@grafetto/shared'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,type BrushPattern} from '@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
@@ -664,7 +664,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(assertPixelAlphaDual168Scope(brush)&&effectiveErase)throw Error('Pixel alpha dual168 erase is outside scope')
     const canvasPattern=brush.experiment?.fill!==undefined
     if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
-    if(brush.sketch?.maskSignal!==undefined&&(!hasSketchImageAlpha162Scope(brush)||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
+    if(brush.sketch?.maskSignal!==undefined&&((!hasSketchImageAlpha162Scope(brush)&&!hasSketchProcedural173Scope(brush))||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
     if(brush.sketch&&brush.behavior?.timing){if(!hasSketchTimer161Scope(brush)||effectiveErase)throw Error('Invalid Sketch timer161 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.particle&&brush.behavior?.timing){if(!hasParticleTimer157Scope(brush)||effectiveErase)throw Error('Invalid Particle timer157 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.deform&&brush.behavior?.timing)throw Error('Deform timer160 requires the ordinary SmudgePainter path')
@@ -729,6 +729,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(textureLightness&&!this.lightnessStamp)throw Error('Texture Lightness108 program was not prepared')
     if(textureGradient&&!this.textureGradientStamp)throw Error('Texture Gradient111 program was not prepared')
     const sketchMask=brush.sketch?.mode==='mask'?prepareSketchMask(brush):undefined
+    if(brush.sketch?.maskSignal==='procedural-standard-v1')for(const dab of dabs)sketchMask!.forDab(dab)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     const filteredGradient=usesFilteredPixelGradient(brush)

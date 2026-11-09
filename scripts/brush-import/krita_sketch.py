@@ -15,14 +15,20 @@ from brush_contract import finalize_identity,compatibility
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml,brush_application
     simple=enabled(params.get('Sketch/simpleMode'))
-    mask_size=None;image_alpha=None
+    mask_size=None;image_alpha=None;procedural=False
     if not simple:
         definition=xml(params.get('brush_definition',''))
-        if definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
-        filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
-        mask_size=list(image.size)
-        if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
-        if image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
+        if definition.get('type')=='auto_brush':
+            g=definition.find('MaskGenerator')
+            if g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=numeric(g.get('diameter'),1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1:raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
+            if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
+            procedural=True
+        elif definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
+        if not procedural:
+            filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
+            mask_size=list(image.size)
+            if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
+            if image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
     timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
     if timer and not timed_input:raise ValueError('Sketch timed input requires explicit closed161 opt-in')
     if timer:
@@ -64,13 +70,13 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     # New101 reads the already-captured alpha plane with its explicit own law.
     if not simple:d['tip'].pop('imageSampling',None)
     if simple:d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
-    elif d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256:raise ValueError('Unsupported Sketch101 captured alpha bitmap')
+    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
     d.pop('scatter',None);d.pop('texture',None);d.pop('wet',None)
     behavior=d['behavior']
     if simple:behavior.pop('rotation',None)
     behavior.pop('scatter',None);behavior.pop('spacing',None)
     behavior['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}
-    d['sketch']={'version':1,'mode':'simple'if simple else'mask',**({'maskSize':mask_size}if not simple else{}),'width':number('Sketch/lineWidth',1,.01,1000),'offset':number('Sketch/offset',30,-1000,1000)/100,'probability':number('Sketch/probability',.5,0,1),
+    d['sketch']={'version':1,'mode':'simple'if simple else'mask',**({'maskSize':mask_size}if not simple and not procedural else{}),'width':number('Sketch/lineWidth',1,.01,1000),'offset':number('Sketch/offset',30,-1000,1000)/100,'probability':number('Sketch/probability',.5,0,1),
                  **{target:enabled(params.get('Sketch/'+source,str(default).lower())) for target,source,default in [('connect','makeConnection',True),('magnetify','magnetify',True),('randomRGB','randomRGB',False),('randomOpacity','randomOpacity',False),('distanceDensity','distanceDensity',True),('distanceOpacity','distanceOpacity',False),('antialias','antiAliasing',False)]}}
     if not simple and d['sketch']['distanceOpacity']:d['sketch']['distanceOpacityPolicy']='generic-clamp-v1'
     notes=[];controls={}
@@ -110,6 +116,13 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         d['version']=164 if 'rateDynamics'in timing else 161;behavior['timing']=timing
         if not sketch_timer161_scope(d):raise ValueError('Sketch161 outside closed root scope')
         result['compatibility'].append(compatibility('sketchRate164'if d['version']==164 else 'sketchTimer161','Checked native pressure/off Rate and strength use existing81 clock; moving Sketch requests do not update/spend/reset stationary timing, existing point-history/density/opacity solver and recorded replay remain unchanged. Zero factor suspends stationary timing; moving input still paints. No fuzzy/combination/native RNG or line pixel identity.'if d['version']==164 else'Static native simple Sketch timer reuses author F64 clock81: one request per moving input, stationary elapsed requests retain the shared native accumulator. Existing point history, density/opacity/random line laws remain; replay never retimes. Functional qualification, not native RNG/line pixel identity.','supported'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if procedural:
+        from sketch_procedural173 import sketch_procedural173_scope
+        d['version']=173;d['sketch']['maskSignal']='procedural-standard-v1'
+        if not sketch_procedural173_scope(d):raise ValueError('Sketch173 outside closed procedural scope')
+        result['compatibility']=[n for n in result['compatibility']if n['feature']not in('sketchMask','sketch')]
+        result['compatibility'].append(compatibility('sketchProcedural173','Static native standard ellipse/rectangle selects historical points through allocated pixel U8 nonzero alpha before existing Sketch probability/line laws. Existing scalar U8 AA/fade and captured Size/Rotation reused; no native SIMD/RNG/line-pixel identity. Procedural physical axes bounded256.','approximate'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

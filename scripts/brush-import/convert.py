@@ -1,3 +1,4 @@
+from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope, validate_legacy_color_smudge_minmax172
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
 from legacy_color_smudge_overlay154 import legacy_color_smudge_overlay154_scope, validate_legacy_color_smudge_overlay154
@@ -524,7 +525,7 @@ def validate_portable_mixer(descriptor):
     if 'colorRateComposite'in mixer:
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
-        valid=(legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
+        valid=(legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
         if not valid or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
@@ -577,6 +578,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_particle_wash134(descriptor,parent)
     from sketch_image_alpha162 import validate_sketch_image_alpha162
     validate_sketch_image_alpha162(descriptor,parent)
+    from sketch_procedural173 import validate_sketch_procedural173,sketch_procedural173_scope
+    validate_sketch_procedural173(descriptor,parent)
     from curve_timer167 import validate_curve_timer167
     validate_curve_timer167(descriptor,parent)
     from texture_lightness_wash171 import validate_texture_lightness_wash171
@@ -593,6 +596,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_clone_projection149(descriptor,1 if parent is not None else 0)
     validate_clone_healing152(descriptor,1 if parent is not None else 0)
     validate_legacy_color_smudge_overlay154(descriptor,1 if parent is not None else 0)
+    validate_legacy_color_smudge_minmax172(descriptor,1 if parent is not None else 0)
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
     validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
@@ -642,7 +646,7 @@ def validate_portable_profile(descriptor, *, parent=None):
                 or any(k in behavior for k in('dual','timing','wetMix','taper','mirror'))
                 or not isinstance(rendering,dict) or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal'):
             raise ValueError('Invalid portable Sketch114 root scope')
-    if isinstance(sketch,dict)and sketch.get('mode')=='mask':
+    if isinstance(sketch,dict)and sketch.get('mode')=='mask'and not sketch_procedural173_scope(descriptor):
         dims=sketch.get('maskSize');bounds=tip.get('maskBounds')
         if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
     noise=tip.get('autoNoise')
@@ -791,6 +795,7 @@ def portable_bundle(path,catalog):
         validate_clone_projection149(d,depth)
         validate_clone_healing152(d,depth)
         validate_legacy_color_smudge_overlay154(d,depth)
+        validate_legacy_color_smudge_minmax172(d,depth)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
         validate_pixel_original_hsv150(d,depth)
@@ -810,7 +815,7 @@ def portable_bundle(path,catalog):
         from krita_spray import validate_spray_source146
         validate_spray_source146(d,depth)
         if depth and isinstance(d.get('filter'),dict) and d['filter'].get('kind')in('invert','desaturate','posterize'):raise ValueError('Portable Posterize filter is root-only'if d['filter'].get('kind')=='posterize'else'Portable Desaturate filter is root-only'if d['filter'].get('kind')=='desaturate'else'Portable Invert filter is root-only')
-        if d.get('sketch',{}).get('mode')=='mask':
+        if d.get('sketch',{}).get('mode')=='mask'and d.get('sketch',{}).get('maskSignal')!='procedural-standard-v1':
             dims=d['sketch']['maskSize'];w,h=dims;longest=max(dims);side=2**math.ceil(math.log2(max(2,longest)))
             if longest==side and((side-w)%2 or(side-h)%2):side*=2
             bounds={'x':((side-w)//2+(w-longest)/2)/side,'y':((side-h)//2+(h-longest)/2)/side,'width':longest/side,'height':longest/side}
