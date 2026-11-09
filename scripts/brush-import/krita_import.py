@@ -1361,7 +1361,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         child=finalize_identity(child,child_png.getvalue())
         if child['version']==31: d['version']=31
         mode=params.get('MaskingBrush/MaskingCompositeOp','multiply')
-        combine='hardMixSofterPhotoshop'if mode=='hard_mix_softer_photoshop'else modes.get(mode,'multiply')
+        combine='hardMixPhotoshopAlpha'if mode=='hard_mix_photoshop'else'hardMixSofterPhotoshop'if mode=='hard_mix_softer_photoshop'else modes.get(mode,'multiply')
         if mode not in modes and mode!='hard_mix_softer_photoshop': notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
         behavior['dual']={'brush':child,'blendMode':combine,'sampling':'independent'}
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
@@ -1652,6 +1652,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if any(c.get('combine',{}).get('policy')=='native-scatter-v1'for c in scatter_controls):
         if depth or engine!='paintbrush' or d.get('model')!='stamp' or behavior.get('dual') or any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Native scatter expression requires root Pixel')
         d['version']=max(d['version'],148)
+    if behavior.get('dual',{}).get('blendMode')=='hardMixPhotoshopAlpha':
+        from dual_mask170 import pixel_alpha_dual170_scope
+        d['version']=max(d['version'],170)
+        native_timer170=any(enabled(params.get(prefix+key))for prefix in('','MaskingBrush/Preset/')for key in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
+        if depth or engine!='paintbrush'or native_timer170 or not pixel_alpha_dual170_scope(d):raise ValueError('Native Hard Mix Photoshop masking requires closed root Pixel ALPHAMASK170')
+        notes.append(compatibility('masking.alphaHardMixPhotoshop170','Native41bef no-strength GrayA masking applies Hard Mix Photoshop threshold to accumulated parentAlpha + secondaryGrayAlpha (strictly greater than unit); parent pigment and independent mask geometry retained. No native U8/Qt sampling identity claim.','supported'))
     if behavior.get('dual',{}).get('blendMode')=='hardMixSofterPhotoshop':
         from dual_mask168 import pixel_alpha_dual168_scope
         d['version']=max(d['version'],168)

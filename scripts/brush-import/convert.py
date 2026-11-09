@@ -579,6 +579,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_sketch_image_alpha162(descriptor,parent)
     from curve_timer167 import validate_curve_timer167
     validate_curve_timer167(descriptor,parent)
+    from dual_mask170 import validate_pixel_alpha_dual170
+    validate_pixel_alpha_dual170(descriptor,parent)
     from dual_mask168 import validate_pixel_alpha_dual168
     validate_pixel_alpha_dual168(descriptor,parent)
     from sketch_timer161 import validate_sketch_timer161
@@ -613,7 +615,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     if isinstance(filter_config,dict)and filter_config.get('smudgeMode')is True:
         # The complete new147 scope was validated above. Reuse unchanged
         # legacy pointwise config checks after stripping ONLY its two markers.
-        filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy','spatialPolicy')}
+        filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy','spatialPolicy','maskPolicy')}
     if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate','posterize') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
         desaturate=filter_config.get('kind')=='desaturate';posterize=filter_config.get('kind')=='posterize'

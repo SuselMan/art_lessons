@@ -382,7 +382,8 @@ void main() {
  float coverage=ink.a;
  if(u_secondaryEnabled>0.5 && coverage>0.0) {
   float secondary=texture2D(u_secondaryCoverage,uv).a;
-  if(u_secondaryMode>99.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(10.0,0.0,0.0,0.0));
+  if(u_secondaryMode>100.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(9.0,0.0,0.0,0.0));
+  else if(u_secondaryMode>99.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(10.0,0.0,0.0,0.0));
   else coverage=clamp(brushBlend(vec3(coverage),vec3(secondary),u_secondaryMode).r,0.0,1.0);
  }
  // Modes differ in optical density / accumulation, not in frame count.

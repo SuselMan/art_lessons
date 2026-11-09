@@ -1,3 +1,5 @@
+import{hasPixelAlphaDual170Scope}from'./brushDualMask170.js'
+export{hasPixelAlphaDual170Scope,assertPixelAlphaDual170Scope}from'./brushDualMask170.js'
 import{hasPixelAlphaDual168Scope}from'./brushDualMask168.js'
 export{hasPixelAlphaDual168Scope,assertPixelAlphaDual168Scope}from'./brushDualMask168.js'
 import{hasCurveHostTimer167Scope}from'./brushCurveTrace.js'
@@ -44,7 +46,7 @@ export type{BrushClone}from'./brushClone.js'
 export{hasCloneHealing152Scope,hasCloneProjection149Scope}from'./brushClone.js'
 import{hasFilterSmudge147Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
-export{hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
+export{hasFilterBitmap169Scope,hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
 import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
 export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
@@ -472,6 +474,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
+    if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixPhotoshopAlpha'&&!hasPixelAlphaDual170Scope(d))return false
     if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixSofterPhotoshop'&&!hasPixelAlphaDual168Scope(d))return false
     const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
@@ -787,7 +790,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
-        if(secondary.behavior?.dual?.blendMode==='hardMixSofterPhotoshop')return false
+        if(secondary.behavior?.dual?.blendMode==='hardMixSofterPhotoshop'||secondary.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')return false
         if(secondary.curveTrace&&secondary.behavior?.timing)return false
         if(secondary.mixer?.colorRateComposite==='overlay')return false
         if(secondary.tip.color&&'adjustmentPolicy'in secondary.tip.color)return false

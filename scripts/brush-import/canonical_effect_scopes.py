@@ -33,6 +33,14 @@ def validate_canonical_effect_scopes(d,depth=0):
         proxy={**d,'version':int(d['version']),'filter':{'version':2,'kind':'invert','smudgeMode':True,'sourcePolicy':'canonical-begin-v1'}}
         validate_canonical_effect_scopes(proxy,depth)
         return
+    if _record(f)and 'maskPolicy'in f:
+        b=d.get('behavior');t=d.get('tip')
+        if(depth or type(d.get('version'))is not int or d['version']!=169 or set(f)!={'version','kind','smudgeMode','sourcePolicy','maskPolicy'}or type(f.get('version'))is not int or f['version']!=2 or f.get('kind')!='invert'or f.get('smudgeMode')is not True or f.get('sourcePolicy')!='canonical-begin-v1'or f.get('maskPolicy')!='bitmap-alpha-v1'or not _record(t)or t.get('kind')!='bitmap'or not isinstance(t.get('mask'),str)or not __import__('re').fullmatch(r'asset:[a-f0-9]{64}',t['mask'])or set(t)-{'kind','mask','maskBounds','hardness','aspect','rotation','angle'}or not _record(b)or any(k in b for k in('dual','timing','erase','wetMix','taper','scatter','colorAdjustment'))):raise ValueError('Filter169 requires root ordinary bitmap invert mask')
+        if not _number(t.get('hardness'),0,1)or not _number(t.get('aspect'),1,16)or not _number(t.get('angle'),-math.pi*2,math.pi*2)or t.get('rotation')not in('fixed','path','travel'):raise ValueError('Invalid Filter169 bitmap geometry')
+        q=t.get('maskBounds')
+        if q is not None and(not _record(q)or set(q)!={'x','y','width','height'}or any(not _number(q.get(k),0,1)for k in('x','y','width','height'))or q['width']<1/2048 or q['height']<1/2048 or q['x']+q['width']>1 or q['y']+q['height']>1):raise ValueError('Invalid Filter169 bitmap bounds')
+        validate_canonical_effect_scopes({**d,'filter':{'version':2,'kind':'invert','smudgeMode':True,'sourcePolicy':'canonical-begin-v1'},'tip':{'kind':'round','hardness':t.get('hardness'),'aspect':t.get('aspect'),'rotation':t.get('rotation'),'angle':t.get('angle')}},depth)
+        return
     if _record(f)and('smudgeMode'in f or 'sourcePolicy'in f):
         b=d.get('behavior');m=d.get('mixer');t=d.get('tip');r=b.get('rendering')if _record(b)else None
         kind=f.get('kind');keys={'version','kind','smudgeMode','sourcePolicy'}|({'type'}if kind=='desaturate'else{'steps'}if kind=='posterize'else set())

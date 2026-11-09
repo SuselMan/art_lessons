@@ -3,7 +3,7 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity' | 'hardMixPhotoshop' | 'kritaHardMix'
-export type BrushDualMaskMode=BrushBlendMode|'hardMixSofterPhotoshop'
+export type BrushDualMaskMode=BrushBlendMode|'hardMixSofterPhotoshop'|'hardMixPhotoshopAlpha'
 export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time' | 'distance'
 export interface BrushDynamic {
   /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
@@ -174,7 +174,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if (obj(w) && w.dynamics !== undefined && (!obj(w.dynamics) || !keys(w.dynamics,['dilution','attack','pull','grade','blur']) || !Object.values(w.dynamics).every(list=>Array.isArray(list)&&list.length<=4&&list.every(v=>isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const t=value.taper
   if (t !== undefined && (!obj(t) || !keys(t,['start','end','size','opacity','pressure']) || !n(t.start) || !n(t.end) || !n(t.size) || !n(t.opacity) || typeof t.pressure !== 'boolean')) return false
-  if (value.dual !== undefined && (!obj(value.dual) || !keys(value.dual,['brush','blendMode','sampling']) || !obj(value.dual.brush) || !(blend(value.dual.blendMode)||value.dual.blendMode==='hardMixSofterPhotoshop') || (value.dual.sampling !== undefined && value.dual.sampling !== 'independent'))) return false
+  if (value.dual !== undefined && (!obj(value.dual) || !keys(value.dual,['brush','blendMode','sampling']) || !obj(value.dual.brush) || !(blend(value.dual.blendMode)||value.dual.blendMode==='hardMixSofterPhotoshop'||value.dual.blendMode==='hardMixPhotoshopAlpha') || (value.dual.sampling !== undefined && value.dual.sampling !== 'independent'))) return false
   return true
 }
 

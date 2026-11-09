@@ -1,4 +1,5 @@
-import{assertPixelAlphaDual168Scope}from'@grafetto/shared'
+import{hasFilterBitmap169Scope}from'@grafetto/shared'
+import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchImageAlpha162Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
@@ -207,7 +208,7 @@ export class BrushBehaviorPainter {
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterSmudge147?:FilterSmudge147Pass
-  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.filter&&'maskPolicy'in brush.filter&&!hasFilterBitmap169Scope(brush))throw Error('Invalid Filter169 bitmap scope');if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
@@ -502,7 +503,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.activeTexture(gl.TEXTURE6)
       gl.bindTexture(gl.TEXTURE_2D,secondaryState ? secondaryState.tile(tile.buffer).texture : paper.texture)
       gl.uniform1i(c.u_secondaryCoverage,6)
-      gl.uniform1f(c.u_secondaryMode,behavior.dual?.blendMode==='hardMixSofterPhotoshop'?100:blend(behavior.dual?.blendMode))
+      gl.uniform1f(c.u_secondaryMode,behavior.dual?.blendMode==='hardMixPhotoshopAlpha'?101:behavior.dual?.blendMode==='hardMixSofterPhotoshop'?100:blend(behavior.dual?.blendMode))
       gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
       const wet=brush.wet
       const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
@@ -654,6 +655,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
     if(brush.curveTrace&&brush.behavior?.timing){if(!hasCurveHostTimer167Scope(brush)||effectiveErase)throw Error('Invalid Curve host timer167 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
+    if(assertPixelAlphaDual170Scope(brush)&&effectiveErase)throw Error('Pixel alpha dual170 erase is outside scope')
     if(assertPixelAlphaDual168Scope(brush)&&effectiveErase)throw Error('Pixel alpha dual168 erase is outside scope')
     const canvasPattern=brush.experiment?.fill!==undefined
     if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
@@ -1025,7 +1027,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.uniform2f(u.u_dualTexOrigin, ((tile.originX % dualPeriod) + dualPeriod) % dualPeriod, ((tile.originY % dualPeriod) + dualPeriod) % dualPeriod)
       gl.uniform1f(u.u_dualKind, secondary ? secondary.tip.profile ? 3 : secondary.tip.kind === 'bitmap' ? 2 : 1 : 0)
       // Independent168 composes after accumulation; do not map it into per-dab RGB blending.
-      gl.uniform1f(u.u_dualBlend, behavior.dual?.blendMode==='hardMixSofterPhotoshop'?0:blend(behavior.dual?.blendMode))
+      gl.uniform1f(u.u_dualBlend, behavior.dual?.blendMode==='hardMixPhotoshopAlpha'||behavior.dual?.blendMode==='hardMixSofterPhotoshop'?0:blend(behavior.dual?.blendMode))
       gl.uniform2f(u.u_dualFlip,1,1)
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
       gl.enableVertexAttribArray(selected.position)

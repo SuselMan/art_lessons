@@ -1,3 +1,4 @@
+import{hasFilterBitmap169Scope}from'@grafetto/shared'
 import {isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
@@ -224,7 +225,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(dual.brush.texture?.application)add('wet',textureEraseId(dual.brush.texture,capturedErase),true,true)
     }
   }
-  visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
+  // Filter169 mask is consumed by the existing stamp renderer; no WET duplicate bank.
+  visit(brush, hasFilterBitmap169Scope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 

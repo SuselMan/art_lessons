@@ -3,7 +3,8 @@ export interface FilterSmudge147 {smudgeMode:true;sourcePolicy:'canonical-begin-
 type PointwiseBrushFilter={version:2;kind:'invert'}|{version:2;kind:'desaturate';type:0|1|2|3|4|5}|{version:2;kind:'posterize';steps:number}
 export type GaussianSmudge153=SpatialBrushFilter&FilterSmudge147&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'}
 export type UnsharpSmudge159=SpatialBrushFilter&FilterSmudge147&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}
-export type BrushFilter=UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
+export type BitmapFilterSmudge169={version:2;kind:'invert';smudgeMode:true;sourcePolicy:'canonical-begin-v1';maskPolicy:'bitmap-alpha-v1'}
+export type BrushFilter=BitmapFilterSmudge169|UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
 export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilter,{kind:'posterize'}>{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>
@@ -11,6 +12,7 @@ export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilt
 }
 export function isFilterDescriptor(d:Record<string,unknown>):boolean{
  if(d.filter===undefined)return true
+ if(d.filter&&typeof d.filter==='object'&&'maskPolicy'in d.filter)return hasFilterBitmap169Scope(d)
  if(d.filter&&typeof d.filter==='object'&&'spatialPolicy'in d.filter)return hasFilterGaussian153Scope(d)||hasFilterUnsharp159Scope(d)
  const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v),f=d.filter,b=d.behavior,m=d.mixer,n=(v:unknown,a:number,z:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=z
  const smudge=record(f)&&f.smudgeMode===true&&f.sourcePolicy==='canonical-begin-v1',extra=smudge?2:0
@@ -45,4 +47,18 @@ export function hasFilterUnsharp159Scope(value:unknown):boolean{
  if(d.version!==159||Object.keys(x).length!==keys.length||Object.keys(x).some(k=>!keys.includes(k))||x.version!==1||x.kind!=='unsharp'||x.smudgeMode!==true||x.sourcePolicy!=='canonical-begin-v1'||x.spatialPolicy!=='unsharp-lab-halo-v1'||!n(x.radiusX,0,16)||x.radiusY!==x.radiusX||!n(x.amount,0,5)||!n(x.threshold,0,255)||!Number.isInteger(x.threshold)||typeof x.lightnessOnly!=='boolean')return false
  const behavior=d.behavior as Record<string,unknown>|undefined;if(behavior?.softness!==undefined||[behavior?.dynamics,behavior?.modulations].some(v=>!!v&&typeof v==='object'&&'softness'in v))return false
  return isFilterDescriptor({...d,filter:{version:2,kind:'invert',smudgeMode:true,sourcePolicy:'canonical-begin-v1'}})
+}
+
+/** Static ordinary bitmap alpha coverage; same147 temporary/source/pass. */
+export function hasFilterBitmap169Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||value.version!==169||!obj(value.filter)||!obj(value.tip)||!obj(value.behavior))return false
+ const d=value,f=d.filter,t=d.tip,b=d.behavior
+ if(!obj(f)||!obj(t)||!obj(b))return false
+ const n=(v:unknown,a:number,z:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=z
+ if(!n(t.hardness,0,1)||!n(t.aspect,1,16)||!n(t.angle,-Math.PI*2,Math.PI*2)||typeof t.rotation!=='string'||!['fixed','path','travel'].includes(t.rotation))return false
+ if(t.maskBounds!==undefined){const q=t.maskBounds;if(!obj(q)||Object.keys(q).length!==4||!n(q.x,0,1)||!n(q.y,0,1)||!n(q.width,1/2048,1)||!n(q.height,1/2048,1)||Number(q.x)+Number(q.width)>1||Number(q.y)+Number(q.height)>1)return false}
+ if(Object.keys(f).length!==5||Object.keys(f).some(k=>!['version','kind','smudgeMode','sourcePolicy','maskPolicy'].includes(k))||f.version!==2||f.kind!=='invert'||f.smudgeMode!==true||f.sourcePolicy!=='canonical-begin-v1'||f.maskPolicy!=='bitmap-alpha-v1')return false
+ if(t.kind!=='bitmap'||typeof t.mask!=='string'||!/^asset:[a-f0-9]{64}$/.test(t.mask)||Object.keys(t).some(k=>!['kind','mask','maskBounds','hardness','aspect','rotation','angle'].includes(k))||['dual','timing','erase','wetMix','taper','scatter','colorAdjustment'].some(k=>b[k]!==undefined))return false
+ return isFilterDescriptor({...d,filter:{version:2,kind:'invert',smudgeMode:true,sourcePolicy:'canonical-begin-v1'},tip:{kind:'round',hardness:t.hardness,aspect:t.aspect,rotation:t.rotation,angle:t.angle}})
 }
