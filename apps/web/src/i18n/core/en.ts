@@ -15,6 +15,15 @@ import type { Message, PluralForms } from './types'
 // Those are internal instruments that change constantly and are only ever
 // read by whoever is developing the thing they measure.
 export const en = {
+  "canvasPattern.title": "Fill pattern",
+  "canvasPattern.none": "No pattern selected — this brush will not paint",
+  "canvasPattern.choose": "Choose PNG",
+  "canvasPattern.remove": "Remove pattern",
+  "canvasPattern.hint": "Up to 512 × 512 pixels and 4 MiB. Repeats at its original size.",
+  "canvasPattern.invalidPng": "Choose a PNG up to 512 × 512 pixels and 4 MiB.",
+  "canvasPattern.roomRequired": "Open a drawing before choosing a pattern.",
+  "canvasPattern.loadFailed": "Could not load the pattern. Try another PNG.",
+
   // ── shared vocabulary ──────────────────────────────────────────────────
   'brush.cloneSource': 'Set clone source: tap the canvas',
   'common.close': 'Close',

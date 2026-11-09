@@ -1,3 +1,4 @@
+import {hasExperimentCurrentPattern158Scope,isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{assertPixelOriginalDual151Resources}from'../presets/pixelOriginalRgba'
 import type{CanonicalBeginLayeredView}from'./CanonicalBeginSource'
 import {hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleSource143Scope} from '@grafetto/shared'
@@ -28,7 +29,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import {bindBrushPattern, bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -77,13 +78,14 @@ export class BrushPainter {
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
     this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut) => {
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut,pattern) => {
       const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
-      const resources = gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut)
+      const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
       const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
       if(required)return this.acquireRecordedStampResources(required,false)
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
-      const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+      const plan=brushTextureLeasePlan(resources,'stamp'),release=pattern!==undefined||usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+      if(pattern!==undefined){try{if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Canvas pattern resource was not prepared');return release}catch(error){try{release()}catch{/* Preserve preparation error. */}throw error}}
       if(textureMaterialKind(brush)){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Texture Lightness108 resource was not prepared');return release}catch(error){release();throw error}}
       if(!usesPixelOriginalRgba(brush)&&!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
       if(gradientLut){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Pixel gradient resource was not prepared');return release}catch(error){release();throw error}}
@@ -257,6 +259,15 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
 
   prepareFilter():void{this.behavior.prepareFilter()}
   preparePolygon():void{this.behavior.preparePolygon()}
+  prepareExperimentPatternPrograms():void{this.behavior.prepareExperimentPattern()}
+  prepareExperimentPattern(brush:BrushDescriptor,pattern:BrushPattern|undefined):void{
+    if(!hasExperimentCurrentPattern158Scope(brush)||!isBrushPattern(pattern))throw Error('Experiment158 requires a captured pattern or none')
+    const resources=bindBrushPattern(brushPreparationResources(brush),pattern)
+    assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    let failed=false
+    try{this.behavior.prepareExperimentPattern();for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+  }
   prepareHatching():void{this.behavior.prepareHatching()}
   prepareCloneHealing152():void{this.behavior.prepareCloneHealing152()}
   prepareClone():void{this.behavior.prepareClone()}
@@ -299,7 +310,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
-    if(group.some(r=>r.gradientSource||r.gradientPalette||r.patternAlpha)){
+    if(group.some(r=>r.canvasPattern||r.gradientSource||r.gradientPalette||r.patternAlpha)){
       const release=this.textures.leaseRequired(brushTextureLeasePlan(group,'stamp'))
       let failed=false
       try{this.prepareTextureOwned(group,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve primary, including undefined. */}}else release()}

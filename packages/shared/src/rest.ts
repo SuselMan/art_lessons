@@ -129,7 +129,7 @@ export interface ApiRoutes {
 
   'POST /api/brush-library/imports': { body: ApiBinary; response: BrushImportJob }
   'GET /api/brush-library/imports/:id': { params: { id: string }; response: BrushImportJob }
-  'POST /api/rooms/:id/brush-library': { params: { id: string }; body: { presets: string[] }; response: { ok: true } }
+  'POST /api/rooms/:id/brush-library': { params: { id: string }; body: { presets: string[];sourcePattern?:import('./brushPattern.js').BrushPattern;sourceAssets?:import('./brushes.js').BrushAsset[];assetPayloads?:Record<string,string> }; response: { ok: true } }
   'GET /api/rooms/:id/brush-library/export': { params: { id: string }; response: ApiBinary }
 
   // ── identity (authRoutes.ts, sessions.ts) ──────────────────────────────

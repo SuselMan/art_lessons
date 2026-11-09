@@ -1,3 +1,7 @@
+import{hasSketchTimer161Scope}from'./brushSketch.js'
+export{hasSketchTimer161Scope}from'./brushSketch.js'
+export {hasExperimentCurrentPattern158Scope} from './brushExperiment.js'
+export {isBrushPattern,copyBrushPattern,brushPatternAssetIds,type BrushPattern} from './brushPattern.js'
 import{hasParticleTimer157Scope}from'./brushParticle.js'
 export{hasParticleTimer157Scope}from'./brushParticle.js'
 export{hasFilterUnsharp159Scope,type UnsharpSmudge159,hasFilterGaussian153Scope,type GaussianSmudge153}from'./brushFilter.js'
@@ -38,7 +42,7 @@ export{hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./
 import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
 export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
-import{isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
+import{hasExperimentCurrentPattern158Scope,isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
 export type{BrushExperiment}from'./brushExperiment.js'
 import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
 export type{BrushParticle}from'./brushParticle.js'
@@ -488,6 +492,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.spray)&&record(d.spray.color)&&d.spray.color.sourcePolicy!==undefined&&!hasSpraySource146Scope(d))return false
     if(record(d.deform)&&d.deform.sourcePolicy!==undefined&&!hasDeformOldData145Scope(d))return false
     if(record(d.filter)&&(d.filter.smudgeMode!==undefined||d.filter.sourcePolicy!==undefined)&&!hasFilterSmudge147Scope(d))return false
+    if(record(d.experiment)&&(d.experiment.fill!==undefined||d.experiment.patternPolicy!==undefined)&&!hasExperimentCurrentPattern158Scope(d))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false
     if(record(d.behavior)&&(d.behavior.softness!==undefined||record(d.behavior.dynamics)&&d.behavior.dynamics.softness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.softness!==undefined)&&!(d.model==='stamp'&&record(d.tip.profile)&&['standard','radialCurveSoftness','curveRectangleSoftness'].includes(String(d.tip.profile.kind))))return false
     if(d.hatching!==undefined&&(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'))return false
@@ -508,7 +513,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if(d.bristle!==undefined&&record(d.behavior)&&record(d.behavior.rendering)&&d.behavior.rendering.accumulation==='alphaDarken'&&!hasBristleWash135Scope(d))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasBristleWash135Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
-    if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
+    if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||(d.behavior.timing!==undefined&&!hasSketchTimer161Scope(d))||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(record(d.sketch)&&d.sketch.mode==='mask'){
       const sketchTip=d.tip,dims=d.sketch.maskSize,size=assetSizes.get(String(sketchTip.mask)),bounds=sketchTip.maskBounds
       if(Number(d.version)<101||(d.sketch.distanceOpacity===true&&Number(d.version)<114)||sketchTip.kind!=='bitmap'||!Array.isArray(dims)||dims.length!==2||!dims.every(n=>typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256)||!size||size>256||sketchTip.aspect!==1||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>sketchTip[k]!==undefined)||!record(bounds))return false
@@ -794,6 +799,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if(secondary.hatching&&secondary.behavior?.mirror)return false
         if(secondary.sketch?.mode==='mask')return false
         if(secondary.filter?.kind==='invert'||secondary.filter?.kind==='desaturate'||secondary.filter?.kind==='posterize')return false
+        if(secondary.experiment?.fill!==undefined)return false
         if(secondary.model==='stamp'&&secondary.tip?.color&&'gradient'in secondary.tip.color)return false
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
@@ -1023,6 +1029,7 @@ export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
 /** Recorded source channels are mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
+  if(brush.sketch&&brush.behavior?.timing&&!hasSketchTimer161Scope(brush))return false
   if(brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
   const resize140=hasBristleInitializationScope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)

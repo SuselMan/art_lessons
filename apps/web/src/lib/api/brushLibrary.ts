@@ -1,3 +1,4 @@
+import {brushSourcePatternAssetIds,type BrushSourceContext,type BrushPattern,type BrushAsset} from '@grafetto/shared'
 import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { bristleSaturationLookupReady,prepareBristleSaturationLookup,mypaintKernelReady,prepareMyPaintKernel,digitalBrushFromPreset,installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
@@ -112,11 +113,12 @@ async function fetchAsset(id: string): Promise<void> {
 
 /** Built-ins keep their synchronous event path. Unknown imported versions first
  * refresh the current room manifest; cold peers need no manual library reload. */
-export function prepareBrushPresets(presets: readonly (string | undefined)[]): Promise<void> | null {
+export function prepareBrushPresets(presets: readonly (string | undefined)[],sources:readonly (BrushSourceContext|undefined)[]=[]): Promise<void> | null {
   const imported = presets.filter((p): p is string => !!p && (p.startsWith('brush:imported-') || p.startsWith('imported-')))
-  try { for(const p of presets)importedBrushAssets(p) }
+  const sourceIds=[...new Set(sources.flatMap(brushSourcePatternAssetIds))]
+  try { for(const p of presets)importedBrushAssets(p);if(sourceIds.some(id=>!library?.assets.some(a=>a.id===id)))throw Error('Unknown source resource') }
   catch {
-    if (!imported.length) throw new Error('Invalid brush preset')
+    if (!imported.length&&!sourceIds.length) throw new Error('Invalid brush preset')
     const scope = roomScope
     const existing = metadataWork.get(scope)
     return (async () => {
@@ -130,20 +132,20 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[]): P
         // version. Only callers that joined such a request get one fresh
         // refresh; a fresh response missing the version remains an error.
         let missing = false
-        try { for (const preset of presets) importedBrushAssets(preset) } catch { missing = true }
+        try { for (const preset of presets) importedBrushAssets(preset);if(sourceIds.some(id=>!library?.assets.some(a=>a.id===id)))throw Error('Unknown source resource') } catch { missing = true }
         if (missing) {
           await loadBrushLibrary()
           checkScope()
         }
       }
-      const work = prepareBrushPresetsKnown(presets)
+      const work = prepareBrushPresetsKnown(presets,sourceIds)
       if (work) await work
     })()
   }
-  return prepareBrushPresetsKnown(presets)
+  return prepareBrushPresetsKnown(presets,sourceIds)
 }
-function prepareBrushPresetsKnown(presets: readonly (string | undefined)[]): Promise<void> | null {
-  const needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id)))
+function prepareBrushPresetsKnown(presets: readonly (string | undefined)[],sourceIds:readonly string[]=[]): Promise<void> | null {
+  const needed = new Set([...presets.flatMap(p => importedBrushAssets(p)),...sourceIds].filter(id => !isBrushAssetReady(id)))
   const native=!mypaintKernelReady()&&presets.some(p=>!!p&&/^(brush:)?imported-/.test(p)&&!!digitalBrushFromPreset(p).mypaint)
   const saturation=presets.flatMap(p=>{const b=p&&/^(brush:)?imported-/.test(p)?digitalBrushFromPreset(p).bristle:undefined;return b?.version===2&&b.ink.useSaturation?[b]:[]})
   const lookupMissing=saturation.some(b=>!bristleSaturationLookupReady(b))
@@ -156,10 +158,10 @@ function prepareBrushPresetsKnown(presets: readonly (string | undefined)[]): Pro
 
 /** Bind before a local stroke can be streamed. Read-only restore never needs a
  * write request; the server pins references again when accepting operations. */
-export async function publishBrushPresets(roomId: string, presets: string[]): Promise<void> {
+export async function publishBrushPresets(roomId: string, presets: string[],source?:{pattern:BrushPattern;assets:BrushAsset[];payloads?:Record<string,string>}): Promise<void> {
   const fresh = presets.filter(p => !pinned.has(`${roomId}:${p}`))
-  if (!fresh.length) return
-  await api('POST /api/rooms/:id/brush-library', { params: { id: roomId }, body: { presets: fresh } })
+  if (!fresh.length&&!source) return
+  await api('POST /api/rooms/:id/brush-library', { params: { id: roomId }, body: { presets: fresh,...(source?{sourcePattern:source.pattern,sourceAssets:source.assets,assetPayloads:source.payloads}:{}) } })
   for (const p of fresh) pinned.add(`${roomId}:${p}`)
 }
 
@@ -205,3 +207,5 @@ export async function importBrushFile(file: File, progress: (value: number) => v
   if (result.status === 'failed') throw new Error(result.error ?? 'brushLibrary.importFailed')
   return result
 }
+
+export const currentBrushRoom=():string|undefined=>roomScope

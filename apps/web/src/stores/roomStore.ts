@@ -1,3 +1,4 @@
+import { copyBrushPattern, type BrushPattern } from '@grafetto/shared'
 import { create, type StateCreator } from 'zustand'
 
 import { createLayerSlice, type LayerSlice } from './slices/layerSlice'
@@ -29,9 +30,17 @@ import { createAnnotationSlice, type AnnotationSlice } from './slices/annotation
 // placement flag died with the two-phase place-then-drag gesture it existed
 // for, and the grid's visibility became an ordinary setting on the grid tool.
 // Nothing was left to keep in a slice of its own.
-export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice, SelectionSlice, AnnotationSlice {}
+export interface CanvasPatternSelection { readonly room?: string; readonly pattern: BrushPattern; readonly name: string }
+const emptyCanvasPattern = (): CanvasPatternSelection => Object.freeze({ pattern: copyBrushPattern({version:1,kind:'none'}), name: '' })
+
+export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice, SelectionSlice, AnnotationSlice {
+  canvasPatternSelection: CanvasPatternSelection
+  setCanvasPatternSelection: (selection: CanvasPatternSelection) => void
+}
 
 export const useRoomStore = create<RoomStore>()((...a) => ({
+  canvasPatternSelection: emptyCanvasPattern(),
+  setCanvasPatternSelection: selection => a[0]({ canvasPatternSelection: Object.freeze({ ...selection, pattern: copyBrushPattern(selection.pattern) }) }),
   ...createLayerSlice(...a),
   ...createViewportSlice(...a),
   ...createToolSlice(...a),
@@ -54,7 +63,7 @@ const initialRoomStoreState = useRoomStore.getState()
  *  this store's own set/get, never over stale data), only the data fields
  *  actually reset. */
 export function resetRoomStore(reviewBoardId?: string): void {
-  useRoomStore.setState({ ...initialRoomStoreState, reviewBoardId: reviewBoardId ?? null }, true)
+  useRoomStore.setState({ ...initialRoomStoreState, canvasPatternSelection: emptyCanvasPattern(), reviewBoardId: reviewBoardId ?? null }, true)
 }
 
 /** (#176, ADR 014 §4) The content slices' keys — what a page turn resets.
@@ -95,7 +104,7 @@ const SURVIVES_PAGE_TURN: ReadonlySet<keyof RoomStore> = new Set<keyof RoomStore
  *  copying them through a replace would only be a second way to get the list
  *  of kept keys wrong. */
 export function resetBoardState(): void {
-  const fresh: Partial<RoomStore> = {}
+  const fresh: Partial<RoomStore> = { canvasPatternSelection: emptyCanvasPattern() }
   for (const key of CONTENT_SLICE_KEYS) {
     const k = key as keyof RoomStore
     if (SURVIVES_PAGE_TURN.has(k)) continue

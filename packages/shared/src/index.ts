@@ -1,3 +1,4 @@
+export {brushSourcePatternAssetIds,operationBrushSourceAssetIds} from './brushSource.js'
 // @grafetto/shared — the contract between the web client and the server.
 // One module per domain (#613); this file is only the table of contents.
 

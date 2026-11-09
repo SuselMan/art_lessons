@@ -575,6 +575,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_bristle_wash135(descriptor,parent)
     from particle_wash134 import validate_particle_wash134
     validate_particle_wash134(descriptor,parent)
+    from sketch_timer161 import validate_sketch_timer161
+    validate_sketch_timer161(descriptor,parent)
     from particle_timer157 import validate_particle_timer157
     validate_particle_timer157(descriptor,parent)
     from clone_projection149 import validate_clone_projection149
@@ -762,6 +764,11 @@ def portable_bundle(path,catalog):
     def validate_descriptor(d,depth=0,parent=None):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
+        ex=d.get('experiment')
+        if isinstance(ex,dict)and ('fill'in ex or 'patternPolicy'in ex):
+            bh=d.get('behavior',{});tip=d.get('tip',{});render=bh.get('rendering',{})
+            if depth or d['version']<158 or ex.get('fill')!='canvasPattern'or ex.get('patternPolicy')!='captured-world-repeat-v1'or set(ex)!={'version','displaceEnabled','displace','speedEnabled','speed','smoothingEnabled','smoothing','winding','hardEdge','fill','patternPolicy'}or ex.get('version')!=1 or any(type(ex[k])is not bool for k in('displaceEnabled','speedEnabled','smoothingEnabled','winding','hardEdge'))or any(type(ex[k])not in(int,float)or not math.isfinite(ex[k])or not 0<=ex[k]<=hi for k,hi in [('displace',100),('speed',100),('smoothing',1000)])or d.get('model')!='stamp'or d.get('paperInteraction')!=0 or tip.get('kind')!='round'or tip.get('aspect')!=1 or 'profile'in tip or any(k not in('version','rendering')for k in bh)or bh.get('version')!=2 or render.get('accumulation')!='directOver'or render.get('blendMode')!='normal'or render.get('wetEdges',0)!=0 or render.get('burntEdges',0)!=0 or any(k in d for k in('mixer','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Invalid portable CurrentPattern158 scope')
+
         from captured_bristle import validate_portable_bristle
         validate_portable_bristle(d,trusted_raw_assets)
         h=d.get('bristle');initial=h.get('initialization')if isinstance(h,dict)else None

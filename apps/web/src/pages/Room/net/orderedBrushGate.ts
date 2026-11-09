@@ -1,13 +1,14 @@
+import type {BrushSourceContext} from '@grafetto/shared'
 /** Incoming room events share one dispatch order while imported masks download.
  * Built-in-only events stay synchronous. A failed or cancelled gate never resumes. */
 const MAX_QUEUED_EVENTS = 512
 type Apply = () => unknown
 
 export function createOrderedBrushGate(
-  prepare: (presets: (string | undefined)[]) => Promise<void> | null,
+  prepare: (presets: (string | undefined)[],sources?:readonly (BrushSourceContext|undefined)[]) => Promise<void> | null,
   onError: (error: unknown) => void,
-): { dispatch: (presets: (string | undefined)[], apply: Apply) => void; cancel: () => void } {
-  const queue: { presets: (string | undefined)[]; apply: Apply }[] = []
+): { dispatch: (presets: (string | undefined)[], apply: Apply,sources?:readonly (BrushSourceContext|undefined)[]) => void; cancel: () => void } {
+  const queue: { presets: (string | undefined)[]; apply: Apply;sources?:readonly (BrushSourceContext|undefined)[] }[] = []
   let active = true
   let waiting = false
   const fail = (error: unknown) => {
@@ -27,7 +28,7 @@ export function createOrderedBrushGate(
     while (active && queue.length > 0) {
       const event = queue[0]
       let pending: Promise<void> | null
-      try { pending = prepare(event.presets) } catch (error) { fail(error); return }
+      try { pending = prepare(event.presets,event.sources) } catch (error) { fail(error); return }
       if (pending) {
         waiting = true
         void pending.then(() => {
@@ -44,10 +45,10 @@ export function createOrderedBrushGate(
     }
   }
   return {
-    dispatch: (presets, apply) => {
+    dispatch: (presets, apply,sources) => {
       if (!active) return
       if (queue.length >= MAX_QUEUED_EVENTS) { fail(new Error('Brush event queue overflow')); return }
-      queue.push({ presets, apply })
+      queue.push({ presets, apply,sources })
       drain()
     },
     cancel: () => { active = false; queue.length = 0 },

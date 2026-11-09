@@ -8,12 +8,13 @@ import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { Readable, Transform } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
-import type { BrushImportJob } from '@grafetto/shared'
+import {isBrushPattern,isBrushLibrary,type BrushPattern,type BrushAsset,type BrushImportJob} from '@grafetto/shared'
 import { apiRoute } from '../http/apiRoute.js'
-import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
+import { mayReadBoardContent,mayPublishBoardBrushResource } from '../rooms/boardContentAccess.js'
 import { loadBrushLibrary } from './brushLibrary.js'
 import { BrushStorage, boundedRead, empty, merge, setBrushStorage } from './storage.js'
 
+const stringRecord=(value:unknown):value is Record<string,string>=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.values(value).every(item=>typeof item==='string')
 const MAX_UPLOAD=512*1024*1024
 export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR): Promise<void> {
   // A configured legacy directory is an explicit operator-provisioned QA library.
@@ -132,11 +133,20 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
       return saved.job
     } catch { return reply.code(404).send({error:'Import not found'}) }
   })
-  apiRoute(app,'POST /api/rooms/:id/brush-library',async(request,reply)=> {
+  apiRoute(app,'POST /api/rooms/:id/brush-library',{bodyLimit:2*1024*1024},async(request,reply)=> {
     if(!await mayReadBoardContent(request.params.id,request.userId)) return reply.code(403).send({error:'forbidden'})
     const presets=request.body?.presets
     if(!Array.isArray(presets)||presets.length>512||!presets.every(p=>typeof p==='string'&&p.length<200)) return reply.code(400).send({error:'Invalid brush references'})
-    try { storage.pin(request.params.id,request.userId,presets,operator.manifest) } catch { return reply.code(400).send({error:'Brush unavailable'}) }
+    const source=request.body.sourcePattern
+    if((request.body.sourceAssets!==undefined||request.body.assetPayloads!==undefined)&&source===undefined)return reply.code(400).send({error:'Missing pattern metadata'})
+    if(source!==undefined&&!await mayPublishBoardBrushResource(request.params.id,request.userId))return reply.code(403).send({error:'forbidden'})
+    let publication:{pattern:BrushPattern;assets:BrushAsset[];payloads?:Record<string,string>}|undefined
+    if(source!==undefined){
+      const inventory={...empty(),assets:request.body.sourceAssets??[]},payloads=request.body.assetPayloads
+      if(!isBrushPattern(source)||!isBrushLibrary(inventory)||payloads!==undefined&&!stringRecord(payloads))return reply.code(400).send({error:'Invalid pattern resources'})
+      publication={pattern:source,assets:inventory.assets,payloads}
+    }
+    try { storage.pin(request.params.id,request.userId,presets,operator.manifest,publication) } catch { return reply.code(400).send({error:'Brush unavailable'}) }
     return {ok:true as const}
   })
   apiRoute(app,'GET /api/rooms/:id/brush-library/export',async(request,reply)=> {

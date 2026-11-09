@@ -31,3 +31,16 @@ export function isBrushSketch(value:unknown):value is BrushSketch{
  }
  return true
 }
+
+/** Closed static-rate simple Sketch author timer; no replay resampling. */
+export function hasSketchTimer161Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!isBrushSketch(value.sketch)||value.sketch.mode!=='simple')return false
+ const t=value.tip,b=value.behavior,r=b.rendering,c=b.timing
+ const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
+ return Number.isInteger(value.version)&&Number(value.version)>=161&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&value.flowPer==='stamp'&&one(value.flowByPressure)
+ &&['mixer','spray','bristle','particle','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx'].every(k=>value[k]===undefined)
+ &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version','rendering','timing','speedInput'].includes(k))&&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')&&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
+ &&obj(c)&&Object.keys(c).every(k=>['version','rate','ignoreDistanceSpacing'].includes(k))&&c.version===1&&typeof c.rate==='number'&&Number.isFinite(c.rate)&&c.rate>0&&c.rate<=1000&&c.ignoreDistanceSpacing===false
+}

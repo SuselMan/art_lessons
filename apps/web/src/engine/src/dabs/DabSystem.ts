@@ -1,3 +1,4 @@
+import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 import {SourceDistanceTiming,sourceTimingInterval} from './sourceDistanceTiming'
@@ -160,6 +161,7 @@ export class DabSystem {
   captureSourceTime = false
   captureSourceAngle = false
   deformTiming160?:BrushDescriptor
+  sketchTiming161?:BrushDescriptor
   particleTiming157?:BrushDescriptor
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
@@ -566,6 +568,7 @@ export class DabSystem {
     fork.captureSourceTime=this.captureSourceTime
     fork.captureSourceAngle=this.captureSourceAngle
     fork.deformTiming160=this.deformTiming160
+    fork.sketchTiming161=this.sketchTiming161
     fork.particleTiming157=this.particleTiming157
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
@@ -610,6 +613,7 @@ export class DabSystem {
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
     if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
+    if(this.sketchTiming161&&(!hasSketchTimer161Scope(this.sketchTiming161)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.sketchTiming161.behavior!.timing)))throw Error('Invalid author Sketch timer161')
     if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
     this._reset()
     this._speed = speed
@@ -1077,9 +1081,9 @@ export class DabSystem {
     const previous=this._timingPoint
     if(!previous)return
     if(next.t<previous.t)throw Error('Source timing input moved backwards')
-    // Native Particle bypasses base timing for moving host inputs; it does not
+    // Native Particle and Sketch bypass base timing for moving host inputs; it does not
     // spend/reset the stationary accumulator on this branch. No spatial resampling.
-    if(this.particleTiming157&&(next.x!==previous.x||next.y!==previous.y)){
+    if((this.particleTiming157||this.sketchTiming161)&&(next.x!==previous.x||next.y!==previous.y)){
       yield* this._sourceRequestStream(next,baseSize)
       this._timingPoint={...next};this._buf=[{...next,time:next.t}]
       return

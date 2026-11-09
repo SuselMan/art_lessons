@@ -1,9 +1,11 @@
+import {isBrushPattern,copyBrushPattern,brushPatternAssetIds,type BrushPattern} from './brushPattern.js'
 import {isBrushGradient} from './brushGradient.js'
 
 /** Immutable inputs external to the brush preset. Recorded once per gesture;
  * repeat unchanged on live/final chunks so replay never reads receiver UI. */
 export type BrushSourceContext = {
   readonly version:1
+  readonly pattern?:BrushPattern
   /** Author brush background, independent of paper/layer background. RGBA8. */
   readonly background?:readonly[number,number,number,number]
   /** Author viewport rotation in radians, captured once for normal-vector brushes. */
@@ -22,8 +24,9 @@ const object=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==n
 export function isBrushSourceContext(value:unknown):value is BrushSourceContext {
   if(!object(value))return false
   if(ownedSources.has(value))return true
-  if(value.version!==1||Object.keys(value).some(k=>!['version','projection','gradient','clone','normalRotation','background'].includes(k)))return false
-  if(value.projection===undefined&&value.gradient===undefined&&value.clone===undefined&&value.normalRotation===undefined&&value.background===undefined)return false
+  if(value.version!==1||Object.keys(value).some(k=>!['version','projection','gradient','clone','normalRotation','background','pattern'].includes(k)))return false
+  if(value.projection===undefined&&value.gradient===undefined&&value.clone===undefined&&value.normalRotation===undefined&&value.background===undefined&&value.pattern===undefined)return false
+  if(value.pattern!==undefined&&!isBrushPattern(value.pattern))return false
   if(value.background!==undefined&&(!Array.isArray(value.background)||value.background.length!==4||!value.background.every(v=>typeof v==='number'&&Number.isInteger(v)&&v>=0&&v<=255)))return false
   if(value.normalRotation!==undefined&&(typeof value.normalRotation!=='number'||!Number.isFinite(value.normalRotation)||Math.abs(value.normalRotation)>Math.PI*2))return false
   if(value.clone!==undefined){
@@ -45,7 +48,7 @@ export function isBrushSourceContext(value:unknown):value is BrushSourceContext 
 export function copyBrushSourceContext(source:BrushSourceContext):BrushSourceContext {
   if(ownedSources.has(source))return source
   if(!isBrushSourceContext(source))throw Error('Invalid brush source context')
-  const copy:BrushSourceContext=Object.freeze({version:1,...(source.background===undefined?{}:{background:Object.freeze([...source.background])as readonly[number,number,number,number]}),...(source.normalRotation===undefined?{}:{normalRotation:source.normalRotation}),...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({...source.clone})} : {})})
+  const copy:BrushSourceContext=Object.freeze({version:1,...(source.pattern===undefined?{}:{pattern:copyBrushPattern(source.pattern)}),...(source.background===undefined?{}:{background:Object.freeze([...source.background])as readonly[number,number,number,number]}),...(source.normalRotation===undefined?{}:{normalRotation:source.normalRotation}),...(source.projection ? {projection:Object.freeze(source.projection.map(layer=>Object.freeze({...layer})))} : {}),...(source.gradient===undefined ? {} : {gradient:source.gradient}),...(source.clone ? {clone:Object.freeze({...source.clone})} : {})})
   ownedSources.add(copy);return copy
 }
 
@@ -102,3 +105,6 @@ export function hasValidBrushSourceContext(value:unknown):boolean {
 export function brushProjectionLayerIds(op:{type:string;layerId?:string;brushSource?:BrushSourceContext}):string[] {
   return op.type==='stroke' ? (op.brushSource?.projection ?? []).map(layer=>layer.id).filter(id=>id!==op.layerId) : []
 }
+
+export function brushSourcePatternAssetIds(source:BrushSourceContext|undefined):`asset:${string}`[]{return brushPatternAssetIds(source?.pattern)}
+export function operationBrushSourceAssetIds(op:{brushSource?:BrushSourceContext}):`asset:${string}`[]{return brushSourcePatternAssetIds(op.brushSource)}

@@ -524,6 +524,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         from krita_deform import deform_preset
         return deform_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
     if engine == 'experimentbrush':
+        if depth and numeric(params.get('Experiment/fillType'),0)==1:raise ValueError('Canvas Pattern158 requires root Experiment')
         from krita_experiment import experiment_preset
         return experiment_preset(data,root,params,name,catalog,external)
     if engine == 'particlebrush':
@@ -544,7 +545,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return bristle_preset(data,root,params,name,catalog,external,_allow_initialization=depth==0 and _allow_texture_material)
     if engine == 'sketchbrush':
         from krita_sketch import sketch_preset
-        return sketch_preset(data,root,params,name,catalog,external,resource)
+        return sketch_preset(data,root,params,name,catalog,external,resource,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
     if engine == 'spraybrush':
         from krita_spray import spray_preset
         return spray_preset(data,root,params,name,catalog,external,resource)

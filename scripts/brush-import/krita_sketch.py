@@ -10,7 +10,7 @@ from PIL import Image, PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 
-def sketch_preset(data,root,params,name,catalog,external,resource):
+def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml
     simple=enabled(params.get('Sketch/simpleMode'))
     mask_size=None
@@ -20,7 +20,12 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
         filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
         mask_size=list(image.size)
         if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Sketch timed input is not implemented')
+    timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
+    if timer and not timed_input:raise ValueError('Sketch timed input requires explicit closed161 opt-in')
+    if timer:
+        if not simple or enabled(params.get('PressureRate'))or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch161 requires root simple normal static native timer')
+        rate=numeric(params.get('PaintOpSettings/rate'),20)
+        if not math.isfinite(rate)or not 0<rate<=1000:raise ValueError('Sketch161 static rate outside0..1000')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Sketch supports normal compositing only')
     def number(key,default,lo,hi):
         value=numeric(params.get(key),default)
@@ -32,6 +37,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
     ignored_mirror=strip_unused_native_mirror(transformed)
     ignored_rotation=strip_unused_native_rotation(transformed) if simple else False
     for node in transformed.findall('param'):
+        if timer and node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'):node.text='false'
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False)
@@ -75,5 +81,11 @@ def sketch_preset(data,root,params,name,catalog,external,resource):
     if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
     if ignored_rotation:result['compatibility'].append(compatibility('ignoredNativeRotation','This native paintop mode does not consume the generic brush Rotation option. Active family-specific angle controls remain independent.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if timer:
+        from sketch_timer161 import sketch_timer161_scope
+        d['version']=161;behavior['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':False}
+        if not sketch_timer161_scope(d):raise ValueError('Sketch161 outside closed root scope')
+        result['compatibility'].append(compatibility('sketchTimer161','Static native simple Sketch timer reuses author F64 clock81: one request per moving input, stationary elapsed requests retain the shared native accumulator. Existing point history, density/opacity/random line laws remain; replay never retimes. Functional qualification, not native RNG/line pixel identity.','supported'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

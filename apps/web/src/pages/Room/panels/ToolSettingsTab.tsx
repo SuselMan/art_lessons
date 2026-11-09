@@ -1,3 +1,4 @@
+import {CanvasPatternControls} from './CanvasPatternControls'
 import type { ShapeFrame } from '@grafetto/shared'
 
 import { SettingField } from '../../../components/SettingField'
@@ -67,7 +68,7 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
           once, and the rail is for what a hand reaches for
           mid-gesture. Only while a shape is open — they resize
           that shape, not the tool. */}
-      {settingsToolId === 'digitalBrush' && <BrushLibraryControls />}
+      {settingsToolId === 'digitalBrush' && <><BrushLibraryControls /><CanvasPatternControls /></>}
       {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={onShapeFrameChange} />}
     </div>
   )

@@ -431,7 +431,7 @@ export async function walkHistoryBackward(
 async function fetchBrushHistory(roomId: string, query: { beforeSeq: number; limit?: number; layerIds?: string }): Promise<Operation[]> {
   const operations = await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query })
   try {
-    await prepareBrushPresets(operations.map(op => op.type === 'stroke' ? op.preset : undefined))
+    await prepareBrushPresets(operations.map(op => op.type === 'stroke' ? op.preset : undefined),operations.map(op=>op.type==='stroke'?op.brushSource:undefined))
   } catch (error) {
     notifyError(translate(useSettingsStore.getState().locale, 'brushLibrary.error'), { key: 'brush-library-history', durationMs: null })
     throw error

@@ -1,4 +1,4 @@
-import { makeBrushGradient,isToolEnabledInRoom } from '@grafetto/shared'
+import {hasExperimentCurrentPattern158Scope,makeBrushGradient,isToolEnabledInRoom} from '@grafetto/shared'
 import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { notifyError } from '../../stores/noticeStore'
@@ -15,6 +15,8 @@ import {
 import { useRoomStore } from '../../stores/roomStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { linerSizeToPx } from '../../lib/tools/toolSchemas'
+
+const NO_CANVAS_PATTERN = Object.freeze({ version: 1 as const, kind: 'none' as const })
 
 export interface ToolSyncDeps {
   activeColor?:[number,number,number]
@@ -33,6 +35,8 @@ export interface ToolSyncDeps {
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
 export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: ToolSyncDeps) {
+  const selectedPattern=useRoomStore(s=>s.canvasPatternSelection)
+  const boardId=useRoomStore(s=>s.boardId)
   const toolSettings = useRoomStore(s => s.toolSettings)
   const uiDrawingTool = useRoomStore(s => s.drawingTool)
   const allowsImported = useRoomStore(s => isToolEnabledInRoom(s.room?.enabledTools, 'digitalBrush'))
@@ -100,7 +104,17 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: T
       canvas?.removeEventListener('webglcontextrestored', invalidate)
     }
   }, [canvasRef, engineEpoch])
-  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}${gradientPalette ? ':gradient:'+gradientPalette : ''}`
+  const pattern = useMemo(() => {
+    try {
+      if (!hasExperimentCurrentPattern158Scope(digitalBrushFromPreset(digitalBrushPresetName ?? digitalBrushId))) return undefined
+      return selectedPattern.room === boardId
+        ? selectedPattern.pattern
+        : NO_CANVAS_PATTERN
+    } catch { return undefined }
+  }, [digitalBrushId, digitalBrushPresetName, selectedPattern, boardId])
+  const patternKey=JSON.stringify(pattern)
+  useEffect(()=>{engineRef.current?.setBrushPattern(pattern)},[engineRef,engineEpoch,pattern])
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}${gradientPalette ? ':gradient:'+gradientPalette : ''}:pattern:${patternKey}`
   const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush' || !digitalBrushPresetName) { setPreparedKey(''); return }
@@ -110,12 +124,12 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: T
     const roomId = useRoomStore.getState().boardId
     const preset = digitalBrushPresetName ?? digitalBrushId
     const pending = (async () => {
-      const resources = prepareBrushPresets([preset])
+      const resources = prepareBrushPresets([preset],pattern?[{version:1,pattern}]:[])
       if (resources) await resources
       if (controller.signal.aborted) return
       if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [preset])
       if (controller.signal.aborted) return
-      const result = await engine.prepareBrush(preset, { signal: controller.signal,gradient:gradientPalette })
+      const result = await engine.prepareBrush(preset, { signal: controller.signal,gradient:gradientPalette,pattern })
       if (!controller.signal.aborted && result.status !== 'cancelled') setPreparedKey(preparationKey)
     })()
     pending.catch(error => {
@@ -125,7 +139,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: T
       }
     })
     return () => controller.abort()
-  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey,gradientPalette, engineEpoch, engineRef, t])
+  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey,gradientPalette,pattern, engineEpoch, engineRef, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink

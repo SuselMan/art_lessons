@@ -1,4 +1,4 @@
-import { hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
+import { hasExperimentCurrentPattern158Scope,hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
 export interface BrushExecutionContext {
@@ -15,7 +15,7 @@ const requiresContext = new WeakMap<BrushDescriptor, boolean>()
 export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   const known = requiresContext.get(brush)
   if(known !== undefined) return known
-  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground||!!brush.spray?.color.mixBackground||!!brush.spray?.color.fillBackground
+  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground||!!brush.spray?.color.mixBackground||!!brush.spray?.color.fillBackground||hasExperimentCurrentPattern158Scope(brush)
   requiresContext.set(brush, result)
   return result
 }
@@ -30,6 +30,8 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(brush.tangentNormal&&context?.brushSource?.normalRotation===undefined)throw Error('Normal brush requires recorded viewport rotation')
   if(brush.clone&&!context?.brushSource?.clone)throw Error('Clone requires a recorded source')
   if(brush.clone?.source==='projectionCanvas'&&!context?.brushSource?.projection)throw Error('Merged Clone149 requires recorded projection sources')
+  if(context?.brushSource?.pattern!==undefined&&!hasExperimentCurrentPattern158Scope(brush))throw Error('Captured pattern requires Experiment158')
+  if(hasExperimentCurrentPattern158Scope(brush)&&context?.brushSource?.pattern===undefined)throw Error('Experiment158 requires captured canvas pattern or explicit none')
   if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
   if(brush.hatching?.opaqueBackground&&!context?.brushSource?.background)throw Error('Hatching requires a captured background')
   if((brush.grid?.fillBackground||brush.grid?.mixBackground)&&!context?.brushSource?.background)throw Error('Grid requires a captured background')

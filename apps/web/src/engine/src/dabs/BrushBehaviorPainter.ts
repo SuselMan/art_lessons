@@ -1,3 +1,5 @@
+import{hasSketchTimer161Scope}from'@grafetto/shared'
+import {hasExperimentCurrentPattern158Scope,type BrushPattern} from '@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 import{hasFilterUnsharp159Scope,hasFilterGaussian153Scope}from'@grafetto/shared'
 import{planUnsharp159}from'./filterUnsharp159Plan'
@@ -186,11 +188,11 @@ export class BrushBehaviorPainter {
   private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
-  private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void
+  private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string,pattern?:BrushPattern) => () => void
   private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView
   private readonly preparedTextureLightness:(brush:BrushDescriptor,lut?:string)=>PreparedBrushImageView
   private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource,preparedTextureLightness:(brush:BrushDescriptor,lut?:string)=>PreparedBrushImageView=()=>{throw Error('Texture Lightness108 view owner is not installed')}) { this.preparedTextureLightness=preparedTextureLightness;this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string,pattern?:BrushPattern) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource,preparedTextureLightness:(brush:BrushDescriptor,lut?:string)=>PreparedBrushImageView=()=>{throw Error('Texture Lightness108 view owner is not installed')}) { this.preparedTextureLightness=preparedTextureLightness;this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -240,6 +242,7 @@ export class BrushBehaviorPainter {
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareCompositeEffects():void{if(!this.extendedComposite){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(true));this.extendedComposite={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase']),position:gl.getAttribLocation(program,'a_position')}}}
+  prepareExperimentPattern():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).preparePattern();this.preparePolygon()}
   preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
   prepareHatching():void{this.hatchingProgram()}
   private hatchingProgram():{program:WebGLProgram;uniforms:Uniforms;position:number}{
@@ -647,6 +650,9 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
+    const canvasPattern=brush.experiment?.fill!==undefined
+    if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
+    if(brush.sketch&&brush.behavior?.timing){if(!hasSketchTimer161Scope(brush)||effectiveErase)throw Error('Invalid Sketch timer161 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.particle&&brush.behavior?.timing){if(!hasParticleTimer157Scope(brush)||effectiveErase)throw Error('Invalid Particle timer157 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.deform&&brush.behavior?.timing)throw Error('Deform timer160 requires the ordinary SmudgePainter path')
     const healing=brush.clone?.healing!==undefined
@@ -730,8 +736,12 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const gradientLut=textureGradient||originalRgba&&brush.tip.color&&'gradient' in brush.tip.color?execution?.brushSource?.gradient:undefined
     if(originalRgba&&brush.tip.color&&'gradient' in brush.tip.color&&!gradientLut)throw Error('Pixel gradient map requires a captured palette')
     const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(filteredGradient?{gradientSource:true as const}:gradientLut?{gradientMap:true as const,gradientLut}:{})})
-    const releaseTextures = this.leaseTextures(brush,effectiveErase,gradientLut)
+    const pattern=canvasPattern?execution?.brushSource?.pattern:undefined
+    if(canvasPattern){assertBrushExecutionContext(brush,execution);this.sketchBatch?.assertPatternPrepared();if(!this.sketchBatch)throw Error('Pattern programs are not prepared')}
+    const releaseTextures = this.leaseTextures(brush,effectiveErase,gradientLut,pattern)
     try {
+    const canvasPatternView=pattern?.kind==='rgba'?this.preparedImage(pattern.alpha,pattern.planes):undefined
+    canvasPatternView?.assertCurrent()
     const materialPattern=materialVariant?this.preparedTextureLightness(brush,gradientLut):undefined
     materialPattern?.assertCurrent()
     // The common prepared callback/lease is installed by Spray V2. No lazy
@@ -1222,7 +1232,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
         if(brush.experiment){
-          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl))
+          (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl),pattern?{pattern,view:canvasPatternView}:undefined)
           return
         }
         if(brush.particle){

@@ -1,3 +1,4 @@
+import {isBrushPattern,brushPatternAssetIds,hasExperimentCurrentPattern158Scope,type BrushPattern,type BrushAsset} from '@grafetto/shared'
 import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
@@ -152,6 +153,7 @@ export class BrushStorage {
     })
   }
   acceptsExecutionInputs(room: string, owner: string, op: Operation, operator=empty()): boolean {
+    if(op.type==='stroke'&&op.brushSource?.pattern!==undefined&&(!op.preset||!/^(brush:)?imported-/.test(op.preset)))return false
     if (op.type !== 'stroke' || !op.preset || !/^(brush:)?imported-/.test(op.preset)) return true
     const token = /^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(op.preset)
     const find = (library: BrushLibrary) => library.brushes.find(b => token ? b.descriptor.id === token[1] && b.descriptor.version === Number(token[2]) : b.descriptor.id === op.preset)
@@ -163,6 +165,12 @@ export class BrushStorage {
     if(brush.descriptor.tangentNormal&&op.brushSource?.normalRotation===undefined)return false
     if(brush.descriptor.clone&&op.brushSource?.clone===undefined)return false
     if(brushUsesGradient(brush.descriptor)&&op.brushSource?.gradient===undefined)return false
+    if(op.brushSource?.pattern!==undefined&&!hasExperimentCurrentPattern158Scope(brush.descriptor))return false
+    if(hasExperimentCurrentPattern158Scope(brush.descriptor)){
+      const pattern=op.brushSource?.pattern;if(!pattern||!isBrushPattern(pattern))return false
+      const assets=this.library('rooms',room).assets
+      if(pattern.kind==='rgba'&&brushPatternAssetIds(pattern).some(id=>!assets.some(a=>a.id===id&&a.size===pattern.side)))return false
+    }
     if(hasGridWash137Scope(brush.descriptor)&&!hasGridBeginIdentity137(op))return false
     if(hasBristleSoak139Scope(brush.descriptor)&&!hasBristleSoakBeginIdentity139(op))return false
     if (!brushRequiresSourceInputs(brush.descriptor)) return true
@@ -170,11 +178,11 @@ export class BrushStorage {
     catch { return false }
   }
 
-  pin(room: string, owner: string, presets: string[], operator=empty()): void {
+  pin(room: string, owner: string, presets: string[], operator=empty(),source?:{pattern:BrushPattern;assets:BrushAsset[];payloads?:Record<string,string>}): void {
     this.mutate(()=> {
       const current=this.library('rooms',room)
       const has=(preset:string)=>current.brushes.some(b=>preset===b.descriptor.id || new RegExp('^brush:'+b.descriptor.id+'@'+b.descriptor.version+'(?::[a-z0-9-]+)*$').test(preset))
-      if(presets.every(has)) return
+      if(presets.every(has)&&!source)return
       const available=merge(current,this.library('owners',owner),operator), selected=empty()
       for (const preset of [...new Set(presets)]) {
         const match=/^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(preset)
@@ -185,6 +193,33 @@ export class BrushStorage {
       const referenced = new Set(selected.brushes.flatMap(brush => brushAssetIds(brush.descriptor)))
       selected.assets=available.assets.filter(a=>referenced.has(a.id))
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
+      if(source){
+        if(!isBrushPattern(source.pattern)||!Array.isArray(source.assets)||source.assets.length>4)throw Error('Invalid canvas pattern metadata')
+        const ids=brushPatternAssetIds(source.pattern),unique=new Set(source.assets.map(a=>a.id))
+        if(ids.length!==source.assets.length||unique.size!==ids.length||source.assets.some(a=>!ids.includes(a.id)||source.pattern.kind!=='rgba'||a.size!==source.pattern.side||a.file!==a.id.slice(6)+'.bin'))throw Error('Pattern asset inventory mismatch')
+        const payloads=source.payloads??{},incoming=new Map<string,Buffer>()
+        if(Object.keys(payloads).some(hash=>!ids.includes(`asset:${hash}`)))throw Error('Unreferenced pattern payload')
+        for(const a of source.assets){
+          const hash=a.id.slice(6),encoded=payloads[hash]
+          let bytes:Buffer
+          if(encoded!==undefined){
+            if(typeof encoded!=='string'||encoded.length>349528||! /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))throw Error('Invalid pattern payload')
+            bytes=Buffer.from(encoded,'base64');if(bytes.toString('base64')!==encoded||bytes.length!==a.size*a.size||keyBytes(bytes)!==hash)throw Error('Corrupt pattern payload')
+            incoming.set(hash,bytes)
+          }else{
+            if(!available.assets.some(old=>old.id===a.id&&old.size===a.size))throw Error('Pattern CAS is not owned or room-pinned')
+            bytes=this.asset(hash,a.size)
+          }
+          if(source.pattern.kind==='rgba'){
+            const r=source.pattern.sourceRect,n=source.pattern.side
+            for(let y=0;y<n;y++)for(let x=0;x<n;x++)if((x<r.x||x>=r.x+r.width||y<r.y||y>=r.y+r.height)&&bytes[y*n+x]!==0)throw Error('Noncanonical pattern padding')
+          }
+        }
+        selected.assets.push(...source.assets.filter(a=>!selected.assets.some(old=>old.id===a.id)))
+        const proposed=merge(current,selected)
+        if(!isBrushLibrary(proposed))throw Error('Room source resource quota exceeded')
+        this.provisionAssets(incoming)
+      }
       const next=merge(current,selected)
       if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')
       this.atomic(this.path('rooms',room),next)
@@ -201,6 +236,7 @@ let active: BrushStorage | undefined
 let operatorLibrary=empty()
 export function setBrushStorage(storage: BrushStorage, operator: BrushLibrary): void { active=storage; operatorLibrary=operator }
 export function hasRequiredOperationBrushContext(room: string, user: string, op: Operation): boolean {
+  if(op.type==='stroke'&&op.brushSource?.pattern!==undefined&&(!op.preset||!/^(brush:)?imported-/.test(op.preset)))return false
   if (op.type !== 'stroke' || !op.preset || !/^(brush:)?imported-/.test(op.preset)) return true
   if (!active) throw Error('Brush storage unavailable')
   return active.acceptsExecutionInputs(room, user, op, operatorLibrary)

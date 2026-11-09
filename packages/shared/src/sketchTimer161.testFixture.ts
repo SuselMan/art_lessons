@@ -1,0 +1,5 @@
+import type{BrushDescriptor,BrushLibrary}from'./brushes.js'
+import type{Dab}from'./stroke.js'
+export function sketch161():BrushDescriptor{return{id:'imported-161161161161161161161161',version:161,model:'stamp',category:'line',tip:{kind:'round',hardness:1,aspect:1,angle:0,rotation:'fixed'},paperInteraction:0,spacing:.1,flow:1,flowPer:'stamp',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2,timing:{version:1,rate:20,ignoreDistanceSpacing:false},rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}},sketch:{version:1,mode:'simple',width:1,offset:0,probability:1,connect:true,magnetify:true,randomRGB:false,randomOpacity:false,distanceDensity:true,distanceOpacity:true,antialias:false}}}
+export const library161=():BrushLibrary=>({schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Authored Sketch timer161',source:'authored161.kpp',warnings:[],descriptor:sketch161()}]})
+export const dab161=(x=0,t=0):Dab=>({x,y:0,size:16,pressure:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,opacity:1,t,sourceTime:t})

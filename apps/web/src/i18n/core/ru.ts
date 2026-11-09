@@ -4,6 +4,15 @@ import type { Dictionary } from './en'
 // en.ts, ломает `npm run typecheck` здесь до тех пор, пока не переведён —
 // непереведённая строка не может тихо уехать в прод.
 export const ru: Dictionary = {
+  "canvasPattern.title": "Узор заливки",
+  "canvasPattern.none": "Узор не выбран — кисть не рисует",
+  "canvasPattern.choose": "Выбрать PNG",
+  "canvasPattern.remove": "Убрать узор",
+  "canvasPattern.hint": "До 512 × 512 пикселей и 4 МиБ. Повторяется в исходном размере.",
+  "canvasPattern.invalidPng": "Выберите PNG до 512 × 512 пикселей и 4 МиБ.",
+  "canvasPattern.roomRequired": "Откройте рисунок перед выбором узора.",
+  "canvasPattern.loadFailed": "Не удалось загрузить узор. Попробуйте другой PNG.",
+
   // ── общая лексика ──────────────────────────────────────────────────────
   'brush.cloneSource': 'Выбрать источник клонирования: коснитесь холста',
   'common.close': 'Закрыть',

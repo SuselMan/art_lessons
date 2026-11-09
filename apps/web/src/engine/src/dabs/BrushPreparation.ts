@@ -1,3 +1,4 @@
+import {isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
 import {assertBristleSource143Ready} from '../presets/bristleInitialization140'
@@ -23,8 +24,8 @@ import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } fr
 import { importedAssetPixels } from '../presets/importedBrushes'
 import {brushTipColorPlanes,isBrushGradient,type BrushBristle,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;gradientSource?:true;gradientPalette?:true;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; patternAlpha?:string;patternSize?:{width:number;height:number}; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
-export interface BrushPreparationOptions { gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet';canvasPattern?:true; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;gradientSource?:true;gradientPalette?:true;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; patternAlpha?:string;patternSize?:{width:number;height:number}; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
+export interface BrushPreparationOptions { pattern?:BrushPattern;gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
 export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'patternAlpha'|'patternSize'|'gray'|'materialGroup'|'nativeImage'|'lookup32'|'colorPlanes'|'gradientMap'|'gradientLut'|'gradientSource'|'gradientPalette'|'bristleSaturation'>): string => resource.patternAlpha ? `g:lightness108:${resource.id}:${resource.patternAlpha}:${resource.patternSize?.width}x${resource.patternSize?.height}` : (resource.bristleSaturation ? bristleSaturationResourceKey(resource.bristleSaturation) : undefined) ?? (resource.gradientSource ? `t:gradient-source:filteredGray-v1:${resource.id}:${resource.colorPlanes?.[0]}` : undefined) ?? (resource.gradientPalette ? `t:gradient-palette:filteredGray-v1:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.gradientMap ? `t:gradient:${resource.id}:${resource.colorPlanes?.[0]}:${resource.gradientLut ?? 'unbound'}` : undefined) ?? (resource.colorPlanes ? `t:rgba:${resource.id}:${resource.colorPlanes.join(':')}` : undefined) ?? (resource.lookup32 ? `t:lookup32:${resource.id}` : undefined) ?? resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export function bindBrushGradient(resources:readonly BrushPreparationResource[],lut:string|undefined):BrushPreparationResource[] {
@@ -248,10 +249,11 @@ export function brushPreparationBytes(resources: readonly BrushPreparationResour
 /** Native policy promises a complete finite working bank, never a legacy
  * lazy-upload fallback after readiness reported an oversized skip. */
 export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {
-  if (!resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) return
+  if (!resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) return
   const bytes = brushPreparationBytes(resources, id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
   if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) throw Error('Native image bank exceeds the brush texture budget')
   for (const resource of resources) {
+    if(resource.canvasPattern&&(!Number.isFinite(maximumTextureSide)||Math.sqrt(importedAssetPixels(resource.id).length)>maximumTextureSide))throw Error('Canvas pattern exceeds GPU dimension limit')
     if(resource.patternAlpha&&Math.sqrt(importedAssetPixels(resource.id).length)>maximumTextureSide)throw Error('Lightness pattern exceeds GPU dimension limit')
     if(resource.gradientPalette&&maximumTextureSide<256||resource.gradientSource&&Math.sqrt(importedAssetPixels(resource.id).length)>maximumTextureSide)throw Error('Filtered-gradient resources exceed GPU dimension limit')
     if(resource.bristleSaturation&&(!Number.isFinite(maximumTextureSide)||maximumTextureSide<1024))throw Error('Bristle saturation exceeds GPU texture dimension limit')
@@ -370,4 +372,14 @@ export class BrushPreparation {
  * separate from both GPU residency and the room-owned raw CAS byte plane. */
 export function brushPreparationTransientBytes(resources:readonly BrushPreparationResource[]):number {
  return Math.max(resources.some(r=>r.bristleSaturation)?BRISTLE_SATURATION_UPLOAD_BYTES:0,...resources.map(r=>r.patternAlpha?importedAssetPixels(r.id).length*4:r.gradientSource?importedAssetPixels(r.id).length*4:r.gradientPalette?1024:0))
+}
+
+/** Bound execution resource joins the same existing stamp texture inventory. */
+export function bindBrushPattern(resources:readonly BrushPreparationResource[],pattern:BrushPattern|undefined):BrushPreparationResource[]{
+ if(pattern===undefined)return [...resources]
+ if(!isBrushPattern(pattern))throw Error('Invalid canvas pattern metadata')
+ if(pattern.kind==='none')return [...resources]
+ if([pattern.alpha,...pattern.planes].some(id=>importedAssetPixels(id).length!==pattern.side*pattern.side))throw Error('Canvas pattern CAS dimensions mismatch')
+ const resource:BrushPreparationResource={painter:'stamp',id:pattern.alpha,colorPlanes:pattern.planes,grain:false,canvasPattern:true}
+ return resources.some(r=>brushTextureResourceKey(r)===brushTextureResourceKey(resource))?[...resources]:[...resources,resource]
 }

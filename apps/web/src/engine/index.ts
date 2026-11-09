@@ -1,4 +1,6 @@
+import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
+import {hasExperimentCurrentPattern158Scope,copyBrushPattern,isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
 import type{CanonicalBeginLayeredView}from'./src/dabs/CanonicalBeginSource'
@@ -21,7 +23,7 @@ import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionCon
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds } from '@grafetto/shared'
-import { BrushPreparation, assertNativeImageAdmission, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -842,6 +844,7 @@ export interface PencilEngineAPI {
    * Changes affect the next gesture. Prepare the brush after changing a
    * gradient-map resource to keep its texture upload outside pen input. */
   requestCloneSourcePick():void
+  setBrushPattern(pattern?:BrushPattern):void
   setBrushGradient(lut?:string):void
   /** Next-gesture brush background; omitted resets explicit Grafetto white default.
    * Independent of paper. No background picker UI is currently provided. */
@@ -1720,6 +1723,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _cloneOffset?:{x:number;y:number}
   private _hatchingBackground?:HatchingRgba8
   private _canvasBrushGradient?:string
+  private _canvasBrushPattern?:BrushPattern
   private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number;pinned?:Set<ILayerBuffer>}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
@@ -2528,6 +2532,7 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.strokeInput=spacingBrush?.behavior?.strokeInput
     sampler.timing=spacingBrush?.behavior?.timing
     sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.sketchTiming161=hasSketchTimer161Scope(spacingBrush)?spacingBrush!:undefined
     sampler.particleTiming157=hasParticleTimer157Scope(spacingBrush)?spacingBrush!:undefined
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
@@ -4043,15 +4048,16 @@ export class PencilEngine implements PencilEngineAPI {
     const beginCapability=this._beginCapability(descriptor)
     const plan=brushPreparationPlan(descriptor),capabilities=plan.capabilities
     const gradient=descriptor.texture?.material?.kind==='gradient'||descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
-    const resources=bindBrushGradient(plan.resources,gradient)
-    const preparationKey=gradient ? preset+':gradient:'+gradient : preset
-    if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    const pattern=hasExperimentCurrentPattern158Scope(descriptor)?options.pattern??this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
+    const resources=bindBrushPattern(bindBrushGradient(plan.resources,gradient),pattern)
+    const preparationKey=(gradient ? preset+':gradient:'+gradient : preset)+(pattern?':pattern:'+JSON.stringify(pattern):'')
+    if (resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
-    const programJobs = [...capabilities].map(painter => () => {
+    const programJobs = [...(pattern?[()=>this._brush.prepareExperimentPatternPrograms()]:[]),...[...capabilities].map(painter => () => {
       if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
       else if(painter === 'cloneBrush')this._brush.prepareClone()
       else if(painter === 'filterBrush')this._brush.prepareFilter()
@@ -4080,7 +4086,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'wet') this._smudge.prepareProcedural()
       else if (painter === 'stampImage') this._brush.prepareIntegerImages()
       else this._smudge.prepareIntegerImages()
-    })
+    })]
     if(beginCapability==='bristleSoak139')programJobs.push(()=>this._brush.prepareBristleSoak(descriptor))
     if(beginCapability==='filterSmudge147')programJobs.push(()=>this._brush.prepareFilterSmudge147(descriptor))
     if(beginCapability==='cloneProjection149')programJobs.push(()=>this._brush.prepareClone())
@@ -4103,7 +4109,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.
     if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) {
-      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) throw Error('Native image bank lost residency during preparation')
+      if (resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) throw Error('Native image bank lost residency during preparation')
       return { status: 'skipped' }
     }
     return result
@@ -4131,6 +4137,9 @@ export class PencilEngine implements PencilEngineAPI {
   setBrushBackground(rgba?:HatchingRgba8):void {
     this._hatchingBackground=rgba===undefined?undefined:captureHatchingBackground(rgba)
   }
+  setBrushPattern(pattern?:BrushPattern):void
+  setBrushPattern(pattern?:BrushPattern):void{if(pattern!==undefined&&!isBrushPattern(pattern))throw Error('Invalid canvas pattern');this._canvasBrushPattern=pattern===undefined?undefined:copyBrushPattern(pattern)}
+
   setBrushGradient(lut?:string):void {
     if(lut!==undefined&&!isBrushGradient(lut))throw Error('Invalid canvas brush gradient')
     this._canvasBrushGradient=lut
@@ -6947,7 +6956,8 @@ export class PencilEngine implements PencilEngineAPI {
     const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
     const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
     const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground||brush.spray?.color.mixBackground||brush.spray?.color.fillBackground)?captureHatchingBackground(this._hatchingBackground):undefined
-    const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background ? copyBrushSourceContext({version:1,...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
+    const pattern=brush&&hasExperimentCurrentPattern158Scope(brush)?this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
+    const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background||pattern ? copyBrushSourceContext({version:1,...(pattern?{pattern}:{}),...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
       initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
       cameraAngle:this._authorCameraAngle,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,tiltResponse:this._tiltResponse,
@@ -8590,6 +8600,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // Recorded/peer/cold brushes need not be the locally selected tool.
     // Prepare this exact capability before the painter advances gesture state.
+    if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
     this._brush.prepareRecordedStampResources(stamp.brush)
     if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()

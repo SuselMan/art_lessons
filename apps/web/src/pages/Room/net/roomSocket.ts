@@ -1,3 +1,4 @@
+import type {BrushSourceContext} from '@grafetto/shared'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
@@ -178,7 +179,8 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   const ordered = <Args extends unknown[]>(
     apply: (...args: Args) => void | Promise<void>,
     presets: (...args: Args) => (string | undefined)[] = () => [],
-  ) => (...args: Args): void => { brushes.dispatch(presets(...args), () => apply(...args)) }
+    sources:(...args:Args)=>readonly (BrushSourceContext|undefined)[]=()=>[],
+  ) => (...args: Args): void => { brushes.dispatch(presets(...args), () => apply(...args),sources(...args)) }
   const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
 
   socket.on('lesson_state',               ordered(board.lesson_state))
@@ -195,11 +197,11 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     setBrushRoomScope(state.room.id)
     void loadBrushLibrary().catch(error => console.warn('Room brush metadata unavailable', error))
     return state.tailOperations.map(presetFor)
-  }))
-  socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)]))
+  },state=>state.tailOperations.map(op=>op.type==='stroke'?op.brushSource:undefined)))
+  socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)],message=>[message.operation.type==='stroke'?message.operation.brushSource:undefined]))
   socket.on('peer_joined',                ordered(peer.peer_joined))
   socket.on('peer_left',                  ordered(peer.peer_left))
-  socket.on('peer_stroke_live',           ordered(peer.peer_stroke_live, data => [data.preset]))
+  socket.on('peer_stroke_live',           ordered(peer.peer_stroke_live, data => [data.preset],data=>[data.brushSource]))
   socket.on('peer_stroke_live_end',       ordered(peer.peer_stroke_live_end))
   socket.on('palette_updated',            ordered(control.palette_updated))
   socket.on('room_frozen_changed',        ordered(control.room_frozen_changed))
