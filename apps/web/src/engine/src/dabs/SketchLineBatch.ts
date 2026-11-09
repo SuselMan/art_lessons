@@ -15,7 +15,7 @@ float a=(u_aa>.5?clamp(.5-d,0.,1.):(d<=0.?1.:0.))*v_color.a;if(a<=0.)discard;gl_
 const COPY_VERT=`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=(a_position+1.)*.5;gl_Position=vec4(a_position,0.,1.);}`
 const COPY_FRAG=`precision highp float;uniform sampler2D u_source;uniform float u_opacity;uniform vec4 u_flatColor;varying vec2 v_uv;void main(){vec4 ink=texture2D(u_source,v_uv);gl_FragColor=(u_flatColor.a>.5?vec4(u_flatColor.rgb*ink.a,ink.a):ink)*u_opacity;}`
 const PATTERN_FRAG=`precision highp float;uniform sampler2D u_source;uniform sampler2D u_pattern;uniform vec2 u_origin;uniform vec2 u_size;uniform vec4 u_rect;uniform float u_side;uniform float u_opacity;varying vec2 v_uv;
-void main(){vec2 world=u_origin+vec2(floor(v_uv.x*u_size.x),u_size.y-1.-floor(v_uv.y*u_size.y));vec2 phase=mod(mod(world,u_rect.zw)+u_rect.zw,u_rect.zw);vec2 uv=(u_rect.xy+phase+.5)/u_side;gl_FragColor=texture2D(u_pattern,uv)*(texture2D(u_source,v_uv).a*u_opacity);}`
+void main(){vec2 world=u_origin+vec2(floor(v_uv.x*u_size.x),u_size.y-1.-floor(v_uv.y*u_size.y));vec2 phase=world-u_rect.zw*floor((world+.5)/u_rect.zw);vec2 uv=(u_rect.xy+phase+.5)/u_side;gl_FragColor=texture2D(u_pattern,uv)*(texture2D(u_source,v_uv).a*u_opacity);}`
 /** One temporary request image preserves group opacity at intersecting lines.
  * Both images are the existing coverage/ceiling scratch; no new tile surfaces. */
 export class SketchLineBatch{
