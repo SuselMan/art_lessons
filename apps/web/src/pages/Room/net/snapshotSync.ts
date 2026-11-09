@@ -29,6 +29,16 @@ async function firstSnapshotIndex(roomId: string): Promise<RouteResponse<'GET /a
   }
 }
 
+/** New physical metadata is optional during mixed-version rollout. Validate
+ * the whole new array; malformed metadata retains the legacy selected-index law. */
+function firstStoredCoverage(index: RouteResponse<'GET /api/rooms/:roomId/snapshots/index'> | null): readonly { layerId: string }[] {
+  const stored = index?.storedCoverage
+  return Array.isArray(stored) && stored.every(entry => entry !== null && typeof entry === 'object'
+    && typeof entry.layerId === 'string' && entry.layerId.length > 0 && entry.layerId.length <= 100
+    && Number.isSafeInteger(entry.seq) && entry.seq > 0)
+    ? stored : index?.layers ?? []
+}
+
 type EncodedSnapshotLayers = Readonly<Record<string, string>>
 
 async function encodeSnapshotLayers(layers: Map<string, Uint8Array>, workerCompression: boolean): Promise<EncodedSnapshotLayers> {
@@ -187,7 +197,7 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
         if (reconciling) return
         reconciling = true
         void firstSnapshotIndex(roomId).then(index => {
-          for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
+          for (const entry of firstStoredCoverage(index)) firstCovered.add(entry.layerId)
           reconciledSeq = seq
         }).catch(() => {
           retryAt = Date.now() + BOOTSTRAP_RETRY_BASE_MS
@@ -229,7 +239,7 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
       void uploadSnapshot(roomId, captured.seq, captured.layerState, new Map(), async refused => {
         if (refused) captured.retain = false // stale watermark/structure needs a new honest capture
         const index = await firstSnapshotIndex(roomId)
-        for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
+        for (const entry of firstStoredCoverage(index)) firstCovered.add(entry.layerId)
       }, options.workerCompression, captured.encoded).then(ok => {
         if (ok) {
           for (const id of captured.layerIds) firstCovered.add(id)

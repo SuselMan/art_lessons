@@ -33,3 +33,10 @@ describe('first snapshot uses actual committed per-layer coverage', () => {
     }
   })
 })
+
+it('physical prior coverage still refuses nonboundary refresh even when replay omits that bitmap', () => {
+  const physical = new Map([['history-fallback', 200]])
+  expect(permitsSnapshotWatermark(281, 281, physical, ['history-fallback'])).toBe(false)
+  expect(permitsSnapshotWatermark(281, 281, physical, ['new-layer'])).toBe(true)
+  expect(permitsSnapshotWatermark(281, 281, physical, ['history-fallback', 'new-layer'])).toBe(false)
+})

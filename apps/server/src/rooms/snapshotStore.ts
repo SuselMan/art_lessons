@@ -315,7 +315,7 @@ export interface SnapshotIndexEntry {
  *  they're only needed at join time). */
 export async function getSnapshotIndex(
   roomId: string,
-): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[]; replayStructure?: true; historyLayers?: string[] } | null> {
+): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[]; storedCoverage?: Array<{ layerId: string; seq: number }>; replayStructure?: true; historyLayers?: string[] } | null> {
   return (await prepareSnapshotReplay(roomId)).index
 }
 

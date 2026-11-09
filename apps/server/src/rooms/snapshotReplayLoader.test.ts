@@ -117,3 +117,18 @@ it('resolves an undo target discovered only while loading another layer history'
  expect(result.operations.some(op=>op.id===other.id)).toBe(true)
  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:'room',id:{in:['other2']}}}))
 })
+
+// Storage admission must not mistake history-safe replay rollback for no physical bitmap.
+it('reports latest physical coverage separately from a selected earlier safe snapshot', async () => {
+  mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 5, hash: 'bad' }, { layerId: 'L', seq: 2, hash: 'before-colour' }])
+  const p = await prepareSnapshotReplay('room')
+  expect(p.index?.layers).toEqual([{ layerId: 'L', seq: 2, hash: 'before-colour' }])
+  expect(p.index?.storedCoverage).toEqual([{ layerId: 'L', seq: 5 }])
+  expect(p.coverage.get('L')).toBe(2)
+})
+it('retains physical coverage for a bitmap excluded entirely from replay', async () => {
+  const p = await prepareSnapshotReplay('room')
+  expect(p.index?.layers).toEqual([{ layerId: 'safe', seq: 5, hash: 'safe-picture' }])
+  expect(p.index?.storedCoverage).toEqual([{ layerId: 'L', seq: 5 }, { layerId: 'safe', seq: 5 }])
+  expect(p.coverage.has('L')).toBe(false)
+})

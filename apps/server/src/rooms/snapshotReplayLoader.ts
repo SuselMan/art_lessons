@@ -9,7 +9,7 @@ const HISTORY_TYPES = ['operation_undo', 'operation_redo', 'operation_revoke']
 const STRUCTURE_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_transform', 'layer_move', 'layer_opacity', 'layer_visibility', 'layer_rename', 'layer_owner_lock', 'layer_lock']
 
 export interface PreparedSnapshotReplay extends SnapshotReplayPlan {
-  index: { seq: number; layerState: unknown; layers: SnapshotCandidate[]; replayStructure?: true; historyLayers?: string[] } | null
+  index: { seq: number; layerState: unknown; layers: SnapshotCandidate[]; storedCoverage?: Array<{ layerId: string; seq: number }>; replayStructure?: true; historyLayers?: string[] } | null
   operations: Operation[]
   historicalIds: Set<string>
   watermark: number
@@ -27,6 +27,13 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
       prisma.roomLayerSnapshot.findMany({ where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, hash: true } }),
     ])
+    // Physical rows are a different authority from safe replay selection.
+    // First nonboundary upload admission uses physical coverage even when
+    // history/source dependencies force restoring an earlier/no bitmap.
+    const latestStored = new Map<string, number>()
+    for (const row of rows) latestStored.set(row.layerId, Math.max(latestStored.get(row.layerId) ?? 0, row.seq))
+    const storedCoverage = [...latestStored].map(([layerId, seq]) => ({ layerId, seq }))
+      .sort((a, b) => a.layerId.localeCompare(b.layerId))
     const live = stored ? layerStateIdsOf(stored.state) : null
     const candidates = rows.filter(row => live === null || live.has(row.layerId))
     const byId = new Map((record?.operations ?? []).map(op => [op.id, op]))
@@ -107,7 +114,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     }
     if (plan.unresolvedTargets.size) throw new Error('Unresolved snapshot history dependency')
     if (record && ((rooms.get(roomId)?.nextSeq ?? 1) - 1 !== watermark)) continue
-    return { ...plan, index: stored ? { seq: stored.seq, layerState: stored.state, layers: plan.snapshots, ...(plan.replayStructure ? { replayStructure: true as const, historyLayers: [...plan.historyLayers] } : {}) } : null,
+    return { ...plan, index: stored ? { seq: stored.seq, layerState: stored.state, layers: plan.snapshots, storedCoverage, ...(plan.replayStructure ? { replayStructure: true as const, historyLayers: [...plan.historyLayers] } : {}) } : null,
       operations: [...byId.values()].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), historicalIds, watermark }
   }
   throw new Error('Snapshot history changed during join preparation')

@@ -113,6 +113,9 @@ export interface SnapshotIndex {
   seq: number
   layerState: unknown
   layers: SnapshotIndexEntry[]
+  /** Physical latest stored coverage, for first-upload admission only.
+   * May include layers whose pixels the selected replay plan must not restore. */
+  storedCoverage?: Array<{ layerId: string; seq: number }>
 }
 
 export interface SnapshotUploadResult {

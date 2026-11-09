@@ -791,3 +791,55 @@ it('keeps successful boundary coverage when an older parallel index response arr
  expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url])=>String(url).endsWith('/snapshots/index'))).toHaveLength(1)
  expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)
 })
+
+describe('physical first-upload coverage is independent of selected replay coverage', () => {
+  it('never rebakes a physically covered rollback layer at a nonboundary head, but uploads a genuinely new layer', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({
+      seq: 200, layerState: {}, layers: [], storedCoverage: [{ layerId: 'background', seq: 200 }] }) })
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
+    const uploader = createSnapshotUploader('room-1')
+    const { engine, bakeCalls } = fakeEngine({ background: new Uint8Array([7]), 'layer-1': new Uint8Array([8]) })
+    uploader.requestFirstSnapshot()
+    await observeFirst(uploader, 281, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+    const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+    expect(body.seq).toBe(281)
+    expect(Object.keys(body.layers)).toEqual(['layer-1'])
+    expect(bakeCalls).toEqual(['layer-1'])
+  })
+  it('reconciles physical coverage after a nonboundary rejection, not selected empty restore layers', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 204 })
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'not_a_checkpoint_seq' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ seq: 200, layerState: {}, layers: [],
+        storedCoverage: [{ layerId: 'layer-1', seq: 200 }] }) })
+    const uploader = createSnapshotUploader('room-1')
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    uploader.requestFirstSnapshot()
+    await observeFirst(uploader, 281, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
+    await observeFirst(uploader, 282, engine, layerState())
+    expect(bakeCalls).toEqual(['layer-1'])
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)
+  })
+})
+
+it.each([
+  { 'layer-1': 200 },
+  [null],
+  [{ layerId: 'layer-1', seq: 0 }],
+  [{ layerId: 'layer-1', seq: '200' }],
+  [{ layerId: 'layer-1', seq: 200 }, { layerId: '', seq: 200 }],
+].map(storedCoverage => ({ storedCoverage })))('falls back as a whole to legacy selected coverage for malformed optional physical metadata %j', async ({ storedCoverage }) => {
+  global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ seq: 200, layerState: {},
+    layers: [{ layerId: 'background', seq: 200, hash: 'legacy-safe' }], storedCoverage }) })
+    .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
+  const uploader = createSnapshotUploader('room-1')
+  const { engine, bakeCalls } = fakeEngine({ background: new Uint8Array([7]), 'layer-1': new Uint8Array([8]) })
+  uploader.requestFirstSnapshot()
+  await observeFirst(uploader, 281, engine, layerState())
+  await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  expect(bakeCalls).toEqual(['layer-1'])
+  expect(Object.keys(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).layers)).toEqual(['layer-1'])
+})
