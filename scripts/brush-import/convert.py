@@ -7,6 +7,7 @@ from pixel_original_hsv150 import pixel_original_hsv150_scope, validate_pixel_or
 from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
 from legacy_smudge_timing import legacy_smudge_timing_scope
+from deform_timer160 import deform_timer160_scope
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import validate_dimensions
 import argparse
@@ -849,7 +850,7 @@ def portable_bundle(path,catalog):
                     or not(mirror['horizontal']or mirror['vertical'])or type(mirror.get('value'))not in(int,float)
                     or not math.isfinite(mirror['value'])or not 0<=mirror['value']<=1):raise ValueError('Invalid portable mirror')
             if 'dynamics'in mirror:validate_portable_dynamics(mirror['dynamics'])
-        if d.get('model')=='mixer'and d['version']>=129 and 'timing'in behavior and not legacy_smudge_timing_scope(d):raise ValueError('Invalid portable legacy Color Smudge129 timing scope')
+        if d.get('model')=='mixer'and d['version']>=129 and 'timing'in behavior and not legacy_smudge_timing_scope(d) and not deform_timer160_scope(d):raise ValueError('Invalid portable legacy Color Smudge129 timing scope')
         timing=behavior.get('timing')
         if timing is not None:
             if (depth>0 or not isinstance(timing,dict) or set(timing)-{'version','rate','ignoreDistanceSpacing','rateDynamics'}

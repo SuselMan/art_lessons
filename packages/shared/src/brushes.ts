@@ -1,6 +1,6 @@
 import{hasParticleTimer157Scope}from'./brushParticle.js'
 export{hasParticleTimer157Scope}from'./brushParticle.js'
-export{hasFilterGaussian153Scope,type GaussianSmudge153}from'./brushFilter.js'
+export{hasFilterUnsharp159Scope,type UnsharpSmudge159,hasFilterGaussian153Scope,type GaussianSmudge153}from'./brushFilter.js'
 import{hasLegacyColorSmudgeOverlay154Scope}from'./legacyColorSmudgeOverlay154.js'
 export{hasLegacyColorSmudgeOverlay154Scope}from'./legacyColorSmudgeOverlay154.js'
 import{hasSprayRectangleNoise155Scope}from'./brushSprayRectangleNoise155.js'
@@ -35,9 +35,9 @@ export{hasCloneHealing152Scope,hasCloneProjection149Scope}from'./brushClone.js'
 import{hasFilterSmudge147Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
 export{hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
-import{hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
+import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
-export{hasDeformOldData145Scope}from'./brushDeform.js'
+export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
 import{isExperimentDescriptor,type BrushExperiment}from'./brushExperiment.js'
 export type{BrushExperiment}from'./brushExperiment.js'
 import{isParticleDescriptor,type BrushParticle}from'./brushParticle.js'
@@ -474,7 +474,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
     if(brushDynamicInputs(d as unknown as BrushDescriptor).some(control=>control.randomSource?.kind==='grafettoSourceTime-v1')&&(Number(d.version)<81||(d.model!=='stamp'&&!hasLegacySmudgeTiming129Scope(d))||['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
-    if(d.model==='mixer'&&Number(d.version)>=129&&record(d.behavior)&&d.behavior.timing!==undefined&&!hasLegacySmudgeTiming129Scope(d))return false
+    if(d.model==='mixer'&&Number(d.version)>=129&&record(d.behavior)&&d.behavior.timing!==undefined&&!hasLegacySmudgeTiming129Scope(d)&&!hasDeformTimer160Scope(d))return false
     if(d.tip.autoNoise!==undefined){
       const noise=d.tip.autoNoise
       if(!record(noise)||Object.keys(noise).length!==3||Object.keys(noise).some(k=>!['version','density','randomness'].includes(k))||noise.version!==1||!numberIn(noise.density,0,1)||!numberIn(noise.randomness,0,1)||Number(d.version)<74||d.model!=='stamp'||d.tip.kind!=='procedural'||!record(d.tip.profile)||!['standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(d.tip.profile.kind))||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
@@ -1026,7 +1026,7 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
   if(brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
   const resize140=hasBristleInitializationScope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
-  if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush))return false
+  if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush)&&!hasDeformTimer160Scope(brush))return false
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined
   if(!brushRequiresSourceInputs(brush))return true

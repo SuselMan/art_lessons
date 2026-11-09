@@ -1,5 +1,5 @@
 import{FilterGaussian153Pass}from'./FilterGaussian153'
-import{hasFilterGaussian153Scope}from'@grafetto/shared'
+import{hasFilterUnsharp159Scope,hasFilterGaussian153Scope}from'@grafetto/shared'
 import{hasFilterSmudge147Scope,type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
 import type{WorldRect}from'../buffers/tileMath'
@@ -15,7 +15,7 @@ const NEXT=`precision highp float;uniform sampler2D u_source;uniform sampler2D u
 void main(){vec2 pixel=vec2(gl_FragCoord.x,u_sourceResolution.y-gl_FragCoord.y);vec4 source=texture2D(u_source,gl_FragCoord.xy/u_sourceResolution);vec4 previous=texture2D(u_previous,vec2(pixel.x/u_previousResolution.x,1.-pixel.y/u_previousResolution.y));gl_FragColor=filterPointwise(source+previous*(1.-source.a),u_filter);}`
 const COPY=`precision highp float;uniform sampler2D u_current;uniform sampler2D u_next;uniform sampler2D u_mask;uniform vec2 u_resolution;uniform vec2 u_patchResolution;uniform float u_opacity;void main(){vec2 pixel=gl_FragCoord.xy;vec2 local=vec2(pixel.x,u_resolution.y-pixel.y);vec2 patch=vec2(local.x/u_patchResolution.x,1.-local.y/u_patchResolution.y);vec4 current=texture2D(u_current,patch),next=texture2D(u_next,patch);float mask=texture2D(u_mask,pixel/u_resolution).a;gl_FragColor=mix(current,next,clamp(mask*u_opacity,0.,1.));}`
 export{CanonicalBeginBlocked as FilterSmudge147Blocked}from'./CanonicalBeginRuntime'
-export interface FilterGaussian153Plan{readonly bounds:WorldRect;readonly needed:WorldRect;readonly side:number;readonly destinations:Array<{tile:PaintTarget;mask:AccumulationBuffer}>}
+export interface FilterGaussian153Plan{readonly bounds:WorldRect;readonly needed:WorldRect;readonly update?:WorldRect;readonly side:number;readonly destinations:Array<{tile:PaintTarget;mask:AccumulationBuffer}>}
 interface StoredTemporary{tile:PaintTarget;lease:CanonicalSourceLease}
 export interface FilterSmudge147Request{readonly working:CanonicalSourceLease;readonly next:CanonicalSourceLease;readonly stages:readonly CanonicalSourceLease[];readonly spatial?:FilterGaussian153Plan;temporaryTiles():readonly PaintTarget[];temporary(tile:PaintTarget):AccumulationBuffer;assertCurrent():void;release():void}
 /** Mutable T belongs only to this gesture scratch. Never retain/share it on a clone.
@@ -62,14 +62,14 @@ export class FilterSmudge147Pass{
  private readonly sampler:CanvasProjectionSampler
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl;this.sampler=new CanvasProjectionSampler(gl,()=>this.geometry!)}
- prepare():void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare();(this.gaussian??=new FilterGaussian153Pass(this.gl)).prepare()}
- assertPrepared():void{if(!this.geometry||!this.next||!this.copy)throw Error('Filter147 programs are not prepared')}
+ prepare(brush?:BrushDescriptor):void{this.geometry??=createFullscreenQuad(this.gl);this.next??=createProgram(this.gl,VERT,NEXT);this.copy??=createProgram(this.gl,VERT,COPY);this.sampler.prepare();(this.gaussian??=new FilterGaussian153Pass(this.gl)).prepare();if(hasFilterUnsharp159Scope(brush))this.gaussian!.prepareUnsharp159()}
+ assertPrepared(brush?:BrushDescriptor):void{if(!this.geometry||!this.next||!this.copy)throw Error('Filter147 programs are not prepared');if(hasFilterUnsharp159Scope(brush)){if(!this.gaussian)throw Error('Spatial programs missing');this.gaussian.assertUnsharp159Prepared()}}
  forget():void{this.geometry=undefined;this.next=undefined;this.copy=undefined;this.sampler.forget();this.gaussian?.forget()}
  destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.next)this.gl.deleteProgram(this.next);if(this.copy)this.gl.deleteProgram(this.copy);this.sampler.destroy();this.gaussian?.destroy();this.forget()}
  private draw(program:WebGLProgram,target:AccumulationBuffer,rect:WorldRect):void{const gl=this.gl;gl.useProgram(program);gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),target.width,target.height);gl.uniform4f(gl.getUniformLocation(program,'u_rect'),rect.minX,rect.minY,rect.maxX-rect.minX,rect.maxY-rect.minY);gl.bindBuffer(gl.ARRAY_BUFFER,this.geometry!);const at=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(at);gl.vertexAttribPointer(at,2,gl.FLOAT,false,0,0);try{gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(at)}}
  paint(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request,tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,opacity:number):void{
-  if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');this.assertPrepared();request.assertCurrent();if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('Invalid Filter147 opacity')
-  if(hasFilterGaussian153Scope(brush)){if(!request.spatial)throw Error('Gaussian153 request plan missing');request.spatial.destinations.push({tile,mask});return}
+  if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');this.assertPrepared(brush);request.assertCurrent();if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('Invalid Filter147 opacity')
+  if(hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)){if(!request.spatial)throw Error('Gaussian153 request plan missing');request.spatial.destinations.push({tile,mask});return}
   const filter=brush.filter as Exclude<BrushFilter,{version:1}>,gl=this.gl,working=request.working.buffer,next=request.next.buffer,previous=request.temporary(tile)
   if(new Set([working.texture,next.texture,previous.texture,tile.buffer.texture,mask.texture]).size!==5)throw Error('Filter147 sampled target alias')
   const left=Math.max(0,Math.floor(bounds.minX-tile.originX)),top=Math.max(0,Math.floor(bounds.minY-tile.originY)),right=Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX)),bottom=Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY));if(right<=left||bottom<=top)return
@@ -80,6 +80,6 @@ export class FilterSmudge147Pass{
   next.copyRegionInto(previous,left,next.height-bottom,left,previous.height-bottom,right-left,bottom-top)
   tile.buffer.beginReplaceDraw();try{gl.useProgram(this.copy!);for(const[unit,texture,name]of[[0,working.texture,'u_current'],[1,next.texture,'u_next'],[2,mask.texture,'u_mask']]as const){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(this.copy!,name),unit)}gl.uniform2f(gl.getUniformLocation(this.copy!,'u_patchResolution'),working.width,working.height);gl.uniform1f(gl.getUniformLocation(this.copy!,'u_opacity'),opacity);this.draw(this.copy!,tile.buffer,{minX:left,minY:top,maxX:right,maxY:bottom})}finally{tile.buffer.endDraw()}
  }
- finishSpatial(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request):void{if(hasFilterGaussian153Scope(brush)){if(!this.gaussian)throw Error('Gaussian153 programs not prepared');this.gaussian.paint(brush,state,request)}}
+ finishSpatial(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request):void{if(hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)){if(!this.gaussian)throw Error('Gaussian153 programs not prepared');this.gaussian.paint(brush,state,request)}}
 
 }

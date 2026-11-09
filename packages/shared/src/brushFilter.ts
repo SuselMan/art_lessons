@@ -2,7 +2,8 @@ export interface SpatialBrushFilter{version:1;kind:'gaussian'|'unsharp';radiusX:
 export interface FilterSmudge147 {smudgeMode:true;sourcePolicy:'canonical-begin-v1'}
 type PointwiseBrushFilter={version:2;kind:'invert'}|{version:2;kind:'desaturate';type:0|1|2|3|4|5}|{version:2;kind:'posterize';steps:number}
 export type GaussianSmudge153=SpatialBrushFilter&FilterSmudge147&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'}
-export type BrushFilter=GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
+export type UnsharpSmudge159=SpatialBrushFilter&FilterSmudge147&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}
+export type BrushFilter=UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
 export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilter,{kind:'posterize'}>{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>
@@ -10,7 +11,7 @@ export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilt
 }
 export function isFilterDescriptor(d:Record<string,unknown>):boolean{
  if(d.filter===undefined)return true
- if(d.filter&&typeof d.filter==='object'&&'spatialPolicy'in d.filter)return hasFilterGaussian153Scope(d)
+ if(d.filter&&typeof d.filter==='object'&&'spatialPolicy'in d.filter)return hasFilterGaussian153Scope(d)||hasFilterUnsharp159Scope(d)
  const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v),f=d.filter,b=d.behavior,m=d.mixer,n=(v:unknown,a:number,z:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=z
  const smudge=record(f)&&f.smudgeMode===true&&f.sourcePolicy==='canonical-begin-v1',extra=smudge?2:0
  const shape=record(f)&&((Object.keys(f).every(k=>['version','kind','radiusX','radiusY','amount','threshold','lightnessOnly'].includes(k))&&f.version===1&&['gaussian','unsharp'].includes(String(f.kind))&&n(f.radiusX,0,16)&&n(f.radiusY,0,16)&&n(f.amount,0,5)&&n(f.threshold,0,255)&&typeof f.lightnessOnly==='boolean')||(f.version===2&&f.kind==='invert'&&Object.keys(f).length===2+extra&&Object.keys(f).every(k=>k==='version'||k==='kind'||smudge&&(k==='smudgeMode'||k==='sourcePolicy'))&&typeof d.version==='number'&&Number.isInteger(d.version)&&d.version>=95)||(f.version===2&&f.kind==='desaturate'&&Object.keys(f).length===3+extra&&Object.keys(f).every(k=>k==='version'||k==='kind'||k==='type'||smudge&&(k==='smudgeMode'||k==='sourcePolicy'))&&typeof f.type==='number'&&Number.isInteger(f.type)&&f.type>=0&&f.type<=5&&typeof d.version==='number'&&Number.isInteger(d.version)&&d.version>=99)||(isPosterizeBrushFilter(f)&&typeof d.version==='number'&&Number.isInteger(d.version)&&d.version>=117))
@@ -33,5 +34,15 @@ export function hasFilterGaussian153Scope(value:unknown):boolean{
  const x=f as Record<string,unknown>,keys=['version','kind','radiusX','radiusY','amount','threshold','lightnessOnly','smudgeMode','sourcePolicy','spatialPolicy']
  if(!Number.isInteger(d.version)||Number(d.version)<153||Object.keys(x).length!==keys.length||Object.keys(x).some(k=>!keys.includes(k))||x.version!==1||x.kind!=='gaussian'||x.smudgeMode!==true||x.sourcePolicy!=='canonical-begin-v1'||x.spatialPolicy!=='gaussian-halo-v1'||!['radiusX','radiusY'].every(k=>typeof x[k]==='number'&&Number.isFinite(x[k])&&Number(x[k])>=0&&Number(x[k])<=16)||x.amount!==.5||x.threshold!==0||x.lightnessOnly!==true)return false
  // Reuse exactly the147 root/geometry/source restrictions, without recursive spatial dispatch.
+ return isFilterDescriptor({...d,filter:{version:2,kind:'invert',smudgeMode:true,sourcePolicy:'canonical-begin-v1'}})
+}
+
+/** Native Unsharp spatial device, both raw and Lab/alpha branches; exact newpolicy. */
+export function hasFilterUnsharp159Scope(value:unknown):boolean{
+ if(!value||typeof value!=='object'||Array.isArray(value))return false
+ const d=value as Record<string,unknown>,f=d.filter;if(!f||typeof f!=='object'||Array.isArray(f))return false
+ const x=f as Record<string,unknown>,keys=['version','kind','radiusX','radiusY','amount','threshold','lightnessOnly','smudgeMode','sourcePolicy','spatialPolicy'],n=(v:unknown,a:number,b:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b
+ if(d.version!==159||Object.keys(x).length!==keys.length||Object.keys(x).some(k=>!keys.includes(k))||x.version!==1||x.kind!=='unsharp'||x.smudgeMode!==true||x.sourcePolicy!=='canonical-begin-v1'||x.spatialPolicy!=='unsharp-lab-halo-v1'||!n(x.radiusX,0,16)||x.radiusY!==x.radiusX||!n(x.amount,0,5)||!n(x.threshold,0,255)||!Number.isInteger(x.threshold)||typeof x.lightnessOnly!=='boolean')return false
+ const behavior=d.behavior as Record<string,unknown>|undefined;if(behavior?.softness!==undefined||[behavior?.dynamics,behavior?.modulations].some(v=>!!v&&typeof v==='object'&&'softness'in v))return false
  return isFilterDescriptor({...d,filter:{version:2,kind:'invert',smudgeMode:true,sourcePolicy:'canonical-begin-v1'}})
 }

@@ -1,5 +1,6 @@
 import{hasParticleTimer157Scope}from'@grafetto/shared'
-import{hasFilterGaussian153Scope}from'@grafetto/shared'
+import{hasFilterUnsharp159Scope,hasFilterGaussian153Scope}from'@grafetto/shared'
+import{planUnsharp159}from'./filterUnsharp159Plan'
 import{planGaussian153}from'./filterGaussian153Plan'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{planCloneHealing152}from'./cloneHealing152Math'
@@ -201,7 +202,7 @@ export class BrushBehaviorPainter {
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterSmudge147?:FilterSmudge147Pass
-  prepareFilterSmudge147():void{(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare()}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
@@ -364,7 +365,7 @@ export class BrushBehaviorPainter {
     const existing=scratch.canonicalSource;if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='filterSmudge147'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':filter147'}}
     if(scratch.brushBehavior?.dabSequence)throw Error('Filter147 capture after accepted request forbidden')
     if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource||!this.filterSmudge147)throw Error('Filter147 canonical source/prewarm unavailable')
-    this.filterSmudge147.assertPrepared();const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'filterSmudge147');if(opened.kind==='notReady')return opened
+    this.filterSmudge147.assertPrepared(brush);const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'filterSmudge147');if(opened.kind==='notReady')return opened
     const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'filterSmudge147');if(captured.kind==='notReady')return captured
     if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Filter147 owner changed during capture')}scratch.canonicalSource=captured.owner;return{kind:'ready'}
   }
@@ -379,7 +380,7 @@ export class BrushBehaviorPainter {
       if(!bounds){scratch.brushBehavior=probe;accepted++;continue}
       // Recovery/reentrant replay must finish before any outer request lease.
       const tiles=target.resolveForPaint(bounds)
-      const f=brush.filter,spatial=hasFilterGaussian153Scope(brush)&&f&&'radiusX'in f?{...planGaussian153(bounds,f.radiusX,f.radiusY),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
+      const f=brush.filter,spatial=(hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush))&&f&&'radiusX'in f?{...(hasFilterUnsharp159Scope(brush)?planUnsharp159(bounds,f.radiusX):planGaussian153(bounds,f.radiusX,f.radiusY)),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
       const temporaryTiles=spatial?target.resolveForPaint(spatial.needed):tiles
       if(scratch.brushBehavior!==prior)throw Error('Filter147 gesture changed during recovery')
       const existing=scratch.filterSmudge147State,state=existing??new FilterSmudge147State(scratch.canonicalSource!.retain(),(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes))
@@ -647,6 +648,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
     if(brush.particle&&brush.behavior?.timing){if(!hasParticleTimer157Scope(brush)||effectiveErase)throw Error('Invalid Particle timer157 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
+    if(brush.deform&&brush.behavior?.timing)throw Error('Deform timer160 requires the ordinary SmudgePainter path')
     const healing=brush.clone?.healing!==undefined
     if(healing){const source=scratch.canonicalSource;if(!hasCloneHealing152Scope(brush)||effectiveErase||runtime?.capability!=='cloneHealing152'||!source||source.capability!=='cloneHealing152'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Healing152 requires prepared canonical BEGIN');source.assertCurrent();if(!this.healingPass)throw Error('Healing152 not prepared');this.healingPass.assertPrepared();if(!healingRequest){this.paintHealing152Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}}
     const sprayRectangleNoise155=hasSprayRectangleNoise155Scope(brush)
@@ -662,7 +664,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(filter147){
       const source=scratch.canonicalSource
       if(!hasFilterSmudge147Scope(brush)||effectiveErase||runtime?.capability!=='filterSmudge147'||!source||source.capability!=='filterSmudge147'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Filter147 requires its prepared canonical BEGIN source')
-      source.assertCurrent();this.filterSmudge147?.assertPrepared();if(!this.filterSmudge147)throw Error('Filter147 programs not prepared')
+      source.assertCurrent();this.filterSmudge147?.assertPrepared(brush);if(!this.filterSmudge147)throw Error('Filter147 programs not prepared')
       if(!filterRequest){this.paintFilter147Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}
     }
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}

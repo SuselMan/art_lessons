@@ -204,7 +204,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)
     ;(this.soakGather??=new BristleSoakGather139(this.ctx.gl)).prepare()
   }
-  prepareFilterSmudge147():void{this.behavior.prepareFilterSmudge147()}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{this.behavior.prepareFilterSmudge147(brush)}
   prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{return this.behavior.prepareFilterBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
   filterBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.filterBeginBinding(scratch)}
   invalidateFilterBegin(scratch:BehaviorScratch):void{this.behavior.invalidateFilterBegin(scratch)}

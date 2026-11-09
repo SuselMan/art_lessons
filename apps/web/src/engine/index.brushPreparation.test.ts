@@ -194,3 +194,25 @@ it('retains98 unpaired noise and rejects invalid155/erase before selected resour
  const unversioned=sprayRectangle155();unversioned.version=154
  expect(()=>brushPreparationPlan(unversioned)).toThrow('unpaired stamp without noise')
 })
+
+it.each([false,true])('public selected159 raw/lightness=%s prepares its actual program only on opt-in and stays warm',async lightnessOnly=>{
+ const {unsharp159}=await import('../../../../packages/shared/src/filterUnsharp159.testFixture')
+ const {filter147}=await import('../../../../packages/shared/src/filterSmudge147.testFixture')
+ const old=filter147(),brush=unsharp159();old.id=`imported-${(++serial).toString(16).padStart(24,'0')}`;brush.id=`imported-${(++serial).toString(16).padStart(24,'0')}`
+ Object.assign(brush.filter!,{lightnessOnly})
+ installBrushLibrary({schemaVersion:1,assets:[],skipped:[],brushes:[old,brush].map(descriptor=>({name:'Own selected preparation',source:'authored.kpp',warnings:[],descriptor}))})
+ const {engine}=createTestEngine({}, {width:32,height:32})
+ try{
+  await paperReady(engine)
+  const gl=engine['gl'];Object.defineProperty(gl,'getShaderPrecisionFormat',{configurable:true,value:vi.fn(()=>({precision:23,rangeMin:127,rangeMax:127}))})
+  const shader=vi.spyOn(gl,'shaderSource'),history=engine.getOperations(),paint=vi.spyOn(engine['_brush'],'paint')
+  await expect(engine.prepareBrush(`brush:${old.id}@147`)).resolves.toEqual({status:'ready'})
+  const nativePrograms=()=>shader.mock.calls.filter(call=>String(call[1]).includes('float difference159(')).length
+  expect(nativePrograms()).toBe(0)
+  await expect(engine.prepareBrush(`brush:${brush.id}@159`)).resolves.toEqual({status:'ready'})
+  expect(nativePrograms()).toBe(1);expect(engine.getOperations()).toEqual(history);expect(paint).not.toHaveBeenCalled()
+  const compile=vi.spyOn(gl,'createProgram'),upload=vi.spyOn(gl,'texImage2D')
+  await expect(engine.prepareBrush(`brush:${brush.id}@159`)).resolves.toEqual({status:'ready'})
+  expect(compile).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(nativePrograms()).toBe(1)
+ }finally{engine.destroy()}
+})

@@ -522,7 +522,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return filter_preset(data,root,params,name,catalog,external)
     if engine == 'deformbrush':
         from krita_deform import deform_preset
-        return deform_preset(data,root,params,name,catalog,external)
+        return deform_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
     if engine == 'experimentbrush':
         from krita_experiment import experiment_preset
         return experiment_preset(data,root,params,name,catalog,external)

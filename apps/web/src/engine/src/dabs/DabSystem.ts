@@ -1,3 +1,4 @@
+import{hasDeformTimer160Scope}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 import {SourceDistanceTiming,sourceTimingInterval} from './sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, type SourcePaintInformation } from '../input/kritaStrokeInput'
@@ -158,6 +159,7 @@ export class DabSystem {
   captureSourceSize = false
   captureSourceTime = false
   captureSourceAngle = false
+  deformTiming160?:BrushDescriptor
   particleTiming157?:BrushDescriptor
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
@@ -563,6 +565,7 @@ export class DabSystem {
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
     fork.captureSourceAngle=this.captureSourceAngle
+    fork.deformTiming160=this.deformTiming160
     fork.particleTiming157=this.particleTiming157
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
@@ -606,6 +609,7 @@ export class DabSystem {
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
+    if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
     if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
     this._reset()
     this._speed = speed
@@ -937,6 +941,13 @@ export class DabSystem {
   }
 
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
+    if(this.deformTiming160){
+      const brush=this.deformTiming160,scale=brush.deform!.baseScale
+      // Native constructor uses unpressured diameter, not emitted Size sensors.
+      const spacing=baseSize/scale>2 ? Math.max(.5,baseSize*brush.behavior!.spacing!.coefficient) : 1
+      this._spacingAxes={x:spacing,y:spacing,angle:0}
+      return spacing
+    }
     if (this.autoSpacing) {
       const { brush, sizeMultiplier } = this.autoSpacing
       assertBrushExecutionContext(brush,this.brushExecution)

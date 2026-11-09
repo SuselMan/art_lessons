@@ -10,7 +10,7 @@ def filter_preset(data,root,params,name,catalog,external):
     kind={'gaussian blur':'gaussian','unsharp':'unsharp','invert':'invert','desaturate':'desaturate','posterize':'posterize'}.get(params.get('Filter/id'))
     if kind is None:raise ValueError('Unsupported brush filter: '+str(params.get('Filter/id')))
     smudge=enabled(params.get('Filter/smudgeMode'))
-    if smudge and kind not in('invert','desaturate','posterize','gaussian'):raise ValueError('Spatial Filter smudge mode requires persistent halo support and is unsupported')
+    if smudge and kind not in('invert','desaturate','posterize','gaussian','unsharp'):raise ValueError('Spatial Filter smudge mode requires persistent halo support and is unsupported')
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','copy')!='copy':raise ValueError('Filter requires COPY compositing')
     if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Filter timed input is unsupported')
     config={}
@@ -52,13 +52,20 @@ def filter_preset(data,root,params,name,catalog,external):
     if kind=='desaturate':note=compatibility('filter','Native Desaturate six explicit types preserve alpha: lightness, BT709(.2126,.7152,.0722), BT601(.299,.587,.114), average, min and max. Canonical homogeneous premultipliedRGBA pointwise graph reuses stroke-original tiles and COPY mask once; native straight-channel intermediate quantization/ICC/HDR may differ. Missing type is lightness0; unused native configuration has no effect.')
     if kind=='posterize':note=compatibility('filter','Native painting-enabled Posterize: steps2..128, default16. Functional sRGB16 integer step=floor65535/steps with strict remainder>halfStep rounds up; ALL four straight RGBA channels quantize, then premultiply and COPY-mask mix once using existing stroke-original tile. Not a steps-minus-one levels formula. Native ICC/profile conversion and final byte projection may differ; no extra gather, texture or framebuffer. Unused blur configuration does not change output.')
     if smudge:
-        d['version']=153 if kind=='gaussian'else 147;d['filter'].update(smudgeMode=True,sourcePolicy='canonical-begin-v1')
+        d['version']=159 if kind=='unsharp'else 153 if kind=='gaussian'else 147;d['filter'].update(smudgeMode=True,sourcePolicy='canonical-begin-v1')
         if kind=='gaussian':d['filter'].update(spatialPolicy='gaussian-halo-v1',amount=.5,threshold=0,lightnessOnly=True)
+        if kind=='unsharp':
+            if d['filter']['threshold']!=int(d['filter']['threshold']):raise ValueError('Unsharp159 threshold must be integral')
+            d['filter'].update(spatialPolicy='unsharp-lab-halo-v1',threshold=int(d['filter']['threshold']))
         # Closed static pointwise source; no fallback may pretend smudge support.
         tip=d['tip'];behavior=d['behavior']
         standard=tip.get('kind')=='procedural'and isinstance(tip.get('profile'),dict)and tip['profile'].get('kind')=='standard'and tip['profile'].get('shape')=='ellipse'
         if(not(standard or tip.get('kind')=='round'and 'profile'not in tip)or any(k in tip for k in('animation','color','material','imageSampling','autoShape','autoNoise'))or any(k in behavior for k in('dual','timing','wetMix','taper','scatter','colorAdjustment'))or behavior.get('erase')is True or any(k in d for k in('clone','mypaint','tangentNormal'))):raise ValueError('Filter smudge147 requires root static round pointwise COPY scope')
         note=compatibility('filterSmudge','Pointwise Filter smudge preserves a persistent unmasked world-coordinate temporary device: each logical request filters OVER(canonical-BEGIN source, previous temporary), then COPY-masks onto current destination. Invert/Desaturate/Posterize only; no translated imprint, native ICC/quantization and concurrent source identity are not pixel-identical.')
     if smudge and kind=='gaussian':note=compatibility('filterSmudge','Gaussian spatial smudge preserves source-OVER updates on native neededRect (twice kernel support) including unfiltered halo, filters only current logical dabRect, then COPY-masks onto current destination. Radii0..16; sigma=.3r+.3/support3ceil(sigma), same canonical BEGIN and bounded16MiB request resources. RGBA8/native color-profile/quantization differences remain; oversized requests decline before acceptance.')
+    if smudge and kind=='unsharp':note=compatibility('filterSmudge','Unsharp spatial smudge159 reuses canonical-BEGIN source and unmasked persistent temporary. Native source-OVER updateRect twice halfSize, full-request Gaussian read halo including radius0; raw signed transparent-weight convolution and threshold1 memcmp branch, or Lab16 lightness AND alpha sharpening with original chroma. Functional D65 Lab/DeltaE and RGBA8 boundaries are not native ICC/HDR/hidden-RGB identity. Existing ordinary52 remains unchanged; budget denial before acceptance.')
+    if smudge and kind=='unsharp':
+        from canonical_effect_scopes import validate_canonical_effect_scopes
+        validate_canonical_effect_scopes(d)
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result

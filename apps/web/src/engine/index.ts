@@ -1,3 +1,4 @@
+import{hasDeformTimer160Scope}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
 import type{CanonicalBeginLayeredView}from'./src/dabs/CanonicalBeginSource'
@@ -2526,6 +2527,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     sampler.strokeInput=spacingBrush?.behavior?.strokeInput
     sampler.timing=spacingBrush?.behavior?.timing
+    sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
     sampler.particleTiming157=hasParticleTimer157Scope(spacingBrush)?spacingBrush!:undefined
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
@@ -2594,7 +2596,7 @@ export class PencilEngine implements PencilEngineAPI {
     let prepared:GridWashPrepareResult
     if(canonicalBeginIsStamp(capability)){
       const brush=digitalBrushFromPreset(candidate.snapshot.opts.pencilType),profile=ribbonProfileFor('digitalBrush',candidate.snapshot.opts.pencilType)
-      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147();else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
+      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
       if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
       const scratch=candidate.scratch??=new RibbonStrokeScratch(this._ribbonScratchPool,profile.ink,profile.normalizeDeposit)
       try{prepared=capability==='bristleSoak139'?this._brush.prepareBristleSoakGesture(target,line!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='filterSmudge147'?this._brush.prepareFilterBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):(capability==='cloneProjection149'||capability==='cloneHealing152')?this._brush.prepareCloneBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):this._brush.prepareSprayBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch)}catch(error){candidate.scratch=undefined;try{scratch.destroy()}catch{/* Preserve the primary, including undefined. */}throw error}
@@ -4080,7 +4082,7 @@ export class PencilEngine implements PencilEngineAPI {
       else this._smudge.prepareIntegerImages()
     })
     if(beginCapability==='bristleSoak139')programJobs.push(()=>this._brush.prepareBristleSoak(descriptor))
-    if(beginCapability==='filterSmudge147')programJobs.push(()=>this._brush.prepareFilterSmudge147())
+    if(beginCapability==='filterSmudge147')programJobs.push(()=>this._brush.prepareFilterSmudge147(descriptor))
     if(beginCapability==='cloneProjection149')programJobs.push(()=>this._brush.prepareClone())
     if(beginCapability==='cloneHealing152')programJobs.push(()=>this._brush.prepareCloneHealing152())
     // Resolve/admit the new plan before cancelling anyone else's valid work.
@@ -8480,7 +8482,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(canonicalBeginRuntime?.capability==='filterSmudge147'){
       const first=dabs.find(isGridRenderableDab137)
-      if(first){if(!profile.brushStamp)throw Error('Filter147 stamp profile missing');this._brush.prepareFilterSmudge147();const ready=this._brush.prepareFilterBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+      if(first){if(!profile.brushStamp)throw Error('Filter147 stamp profile missing');this._brush.prepareFilterSmudge147(profile.brushStamp.brush);const ready=this._brush.prepareFilterBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
     }
     yield* this._ribbonStrokeWork(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch, pieceTris, execution,canonicalBeginRuntime)
     if (strokeEnd || (!strokeId && !ribbonScratch)) this._brush.finish(scratch,strokeEndSample)

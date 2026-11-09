@@ -1,3 +1,4 @@
+import{FUNCTIONAL_LAB152_GLSL}from'./functionalLab152GLSL'
 import{createProgram,createFullscreenQuad}from'../raster/utils'
 import{planCloneHealing152,type CloneHealing152Plan}from'./cloneHealing152Math'
 import{CanvasProjectionSampler}from'../raster/CanvasProjectionSampler'
@@ -11,13 +12,7 @@ const COMMON=`precision highp float;
 uniform vec2 u_size;uniform vec2 u_outputSize;uniform float u_storage;uniform int u_channel;
 vec4 packRatio(float v){if(v<=0.)return vec4(0.);float e=floor(log2(v)),m=floor((v/exp2(e)-1.)*8388608.+.5);if(m<0.){e-=1.;m=floor((v/exp2(e)-1.)*8388608.+.5);}if(m>=8388608.){m=0.;e+=1.;}return vec4(mod(m,256.),mod(floor(m/256.),256.),floor(m/65536.),e+127.)/255.;}
 float unpackRatio(vec4 c){vec4 b=floor(c*255.+.5);if(b.a==0.)return 0.;return(1.+dot(b.rgb,vec3(1.,256.,65536.))/8388608.)*exp2(b.a-127.);}
-vec3 linearRgb(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));}
-float labf(float t){return t>216./24389.?pow(t,1./3.):(24389.*t/27.+16.)/116.;}
-vec3 lab16(vec4 p){vec3 c=linearRgb(p.a>0.?clamp(p.rgb/p.a,0.,1.):vec3(0.));float x=labf(dot(c,vec3(.4124564,.3575761,.1804375))/.95047),y=labf(dot(c,vec3(.2126729,.7151522,.072175))),z=labf(dot(c,vec3(.0193339,.119192,.9503041))/1.08883);return floor(clamp(vec3((116.*y-16.)/100.,(500.*(x-y)+128.)/255.,(200.*(y-z)+128.)/255.),0.,1.)*65535.+.5);}
-float invf(float t){return t>6./29.?t*t*t:3.*(6./29.)*(6./29.)*(t-4./29.);}
-float srgb(float v){return v<=.0031308?12.92*v:1.055*pow(v,1./2.4)-.055;}
-vec3 fromLab16(vec3 q){float L=q.x/65535.*100.,a=q.y/65535.*255.-128.,b=q.z/65535.*255.-128.,fy=(L+16.)/116.;vec3 xyz=vec3(.95047*invf(fy+a/500.),invf(fy),1.08883*invf(fy-b/200.));vec3 c=vec3(dot(xyz,vec3(3.2404542,-1.5371385,-.4985314)),dot(xyz,vec3(-.969266,1.8760108,.041556)),dot(xyz,vec3(.0556434,-.2040259,1.0572252)));return clamp(vec3(srgb(c.r),srgb(c.g),srgb(c.b)),0.,1.);}
-float component(vec3 v){return u_channel==0?v.r:(u_channel==1?v.g:v.b);}
+${FUNCTIONAL_LAB152_GLSL}float component(vec3 v){return u_channel==0?v.r:(u_channel==1?v.g:v.b);}
 vec2 sourceUv(){return vec2(gl_FragCoord.x,u_storage-u_size.y+gl_FragCoord.y)/u_storage;}
 `
 const INITIAL=COMMON+`uniform sampler2D u_source;uniform sampler2D u_guide;void main(){vec2 p=sourceUv();float s=component(lab16(texture2D(u_source,p))),g=component(lab16(texture2D(u_guide,p)));gl_FragColor=packRatio(g/max(s,1.));}`
