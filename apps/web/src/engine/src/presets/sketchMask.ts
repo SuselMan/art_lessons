@@ -1,3 +1,4 @@
+import{hasSketchImageAlpha162Scope}from'@grafetto/shared'
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
 import{importedAssetPixels}from'./importedBrushes'
 /** Existing captured alpha CAS only; no generated mask, cache, canvas read or
@@ -11,6 +12,7 @@ export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
 }
 export function prepareSketchMask(brush:BrushDescriptor):SketchMaskView|undefined{
  assertSketchDistanceOpacityPolicy(brush)
+ if(brush.sketch?.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(brush))throw Error('Invalid Sketch162 alpha selector scope')
  if(brush.sketch?.mode!=='mask')return undefined
  const tip=brush.tip,dimensions=brush.sketch.maskSize
  if(brush.version<101||tip.kind!=='bitmap'||!tip.mask||!dimensions||(brush.sketch.distanceOpacity?(brush.version<114||brush.sketch.distanceOpacityPolicy!=='generic-clamp-v1'):brush.sketch.distanceOpacityPolicy!==undefined)||tip.animation||tip.color||tip.profile||tip.material||tip.imageSampling||tip.autoNoise||tip.autoShape)throw Error('Unsupported Sketch101 static alpha mask')

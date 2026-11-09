@@ -4,6 +4,8 @@ export interface BrushSketch {
  version:1
  mode:'simple'|'mask'
  maskSize?:readonly[number,number]
+ /** Native IMAGESTAMP is a point selector through raw alpha, never source RGB. */
+ maskSignal?:'image-alpha-v1'
  width:number
  offset:number
  probability:number
@@ -21,9 +23,10 @@ export interface BrushSketch {
 export function isBrushSketch(value:unknown):value is BrushSketch{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,number=(x:unknown,lo:number,hi:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=lo&&x<=hi
- if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy'].includes(k)))return false
+ if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy','maskSignal'].includes(k)))return false
  if(v.version!==1||(v.mode!=='simple'&&v.mode!=='mask')||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
  if(v.mode==='simple'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n)) )return false
+ if(v.maskSignal!==undefined&&(v.maskSignal!=='image-alpha-v1'||v.mode!=='mask'))return false
  if(v.mode==='mask'&&v.distanceOpacity?v.distanceOpacityPolicy!=='generic-clamp-v1':v.distanceOpacityPolicy!==undefined)return false
  if(v.dynamics!==undefined){
   if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false
@@ -43,4 +46,16 @@ export function hasSketchTimer161Scope(value:unknown):boolean{
  &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
  &&b.version===2&&Object.keys(b).every(k=>['version','rendering','timing','speedInput'].includes(k))&&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')&&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
  &&obj(c)&&Object.keys(c).every(k=>['version','rate','ignoreDistanceSpacing'].includes(k))&&c.version===1&&typeof c.rate==='number'&&Number.isFinite(c.rate)&&c.rate>0&&c.rate<=1000&&c.ignoreDistanceSpacing===false
+}
+
+/** Native static IMAGESTAMP -> existing alpha-only Sketch selector. */
+export function hasSketchImageAlpha162Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!isBrushSketch(value.sketch))return false
+ const t=value.tip,b=value.behavior,r=b.rendering,s=value.sketch
+ return Number.isInteger(value.version)&&Number(value.version)>=162&&s.mode==='mask'&&s.maskSignal==='image-alpha-v1'&&value.model==='stamp'&&value.paperInteraction===0
+ &&['mixer','spray','bristle','particle','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet'].every(k=>value[k]===undefined)
+ &&t.kind==='bitmap'&&t.aspect===1&&['color','animation','material','imageSampling','profile','autoNoise','autoShape'].every(k=>t[k]===undefined)
+ &&b.version===2&&['dual','timing','erase','wetMix','taper','mirror','edgeBleed','grain'].every(k=>b[k]===undefined)
+ &&obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
 }

@@ -4,6 +4,8 @@ Reference: pinned KDE sketch option data and paintop. Mask-selected non-simple
 connections and active timed input are rejected rather than treated as a disc.
 """
 import io
+import struct
+import hashlib
 import math
 import xml.etree.ElementTree as ET
 from PIL import Image, PngImagePlugin
@@ -11,15 +13,16 @@ from brush_contract import finalize_identity,compatibility
 
 
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
-    from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml
+    from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml,brush_application
     simple=enabled(params.get('Sketch/simpleMode'))
-    mask_size=None
+    mask_size=None;image_alpha=None
     if not simple:
         definition=xml(params.get('brush_definition',''))
         if definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
         filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
         mask_size=list(image.size)
         if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
+        if image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
     timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
     if timer and not timed_input:raise ValueError('Sketch timed input requires explicit closed161 opt-in')
     if timer:
@@ -32,6 +35,21 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Sketch setting outside bounded range: '+key)
         return value
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
+    private_external=external
+    if image_alpha is not None:
+        if enabled(params.get('PaintOpSettings/isAirbrushing'))or enabled(params.get('AirbrushOption/isAirbrushing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch162 requires root static IMAGESTAMP without timer/erase/dual/Wash')
+        alpha=image_alpha.tobytes();filename='__grafetto_sketch_alpha162_'+hashlib.sha256(alpha).hexdigest()+'.gbr';label=b'Captured Sketch IMAGESTAMP alpha\0'
+        bridge=struct.pack('>7I',28+len(label),2,image_alpha.width,image_alpha.height,1,0x47494d50,25)+label+alpha
+        private_external={filename:bridge}
+        # Original embedded resources were validated by the outer reader. The
+        # private bridge must not be shadowed by an input basename collision.
+        for resources in transformed.findall('resources'):transformed.remove(resources)
+        # Only private parsing sees this MASK. Source XML/resource identity stays original.
+        definition.set('type','gbr_brush');definition.set('filename',filename)
+        for key in('brushApplication','preserveLightness','ColorAsMask','AdjustmentMidPoint','BrightnessAdjustment','ContrastAdjustment','AdjustmentVersion','AutoAdjustMidPoint'):definition.attrib.pop(key,None)
+        definition.set('ColorAsMask','1')
+        for node in transformed.findall('param'):
+            if node.get('name')=='brush_definition':node.text=ET.tostring(definition,encoding='unicode')
     from native_ignored_options import strip_unused_native_flow,strip_unused_native_mirror,strip_unused_native_rotation
     ignored_flow=strip_unused_native_flow(transformed)
     ignored_mirror=strip_unused_native_mirror(transformed)
@@ -40,7 +58,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if timer and node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'):node.text='false'
         if node.get('name')=='PaintOpAction':node.text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
-    result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False)
+    result=preset(out.getvalue(),name,catalog,private_external,_allow_texture_material=False)
     d=result['descriptor'];d['version']=44 if simple else(114 if enabled(params.get('Sketch/distanceOpacity'))else 101)
     # Pixel's derived integer-image bank is not Sketch's native selection mask.
     # New101 reads the already-captured alpha plane with its explicit own law.
@@ -81,6 +99,12 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))
     if ignored_rotation:result['compatibility'].append(compatibility('ignoredNativeRotation','This native paintop mode does not consume the generic brush Rotation option. Active family-specific angle controls remain independent.','supported'))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if image_alpha is not None:
+        from sketch_image_alpha162 import sketch_image_alpha162_scope
+        d['version']=162;d['sketch']['maskSignal']='image-alpha-v1'
+        if not sketch_image_alpha162_scope(d):raise ValueError('Sketch162 outside closed alpha-selector scope')
+        result['compatibility'].append(compatibility('sketchImageAlpha162','Static native IMAGESTAMP contributes original alpha only to nonzero Sketch point selection. Source RGB is not drawn; connections retain the normal Sketch foreground/random-color law. Same alpha CAS/101 geometry and114 distanceOpacity; browser filtering/RNG/U8 line AA remain functionally qualified.','supported'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     if timer:
         from sketch_timer161 import sketch_timer161_scope
         d['version']=161;behavior['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':False}

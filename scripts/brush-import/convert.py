@@ -575,6 +575,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_bristle_wash135(descriptor,parent)
     from particle_wash134 import validate_particle_wash134
     validate_particle_wash134(descriptor,parent)
+    from sketch_image_alpha162 import validate_sketch_image_alpha162
+    validate_sketch_image_alpha162(descriptor,parent)
     from sketch_timer161 import validate_sketch_timer161
     validate_sketch_timer161(descriptor,parent)
     from particle_timer157 import validate_particle_timer157
