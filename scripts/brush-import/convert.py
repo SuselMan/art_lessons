@@ -579,6 +579,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_sketch_image_alpha162(descriptor,parent)
     from curve_timer167 import validate_curve_timer167
     validate_curve_timer167(descriptor,parent)
+    from texture_lightness_wash171 import validate_texture_lightness_wash171
+    validate_texture_lightness_wash171(descriptor,parent)
     from dual_mask170 import validate_pixel_alpha_dual170
     validate_pixel_alpha_dual170(descriptor,parent)
     from dual_mask168 import validate_pixel_alpha_dual168
@@ -1001,8 +1003,9 @@ def portable_bundle(path,catalog):
         if d.get('model')=='mixer'and isinstance(texture,dict)and'eraseId'in texture:
             if depth or not smudge_texture_erase131_scope(d)or asset_sizes.get(texture.get('id'))!=asset_sizes.get(texture.get('eraseId'))or any(asset_sizes.get(a,513)>512 for a in(tip.get('mask'),texture.get('id'),texture.get('eraseId'))):raise ValueError('Invalid portable Texture erase131')
         if isinstance(texture,dict)and 'material'in texture:
+            from texture_lightness_wash171 import texture_lightness_wash171_scope
             m=texture['material'];size=asset_sizes.get(texture.get('id'));grid=texture.get('patternSize');render=behavior.get('rendering',{})
-            if (depth or not isinstance(m,dict)or set(m)!={'kind','alpha'}or m.get('kind')not in('lightness','gradient')or d['version']<(111 if m.get('kind')=='gradient'else 108)or m.get('alpha')not in ids or size!=asset_sizes.get(m.get('alpha'))or 'application'in texture or 'eraseId'in texture or d.get('model')!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or not isinstance(grid,dict)or set(grid)!={'width','height'}or any(type(grid[k])!=int or not 1<=grid[k]<=size for k in('width','height'))):
+            if (depth or not isinstance(m,dict)or set(m)!={'kind','alpha'}or m.get('kind')not in('lightness','gradient')or d['version']<(111 if m.get('kind')=='gradient'else 108)or m.get('alpha')not in ids or size!=asset_sizes.get(m.get('alpha'))or 'application'in texture or 'eraseId'in texture or d.get('model')!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_lightness_wash171_scope(d))or not isinstance(grid,dict)or set(grid)!={'width','height'}or any(type(grid[k])!=int or not 1<=grid[k]<=size for k in('width','height'))):
                 raise ValueError('Invalid portable Texture Lightness108')
             for aid in(texture['id'],m['alpha']):
                 plane=trusted_raw_assets[aid]

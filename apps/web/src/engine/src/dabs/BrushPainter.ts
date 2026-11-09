@@ -1,3 +1,5 @@
+import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
+import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 import{hasFilterBitmap169Scope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,isBrushPattern,type BrushPattern} from '@grafetto/shared'
@@ -98,6 +100,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
     if(bitmapFilter&&!hasFilterBitmap169Scope(brush))throw Error('Invalid Filter169 bitmap scope')
     const alphaDual=assertPixelAlphaDual168Scope(brush)||assertPixelAlphaDual170Scope(brush)
@@ -114,10 +117,10 @@ export class BrushPainter {
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
-    if(!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
     const resources=existing??brushPreparationResources(bitmapFilter?{...brush,model:'stamp'}:brush)
-    if(!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
+    if(!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -129,7 +132,7 @@ export class BrushPainter {
     const limit=this.imageDimensionLimit()
     assertNativeImageAdmission(resources,limit)
     if(wash){if(!Number.isFinite(limit)||resources.some(r=>!r.grain&&r.id.startsWith('asset:')&&Math.sqrt(importedAssetPixels(r.id).length)>limit))throw Error('Spray Wash mask exceeds GPU dimensions');if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Spray Wash bank exceeds the brush texture budget')}
-    if(bitmapFilter||lightness||originalDual||alphaDual){
+    if(textureWash171||bitmapFilter||lightness||originalDual||alphaDual){
       if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
       if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
     }
@@ -139,7 +142,8 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        if(filteredGradient)this.prepareStampEffects(true)
+        if(brush&&hasTextureLightnessWash171Scope(brush))this.prepareStampEffects(false,true)
+        else if(filteredGradient)this.prepareStampEffects(true)
         else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
         if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
         if(brush&&!hasSprayWash133Scope(brush)&&(brush.tip.kind==='procedural'||brush.behavior?.dual?.brush.tip.kind==='procedural'))this.prepareProcedural()

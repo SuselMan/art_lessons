@@ -6599,6 +6599,29 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  private _snapshotHistoryRepairNotifyQueued = false
+  private _snapshotHistoryRepairNotifiedKey: string | undefined
+
+  /** Notify only a new missing-prefix edge. The room hook owns the existing
+   * in-flight history walk; rebuilding/polling the same job cannot retry it. */
+  private _queueSnapshotHistoryRepair(): void {
+    const pending = this.pendingSnapshotHistoryRepairs()
+    if (!pending.length) { this._snapshotHistoryRepairNotifiedKey = undefined; return }
+    if (this._snapshotHistoryRepairNotifyQueued) return
+    this._snapshotHistoryRepairNotifyQueued = true
+    queueMicrotask(() => {
+      this._snapshotHistoryRepairNotifyQueued = false
+      if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+      const current = this.pendingSnapshotHistoryRepairs()
+      if (!current.length) { this._snapshotHistoryRepairNotifiedKey = undefined; return }
+      const key = JSON.stringify(current.map(r => [r.layerId, r.beforeSeq]).sort((a, b) => String(a[0]).localeCompare(String(b[0])) || Number(a[1]) - Number(b[1])))
+      if (key === this._snapshotHistoryRepairNotifiedKey || !this._onSnapshotHistoryRepairNeeded) return
+      // Latch BEFORE callback: the callback can synchronously re-enter resolve.
+      this._snapshotHistoryRepairNotifiedKey = key
+      this._onSnapshotHistoryRepairNeeded()
+    })
+  }
+
   private _resolveSnapshotHistoryRepairs(): void {
     if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
     // Metadata completion resumes the SAME blocked job with its pinned base;
@@ -6611,6 +6634,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (this._snapshotIO.resolveHistoryProofs().length || proven.length) this._wakeGridResources()
     this._flushSnapshotDependentLayers()
+    this._queueSnapshotHistoryRepair()
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {

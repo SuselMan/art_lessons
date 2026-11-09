@@ -91,3 +91,63 @@ it('includes the snapshot boundary in ordinary history backfill through the real
   expect(engine.getOperations().map(op=>op.id)).toEqual(['prefix','snapshot-boundary-final','tail'])
  } finally {engine.destroy();vi.mocked(walkHistoryBackward).mockReset()}
 })
+
+it('keeps one in-flight repair while a busy-hook higher request is drained by that same continuation',async()=>{
+ hooks.slots=[];hooks.cursor=0;vi.mocked(walkHistoryBackward).mockReset()
+ let needed=[{layerId:'A',beforeSeq:20}],release!:()=>void,cursor=0
+ const gate=new Promise<void>(resolve=>{release=resolve})
+ const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{if(cursor===50)needed=[]})}as unknown as PencilEngineAPI
+ vi.mocked(walkHistoryBackward).mockImplementation(async(_room,from,_depth,consume)=>{cursor=from;if(from===20)await gate;consume([])})
+ const noop=vi.fn(),failure=vi.fn(),deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:failure,
+ appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+ markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop}as RemoteOperationsDeps
+ const hook=useRemoteOperations(deps);hook.repairSnapshotHistory();await Promise.resolve();expect(walkHistoryBackward).toHaveBeenCalledTimes(1)
+ needed=[{layerId:'B',beforeSeq:50}];hook.repairSnapshotHistory();expect(walkHistoryBackward).toHaveBeenCalledTimes(1)
+ release();await vi.waitFor(()=>expect(walkHistoryBackward).toHaveBeenCalledTimes(2));await vi.waitFor(()=>expect(noop).toHaveBeenCalled())
+ expect(vi.mocked(walkHistoryBackward).mock.calls.map(x=>x[1])).toEqual([20,50]);expect(failure).not.toHaveBeenCalled();expect(needed).toEqual([])
+})
+
+it('hands off a NEW pending range in the successful last-check/finally window, without changing the existing in-flight map',async()=>{
+ hooks.slots=[];hooks.cursor=0;vi.mocked(walkHistoryBackward).mockReset()
+ let needed=[{layerId:'A',beforeSeq:20}],introduced=false
+ const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{needed=[]})}as unknown as PencilEngineAPI
+ vi.mocked(walkHistoryBackward).mockImplementation(async(_room,_from,_depth,consume)=>{consume([])})
+ const noop=vi.fn(),failure=vi.fn();let hook:ReturnType<typeof useRemoteOperations>
+ const sync=vi.fn(()=>{if(!introduced){introduced=true;needed=[{layerId:'B',beforeSeq:50}];hook.repairSnapshotHistory();expect(walkHistoryBackward).toHaveBeenCalledTimes(1)}})
+ const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:failure,
+ appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+ markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:sync,checkSnapshotBoundary:noop}as RemoteOperationsDeps
+ hook=useRemoteOperations(deps);hook.repairSnapshotHistory()
+ await vi.waitFor(()=>expect(sync).toHaveBeenCalledTimes(2));expect(vi.mocked(walkHistoryBackward).mock.calls.map(x=>x[1])).toEqual([20,50]);expect(failure).not.toHaveBeenCalled();expect(needed).toEqual([])
+})
+
+it.each(['error','navigation','empty']as const)('does not hand off after %s',async mode=>{
+ hooks.slots=[];hooks.cursor=0;vi.mocked(walkHistoryBackward).mockReset()
+ let needed=[{layerId:'A',beforeSeq:20}]
+ const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{if(mode==='empty')needed=[]})}as unknown as PencilEngineAPI
+ const engineRef:{current:PencilEngineAPI|null}={current:engine}
+ vi.mocked(walkHistoryBackward).mockImplementation(async(_room,_from,_depth,consume)=>{if(mode==='navigation')engineRef.current=null;consume([])})
+ const noop=vi.fn(),failure=vi.fn(),sync=vi.fn(),deps={engineRef,boardId:'room',onHistoryRepairFailure:failure,
+ appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+ markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:sync,checkSnapshotBoundary:noop}as RemoteOperationsDeps
+ const hook=useRemoteOperations(deps);hook.repairSnapshotHistory();for(let n=0;n<10;n++)await Promise.resolve()
+ expect(walkHistoryBackward).toHaveBeenCalledTimes(1)
+ if(mode==='error')expect(failure).toHaveBeenCalledTimes(1);else expect(failure).not.toHaveBeenCalled()
+ if(mode==='empty')expect(sync).toHaveBeenCalledTimes(1);else expect(sync).not.toHaveBeenCalled()
+})
+
+it('does not run a queued successful handoff against a successor engine after navigation',async()=>{
+ hooks.slots=[];hooks.cursor=0;vi.mocked(walkHistoryBackward).mockReset()
+ const queued:Array<()=>void>=[],schedule=vi.spyOn(globalThis,'queueMicrotask').mockImplementation(task=>{queued.push(task)})
+ try{
+  let needed=[{layerId:'A',beforeSeq:20}]
+  const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{needed=[]})}as unknown as PencilEngineAPI
+  const engineRef:{current:PencilEngineAPI|null}={current:engine};vi.mocked(walkHistoryBackward).mockImplementation(async(_room,_from,_depth,consume)=>{consume([])})
+  const noop=vi.fn(),failure=vi.fn(),sync=vi.fn(()=>{needed=[{layerId:'B',beforeSeq:50}]}),deps={engineRef,boardId:'oldroom',onHistoryRepairFailure:failure,
+  appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+  markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:sync,checkSnapshotBoundary:noop}as RemoteOperationsDeps
+  useRemoteOperations(deps).repairSnapshotHistory();for(let n=0;n<10;n++)await Promise.resolve();expect(queued).toHaveLength(1)
+  engineRef.current={pendingSnapshotHistoryRepairs:()=>[{layerId:'new',beforeSeq:90}]}as unknown as PencilEngineAPI
+  queued[0]();for(let n=0;n<4;n++)await Promise.resolve();expect(walkHistoryBackward).toHaveBeenCalledTimes(1);expect(failure).not.toHaveBeenCalled()
+ }finally{schedule.mockRestore()}
+})

@@ -1527,7 +1527,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=max(d['version'],84)
     if d.get('texture',{}).get('material'):
         tip=d['tip'];t=d['texture'];render=behavior.get('rendering',{})
-        if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or render.get('accumulation')!='directOver'or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
+        texture_wash171=(t['material'].get('kind')=='lightness'and render.get('accumulation')=='alphaDarken')
+        if texture_wash171:
+            from texture_lightness_wash171 import texture_lightness_wash171_scope
+            d['version']=max(d['version'],171)
+            native_timer171=any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
+            if depth or native_timer171 or not texture_lightness_wash171_scope(d):raise ValueError('Native Texture Lightness Wash171 requires closed root static MASK Pixel')
+            notes.append(compatibility('textureLightnessWash171','Native Lightness texture modifies each dab RGB/alpha before existing Wash feedback; varying pigment uses previous Wash coverage, external opacity is applied once. Functional normalized colour law; no ICC/U8 identity claim.','supported'))
+        if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_wash171)or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
             raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
         d['version']=max(d['version'],111 if t['material']['kind']=='gradient'else 108)
         if t['material']['kind']=='gradient':notes.append(compatibility('textureGradient','Pattern gray is filtered before captured256 palette lookup; alpha is clamped to already coloured dab and mixed with native byte-rounded strength using alpha-aware weighted colour. Functional RGB/alpha graph; ICC/native U8 identity is not claimed.','supported'))

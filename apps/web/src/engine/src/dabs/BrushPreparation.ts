@@ -1,3 +1,4 @@
+import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 import{hasFilterBitmap169Scope}from'@grafetto/shared'
 import {isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
@@ -114,6 +115,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush))materialPlans.delete(brush.tip)
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
+  assertTextureLightnessWash171Planes(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')

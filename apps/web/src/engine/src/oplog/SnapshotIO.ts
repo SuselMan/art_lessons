@@ -479,6 +479,7 @@ export class SnapshotIO {
   private readonly historyProofs = new Map<string, number>()
 
   pendingHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
+    if (!this.historyRepairs.size && !this.historyProofs.size) return []
     const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
     const pending = new Map(this.historyProofs)
     for (const [id, seq] of this.historyRepairs) pending.set(id, Math.max(seq, pending.get(id) ?? 0))

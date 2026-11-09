@@ -99,9 +99,10 @@ export function useRemoteOperations({
     }
   }, [deferredOpsQueueRef, appliedOpIdsRef, applyRemoteOp, syncFromLog, checkSnapshotBoundary])
 
-  const repairSnapshotHistory = useCallback(() => {
+  const repairSnapshotHistory = useCallback((): void => {
     const engine = engineRef.current
     if (!engine || !boardId || repairs.current.has(engine)) return
+    let succeeded = false
     const work = (async () => {
       const complete = await continueSnapshotHistoryRepair(boardId, engine, {
         ordinary: ordinaryBackfills.current.get(engine), current: () => engineRef.current === engine,
@@ -111,9 +112,16 @@ export function useRemoteOperations({
         },
       })
       if (!complete) return
-      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary() }
+      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary(); succeeded = true }
     })().catch(() => { if (engineRef.current === engine) repairFailure.current() })
-      .finally(() => { repairs.current.delete(engine) })
+      .finally(() => {
+        repairs.current.delete(engine)
+        // Success proved no pending range. A range appearing before this
+        // completion edge is new work; failures never retry their old range.
+        if (succeeded && engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
+          if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+        })
+      })
     repairs.current.set(engine, work)
   }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, drainDeferredQueue])
 
