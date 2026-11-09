@@ -12,7 +12,7 @@ def particle_preset(data,root,params,name,catalog,external,*,timed_input=False):
     timer=enabled(params.get('PaintOpSettings/isAirbrushing'));rate_controls=[]
     if (timer or enabled(params.get('AirbrushOption/isAirbrushing')))and not timed_input:raise ValueError('Particle timed input requires explicit closed157 opt-in')
     if timed_input and (timer or enabled(params.get('AirbrushOption/isAirbrushing'))):
-        if not timer or params.get('PaintOpAction','1')!='1'or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Particle157 requires root directOver static native timer')
+        if not timer or params.get('PaintOpAction','1')not in('1','2')or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Particle157 requires root directOver static native timer')
         from native_pressure_rate import native_pressure_rate
         timing=native_pressure_rate(params);rate_controls=timing.get('rateDynamics',[])
     def number(key,default,lo,hi,integer=False):
@@ -31,11 +31,12 @@ def particle_preset(data,root,params,name,catalog,external,*,timed_input=False):
         if not particle_wash134_scope(d):raise ValueError('Particle Wash134 combination is outside the closed root scope')
     if timer:
         from particle_timer157 import particle_timer157_scope
-        d['version']=163 if rate_controls else 157;d['behavior']['timing']=timing
+        d['version']=166 if params.get('PaintOpAction','1')=='2'else(163 if rate_controls else 157);d['behavior']['timing']=timing
         if not particle_timer157_scope(d):raise ValueError('Particle157 outside closed scope')
     note=compatibility('particle','Fixed0.00003 integration, initial absolute next-position, per-particle acceleration, gravity, axis force and iterative bilinear additive deposits retained. No native Size option; Grafetto size does not alter solver. GPU U8/bilinear rounding differs. Negative/unstable forces, airbrush timer, eraser and nonnormal composite rejected.16384 points per input request maximum.')
     if d['version']==134:note=compatibility('particleWash','Existing additive bilinear solver output is grouped once per logical request, then creamy Wash at unit request opacity; captured external gesture opacity projects once. Native solver/RNG/U8 identity is not claimed.','approximate')
     if d['version']==157:note=compatibility('particleTimer157','Static root native Particle timer uses existing author F64 clock; moving inputs remain one native solver request, stationary inputs use elapsed81 timing. Replay consumes recorded requests without retiming. Source-time/RNG order is functionally qualified, not native sequence identity.','supported')
     if d['version']==163:note=compatibility('particleRate163','Checked native Rate pressure/constant factors and strength use existing author clock81 interval=(1000/baseRate)/factor; zero factor disables painting until native periodic timing refresh. Moving Particle inputs remain one request and do not refresh/spend/reset stationary timing; recorded F64 requests replay without retiming. No fuzzy/combined sensors or native sequence identity claim.','supported')
+    if d['version']==166:note=compatibility('particleWashTimer166','Native Airbrush/checked Rate schedule existing author81 requests independently of indirect Wash. Each complete additive Particle request uses existing134 unit-opacity Wash kernel, captured external opacity once; moving bypass and stationary partial accumulator retained. Recorded sourceTime/RNG requests replay without retiming; no native RNG/U8 identity claim.','supported')
     im=Image.open(io.BytesIO(data));im.load()
     return{'descriptor':finalize_identity(d,data),'name':root.get('name')or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'preview':preset_preview(im),'sourceDefaults':{'sizePx':100,'opacity':1,'flow':1},'compatibility':[note],'warnings':[note['feature']+': '+note['detail']]}

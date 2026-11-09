@@ -19,7 +19,7 @@ class ParticleRate163Tests(unittest.TestCase):
   self.assertEqual(self.make('',False),self.make(''))
   with self.assertRaises(ValueError):self.make('<param name="PaintOpSettings/isAirbrushing">true</param><param name="PressureRate">true</param>',False)
  def test_fuzzy_strength_bad_rate_and_wash_closed(self):
-  for extra in['<param name="RateSensor">&lt;params id="fuzzy"/&gt;</param>','<param name="RateValue">2</param>','<param name="PaintOpAction">2</param>','<param name="PaintOpSettings/ignoreSpacing">true</param>']:
+  for extra in['<param name="RateSensor">&lt;params id="fuzzy"/&gt;</param>','<param name="RateValue">2</param>','<param name="PaintOpAction">2</param><param name="Krita/erase">true</param>','<param name="PaintOpSettings/ignoreSpacing">true</param>']:
    # For fuzzy use single RateSensor, not duplicated XML.
    if 'RateSensor'in extra:
     text='<param name="PaintOpSettings/isAirbrushing">true</param><param name="PressureRate">true</param>'+extra
