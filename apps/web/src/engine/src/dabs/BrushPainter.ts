@@ -1,3 +1,5 @@
+import{hasTextureGradientWash180Scope}from'@grafetto/shared'
+import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
 import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 import{hasFilterBitmapMaskScope}from'@grafetto/shared'
@@ -100,6 +102,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
     if(bitmapFilter&&!hasFilterBitmapMaskScope(brush))throw Error('Invalid Filter169 bitmap scope')
@@ -114,13 +117,14 @@ export class BrushPainter {
     const wash=hasSprayWash133Scope(brush)||particleWash||bristleWash||tangentWash
     if(wash&&!particleWash&&!bristleWash&&!tangentWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
     if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
+    if(textureWash180&&!paletteBound)return undefined
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
     if(gradient){pixelOriginalRgbaFrames(brush);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush)
-    if(!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
     const resources=existing??brushPreparationResources(bitmapFilter?{...brush,model:'stamp'}:brush)
-    if(!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
+    if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
       const image=resource.nativeImage
@@ -132,7 +136,7 @@ export class BrushPainter {
     const limit=this.imageDimensionLimit()
     assertNativeImageAdmission(resources,limit)
     if(wash){if(!Number.isFinite(limit)||resources.some(r=>!r.grain&&r.id.startsWith('asset:')&&Math.sqrt(importedAssetPixels(r.id).length)>limit))throw Error('Spray Wash mask exceeds GPU dimensions');if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Spray Wash bank exceeds the brush texture budget')}
-    if(textureWash171||bitmapFilter||lightness||originalDual||alphaDual){
+    if(textureWash180||textureWash171||bitmapFilter||lightness||originalDual||alphaDual){
       if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
       if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
     }
@@ -142,7 +146,8 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        if(brush&&hasTextureLightnessWash171Scope(brush))this.prepareStampEffects(false,true)
+        if(brush&&hasTextureGradientWash180Scope(brush))this.prepareStampEffects(false,'gradient')
+        else if(brush&&hasTextureLightnessWash171Scope(brush))this.prepareStampEffects(false,true)
         else if(filteredGradient)this.prepareStampEffects(true)
         else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
         if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
@@ -364,8 +369,10 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   /** Recorded texture palette is bound before any request/state mutation. */
   prepareTextureGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
     if(!usesTextureGradient(brush))return
+    assertTextureGradientWash180Planes(brush)
     assertBrushExecutionContext(brush,execution)
     const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+    if(hasTextureGradientWash180Scope(brush)){const required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Texture Gradient Wash180 bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
     assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
     try{this.prepareStampEffects(false,'gradient');for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}

@@ -1,3 +1,5 @@
+import{hasTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
+export{hasTextureGradientWash180Scope,assertTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'./legacyColorSmudgeDodgeBurn176.js'
 export{hasLegacyColorSmudgeDodgeBurn176Scope}from'./legacyColorSmudgeDodgeBurn176.js'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'./legacyColorSmudgeArithmetic175.js'
@@ -12,8 +14,8 @@ import{hasPixelAlphaDual168Scope}from'./brushDualMask168.js'
 export{hasPixelAlphaDual168Scope,assertPixelAlphaDual168Scope}from'./brushDualMask168.js'
 import{hasCurveHostTimer167Scope}from'./brushCurveTrace.js'
 export{hasCurveHostTimer167Scope,curveHostInterval167}from'./brushCurveTrace.js'
-import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'./brushSketch.js'
-export{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'./brushSketch.js'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope}from'./brushSketch.js'
+export{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope}from'./brushSketch.js'
 import{hasSketchTimer161Scope}from'./brushSketch.js'
 export{hasSketchTimer161Scope}from'./brushSketch.js'
 export {hasExperimentCurrentPattern158Scope} from './brushExperiment.js'
@@ -531,12 +533,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if(d.bristle!==undefined&&record(d.behavior)&&record(d.behavior.rendering)&&d.behavior.rendering.accumulation==='alphaDarken'&&!hasBristleWash135Scope(d))return false
     if(d.bristle!==undefined&&(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasBristleWash135Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
-    if(record(d.sketch)&&d.sketch.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(d)&&!hasSketchProcedural173Scope(d)&&!hasSketchGih174Scope(d))return false
+    if(record(d.sketch)&&d.sketch.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(d)&&!hasSketchProcedural173Scope(d)&&!(hasSketchGih174Scope(d)||hasSketchPressureGih181Scope(d)))return false
     if(d.sketch!==undefined&&(!isBrushSketch(d.sketch)||d.model!=='stamp'||d.spray!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||(d.behavior.timing!==undefined&&!hasSketchTimer161Scope(d))||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||(d.sketch.mode==='simple'?d.tip.kind!=='round':false)||d.tip.profile!==undefined&&!hasSketchProcedural173Scope(d)||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver'||d.behavior.rendering.blendMode!=='normal'))return false
     if(record(d.sketch)&&d.sketch.mode==='mask'&&!hasSketchProcedural173Scope(d)){
       const sketchTip=d.tip,dims=d.sketch.maskSize,size=assetSizes.get(String(sketchTip.mask)),bounds=sketchTip.maskBounds
-      if(Number(d.version)<101||(d.sketch.distanceOpacity===true&&Number(d.version)<114)||sketchTip.kind!=='bitmap'||!Array.isArray(dims)||dims.length!==2||!dims.every(n=>typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256)||!size||size>256||sketchTip.aspect!==1||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>sketchTip[k]!==undefined&&(k!=='animation'||!hasSketchGih174Scope(d)))||!record(bounds))return false
-      if(hasSketchGih174Scope(d)&&(sketchTip.animation as {frames:string[]}).frames.some(id=>assetSizes.get(id)!==size))return false
+      if(Number(d.version)<101||(d.sketch.distanceOpacity===true&&Number(d.version)<114)||sketchTip.kind!=='bitmap'||!Array.isArray(dims)||dims.length!==2||!dims.every(n=>typeof n==='number'&&Number.isInteger(n)&&n>=1&&n<=256)||!size||size>256||sketchTip.aspect!==1||['animation','color','material','imageSampling','autoNoise','autoShape'].some(k=>sketchTip[k]!==undefined&&(k!=='animation'||!(hasSketchGih174Scope(d)||hasSketchPressureGih181Scope(d))))||!record(bounds))return false
+      if((hasSketchGih174Scope(d)||hasSketchPressureGih181Scope(d))&&(sketchTip.animation as {frames:string[]}).frames.some(id=>assetSizes.get(id)!==size))return false
       const [w,h]=dims as number[],longest=Math.max(w,h);let side=2**Math.ceil(Math.log2(Math.max(2,longest)));if(longest===side&&((side-w)%2||(side-h)%2))side*=2
       if(size!==side||bounds.x!==(Math.floor((side-w)/2)+(w-longest)/2)/side||bounds.y!==(Math.floor((side-h)/2)+(h-longest)/2)/side||bounds.width!==longest/side||bounds.height!==longest/side)return false
     }
@@ -758,7 +760,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset','material'].includes(key))) return false
       if(t.material!==undefined){
         const m=t.material
-        if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||(d.behavior.rendering.accumulation!=='directOver'&&!hasTextureLightnessWash171Scope(d)))return false
+        if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||(d.behavior.rendering.accumulation!=='directOver'&&!hasTextureLightnessWash171Scope(d)&&!hasTextureGradientWash180Scope(d)))return false
       }
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||(d.model!=='stamp'&&!hasSmudgeTextureErase131Scope(d))||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
       if(d.model==='mixer'&&t.eraseId!==undefined&&((assetSizes.get(String(d.tip.mask))??Infinity)>512||(assetSizes.get(String(t.id))??Infinity)>512))return false

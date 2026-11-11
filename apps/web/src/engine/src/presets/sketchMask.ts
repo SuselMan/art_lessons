@@ -1,6 +1,6 @@
 import{curveAt}from'./digitalBrushPresets'
 import{proceduralMaskAlpha}from'../raster/brushProcedural'
-import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'@grafetto/shared'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope}from'@grafetto/shared'
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
 import{importedAssetPixels}from'./importedBrushes'
 /** Existing captured alpha CAS only; no generated mask, cache, canvas read or
@@ -65,7 +65,7 @@ function proceduralSketchMask173(brush:BrushDescriptor):SketchMaskView{
 }
 
 function prepareSketchGih174(brush:BrushDescriptor):SketchMaskView{
- if(!hasSketchGih174Scope(brush))throw Error('Invalid Sketch174 equal incremental alpha scope')
+ if(!hasSketchGih174Scope(brush)&&!hasSketchPressureGih181Scope(brush))throw Error('Invalid Sketch174 equal incremental alpha scope')
  const frames=brush.tip.animation!.frames,dims=brush.sketch!.maskSize!
  // ALL frames are resolved/validated before a state/ordinal is admitted. These
  // are borrowed existing CAS planes, not a new retained bank or pixel copy.

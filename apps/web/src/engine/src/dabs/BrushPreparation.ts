@@ -1,3 +1,5 @@
+import{assertTextureGradientWash180Scope}from'@grafetto/shared'
+import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{prepareSketchMask}from'../presets/sketchMask'
@@ -110,6 +112,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase))throw Error('Invalid legacy foreground MinMax172 scope')
   if(brush.mixer?.colorRateComposite==='overlay'&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Overlay154 scope')
   if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
+  if(assertTextureGradientWash180Scope(brush)&&capturedErase)throw Error('Texture Gradient Wash180 erase is outside scope')
   const bristleWash=hasBristleWash135Scope(brush)
   if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
   const particleWash=hasParticleWash134Scope(brush)
@@ -123,6 +126,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
+  assertTextureGradientWash180Planes(brush)
   if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()

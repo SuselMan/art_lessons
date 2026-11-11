@@ -37,7 +37,7 @@ class SketchGih174Tests(unittest.TestCase):
     with self.subTest(kind=kind),self.assertRaises(ValueError):portable_bundle(p,o)
     self.assertFalse(o.brushes);self.assertFalse(o.assets);self.assertEqual(list(o.output.iterdir()),[])
  def test_native_other_modes_unequal_declared_count_timer_do_not_fallback(self):
-  for data,extra in[(pipe174('random'),''),(pipe174('pressure'),''),(pipe174(dims=(3,4)),''),(pipe174(count=3),''),(pipe174(),'<param name="PaintOpSettings/isAirbrushing">true</param>'),(pipe174(),'<param name="PaintOpAction">2</param>'),(pipe174(),'<param name="PressureSize">true</param><param name="SizeSensor"><![CDATA[<params id="unknown-active-size"/>]]></param>'),(pipe174(),'<param name="PressureSize">true</param><param name="SizeSensor"><![CDATA[<params id="fuzzy"/>]]></param>')]:
+  for data,extra in[(pipe174('random'),''),(pipe174(dims=(3,4)),''),(pipe174(count=3),''),(pipe174(),'<param name="PaintOpSettings/isAirbrushing">true</param>'),(pipe174(),'<param name="PaintOpAction">2</param>'),(pipe174(),'<param name="PressureSize">true</param><param name="SizeSensor"><![CDATA[<params id="unknown-active-size"/>]]></param>'),(pipe174(),'<param name="PressureSize">true</param><param name="SizeSensor"><![CDATA[<params id="fuzzy"/>]]></param>')]:
    with tempfile.TemporaryDirectory()as tmp,self.assertRaises(ValueError):self.make(Path(tmp),data,extra)
  def test_old173_whole_native_record_equal_pinned_adapter(self):
   ns={'__name__':'old'};exec(compile(subprocess.check_output(['git','show',PIN+':scripts/brush-import/krita_sketch.py']),'old.py','exec'),ns)

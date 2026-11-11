@@ -23,8 +23,8 @@ class TextureWash171Tests(unittest.TestCase):
     path=Path(tmp)/(kind+'.json');path.write_text(json.dumps(bad));out=Catalog(Path(tmp)/kind)
     with self.subTest(kind=kind),self.assertRaises(ValueError):portable_bundle(path,out)
     self.assertFalse(out.brushes);self.assertFalse(out.assets);self.assertEqual(list(out.output.iterdir()),[])
- def test_native_active_timer_erase_gradient_and_random_outside_scope_reject(self):
-  for values in[{'PaintOpSettings/isAirbrushing':'true'},{'AirbrushOption/isAirbrushing':'true'},{'Krita/erase':'true'},{'Texture/Pattern/TexturingMode':'3'},{'Texture/Strength/UseCurve':'true','Texture/Strength/Sensor':'<params id="fuzzy"/>'}]:
+ def test_native_active_timer_erase_and_random_outside_scope_reject(self):
+  for values in[{'PaintOpSettings/isAirbrushing':'true'},{'AirbrushOption/isAirbrushing':'true'},{'Krita/erase':'true'},{'Texture/Strength/UseCurve':'true','Texture/Strength/Sensor':'<params id="fuzzy"/>'}]:
    with self.subTest(values=values),tempfile.TemporaryDirectory()as tmp,self.assertRaises(ValueError):fixture(Path(tmp),{'PaintOpAction':'2',**values})
  def test_old108_111_whole_records_equal_pinned_producer(self):
   ns={'__name__':'oldproducer'};src=subprocess.check_output(['git','show',PIN+':scripts/brush-import/krita_import.py']);exec(compile(src,'pinned-krita.py','exec'),ns)

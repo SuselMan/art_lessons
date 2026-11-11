@@ -93,3 +93,12 @@ export function hasSketchGih174Scope(value:unknown):boolean{
  const tip={...value.tip};delete tip.animation
  return hasSketchImageAlpha162Scope({...value,version:162,tip,sketch:{...value.sketch,maskSignal:'image-alpha-v1'}})
 }
+
+/**181 pressure GIH uses the existing selector; old174 stays incremental. */
+export function hasSketchPressureGih181Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||typeof value.version!=='number'||!Number.isInteger(value.version)||value.version<181||!obj(value.tip))return false
+ const a=value.tip.animation
+ if(!obj(a)||Object.keys(a).some(k=>!['mode','rank','frames'].includes(k))||a.mode!=='pressure'||typeof a.rank!=='number'||!Number.isInteger(a.rank)||!Array.isArray(a.frames)||a.rank!==a.frames.length||a.rank<2||a.rank>256)return false
+ return hasSketchGih174Scope({...value,tip:{...value.tip,animation:{mode:'incremental',frames:a.frames}}})
+}
