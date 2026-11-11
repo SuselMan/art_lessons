@@ -3,7 +3,7 @@ import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash1
 import{hasFilterBitmap169Scope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
-import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope}from'@grafetto/shared'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,type BrushPattern} from '@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
@@ -664,7 +664,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(assertPixelAlphaDual168Scope(brush)&&effectiveErase)throw Error('Pixel alpha dual168 erase is outside scope')
     const canvasPattern=brush.experiment?.fill!==undefined
     if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
-    if(brush.sketch?.maskSignal!==undefined&&((!hasSketchImageAlpha162Scope(brush)&&!hasSketchProcedural173Scope(brush))||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
+    if(brush.sketch?.maskSignal!==undefined&&((!hasSketchImageAlpha162Scope(brush)&&!hasSketchProcedural173Scope(brush)&&!hasSketchGih174Scope(brush))||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
     if(brush.sketch&&brush.behavior?.timing){if(!hasSketchTimer161Scope(brush)||effectiveErase)throw Error('Invalid Sketch timer161 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.particle&&brush.behavior?.timing){if(!hasParticleTimer157Scope(brush)||effectiveErase)throw Error('Invalid Particle timer157 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.deform&&brush.behavior?.timing)throw Error('Deform timer160 requires the ordinary SmudgePainter path')
@@ -728,8 +728,10 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const materialVariant=textureMaterialVariant(brush),textureLightness=materialVariant===true,textureGradient=materialVariant==='gradient'
     if(textureLightness&&!this.lightnessStamp)throw Error('Texture Lightness108 program was not prepared')
     if(textureGradient&&!this.textureGradientStamp)throw Error('Texture Gradient111 program was not prepared')
+    // Sketch173 line width is already in world pixels; tip aspect only sizes its selector.
+    const placedSizeMultiplier=brush.sketch?.maskSignal==='procedural-standard-v1'?1:preset.sizeMultiplier
     const sketchMask=brush.sketch?.mode==='mask'?prepareSketchMask(brush):undefined
-    if(brush.sketch?.maskSignal==='procedural-standard-v1')for(const dab of dabs)sketchMask!.forDab(dab)
+    if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')for(const dab of dabs)sketchMask!.forDab(dab)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     const filteredGradient=usesFilteredPixelGradient(brush)
@@ -871,12 +873,12 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
         const span=saturationTable?advancePreparedBristleSaturationInk(saturationTable,bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias):advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
         return {...st,flowScale:1,bristleInkSpan:geometry.sampleAlpha===undefined?span:{...span,sampleAlpha:geometry.sampleAlpha}}
-      }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
+      }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
         const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
-        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:st.size*preset.sizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
+        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:st.size*placedSizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
       })
     })

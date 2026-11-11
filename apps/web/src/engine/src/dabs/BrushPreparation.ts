@@ -1,3 +1,4 @@
+import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{prepareSketchMask}from'../presets/sketchMask'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
@@ -100,9 +101,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
+  if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Arithmetic175 scope')
   if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase))throw Error('Invalid legacy foreground MinMax172 scope')
   if(brush.mixer?.colorRateComposite==='overlay'&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Overlay154 scope')
   if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
@@ -119,9 +121,9 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
-  if(brush.sketch?.maskSignal==='procedural-standard-v1')prepareSketchMask(brush)
+  if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(bristleWash)capabilities.add('bristleWash')
@@ -138,6 +140,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')
   else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
   if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
+  else if(brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')capabilities.add('colorSmudgeLegacyArithmetic175')
   else if(brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')capabilities.add('colorSmudgeLegacyMinMax172')
   else if(['multiply','screen','erase','overlay'].includes(brush.mixer?.colorRateComposite ?? '')){if(brush.mixer?.colorRateComposite==='overlay'&&!hasLegacyColorSmudgeOverlay154Scope(brush))throw Error('Invalid legacy foreground Overlay154 scope');capabilities.add('colorSmudgeLegacy')}
   if(brush.mixer?.source==='projectionCanvas')capabilities.add('projectionCanvas')

@@ -1,3 +1,4 @@
+from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope
 """Bounded Krita resource reader; independent implementation of documented data.
 
@@ -1238,7 +1239,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         foreground_modes={'grain_merge':'grainMerge','grain_extract':'grainExtract','negation':'negation'}
-        legacy_foreground=not modern and mode in('multiply','screen','overlay','darken','lighten')
+        legacy_foreground=not modern and mode in('multiply','screen','overlay','darken','lighten','add','linear_dodge','subtract')
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
                          and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
                          and (eraser or params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
@@ -1254,7 +1255,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('colorRateComposite','Native strict U8 Photoshop Hard Mix is applied only to foreground paint; canvas feedback and final transfer keep their own strategy.','supported'))
             if (modern and mode in foreground_modes) or legacy_foreground:
                 notes=[note for note in notes if note['feature']!='blendMode']
-                d['mixer']['colorRateComposite']=foreground_modes[mode] if modern else mode
+                d['mixer']['colorRateComposite']=foreground_modes[mode] if modern else 'add' if mode=='linear_dodge' else mode
                 behavior['rendering']['blendMode']='normal'
                 notes.append(compatibility('colorRateComposite','Foreground-only composition; feedback and final transfer retain the selected modern/legacy strategy. U8 colour-profile and native byte rounding differ.','supported'))
             if eraser:
@@ -1567,6 +1568,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
             d['version']=max(d['version'],100)
+    if d.get('mixer',{}).get('colorRateComposite')in('add','subtract'):
+        d['version']=max(d['version'],175)
+        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')
+        notes.append(compatibility('legacyForegroundArithmetic175','Native SDR Add/Subtract acts only on foreground Color Rate: channel addition/subtraction is bounded BEFORE alpha-aware foreground union and existing final COPY/OVER. Existing legacy compensation and pressure laws retained; HDR/ICC/native U8 identity not claimed.','supported'))
+        if mode=='linear_dodge':notes.append(compatibility('legacyLinearDodgeAlias','Native Linear Dodge selects the SAME addition function as Add; source settings identity is retained, not a second algorithm.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('darken','lighten'):
         d['version']=max(d['version'],172)
         if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_minmax172_scope(d):raise ValueError('Legacy MinMax172 requires closed ordinary local ALPHAMASK smearing scope')

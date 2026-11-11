@@ -7,6 +7,8 @@ export interface SketchState {
  points:(Point|undefined)[]
  cells:Map<string,Set<number>>
  ordinal:number
+ /** Native KisDabCache sequence; tiny requests do not generate a mask. */
+ maskDabOrdinal?:number
  previous?:Point
  color:[number,number,number]
  alpha:number
@@ -15,17 +17,20 @@ export interface SketchStamp extends BrushStamp {color:[number,number,number];gr
 const key=(x:number,y:number)=>`${Math.floor(x/CELL)},${Math.floor(y/CELL)}`
 /** State is plain cloneable values; spatial buckets preserve chronological order
  * within the retained gesture window. No viewport/tile/frame enters selection. */
-export function sketchStamps(brush:BrushDescriptor,dab:Dab,state:SketchState,baseColor:[number,number,number],seed:number,controls:{width:number;offset:number;probability:number},groupOpacity:number,prepared?:SketchMaskView):SketchStamp[]{
+export function sketchStamps(brush:BrushDescriptor,dab:Dab,state:SketchState,baseColor:[number,number,number],seed:number,controls:{width:number;offset:number;probability:number},groupOpacity:number,prepared?:SketchMaskView,frameIndex?:number,nativeSizeFactor?:number):SketchStamp[]{
  const policy=brush.sketch?.distanceOpacityPolicy
  assertSketchDistanceOpacityPolicy(brush)
- const mask=brush.sketch?.mode==='mask'?(prepared??prepareSketchMask(brush))?.forDab(dab):undefined
+ const gih=brush.sketch?.maskSignal==='gih-alpha-v1'
+ if(gih&&(!Number.isSafeInteger(frameIndex)||frameIndex!<0))throw Error('Sketch174 requires its selected frame')
+ const mask=brush.sketch?.mode==='mask'?(prepared??prepareSketchMask(brush))?.forDab(dab,frameIndex,nativeSizeFactor):undefined
+ if(gih&&mask?.generated)state.maskDabOrdinal=(state.maskDabOrdinal??0)+1
  const maskGeometry=mask
  const s=brush.sketch!,ordinal=state.ordinal++,point={x:dab.x,y:dab.y,ordinal},slot=ordinal%WINDOW,old=state.points[slot]
  if(old){const k=key(old.x,old.y),cell=state.cells.get(k);cell?.delete(old.ordinal);if(!cell?.size)state.cells.delete(k)}
  state.points[slot]=point
  const k=key(point.x,point.y),cell=state.cells.get(k)??new Set<number>();cell.add(ordinal);state.cells.set(k,cell)
  const previous=state.previous;state.previous=point
- if(dab.size<=.01)return[]
+ if(dab.size<=.01||gih&&!mask?.generated)return[]
  const radius=dab.size*.5,threshold=maskGeometry?maskGeometry.radius*maskGeometry.radius:radius*radius,width=Math.max(.9,s.width*controls.width),offset=s.offset*controls.offset,probability=s.probability*controls.probability
  const out:SketchStamp[]=[]
  const segment=(x1:number,y1:number,x2:number,y2:number)=>{const dx=x2-x1,dy=y2-y1;out.push({x:(x1+x2)*.5,y:(y1+y2)*.5,size:width,aspect:(width+Math.hypot(dx,dy))/width,angle:Math.atan2(dy,dx),flowScale:state.alpha,color:[...state.color],segmentLength:Math.hypot(dx,dy),group:ordinal,groupOpacity})}

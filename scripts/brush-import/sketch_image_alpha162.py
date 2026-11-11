@@ -26,5 +26,5 @@ def sketch_image_alpha162_scope(d):
     return isinstance(r,dict)and r.get('mode')=='buildUp'and r.get('blendMode')=='normal'and r.get('accumulation')=='directOver'and r.get('wetEdges',0)==0 and r.get('burntEdges',0)==0 and not r.get('gammaCorrect')and not r.get('luminance')
 
 def validate_sketch_image_alpha162(d,parent=None):
-    if isinstance(d,dict)and isinstance(d.get('sketch'),dict)and 'maskSignal'in d['sketch']and d['sketch']['maskSignal']!='procedural-standard-v1':
+    if isinstance(d,dict)and isinstance(d.get('sketch'),dict)and 'maskSignal'in d['sketch']and d['sketch']['maskSignal']not in('procedural-standard-v1','gih-alpha-v1'):
         if parent is not None or not sketch_image_alpha162_scope(d):raise ValueError('Sketch162 requires closed root static IMAGESTAMP alpha selector')

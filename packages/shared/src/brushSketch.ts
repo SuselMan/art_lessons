@@ -5,7 +5,7 @@ export interface BrushSketch {
  mode:'simple'|'mask'
  maskSize?:readonly[number,number]
  /** Native IMAGESTAMP is a point selector through raw alpha, never source RGB. */
- maskSignal?:'image-alpha-v1'|'procedural-standard-v1'
+ maskSignal?:'image-alpha-v1'|'procedural-standard-v1'|'gih-alpha-v1'
  width:number
  offset:number
  probability:number
@@ -26,7 +26,7 @@ export function isBrushSketch(value:unknown):value is BrushSketch{
  if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy','maskSignal'].includes(k)))return false
  if(v.version!==1||(v.mode!=='simple'&&v.mode!=='mask')||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
  if(v.mode==='simple'||v.maskSignal==='procedural-standard-v1'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n)) )return false
- if(v.maskSignal!==undefined&&(!['image-alpha-v1','procedural-standard-v1'].includes(String(v.maskSignal))||v.mode!=='mask'))return false
+ if(v.maskSignal!==undefined&&(!['image-alpha-v1','procedural-standard-v1','gih-alpha-v1'].includes(String(v.maskSignal))||v.mode!=='mask'))return false
  if(v.mode==='mask'&&v.distanceOpacity?v.distanceOpacityPolicy!=='generic-clamp-v1':v.distanceOpacityPolicy!==undefined)return false
  if(v.dynamics!==undefined){
   if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false
@@ -79,4 +79,17 @@ export function hasSketchProcedural173Scope(value:unknown):boolean{
  const unitCurve=(c:unknown)=>obj(c)&&(c.curve===undefined||Array.isArray(c.curve)&&c.curve.every(p=>Array.isArray(p)&&typeof p[1]==='number'&&p[1]>=0&&p[1]<=1)||obj(c.curve)&&Array.isArray(c.curve.samples)&&c.curve.samples.every(n=>typeof n==='number'&&n>=0&&n<=1))
  for(const table of[b.dynamics,b.modulations])if(obj(table)&&table.size!==undefined&&!((Array.isArray(table.size)?table.size:[table.size]).every(unitCurve)))return false
  return obj(r)&&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='directOver'&&(r.wetEdges??0)===0&&(r.burntEdges??0)===0&&!r.gammaCorrect&&!r.luminance
+}
+
+/** Incremental equal-geometry ordinary alpha GIH, selected per generated mask. */
+export function hasSketchGih174Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||!Number.isInteger(value.version)||Number(value.version)<174||!obj(value.tip)||!obj(value.sketch)||value.sketch.maskSignal!=='gih-alpha-v1')return false
+ const a=value.tip.animation
+ if(!obj(a)||Object.keys(a).some(k=>!['mode','frames'].includes(k))||a.mode!=='incremental'||!Array.isArray(a.frames)||a.frames.length<2||a.frames.length>256||a.frames.some(id=>typeof id!=='string'||!/^asset:[a-f0-9]{64}$/.test(id))||value.tip.mask!==a.frames[0])return false
+ const unit=(c:unknown):boolean=>Array.isArray(c)?c.length>=2&&c.every(p=>Array.isArray(p)&&typeof p[1]==='number'&&Number.isFinite(p[1])&&p[1]>=0&&p[1]<=1):obj(c)&&Array.isArray(c.samples)&&c.samples.length>=2&&c.samples.every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1)
+ if(!unit(value.sizeByPressure)||!obj(value.behavior))return false
+ for(const table of[value.behavior.dynamics,value.behavior.modulations])if(table!==undefined){if(!obj(table))return false;const size=table.size;if(size!==undefined&&!(Array.isArray(size)?size:[size]).every(c=>obj(c)&&typeof c.control==='string'&&['pressure','off'].includes(c.control)&&c.jitter===0&&Object.keys(c).every(k=>['control','minimum','jitter','curve'].includes(k))&&(c.curve===undefined||unit(c.curve))))return false}
+ const tip={...value.tip};delete tip.animation
+ return hasSketchImageAlpha162Scope({...value,version:162,tip,sketch:{...value.sketch,maskSignal:'image-alpha-v1'}})
 }

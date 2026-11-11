@@ -1,11 +1,12 @@
+import{curveAt}from'./digitalBrushPresets'
 import{proceduralMaskAlpha}from'../raster/brushProcedural'
-import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope}from'@grafetto/shared'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'@grafetto/shared'
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
 import{importedAssetPixels}from'./importedBrushes'
 /** Existing captured alpha CAS only; no generated mask, cache, canvas read or
  * stateful sampler. Views stay local to one paint call, never in cloned state. */
-export interface SketchMaskRequest{readonly left:number;readonly top:number;readonly width:number;readonly height:number;readonly radius:number;contains(x:number,y:number):boolean}
-export interface SketchMaskView{forDab(dab:Dab):SketchMaskRequest}
+export interface SketchMaskRequest{readonly left:number;readonly top:number;readonly width:number;readonly height:number;readonly radius:number;readonly generated?:boolean;contains(x:number,y:number):boolean}
+export interface SketchMaskView{forDab(dab:Dab,frameIndex?:number,nativeSizeFactor?:number):SketchMaskRequest}
 const qRound=(x:number)=>x<0?-Math.floor(-x+.5):Math.floor(x+.5)
 export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
  const policy=brush.sketch?.distanceOpacityPolicy
@@ -13,6 +14,7 @@ export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
 }
 export function prepareSketchMask(brush:BrushDescriptor):SketchMaskView|undefined{
  assertSketchDistanceOpacityPolicy(brush)
+ if(brush.sketch?.maskSignal==='gih-alpha-v1')return prepareSketchGih174(brush)
  if(brush.sketch?.maskSignal==='procedural-standard-v1'){if(!hasSketchProcedural173Scope(brush))throw Error('Invalid Sketch173 procedural scope');return proceduralSketchMask173(brush)}
  if(brush.sketch?.maskSignal!==undefined&&!hasSketchImageAlpha162Scope(brush))throw Error('Invalid Sketch162 alpha selector scope')
  if(brush.sketch?.mode!=='mask')return undefined
@@ -59,5 +61,18 @@ function proceduralSketchMask173(brush:BrushDescriptor):SketchMaskView{
    // original floating historical point. The reused evaluator returns U8.
    return proceduralMaskAlpha(mx-width/2,my-height/2,w,h,profile,dab.angle)!==0
   }}
+ }}
+}
+
+function prepareSketchGih174(brush:BrushDescriptor):SketchMaskView{
+ if(!hasSketchGih174Scope(brush))throw Error('Invalid Sketch174 equal incremental alpha scope')
+ const frames=brush.tip.animation!.frames,dims=brush.sketch!.maskSize!
+ // ALL frames are resolved/validated before a state/ordinal is admitted. These
+ // are borrowed existing CAS planes, not a new retained bank or pixel copy.
+ const views=frames.map(mask=>{const tip={...brush.tip,mask};delete tip.animation;const sketch={...brush.sketch!};delete sketch.maskSignal;return prepareSketchMask({...brush,tip,sketch})!})
+ return{forDab(dab,frameIndex=0,nativeSizeFactor=Math.max(0,Math.min(1,curveAt(brush.sizeByPressure,dab.pressure)))){
+  if(![dab.x,dab.y,dab.size,dab.angle,dab.pressure,nativeSizeFactor].every(Number.isFinite)||nativeSizeFactor<0||nativeSizeFactor>1||dab.size<0||dab.size>400||!Number.isSafeInteger(frameIndex)||frameIndex<0||frameIndex>=views.length)throw Error('Invalid Sketch174 input geometry/frame')
+  const request=views[frameIndex].forDab(dab),generated=nativeSizeFactor*Math.min(...dims)>.01
+  return generated?{...request,generated:true}:{...request,generated:false,contains:()=>false}
  }}
 }

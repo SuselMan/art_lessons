@@ -13,9 +13,9 @@ from brush_contract import finalize_identity,compatibility
 
 
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
-    from krita_import import preset,enabled,numeric,size_like_controls,gbr,raster,xml,brush_application
+    from krita_import import preset,enabled,numeric,size_like_controls,gbr,gih,raster,xml,brush_application
     simple=enabled(params.get('Sketch/simpleMode'))
-    mask_size=None;image_alpha=None;procedural=False
+    mask_size=None;image_alpha=None;procedural=False;pipe174=False
     if not simple:
         definition=xml(params.get('brush_definition',''))
         if definition.get('type')=='auto_brush':
@@ -25,7 +25,16 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
             procedural=True
         elif definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
         if not procedural:
-            filename=definition.get('filename','');raw=resource(filename);image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
+            filename=definition.get('filename','');raw=resource(filename)
+            if filename.lower().endswith('.gih'):
+                pipe=gih(raw,preserve_color=True);frames=pipe['frames']
+                if pipe['mode']!='incremental'or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0:raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
+                if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch174 outside closed root ordinary scope')
+                if enabled(params.get('PressureSize'))and enabled(params.get('SizeUseCurve','true')):
+                    sensor=xml(params.get('SizeSensor','<params id="pressure"/>'));nodes=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
+                    if not nodes or any(n.get('id')!='pressure'for n in nodes):raise ValueError('Sketch174 Size supports pressure/off only')
+                image=frames[0];pipe174=True
+            else:image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
             mask_size=list(image.size)
             if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
             if image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
@@ -70,7 +79,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     # New101 reads the already-captured alpha plane with its explicit own law.
     if not simple:d['tip'].pop('imageSampling',None)
     if simple:d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
-    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
+    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']and(k!='animation'or not pipe174)for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
     d.pop('scatter',None);d.pop('texture',None);d.pop('wet',None)
     behavior=d['behavior']
     if simple:behavior.pop('rotation',None)
@@ -123,6 +132,13 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if not sketch_procedural173_scope(d):raise ValueError('Sketch173 outside closed procedural scope')
         result['compatibility']=[n for n in result['compatibility']if n['feature']not in('sketchMask','sketch')]
         result['compatibility'].append(compatibility('sketchProcedural173','Static native standard ellipse/rectangle selects historical points through allocated pixel U8 nonzero alpha before existing Sketch probability/line laws. Existing scalar U8 AA/fade and captured Size/Rotation reused; no native SIMD/RNG/line-pixel identity. Procedural physical axes bounded256.','approximate'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if pipe174:
+        from sketch_gih174 import sketch_gih174_scope
+        d['version']=174;d['sketch']['maskSignal']='gih-alpha-v1'
+        if not sketch_gih174_scope(d):raise ValueError('Sketch174 outside closed incremental scope')
+        result['compatibility']=[n for n in result['compatibility']if n['feature']not in('sketchMask','sketch')]
+        result['compatibility'].append(compatibility('sketchGih174','Equal captured ordinary alpha frames select Sketch points through allocated mask U8!=0. Incremental sequence advances per generated non-tiny mask, never per connection/chunk/tile. Existing geometry/line/RNG remain functionally qualified; no native pixel identity.','approximate'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result
