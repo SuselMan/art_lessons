@@ -102,3 +102,13 @@ export function hasSketchPressureGih181Scope(value:unknown):boolean{
  if(!obj(a)||Object.keys(a).some(k=>!['mode','rank','frames'].includes(k))||a.mode!=='pressure'||typeof a.rank!=='number'||!Number.isInteger(a.rank)||!Array.isArray(a.frames)||a.rank!==a.frames.length||a.rank<2||a.rank>256)return false
  return hasSketchGih174Scope({...value,tip:{...value.tip,animation:{mode:'incremental',frames:a.frames}}})
 }
+
+/**182 single angular axis: raw captured source direction, never painted angle. */
+export function hasSketchAngularGih182Scope(value:unknown):boolean{
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||typeof value.version!=='number'||!Number.isInteger(value.version)||value.version<182||!obj(value.tip)||!obj(value.behavior))return false
+ const a=value.tip.animation,input=value.behavior.strokeInput
+ if(!obj(a)||Object.keys(a).some(k=>!['mode','rank','cursorPolicy','frames'].includes(k))||a.mode!=='angular'||a.cursorPolicy!=='first-request-v1'||typeof a.rank!=='number'||!Number.isInteger(a.rank)||!Array.isArray(a.frames)||a.rank!==a.frames.length||a.rank<2||a.rank>256)return false
+ if(!obj(input)||Object.keys(input).length!==2||input.version!==1||input.initialDirection!=='cursorHistory')return false
+ return hasSketchGih174Scope({...value,tip:{...value.tip,animation:{mode:'incremental',frames:a.frames}}})
+}

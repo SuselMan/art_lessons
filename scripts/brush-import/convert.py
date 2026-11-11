@@ -584,8 +584,10 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_sketch_procedural173(descriptor,parent)
     from sketch_gih174 import validate_sketch_gih174,sketch_gih174_scope
     from sketch_gih181 import validate_sketch_pressure_gih181,sketch_pressure_gih181_scope
+    from sketch_gih182 import validate_sketch_angular_gih182,sketch_angular_gih182_scope
     validate_sketch_pressure_gih181(descriptor,parent)
-    if not sketch_pressure_gih181_scope(descriptor):validate_sketch_gih174(descriptor,parent)
+    validate_sketch_angular_gih182(descriptor,parent)
+    if not sketch_pressure_gih181_scope(descriptor)and not sketch_angular_gih182_scope(descriptor):validate_sketch_gih174(descriptor,parent)
     from curve_timer167 import validate_curve_timer167
     validate_curve_timer167(descriptor,parent)
     from texture_lightness_wash171 import validate_texture_lightness_wash171
@@ -658,7 +660,7 @@ def validate_portable_profile(descriptor, *, parent=None):
             raise ValueError('Invalid portable Sketch114 root scope')
     if isinstance(sketch,dict)and sketch.get('mode')=='mask'and not sketch_procedural173_scope(descriptor):
         dims=sketch.get('maskSize');bounds=tip.get('maskBounds')
-        if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip and(k!='animation'or not (sketch_gih174_scope(descriptor)or sketch_pressure_gih181_scope(descriptor)))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
+        if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip and(k!='animation'or not (sketch_gih174_scope(descriptor)or sketch_pressure_gih181_scope(descriptor)or sketch_angular_gih182_scope(descriptor)))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
     noise=tip.get('autoNoise')
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
@@ -760,6 +762,7 @@ def validate_portable_profile(descriptor, *, parent=None):
 
 
 def portable_bundle(path,catalog):
+    from sketch_gih182 import sketch_angular_gih182_scope
     # The runtime shared guard remains authoritative for descriptor semantics.
     if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
     data=json.loads(path.read_text(),parse_constant=lambda v: (_ for _ in ()).throw(ValueError('Nonfinite JSON number '+v)))
@@ -939,9 +942,9 @@ def portable_bundle(path,catalog):
             if animation['mode']in('xtilt','ytilt'):
                 if(depth or d['version']<112 or animation.get('roundingPolicy')!='qt5-half-up-v1' or type(animation.get('rank'))is not int or not 2<=animation['rank']<=256 or 'cursorPolicy'in animation or 'geometry'in animation and d['version']<118 or d.get('model')!='stamp' or('color'in tip and not(is_sensor_original_rgba119(d)or is_sensor_original_rgba121(d)or is_equal_gradient_gih125(d)or is_unequal_gradient_gih126(d)))or any(k in tip and(k!='material'or not(is_equal_lightness_gih123(d)or is_unequal_lightness_gih124(d)))for k in('material','profile','imageSampling','autoNoise','autoShape')) or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('erase') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('strokeInput',{}).get('fanCorners') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Invalid portable tilt GIH scope/policy')
             elif animation['mode']!='dimensions'and 'roundingPolicy'in animation:raise ValueError('Unexpected portable GIH rounding policy')
-            if animation['mode']=='angular':
+            if animation['mode']=='angular'and not sketch_angular_gih182_scope(d):
                 if (depth or d['version']<110 or animation.get('cursorPolicy')!='first-request-v1' or type(animation.get('rank'))is not int or not 2<=animation['rank']<=256 or 'geometry'in animation and d['version']<118 or d.get('model')!='stamp' or('color'in tip and not(is_sensor_original_rgba119(d)or is_sensor_original_rgba121(d)or is_equal_gradient_gih125(d)or is_unequal_gradient_gih126(d)))or any(k in tip and(k!='material'or not(is_equal_lightness_gih123(d)or is_unequal_lightness_gih124(d)))for k in('material','profile','imageSampling','autoNoise','autoShape')) or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('erase') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0 or behavior.get('strokeInput')!={'version':1,'initialDirection':'cursorHistory'}):raise ValueError('Invalid portable angular GIH scope/cursor policy')
-            elif animation['mode']!='dimensions'and 'cursorPolicy'in animation:raise ValueError('Unexpected portable GIH cursor policy')
+            elif animation['mode']not in('dimensions','angular')and 'cursorPolicy'in animation:raise ValueError('Unexpected portable GIH cursor policy')
             if animation['mode']in('pressure','velocity'):
 
                 maximum=256 if animation['mode']=='velocity'else 2147483647

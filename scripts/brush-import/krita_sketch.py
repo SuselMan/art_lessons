@@ -15,7 +15,7 @@ from brush_contract import finalize_identity,compatibility
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls,gbr,gih,raster,xml,brush_application
     simple=enabled(params.get('Sketch/simpleMode'))
-    mask_size=None;image_alpha=None;procedural=False;pipe174=False;pipe181=False
+    mask_size=None;image_alpha=None;procedural=False;pipe174=False;pipe181=False;pipe182=False
     if not simple:
         definition=xml(params.get('brush_definition',''))
         if definition.get('type')=='auto_brush':
@@ -28,12 +28,12 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
             filename=definition.get('filename','');raw=resource(filename)
             if filename.lower().endswith('.gih'):
                 pipe=gih(raw,preserve_color=True);frames=pipe['frames']
-                if pipe['mode']not in('incremental','pressure')or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0:raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
+                if pipe['mode']not in('incremental','pressure','angular')or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0:raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
                 if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch174 outside closed root ordinary scope')
                 if enabled(params.get('PressureSize'))and enabled(params.get('SizeUseCurve','true')):
                     sensor=xml(params.get('SizeSensor','<params id="pressure"/>'));nodes=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
                     if not nodes or any(n.get('id')!='pressure'for n in nodes):raise ValueError('Sketch174 Size supports pressure/off only')
-                image=frames[0];pipe174=pipe['mode']=='incremental';pipe181=pipe['mode']=='pressure'
+                image=frames[0];pipe174=pipe['mode']=='incremental';pipe181=pipe['mode']=='pressure';pipe182=pipe['mode']=='angular'
             else:image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
             mask_size=list(image.size)
             if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
@@ -51,6 +51,14 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         return value
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     private_external=external
+    if pipe182:
+        from sketch_gih182 import private_incremental_alpha182
+        filename,private_pipe=private_incremental_alpha182(frames)
+        private_external={filename:private_pipe}
+        for resources in transformed.findall('resources'):transformed.remove(resources)
+        definition.set('filename',filename)
+        for node in transformed.findall('param'):
+            if node.get('name')=='brush_definition':node.text=ET.tostring(definition,encoding='unicode')
     if image_alpha is not None:
         if enabled(params.get('PaintOpSettings/isAirbrushing'))or enabled(params.get('AirbrushOption/isAirbrushing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch162 requires root static IMAGESTAMP without timer/erase/dual/Wash')
         alpha=image_alpha.tobytes();filename='__grafetto_sketch_alpha162_'+hashlib.sha256(alpha).hexdigest()+'.gbr';label=b'Captured Sketch IMAGESTAMP alpha\0'
@@ -79,7 +87,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     # New101 reads the already-captured alpha plane with its explicit own law.
     if not simple:d['tip'].pop('imageSampling',None)
     if simple:d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
-    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']and(k!='animation'or not(pipe174 or pipe181))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
+    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']and(k!='animation'or not(pipe174 or pipe181 or pipe182))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
     d.pop('scatter',None);d.pop('texture',None);d.pop('wet',None)
     behavior=d['behavior']
     if simple:behavior.pop('rotation',None)
@@ -146,6 +154,15 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if not sketch_pressure_gih181_scope(d):raise ValueError('Sketch181 outside closed pressure GIH scope')
         result['compatibility']=[n for n in result['compatibility']if n['feature']not in('sketchMask','sketch')]
         result['compatibility'].append(compatibility('sketchPressureGih181','Equal ordinary alpha GIH frames select non-simple Sketch historical points from captured current pressure using the existing native half-up index, independent of generated-mask ordinal and Size response. Same U8 mask gate/geometry/line/RNG qualification as174; no native pixel identity.','approximate'))
+        result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
+    if pipe182:
+        from sketch_gih182 import sketch_angular_gih182_scope
+        d['version']=182;d['sketch']['maskSignal']='gih-alpha-v1'
+        d['tip']['animation']={'mode':'angular','rank':len(frames),'cursorPolicy':'first-request-v1','frames':d['tip']['animation']['frames']}
+        behavior['strokeInput']={'version':1,'initialDirection':'cursorHistory'}
+        if not sketch_angular_gih182_scope(d):raise ValueError('Sketch182 outside closed angular GIH scope')
+        result['compatibility']=[n for n in result['compatibility']if n['feature']not in('sketchMask','sketch')]
+        result['compatibility'].append(compatibility('sketchAngularGih182','Equal ordinary alpha frames select non-simple Sketch points by recorded drawing angle plus native3pi/4, normalized to one rank. Existing captured cursorHistory/sourceAngle is mandatory, never substituted by painted angle. Native Sketch fetches every non-tiny mask directly; Pixel canPaintFor movement suppression does not apply. Original frame alpha/order, U8 gate and174 geometry/line/RNG qualification retained; no native pixel identity.','approximate'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result['descriptor']=finalize_identity(d,data)
     return result

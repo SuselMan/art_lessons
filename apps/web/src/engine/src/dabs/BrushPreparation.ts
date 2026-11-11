@@ -1,3 +1,4 @@
+import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
@@ -127,6 +128,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
   assertTextureGradientWash180Planes(brush)
+  if(brush.sketch?.maskSignal==='gih-alpha-v1'&&brush.tip.animation?.mode==='angular'&&(!hasSketchAngularGih182Scope(brush)||capturedErase))throw Error('Invalid Sketch182 angular scope')
   if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()

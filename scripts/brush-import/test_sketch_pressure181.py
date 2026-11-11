@@ -34,7 +34,7 @@ class Pressure181(unittest.TestCase):
     with self.subTest(key=key),self.assertRaises(ValueError):portable_bundle(f,dest)
     self.assertEqual(dest.brushes,[]);self.assertEqual(dest.assets,{})
  def test_native_unequal_rgba_otherselectors_timer_remain_closed(self):
-  for raw,extra in[(pipe181(unequal=True),''),(pipe181(channels=4),''),(pipe181('random'),''),(pipe181('angular'),''),(pipe181(),'<param name="PaintOpSettings/isAirbrushing">true</param>'),(pipe181(),'<param name="PaintOpAction">2</param>')]:
+  for raw,extra in[(pipe181(unequal=True),''),(pipe181(channels=4),''),(pipe181('random'),''),(pipe181('velocity'),''),(pipe181(),'<param name="PaintOpSettings/isAirbrushing">true</param>'),(pipe181(),'<param name="PaintOpAction">2</param>')]:
    with tempfile.TemporaryDirectory()as t,self.assertRaises(ValueError):make181(Path(t),raw,extra)
  def test_old174_and162_whole_records_unchanged(self):
   import test_sketch_gih174 as old174,test_sketch_image_alpha162 as old162

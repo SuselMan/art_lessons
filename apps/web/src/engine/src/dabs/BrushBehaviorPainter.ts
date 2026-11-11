@@ -5,7 +5,7 @@ import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash1
 import{hasFilterBitmapMaskScope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
-import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope}from'@grafetto/shared'
+import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope,hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,type BrushPattern} from '@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
@@ -669,7 +669,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(assertPixelAlphaDual168Scope(brush)&&effectiveErase)throw Error('Pixel alpha dual168 erase is outside scope')
     const canvasPattern=brush.experiment?.fill!==undefined
     if(canvasPattern&&(!hasExperimentCurrentPattern158Scope(brush)||effectiveErase))throw Error('Invalid Experiment Pattern158 scope')
-    if(brush.sketch?.maskSignal!==undefined&&((!hasSketchImageAlpha162Scope(brush)&&!hasSketchProcedural173Scope(brush)&&!hasSketchGih174Scope(brush)&&!hasSketchPressureGih181Scope(brush))||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
+    if(brush.sketch?.maskSignal!==undefined&&((!hasSketchImageAlpha162Scope(brush)&&!hasSketchProcedural173Scope(brush)&&!hasSketchGih174Scope(brush)&&!hasSketchPressureGih181Scope(brush)&&!hasSketchAngularGih182Scope(brush))||effectiveErase))throw Error('Invalid Sketch162 alpha selector scope')
     if(brush.sketch&&brush.behavior?.timing){if(!hasSketchTimer161Scope(brush)||effectiveErase)throw Error('Invalid Sketch timer161 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.particle&&brush.behavior?.timing){if(!hasParticleTimer157Scope(brush)||effectiveErase)throw Error('Invalid Particle timer157 scope');assertBrushSourceInputs(brush,dabs,endpoint);assertBrushExecutionContext(brush,execution)}
     if(brush.deform&&brush.behavior?.timing)throw Error('Deform timer160 requires the ordinary SmudgePainter path')
