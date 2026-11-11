@@ -490,16 +490,69 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         timed_input=True
     eraser=params.get('CompositeOp') in ('erase','destination-out') or enabled(params.get('Krita/erase'))
     resources = dict(external)
+    reference_resources = {}
+    external_hashes = {}
+    matched_payloads = {}
+    def external_match(filename, md5):
+        named = [key for key in external if key == filename or PurePosixPath(key).name == PurePosixPath(filename).name]
+        def match(keys):
+            selected = None
+            for key in keys:
+                source = external[key]
+                identity = ('callable', id(source)) if callable(source) else ('key', key)
+                if md5 and identity in external_hashes and external_hashes[identity] != md5:
+                    continue
+                value = matched_payloads.get(identity)
+                if value is None:
+                    value = source() if callable(source) else source
+                if md5:
+                    digest = external_hashes.get(identity)
+                    if digest is None:
+                        digest = hashlib.md5(value).hexdigest()
+                        external_hashes[identity] = digest
+                    if digest != md5:
+                        continue
+                if selected is not None and value != selected:
+                    raise ValueError('Ambiguous Krita resource reference: '+filename)
+                selected = value
+                # Only selected resources retain bytes. Unmatched archive entries
+                # retain a digest, not an eagerly expanded archive in memory.
+                matched_payloads[identity] = value
+            return selected
+        selected = match(named)
+        if selected is None and md5:
+            named_set = set(named)
+            selected = match(key for key in external if key not in named_set)
+        return selected
     for resource in root.findall('./resources/resource'):
         filename = resource.get('filename', '')
         if not filename or len(resource.text or '') > MAX_XML:
             raise ValueError('Invalid embedded Krita resource')
-        payload = base64.b64decode(''.join((resource.text or '').split()), validate=True)
+        encoded = ''.join((resource.text or '').split())
         md5 = resource.get('md5sum', '')
-        if len(md5) == 32 and hashlib.md5(payload).hexdigest() != md5.lower():
-            raise ValueError('Embedded Krita resource checksum mismatch')
+        if md5 and not re.fullmatch(r'[0-9a-fA-F]{32}', md5):
+            raise ValueError('Invalid Krita resource reference checksum')
+        # Native exactMatch runs BEFORE embedded decoding, even for a nonempty
+        # payload. Supplied MD5 is authoritative; no filename fallback on miss.
+        payload = external_match(filename, md5.lower())
+        if payload is None:
+            if not encoded:
+                raise ValueError('Missing Krita resource reference: '+filename)
+            payload = base64.b64decode(encoded, validate=True)
+            if len(md5) == 32 and hashlib.md5(payload).hexdigest() != md5.lower():
+                raise ValueError('Embedded Krita resource checksum mismatch')
+        if filename in reference_resources and reference_resources[filename] != payload:
+            raise ValueError('Conflicting Krita resource reference: '+filename)
+        reference_resources[filename] = payload
         resources[filename] = payload
     def resource(filename):
+        # Keep an exact resolved reference binding through the later basename
+        # lookup, otherwise a valid MD5 selection could become ambiguous again.
+        bound = [value for key, value in reference_resources.items() if key == filename or PurePosixPath(key).name == PurePosixPath(filename).name]
+        if bound:
+            if any(value != bound[0] for value in bound):
+                raise ValueError('Ambiguous Krita resource reference: '+filename)
+            return bound[0]
         matches = [(key, value() if callable(value) else value) for key, value in resources.items() if key == filename or PurePosixPath(key).name == PurePosixPath(filename).name]
         if not filename or not matches:
             raise ValueError('Missing Krita resource: '+filename)
