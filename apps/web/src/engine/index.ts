@@ -161,6 +161,11 @@ import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
 import { brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample } from '@grafetto/shared'
 
 type HistoricalProjectionEntry={buffer:HistoricalProjectionSource;bytes:number;replayTarget?:ILayerBuffer}
+interface RebuiltProjectionProof {
+  readonly layerId:string
+  readonly opIds:readonly string[]
+  readonly tiles:readonly {readonly buffer:AccumulationBuffer;readonly texture:WebGLTexture;readonly originX:number;readonly originY:number;readonly width:number;readonly height:number;readonly revision:number;readonly contentRect:Readonly<WorldRect>|null}[]
+}
 
 export type { HapticGrainStats }
 export type { DiagLog, PressureMap } from './src/input/PointerInput'
@@ -1734,6 +1739,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _hatchingBackground?:HatchingRgba8
   private _canvasBrushGradient?:string
   private _canvasBrushPattern?:BrushPattern
+  private readonly _rebuiltProjectionProofs=new WeakMap<ILayerBuffer,RebuiltProjectionProof>()
   private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,HistoricalProjectionEntry>;bytes:number;pinned?:Set<HistoricalProjectionSource>}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
@@ -5156,7 +5162,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(ops.some(op=>this._isCanonicalBeginOperation(op))){this._startRebuildJob(layerId);return}
     this._replayInto(buf, layerId, ops)
     this._snapshotRepairRebuilds.delete(layerId)
-    this._noteReplayedOrder(layerId)
+    this._noteReplayedOrder(layerId, ops)
     // (#522) A layer whose pixels reach below the log window can only be
     // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
     // layer was destroyed and unpinned — the replay above just produced a
@@ -5321,7 +5327,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const caughtUp = job.start + job.applied.length >= ops.length && !(this._settle && this._jobOwnsSettle(job))
     if (!caughtUp) { job.timer = setTimeout(() => this._stepRebuildJob(job), 0); return }
-    this._swapRebuiltLayer(job)
+    this._swapRebuiltLayer(job, ops)
   }
 
   /** (§17.70) A stroke a rebuild may replay in slices: watercolour, grouped
@@ -5465,7 +5471,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  operation that eventually records it will skip the dabs it believes are
    *  already painted (#429's claim). Leaving the layer unsettled brings them
    *  back: the next settle, after that operation lands, replays it whole. */
-  private _noteReplayedOrder(layerId: string): void {
+  private _noteReplayedOrder(layerId: string, replayedOps:readonly PixelOperation[]): void {
     this._cancelledPeerLayers.delete(layerId)
     if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
     else {
@@ -5475,9 +5481,10 @@ export class PencilEngine implements PencilEngineAPI {
         if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
       }
     }
+    this._rememberRebuiltProjection(layerId,replayedOps)
   }
 
-  private _swapRebuiltLayer(job: RebuildJob): void {
+  private _swapRebuiltLayer(job: RebuildJob, replayedOps:readonly PixelOperation[]): void {
     const { layerId } = job
     if (this._settle) this._completeSettle()
     const old = this._layers.get(layerId)
@@ -5498,7 +5505,7 @@ export class PencilEngine implements PencilEngineAPI {
     ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
     old?.destroy()
     this._snapshotRepairRebuilds.delete(layerId)
-    this._noteReplayedOrder(layerId) // (#537)
+    this._noteReplayedOrder(layerId,replayedOps) // (#537)
     if (this._snapshots.hasCoverage(layerId) && !this._checkpoints.hasSnapshotFor(layerId)) {
       this._snapshots.refusePublishing(layerId)
     }
@@ -5661,6 +5668,64 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** Only completed replay seams may attest that current RGBA equals these exact operations. */
+  private _rebuiltProjectionQuiet(layerId:string,buffer:ILayerBuffer):boolean {
+    if(this._destroyed||this._contextLost||this._historicalSourceDepth||this.gl.isContextLost()||this._layers.get(layerId)!==buffer)return false
+    if(this._unsettledLayers.has(layerId)||this._rebuildJobs.has(layerId)||this._pendingRebuilds.has(layerId)||this._snapshotDependentLayers.has(layerId)||this._snapshotRepairRebuilds.has(layerId)||this._cancelledPeerLayers.has(layerId))return false
+    if(this.isSnapshotHistoryRepairPending(layerId)||this._snapshotIO.hasAmbiguousPending(layerId)||this._hasUnrecordedInk(layerId))return false
+    if(this._snapshots.hasCoverage(layerId)&&!this._checkpoints.hasSnapshotFor(layerId))return false
+    if(this._settle||this._wash||this._washReveals.size||this._opQueue.length||this._wcJoinedDeferred||this._wcJoinedDeferredError!==null||this._wcJoinedRecoveryLayers.size)return false
+    if(this._wcAsyncError!==null||this._wcCanonical.pending||this._wcAsyncOwners.size||this._wcAsyncLocalTools.size||this._canonicalBeginOwners(buffer).length)return false
+    return buffer instanceof TiledLayerBuffer&&buffer.evictedTileCount===0
+  }
+
+  private _rememberRebuiltProjection(layerId:string,ops:readonly PixelOperation[]):void {
+    const buffer=this._layers.get(layerId)
+    if(!buffer||!ops.length||!this._rebuiltProjectionQuiet(layerId,buffer))return
+    const now=this._log.layerPixelOps(layerId)
+    if(now.length!==ops.length||now.some((op,i)=>op.id!==ops[i].id))return
+    const tiles=buffer instanceof TiledLayerBuffer?buffer.gridBeginTargets():undefined
+    if(!tiles)return
+    this._rebuiltProjectionProofs.set(buffer,Object.freeze({layerId,opIds:Object.freeze(ops.map(op=>op.id)),tiles:Object.freeze(tiles.map(tile=>Object.freeze({buffer:tile.buffer,texture:tile.buffer.texture,originX:tile.originX,originY:tile.originY,width:tile.buffer.width,height:tile.buffer.height,revision:tile.buffer.contentRevision,contentRect:tile.contentRect?Object.freeze({...tile.contentRect}):null})))}))
+  }
+
+  private _matchingRebuiltProjection(layerId:string,buffer:ILayerBuffer,ops:readonly PixelOperation[]):readonly PaintTarget[]|undefined {
+    const proof=this._rebuiltProjectionProofs.get(buffer)
+    if(!proof||proof.layerId!==layerId||!this._rebuiltProjectionQuiet(layerId,buffer)||proof.opIds.length!==ops.length||ops.some((op,i)=>op.id!==proof.opIds[i]))return
+    const now=this._log.layerPixelOps(layerId)
+    if(now.length!==proof.opIds.length||now.some((op,i)=>op.id!==proof.opIds[i]))return
+    const tiles=buffer instanceof TiledLayerBuffer?buffer.gridBeginTargets():undefined
+    if(!tiles||tiles.length!==proof.tiles.length)return
+    for(const expected of proof.tiles){
+      const tile=tiles.find(tile=>tile.buffer===expected.buffer&&tile.originX===expected.originX&&tile.originY===expected.originY)
+      if(!tile||tile.buffer.texture!==expected.texture||tile.buffer.width!==expected.width||tile.buffer.height!==expected.height||tile.buffer.contentRevision!==expected.revision)return
+      const a=tile.contentRect,b=expected.contentRect
+      if(a===null?b!==null:b===null||a.minX!==b.minX||a.minY!==b.minY||a.maxX!==b.maxX||a.maxY!==b.maxY)return
+    }
+    return tiles
+  }
+
+  private _copyRebuiltProjection(layerId:string,ops:readonly PixelOperation[]):HistoricalProjectionEntry|undefined {
+    const buffer=this._layers.get(layerId)
+    if(!buffer)return
+    const tiles=this._matchingRebuiltProjection(layerId,buffer,ops)
+    if(!tiles||!(buffer instanceof TiledLayerBuffer))return
+    const pin=buffer.pinGridDestinations(tiles)
+    let copy:ReturnType<typeof compactHistoricalLayer>|undefined,failed=false
+    try{
+      pin.assertCurrent()
+      // No gain means ordinary historical replay; NEVER borrow current storage.
+      copy=compactHistoricalLayer({allResident:()=>tiles.slice()})
+      if(!copy)return
+      pin.assertCurrent()
+      if(!this._matchingRebuiltProjection(layerId,buffer,ops)){copy.buffer.destroy();copy=undefined;return}
+    }catch(error){failed=true;if(copy)try{copy.buffer.destroy()}catch{/* Preserve primary, including undefined. */}throw error}
+    finally{
+      try{pin.release()}catch(error){if(!failed){if(copy)try{copy.buffer.destroy()}catch{/* Preserve pin cleanup failure. */}throw error}}
+    }
+    return copy
+  }
+
   private _retireHistoricalProjectionEntry(entry:HistoricalProjectionEntry):void {
     let failed=false,first:unknown
     if(entry.replayTarget)try{this._forgetWashesOf(entry.replayTarget)}catch(error){failed=true;first=error}
@@ -5673,10 +5738,12 @@ export class PencilEngine implements PencilEngineAPI {
     const key=JSON.stringify([id,operations.map(op=>op.id)])
     const cached=scope.store.cache.get(key)
     if(cached){scope.store.cache.delete(key);scope.store.cache.set(key,cached);return cached.buffer}
-    const fresh=this._makeLayerBuffer()
-    let selected:HistoricalProjectionEntry|undefined,freshOwned=true
+    let fresh:ILayerBuffer|undefined,freshOwned=false
+    let selected=this._copyRebuiltProjection(id,operations)
     try{
       this._withHistoricalSourceReplay(()=>{
+        if(!selected){
+        fresh=this._makeLayerBuffer();freshOwned=true
         this._replayInto(fresh,id,operations)
         const compact=compactHistoricalLayer(fresh)
         if(compact){
@@ -5687,6 +5754,7 @@ export class PencilEngine implements PencilEngineAPI {
         }else{
           selected={buffer:fresh,replayTarget:fresh,bytes:fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)}
           freshOwned=false
+        }
         }
         const bytes=selected.bytes,budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
         for(const [key,entry]of scope.store.cache){
@@ -5703,7 +5771,7 @@ export class PencilEngine implements PencilEngineAPI {
       return selected.buffer
     }catch(error){
       if(selected)try{this._retireHistoricalProjectionEntry(selected)}catch{/* Preserve primary, including undefined. */}
-      if(freshOwned)try{this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})}catch{/* Preserve primary, including undefined. */}
+      if(freshOwned&&fresh)try{this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})}catch{/* Preserve primary, including undefined. */}
       throw error
     }
   }
