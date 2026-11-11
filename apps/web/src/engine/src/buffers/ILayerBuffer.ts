@@ -37,6 +37,10 @@ export interface PaintTarget {
   // footprint-growth bug #155 diagnosed (a vacated tile kept contributing
   // its whole extent to every later bake's bounds forever).
   contentRect: WorldRect | null
+  /** Internal readonly historical source only: original full physical texel
+   * geometry before exact crop. Not operation/wire data. Consumers without a
+   * projection sampler keep the actual cropped buffer/origin above. */
+  readonly projectionSourceRect?: Readonly<WorldRect>
 }
 
 export interface ILayerBuffer {

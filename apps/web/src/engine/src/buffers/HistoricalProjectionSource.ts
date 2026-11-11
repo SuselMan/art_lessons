@@ -49,7 +49,7 @@ export function compactHistoricalLayer(
    copies.push(copy)
    if(copy.width!==width||copy.height!==height||copy.gl!==tile.buffer.gl||copy.baseBytes!==width*height*4)throw Error('Historical copy allocation mismatch')
    tile.buffer.copyRegionInto(copy,rect.minX-tile.originX,tile.buffer.height-(rect.maxY-tile.originY),0,0,width,height)
-   targets.push(Object.freeze({buffer:copy,originX:rect.minX,originY:rect.minY,contentRect:Object.freeze({...rect})}))
+   targets.push(Object.freeze({buffer:copy,originX:rect.minX,originY:rect.minY,contentRect:Object.freeze({...rect}),projectionSourceRect:Object.freeze({... (tile.projectionSourceRect ?? {minX:tile.originX,minY:tile.originY,maxX:tile.originX+tile.buffer.width,maxY:tile.originY+tile.buffer.height})})}))
   }
  }catch(error){try{dispose()}catch{/* Preserve the original failure, including undefined. */}throw error}
  let retired=false

@@ -26,7 +26,7 @@ describe('full historical source conservative compaction',()=>{
   expect(r.buffer.resolveVisible({minX:-9,minY:21,maxX:-8,maxY:25})).toEqual([]);expect(r.buffer.resolveVisible({minX:-5,minY:21,maxX:-4,maxY:25})).toEqual([])
   expect(r.buffer.resolveVisible({minX:-8,minY:20,maxX:-5,maxY:21})).toEqual([]);expect(r.buffer.resolveVisible({minX:-8,minY:25,maxX:-5,maxY:26})).toEqual([])
   expect(r.buffer.resolveVisible({minX:-8,minY:21,maxX:-7,maxY:22})).toHaveLength(1)
-  expect(Object.isFrozen(t)).toBe(true);expect(Object.isFrozen(t.contentRect)).toBe(true);const out=r.buffer.allResident();out.length=0;expect(r.buffer.allResident()).toHaveLength(1)
+  expect(t.projectionSourceRect).toEqual({minX:-10,minY:20,maxX:-2,maxY:26});expect(Object.isFrozen(t.projectionSourceRect)).toBe(true);expect(Object.isFrozen(t)).toBe(true);expect(Object.isFrozen(t.contentRect)).toBe(true);const out=r.buffer.allResident();out.length=0;expect(r.buffer.allResident()).toHaveLength(1)
   expect(original.destroy).not.toHaveBeenCalled();r.buffer.destroy();expect(f.allocated[0].destroy).toHaveBeenCalledOnce();expect(()=>r.buffer.allResident()).toThrow('retired')
  })
  it('retains the entire conservative box rather than the current query ROI, with independent multi-tile origins',()=>{

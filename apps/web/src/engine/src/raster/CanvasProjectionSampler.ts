@@ -12,11 +12,21 @@ uniform sampler2D u_tile;
 uniform vec4 u_patch;
 uniform vec4 u_tileRect;
 uniform float u_opacity;
+// Enabled only for compact historical sources: x/y GL texel offset, z/w crop size.
+uniform vec4 u_sourceCrop;
 void main(){
  vec2 world=vec2(gl_FragCoord.x,u_patch.w-gl_FragCoord.y)*u_patch.z/u_patch.w;
  if(any(lessThan(world,u_tileRect.xy))||any(greaterThanEqual(world,u_tileRect.xy+u_tileRect.zw)))discard;
  vec2 local=(world-u_tileRect.xy)/u_tileRect.zw;
+ if(u_sourceCrop.z>0.0){
+  // Keep ORIGINAL normalization and Y cancellation before selecting a texel.
+  vec2 oldUV=vec2(local.x,1.0-local.y);
+  vec2 texel=clamp(floor(oldUV*u_tileRect.zw),vec2(0.0),u_tileRect.zw-vec2(1.0))-u_sourceCrop.xy;
+  if(any(lessThan(texel,vec2(0.0)))||any(greaterThanEqual(texel,u_sourceCrop.zw)))discard;
+  gl_FragColor=texture2D(u_tile,(texel+vec2(0.5))/u_sourceCrop.zw)*u_opacity;
+ }else{
  gl_FragColor=texture2D(u_tile,vec2(local.x,1.0-local.y))*u_opacity;
+ }
 }`
 
 /** Samples canonical content only, never paper, display previews or viewport
@@ -30,7 +40,7 @@ export class CanvasProjectionSampler {
  prepare():void {
   if(this.binding)return
   const gl=this.gl,program=createProgram(gl,DISPLAY_VERT,FRAG)
-  this.binding={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,['u_tile','u_patch','u_tileRect','u_opacity'])}
+  this.binding={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,['u_tile','u_patch','u_tileRect','u_opacity','u_sourceCrop'])}
  }
  forget():void {this.binding=undefined}
  destroy():void {if(this.binding)this.gl.deleteProgram(this.binding.program);this.forget()}
@@ -44,8 +54,14 @@ export class CanvasProjectionSampler {
     for(const tile of layer.buffer.resolveVisible(rect)){
      const b=tile.buffer,c=tile.contentRect
      if(!c||c.maxX<=rect.minX||c.minX>=rect.maxX||c.maxY<=rect.minY||c.minY>=rect.maxY)continue
-     const x0=Math.max(rect.minX,tile.originX),x1=Math.min(rect.maxX,tile.originX+b.width)
-     const y0=Math.max(rect.minY,tile.originY),y1=Math.min(rect.maxY,tile.originY+b.height)
+     const sourceRect=tile.projectionSourceRect
+     // Virtual full geometry must also drive clipping/viewport: just outside a
+     // crop edge the OLD rounded UV may still select a copied edge texel.
+     const originX=sourceRect?.minX??tile.originX,originY=sourceRect?.minY??tile.originY
+     const width=sourceRect?sourceRect.maxX-sourceRect.minX:b.width,height=sourceRect?sourceRect.maxY-sourceRect.minY:b.height
+     if(sourceRect&&(![originX,originY,width,height,tile.originX,tile.originY,b.width,b.height].every(Number.isSafeInteger)||width<=0||height<=0||tile.originX<originX||tile.originY<originY||tile.originX+b.width>originX+width||tile.originY+b.height>originY+height))throw Error('Invalid historical projection source geometry')
+     const x0=Math.max(rect.minX,originX),x1=Math.min(rect.maxX,originX+width)
+     const y0=Math.max(rect.minY,originY),y1=Math.min(rect.maxY,originY+height)
      const x=Math.floor((x0-rect.minX)*size/span),right=Math.ceil((x1-rect.minX)*size/span)
      const y=Math.floor((rect.maxY-y1)*size/span),top=Math.ceil((rect.maxY-y0)*size/span)
      if(right<=x||top<=y)continue
@@ -54,7 +70,9 @@ export class CanvasProjectionSampler {
      patch.beginDraw();gl.viewport(x,y,right-x,top-y);gl.useProgram(binding.program)
      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,b.texture);gl.uniform1i(binding.uniforms.u_tile,0)
      gl.uniform4f(binding.uniforms.u_patch,0,0,span,size);gl.uniform1f(binding.uniforms.u_opacity,layer.opacity)
-     gl.uniform4f(binding.uniforms.u_tileRect,tile.originX-rect.minX,tile.originY-rect.minY,b.width,b.height)
+     gl.uniform4f(binding.uniforms.u_tileRect,originX-rect.minX,originY-rect.minY,width,height)
+     if(sourceRect)gl.uniform4f(binding.uniforms.u_sourceCrop,tile.originX-originX,originY+height-tile.originY-b.height,b.width,b.height)
+     else gl.uniform4f(binding.uniforms.u_sourceCrop,0,0,0,0)
      gl.bindBuffer(gl.ARRAY_BUFFER,this.quad());gl.enableVertexAttribArray(binding.position);gl.vertexAttribPointer(binding.position,2,gl.FLOAT,false,0,0)
      b.setPointSampling(true)
      try{gl.drawArrays(gl.TRIANGLES,0,6)}finally{b.setPointSampling(false)}
