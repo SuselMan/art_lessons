@@ -6,11 +6,11 @@ import type {AccumulationBuffer} from '../buffers/AccumulationBuffer'
 import {BristleRequestBatch} from './BristleRequestBatch'
 /** Command/state model of one covered pixel, NOT a GPU rasterizer/pixel proof. */
 function fixture(privateVao=false,fragDepth=false){
- const gl:any={},names='ZERO TEXTURE1 UNPACK_ALIGNMENT UNPACK_FLIP_Y_WEBGL UNPACK_PREMULTIPLY_ALPHA_WEBGL UNPACK_COLORSPACE_CONVERSION_WEBGL RGBA UNSIGNED_BYTE TEXTURE_MIN_FILTER TEXTURE_MAG_FILTER TEXTURE_WRAP_S TEXTURE_WRAP_T NEAREST CLAMP_TO_EDGE VAO_BINDING MAX_RENDERBUFFER_SIZE RENDERBUFFER_BINDING ARRAY_BUFFER_BINDING FRAMEBUFFER_BINDING CURRENT_PROGRAM VIEWPORT COLOR_WRITEMASK COLOR_CLEAR_VALUE DEPTH_FUNC DEPTH_WRITEMASK DEPTH_RANGE DEPTH_CLEAR_VALUE BLEND_EQUATION_RGB BLEND_EQUATION_ALPHA BLEND_SRC_RGB BLEND_DST_RGB BLEND_SRC_ALPHA BLEND_DST_ALPHA ACTIVE_TEXTURE TEXTURE_BINDING_2D BLEND CULL_FACE DEPTH_TEST SCISSOR_TEST STENCIL_TEST DITHER POLYGON_OFFSET_FILL SAMPLE_ALPHA_TO_COVERAGE SAMPLE_COVERAGE RENDERBUFFER ARRAY_BUFFER FRAMEBUFFER DEPTH_ATTACHMENT STENCIL_ATTACHMENT FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE NONE FRAMEBUFFER_COMPLETE TEXTURE0 TEXTURE_2D DEPTH_COMPONENT16 STATIC_DRAW STREAM_DRAW FLOAT TRIANGLES GREATER FUNC_ADD ONE ONE_MINUS_SRC_ALPHA COLOR_BUFFER_BIT DEPTH_BUFFER_BIT VERTEX_SHADER FRAGMENT_SHADER COMPILE_STATUS LINK_STATUS VERTEX_ATTRIB_ARRAY_ENABLED VERTEX_ATTRIB_ARRAY_BUFFER_BINDING VERTEX_ATTRIB_ARRAY_SIZE VERTEX_ATTRIB_ARRAY_TYPE VERTEX_ATTRIB_ARRAY_NORMALIZED VERTEX_ATTRIB_ARRAY_STRIDE VERTEX_ATTRIB_ARRAY_POINTER'.split(' ')
+ const gl:any={},names='ZERO TEXTURE1 UNPACK_ALIGNMENT UNPACK_FLIP_Y_WEBGL UNPACK_PREMULTIPLY_ALPHA_WEBGL UNPACK_COLORSPACE_CONVERSION_WEBGL RGBA UNSIGNED_BYTE TEXTURE_MIN_FILTER TEXTURE_MAG_FILTER TEXTURE_WRAP_S TEXTURE_WRAP_T NEAREST CLAMP_TO_EDGE VAO_BINDING MAX_RENDERBUFFER_SIZE RENDERBUFFER_BINDING ARRAY_BUFFER_BINDING FRAMEBUFFER_BINDING CURRENT_PROGRAM VIEWPORT SCISSOR_BOX COLOR_WRITEMASK COLOR_CLEAR_VALUE DEPTH_FUNC DEPTH_WRITEMASK DEPTH_RANGE DEPTH_CLEAR_VALUE BLEND_EQUATION_RGB BLEND_EQUATION_ALPHA BLEND_SRC_RGB BLEND_DST_RGB BLEND_SRC_ALPHA BLEND_DST_ALPHA ACTIVE_TEXTURE TEXTURE_BINDING_2D BLEND CULL_FACE DEPTH_TEST SCISSOR_TEST STENCIL_TEST DITHER POLYGON_OFFSET_FILL SAMPLE_ALPHA_TO_COVERAGE SAMPLE_COVERAGE RENDERBUFFER ARRAY_BUFFER FRAMEBUFFER DEPTH_ATTACHMENT STENCIL_ATTACHMENT FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE NONE FRAMEBUFFER_COMPLETE TEXTURE0 TEXTURE_2D DEPTH_COMPONENT16 STATIC_DRAW STREAM_DRAW FLOAT TRIANGLES GREATER FUNC_ADD ONE ONE_MINUS_SRC_ALPHA COLOR_BUFFER_BIT DEPTH_BUFFER_BIT VERTEX_SHADER FRAGMENT_SHADER COMPILE_STATUS LINK_STATUS VERTEX_ATTRIB_ARRAY_ENABLED VERTEX_ATTRIB_ARRAY_BUFFER_BINDING VERTEX_ATTRIB_ARRAY_SIZE VERTEX_ATTRIB_ARRAY_TYPE VERTEX_ATTRIB_ARRAY_NORMALIZED VERTEX_ATTRIB_ARRAY_STRIDE VERTEX_ATTRIB_ARRAY_POINTER'.split(' ')
  names.forEach((name,i)=>gl[name]=i+1)
  let serial=0,uploaded=new Float32Array(),rank=0,requestPixel=[0,0,0,0],coveragePixel=[0,0,0,0],throwDraw=false
  const object=()=>({id:++serial}),seedBuffer=object(),s=new Map<number,any>(),caps=new Set<number>([gl.DITHER,gl.SCISSOR_TEST,gl.CULL_FACE]),textures=new Map<number,any>([[gl.TEXTURE0,object()],[gl.TEXTURE1,null],[gl.TEXTURE0+3,object()]]),attachments=new Map<any,any>(),attrs=new Map<number,any>()
- for(const [name,value] of Object.entries({MAX_RENDERBUFFER_SIZE:4096,RENDERBUFFER_BINDING:object(),ARRAY_BUFFER_BINDING:seedBuffer,FRAMEBUFFER_BINDING:object(),CURRENT_PROGRAM:object(),VIEWPORT:[3,4,5,6],COLOR_WRITEMASK:[false,true,false,true],COLOR_CLEAR_VALUE:[.1,.2,.3,.4],DEPTH_FUNC:999,DEPTH_WRITEMASK:false,DEPTH_RANGE:[.2,.8],DEPTH_CLEAR_VALUE:.75,BLEND_EQUATION_RGB:900,BLEND_EQUATION_ALPHA:901,BLEND_SRC_RGB:902,BLEND_DST_RGB:903,BLEND_SRC_ALPHA:904,BLEND_DST_ALPHA:905,ACTIVE_TEXTURE:gl.TEXTURE0+3}))s.set(gl[name],value)
+ for(const [name,value] of Object.entries({MAX_RENDERBUFFER_SIZE:4096,RENDERBUFFER_BINDING:object(),ARRAY_BUFFER_BINDING:seedBuffer,FRAMEBUFFER_BINDING:object(),CURRENT_PROGRAM:object(),VIEWPORT:[3,4,5,6],SCISSOR_BOX:[3,4,5,6],COLOR_WRITEMASK:[false,true,false,true],COLOR_CLEAR_VALUE:[.1,.2,.3,.4],DEPTH_FUNC:999,DEPTH_WRITEMASK:false,DEPTH_RANGE:[.2,.8],DEPTH_CLEAR_VALUE:.75,BLEND_EQUATION_RGB:900,BLEND_EQUATION_ALPHA:901,BLEND_SRC_RGB:902,BLEND_DST_RGB:903,BLEND_SRC_ALPHA:904,BLEND_DST_ALPHA:905,ACTIVE_TEXTURE:gl.TEXTURE0+3}))s.set(gl[name],value)
  for(const key of [gl.UNPACK_ALIGNMENT,gl.UNPACK_FLIP_Y_WEBGL,gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,gl.UNPACK_COLORSPACE_CONVERSION_WEBGL])s.set(key,0)
  for(let i=0;i<6;i++)attrs.set(i,{enabled:i===1,buffer:seedBuffer,size:2,type:gl.FLOAT,normalized:false,stride:16,offset:i*4})
  const seedVao=object();let currentVao:unknown=seedVao
@@ -21,6 +21,7 @@ function fixture(privateVao=false,fragDepth=false){
  gl.isEnabled=(c:number)=>caps.has(c);gl.enable=(c:number)=>caps.add(c);gl.disable=(c:number)=>caps.delete(c)
  gl.bindRenderbuffer=(_t:number,v:unknown)=>s.set(gl.RENDERBUFFER_BINDING,v);gl.bindFramebuffer=(_t:number,v:unknown)=>s.set(gl.FRAMEBUFFER_BINDING,v);gl.bindBuffer=(_t:number,v:unknown)=>s.set(gl.ARRAY_BUFFER_BINDING,v)
  gl.activeTexture=(u:number)=>s.set(gl.ACTIVE_TEXTURE,u);gl.bindTexture=(_t:number,v:unknown)=>textures.set(s.get(gl.ACTIVE_TEXTURE),v)
+ gl.scissor=vi.fn((...v:number[])=>s.set(gl.SCISSOR_BOX,v))
  gl.viewport=(...v:number[])=>s.set(gl.VIEWPORT,v);gl.colorMask=(...v:boolean[])=>s.set(gl.COLOR_WRITEMASK,v);gl.clearColor=(...v:number[])=>s.set(gl.COLOR_CLEAR_VALUE,v)
  gl.depthFunc=(v:number)=>s.set(gl.DEPTH_FUNC,v);gl.depthMask=(v:boolean)=>s.set(gl.DEPTH_WRITEMASK,v);gl.depthRange=(...v:number[])=>s.set(gl.DEPTH_RANGE,v);gl.clearDepth=(v:number)=>s.set(gl.DEPTH_CLEAR_VALUE,v)
  gl.blendEquation=(v:number)=>{s.set(gl.BLEND_EQUATION_RGB,v);s.set(gl.BLEND_EQUATION_ALPHA,v)};gl.blendEquationSeparate=(a:number,b:number)=>{s.set(gl.BLEND_EQUATION_RGB,a);s.set(gl.BLEND_EQUATION_ALPHA,b)}
@@ -177,4 +178,36 @@ it('144 changes only native mesh vertices; historical142 keeps AABB and no extra
  for(let i=0;i<6;i++)expect([...narrow.slice(i*10+2,i*10+10)]).toEqual([...old.slice(i*10+2,i*10+10)])
  expect(s.gl.createProgram.mock.calls.length).toBe(programCount);expect(s.gl.createRenderbuffer).not.toHaveBeenCalled()
  expect(()=>s.batch.paint([item],s.coverage,s.request,0,0,undefined,false,true)).toThrow('requires native')
+})
+
+/** State/command proof only; actualRGBA equivalence remains a realGPU gate. */
+it('144 scopes ONLY final OVER to actual displaced Float32 quadunion, not foreignscissor/dabsize',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();const before=s.snapshot(),draw=s.gl.drawArrays,seen:{scissor:boolean;box:number[];viewport:number[]}[]=[]
+ s.gl.drawArrays=(...args:any[])=>{seen.push({scissor:s.gl.isEnabled(s.gl.SCISSOR_TEST),box:[...s.gl.getParameter(s.gl.SCISSOR_BOX)],viewport:[...s.gl.getParameter(s.gl.VIEWPORT)]});return draw(...args)}
+ // Candidate centre/radius deliberately says1px elsewhere; realhair endpoints
+ // occupy8..10 at y7. Quad x4..14/y3..11 +1guard =>GL[3,4,12,10].
+ const item={...stamp(.5,[1,0,0]),x:-999,y:-999,radius:0,bristleTrajectory142:{start:[8,7]as const,end:[10,7]as const}}
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true,true)
+ expect(seen.length).toBe(2);expect(seen[0].scissor).toBe(false);expect(seen[1].scissor).toBe(true);expect(seen[1].viewport).toEqual([0,0,16,16]);expect(seen[1].box).toEqual([3,4,12,10]);expect(s.snapshot()).toEqual(before)
+})
+it('144 clips negativeworldorigins and tile seams, clearsFULL again between groups and preserves O/grouporder',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();const clear=s.gl.clear,clearScissor:boolean[]=[],draw=s.gl.drawArrays,boxes:number[][]=[]
+ s.gl.clear=(...args:any[])=>{clearScissor.push(s.gl.isEnabled(s.gl.SCISSOR_TEST));return clear(...args)}
+ s.gl.drawArrays=(...args:any[])=>{if(s.gl.isEnabled(s.gl.SCISSOR_TEST))boxes.push([...s.gl.getParameter(s.gl.SCISSOR_BOX)]);return draw(...args)}
+ const line=(x:number,group:number)=>({...stamp(.5,[1,0,0],group),ceiling:.5,bristleTrajectory142:{start:[x,-31]as const,end:[x+1,-31]as const}})
+ s.batch.paint([line(-17,1),line(-2,2)],s.coverage,s.request,-16,-32,undefined,true,true)
+ expect(clearScissor).toEqual([false,false]);expect(boxes.length).toBe(2);expect(boxes[0][0]).toBe(0);expect(boxes[1][0]+boxes[1][2]).toBe(16);expect(boxes.every(b=>b[0]>=0&&b[1]>=0&&b[0]+b[2]<=16&&b[1]+b[3]<=16)).toBe(true)
+})
+it('144 all-outside candidates keep fullclear but skip identity OVER; old142 still fullscreen',()=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();const item={...stamp(.5,[1,0,0]),bristleTrajectory142:{start:[100,100]as const,end:[101,101]as const}},before=s.snapshot()
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true,true);expect(s.gl.clear).toHaveBeenCalledTimes(1);expect(s.gl.drawArrays).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before)
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true);expect(s.gl.drawArrays).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before)
+})
+it.each([false,true])('144 restores foreign SCISSOR_BOX/enabled=%s after success and undefined primary with cleanupthrow',enabled=>{
+ const s=fixture(true);s.batch.prepareNativeAA142();if(!enabled)s.gl.disable(s.gl.SCISSOR_TEST);const before=s.snapshot(),item={...stamp(.5,[1,0,0]),bristleTrajectory142:{start:[8,8]as const,end:[9,8]as const}}
+ s.batch.paint([item],s.coverage,s.request,0,0,undefined,true,true);expect(s.snapshot()).toEqual(before)
+ const real=s.gl.drawArrays,disable=s.gl.disable;let drawThrew=false;s.gl.drawArrays=(...args:any[])=>{if(s.gl.isEnabled(s.gl.SCISSOR_TEST)){drawThrew=true;throw undefined}return real(...args)}
+ let cleanupThrown=false;s.gl.disable=(cap:number)=>{disable(cap);if(drawThrew&&cap===s.gl.SCISSOR_TEST&&!cleanupThrown){cleanupThrown=true;throw Error('cleanup')}}
+ let caught=false,primary:unknown='unset';try{s.batch.paint([item],s.coverage,s.request,0,0,undefined,true,true)}catch(e){caught=true;primary=e}
+ expect(caught).toBe(true);expect(primary).toBeUndefined();expect(s.snapshot()).toEqual(before);s.gl.disable=disable;s.gl.drawArrays=real;s.batch.destroy()
 })

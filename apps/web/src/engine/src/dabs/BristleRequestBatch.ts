@@ -261,6 +261,7 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
    const caps=[gl.BLEND,gl.CULL_FACE,gl.DEPTH_TEST,gl.SCISSOR_TEST,gl.STENCIL_TEST,gl.DITHER,gl.POLYGON_OFFSET_FILL,gl.SAMPLE_ALPHA_TO_COVERAGE,gl.SAMPLE_COVERAGE]
    const enabled=caps.map(cap=>gl.isEnabled(cap))
    const fbo=gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer|null,rb=gl.getParameter(gl.RENDERBUFFER_BINDING) as WebGLRenderbuffer|null,buf=gl.getParameter(gl.ARRAY_BUFFER_BINDING) as WebGLBuffer|null,prog=gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram|null
+   const scissorBox=oriented144?gl.getParameter(gl.SCISSOR_BOX) as Int32Array:undefined
    const viewport=gl.getParameter(gl.VIEWPORT) as Int32Array,mask=gl.getParameter(gl.COLOR_WRITEMASK) as boolean[],clear=gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array
    const depthFunc=gl.getParameter(gl.DEPTH_FUNC) as number,depthMask=gl.getParameter(gl.DEPTH_WRITEMASK) as boolean,range=gl.getParameter(gl.DEPTH_RANGE) as Float32Array,depthClear=gl.getParameter(gl.DEPTH_CLEAR_VALUE) as number
    const eqRgb=gl.getParameter(gl.BLEND_EQUATION_RGB) as number,eqAlpha=gl.getParameter(gl.BLEND_EQUATION_ALPHA) as number,srcRgb=gl.getParameter(gl.BLEND_SRC_RGB) as number,dstRgb=gl.getParameter(gl.BLEND_DST_RGB) as number,srcAlpha=gl.getParameter(gl.BLEND_SRC_ALPHA) as number,dstAlpha=gl.getParameter(gl.BLEND_DST_ALPHA) as number
@@ -277,6 +278,7 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
     attempt(()=>gl.bindBuffer(gl.ARRAY_BUFFER,buf));attempt(()=>gl.useProgram(prog));attempt(()=>gl.activeTexture(gl.TEXTURE0));if(texture0Known)attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture0));if(texture1Known){attempt(()=>gl.activeTexture(gl.TEXTURE1));attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture1))}if(texture2Known){attempt(()=>gl.activeTexture(gl.TEXTURE2));attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture2))}attempt(()=>gl.activeTexture(unit));if(unit!==gl.TEXTURE0)attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture))
     attempt(()=>gl.depthFunc(depthFunc));attempt(()=>gl.depthMask(depthMask));attempt(()=>gl.depthRange(range[0],range[1]));attempt(()=>gl.clearDepth(depthClear));attempt(()=>gl.colorMask(mask[0],mask[1],mask[2],mask[3]));attempt(()=>gl.clearColor(clear[0],clear[1],clear[2],clear[3]))
     attempt(()=>gl.blendEquationSeparate(eqRgb,eqAlpha));attempt(()=>gl.blendFuncSeparate(srcRgb,dstRgb,srcAlpha,dstAlpha))
+    if(scissorBox)attempt(()=>gl.scissor(scissorBox[0],scissorBox[1],scissorBox[2],scissorBox[3]))
     caps.forEach((cap,i)=>attempt(()=>{if(enabled[i])gl.enable(cap);else gl.disable(cap)}));attempt(()=>gl.viewport(viewport[0],viewport[1],viewport[2],viewport[3]));attempt(()=>gl.bindRenderbuffer(gl.RENDERBUFFER,rb));attempt(()=>gl.bindFramebuffer(gl.FRAMEBUFFER,fbo))
    }
    if(this.vaoExtension)this.vaoExtension.bindVertexArrayOES(this.vao!)
@@ -301,7 +303,7 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
     if(ink){const p=this.inkProfile!;gl.uniform1i(gl.getUniformLocation(program!,'u_inkCurve'),1);gl.uniform3f(gl.getUniformLocation(program!,'u_inkTable'),this.inkWidth,this.inkHeight,p.amount);gl.uniform4f(gl.getUniformLocation(program!,'u_inkWeights'),p.pressureWeight,p.bristleLengthWeight,p.bristleInkAmountWeight,p.inkDepletionWeight);gl.uniform2f(gl.getUniformLocation(program!,'u_inkFlags'),Number(p.useOpacity),Number(p.useWeights));gl.uniform1f(gl.getUniformLocation(program!,'u_targetHeight'),h);gl.uniform3f(gl.getUniformLocation(program!,'u_requestMode'),Number(ink.antialias),Number(!ink.compositing&&!winner),Number(ink.compositing))}
     const attributes:readonly(readonly[string,number,number])[]=ink?[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_extent',2,8],['a_inkState',4,10],['a_inkAxis',4,14],...(saturation?[['a_satParameter',4,18] as const]:[]),...(soak?[['a_soakAlpha',1,saturation?22:18] as const]:[])]:[['a_position',2,0],['a_local',2,2],['a_color',4,4],['a_extent',2,8]]
     for(const [name,size,offset]of attributes){const loc=gl.getAttribLocation(program!,name);if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,stride*4,offset*4);this.instancing?.vertexAttribDivisorANGLE(loc,0)}}
-    let vertices=0
+    let vertices=0,requestMinX=Infinity,requestMinY=Infinity,requestMaxX=-Infinity,requestMaxY=-Infinity
     const flush=()=>{if(vertices){gl.bufferData(gl.ARRAY_BUFFER,data!.subarray(0,vertices*stride),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices);vertices=0}}
     for(let i=first;i<end;i++){
      if(nativeAA142){
@@ -309,7 +311,11 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
       if(maxX<0||maxY<0||minX>w||minY>h)continue
       if(vertices===2048*6)flush()
       const oriented=oriented144?bristleNativePoint144Quad([sx,sy],[ex,ey]):undefined
-      for(const[a,b]of CORNERS){const at=vertices++*stride;data![at]=oriented?oriented.cx+a*oriented.ux*oriented.halfLength-b*oriented.uy*oriented.halfWidth:a<0?minX:maxX;data![at+1]=oriented?oriented.cy+a*oriented.uy*oriented.halfLength+b*oriented.ux*oriented.halfWidth:b<0?minY:maxY;data![at+2]=sx;data![at+3]=sy;data![at+4]=s.color[0];data![at+5]=s.color[1];data![at+6]=s.color[2];data![at+7]=Math.round(s.flow*255)/255;data![at+8]=ex;data![at+9]=ey}
+      for(const[a,b]of CORNERS){const at=vertices++*stride;data![at]=oriented?oriented.cx+a*oriented.ux*oriented.halfLength-b*oriented.uy*oriented.halfWidth:a<0?minX:maxX;data![at+1]=oriented?oriented.cy+a*oriented.uy*oriented.halfLength+b*oriented.ux*oriented.halfWidth:b<0?minY:maxY;data![at+2]=sx;data![at+3]=sy;data![at+4]=s.color[0];data![at+5]=s.color[1];data![at+6]=s.color[2];data![at+7]=Math.round(s.flow*255)/255;data![at+8]=ex;data![at+9]=ey
+       // Bound the ACTUAL Float32 uploaded mesh, including displaced hairs.
+       // No dab-size inference and no request/viewport/shader changes.
+       if(oriented144){requestMinX=Math.min(requestMinX,data![at]);requestMinY=Math.min(requestMinY,data![at+1]);requestMaxX=Math.max(requestMaxX,data![at]);requestMaxY=Math.max(requestMaxY,data![at+1])}
+      }
       continue
      }
      const s=stamps[i],length=(s.segmentLength??0)*.5,width=s.radius,cx=s.x-originX,cy=s.y-originY,rx=length+width+1,ry=width+1
@@ -322,9 +328,22 @@ if(u_requestMode.x>.5)a*=clamp(.5-d,0.,1.);else a=floor(a*255.+.5)/255.;if(a<=0.
      }
     }
     flush();request.endDraw();gl.disable(gl.DEPTH_TEST)
-    coverage.beginDraw();gl.blendEquation(gl.FUNC_ADD);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(composite);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,request.texture)
-    gl.uniform1i(gl.getUniformLocation(composite,'u_source'),0);gl.uniform1f(gl.getUniformLocation(composite,'u_opacity'),stamps[first].ceiling);gl.bindBuffer(gl.ARRAY_BUFFER,this.quad)
-    const pos=gl.getAttribLocation(composite,'a_position');if(pos>=0){gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.instancing?.vertexAttribDivisorANGLE(pos,0)}gl.drawArrays(gl.TRIANGLES,0,6);coverage.endDraw();first=end
+    // The request was FULLY cleared and rasterized exactly as before. Outside
+    // this conservative mesh union it is RGBA0, whose OVER is identity.
+    // Keep the fullscreen viewport/quad/UV; scissor only the final transfer.
+    const left=oriented144?Math.max(0,Math.floor(requestMinX)-1):0,right=oriented144?Math.min(w,Math.ceil(requestMaxX)+1):w
+    const top=oriented144?Math.max(0,Math.floor(requestMinY)-1):0,bottom=oriented144?Math.min(h,Math.ceil(requestMaxY)+1):h
+    if(right>left&&bottom>top){
+     if(oriented144){gl.enable(gl.SCISSOR_TEST);gl.scissor(left,h-bottom,right-left,bottom-top)}
+     try{
+      coverage.beginDraw();gl.blendEquation(gl.FUNC_ADD);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(composite);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,request.texture)
+      gl.uniform1i(gl.getUniformLocation(composite,'u_source'),0);gl.uniform1f(gl.getUniformLocation(composite,'u_opacity'),stamps[first].ceiling);gl.bindBuffer(gl.ARRAY_BUFFER,this.quad)
+      const pos=gl.getAttribLocation(composite,'a_position');if(pos>=0){gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.instancing?.vertexAttribDivisorANGLE(pos,0)}gl.drawArrays(gl.TRIANGLES,0,6);coverage.endDraw()
+     }catch(error){failed=true;primary=error}
+     finally{if(oriented144)attempt(()=>gl.disable(gl.SCISSOR_TEST))}
+     if(failed)throw primary
+    }
+    first=end
    }
   }catch(error){failed=true;primary=error}
   finally{try{restore?.()}finally{this.busy=false}}
