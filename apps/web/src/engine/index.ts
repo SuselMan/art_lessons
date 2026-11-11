@@ -153,10 +153,14 @@ import { TiledLayerBuffer, LayerTilesNotReady, type TileRebuilder } from './src/
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
 import { TILE_SIZE, tilesOverlappingRect, tileWorldRect, type WorldRect } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
+import { compactHistoricalLayer, type HistoricalProjectionSource } from './src/buffers/HistoricalProjectionSource'
+
 import { packColorSmudge, restoreCheckpointMaterial } from './src/oplog/materialCheckpoint'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
 import { brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample } from '@grafetto/shared'
+
+type HistoricalProjectionEntry={buffer:HistoricalProjectionSource;bytes:number;replayTarget?:ILayerBuffer}
 
 export type { HapticGrainStats }
 export type { DiagLog, PressureMap } from './src/input/PointerInput'
@@ -1730,7 +1734,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _hatchingBackground?:HatchingRgba8
   private _canvasBrushGradient?:string
   private _canvasBrushPattern?:BrushPattern
-  private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,{buffer:ILayerBuffer;bytes:number}>;bytes:number;pinned?:Set<ILayerBuffer>}}
+  private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,HistoricalProjectionEntry>;bytes:number;pinned?:Set<HistoricalProjectionSource>}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
    *  scratch alive across the several operations it was chunked into.
@@ -2433,7 +2437,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const outer=this._projectionReadScope
     const scope:NonNullable<PencilEngine['_projectionReadScope']>={beforeSeq,target,layerId:binding.layerId,store:outer?.store??{cache:new Map(),bytes:0}}
-    const oldPins=scope.store.pinned,pinned=oldPins??new Set<ILayerBuffer>(),ownPins:ILayerBuffer[]=[],leases:Array<{assertCurrent():void;release():void}>=[]
+    const oldPins=scope.store.pinned,pinned=oldPins??new Set<HistoricalProjectionSource>(),ownPins:HistoricalProjectionSource[]=[],leases:Array<{assertCurrent():void;release():void}>=[]
     scope.store.pinned=pinned
     let retired=false,published=false,failed=false
     const release=()=>{if(retired)return;retired=true;let failure=false,primary:unknown;const attempt=(fn:()=>void)=>{try{fn()}catch(error){if(!failure){failure=true;primary=error}}};for(const lease of leases)attempt(()=>lease.release());for(const buffer of ownPins)pinned.delete(buffer);scope.store.pinned=oldPins;if(!outer)attempt(()=>this._releaseProjectionScope(scope));if(failure)throw primary}
@@ -5604,7 +5608,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!source.projection)throw Error('Missing captured projection sources')
     const historical=this._projectionReadScope
     const targetId=historical?.layerId ?? [...this._layers].find(([,buffer])=>buffer===target)?.[0]
-    const scope=historical ?? {beforeSeq:this._log.entries.length+1,target,layerId:targetId ?? '',store:{cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}}
+    const scope=historical ?? {beforeSeq:this._log.entries.length+1,target,layerId:targetId ?? '',store:{cache:new Map<string,HistoricalProjectionEntry>(),bytes:0}}
     return {layers:source.projection.map(item=>({opacity:item.opacity,buffer:{resolveVisible:rect=>{
       if(item.id===targetId)return target.resolveVisible(rect)
       // A source deleted after pen-down still belongs to this captured view;
@@ -5618,8 +5622,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._withHistoricalSourceReplay(()=>{
       let failed=false,first:unknown
       for(const entry of scope.store.cache.values()){
-        try{this._forgetWashesOf(entry.buffer)}catch(error){if(!failed){failed=true;first=error}}
-        try{entry.buffer.destroy()}catch(error){if(!failed){failed=true;first=error}}
+        try{this._retireHistoricalProjectionEntry(entry)}catch(error){if(!failed){failed=true;first=error}}
       }
       scope.store.cache.clear();scope.store.bytes=0
       if(failed)throw first
@@ -5658,35 +5661,51 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  private _historicalProjectionLayer(scope:NonNullable<PencilEngine['_projectionReadScope']>,id:string):ILayerBuffer {
+  private _retireHistoricalProjectionEntry(entry:HistoricalProjectionEntry):void {
+    let failed=false,first:unknown
+    if(entry.replayTarget)try{this._forgetWashesOf(entry.replayTarget)}catch(error){failed=true;first=error}
+    try{entry.buffer.destroy()}catch(error){if(!failed){failed=true;first=error}}
+    if(failed)throw first
+  }
+
+  private _historicalProjectionLayer(scope:NonNullable<PencilEngine['_projectionReadScope']>,id:string):HistoricalProjectionSource {
     const operations=this._log.layerPixelOps(id,scope.beforeSeq)
     const key=JSON.stringify([id,operations.map(op=>op.id)])
     const cached=scope.store.cache.get(key)
     if(cached){scope.store.cache.delete(key);scope.store.cache.set(key,cached);return cached.buffer}
     const fresh=this._makeLayerBuffer()
+    let selected:HistoricalProjectionEntry|undefined,freshOwned=true
     try{
-      const bytes=this._withHistoricalSourceReplay(()=>{
+      this._withHistoricalSourceReplay(()=>{
         this._replayInto(fresh,id,operations)
-        const bytes=fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)
-        const budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
-        // Same existing cap/order; strict allocation admission is a separate prerequisite.
+        const compact=compactHistoricalLayer(fresh)
+        if(compact){
+          selected=compact
+          // Independent copies are complete; retire full replay before admission/publication.
+          freshOwned=false
+          this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})
+        }else{
+          selected={buffer:fresh,replayTarget:fresh,bytes:fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)}
+          freshOwned=false
+        }
+        const bytes=selected.bytes,budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
         for(const [key,entry]of scope.store.cache){
           if(scope.store.bytes+bytes<=budget)break
           if(scope.store.pinned?.has(entry.buffer))continue
-          // Retire before cleanup: a throwing destroy must not leave a cached stale view.
           scope.store.cache.delete(key);scope.store.bytes-=entry.bytes
-          let cleanupFailed=false,cleanupError:unknown
-          try{this._forgetWashesOf(entry.buffer)}catch(error){cleanupFailed=true;cleanupError=error}
-          try{entry.buffer.destroy()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}
-          if(cleanupFailed)throw cleanupError
+          this._retireHistoricalProjectionEntry(entry)
         }
         if(scope.store.pinned&&scope.store.bytes+bytes>budget)throw new GridHostNotReady({kind:'notReady',reason:'resource',retryKey:'projection-history-capacity:'+scope.beforeSeq},scope.layerId)
-        return bytes
       })
-      // Publish only after replay AND independent transient cleanup succeeded.
-      scope.store.cache.set(key,{buffer:fresh,bytes});scope.store.bytes+=bytes
-      return fresh
-    }catch(error){try{fresh.destroy()}catch{/* Preserve primary, including undefined. */}throw error}
+      // Publish only after full replay, exact copy, retirement AND isolated cleanup succeed.
+      if(!selected)throw Error('Historical projection source was not prepared')
+      scope.store.cache.set(key,selected);scope.store.bytes+=selected.bytes
+      return selected.buffer
+    }catch(error){
+      if(selected)try{this._retireHistoricalProjectionEntry(selected)}catch{/* Preserve primary, including undefined. */}
+      if(freshOwned)try{this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})}catch{/* Preserve primary, including undefined. */}
+      throw error
+    }
   }
 
   private _applyPixelOp(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
@@ -5697,7 +5716,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type!=='stroke'||!op.brushSource?.projection){this._applyPixelOpBody(buf,layerId,op,spreadSettle);return}
     if(op.seq===undefined)throw Error('Historical projection requires ordered operation')
     const previous=this._projectionReadScope
-    const scope={beforeSeq:op.seq,target:buf,layerId,store:previous?.store ?? {cache:new Map<string,{buffer:ILayerBuffer;bytes:number}>(),bytes:0}}
+    const scope={beforeSeq:op.seq,target:buf,layerId,store:previous?.store ?? {cache:new Map<string,HistoricalProjectionEntry>(),bytes:0}}
     this._projectionReadScope=scope
     let failed=false
     try{this._applyPixelOpBody(buf,layerId,op,spreadSettle)}catch(error){failed=true;throw error}finally{
