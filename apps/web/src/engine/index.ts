@@ -1,3 +1,4 @@
+import{hasMyPaintTimer177Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
@@ -2536,6 +2537,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     sampler.strokeInput=spacingBrush?.behavior?.strokeInput
     sampler.timing=spacingBrush?.behavior?.timing
+    sampler.mypaintTiming177=hasMyPaintTimer177Scope(spacingBrush)?spacingBrush!:undefined
     sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
     sampler.sketchTiming161=hasSketchTimer161Scope(spacingBrush)?spacingBrush!:undefined
     sampler.curveHostTiming167=hasCurveHostTimer167Scope(spacingBrush)?spacingBrush!:undefined

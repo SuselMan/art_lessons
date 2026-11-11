@@ -511,9 +511,15 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return tangent_normal_preset(data,root,params,name,catalog,external)
     if engine == 'mypaintbrush':
         from mypaint_import import mypaint_preset
-        if params.get('CompositeOp','normal') not in ('normal','erase')or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Unsupported MyPaint composite/timing mode')
+        if params.get('CompositeOp','normal') not in ('normal','erase'):raise ValueError('Unsupported MyPaint composite/timing mode')
+        timer177=enabled(params.get('PaintOpSettings/isAirbrushing'))
+        if enabled(params.get('AirbrushOption/isAirbrushing'))and not timer177:raise ValueError('Unsupported MyPaint composite/timing mode')
+        if timer177 and(depth or not _allow_texture_material):raise ValueError('MyPaint177 requires root genuine KPP')
         if 'MyPaint/json'not in params:raise ValueError('MyPaint KPP missing JSON')
         result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase',surface_policy='krita-legacy-v1')
+        if timer177:
+            from mypaint_timer177 import apply_kpp_mypaint_timer177
+            result=apply_kpp_mypaint_timer177(result,params,depth=depth)
         result['name']=root.get('name')or result['name']
         result['descriptor']=finalize_identity(result['descriptor'],data)
         return result
@@ -1569,6 +1575,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
             d['version']=max(d['version'],100)
+    if d.get('mixer',{}).get('source')=='projectionCanvas'and d['mixer'].get('colorRateComposite')in('overlay','darken','lighten','add','subtract','dodge','burn'):
+        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Merged legacy178 requires ordinary root without timer')
+        d['version']=max(d['version'],178)
+        notes.append(compatibility('legacyMergedForeground178','Captured visible-layer order/opacity uses existing projectionCanvas feedback per request, with current target baseline and existing legacy foreground composite. Historical sources retain existing replay-prefix authority; native cached-overlay, ICC/U8 and parallel-author pixel identity are not claimed.'))
     if d.get('mixer',{}).get('colorRateComposite')in('dodge','burn'):
         d['version']=max(d['version'],176)
         if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')

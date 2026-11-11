@@ -4,7 +4,7 @@ export function hasLegacyColorSmudgeOverlay154Scope(v:unknown):boolean{
  if(!obj(v)||!obj(v.mixer)||!obj(v.behavior)||!obj(v.tip))return false
  const m=v.mixer,b=v.behavior,t=v.tip,r=b.rendering
  if(!Number.isInteger(v.version)||Number(v.version)<154||v.model!=='mixer'||v.paperInteraction!==0||['wet','texture','scatter','spray','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>v[k]!==undefined))return false
- if(m.source!=='previousCanvas'||m.colorRateComposite!=='overlay'||m.load!==0||m.initialLoad!==0||Object.keys(m).some(k=>!['load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','colorRateComposite'].includes(k)))return false
+ if((m.source!=='previousCanvas'&&!(Number(v.version)>=178&&m.source==='projectionCanvas'&&m.sampling===undefined))||m.colorRateComposite!=='overlay'||m.load!==0||m.initialLoad!==0||Object.keys(m).some(k=>!['load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','colorRateComposite'].includes(k)))return false
  if(obj(m.foreground)&&'gradient'in m.foreground)return false
  if(m.sampling!==undefined&&(!obj(m.sampling)||!['adaptiveMean','uniformMean'].includes(String(m.sampling.mode))))return false
  if(!['round','bitmap','procedural'].includes(String(t.kind))||['color','material','imageSampling','animation','autoNoise','autoShape'].some(k=>t[k]!==undefined))return false

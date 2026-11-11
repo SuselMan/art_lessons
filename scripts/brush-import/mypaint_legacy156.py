@@ -1,3 +1,4 @@
+from mypaint_timer177 import mypaint_timer177_header
 """Closed portable policy: Krita legacy ignores paint_mode; no Surface2 claim."""
 import math
 from mypaint_import import SCHEMA
@@ -5,15 +6,16 @@ from mypaint_import import SCHEMA
 def validate_mypaint_legacy156(d,parent=None):
     if not isinstance(d,dict):return
     m=d.get('mypaint')
-    if not isinstance(m,dict)or not('surfacePolicy'in m or d.get('version')==156):return
+    if not isinstance(m,dict)or not('surfacePolicy'in m or d.get('version')in(156,177)):return
     def fail():raise ValueError('Invalid Krita legacy MyPaint156 policy')
-    if parent is not None or type(d.get('version'))is not int or d['version']!=156 or m.get('surfacePolicy')!='krita-legacy-v1' or set(m)!={'version','kernel','surfacePolicy','settings','baseRadius','erase'}or type(m.get('version'))is not int or m.get('version')!=1 or m.get('kernel')!='libmypaint-1.6.1' or type(m.get('erase'))is not bool:fail()
+    timer177=mypaint_timer177_header(d)
+    if parent is not None or type(d.get('version'))is not int or(d['version']!=156 and not timer177) or m.get('surfacePolicy')!='krita-legacy-v1' or set(m)!={'version','kernel','surfacePolicy','settings','baseRadius','erase'}or type(m.get('version'))is not int or m.get('version')!=1 or m.get('kernel')!='libmypaint-1.6.1' or type(m.get('erase'))is not bool:fail()
     radius=m.get('baseRadius')
     if type(radius)not in(int,float)or not math.isfinite(radius)or not 0<radius<=800:fail()
     b=d.get('behavior')
     if d.get('model')!='stamp'or type(d.get('paperInteraction'))not in(int,float)or d.get('paperInteraction')!=0 or any(k in d for k in('mixer','clone','filter','deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet'))or not isinstance(b,dict)or type(b.get('version'))is not int or b.get('version')!=2 or any(k in b for k in('dual','wetMix','taper')):fail()
     timing=b.get('timing')
-    if timing is not None and timing!={'version':1,'rate':60,'ignoreDistanceSpacing':False}:fail()
+    if not timer177 and timing is not None and timing!={'version':1,'rate':60,'ignoreDistanceSpacing':False}:fail()
     settings=m.get('settings')
     if not isinstance(settings,list)or len(settings)>64:fail()
     ids=set();total=0

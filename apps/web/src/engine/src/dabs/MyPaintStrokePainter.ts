@@ -1,11 +1,11 @@
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
-import{MYPAINT_SCHEMA,isMyPaintDescriptor}from'@grafetto/shared'
+import{MYPAINT_SCHEMA,isMyPaintDescriptor,hasMyPaintTimer177Scope}from'@grafetto/shared'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 import type{BehaviorScratch}from'./BrushBehaviorPainter'
 import type{BrushPressureSettings}from'../presets/digitalBrushPresets'
 import{mypaintKernel,withMyPaintTiles}from'../presets/mypaintKernel'
-import{assertSameBrushExecutionContext,type BrushExecutionContext}from'../presets/brushExecutionContext'
+import{assertSameBrushExecutionContext,assertBrushExecutionContext,assertBrushSourceInputs,type BrushExecutionContext}from'../presets/brushExecutionContext'
 type Target=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>&Partial<Pick<ILayerBuffer,'resolveExistingForPaint'|'resolveVisible'>>
 type Mirror={pixels:Uint8Array;sources:{buffer:AccumulationBuffer;revision:number}[]}
 type State={mirror:Map<string,Mirror>;handle:number;execution?:BrushExecutionContext;previous?:Dab;finished?:boolean;opacity:number;destroy():void}
@@ -41,6 +41,12 @@ export class MyPaintStrokePainter{
   }catch(e){state.destroy();throw e}
  }
  paint(target:Target,dabs:readonly Dab[],brush:BrushDescriptor,color:[number,number,number],pressure:BrushPressureSettings,scratch:BehaviorScratch,execution?:BrushExecutionContext,finish=false,endpoint?:Dab):void{
+  if(brush.version===177){
+   if(!hasMyPaintTimer177Scope(brush))throw Error('Invalid MyPaint timer177 policy')
+   assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,dabs,endpoint)
+   let previous=this.states.get(scratch)?.previous?.sourceTime??-Infinity
+   for(const dab of endpoint?[...dabs,endpoint]:dabs){if(typeof dab.sourceTime!=='number'||!Number.isFinite(dab.sourceTime)||dab.sourceTime<0||dab.sourceTime<previous)throw Error('Invalid MyPaint177 recorded time');previous=dab.sourceTime}
+  }
   if((brush.version===156||brush.mypaint?.surfacePolicy!==undefined)&&!isMyPaintDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Krita legacy MyPaint156 policy')
   let state=this.states.get(scratch);if(!state&&!dabs.length)return
   state??=this.create(scratch,brush,dabs[0],color,pressure,execution)

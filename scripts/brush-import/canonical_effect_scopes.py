@@ -19,6 +19,13 @@ def validate_canonical_effect_scopes(d,depth=0):
            or any(k in d for k in('experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','scatter','texture','wet','clone','mypaint','tangentNormal','filter'))or not _number(d.get('paperInteraction'),0,0)
            or not _record(b)or b.get('version')!=2 or any(k in b for k in('erase','dual','timing','wetMix','taper'))or not _record(r)or r.get('accumulation')!='directOver'or r.get('blendMode')!='normal'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)):
             raise ValueError('Deform145 requires closed root canonical BEGIN scope')
+    if _record(f)and 'maskPolicy'in f and d.get('version')==179:
+        if f.get('kind')not in('desaturate','posterize','gaussian','unsharp')or f.get('maskPolicy')!='bitmap-alpha-v1':raise ValueError('Filter179 requires one of four existing bitmap filters')
+        validate_canonical_effect_scopes({**d,'version':169,'filter':{'version':2,'kind':'invert','smudgeMode':True,'sourcePolicy':'canonical-begin-v1','maskPolicy':'bitmap-alpha-v1'}},depth)
+        t=d['tip'];proxy={**d,'filter':{k:v for k,v in f.items()if k!='maskPolicy'},'tip':{'kind':'round',**{k:t[k]for k in('hardness','aspect','rotation','angle')}}}
+        if f['kind']=='unsharp':proxy['version']=159
+        validate_canonical_effect_scopes(proxy,depth)
+        return
     if _record(f)and f.get('spatialPolicy')=='unsharp-lab-halo-v1':
         keys={'version','kind','radiusX','radiusY','amount','threshold','lightnessOnly','smudgeMode','sourcePolicy','spatialPolicy'}
         if(depth or type(d.get('version'))is not int or d['version']!=159 or set(f)!=keys or type(f.get('version'))is not int or f['version']!=1 or f.get('kind')!='unsharp'or f.get('smudgeMode')is not True or f.get('sourcePolicy')!='canonical-begin-v1'or not _number(f.get('radiusX'),0,16)or f.get('radiusY')!=f['radiusX']or not _number(f.get('amount'),0,5)or type(f.get('threshold'))is not int or not 0<=f['threshold']<=255 or type(f.get('lightnessOnly'))is not bool):raise ValueError('Unsharp159 requires closed Lab/alpha spatial policy')

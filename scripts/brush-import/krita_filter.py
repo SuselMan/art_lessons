@@ -59,8 +59,8 @@ def filter_preset(data,root,params,name,catalog,external):
             d['filter'].update(spatialPolicy='unsharp-lab-halo-v1',threshold=int(d['filter']['threshold']))
         # Closed static pointwise source; no fallback may pretend smudge support.
         tip=d['tip'];behavior=d['behavior']
-        bitmap=tip.get('kind')=='bitmap'and kind=='invert'
-        if bitmap:d['version']=169;d['filter']['maskPolicy']='bitmap-alpha-v1'
+        bitmap=tip.get('kind')=='bitmap'
+        if bitmap:d['version']=169 if kind=='invert'else 179;d['filter']['maskPolicy']='bitmap-alpha-v1'
         standard=tip.get('kind')=='procedural'and isinstance(tip.get('profile'),dict)and tip['profile'].get('kind')=='standard'and tip['profile'].get('shape')=='ellipse'
         if(not(bitmap or standard or tip.get('kind')=='round'and 'profile'not in tip)or any(k in tip for k in('animation','color','material','imageSampling','autoShape','autoNoise'))or any(k in behavior for k in('dual','timing','wetMix','taper','scatter','colorAdjustment'))or behavior.get('erase')is True or any(k in d for k in('clone','mypaint','tangentNormal'))):raise ValueError('Filter smudge147 requires root static round pointwise COPY scope')
         note=compatibility('filterSmudge','Pointwise Filter smudge preserves a persistent unmasked world-coordinate temporary device: each logical request filters OVER(canonical-BEGIN source, previous temporary), then COPY-masks onto current destination. Invert/Desaturate/Posterize only; no translated imprint, native ICC/quantization and concurrent source identity are not pixel-identical.')
@@ -70,5 +70,6 @@ def filter_preset(data,root,params,name,catalog,external):
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d)
     if smudge and d['filter'].get('maskPolicy')=='bitmap-alpha-v1':note=compatibility('filterSmudge','Static ordinary bitmap ALPHAMASK169 uses existing native tip conversion/CAS and persistent unmasked invert temporary, canonical BEGIN source and final COPY coverage. No original-RGBA colour drawing, animation, dual, texture or timer. Native ICC/quantization/concurrency are functionally qualified, not pixel identity.')
+    if smudge and d['version']==179:note=compatibility('filterSmudge','Static ordinary bitmap ALPHAMASK179 reuses existing Desaturate/Posterize/Gaussian/Unsharp carried temporary, canonical BEGIN, spatial halos where required, and final COPY coverage. Existing CAS/budget/owner and filter mathematics are unchanged; native ICC/quantization/concurrency remain functionally qualified, not pixel identity.')
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result

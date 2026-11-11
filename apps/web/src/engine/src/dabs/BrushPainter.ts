@@ -1,6 +1,6 @@
 import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
-import{hasFilterBitmap169Scope}from'@grafetto/shared'
+import{hasFilterBitmapMaskScope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import {hasExperimentCurrentPattern158Scope,isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{assertPixelOriginalDual151Resources}from'../presets/pixelOriginalRgba'
@@ -102,7 +102,7 @@ export class BrushPainter {
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
     const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
-    if(bitmapFilter&&!hasFilterBitmap169Scope(brush))throw Error('Invalid Filter169 bitmap scope')
+    if(bitmapFilter&&!hasFilterBitmapMaskScope(brush))throw Error('Invalid Filter169 bitmap scope')
     const alphaDual=assertPixelAlphaDual168Scope(brush)||assertPixelAlphaDual170Scope(brush)
     const originalDual=assertPixelOriginalDual151Resources(brush)
     const tangentWash=hasTangentNormalWash136Scope(brush)

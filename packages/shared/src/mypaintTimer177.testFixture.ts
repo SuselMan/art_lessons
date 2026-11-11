@@ -1,0 +1,7 @@
+import type{BrushDescriptor,BrushLibrary}from'./brushes.js'
+import{library154}from'./legacyOverlay154.testFixture.js'
+import{MYPAINT_SCHEMA}from'./mypaintSchema.js'
+export function mypaint177(rate=20,ignoreDistanceSpacing=false,erase=false):BrushDescriptor {
+ const b=library154().brushes[0].descriptor;b.id='imported-177177177177177177177177';b.version=177;b.model='stamp';b.category='paint';delete b.mixer;b.tip={kind:'round',hardness:1,aspect:1,angle:0,rotation:'fixed'};b.sizeByPressure=[[0,1],[1,1]];b.opacityByPressure=[[0,1],[1,1]];b.flowByPressure=[[0,1],[1,1]];b.behavior={version:2,rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'},timing:{version:1,rate,ignoreDistanceSpacing},spacing:{mode:'kritaAuto',coefficient:1,isotropic:false}};b.mypaint={version:1,kernel:'libmypaint-1.6.1',surfacePolicy:'krita-legacy-v1',baseRadius:4,erase,settings:[{id:MYPAINT_SCHEMA.settings.find(x=>x.name==='paint_mode')!.id,base:.8,inputs:[{id:0,points:[[0,-.2],[1,.2]]}]},{id:MYPAINT_SCHEMA.settings.find(x=>x.name==='dabs_per_second')!.id,base:30,inputs:[{id:0,points:[[0,-10],[1,10]]}]},{id:MYPAINT_SCHEMA.settings.find(x=>x.name==='offset_by_random')!.id,base:.3,inputs:[]}]};return b
+}
+export function library177(rate=20,ignoreDistanceSpacing=false,erase=false):BrushLibrary{const l=library154();l.assets=[];l.brushes[0].descriptor=mypaint177(rate,ignoreDistanceSpacing,erase);return l}

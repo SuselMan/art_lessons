@@ -1,6 +1,6 @@
 import{assertTextureLightnessWash171Scope}from'@grafetto/shared'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
-import{hasFilterBitmap169Scope}from'@grafetto/shared'
+import{hasFilterBitmapMaskScope}from'@grafetto/shared'
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope}from'@grafetto/shared'
@@ -210,7 +210,7 @@ export class BrushBehaviorPainter {
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterSmudge147?:FilterSmudge147Pass
-  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.filter&&'maskPolicy'in brush.filter&&!hasFilterBitmap169Scope(brush))throw Error('Invalid Filter169 bitmap scope');if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.filter&&'maskPolicy'in brush.filter&&!hasFilterBitmapMaskScope(brush))throw Error('Invalid Filter169 bitmap scope');if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {

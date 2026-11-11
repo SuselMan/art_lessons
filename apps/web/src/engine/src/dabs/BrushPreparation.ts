@@ -3,7 +3,7 @@ import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{prepareSketchMask}from'../presets/sketchMask'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
-import{hasFilterBitmap169Scope}from'@grafetto/shared'
+import{hasFilterBitmapMaskScope}from'@grafetto/shared'
 import {isBrushPattern,type BrushPattern} from '@grafetto/shared'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
@@ -239,7 +239,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   // Filter169 mask is consumed by the existing stamp renderer; no WET duplicate bank.
-  visit(brush, hasFilterBitmap169Scope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
+  visit(brush, hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 

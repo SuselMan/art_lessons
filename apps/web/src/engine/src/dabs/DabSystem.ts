@@ -1,3 +1,4 @@
+import{hasMyPaintTimer177Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
@@ -161,6 +162,7 @@ export class DabSystem {
   captureSourceSize = false
   captureSourceTime = false
   captureSourceAngle = false
+  mypaintTiming177?:BrushDescriptor
   deformTiming160?:BrushDescriptor
   sketchTiming161?:BrushDescriptor
   curveHostTiming167?:BrushDescriptor
@@ -170,6 +172,7 @@ export class DabSystem {
   private _timingPoint?: SourcePaintInformation
   private _timingInterval?: number
   private _timingStreamActive=false
+  private _mypaintDiameter177?:number
   strokeInput?: NonNullable<BrushDescriptor['behavior']>['strokeInput']
   initialDirection = 0
   private _sourcePrevious?: SourcePaintInformation
@@ -569,6 +572,7 @@ export class DabSystem {
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
     fork.captureSourceAngle=this.captureSourceAngle
+    fork.mypaintTiming177=this.mypaintTiming177
     fork.deformTiming160=this.deformTiming160
     fork.sketchTiming161=this.sketchTiming161
     fork.curveHostTiming167=this.curveHostTiming167
@@ -577,6 +581,7 @@ export class DabSystem {
     fork._timingState=this._timingState.clone()
     fork._timingPoint=this._timingPoint?{...this._timingPoint}:undefined
     fork._timingInterval=this._timingInterval
+    fork._mypaintDiameter177=this._mypaintDiameter177
     fork.strokeInput = this.strokeInput ? structuredClone(this.strokeInput) : undefined
     fork.initialDirection = this.initialDirection
     fork._sourcePrevious = this._sourcePrevious ? { ...this._sourcePrevious } : undefined
@@ -615,11 +620,13 @@ export class DabSystem {
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
+    if(this.mypaintTiming177&&(!Number.isFinite(baseSize)||baseSize<=0||!hasMyPaintTimer177Scope(this.mypaintTiming177)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.mypaintTiming177.behavior!.timing)))throw Error('Invalid author MyPaint timer177')
     if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
     if(this.sketchTiming161&&(!hasSketchTimer161Scope(this.sketchTiming161)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.sketchTiming161.behavior!.timing)))throw Error('Invalid author Sketch timer161')
     if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
     if(this.curveHostTiming167&&(!hasCurveHostTimer167Scope(this.curveHostTiming167)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.curveHostTiming167.behavior!.timing)))throw Error('Invalid author Curve host timer167')
     this._reset()
+    this._mypaintDiameter177=this.mypaintTiming177?baseSize:undefined
     this._speed = speed
     // Seeds the filter (a no-op for every profile without one) — the first
     // sample of a stroke is taken at face value, exactly as the tilt filter
@@ -949,6 +956,13 @@ export class DabSystem {
   }
 
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
+    if(this.mypaintTiming177){
+      const diameter=this._mypaintDiameter177
+      if(diameter===undefined||!Number.isFinite(diameter)||diameter<=0)throw Error('Invalid MyPaint177 constructor diameter')
+      const spacing=Math.max(.5,diameter<1?diameter:Math.sqrt(diameter))
+      this._spacingAxes={x:spacing,y:spacing,angle:0}
+      return spacing
+    }
     if(this.deformTiming160){
       const brush=this.deformTiming160,scale=brush.deform!.baseScale
       // Native constructor uses unpressured diameter, not emitted Size sensors.
