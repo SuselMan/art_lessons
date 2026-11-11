@@ -1,3 +1,4 @@
+export{hasTextureStrengthWash183Scope}from'./brushTextureLightnessWash171.js'
 import{hasTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
 export{hasTextureGradientWash180Scope,assertTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'./legacyColorSmudgeDodgeBurn176.js'

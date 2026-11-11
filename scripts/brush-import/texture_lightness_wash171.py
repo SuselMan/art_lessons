@@ -1,5 +1,6 @@
 """Static opaque foreground Texture LIGHTNESS->Wash, no new source channel."""
 import math,re
+from texture_strength_wash183 import texture_strength183_control
 
 def texture_lightness_wash171_scope(v):
  def obj(x):return isinstance(x,dict)
@@ -18,7 +19,10 @@ def texture_lightness_wash171_scope(v):
   if not obj(cs):return False
   for target,c in cs.items():
    values=c if key=='modulations'else[c]
-   if target not in('size','opacity','flow','grainDepth')or not isinstance(values,list)or not all(leaf(a)for a in values):return False
+   if target not in('size','opacity','flow','grainDepth')or not isinstance(values,list)or not all(texture_strength183_control(a)if target=='grainDepth'and v['version']>=183 else leaf(a)for a in values):return False
+ if v['version']>=183:
+  ds=b.get('dynamics',{});ms=b.get('modulations',{});controls=([ds['grainDepth']]if 'grainDepth'in ds else[])+ms.get('grainDepth',[]);combined=[c for c in controls if isinstance(c,dict)and 'combine'in c]
+  if combined and(len(controls)!=1 or combined[0]['combine'].get('constant',1)!=x['strength']):return False
  return True
 
 def validate_texture_lightness_wash171(v,parent=None):

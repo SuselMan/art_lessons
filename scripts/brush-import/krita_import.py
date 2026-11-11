@@ -1589,6 +1589,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=max(d['version'],84)
     if d.get('texture',{}).get('material'):
         tip=d['tip'];t=d['texture'];render=behavior.get('rendering',{})
+        # Promote only the NEW checked deterministic Strength union. Existing
+        # pressure/off171/180 descriptors, compatibility and assets stay exact.
+        from texture_strength_wash183 import texture_strength183_required,texture_strength_wash183_scope
+        texture_wash183=t['material'].get('kind')in('lightness','gradient')and render.get('accumulation')=='alphaDarken'and texture_strength183_required(d)
+        if texture_wash183:
+            d['version']=max(d['version'],183)
+            # Generic expression returns a factor normalized by its constant;
+            # NEW183 retains that native external constant exactly once.
+            if any('combine'in c for c in behavior.get('modulations',{}).get('grainDepth',[])):t['strength']=clamp(numeric(params.get('Texture/Strength/Value'),1))
+            if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_strength_wash183_scope(d):raise ValueError('Native Texture Strength Wash183 requires deterministic root controls')
+            notes.append(compatibility('textureStrengthWash183','Native fade maps to existing logical dabProgress and distance to captured canonical world path; deterministic pressure/fade/distance scaling combinations retain constant before clamp. Existing Lightness/Gradient varying-pigment Wash applies external opacity once; no native subdivision/U8 identity claim.','supported'))
         texture_wash171=(t['material'].get('kind')=='lightness'and render.get('accumulation')=='alphaDarken')
         if texture_wash171:
             from texture_lightness_wash171 import texture_lightness_wash171_scope

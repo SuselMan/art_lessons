@@ -1,3 +1,4 @@
+import{isTextureStrength183Control,usesTextureStrength183Control}from'./brushTextureStrength183.js'
 import{isBrushBehavior}from'./brushBehavior.js'
 /** Closed static opaque-foreground Lightness texture before ordinary Wash. */
 export function hasTextureLightnessWash171Scope(v:unknown):boolean{
@@ -10,8 +11,13 @@ export function hasTextureLightnessWash171Scope(v:unknown):boolean{
  if(['mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','scatter'].some(k=>v[k]!==undefined))return false
  if(b.version!==2||!isBrushBehavior(b)||Object.keys(b).some(k=>!['version','rendering','spacing','speedInput','dynamics','modulations'].includes(k))||!obj(r)||r.mode!=='buildUp'||r.blendMode!=='normal'||r.accumulation!=='alphaDarken'||(r.wetEdges??0)!==0||(r.burntEdges??0)!==0||r.gammaCorrect||r.luminance)return false
  const leaf=(c:unknown)=>obj(c)&&typeof c.control==='string'&&['pressure','off'].includes(c.control)&&c.jitter===0&&c.combine===undefined
- for(const[k,c]of Object.entries(obj(b.dynamics)?b.dynamics:{}))if(!['size','opacity','flow','grainDepth'].includes(k)||!leaf(c))return false
- for(const[k,cs]of Object.entries(obj(b.modulations)?b.modulations:{}))if(!['size','opacity','flow','grainDepth'].includes(k)||!Array.isArray(cs)||!cs.every(leaf))return false
+ for(const[k,c]of Object.entries(obj(b.dynamics)?b.dynamics:{}))if(!['size','opacity','flow','grainDepth'].includes(k)||!(k==='grainDepth'&&Number(v.version)>=183?isTextureStrength183Control(c):leaf(c)))return false
+ for(const[k,cs]of Object.entries(obj(b.modulations)?b.modulations:{}))if(!['size','opacity','flow','grainDepth'].includes(k)||!Array.isArray(cs)||!cs.every(c=>k==='grainDepth'&&Number(v.version)>=183?isTextureStrength183Control(c):leaf(c)))return false
+ if(Number(v.version)>=183){
+  const d=obj(b.dynamics)?b.dynamics:{},m=obj(b.modulations)?b.modulations:{},controls=[...(d.grainDepth===undefined?[]:[d.grainDepth]),...(Array.isArray(m.grainDepth)?m.grainDepth:[])]
+  const combined=controls.filter(c=>obj(c)&&c.combine!==undefined)
+  if(combined.length&&(controls.length!==1||!obj(combined[0])||!obj(combined[0].combine)||(combined[0].combine.constant??1)!==x.strength))return false
+ }
  return true
 }
 export function assertTextureLightnessWash171Scope(v:unknown):boolean{
@@ -19,4 +25,14 @@ export function assertTextureLightnessWash171Scope(v:unknown):boolean{
  if(b?.model!=='stamp'||b.texture?.material?.kind!=='lightness'||b.behavior?.rendering?.accumulation!=='alphaDarken')return false
  if(!hasTextureLightnessWash171Scope(v))throw Error('Invalid Texture Lightness Wash171 scope')
  return true
+}
+
+/** Additive183 admission; historical171/180 descriptors are not promoted. */
+export function hasTextureStrengthWash183Scope(v:unknown):boolean{
+ const obj=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x)
+ if(!obj(v)||!Number.isInteger(v.version)||Number(v.version)<183||!obj(v.texture)||!obj(v.texture.material)||!obj(v.behavior))return false
+ const m=v.texture.material;if(!['lightness','gradient'].includes(String(m.kind))||typeof m.kind!=='string')return false
+ const b=v.behavior,d=obj(b.dynamics)?b.dynamics:{},mods=obj(b.modulations)?b.modulations:{}
+ const controls=[...(d.grainDepth===undefined?[]:[d.grainDepth]),...(Array.isArray(mods.grainDepth)?mods.grainDepth:[])]
+ return controls.some(usesTextureStrength183Control)&&hasTextureLightnessWash171Scope({...v,texture:{...v.texture,material:{...m,kind:'lightness'}}})
 }
