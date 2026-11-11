@@ -1,6 +1,6 @@
 /** Private opt-in Color Smudge programs. Historical compiler inputs unchanged. */
-export function colorSmudgeCompositeCode(value:unknown):0|1|2|3|4|5|6|7|8|9|10|11 {
-  switch(value){case'grainMerge':return 1;case'grainExtract':return 2;case'negation':return 3;case'multiply':return 4;case'screen':return 5;case'erase':return 6;case'overlay':return 7;case'darken':return 8;case'lighten':return 9;case'add':return 10;case'subtract':return 11;default:return 0}
+export function colorSmudgeCompositeCode(value:unknown):0|1|2|3|4|5|6|7|8|9|10|11|12|13 {
+  switch(value){case'grainMerge':return 1;case'grainExtract':return 2;case'negation':return 3;case'multiply':return 4;case'screen':return 5;case'erase':return 6;case'overlay':return 7;case'darken':return 8;case'lighten':return 9;case'add':return 10;case'subtract':return 11;case'dodge':return 12;case'burn':return 13;default:return 0}
 }
 function replace(source:string,before:string,after:string):string {
   if(source.split(before).length!==2)throw new Error('Color Smudge strategy shader anchor changed')
@@ -50,4 +50,25 @@ export function colorSmudgeLegacyFragment(source:string,overlay154=false,minmax1
   return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`if(u_colorSmudgeComposite>5.5){source*=1.0-b;}else{vec3 destination=source.rgb/max(source.a,0.000001);
         vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
         source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));}`)
+}
+
+/** SDR foreground-only176; separate source leaves all historical variants byteexact. */
+export function colorSmudgeDodgeBurn176Fragment(source:string):string {
+  const scalar=`
+ float colorSmudgeDodgeBurnChannel(float destination,float source) {
+   source=clamp(source,0.0,1.0);destination=clamp(destination,0.0,1.0);
+   if(u_colorSmudgeComposite>12.5){
+     if(destination>=1.0)return 1.0;
+     if(source<=0.0)return 0.0;
+     return 1.0-min(1.0,(1.0-destination)/source);
+   }
+   if(source>=1.0)return destination<=0.0?0.0:1.0;
+   return min(1.0,destination/(1.0-source));
+ }
+`
+  const extended=COMPOSITE_GLSL.replace(' vec3 colorSmudgeChannel',scalar+' vec3 colorSmudgeChannel').replace('   vec3 d=floor','   if(u_colorSmudgeComposite>11.5)return vec3(colorSmudgeDodgeBurnChannel(destination.r,source.r),colorSmudgeDodgeBurnChannel(destination.g,source.g),colorSmudgeDodgeBurnChannel(destination.b,source.b));\n   vec3 d=floor')
+  source=replace(source,' void main() {',extended+' void main() {')
+  return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));`)
 }

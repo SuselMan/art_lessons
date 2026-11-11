@@ -1,3 +1,4 @@
+import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
@@ -1586,6 +1587,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _liveDabQueue: Dab[] = []
   private _liveLastEmitAt = 0
   private _livePacketSeq = 0
+  private _liveDabFlush?: {timer?:ReturnType<typeof setTimeout>;strokeId:string;layerId:string}
 
   // Debug instrumentation (#91 device investigation) — all no-ops unless
   // _debug is true, so this costs nothing in normal use.
@@ -4085,6 +4087,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
       else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy(descriptor.mixer?.colorRateComposite==='overlay')
       else if (painter === 'colorSmudgeLegacyMinMax172') this._smudge.prepareColorSmudgeLegacy(false,true)
+      else if (painter === 'colorSmudgeLegacyDodgeBurn176') this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176')
       else if (painter === 'colorSmudgeLegacyArithmetic175') this._smudge.prepareColorSmudgeLegacy(false,false,true)
       else if(painter === 'projectionCanvas')this._smudge.prepareProjectionSource()
       else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
@@ -6905,6 +6908,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._airbrushTimer=null;this._airbrushInput=undefined;this._authorProducer=undefined
   }
   private _cancelOwnedAuthor(lost:boolean,repair=false):void {
+    this._cancelLiveDabFlush()
     // Only accepted input has entered _strokeDabs; cancellation may discard the
     // parked remainder but must first preserve that accepted prefix and its END.
     if(!lost&&this._gridAuthor?.committed&&this._strokeId&&this._strokeLayerId&&(!this._gridAuthor.capability||!canonicalBeginIsStamp(this._gridAuthor.capability)||this._gridAuthor.strokeId===this._strokeId)){
@@ -7066,6 +7070,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._onEndCurrent(e)
   }
   private _onEndCurrent(e:PointerData):void {
+    this._cancelLiveDabFlush()
     if(this._gridAuthor&&!this._gridAuthor.committed){this._cancelGridAuthorStart();return}
     if(this._gridAuthor&&this._authorInput.isParked){this._gridAuthor.end={...e};return}
     if(this._authorInputError!==undefined)return
@@ -7279,6 +7284,7 @@ export class PencilEngine implements PencilEngineAPI {
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
     // early as the channel allows. Only the packets after it are paced.
+    this._cancelLiveDabFlush()
     this._liveDabQueue = []
     this._liveLastEmitAt = 0
     this._livePacketSeq = 0
@@ -7656,6 +7662,7 @@ export class PencilEngine implements PencilEngineAPI {
     // twice would buy nothing and cost a packet at the busiest moment of the
     // gesture. Peers paint the streamed prefix, the operation paints the tail
     // — see _claimLivePaintedDabs.
+    this._cancelLiveDabFlush()
     if (this._strokeId) this._onLiveStrokeEnd?.(this._strokeId)
     this._liveDabQueue = []
     // Only now: the operation built just above still needed it, and _onEnd
@@ -7985,29 +7992,42 @@ export class PencilEngine implements PencilEngineAPI {
     this._scheduleDisplay()
   }
 
-  /** Flushes the in-progress stroke's accumulated dabs as a complete
-   *  StrokeOperation without ending the stroke itself — same Operation
-   *  shape _onEnd's own dispatch builds, just none of _onEnd's stroke
-   *  teardown (_strokeLayerId/_previewBuf/_tipBuf/_display() are all still
-   *  legitimately mid-stroke and untouched here; the pointer is still
-   *  down, painting continues into the same buffer right after this
-   *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
-   *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
-   *  dispatch is — never called with nothing to flush. */
-  /** (#429) Sends the dabs queued since the last packet, if enough time has
-   *  passed. Called from every path that paints a dab of a local stroke, so
-   *  the queue drains on drawing activity rather than on a timer — a stroke
-   *  that is not moving has nothing to send, and one that stops for good ends
-   *  via _onEnd, so no interval needs to exist for this.
-   *
-   *  Sends nothing when there is no handler wired (every non-room use of the
-   *  engine: tests, the lesson-replay player, the paper-bake harness), which
-   *  is also why none of them pay for the queue. */
+  /** Retire the single owned live-prefix deadline before gesture teardown. */
+  private _cancelLiveDabFlush():void {
+    const queued=this._liveDabFlush
+    this._liveDabFlush=undefined
+    if(queued?.timer!==undefined)clearTimeout(queued.timer)
+  }
+
+  /** Send only the already generated prefix when the pen stops inside the
+   * live throttle interval. The token owns one timeout, never input or RNG. */
+  private _queueLiveDabFlush(delay:number):void {
+    if(this._authorProducer?.ended||this._gridAuthor?.end)return
+    const strokeId=this._strokeId,layerId=this._strokeLayerId
+    if(!strokeId||!layerId)return
+    const previous=this._liveDabFlush
+    if(previous?.strokeId===strokeId&&previous.layerId===layerId)return
+    this._cancelLiveDabFlush()
+    const queued:{timer?:ReturnType<typeof setTimeout>;strokeId:string;layerId:string}={strokeId,layerId}
+    this._liveDabFlush=queued
+    queued.timer=setTimeout(()=>{
+      if(this._liveDabFlush!==queued)return
+      this._liveDabFlush=undefined
+      if(this._destroyed||this._contextLost||this.gl.isContextLost()||this._strokeId!==strokeId||this._strokeLayerId!==layerId||this._authorProducer?.ended||this._gridAuthor?.end)return
+      this._emitLiveDabsIfDue()
+    },Math.max(1,delay))
+  }
+
+  /** Emit the existing queued prefix at the 60ms cadence. One coalesced
+   * deadline flushes already generated dabs while the pen is stationary;
+   * it never samples input, advances the brush clock, or creates operations. */
   private _emitLiveDabsIfDue(): void {
-    if (!this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId) return
-    if (!this._liveDabQueue.length) return
+    if(this._destroyed||this._contextLost||this.gl.isContextLost()){this._cancelLiveDabFlush();return}
+    if (!this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId || !this._liveDabQueue.length){this._cancelLiveDabFlush();return}
     const now = performance.now()
-    if (now - this._liveLastEmitAt < LIVE_STROKE_EMIT_INTERVAL_MS) return
+    const remaining=LIVE_STROKE_EMIT_INTERVAL_MS-(now-this._liveLastEmitAt)
+    if(remaining>0){this._queueLiveDabFlush(remaining);return}
+    this._cancelLiveDabFlush()
     this._liveLastEmitAt = now
     // (#520) One packet per layer this gesture paints into, all carrying the
     // *same* packetSeq. The counter advances once per round, not once per
@@ -8066,6 +8086,15 @@ export class PencilEngine implements PencilEngineAPI {
     return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > span
   }
 
+  /** Flushes the in-progress stroke's accumulated dabs as a complete
+   *  StrokeOperation without ending the stroke itself — same Operation
+   *  shape _onEnd's own dispatch builds, just none of _onEnd's stroke
+   *  teardown (_strokeLayerId/_previewBuf/_tipBuf/_display() are all still
+   *  legitimately mid-stroke and untouched here; the pointer is still
+   *  down, painting continues into the same buffer right after this
+   *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
+   *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
+   *  dispatch is — never called with nothing to flush. */
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
@@ -8317,7 +8346,7 @@ export class PencilEngine implements PencilEngineAPI {
         return undefined
       }
       if(paint?.brush&&this._beginCapability(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
-      if (paint) { if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite

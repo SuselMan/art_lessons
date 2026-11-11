@@ -1,3 +1,5 @@
+type LegacyColorSmudgeFamily='base83'|'overlay154'|'minmax172'|'arithmetic175'|'dodgeBurn176'
+import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
@@ -66,7 +68,7 @@ import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, colorSmudgeTex
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
 import { colorSmudgeRates, resolveColorSmudgeRate } from '../presets/colorSmudge'
-import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeLegacyFragment} from '../raster/colorSmudgeStrategyShader'
+import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeDodgeBurn176Fragment,colorSmudgeLegacyFragment} from '../raster/colorSmudgeStrategyShader'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
@@ -249,6 +251,7 @@ export class SmudgePainter {
   private colorSmudgeLegacyOverlayTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private colorSmudgeLegacyMinMaxTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private colorSmudgeLegacyArithmeticTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyDodgeBurnTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab;target?:ILayerBuffer }>()
@@ -303,6 +306,7 @@ export class SmudgePainter {
     this.colorSmudgeLegacyOverlayTransfer = undefined
     this.colorSmudgeLegacyMinMaxTransfer = undefined
     this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -335,6 +339,7 @@ export class SmudgePainter {
     this.colorSmudgeLegacyOverlayTransfer = undefined
     this.colorSmudgeLegacyMinMaxTransfer = undefined
     this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -370,6 +375,7 @@ export class SmudgePainter {
     if(this.colorSmudgeLegacyOverlayTransfer)gl.deleteProgram(this.colorSmudgeLegacyOverlayTransfer.program)
     if(this.colorSmudgeLegacyMinMaxTransfer)gl.deleteProgram(this.colorSmudgeLegacyMinMaxTransfer.program)
     if(this.colorSmudgeLegacyArithmeticTransfer)gl.deleteProgram(this.colorSmudgeLegacyArithmeticTransfer.program)
+    if(this.colorSmudgeLegacyDodgeBurnTransfer)gl.deleteProgram(this.colorSmudgeLegacyDodgeBurnTransfer.program)
     if(this.materialProjection)gl.deleteProgram(this.materialProjection.program)
     if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
@@ -381,6 +387,7 @@ export class SmudgePainter {
     this.colorSmudgeLegacyOverlayTransfer = undefined
     this.colorSmudgeLegacyMinMaxTransfer = undefined
     this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
     this.materialProjection = undefined
     this.curveTransfer = undefined
     this.imageTransfer = undefined
@@ -454,6 +461,7 @@ export class SmudgePainter {
   ): GridWashPaintResult|void {
     if(paint?.brush?.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')throw Error('Pixel alpha dual170 requires ordinary BrushPainter path')
     if(paint?.brush?.behavior?.dual?.blendMode==='hardMixSofterPhotoshop')throw Error('Pixel alpha dual168 requires ordinary BrushPainter path')
+    if(paint?.brush?.mixer?.colorRateComposite==='dodge'||paint?.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}
     if(paint?.brush?.mixer?.colorRateComposite==='add'||paint?.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}
     if(paint?.brush?.mixer?.colorRateComposite==='darken'||paint?.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}
     if(paint?.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}
@@ -1283,7 +1291,22 @@ export class SmudgePainter {
 
   prepareColorSmudgeLegacy(overlay154=false,minmax172=false,arithmetic175=false):void {
     if(Number(!!overlay154)+Number(!!minmax172)+Number(!!arithmetic175)>1)throw Error('Ambiguous legacy Color Smudge variant')
-    if(arithmetic175){
+    this.prepareLegacyColorSmudgeFamily(arithmetic175?'arithmetic175':minmax172?'minmax172':overlay154?'overlay154':'base83')
+  }
+  prepareColorSmudgeLegacyFamily(family:LegacyColorSmudgeFamily):void {
+    if(!['base83','overlay154','minmax172','arithmetic175','dodgeBurn176'].includes(family))throw Error('Invalid legacy Color Smudge family')
+    this.prepareLegacyColorSmudgeFamily(family)
+  }
+  private prepareLegacyColorSmudgeFamily(family:LegacyColorSmudgeFamily):void {
+    if(family==='dodgeBurn176'){
+      if(this.colorSmudgeLegacyDodgeBurnTransfer)return
+      const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeDodgeBurn176Fragment(wetTransferFragment(true,true,true)))
+      this.colorSmudgeLegacyDodgeBurnTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+      return
+    }
+    if(family==='arithmetic175'){
       if(this.colorSmudgeLegacyArithmeticTransfer)return
       const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),false,false,true))
       this.colorSmudgeLegacyArithmeticTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
@@ -1291,7 +1314,7 @@ export class SmudgePainter {
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
       return
     }
-    if(minmax172){
+    if(family==='minmax172'){
       if(this.colorSmudgeLegacyMinMaxTransfer)return
       const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),false,true))
       this.colorSmudgeLegacyMinMaxTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
@@ -1299,7 +1322,7 @@ export class SmudgePainter {
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
       return
     }
-    if(overlay154){
+    if(family==='overlay154'){
       if(this.colorSmudgeLegacyOverlayTransfer)return
       const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),true))
       this.colorSmudgeLegacyOverlayTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
@@ -1392,6 +1415,8 @@ export class SmudgePainter {
     const paper = this.ctx.paper
     const overlay154=wet?.paint.brush?.mixer?.colorRateComposite==='overlay'
     const minmax172=wet?.paint.brush?.mixer?.colorRateComposite==='darken'||wet?.paint.brush?.mixer?.colorRateComposite==='lighten'
+    const dodgeBurn176=wet?.paint.brush?.mixer?.colorRateComposite==='dodge'||wet?.paint.brush?.mixer?.colorRateComposite==='burn'
+    if(dodgeBurn176){if(!hasLegacyColorSmudgeDodgeBurn176Scope(wet?.paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}
     const arithmetic175=wet?.paint.brush?.mixer?.colorRateComposite==='add'||wet?.paint.brush?.mixer?.colorRateComposite==='subtract'
     if(arithmetic175){if(!hasLegacyColorSmudgeArithmetic175Scope(wet?.paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}
     if(minmax172){if(!hasLegacyColorSmudgeMinMax172Scope(wet?.paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}
@@ -1402,7 +1427,7 @@ export class SmudgePainter {
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
     if(brush&&usesColorSmudgeTexture(brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared')
     const composite=colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
-    const legacyComposite=composite===4||composite===5||(composite===6||composite===7||composite===8||composite===9||composite===10||composite===11)&&!brush?.mixer?.algorithm
+    const legacyComposite=composite===4||composite===5||(composite===6||composite===7||composite===8||composite===9||composite===10||composite===11||composite===12||composite===13)&&!brush?.mixer?.algorithm
     if(composite===6&&(!brush||brush.version<88||brush.model!=='mixer'||brush.behavior?.erase!==true||!brushSamplesCanvas(brush)))throw Error('Foreground erase requires Color Smudge88')
     if(legacyComposite && (brush?.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
     const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
@@ -1429,7 +1454,8 @@ export class SmudgePainter {
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
     if(legacyComposite){
-      if(arithmetic175)binding=this.colorSmudgeLegacyArithmeticTransfer
+      if(dodgeBurn176)binding=this.colorSmudgeLegacyDodgeBurnTransfer
+      else if(arithmetic175)binding=this.colorSmudgeLegacyArithmeticTransfer
       else if(minmax172)binding=this.colorSmudgeLegacyMinMaxTransfer
       else if(overlay154)binding=this.colorSmudgeLegacyOverlayTransfer
       else{this.prepareColorSmudgeLegacy();binding=this.colorSmudgeLegacyTransfer}
@@ -1477,7 +1503,7 @@ export class SmudgePainter {
       gl.uniform1f(u.u_wickPx, wick)
       gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
     }
-    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeTextureTransfer || binding === this.colorSmudgeForegroundTransfer || (binding === this.colorSmudgeLegacyTransfer || binding === this.colorSmudgeLegacyOverlayTransfer || binding === this.colorSmudgeLegacyMinMaxTransfer || binding === this.colorSmudgeLegacyArithmeticTransfer)) && binding) {
+    if ((binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeTextureTransfer || binding === this.colorSmudgeForegroundTransfer || (binding === this.colorSmudgeLegacyTransfer || binding === this.colorSmudgeLegacyOverlayTransfer || binding === this.colorSmudgeLegacyMinMaxTransfer || binding === this.colorSmudgeLegacyArithmeticTransfer || binding === this.colorSmudgeLegacyDodgeBurnTransfer)) && binding) {
       gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
       gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
       const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
@@ -1515,7 +1541,7 @@ export class SmudgePainter {
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
     if(binding && (binding===this.colorSmudgeTransfer || binding===this.colorSmudgeTextureTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
-    if(binding && (binding===this.colorSmudgeForegroundTransfer || (binding===this.colorSmudgeLegacyTransfer||binding===this.colorSmudgeLegacyOverlayTransfer||binding===this.colorSmudgeLegacyMinMaxTransfer||binding===this.colorSmudgeLegacyArithmeticTransfer)))gl.uniform1f(u.u_colorSmudgeComposite,composite)
+    if(binding && (binding===this.colorSmudgeForegroundTransfer || (binding===this.colorSmudgeLegacyTransfer||binding===this.colorSmudgeLegacyOverlayTransfer||binding===this.colorSmudgeLegacyMinMaxTransfer||binding===this.colorSmudgeLegacyArithmeticTransfer||binding===this.colorSmudgeLegacyDodgeBurnTransfer)))gl.uniform1f(u.u_colorSmudgeComposite,composite)
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1

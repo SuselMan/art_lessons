@@ -1,3 +1,4 @@
+from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope
 """Bounded Krita resource reader; independent implementation of documented data.
@@ -1239,7 +1240,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         # canvas ALPHAMASK strategies. Material/interstroke/overlay need separate sources.
         modern=enabled(params.get('SmudgeRateUseNewEngine','false')) or 'color' in d['tip'] or 'material' in d['tip']
         foreground_modes={'grain_merge':'grainMerge','grain_extract':'grainExtract','negation':'negation'}
-        legacy_foreground=not modern and mode in('multiply','screen','overlay','darken','lighten','add','linear_dodge','subtract')
+        legacy_foreground=not modern and mode in('multiply','screen','overlay','darken','lighten','add','linear_dodge','subtract','dodge','burn')
         previous_canvas=(numeric(params.get('SmudgeRateMode'),0) in (0,1)
                          and (application==0 or 'color' in d['tip'] or 'material' in d['tip'])
                          and (eraser or params.get('CompositeOp','normal')=='normal' or (modern and (mode in modes or mode in foreground_modes)) or legacy_foreground))
@@ -1568,6 +1569,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
             d['version']=max(d['version'],100)
+    if d.get('mixer',{}).get('colorRateComposite')in('dodge','burn'):
+        d['version']=max(d['version'],176)
+        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')
+        notes.append(compatibility('legacyForegroundDodgeBurn176','Native SDR Dodge/Burn foreground Color Rate clamps division BEFORE alpha-aware foreground union and existing COPY/OVER. Dodge source1/destination0 remains0; Burn destination1/source0 remains1. Functional normalized colour, not HDR/ICC/native U8 division identity.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('add','subtract'):
         d['version']=max(d['version'],175)
         if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')

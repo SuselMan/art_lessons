@@ -1,3 +1,4 @@
+from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope, validate_legacy_color_smudge_dodge_burn176
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope, validate_legacy_color_smudge_arithmetic175
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope, validate_legacy_color_smudge_minmax172
 #!/usr/bin/env python3
@@ -526,7 +527,7 @@ def validate_portable_mixer(descriptor):
     if 'colorRateComposite'in mixer:
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
-        valid=(legacy_color_smudge_arithmetic175_scope(descriptor)if mode in('add','subtract')else legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
+        valid=(legacy_color_smudge_dodge_burn176_scope(descriptor)if mode in('dodge','burn')else legacy_color_smudge_arithmetic175_scope(descriptor)if mode in('add','subtract')else legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
         if not valid or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
@@ -600,6 +601,7 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_clone_healing152(descriptor,1 if parent is not None else 0)
     validate_legacy_color_smudge_overlay154(descriptor,1 if parent is not None else 0)
     validate_legacy_color_smudge_minmax172(descriptor,1 if parent is not None else 0)
+    validate_legacy_color_smudge_dodge_burn176(descriptor,1 if parent is not None else 0)
     validate_legacy_color_smudge_arithmetic175(descriptor,1 if parent is not None else 0)
     from canonical_effect_scopes import validate_canonical_effect_scopes
     validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
@@ -800,6 +802,7 @@ def portable_bundle(path,catalog):
         validate_clone_healing152(d,depth)
         validate_legacy_color_smudge_overlay154(d,depth)
         validate_legacy_color_smudge_minmax172(d,depth)
+        validate_legacy_color_smudge_dodge_burn176(d,depth)
         validate_legacy_color_smudge_arithmetic175(d,depth)
         from canonical_effect_scopes import validate_canonical_effect_scopes
         validate_canonical_effect_scopes(d,depth)
