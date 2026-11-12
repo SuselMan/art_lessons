@@ -871,7 +871,28 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       // Only admitted paint dabs enter the native-style opacity history.
       // Geometry/RNG still advance above, but a discarded tiny footprint must
       // not leave a high average behind for the next visible low-opacity dab.
-      return behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color,sketchMask?{sketchMask}:undefined).map(st=>{
+      const emitted=behaviorStampsForDab(brush, dab, state, brush.tangentNormal?tangentNormalColor(brush.tangentNormal,dab,execution!.brushSource!.normalRotation!):color,sketchMask?{sketchMask}:undefined)
+      if(brush.bristle?.version===1){
+        // The bristle producer returns fresh wrappers, never pending/state-owned stamps.
+        // Compact only this invocation's array and place its wrappers without cloning each hair.
+        let count=0
+        for(const st of emitted){
+          if(!(gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25))continue
+          const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
+          const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
+          const placed=st as BehaviorPlaced
+          if(circleBand){placed.aspect=1;placed.angle=0}
+          placed.radius=st.size*placedSizeMultiplier*.5
+          placed.flow=flow*st.flowScale
+          placed.ceiling=ceiling
+          placed.pressure=dab.pressure
+          if(wash){placed.washAverage=wash.average;placed.washFeedback=!wash.canBlend || !constantPigment}
+          emitted[count++]=placed
+        }
+        emitted.length=count
+        return emitted as BehaviorPlaced[]
+      }
+      return emitted.map(st=>{
         if(brush.bristle?.version!==2)return st
         const geometry=(st as typeof st&{bristleInk?:BristleInkGeometry}).bristleInk
         if(!geometry)throw Error('Missing Bristle ink geometry')
