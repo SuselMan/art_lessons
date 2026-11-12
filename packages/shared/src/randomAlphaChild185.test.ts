@@ -1,0 +1,5 @@
+import{it,expect}from'vitest'
+import{isBrushLibrary,hasAnimatedAlphaChild184Scope}from'./brushes.js'
+import{library185}from'./randomAlphaChild185.testFixture.js'
+it('185 admits random only with same ordinary inventory and all existing combine formulae',()=>{for(const blend of['multiply','subtract','darken','hardMixSofterPhotoshop','hardMixPhotoshopAlpha']as const){const l=library185();l.brushes[0].descriptor.behavior!.dual!.blendMode=blend;expect(hasAnimatedAlphaChild184Scope(l.brushes[0].descriptor)).toBe(true);expect(isBrushLibrary(l)).toBe(true)}})
+it('random185 cannot smuggle selectors, rank, wire policies, or unequal geometry into184',()=>{for(const change of[(l:ReturnType<typeof library185>)=>{l.brushes[0].descriptor.version=184},(l:ReturnType<typeof library185>)=>{l.brushes[0].descriptor.version=186},(l:ReturnType<typeof library185>)=>{l.brushes[0].descriptor.behavior!.dual!.brush.tip.animation!.mode='incremental'},(l:ReturnType<typeof library185>)=>{l.brushes[0].descriptor.behavior!.dual!.brush.tip.animation!.rank=2},(l:ReturnType<typeof library185>)=>{l.assets[2].size=8}]){const l=library185();change(l);expect(isBrushLibrary(l)).toBe(false)}})

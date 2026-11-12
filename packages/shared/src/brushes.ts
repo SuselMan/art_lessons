@@ -487,7 +487,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
-    if(d.version===184){
+    if(d.version===184||d.version===185){
       if(!hasAnimatedAlphaChild184Scope(d))return false
       const child=(d.behavior as {dual:{brush:{tip:{animation:{frames:string[]}}}}}).dual.brush
       const sides=child.tip.animation.frames.map(id=>assetSizes.get(id))
