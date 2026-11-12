@@ -44,6 +44,12 @@ def source_policy(params, parse_xml, transfer):
 
 
 def independent_drawing_angle_pair(value):
+    from child_absolute_size187 import independent_child_absolute_size187_scope
+    absolute187=independent_child_absolute_size187_scope(value)
+    marker_behavior=value.get('behavior')if isinstance(value,dict)else None
+    marker_dual=marker_behavior.get('dual')if isinstance(marker_behavior,dict)else None
+    marker_child=marker_dual.get('brush')if isinstance(marker_dual,dict)else None
+    if isinstance(value,dict)and(value.get('version')==187 or isinstance(marker_child,dict)and marker_child.get('version')==187)and not absolute187:return False
     material=isinstance(value,dict)and isinstance(value.get('tip'),dict)and'material'in value['tip']
     child=value.get('behavior',{}).get('dual',{}).get('brush',{})if isinstance(value,dict)and isinstance(value.get('behavior'),dict)and isinstance(value['behavior'].get('dual'),dict)else{}
     rt=value.get('tip',{})if isinstance(value,dict)else{};ct=child.get('tip',{})if isinstance(child,dict)else{}
@@ -62,7 +68,7 @@ def independent_drawing_angle_pair(value):
         if material and(tip['kind']!='bitmap'or'profile'in tip or'alphaThreshold'in tip):return False
         if any(k in d and not(animated130 and root and k in('texture','scatter'))for k in('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
         if animated130 and root and ('scatter'in d and(not isinstance(d['scatter'],dict)or d['scatter'].get('count')!=1)or'texture'in d and(not isinstance(d['texture'],dict)or not isinstance(d['texture'].get('application'),dict)or d['texture']['application'].get('mode')!='subtract'or'material'in d['texture']or'eraseId'in d['texture'])):return False
-        if set(b)-({'version','rendering','rotation','strokeInput','speedInput','spacing'}|({'dual'}|({'modulations','colorAdjustment','scatter'}if animated130 else set())if root else set())):return False
+        if set(b)-({'version','rendering','rotation','strokeInput','speedInput','spacing'}|({'modulations'}if absolute187 and not root else set())|({'dual'}|({'modulations','colorAdjustment','scatter'}if animated130 else set())if root else set())):return False
         rotation=b.get('rotation');policy=b.get('strokeInput')
         if not isinstance(rotation,dict)or set(rotation)!={'follow','random'}or type(rotation.get('follow'))not in(int,float)or rotation['follow']!=1 or rotation.get('random')!='none'or not isinstance(policy,dict)or set(policy)!={'version','initialDirection'}or type(policy.get('version'))is not int or policy['version']!=1 or policy.get('initialDirection')!='cursorHistory':return False
         if type(b.get('version'))is not int or b.get('version')!=2 or 'spacing'in b and not isinstance(b['spacing'],dict)or b.get('spacing',{}).get('dynamics'):return False
@@ -92,6 +98,10 @@ def validate_independent_pair_assets(brush,asset_sizes):
 
 def validate_policy(brush, depth=0, parent=None):
     """Portable metadata validation mirrors shared strokeInput; independent children are not enabled."""
+    if brush.get('version')==187:
+        from child_absolute_size187 import independent_child_absolute_size187_scope
+        whole=brush if depth==0 else parent
+        if not independent_child_absolute_size187_scope(whole)or not independent_drawing_angle_pair(whole):raise ValueError('Invalid portable child absolute Size187 scope')
     behavior = brush.get('behavior', {})
     if not isinstance(behavior, dict) or 'strokeInput' not in behavior:
         return

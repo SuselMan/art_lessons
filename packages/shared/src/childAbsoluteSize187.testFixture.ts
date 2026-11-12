@@ -1,0 +1,7 @@
+import type{BrushDescriptor,BrushLibrary}from'./brushes.js'
+const id=`asset:${'a'.repeat(64)}`as const
+export function childSize187():BrushDescriptor{
+ const c=():BrushDescriptor=>({id:'imported-187187187187187187187187',version:187,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:id,hardness:1,aspect:1,angle:0,rotation:'fixed'},paperInteraction:0,spacing:.5,flow:1,flowPer:'stamp',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],behavior:{version:2,strokeInput:{version:1,initialDirection:'cursorHistory'},rotation:{follow:1,random:'none'},spacing:{mode:'diameter',coefficient:.5,isotropic:true},rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}})
+ const root=c(),child=c();child.id='imported-187187187187187187187188';child.sizeByPressure=[[0,.5],[1,.5]];child.behavior!.rendering!.accumulation='alphaDarken';child.behavior!.modulations={size:[{control:'off',minimum:0,jitter:0,combine:{mode:'product',constant:.5,scaling:[{control:'pressure',minimum:0,jitter:0,curve:[[0,0],[1,1]]}],additive:[],absolute:{locked:false,angleOffset:0,curve:[[0,0],[1,1]]}}}]};root.behavior!.dual={brush:child,sampling:'independent',blendMode:'multiply'};return root
+}
+export function childSize187Library():BrushLibrary{return{schemaVersion:1,assets:[{id,size:4,file:'a'.repeat(64)+'.bin'}],brushes:[{name:'Own187',source:'Own187.kpp',warnings:[],descriptor:childSize187()}],skipped:[]}}

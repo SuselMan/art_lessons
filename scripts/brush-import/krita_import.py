@@ -1531,7 +1531,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         return isinstance(value,list)and any(has_absolute_combination(v)for v in value)
     absolute_combination=has_absolute_combination(d)
     if absolute_combination:
-        if depth>0:raise ValueError('Independent child absolute size-like input is unsupported')
+        if depth>0:
+            from child_absolute_size187 import child_absolute_size187_control
+            if depth!=1 or not child_absolute_size187_control(d)or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Independent child absolute size-like input is outside187 scope')
         behavior.setdefault('strokeInput',{'version':1,'initialDirection':'cursorHistory'})
     if native_keyed(d): d['version']=32
     # Research readiness only: no CLI/stock default enables this capability.
@@ -1707,7 +1709,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if child_drawing_angle is not None:
         dual=behavior['dual'];child=dual['brush'];identity_policy={'version':1,'initialDirection':'cursorHistory'}
         animated_pair130=bool(d['tip'].get('material',{}).get('kind')=='lightness'and d['tip'].get('animation',{}).get('mode')=='random'and 2<=len(d['tip'].get('animation',{}).get('frames',[]))<=256 and child['tip'].get('animation',{}).get('mode')=='random'and 2<=len(child['tip'].get('animation',{}).get('frames',[]))<=256 and child_sampling_candidate)
-        pair_version=130 if animated_pair130 else 128 if d['tip'].get('material',{}).get('kind')=='lightness'else 122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
+        from child_absolute_size187 import child_absolute_size187_control
+        absolute_size187=child_absolute_size187_control(child)
+        pair_version=187 if absolute_size187 else 130 if animated_pair130 else 128 if d['tip'].get('material',{}).get('kind')=='lightness'else 122 if 'imageSampling'in d['tip']or 'imageSampling'in child['tip']else 120
         candidate_child={**child,'version':max(child['version'],pair_version),'behavior':{**child['behavior'],'strokeInput':identity_policy.copy()}}
         if animated_pair130:
             side=catalog.assets[child['tip']['mask']]['size'];w=child_sampling_candidate['width'];h=child_sampling_candidate['height']
@@ -1725,6 +1729,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             notes.append(compatibility('masking.strokeInput','Independent mask identity DrawingAngle follows its own emitted canonical requests; first angle uses the captured root cursor-history channel. No fan/lock/native spline pixel identity is claimed.','supported'))
         else:
             notes.append(compatibility('masking.strokeInput','This animated Lightness/Wash pair exceeds the closed130 equal random-frame source/pair limits; existing mask lowering retained.'if pair_version==130 else'This static Lightness/Wash pair exceeds the closed128 source/pair/512-side limits; existing mask lowering retained.'if pair_version==128 else'This root/child combination is outside the closed identity DrawingAngle120 scope; existing mask lowering retained.','unsupported'))
+    child187=behavior.get('dual',{}).get('brush',{})
+    if has_absolute_combination(child187):
+        from child_absolute_size187 import independent_child_absolute_size187_scope
+        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not independent_child_absolute_size187_scope(d)or not independent_drawing_angle_pair(d):raise ValueError('Child absolute Size187 requires static identity DrawingAngle root and child')
+        notes.append(compatibility('masking.absoluteSize187','Independent ordinary ALPHA child Size uses its own emitted DrawingAngle/source cursor and spacing state. Unlocked absolute identity endpoints and nonidentity transfer remain distinct; option constant is clamped before the existing external factor once. Locked/fan, stochastic/other size-like targets, animation and timers are outside187. Existing captured sourceAngle, renderer and mask accumulation are reused; no native spline/pixel/RNG identity claim.','supported'))
     # Historical clock lowering above assigns version35; promote only after
     # every legacy/pair revision assignment, and only an admitted active timer.
     if legacy_refresh129 and timed_input and behavior.get('timing') is not None:

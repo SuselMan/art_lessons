@@ -225,21 +225,23 @@ function worldDistanceForDab(dab:Dab,state:BrushBehaviorState):number {
   const p=state.worldDistancePoint
   return (state.worldDistance??0)+(p?Math.hypot(dab.x-p.x,dab.y-p.y):0)
 }
-export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
+export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number,absolutePolicy?:'native-size-absolute187-v1'): number {
   if (!d)
     return 1
   if(d.control==='random'&&d.randomSource?.kind==='grafettoSourceTime-v1')random=sourceTimeRandomValue(d.randomSource,state.execution?.brushRandom?.strokeSeed,dab.sourceTime)
   if(d.control==='time' && (dab.sourceTime===undefined || !Number.isFinite(dab.sourceTime) || dab.sourceTime<0))throw Error('Missing or invalid sourceTime')
   if(d.combine){
     const c=d.combine,seed=Math.floor(clamp(random)*4294967295)>>>0
-    const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i)))
+    const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i),absolutePolicy))
     const scaling=!values.length?1:values.length===1?values[0]:c.mode==='sum'?values.reduce((a,b)=>a+b,0):c.mode==='max'?Math.max(...values):c.mode==='min'?Math.min(...values):c.mode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
-    const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i))-1,0)):1
+    const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i),absolutePolicy)-1,0)):1
     // Callers already multiply the option constant. Return its normalized
     // factor, allowing >1 when needed: .5 * (clamp(.5 * 1.5)/.5) = .75.
     const constant=c.constant??1,a=c.absolute
     const direction=(a?.locked?state.firstAngle:dab.sourceAngle??dab.angle)/(2*Math.PI)+(a?.angleOffset??0)/360
-    const absolute=a?((curveAt(a.curve,((direction%1)+1)%1)+.5)%1):1
+    const identity187=absolutePolicy==='native-size-absolute187-v1'&&a&&Array.isArray(a.curve)&&a.curve.length===2&&a.curve[0][0]===0&&a.curve[0][1]===0&&a.curve[1][0]===1&&a.curve[1][1]===1
+    const rawAbsolute=.5+direction
+    const absolute=identity187?(rawAbsolute>1?rawAbsolute-1:rawAbsolute):a?((curveAt(a.curve,((direction%1)+1)%1)+.5)%1):1
     return constant===0?0:(c.policy==='native-scatter-v1'?Math.max(0,Math.min(5,constant*absolute*scaling*additive)):clamp(constant*absolute*scaling*additive))/constant
   }
   const prev = state.previous
@@ -492,7 +494,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
-  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i)) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
+  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i),brush.version===187&&target==='size'?'native-size-absolute187-v1':undefined) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index),brush.version===187&&target==='size'?'native-size-absolute187-v1':undefined), 1)
   // Native Pixel queries this option once per logical dab before deposition.
   const lightness = brush.version>=90 && brush.model==='stamp' && brush.tip.material && (behavior?.dynamics?.lightnessStrength || behavior?.modulations?.lightnessStrength?.length)
     ? clamp(brush.tip.material.strength*dynamic('lightnessStrength',0x65000)) : undefined
