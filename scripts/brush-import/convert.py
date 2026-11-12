@@ -598,6 +598,8 @@ def validate_portable_profile(descriptor, *, parent=None):
     validate_pixel_alpha_dual170(descriptor,parent)
     from dual_mask168 import validate_pixel_alpha_dual168
     validate_pixel_alpha_dual168(descriptor,parent)
+    from animated_alpha_child184 import validate_animated_alpha_child184
+    validate_animated_alpha_child184(descriptor,parent)
     from sketch_timer161 import validate_sketch_timer161
     validate_sketch_timer161(descriptor,parent)
     from particle_timer157 import validate_particle_timer157
@@ -802,6 +804,8 @@ def portable_bundle(path,catalog):
         if isinstance(initial,dict)and initial.get('resizePolicy')=='source-area143-v1'and asset_sizes.get(initial.get('sourceMask'))!=initial.get('sourceSide'):raise ValueError('Bristle143 source asset dimensions missing/mismatched')
         validate_portable_mixer(d)
         if depth and d.get('behavior',{}).get('rendering',{}).get('blendMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Photoshop Hard Mix is root-only')
+        from animated_alpha_child184 import validate_animated_alpha_child184
+        validate_animated_alpha_child184(d,parent,asset_sizes)
         tip=d['tip']
         validate_portable_profile(d,parent=parent)
         from clone_projection149 import validate_clone_projection149

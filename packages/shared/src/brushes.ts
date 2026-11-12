@@ -1,3 +1,5 @@
+import{hasAnimatedAlphaChild184Scope}from'./brushAnimatedAlphaChild184.js'
+export{hasAnimatedAlphaChild184Scope,assertAnimatedAlphaChild184Scope}from'./brushAnimatedAlphaChild184.js'
 export{hasTextureStrengthWash183Scope}from'./brushTextureLightnessWash171.js'
 import{hasTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
 export{hasTextureGradientWash180Scope,assertTextureGradientWash180Scope}from'./brushTextureGradientWash180.js'
@@ -485,6 +487,12 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
+    if(d.version===184){
+      if(!hasAnimatedAlphaChild184Scope(d))return false
+      const child=(d.behavior as {dual:{brush:{tip:{animation:{frames:string[]}}}}}).dual.brush
+      const sides=child.tip.animation.frames.map(id=>assetSizes.get(id))
+      if(sides.some(side=>side===undefined||side<2||side>512)||sides.some(side=>side!==sides[0]))return false
+    }
     if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixPhotoshopAlpha'&&!hasPixelAlphaDual170Scope(d))return false
     if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixSofterPhotoshop'&&!hasPixelAlphaDual168Scope(d))return false
     const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']

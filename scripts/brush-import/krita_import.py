@@ -802,6 +802,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if _native_sampling_candidate is not None and pipe['mode']=='random'and 2<=len(frames)<=256 and all(frame.mode=='L'for frame in pipe['frames'])and numeric(definition.get('BrightnessAdjustment'),0)==0 and numeric(definition.get('ContrastAdjustment'),0)==0 and numeric(definition.get('AdjustmentMidPoint'),127)==127 and not material_gray and not gradient_gray and not stamp_images and application==0 and len({frame.size for frame in frames})==1:
                 candidates=[integer_image_sampling(frame,application,512)for frame in pipe['frames']]
                 if all(candidates)and all(v==candidates[0]for v in candidates):_native_sampling_candidate.update({'width':frames[0].width,'height':frames[0].height})
+            if _native_sampling_candidate is not None and depth and pipe['mode']in('constant','incremental','pressure'):
+                _native_sampling_candidate['animatedAlpha184']=bool(application==0 and not pipe['coloured'] and all(frame.mode=='L'for frame in pipe['frames']) and 2<=len(frames)<=256 and len({frame.size for frame in frames})==1 and all(max(frame.size)<=512 for frame in frames))
             unequal=len({frame.size for frame in frames})!=1
             unequal_lightness_gih124=bool(unequal and len(frames)>=2 and material_gray and application==2 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             unequal_gradient_gih126=bool(unequal and len(frames)>=2 and gradient_gray and application==3 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
@@ -1755,6 +1757,21 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if any(c.get('combine',{}).get('policy')=='native-scatter-v1'for c in scatter_controls):
         if depth or engine!='paintbrush' or d.get('model')!='stamp' or behavior.get('dual') or any(k in d for k in('mixer','spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):raise ValueError('Native scatter expression requires root Pixel')
         d['version']=max(d['version'],148)
+    if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation') is not None and behavior['dual']['blendMode']in('hardMixSofterPhotoshop','hardMixPhotoshopAlpha'):
+        from animated_alpha_child184 import validate_animated_alpha_child184
+        candidate={**d,'version':184}
+        admitted184=False
+        if not depth and engine=='paintbrush'and _allow_texture_material and child_sampling_candidate.get('animatedAlpha184'):
+            try:validate_animated_alpha_child184(candidate,asset_sizes={aid:asset['size']for aid,asset in catalog.assets.items()})
+            except ValueError:
+                if behavior['dual']['blendMode']in('hardMixSofterPhotoshop','hardMixPhotoshopAlpha'):raise
+            else:admitted184=True
+        if admitted184:
+            d=candidate;behavior=d['behavior']
+            notes.append(compatibility('masking.animatedAlpha184','All equal grayscale frames retained. Constant/incremental/captured-pressure selection runs on the independently emitted child requests and survives chunks/undo/replay; original rank retained. Random/angular/tilt/velocity/multidimensional and unequal frames are not admitted by184. Browser sampling is functional, not native pixel/RNG identity.','supported'))
+        elif behavior['dual']['blendMode']in('hardMixSofterPhotoshop','hardMixPhotoshopAlpha'):
+            raise ValueError('Animated ALPHAMASK child184 requires native equal grayscale pipe constant/incremental/pressure')
+        # Other existing ordinary modes keep their historical qualified lowering when not184.
     if behavior.get('dual',{}).get('blendMode')=='hardMixPhotoshopAlpha':
         from dual_mask170 import pixel_alpha_dual170_scope
         d['version']=max(d['version'],170)

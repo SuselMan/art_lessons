@@ -1,3 +1,4 @@
+import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -107,6 +108,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
+  assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
   if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase))throw Error('Invalid legacy foreground DodgeBurn176 scope')
   if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Arithmetic175 scope')
