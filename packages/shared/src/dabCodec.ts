@@ -1,3 +1,4 @@
+import {isSourceTwist,isSourceTangentialPressure,canonicalTwist} from './recordedPenInput.js'
 import type { Dab, StrokeOperation } from './stroke.js'
 
 // (#366) Compact encoding for a stroke operation's dab array.
@@ -43,12 +44,14 @@ const BYTES_PER_DAB = FLOATS_PER_DAB * 4
  * the wire. Every finite angle, including -1 and zero, remains representable.
  * V5 adds float64 author elapsed milliseconds with the same absent sentinel.
  * Versions 1–4 retain their exact layouts when no sourceTime is present.
+ * V6 adds two optional F32 pen inputs (positive Infinity absence); versions1–5
+ * remain byte-identical when neither new channel is present.
  * Bumped only if the layout above changes incompatibly. Written as a prefix
  *  on every packed payload so a client meeting an encoding it does not know
  *  says so instead of silently painting garbage — the log is permanent, and a
  *  room recorded today gets replayed by clients built much later. Costs two
  *  characters per stroke, not per dab. */
-export const DAB_PACK_VERSION = 5
+export const DAB_PACK_VERSION = 6
 
 // float32, not float64, and that is a real (if tiny) loss rather than pure
 // repacking: dab values are computed in double precision and rounded here.
@@ -100,8 +103,8 @@ export function isDabSourceScale(value: unknown): value is number {
 /** Packs dabs into the base64 form a StrokeOperation carries. */
 export function packDabs(dabs: Dab[]): string {
   const source=dabs.some(dab=>dab.sourceSize!==undefined || dab.sourceScale!==undefined)
-  const version=dabs.some(dab=>dab.sourceTime!==undefined)?5:dabs.some(dab=>dab.sourceAngle!==undefined)?4:source?3:dabs.some(dab=>dab.normalizedSpeed!==undefined)?2:1
-  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)
+  const version=dabs.some(dab=>dab.sourceTwist!==undefined||dab.sourceTangentialPressure!==undefined)?6:dabs.some(dab=>dab.sourceTime!==undefined)?5:dabs.some(dab=>dab.sourceAngle!==undefined)?4:source?3:dabs.some(dab=>dab.normalizedSpeed!==undefined)?2:1
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)+(version>=6?8:0)
   const buffer = new ArrayBuffer(dabs.length * stride)
   const view = new DataView(buffer)
   let offset = 0
@@ -130,6 +133,13 @@ export function packDabs(dabs: Dab[]): string {
       if(dab.sourceTime!==undefined && !isDabSourceTime(dab.sourceTime))throw new Error('packed dabs: invalid source time')
       view.setFloat64(offset,dab.sourceTime??Infinity,LITTLE_ENDIAN);offset+=8
     }
+
+    if(version>=6){
+      if(dab.sourceTwist!==undefined&&!isSourceTwist(dab.sourceTwist))throw Error('packed dabs: invalid source twist')
+      if(dab.sourceTangentialPressure!==undefined&&!isSourceTangentialPressure(dab.sourceTangentialPressure))throw Error('packed dabs: invalid tangential pressure')
+      view.setFloat32(offset,dab.sourceTwist===undefined?Infinity:canonicalTwist(dab.sourceTwist),LITTLE_ENDIAN);offset+=4
+      view.setFloat32(offset,dab.sourceTangentialPressure??Infinity,LITTLE_ENDIAN);offset+=4
+    }
   }
   return `${version}:${toBase64(new Uint8Array(buffer))}`
 }
@@ -140,11 +150,12 @@ export function packDabs(dabs: Dab[]): string {
 export function unpackDabs(packed: string): Dab[] {
   const separator = packed.indexOf(':')
   const version = separator === -1 ? NaN : Number(packed.slice(0, separator))
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== DAB_PACK_VERSION) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== DAB_PACK_VERSION) {
     throw new Error(`packed dabs: unknown encoding version ${packed.slice(0, Math.max(separator, 0)) || '(none)'}`)
   }
+  if(version===6&&packed.slice(0,separator)!=='6')throw Error('packed dabs: noncanonical v6 prefix')
   const bytes = fromBase64(packed.slice(separator + 1))
-  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)+(version>=6?8:0)
   if (bytes.length % stride !== 0) {
     throw new Error(`packed dabs: ${bytes.length} bytes is not a multiple of ${stride}`)
   }
@@ -184,6 +195,12 @@ export function unpackDabs(packed: string): Dab[] {
         dab.sourceTime=time
       }
     }
+    if(version>=6){
+      const twist=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
+      const tangential=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
+      if(twist!==Infinity){if(!isSourceTwist(twist))throw Error('packed dabs: invalid source twist');dab.sourceTwist=twist}
+      if(tangential!==Infinity){if(!isSourceTangentialPressure(tangential))throw Error('packed dabs: invalid tangential pressure');dab.sourceTangentialPressure=tangential}
+    }
     dabs.push(dab)
   }
   return dabs
@@ -202,6 +219,8 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
   const plain=op.dabs
   if (plain) {
     for(const dab of plain){
+      if(dab.sourceTwist!==undefined&&!isSourceTwist(dab.sourceTwist))throw Error('plain dabs: invalid source twist')
+      if(dab.sourceTangentialPressure!==undefined&&!isSourceTangentialPressure(dab.sourceTangentialPressure))throw Error('plain dabs: invalid tangential pressure')
       if(dab.sourceTime!==undefined && !isDabSourceTime(dab.sourceTime))throw new Error('plain dabs: invalid source time')
       if(dab.sourceAngle!==undefined && !isDabSourceAngle(dab.sourceAngle))throw new Error('plain dabs: invalid source angle')
       if(dab.sourceSize!==undefined && !isDabSourceSize(dab.sourceSize))throw new Error('plain dabs: invalid source size')
@@ -224,4 +243,15 @@ export function unpackEndpointBaseSize(text: string): number {
   const bytes=fromBase64(text)
   if(bytes.length!==8 || toBase64(bytes)!==text)throw Error('endpoint: invalid scalar')
   return new DataView(bytes.buffer).getFloat64(0,LITTLE_ENDIAN)
+}
+
+/** Validate only the new optional ABI before operation permission early returns. */
+export function hasValidRecordedPenOperation(value:unknown):boolean {
+ if(!value||typeof value!=='object')return false
+ const op=value as Record<string,unknown>;if(op.type!=='stroke')return true
+ try{
+  if(typeof op.dabsPacked==='string'&&Number(op.dabsPacked.slice(0,op.dabsPacked.indexOf(':')))===6){if(op.dabs!==undefined)return false;unpackDabs(op.dabsPacked)}
+  if(Array.isArray(op.dabs))for(const v of op.dabs){if(!v||typeof v!=='object')continue;const d=v as Record<string,unknown>;if(d.sourceTwist!==undefined&&!isSourceTwist(d.sourceTwist)||d.sourceTangentialPressure!==undefined&&!isSourceTangentialPressure(d.sourceTangentialPressure))return false}
+  return true
+ }catch{return false}
 }

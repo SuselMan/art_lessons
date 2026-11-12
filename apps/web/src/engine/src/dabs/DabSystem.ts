@@ -1,3 +1,4 @@
+import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,canonicalPenInput,interpolatePenInput,type RecordedPenInput}from '@grafetto/shared'
 import{hasMyPaintTimer177Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
@@ -29,7 +30,7 @@ import {
 } from './tipFootprint'
 import { tiltNormFrom } from '../presets/tiltMath'
 
-interface ControlPoint {
+interface ControlPoint extends RecordedPenInput {
   time?: number
   normalizedSpeed?: number
   x: number
@@ -618,7 +619,8 @@ export class DabSystem {
   }
 
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
-  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
+  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0, pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT): Dab[] {
+    canonicalPenInput(pen) // Validate optional ABI before author state changes.
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
     if(this.mypaintTiming177&&(!Number.isFinite(baseSize)||baseSize<=0||!hasMyPaintTimer177Scope(this.mypaintTiming177)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.mypaintTiming177.behavior!.timing)))throw Error('Invalid author MyPaint timer177')
     if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
@@ -632,15 +634,15 @@ export class DabSystem {
     // sample of a stroke is taken at face value, exactly as the tilt filter
     // seeds itself from its own first sample.
     const p = this._filterPressure(pressure, 0)
-    this._buf = [{ x, y, pressure: p, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) }]
+    this._buf = [{ ...canonicalPenInput(pen),x, y, pressure: p, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) }]
     // ds = 0: nothing has been dragged yet, so a bent-nib profile leaves this
     // dab round rather than pointing it along the placeholder angle below.
     const initialAngle = this.strokeInput ? this.initialDirection : 0
-    const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, initialAngle, 0, normalizedSpeed)
+    const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, initialAngle, 0, normalizedSpeed,pen)
     if(this.captureSourceTime){first.sourceTime=time;first.t=time}
     if (this.strokeInput || this.inputKnots) {
       first.t = time
-      this._sourcePrevious = {x,y,pressure:p,tiltX,tiltY,angle:initialAngle,t:time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
+      this._sourcePrevious = {...canonicalPenInput(pen),x,y,pressure:p,tiltX,tiltY,angle:initialAngle,t:time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
     }
     // #478: the touch-down dab is emitted here rather than through
     // _splineDabs, and it is still a dab — so it owes the next one a step just
@@ -653,7 +655,7 @@ export class DabSystem {
     this._pendingSpacing = this._spacingAfter(first, baseSize, nominalDabSpacing(baseSize, this.spacingFactor))
     if(this.timing){
       first.t=time;first.sourceTime=time
-      this._timingPoint={x,y,pressure:p,tiltX,tiltY,t:time,angle:initialAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
+      this._timingPoint={...canonicalPenInput(pen),x,y,pressure:p,tiltX,tiltY,t:time,angle:initialAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
       this._sourcePrevious={...this._timingPoint}
       this._timingInterval=this._timingAfter(first)
     }
@@ -662,9 +664,10 @@ export class DabSystem {
 
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
-  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0): Dab[] {
+  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0, pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT): Dab[] {
+    canonicalPenInput(pen) // Validate optional ABI before author state changes.
     this._speed = speed
-    if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time,'real')]
+    if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time,'real',pen)]
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
     // see _filterPressure on why that case is the whole reason this sits here.
@@ -675,8 +678,8 @@ export class DabSystem {
     pressure = this._filterPressure(pressure, travel)
     if(this.inputKnots){
       if(prev && travel===0)return []
-      this._buf=[{x,y,pressure,tiltX,tiltY,time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}]
-      return this._sourceRequests({x,y,pressure,tiltX,tiltY,t:time,angle:this._pathAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
+      this._buf=[{...canonicalPenInput(pen),x,y,pressure,tiltX,tiltY,time,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}]
+      return this._sourceRequests({...canonicalPenInput(pen),x,y,pressure,tiltX,tiltY,t:time,angle:this._pathAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
     }
     // Deadband (see MIN_CONTROL_POINT_DISTANCE): a sample that hasn't cleared
     // half a pixel since the last control point collapses *into* that point
@@ -686,6 +689,7 @@ export class DabSystem {
     // geometry. A stationary stylus still produces no dabs from here at all
     // (that's what the engine's dwell tick is for, see _paintDwellDab).
     if (prev && travel < MIN_CONTROL_POINT_DISTANCE) {
+      Object.assign(prev,canonicalPenInput(pen));if(pen.sourceTwist===undefined)delete prev.sourceTwist;if(pen.sourceTangentialPressure===undefined)delete prev.sourceTangentialPressure
       prev.pressure = pressure
       prev.tiltX = tiltX
       prev.tiltY = tiltY
@@ -694,7 +698,7 @@ export class DabSystem {
       return []
     }
 
-    this._buf.push({ x, y, pressure, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) })
+    this._buf.push({ ...canonicalPenInput(pen),x, y, pressure, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) })
     const n = this._buf.length
 
     if (n < 3) return [] // need at least 3 pts to define a segment
@@ -717,7 +721,7 @@ export class DabSystem {
     fork._speed=speed
     const before=this._buf.at(-2)
     const angle=this.strokeInput && this._sourcePrevious ? sourceDrawingDirection(this._sourcePrevious,last,this._sourcePrevious.angle) : before ? Math.atan2(last.y-before.y,last.x-before.x) : this._pathAngle
-    const dab=fork._makeDab(last.x,last.y,last.pressure,last.tiltX,last.tiltY,baseSize,angle,0,last.normalizedSpeed)
+    const dab=fork._makeDab(last.x,last.y,last.pressure,last.tiltX,last.tiltY,baseSize,angle,0,last.normalizedSpeed,last)
     if(this.strokeInput || this.captureSourceTime)dab.t=last.time ?? 0
     if(this.captureSourceTime)dab.sourceTime=last.time??0
     return dab
@@ -916,9 +920,10 @@ export class DabSystem {
       const tan      = hermiteTangent(p1, p2, m1, m2, t)
 
       const normalizedSpeed=p1.normalizedSpeed===undefined || p2.normalizedSpeed===undefined ? undefined : Math.fround(clamp(p1.normalizedSpeed+(p2.normalizedSpeed-p1.normalizedSpeed)*t,0,1))
+      const pen=(hasRecordedPenInput(p1)||hasRecordedPenInput(p2)?interpolatePenInput(p1,p2,Math.max(0,Math.min(1,t))):EMPTY_RECORDED_PEN_INPUT)
       const requests = this.strokeInput
-        ? this._sourceRequests({x:pos.x,y:pos.y,pressure,tiltX,tiltY,t:(p1.time??0)+((p2.time??0)-(p1.time??0))*t,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
-        : [this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap,normalizedSpeed)]
+        ? this._sourceRequests({...pen,x:pos.x,y:pos.y,pressure,tiltX,tiltY,t:(p1.time??0)+((p2.time??0)-(p1.time??0))*t,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize)
+        : [this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap,normalizedSpeed,pen)]
       if(this.captureSourceTime)for(const request of requests){request.sourceTime??=(p1.time??0)+((p2.time??0)-(p1.time??0))*t;request.t=request.sourceTime}
       dabs.push(...requests)
       const dab=requests[requests.length-1]
@@ -1070,7 +1075,7 @@ export class DabSystem {
     for(const request of [...fans,next]) {
       const prior=this._sourcePrevious
       const distance=prior ? Math.hypot(request.x-prior.x,request.y-prior.y) : 0
-      const dab=this._makeDab(request.x,request.y,request.pressure,request.tiltX,request.tiltY,baseSize,request.angle,distance,request.normalizedSpeed)
+      const dab=this._makeDab(request.x,request.y,request.pressure,request.tiltX,request.tiltY,baseSize,request.angle,distance,request.normalizedSpeed,request)
       dab.t=request.t
       if(this.captureSourceTime)dab.sourceTime=request.t
       this._sourcePrevious={...request}
@@ -1087,12 +1092,13 @@ export class DabSystem {
   /** One serial author input. Pump in bounded batches; do not interleave inputs
    * or prediction forks while a stream is suspended. Replay never calls this.
    */
-  *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0,role:'real'|'hold'='hold'):Generator<Dab,void> {
+  *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0,role:'real'|'hold'='hold',pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT):Generator<Dab,void> {
+    canonicalPenInput(pen)
     if(!this.timing)throw Error('Timed source policy required')
     if(this._timingStreamActive)throw Error('Cannot interleave source inputs')
     this._timingStreamActive=true
     this._speed=speed
-    try{yield* this._timedContinue({x,y,pressure,tiltX,tiltY,t:time,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize,role)}
+    try{yield* this._timedContinue({...canonicalPenInput(pen),x,y,pressure,tiltX,tiltY,t:time,angle:0,...(normalizedSpeed===undefined?{}:{normalizedSpeed})},baseSize,role)}
     finally{this._timingStreamActive=false}
   }
   private *_timedContinue(next:SourcePaintInformation,baseSize:number,role:'real'|'hold'='hold'):Generator<Dab,void> {
@@ -1120,7 +1126,7 @@ export class DabSystem {
       const factor=this._timingState.next(current,next,{...axes,enabled:!this.timing!.ignoreDistanceSpacing,isotropic:this.autoSpacing?.isotropic??true},this._timingInterval)
       if(factor<0)break
       const mix=(a:number,b:number)=>(1-factor)*a+factor*b
-      const point:SourcePaintInformation={x:mix(current.x,next.x),y:mix(current.y,next.y),pressure:mix(current.pressure,next.pressure),tiltX:mix(current.tiltX,next.tiltX),tiltY:mix(current.tiltY,next.tiltY),t:mix(current.t,next.t),angle:0,
+      const point:SourcePaintInformation={...(hasRecordedPenInput(current)||hasRecordedPenInput(next)?interpolatePenInput(current,next,factor):EMPTY_RECORDED_PEN_INPUT),x:mix(current.x,next.x),y:mix(current.y,next.y),pressure:mix(current.pressure,next.pressure),tiltX:mix(current.tiltX,next.tiltX),tiltY:mix(current.tiltY,next.tiltY),t:mix(current.t,next.t),angle:0,
         ...(current.normalizedSpeed===undefined||next.normalizedSpeed===undefined?{}:{normalizedSpeed:mix(current.normalizedSpeed,next.normalizedSpeed)})}
       for(const request of this._sourceRequestStream(point,baseSize)){
         this._pathAngle=request.angle
@@ -1131,17 +1137,17 @@ export class DabSystem {
       current=point
     }
     if(this._timingState.spacingElapsed>=50 || this._timingState.timingElapsed>=50){
-      const refresh: Dab={...this._forkPreview()._makeDab(next.x,next.y,next.pressure,next.tiltX,next.tiltY,baseSize,sourceDrawingDirection(previous,next,this._sourcePrevious?.angle??previous.angle),0,next.normalizedSpeed),t:next.t,sourceTime:next.t}
+      const refresh: Dab={...this._forkPreview()._makeDab(next.x,next.y,next.pressure,next.tiltX,next.tiltY,baseSize,sourceDrawingDirection(previous,next,this._sourcePrevious?.angle??previous.angle),0,next.normalizedSpeed,next),t:next.t,sourceTime:next.t}
       if(this._timingState.spacingElapsed>=50){this._pendingSpacing=this._spacingAfter(refresh,baseSize,this.autoSpacing?Infinity:nominalDabSpacing(baseSize,this.spacingFactor));this._timingState.updateSpacing()}
       if(this._timingState.timingElapsed>=50){this._timingInterval=this._timingAfter(refresh);this._timingState.updateTiming()}
     }
     this._timingPoint={...next}
-    this._buf=[{x:next.x,y:next.y,pressure:next.pressure,tiltX:next.tiltX,tiltY:next.tiltY,time:next.t,...(next.normalizedSpeed===undefined?{}:{normalizedSpeed:next.normalizedSpeed})}]
+    this._buf=[{...canonicalPenInput(next),x:next.x,y:next.y,pressure:next.pressure,tiltX:next.tiltX,tiltY:next.tiltY,time:next.t,...(next.normalizedSpeed===undefined?{}:{normalizedSpeed:next.normalizedSpeed})}]
   }
 
   private _makeDab(
     x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number,
-    baseSize: number, pathAngle: number, ds: number,normalizedSpeed?:number,
+    baseSize: number, pathAngle: number, ds: number,normalizedSpeed?:number,pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT,
   ): Dab {
     // #305: the *filtered* tilt is what gets stored on the Dab, not just what
     // feeds the shaping below. Everything downstream that reads Dab.tiltX/Y —
@@ -1169,7 +1175,7 @@ export class DabSystem {
     // likewise stamped by the engine (PencilEngine._paintStrokeDabs), which
     // is the only place that knows elapsed wall-clock time.
     return {
-      x: fp.x, y: fp.y, pressure, tiltX, tiltY,
+      ...canonicalPenInput(pen),x: fp.x, y: fp.y, pressure, tiltX, tiltY,
       size: fp.size, aspectRatio: fp.aspectRatio, angle: this.strokeInput ? pathAngle : fp.angle, opacity: 1, t: 0,
       ...(this.strokeInput||this.captureSourceAngle ? {sourceAngle:pathAngle} : {}),
       ...(this.captureSourceSize ? {sourceSize:captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),

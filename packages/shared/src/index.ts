@@ -46,3 +46,6 @@ export * from './pixelReadDependencies.js'
 export * from './brushGradient.js'
 
 export{MYPAINT_SCHEMA}from'./mypaintSchema.js'
+
+export * from './recordedPenInput.js'
+export {hasValidRecordedPenOperation}from './dabCodec.js'

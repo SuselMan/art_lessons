@@ -25,6 +25,9 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Optional barrel degrees [0,360) and native painting tangential pressure [0,1], independent of direction/tilt. */
+  sourceTwist?:number
+  sourceTangentialPressure?:number
   /** Author elapsed milliseconds before float32 narrowing. Time-periodic sensors
    * can cross a discontinuity if replay reconstructs this from the legacy t. */
   sourceTime?: number

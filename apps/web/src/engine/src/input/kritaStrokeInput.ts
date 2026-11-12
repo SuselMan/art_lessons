@@ -1,3 +1,4 @@
+import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,interpolatePenInput,type RecordedPenInput}from '@grafetto/shared'
 import { sourceAtan2F32 } from './sourceAtan2F32'
 
 /** Pinned bd6e8d0 history/fan laws with explicit AOSP13 source-version F32
@@ -31,7 +32,7 @@ export function startCursorDirection(state: CursorHistory, point: CursorPoint, z
   if (touch) state.first = state.second = { ...point }
   return sourceDrawingDirection(pushCursorHistory(state, point, zoom), point, 0)
 }
-export interface SourcePaintInformation extends CursorPoint {
+export interface SourcePaintInformation extends CursorPoint,RecordedPenInput {
   angle: number
   pressure: number
   tiltX: number
@@ -57,7 +58,7 @@ export function sourceFanRequests(previous: SourcePaintInformation, next: Source
     angle = shortestSourceTurn(plus, next.angle) < shortestSourceTurn(minus, next.angle) ? plus : minus
     const t = step * index++ / fullDistance
     const mix = (a: number, b: number): number => a + t * (b - a)
-    result.push({ x: mix(previous.x, next.x), y: mix(previous.y, next.y), angle,
+    result.push({ ...(hasRecordedPenInput(previous)||hasRecordedPenInput(next)?interpolatePenInput(previous,next,t):EMPTY_RECORDED_PEN_INPUT),x: mix(previous.x, next.x), y: mix(previous.y, next.y), angle,
       pressure: mix(previous.pressure, next.pressure), tiltX: mix(previous.tiltX, next.tiltX),
       tiltY: mix(previous.tiltY, next.tiltY), t: mix(previous.t, next.t),
       ...(previous.normalizedSpeed === undefined || next.normalizedSpeed === undefined ? {}

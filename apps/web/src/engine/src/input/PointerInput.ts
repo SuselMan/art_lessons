@@ -70,6 +70,9 @@ export type PressureMap = (raw: number) => number
 //    batch's honest average speed, not an infinity to be clamped away.
 
 export interface PointerData {
+  sourceTwist?:number
+  /** Native painting input: tablet physical[-1,1] is shifted to[0,1]. */
+  sourceTangentialPressure?:number
   /** Latched at native dispatch entry, before extracting/coalesced work. */
   dispatchTime?: number
   x: number
@@ -314,7 +317,7 @@ export class PointerInput {
     // would apply a correction measured for a stylus to an input that never
     // produced the problem.
     else if (e.pointerType === 'pen' && this._pressureMap) pressure = this._pressureMap(pressure)
-    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
+    return { x, y, pressure,...(e.pointerType==='pen'&&Number.isInteger(e.twist)&&e.twist>=0&&e.twist<=359?{sourceTwist:Math.fround(e.twist)}:{}),...(e.pointerType==='pen'&&Number.isFinite(e.tangentialPressure)&&e.tangentialPressure>=-1&&e.tangentialPressure<=1?{sourceTangentialPressure:Math.fround((e.tangentialPressure+1)/2)}:{}), tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 
   private _extract(e: PointerEvent): PointerData {
