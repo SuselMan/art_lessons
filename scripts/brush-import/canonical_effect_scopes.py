@@ -6,6 +6,11 @@ def _number(v,lo,hi):return type(v)in(int,float)and math.isfinite(v)and lo<=v<=h
 
 def validate_canonical_effect_scopes(d,depth=0):
     deform=d.get('deform');f=d.get('filter')
+    if d.get('version')==186:
+        if depth or not filter_host_initial186_static(d):raise ValueError('Filter186 requires root static pressure-off host-initial scope')
+        version=169 if d['tip']['kind']=='bitmap'and f['kind']=='invert'else 179 if d['tip']['kind']=='bitmap'else 159 if f['kind']=='unsharp'else 153 if f['kind']=='gaussian'else 147
+        validate_canonical_effect_scopes({**d,'version':version},depth)
+        return
     if _record(deform)and _record(d.get('behavior'))and 'timing'in d['behavior']and type(d.get('version'))is int and d['version']>=160:
         from deform_timer160 import validate_deform_timer160
         validate_deform_timer160(d,depth)
@@ -58,3 +63,21 @@ def validate_canonical_effect_scopes(d,depth=0):
            or not _record(t)or not(t.get('kind')=='round'and 'profile'not in t or t.get('kind')=='procedural'and _record(t.get('profile'))and t['profile'].get('kind')=='standard'and t['profile'].get('shape')=='ellipse')or any(k in t for k in('animation','color','material','imageSampling','autoShape','autoNoise'))
            or not _record(b)or b.get('version')!=2 or b.get('erase')is True or any(k in b for k in('dual','timing','wetMix','taper','scatter','colorAdjustment'))or not _record(r)or r.get('accumulation')!='directOver'or r.get('blendMode')!='normal'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)):
             raise ValueError('Filter smudge147 requires closed root pointwise canonical BEGIN scope')
+
+
+def filter_host_initial186_static(d):
+    """Static precondition only; the unchanged147/153/159/169/179 law validates next."""
+    if not _record(d)or type(d.get('version'))is not int or d['version']!=186:return False
+    f=d.get('filter');t=d.get('tip');b=d.get('behavior');m=d.get('mixer')
+    if not all(_record(v)for v in(f,t,b,m))or f.get('smudgeMode')is not True or f.get('sourcePolicy')!='canonical-begin-v1'or f.get('kind')not in('invert','desaturate','posterize','gaussian','unsharp'):return False
+    def flat(v):return isinstance(v,list)and len(v)>=2 and all(isinstance(p,list)and len(p)==2 and type(p[0])in(int,float)and math.isfinite(p[0])and type(p[1])in(int,float)and p[1]==1 for p in v)
+    if not all(flat(d.get(k))for k in('sizeByPressure','opacityByPressure','flowByPressure'))or not _number(d.get('pressureSmoothingPx'),0,0)or not _number(d.get('flow'),1,1)or d.get('flowPer')!='stamp'or not _number(d.get('opacity'),0,1):return False
+    if t.get('rotation')!='fixed'or set(b)-{'version','rendering','spacing','speedInput'}:return False
+    if 'spacing'in b and(not _record(b['spacing'])or set(b['spacing'])-{'mode','coefficient','isotropic','axisScale','angleOffset'}):return False
+    speed=b.get('speedInput')
+    if 'speedInput'in b and(not _record(speed)or set(speed)!={'version','space','maximum','estimator'}or type(speed.get('version'))is not int or speed['version']!=1 or speed.get('space')!='view'or not _number(speed.get('maximum'),30,30)or speed.get('estimator')!='grafettoEMA30ms'):return False
+    r=b.get('rendering')
+    if not _record(r)or r.get('mode')!='buildUp'or r.get('blendMode')!='normal'or r.get('accumulation')!='directOver'or not _number(r.get('wetEdges'),0,0)or not _number(r.get('burntEdges'),0,0)or set(r)-{'mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode'}:return False
+    if set(m)-{'load','pickup','strength','initialLoad','source'}or any(not _number(m.get(k),v,v)for k,v in [('load',0),('pickup',1),('strength',1),('initialLoad',0)])or m.get('source')!='previousCanvas':return False
+    if t.get('kind')!='bitmap'and set(t)-{'kind','hardness','aspect','angle','rotation','profile'}:return False
+    return True

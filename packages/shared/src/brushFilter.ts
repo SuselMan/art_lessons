@@ -12,6 +12,7 @@ export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilt
  return (Object.keys(v).length===3&&Object.keys(v).every(k=>k==='version'||k==='kind'||k==='steps')||v.smudgeMode===true&&v.sourcePolicy==='canonical-begin-v1'&&(Object.keys(v).length===5&&Object.keys(v).every(k=>['version','kind','steps','smudgeMode','sourcePolicy'].includes(k))||v.maskPolicy==='bitmap-alpha-v1'&&Object.keys(v).length===6&&Object.keys(v).every(k=>['version','kind','steps','smudgeMode','sourcePolicy','maskPolicy'].includes(k))))&&v.version===2&&v.kind==='posterize'&&typeof v.steps==='number'&&Number.isInteger(v.steps)&&v.steps>=2&&v.steps<=128
 }
 export function isFilterDescriptor(d:Record<string,unknown>):boolean{
+ if(d.version===186)return hasFilterHostInitial186Scope(d)
  if(d.filter===undefined)return true
  if(d.filter&&typeof d.filter==='object'&&'maskPolicy'in d.filter)return hasFilterBitmapMaskScope(d)
  if(d.filter&&typeof d.filter==='object'&&'spatialPolicy'in d.filter)return hasFilterGaussian153Scope(d)||hasFilterUnsharp159Scope(d)
@@ -31,6 +32,7 @@ export function hasFilterSmudge147Scope(value:unknown):boolean {
 
 /** Gaussian source OVER updates persistent neededRect; filtered output only dabRect. */
 export function hasFilterGaussian153Scope(value:unknown):boolean{
+ if(value&&typeof value==='object'&&!Array.isArray(value)&&'version'in value&&value.version===186)return hasFilterHostInitial186Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='gaussian'
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  if(value&&typeof value==='object'&&!Array.isArray(value)){const d=value as Record<string,unknown>,f=d.filter;if(f&&typeof f==='object'&&'maskPolicy'in f)return (f as Record<string,unknown>).kind==='gaussian'&&hasFilterBitmap179Scope(d)}
  const d=value as Record<string,unknown>,f=d.filter
@@ -43,6 +45,7 @@ export function hasFilterGaussian153Scope(value:unknown):boolean{
 
 /** Native Unsharp spatial device, both raw and Lab/alpha branches; exact newpolicy. */
 export function hasFilterUnsharp159Scope(value:unknown):boolean{
+ if(value&&typeof value==='object'&&!Array.isArray(value)&&'version'in value&&value.version===186)return hasFilterHostInitial186Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='unsharp'
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  if(value&&typeof value==='object'&&!Array.isArray(value)){const d=value as Record<string,unknown>,f=d.filter;if(f&&typeof f==='object'&&'maskPolicy'in f)return (f as Record<string,unknown>).kind==='unsharp'&&hasFilterBitmap179Scope(d)}
  const d=value as Record<string,unknown>,f=d.filter;if(!f||typeof f!=='object'||Array.isArray(f))return false
@@ -78,4 +81,28 @@ export function hasFilterBitmap179Scope(value:unknown):boolean{
  const proxy={...d,filter,tip:{kind:'round',hardness:tip.hardness,aspect:tip.aspect,rotation:tip.rotation,angle:tip.angle}}
  return x.kind==='unsharp'?hasFilterUnsharp159Scope({...proxy,version:159}):x.kind==='gaussian'?hasFilterGaussian153Scope(proxy):isFilterDescriptor(proxy)
 }
-export function hasFilterBitmapMaskScope(value:unknown):boolean{return hasFilterBitmap169Scope(value)||hasFilterBitmap179Scope(value)}
+export function hasFilterBitmapMaskScope(value:unknown):boolean{return hasFilterBitmap169Scope(value)||hasFilterBitmap179Scope(value)||hasFilterHostInitial186Scope(value)&&!!value&&typeof value==='object'&&'tip'in value&&!!value.tip&&typeof value.tip==='object'&&'kind'in value.tip&&value.tip.kind==='bitmap'}
+
+/** Guard-only host-initial admission. BEGIN already emits the first request.
+ * Qualified native host domain: NO_SMOOTHING/fan-off, no active sensors or timer.
+ * Proxies validate the unchanged filter payload; they never retain revision186.
+ */
+export function hasFilterHostInitial186Scope(value:unknown):boolean {
+ const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(!obj(value)||value.version!==186||!obj(value.filter)||!obj(value.tip)||!obj(value.behavior))return false
+ const d=value,f=d.filter,t=d.tip,b=d.behavior
+ if(!obj(f)||!obj(t)||!obj(b)||f.smudgeMode!==true||f.sourcePolicy!=='canonical-begin-v1'||!['invert','desaturate','posterize','gaussian','unsharp'].includes(String(f.kind)))return false
+ const flat=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[1]===1)
+ if(!flat(d.sizeByPressure)||!flat(d.opacityByPressure)||!flat(d.flowByPressure)||d.pressureSmoothingPx!==0||d.flow!==1||d.flowPer!=='stamp'||typeof d.opacity!=='number'||!Number.isFinite(d.opacity)||d.opacity<0||d.opacity>1)return false
+ if(t.rotation!=='fixed'||Object.keys(b).some(k=>!['version','rendering','spacing','speedInput'].includes(k)))return false
+ if(b.spacing!==undefined&&(!obj(b.spacing)||Object.keys(b.spacing).some(k=>!['mode','coefficient','isotropic','axisScale','angleOffset'].includes(k))))return false
+ if(b.speedInput!==undefined&&(!obj(b.speedInput)||Object.keys(b.speedInput).length!==4||Object.keys(b.speedInput).some(k=>!['version','space','maximum','estimator'].includes(k))||b.speedInput.version!==1||b.speedInput.space!=='view'||b.speedInput.maximum!==30||b.speedInput.estimator!=='grafettoEMA30ms'))return false
+ const r=b.rendering,m=d.mixer
+ if(!obj(r)||r.mode!=='buildUp'||r.blendMode!=='normal'||r.accumulation!=='directOver'||r.wetEdges!==0||r.burntEdges!==0||Object.keys(r).some(k=>!['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode'].includes(k)))return false
+ if(!obj(m)||m.load!==0||m.pickup!==1||m.strength!==1||m.initialLoad!==0||m.source!=='previousCanvas'||Object.keys(m).some(k=>!['load','pickup','strength','initialLoad','source'].includes(k)))return false
+ if(t.kind!=='bitmap'&&Object.keys(t).some(k=>!['kind','hardness','aspect','angle','rotation','profile'].includes(k)))return false
+ const bitmap=t.kind==='bitmap'
+ const version=bitmap?(f.kind==='invert'?169:179):f.kind==='unsharp'?159:f.kind==='gaussian'?153:147
+ const proxy={...d,version}
+ return bitmap?(f.kind==='invert'?hasFilterBitmap169Scope(proxy):hasFilterBitmap179Scope(proxy)):isFilterDescriptor(proxy)
+}

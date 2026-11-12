@@ -57,9 +57,9 @@ export{isMyPaintDescriptor,hasMyPaintTimer177Scope}from'./brushMyPaint.js'
 import{hasCloneHealing152Scope,hasCloneProjection149Scope,isCloneDescriptor,type BrushClone}from'./brushClone.js'
 export type{BrushClone}from'./brushClone.js'
 export{hasCloneHealing152Scope,hasCloneProjection149Scope}from'./brushClone.js'
-import{hasFilterSmudge147Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
+import{hasFilterSmudge147Scope,hasFilterHostInitial186Scope,isFilterDescriptor,type BrushFilter}from'./brushFilter.js'
 export type{BrushFilter}from'./brushFilter.js'
-export{hasFilterBitmap169Scope,hasFilterBitmap179Scope,hasFilterBitmapMaskScope,hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
+export{hasFilterHostInitial186Scope,hasFilterBitmap169Scope,hasFilterBitmap179Scope,hasFilterBitmapMaskScope,hasFilterSmudge147Scope,isFilterDescriptor,isPosterizeBrushFilter}from'./brushFilter.js'
 import{hasDeformTimer160Scope,hasDeformOldData145Scope,isDeformDescriptor,type BrushDeform}from'./brushDeform.js'
 export type{BrushDeform}from'./brushDeform.js'
 export{hasDeformTimer160Scope,hasDeformOldData145Scope}from'./brushDeform.js'
@@ -520,6 +520,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if(record(d.clone)&&(d.clone.source!==undefined||d.clone.sourcePolicy!==undefined||d.clone.healing!==undefined)&&!hasCloneProjection149Scope(d)&&!hasCloneHealing152Scope(d))return false
     if(record(d.spray)&&record(d.spray.color)&&d.spray.color.sourcePolicy!==undefined&&!hasSpraySource146Scope(d))return false
     if(record(d.deform)&&d.deform.sourcePolicy!==undefined&&!hasDeformOldData145Scope(d))return false
+    if(d.version===186&&!hasFilterHostInitial186Scope(d))return false
     if(record(d.filter)&&(d.filter.smudgeMode!==undefined||d.filter.sourcePolicy!==undefined)&&!hasFilterSmudge147Scope(d))return false
     if(record(d.experiment)&&(d.experiment.fill!==undefined||d.experiment.patternPolicy!==undefined)&&!hasExperimentCurrentPattern158Scope(d))return false
     if(!isTangentNormalDescriptor(d)||!isMyPaintDescriptor(d)||!isCloneDescriptor(d)||!isFilterDescriptor(d)||!isDeformDescriptor(d)||!isGridDescriptor(d)||!isParticleDescriptor(d)||!isExperimentDescriptor(d))return false

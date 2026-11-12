@@ -12,7 +12,23 @@ def filter_preset(data,root,params,name,catalog,external):
     smudge=enabled(params.get('Filter/smudgeMode'))
     if smudge and kind not in('invert','desaturate','posterize','gaussian','unsharp'):raise ValueError('Spatial Filter smudge mode requires persistent halo support and is unsupported')
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','copy')!='copy':raise ValueError('Filter requires COPY compositing')
-    if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Filter timed input is unsupported')
+    airbrush_keys=('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')
+    host_initial=any(enabled(params.get(k))for k in airbrush_keys)
+    if host_initial:
+        if not smudge:raise ValueError('Filter186 host-initial requires smudge mode')
+        if any(k in params and str(params[k]).lower()not in('true','false','0','1')for k in airbrush_keys):raise ValueError('Invalid Filter186 airbrush alias')
+        if all(k in params for k in airbrush_keys)and enabled(params[airbrush_keys[0]])!=enabled(params[airbrush_keys[1]]):raise ValueError('Contradictory Filter186 airbrush aliases')
+        if any(enabled(params.get('Pressure'+k,params.get(k+'UseCurve','false')))for k in('Opacity','Flow')):raise ValueError('Filter186 requires Opacity/Flow pressure OFF before bridge normalization')
+        if any(k.startswith('Pressure')and enabled(v)for k,v in params.items()):raise ValueError('Filter186 requires all pressure/sensor options OFF')
+        if any(enabled(params.get(k))for k in('MaskingBrush/Enabled','Texture/Pattern/Enabled','PaintOpSettings/ignoreSpacing','FanCornersEnabled','fanCornersEnabled')):raise ValueError('Filter186 excludes dual/texture/timing/fan input')
+        for key in ('PaintOpSettings/rate','AirbrushOption/rate'):
+            if key in params:
+                try:rate=float(params[key])
+                except(ValueError,TypeError):raise ValueError('Invalid Filter186 static host rate')from None
+                if not math.isfinite(rate)or not 0<=rate<=1000:raise ValueError('Invalid Filter186 static host rate')
+        if params.get('RotationSensor'):
+            sensor=xml(params['RotationSensor'])
+            if any(node.get('fanCornersEnabled','0').lower()not in('false','0')or node.get('lockedAngleMode','0')!='0'for node in sensor.iter()):raise ValueError('Filter186 excludes fan/locked DrawingAngle')
     config={}
     if params.get('Filter/configuration'):
         cfg=xml(params['Filter/configuration'])
@@ -39,6 +55,10 @@ def filter_preset(data,root,params,name,catalog,external):
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in list(transformed):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
+    if host_initial:
+        # ONLY the local Pixel bridge is normalized. Final identity uses ORIGINAL data.
+        for node in transformed.findall('param'):
+            if node.get('name')in airbrush_keys:node.text='false'
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
     result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d.update(version=117 if kind=='posterize'else 99 if kind=='desaturate'else 95 if kind=='invert'else 52,model='mixer',category='wet',paperInteraction=0,flow=1)
@@ -71,5 +91,11 @@ def filter_preset(data,root,params,name,catalog,external):
         validate_canonical_effect_scopes(d)
     if smudge and d['filter'].get('maskPolicy')=='bitmap-alpha-v1':note=compatibility('filterSmudge','Static ordinary bitmap ALPHAMASK169 uses existing native tip conversion/CAS and persistent unmasked invert temporary, canonical BEGIN source and final COPY coverage. No original-RGBA colour drawing, animation, dual, texture or timer. Native ICC/quantization/concurrency are functionally qualified, not pixel identity.')
     if smudge and d['version']==179:note=compatibility('filterSmudge','Static ordinary bitmap ALPHAMASK179 reuses existing Desaturate/Posterize/Gaussian/Unsharp carried temporary, canonical BEGIN, spatial halos where required, and final COPY coverage. Existing CAS/budget/owner and filter mathematics are unchanged; native ICC/quantization/concurrency remain functionally qualified, not pixel identity.')
+    if host_initial:
+        if any(n['status']=='unsupported'for n in result['compatibility']):raise ValueError('Filter186 unsupported active native settings')
+        from canonical_effect_scopes import validate_canonical_effect_scopes
+        d['version']=186
+        validate_canonical_effect_scopes(d)
+        note=compatibility('filterHostInitial186','Guard-only native host-initial admission on existing canonical-BEGIN Filter smudge. Grafetto already emits first request on down; no added timer, RNG, source recapture or renderer. Qualified NO_SMOOTHING/fan-off static pressure-off Size/Opacity/Flow/Strength/Rotation; native host smoothing/settings and pixel identity are not promised. Original airbrush aliases and KPP bytes remain the source identity; local Pixel bridge alone suppresses their unrelated timing parser. Existing COPY, filter payload, halos and budget remain unchanged.')
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result
