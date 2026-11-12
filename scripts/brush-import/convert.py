@@ -477,7 +477,7 @@ def validate_portable_dynamics(controls):
             for child in children:validate_portable_dynamics([child])
             continue
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
-                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time','distance')
+                or control.get('control') not in ('barrelRotation','tangentialPressure','off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time','distance')
                 or (control.get('control')=='strokeRandom' and not (
                     ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
                     or ('randomStream' not in control and keyed(control.get('randomSource')))))
@@ -846,6 +846,8 @@ def portable_bundle(path,catalog):
                 if any(raw[y*side+x]for y in range(side)for x in range(side)if x<ox or x>=ox+w or y<oy or y>=oy+h):raise ValueError('Nonzero portable Sketch101 padding')
         validate_sequential_xy_policy(d,depth)
         validate_stroke_input_policy(d,depth,parent)
+        from recorded_pen188 import validate_recorded_pen188
+        validate_recorded_pen188(d,depth)
         validate_independent_pair_assets(d,asset_sizes)
         profile=tip.get('profile',{})
         if depth and tip.get('autoNoise') is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):raise ValueError('Rectangle Auto-mask noise is root-only')

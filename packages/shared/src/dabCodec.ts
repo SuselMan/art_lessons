@@ -249,9 +249,20 @@ export function unpackEndpointBaseSize(text: string): number {
 export function hasValidRecordedPenOperation(value:unknown):boolean {
  if(!value||typeof value!=='object')return false
  const op=value as Record<string,unknown>;if(op.type!=='stroke')return true
+ const token=typeof op.preset==='string'?/^brush:[A-Za-z0-9-]+@(\d+)(?::[A-Za-z0-9-]+)*$/.exec(op.preset):null
+ const required=!!token&&Number(token[1])===188
+ let decoded:Dab[]|undefined
+ const both=(v:unknown):boolean=>{if(!v||typeof v!=='object')return false;const d=v as Record<string,unknown>;return isSourceTwist(d.sourceTwist)&&isSourceTangentialPressure(d.sourceTangentialPressure)&&Math.fround(d.sourceTwist)===d.sourceTwist&&Math.fround(d.sourceTangentialPressure)===d.sourceTangentialPressure}
  try{
-  if(typeof op.dabsPacked==='string'&&Number(op.dabsPacked.slice(0,op.dabsPacked.indexOf(':')))===6){if(op.dabs!==undefined)return false;unpackDabs(op.dabsPacked)}
+  if(typeof op.dabsPacked==='string'&&Number(op.dabsPacked.slice(0,op.dabsPacked.indexOf(':')))===6){if(op.dabs!==undefined)return false;decoded=unpackDabs(op.dabsPacked)}
   if(Array.isArray(op.dabs))for(const v of op.dabs){if(!v||typeof v!=='object')continue;const d=v as Record<string,unknown>;if(d.sourceTwist!==undefined&&!isSourceTwist(d.sourceTwist)||d.sourceTangentialPressure!==undefined&&!isSourceTangentialPressure(d.sourceTangentialPressure))return false}
+  if(required){
+   if(op.dabs!==undefined&&op.dabsPacked!==undefined||op.strokeEndSample!==undefined&&op.strokeEndSamplePacked!==undefined)return false
+   const dabs=op.dabsPacked!==undefined?(typeof op.dabsPacked==='string'?(decoded??unpackDabs(op.dabsPacked)):null):op.dabs??[]
+   if(!Array.isArray(dabs)||!dabs.every(both))return false
+   if(op.strokeEndSample!==undefined&&!both(op.strokeEndSample))return false
+   if(op.strokeEndSamplePacked!==undefined){if(typeof op.strokeEndSamplePacked!=='string')return false;const parts=op.strokeEndSamplePacked.split('|');if(parts.length!==3||parts[0]!=='1')return false;const end=unpackDabs(parts[1]);if(end.length!==1||!both(end[0]))return false}
+  }
   return true
  }catch{return false}
 }

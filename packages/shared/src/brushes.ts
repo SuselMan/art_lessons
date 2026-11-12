@@ -1,3 +1,5 @@
+import{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
+export{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
 import{hasIndependentChildAbsoluteSize187Scope}from'./childAbsoluteSize187.js'
 export{hasIndependentChildAbsoluteSize187Scope}from'./childAbsoluteSize187.js'
 import{hasAnimatedAlphaChild184Scope}from'./brushAnimatedAlphaChild184.js'
@@ -489,6 +491,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
+    if((d.version===188||usesRecordedPen188Controls(d.behavior))&&!hasRecordedPen188Scope(d))return false
     if(d.version===187&&!hasIndependentChildAbsoluteSize187Scope(d))return false
     if(d.version===184||d.version===185){
       if(!hasAnimatedAlphaChild184Scope(d))return false

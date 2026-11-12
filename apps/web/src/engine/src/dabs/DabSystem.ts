@@ -1,3 +1,4 @@
+import{assertRecordedPen188Inputs,assertRecordedPen188Values}from '../presets/recordedPen188'
 import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,canonicalPenInput,interpolatePenInput,type RecordedPenInput}from '@grafetto/shared'
 import{hasMyPaintTimer177Scope}from'@grafetto/shared'
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
@@ -163,6 +164,7 @@ export class DabSystem {
   captureSourceSize = false
   captureSourceTime = false
   captureSourceAngle = false
+  recordedPen188?:BrushDescriptor
   mypaintTiming177?:BrushDescriptor
   deformTiming160?:BrushDescriptor
   sketchTiming161?:BrushDescriptor
@@ -573,6 +575,7 @@ export class DabSystem {
     fork.captureSourceSize = this.captureSourceSize
     fork.captureSourceTime=this.captureSourceTime
     fork.captureSourceAngle=this.captureSourceAngle
+    fork.recordedPen188=this.recordedPen188
     fork.mypaintTiming177=this.mypaintTiming177
     fork.deformTiming160=this.deformTiming160
     fork.sketchTiming161=this.sketchTiming161
@@ -620,6 +623,7 @@ export class DabSystem {
 
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0, pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT): Dab[] {
+    if(this.recordedPen188)assertRecordedPen188Inputs(this.recordedPen188,[pen])
     canonicalPenInput(pen) // Validate optional ABI before author state changes.
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
     if(this.mypaintTiming177&&(!Number.isFinite(baseSize)||baseSize<=0||!hasMyPaintTimer177Scope(this.mypaintTiming177)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.mypaintTiming177.behavior!.timing)))throw Error('Invalid author MyPaint timer177')
@@ -665,6 +669,7 @@ export class DabSystem {
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
   continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0, normalizedSpeed?:number, time = 0, pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT): Dab[] {
+    if(this.recordedPen188)assertRecordedPen188Values(pen)
     canonicalPenInput(pen) // Validate optional ABI before author state changes.
     this._speed = speed
     if(this.timing)return [...this.continueTimedStroke(x,y,pressure,tiltX,tiltY,baseSize,speed,normalizedSpeed,time,'real',pen)]
@@ -1093,6 +1098,7 @@ export class DabSystem {
    * or prediction forks while a stream is suspended. Replay never calls this.
    */
   *continueTimedStroke(x:number,y:number,pressure:number,tiltX:number,tiltY:number,baseSize:number,speed=0,normalizedSpeed?:number,time=0,role:'real'|'hold'='hold',pen:RecordedPenInput=EMPTY_RECORDED_PEN_INPUT):Generator<Dab,void> {
+    if(this.recordedPen188)assertRecordedPen188Values(pen)
     canonicalPenInput(pen)
     if(!this.timing)throw Error('Timed source policy required')
     if(this._timingStreamActive)throw Error('Cannot interleave source inputs')

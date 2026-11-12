@@ -1,3 +1,4 @@
+import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
 import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
@@ -179,6 +180,7 @@ export class BrushPainter {
   finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext,runtime?:CanonicalBeginRuntime):void|CanonicalBeginPaintResult {
     const brush=stamp.brush
+    assertRecordedPen188Inputs(brush,dabs)
     if(brush.bristle?.version===1&&brush.bristle.initialization){
       if(!hasBristleInitializationScope(brush))throw Error('Invalid Bristle initialization scope')
       if(dabs.length){

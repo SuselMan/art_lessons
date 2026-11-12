@@ -1,3 +1,4 @@
+import{assertRecordedPen188Inputs}from './recordedPen188'
 import { hasExperimentCurrentPattern158Scope,hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
@@ -46,6 +47,7 @@ export function assertSameBrushExecutionContext(previous: BrushExecutionContext 
 
 /** Validate the entire logical batch before state, queue, log or GL effects. */
 export function assertBrushSourceInputs(brush: BrushDescriptor, dabs: readonly Dab[], endpoint?: Dab): void {
+  assertRecordedPen188Inputs(brush,dabs,endpoint)
   if (!hasBrushSourceInputs(brush,dabs,endpoint))
     throw Error('Brush requires canonical sourceSize and sourceScale or sourceAngle for its active policy')
 }

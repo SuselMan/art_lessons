@@ -361,7 +361,7 @@ def raster(data, name, brush=False, svg_policy=None):
     return image
 
 
-def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_policy=False):
+def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_policy=False, allow_recorded_pen=False):
     """Read native sensor groups; preserve legacy products or emit a bounded expression."""
     if not enabled(params.get(option+'UseCurve','true')):
         return []
@@ -372,9 +372,9 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     ids=[node.get('id') for node in sensors]
     if len(ids)!=len(set(ids)): raise ValueError('Duplicate Krita sensor')
     mode=numeric(params.get(option+'curveMode'))
-    additive_ids=('fuzzy','fuzzystroke','ascension')
+    additive_ids=('fuzzy','fuzzystroke','ascension')+(('rotation',)if allow_recorded_pen else())
     scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
-    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids or 'drawingangle'in ids)
+    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids or 'drawingangle'in ids or allow_recorded_pen and 'rotation'in ids)
     if mode not in (0,1,2,3,4):
         notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
@@ -385,6 +385,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     source_ids=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress','distance':'distance'}
     if allow_time:supported['time']='time'
+    if allow_recorded_pen:supported.update(rotation='barrelRotation',tangentialpressure='tangentialPressure')
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
@@ -475,6 +476,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if engine not in ('paintbrush', 'colorsmudge', 'roundmarker', 'spraybrush', 'sketchbrush', 'hairybrush', 'curvebrush', 'hatchingbrush', 'gridbrush', 'particlebrush', 'experimentbrush', 'deformbrush', 'filter', 'duplicate', 'mypaintbrush', 'tangentnormal'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
+    for pen_key,pen_value in params.items():
+        if not pen_key.endswith('Sensor')or not enabled(params.get('Pressure'+pen_key[:-6],'false'))or not enabled(params.get(pen_key[:-6]+'UseCurve','true')):continue
+        pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
+        if any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
     # XML bytearray properties have an outer serialization layer. The embedded
     # pattern string itself is base64, hence two layers for bytearray patterns.
     for p in root.findall('param'):
@@ -1025,7 +1030,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
-        controls=sensor_controls(params,option,notes,allow_time=timed_input or(_primary_clock_read and option=='Size'),allow_scatter_policy=option=='Scatter'and engine=='paintbrush'and depth==0 and _allow_texture_material and not enabled(params.get('MaskingBrush/Enabled')))
+        controls=sensor_controls(params,option,notes,allow_recorded_pen=engine=='paintbrush'and depth==0 and option in('Size','Opacity')and not enabled(params.get('MaskingBrush/Enabled')),allow_time=timed_input or(_primary_clock_read and option=='Size'),allow_scatter_policy=option=='Scatter'and engine=='paintbrush'and depth==0 and _allow_texture_material and not enabled(params.get('MaskingBrush/Enabled')))
         if controls:
             # Keep pressure in the canonical curves so dab spacing sees size
             # pressure before sampling; remaining sensors modulate the stamps.
@@ -1129,11 +1134,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if (not rotation_decoded and enabled(params.get('PressureRotation'))
             and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
             and -1<=strength<=1 and 1<=len(rotation_sensors)<=16
-            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance') for node in rotation_sensors)):
-        controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input)
+            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')+ (('rotation','tangentialpressure')if engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))else()) for node in rotation_sensors)):
+        controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input,allow_recorded_pen=engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled')))
         if len(controls)==len(rotation_sensors):
-            additive=[{**c,**({'control':'tiltDirection'}if node.get('id')=='ascension'else{})} for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke','ascension')]
-            scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke','ascension')]
+            additive=[{**c,**({'control':'tiltDirection'}if node.get('id')=='ascension'else{})} for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke','ascension','rotation')]
+            scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke','ascension','rotation')]
             behavior['rotation']={'follow':0,'random':'none','composition':{'strength':strength,'additive':additive,**({'scaling':scaling} if scaling else {})}}
             curve_mode=int(numeric(params.get('RotationcurveMode'),0))
             if curve_mode:behavior['rotation']['composition']['scalingMode']={1:'sum',2:'max',3:'min',4:'difference'}[curve_mode]
@@ -1796,6 +1801,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=max(d['version'],168)
         if depth or engine!='paintbrush'or not pixel_alpha_dual168_scope(d):raise ValueError('Native Hard Mix Softer masking requires closed root Pixel ALPHAMASK168')
         notes.append(compatibility('masking.alphaHardMixSofter168','Native41bef no-strength GrayA masking applies clamp(3*primaryAlpha-2*(1-secondaryGrayAlpha),0,1) to accumulated primary alpha; parent pigment and independent mask geometry retained. No native U8/Qt sampling identity claim.','supported'))
+    from recorded_pen188 import uses_recorded_pen188_controls,recorded_pen188_scope
+    if uses_recorded_pen188_controls(d.get('behavior')):
+        d['version']=188
+        if depth or engine!='paintbrush'or not recorded_pen188_scope(d):raise ValueError('Recorded pen controls require closed ordinary root Pixel188')
+        notes.append(compatibility('RecordedPen188','Native signed additive barrel rotation and normalized tangential scaling use author-captured v6 fields before sampler geometry; no hardware calibration/pixel identity claim.','supported'))
     validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

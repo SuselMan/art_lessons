@@ -1,3 +1,4 @@
+import{assertRecordedPen188Values,recordedPen188Carrier}from './recordedPen188'
 import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,interpolatePenInput}from '@grafetto/shared'
 import{hasSketchGih174Scope,hasSketchPressureGih181Scope,hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{sourceDrawingDirection}from'../input/kritaStrokeInput'
@@ -65,6 +66,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number):BrushSpacingAxes {
+  if(brush.version===188)assertRecordedPen188Values(input)
   if(brush.deform){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*profile.coefficient);return{x:step,y:step,angle:0}}
   if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
@@ -249,7 +251,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const sensor = d.control === 'strokeRandom' ? d.randomSource ? keyedStrokeValue(d.randomSource.key,state) : brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
+  const sensor = d.control==='barrelRotation'||d.control==='tangentialPressure'?recordedPen188Carrier(d.control,dab):d.control === 'strokeRandom' ? d.randomSource ? keyedStrokeValue(d.randomSource.key,state) : brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
     : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
@@ -414,6 +416,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number,
   number
 ], options: {sketchMask?:SketchMaskView;geometryOnly?:boolean;sprayRequest?:{spray?:{geometry:{x:number;y:number;radius:number};opacityScale:number;foreground:readonly[number,number,number]}}} = {}): BehaviorStamp[] {
+  if(brush.version===188)assertRecordedPen188Values(dab)
   assertSketchDistanceOpacityPolicy(brush)
   const sketchAngular182=hasSketchAngularGih182Scope(brush)
   const sketchMask=brush.sketch?.mode==='mask'?(options.sketchMask??prepareSketchMask(brush)):undefined

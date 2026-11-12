@@ -1,3 +1,4 @@
+import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -659,6 +660,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
+    assertRecordedPen188Inputs(brush,dabs,endpoint)
     assertAnimatedAlphaChild184Ready(brush,effectiveErase)
     const textureWash180=assertTextureGradientWash180Scope(brush)
     if(textureWash180&&effectiveErase)throw Error('Texture Gradient Wash180 erase is outside scope')
