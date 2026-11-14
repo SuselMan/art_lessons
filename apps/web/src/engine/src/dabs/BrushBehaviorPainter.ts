@@ -775,7 +775,9 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       return
     const gradientLut=textureGradient||originalRgba&&brush.tip.color&&'gradient' in brush.tip.color?execution?.brushSource?.gradient:undefined
     if(originalRgba&&brush.tip.color&&'gradient' in brush.tip.color&&!gradientLut)throw Error('Pixel gradient map requires a captured palette')
-    const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(filteredGradient?{gradientSource:true as const}:gradientLut?{gradientMap:true as const,gradientLut}:{})})
+    // Texture material maps the coloured dab, never the ordinary RGBA source.
+    const tipGradientLut=originalRgba&&brush.tip.color&&'gradient' in brush.tip.color?gradientLut:undefined
+    const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(filteredGradient?{gradientSource:true as const}:tipGradientLut?{gradientMap:true as const,gradientLut:tipGradientLut}:{})})
     const pattern=canvasPattern?execution?.brushSource?.pattern:undefined
     if(canvasPattern){assertBrushExecutionContext(brush,execution);this.sketchBatch?.assertPatternPrepared();if(!this.sketchBatch)throw Error('Pattern programs are not prepared')}
     const leaseGradientLut=mask190&&execution?.maskRole190?.needGradient?execution.brushSource?.gradient:gradientLut
@@ -790,7 +792,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const originalViews=originalFrames?new Map<string,PixelOriginalRgbaView>():undefined
     if(originalFrames&&originalViews)for(const [frameIndex,frame] of originalFrames.entries()){
       const key=(gihFrames?frameIndex+':':'')+brushTextureResourceKey(imageResource(frame.id,frame.planes))
-      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds,gradientLut,filteredGradient?'filteredGray-v1':undefined)))
+      if(!originalViews.has(key))originalViews.set(key,capturePixelOriginalRgbaView(this.preparedImage(frame.id,frame.planes,gihFrames?.[frameIndex].maskBounds??brush.tip.maskBounds,tipGradientLut,filteredGradient?'filteredGray-v1':undefined)))
     }
     if(filteredGradient)for(const image of originalViews?.values()??[]){if(!image.palette)throw Error('Filtered gradient palette view is missing');image.palette.assertCurrent()}
     const originalView=(id:TipMaskId|undefined,planes:readonly[string,string,string]|undefined,frameIndex?:number):PixelOriginalRgbaView=>{
