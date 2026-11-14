@@ -89,7 +89,7 @@ export class BrushPainter {
     this.textures=new BrushTextureCache(ctx.gl)
     this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut,pattern) => {
-      const unbound = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush,effectiveErase)
+      const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version !== 192 ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
       const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
       if(required)return this.acquireRecordedStampResources(required,false)
