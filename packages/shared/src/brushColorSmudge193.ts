@@ -16,6 +16,7 @@ export function hasColorSmudge193Scope(v:unknown):boolean {
  if(!keys(b,['version','rendering','colorAdjustment','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','erase','falloff'])||!obj(r)||r.mode!=='buildUp'||r.accumulation!=='directOver'||r.blendMode!=='normal'||r.wetEdges!==0||r.burntEdges!==0||r.gammaCorrect===true||r.luminance===true)return false
  if(v.flow!==1||v.flowPer!=='stamp'||!Array.isArray(v.flowByPressure)||v.flowByPressure.length<2||!v.flowByPressure.every(p=>Array.isArray(p)&&p.length===2&&unit(p[0])&&p[1]===1))return false
  if(!['round','procedural','bitmap'].includes(String(t.kind))||t.alphaThreshold!==undefined)return false
+ if(t.sourceGeometry!==undefined){const g=t.sourceGeometry;if(t.kind!=='bitmap'||t.animation!==undefined||t.imageSampling!==undefined||!obj(g)||!keys(g,['version','width','height'])||g.version!==1||!['width','height'].every(k=>typeof g[k]==='number'&&Number.isInteger(g[k])&&Number(g[k])>=1&&Number(g[k])<=2048))return false}
  for(const k of ['dynamics','modulations']){const controls=b[k];if(obj(controls)&&['flow','softness','sharpness'].some(target=>target in controls))return false}
  if((m.colorRateComposite==='erase')!==(b.erase===true))return false
  const modern=m.algorithm!==undefined

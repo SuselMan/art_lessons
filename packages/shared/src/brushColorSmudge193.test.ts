@@ -23,6 +23,17 @@ describe('whole Color Smudge193 combinations',()=>{
   const d=smudge(true);d.tip={kind:'bitmap',mask:FILTER192_MASK,hardness:1,aspect:1,angle:0,rotation:'fixed',material:{kind:'lightness',gray:FILTER192_MASK,strength:1}};d.mixer!.paintThickness={value:.5,mode:'overlay'};d.mixer!.colorRateComposite='erase';d.behavior!.erase=true
   expect(isBrushLibrary(library192(d))).toBe(true);d.mixer!.source='projectionCanvas';expect(isBrushLibrary(library192(d))).toBe(false)
  })
+ it('retains static non-square source dimensions without inventing an animation',()=>{
+  for(const application of ['mask','rgb','gradient','lightness']){
+   const d=smudge(true),id=`asset:${'193d'.repeat(16)}`as const
+   d.tip={kind:'bitmap',mask:id,hardness:1,aspect:1,angle:0,rotation:'fixed',maskBounds:{x:0,y:0,width:7/8,height:7/8},sourceGeometry:{version:1,width:3,height:7}}
+   if(application==='rgb'){d.mixer!.algorithm='krita-stamp';d.tip.color={planes:[id,id,id]}}
+   if(application==='gradient'){d.mixer!.algorithm='krita-stamp';d.tip.color={gradient:{gray:id}}}
+   if(application==='lightness'){d.tip.material={kind:'lightness',gray:id,strength:1};d.mixer!.paintThickness={value:.5,mode:'overlay'}}
+   const l=library192(d);l.assets.push({id,size:8,file:id.slice(6)+'.bin'});expect(isBrushLibrary(l),application).toBe(true)
+   d.tip.sourceGeometry!.width=9;expect(isBrushLibrary(l)).toBe(false);d.tip.sourceGeometry!.width=3;d.version=191;expect(isBrushLibrary(l)).toBe(false)
+  }
+ })
  it('rejects reservoir, foreign engine, unknown composite, Pixel flow and stationary timer',()=>{
   for(const edit of[(d:BrushDescriptor)=>{d.mixer!.load=.1},(d:BrushDescriptor)=>{d.flow=.3},(d:BrushDescriptor)=>{d.behavior!.timing={version:1,rate:10,ignoreDistanceSpacing:true}},(d:BrushDescriptor)=>{Object.assign(d.mixer!,{colorRateComposite:'unregistered'})},(d:BrushDescriptor)=>{d.filter=filter147().filter}]){const d=smudge();edit(d);expect(isBrushLibrary(library192(d))).toBe(false)}
  })

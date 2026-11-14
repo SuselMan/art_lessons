@@ -131,6 +131,9 @@ export interface BrushTip {
   mask?: TipMaskId
   /** Sample this square inside the padded asset, retaining the source tip size. */
   maskBounds?: { x: number; y: number; width: number; height: number }
+  /** Actual static native Smudge193 source dimensions. Independent of the
+   * square POT crop; this is not an artificial single-frame animation. */
+  sourceGeometry?: {version:1;width:number;height:number}
   /** Explicit integer source grid for an opaque grayscale image pyramid.
    * Stored bytes are inverse gray coverage; resize brightness before inversion.
    * Absence preserves the recorded padded-POT/trilinear sampler. The rectangle
@@ -506,6 +509,12 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     const d = b.descriptor
     const smudge193=hasColorSmudge193Scope(d)
     if(d.version===193&&!smudge193)return false
+    if(record(d.tip)&&d.tip.sourceGeometry!==undefined){
+      const g=d.tip.sourceGeometry,side=assetSizes.get(String(d.tip.mask)),bounds=d.tip.maskBounds
+      if(!smudge193||!record(g)||Object.keys(g).some(k=>!['version','width','height'].includes(k))||g.version!==1||d.tip.kind!=='bitmap'||d.tip.animation!==undefined||!side||!numberIn(g.width,1,side)||!Number.isInteger(g.width)||!numberIn(g.height,1,side)||!Number.isInteger(g.height)||!record(bounds))return false
+      const w=Number(g.width),h=Number(g.height),longest=Math.max(w,h),expected={x:(Math.floor((side-w)/2)+(w-longest)/2)/side,y:(Math.floor((side-h)/2)+(h-longest)/2)/side,width:longest/side,height:longest/side}
+      if(expected.x<0||expected.y<0||(['x','y','width','height']as const).some(k=>!Object.is(bounds[k],expected[k])))return false
+    }
     const filter192=hasFilterMask192Scope(d)
     if(d.version===192&&!filter192)return false
     const texture191=isTextureCombinations191Scope(d)||isTextureCombinations191Component(maskRoot,d)||filter192||smudge193
