@@ -26,12 +26,18 @@ class LegacyMinMax172Tests(unittest.TestCase):
      with self.subTest(key=key),self.assertRaises(ValueError):convert.portable_bundle(path,dest)
      self.assertEqual(dest.brushes,[]);self.assertEqual(dest.assets,{});self.assertEqual(list(dest.output.iterdir()),[])
 
- def test_native_active_dulling_projection_gradient_and_timer_are_not_promoted(self):
+ def test_native_combinations_promote_whole193_and_timers_remain_closed(self):
   for extra in('<param name="SmudgeRateMode">1</param>','<param name="MergedPaint">true</param>','<param name="PressureGradient">true</param>','<param name="PaintOpSettings/isAirbrushing">true</param>','<param name="AirbrushOption/isAirbrushing">true</param>'):
    with self.subTest(extra=extra),tempfile.TemporaryDirectory()as tmp:
     r=Path(tmp);p=r/'bad.kpp';p.write_bytes(kpp(engine='colorsmudge',mode='darken',resources='<param name="SmudgeRateUseNewEngine">false</param><param name="PressureSmudgeRate">true</param><param name="SmudgeRateValue">.5</param><param name="PressureColorRate">true</param><param name="ColorRateValue">1</param>'+extra));out=convert.Catalog(r/'out')
     convert_krita(p,out,{})
-    self.assertEqual(out.brushes,[]);self.assertEqual(out.assets,{});self.assertEqual(len(out.skipped),1);self.assertIn('MinMax172',str(out.skipped[0]))
+    if 'isAirbrushing'in extra:
+     self.assertEqual(out.brushes,[]);self.assertEqual(out.assets,{});self.assertEqual(len(out.skipped),1);self.assertIn('MinMax172',str(out.skipped[0]))
+    else:
+     self.assertEqual(out.skipped,[]);self.assertEqual(len(out.brushes),1);d=out.brushes[0]['descriptor'];self.assertIn(d['version'],(178,193))
+     if d['version']==193:
+      from color_smudge193 import scope193
+      self.assertTrue(scope193(d))
 
  def test_old_full_records_and_physical_resources_unchanged(self):
   import hashlib

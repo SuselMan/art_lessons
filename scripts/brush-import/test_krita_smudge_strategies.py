@@ -43,8 +43,10 @@ class SmudgeStrategiesTests(unittest.TestCase):
     def test_old_normal_and_modern_multiply_paths_remain_unchanged(self):
         for params in [{},{'SmudgeRateUseNewEngine':'true','CompositeOp':'multiply'}]:
             d=self.brush(params).brushes[0]['descriptor']
-            self.assertNotIn('colorRateComposite',d['mixer'])
-            self.assertLess(d['version'],82)
+            if params:
+                self.assertEqual(d['version'],193);self.assertEqual(d['mixer']['colorRateComposite'],'multiply');self.assertEqual(d['behavior']['rendering']['blendMode'],'normal')
+            else:
+                self.assertNotIn('colorRateComposite',d['mixer']);self.assertLess(d['version'],82)
         d=self.brush({'SmudgeRateUseNewEngine':'true','CompositeOp':'hard_mix_photoshop'}).brushes[0]['descriptor']
         self.assertEqual(d['version'],65);self.assertEqual(d['mixer']['colorRateComposite'],'hardMixPhotoshop')
 

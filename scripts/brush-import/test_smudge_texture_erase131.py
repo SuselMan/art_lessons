@@ -44,10 +44,10 @@ class SmudgeTextureErase131Tests(unittest.TestCase):
    with tempfile.TemporaryDirectory()as tmp:
     c=self.fixture(Path(tmp),mode,{'Texture/Pattern/AutoInvertOnErase':'false'});self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertNotIn('eraseId',d['texture']);self.assertEqual(d['version'],88)
 
- def test_raw109_color_fallback_does_not_gain131_pair(self):
+ def test_raw109_color_fallback_promotes_whole193_paired_erase(self):
   for mode in(2,3):
    with tempfile.TemporaryDirectory()as tmp:
-    c=self.fixture(Path(tmp),mode);self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],88);self.assertNotIn('eraseId',d['texture']);self.assertEqual(d['texture']['application']['mode'],'subtract');self.assertTrue(any(n['feature']=='nativeTextureModeFallback'for n in c.brushes[0]['compatibility']))
+    c=self.fixture(Path(tmp),mode);self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],193);self.assertIn('eraseId',d['texture']);self.assertEqual(d['texture']['application']['mode'],'subtract');self.assertTrue(any(n['feature']=='nativeTextureModeFallback'for n in c.brushes[0]['compatibility']))
 
  def test_malformed_rendering_is_closed_helper_and_portable_preoutput(self):
   from smudge_texture_erase131 import smudge_texture_erase131_scope

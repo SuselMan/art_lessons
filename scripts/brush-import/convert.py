@@ -507,7 +507,10 @@ def validate_portable_dynamics(controls):
         else: raise ValueError('Invalid portable dynamic curve')
 
 
-def validate_portable_mixer(descriptor,*,texture191=False):
+def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False):
+    if smudge193:
+        from color_smudge193 import validate_smudge193
+        validate_smudge193(descriptor)
     if texture191:
         from texture_combinations191 import texture191_scope
         if not texture191_scope(descriptor):raise ValueError('Missing191 whole mixer authority')
@@ -531,7 +534,7 @@ def validate_portable_mixer(descriptor,*,texture191=False):
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
         valid=(legacy_color_smudge_dodge_burn176_scope(descriptor)if mode in('dodge','burn')else legacy_color_smudge_arithmetic175_scope(descriptor)if mode in('add','subtract')else legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
-        if not(valid or texture191) or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
+        if not(valid or texture191 or smudge193) or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
@@ -565,9 +568,13 @@ def validate_portable_mixer(descriptor,*,texture191=False):
         if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
-def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None):
+def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False):
     from independent_mask190 import validate_independent_mask190
-    if filter192 is not None:
+    if smudge193:
+        from color_smudge193 import validate_smudge193
+        validate_smudge193(descriptor,parent)
+        mask190=True
+    elif filter192 is not None:
         from filter_mask192 import validate_filter192
         validate_filter192(filter192,1 if parent is not None else 0)
         mask190=True
@@ -643,8 +650,8 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
     if isinstance(behavior,dict):
         rendering=behavior.get('rendering',{})
         if any(isinstance(behavior.get(k),dict) and any(mode in('hardMixPhotoshop','kritaHardMix') for mode in behavior[k].values()) for k in ('grain','dual','wetMix')) or isinstance(rendering,dict) and rendering.get('burntEdgesMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Extended composite is rendering-only')
-        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
-        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
+        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or (not smudge193 and descriptor.get('model')!='stamp') or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
+        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or (not smudge193 and descriptor.get('model')!='stamp') or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
     filter_config=descriptor.get('filter')
     if isinstance(filter_config,dict)and filter_config.get('smudgeMode')is True:
         # The complete new147 scope was validated above. Reuse unchanged
@@ -676,11 +683,11 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             raise ValueError('Invalid portable Sketch114 root scope')
     if isinstance(sketch,dict)and sketch.get('mode')=='mask'and not sketch_procedural173_scope(descriptor):
         dims=sketch.get('maskSize');bounds=tip.get('maskBounds')
-        if descriptor['version']<101 or descriptor.get('model')!='stamp' or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip and(k!='animation'or not (sketch_gih174_scope(descriptor)or sketch_pressure_gih181_scope(descriptor)or sketch_angular_gih182_scope(descriptor)))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
+        if descriptor['version']<101 or (not smudge193 and descriptor.get('model')!='stamp') or tip.get('kind')!='bitmap' or tip.get('aspect')!=1 or not isinstance(dims,list)or len(dims)!=2 or any(type(n)is not int or not 1<=n<=256 for n in dims)or type(sketch.get('distanceOpacity'))is not bool or any(k in tip and(k!='animation'or not (sketch_gih174_scope(descriptor)or sketch_pressure_gih181_scope(descriptor)or sketch_angular_gih182_scope(descriptor)))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or not isinstance(bounds,dict):raise ValueError('Invalid portable Sketch101 mask')
     noise=tip.get('autoNoise')
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
-            or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid portable auto mask noise')
+            or (not smudge193 and descriptor.get('model')!='stamp')or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid portable auto mask noise')
     if noise is not None and 'spray'in descriptor:
         spray=descriptor['spray']
         if not isinstance(spray,dict) or not isinstance(spray.get('particle'),dict) or not isinstance(spray.get('color'),dict) or not isinstance(behavior,dict):raise ValueError('Invalid portable Spray Auto-mask noise records')
@@ -689,7 +696,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
     if noise is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness') and not mask190 and(descriptor['version']<98 or 'autoShape'in tip):raise ValueError('Rectangle Auto-mask noise requires revision98 without spikes')
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
-            or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
+            or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or (not smudge193 and descriptor.get('model')!='stamp')or tip.get('kind')!='procedural'
             or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid native auto shape')
     maximum=(isinstance(behavior,dict) and isinstance(behavior.get('rendering'),dict)
              and behavior['rendering'].get('accumulation')=='maxAlpha')
@@ -714,7 +721,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
                 or 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
-                or any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
+                or not smudge193 and any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
                 or not mask190 and 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
         if kind=='gaussian2D':
             if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
@@ -728,7 +735,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                     or any(k in tip for k in('imageSampling','alphaThreshold'))
                     or dynamic and(not finite(profile.get('minimum'),-65536,65536)or not finite(profile.get('span'),1,131072))):raise ValueError('Invalid portable rectangle curve profile')
     elif profile.get('kind')=='gaussian':
-        if (set(profile)!={'kind','fade','antialias'} or descriptor['model']!='stamp'
+        if (set(profile)!={'kind','fade','antialias'} or (not smudge193 and descriptor['model']!='stamp')
                 or tip.get('aspect')!=1 and tip.get('autoShape')is None or not finite(profile.get('fade'),.000001,.999999)):
             raise ValueError('Invalid portable Gaussian profile')
     elif profile.get('kind')=='standard':
@@ -738,7 +745,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             raise ValueError('Invalid portable standard profile')
     elif profile.get('kind')=='radialCurveSoftness':
         if (set(profile)!={'kind','lookup','resolution','encoding','minimum','span','antialias'}
-                or descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'or profile.get('antialias')is not False
+                or (not smudge193 and descriptor.get('model')!='stamp') or tip.get('kind')!='procedural'or profile.get('antialias')is not False
                 or profile.get('encoding')!='softness-affine-unorm32be-v1'
                 or not isinstance(profile.get('lookup'),str)or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution'))is not int or not 1<=profile['resolution']<=40000
@@ -746,7 +753,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
-                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None else profile['antialias']is not False)
+                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 else profile['antialias']is not False)
                 or profile.get('encoding')!='unorm32be'
                 or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000
@@ -763,7 +770,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         scatter=behavior.get('scatter',{})
         if (set(profile)!={'kind','antialias'} or profile['antialias'] is not True
                 or tip.get('kind')!='procedural' or type(tip.get('aspect')) not in (int,float) or tip.get('aspect')!=1
-                or descriptor.get('model')!='stamp' or type(descriptor.get('paperInteraction')) not in (int,float) or descriptor.get('paperInteraction')!=0
+                or (not smudge193 and descriptor.get('model')!='stamp') or type(descriptor.get('paperInteraction')) not in (int,float) or descriptor.get('paperInteraction')!=0
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))
                 or type(descriptor.get('flow')) not in (int,float) or descriptor.get('flow')!=1 or descriptor.get('flowPer')!='stamp' or 'flowSpan' in descriptor
                 or not flat(descriptor.get('flowByPressure')) or not flat(descriptor.get('opacityByPressure'))
@@ -805,6 +812,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==193:
+            from color_smudge193 import validate_smudge193_portable
+            validate_smudge193_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)
+            return
         if isinstance(d,dict)and d.get('version')==192:
             from filter_mask192 import validate_filter192_portable
             validate_filter192_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)

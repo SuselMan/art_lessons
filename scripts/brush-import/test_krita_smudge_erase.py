@@ -29,7 +29,7 @@ class SmudgeEraseTests(unittest.TestCase):
             definition=f'<Brush type="png_brush" filename="tip.png" brushApplication="{application}"/>'
             c=fixtures.LegacyForegroundTests().brush({'CompositeOp':'erase'},definition)
             self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor']
-            self.assertEqual(d['model'],'mixer');self.assertEqual(d['version'],88)
+            self.assertEqual(d['model'],'mixer');self.assertEqual(d['version'],193 if 'paintThickness'in d['mixer']else 88)
             self.assertEqual(d['mixer']['colorRateComposite'],'erase')
             if application==1:self.assertIn('planes',d['tip']['color']);self.assertEqual(d['mixer']['algorithm'],'krita-stamp')
             if application==2:self.assertIn('material',d['tip']);self.assertIn('paintThickness',d['mixer'])
