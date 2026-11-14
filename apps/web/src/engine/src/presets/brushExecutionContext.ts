@@ -30,7 +30,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
     if(context?.brushRandom!==undefined&&!isBrushRandomSeeds(context.brushRandom))throw Error('Invalid Mask190 execution seeds')
     if(role.needRandom&&!context?.brushRandom)throw Error('Mask190 requires an explicit gesture random context')
     if(role.needGradient&&!context?.brushSource?.gradient)throw Error('Mask190 requires captured gradient source')
-    if(brush.version===191&&brush.mixer){if(context?.brushSource!==undefined&&!isBrushSourceContext(context.brushSource))throw Error('Invalid captured Texture191 source');if(brush.mixer.source==='projectionCanvas'&&!context?.brushSource?.projection)throw Error('Merged Texture191 brush requires recorded projection sources')}
+    if((brush.version===191||brush.version===193)&&brush.mixer){if(context?.brushSource!==undefined&&!isBrushSourceContext(context.brushSource))throw Error('Invalid captured Texture191 source');if(brush.mixer.source==='projectionCanvas'&&!context?.brushSource?.projection)throw Error('Merged Texture191 brush requires recorded projection sources')}
     return
   }
   if(brush.behavior?.clockRead!==undefined&&(!isPrimaryClockRead132Marker(brush.behavior.clockRead)||brush.version<132))throw Error('Invalid child clock132 marker')
