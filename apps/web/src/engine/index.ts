@@ -8412,6 +8412,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))&&!dabs.some(isGridRenderableDab137)){if(strokeEnd&&strokeId)this._smudge.finishGesture(userId,strokeId);return undefined}
     if (!dabs.length && !strokeEndSample) {if(strokeEnd&&strokeId&&tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName)))this._smudge.finishGesture(userId,strokeId);return undefined}
+    if(tool==='digitalBrush')this._smudge.prepareRecordedTexture191(digitalBrushFromPreset(presetName),execution)
     if(!(tool==='digitalBrush' && digitalBrushFromPreset(presetName).mixer?.paintThickness))target.dryColorSmudge?.()
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
     if (tool === 'digitalBrush') {

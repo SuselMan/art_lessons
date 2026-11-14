@@ -31,7 +31,7 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { bindBrushGradient,assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -247,6 +247,7 @@ export class SmudgePainter {
   private maximumImageSide?: number
   private materialProjection?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private recordedTexture191Plans=new WeakMap<BrushDescriptor,readonly BrushPreparationResource[]>()
   private texture191Transfers=new Map<string,{program:WebGLProgram;uniforms:Uniforms;position:number}>()
   private colorSmudgeTextureTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private colorSmudgeForegroundTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
@@ -303,7 +304,7 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
-    this.texture191Transfers.clear()
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
     this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
@@ -337,7 +338,7 @@ export class SmudgePainter {
     this.proceduralTransfer = undefined
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
-    this.texture191Transfers.clear()
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
     this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
@@ -374,7 +375,7 @@ export class SmudgePainter {
     this.wetGestures.clear()
     if(this.colorMean)gl.deleteProgram(this.colorMean.program)
     for(const binding of this.texture191Transfers.values())gl.deleteProgram(binding.program)
-    this.texture191Transfers.clear()
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
     if(this.colorSmudgeTextureTransfer)gl.deleteProgram(this.colorSmudgeTextureTransfer.program)
     if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
     if(this.colorSmudgeForegroundTransfer)gl.deleteProgram(this.colorSmudgeForegroundTransfer.program)
@@ -388,7 +389,7 @@ export class SmudgePainter {
     if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
     this.colorMean = undefined
     this.colorSmudgeTransfer = undefined
-    this.texture191Transfers.clear()
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
     this.colorSmudgeTextureTransfer = undefined
     this.colorSmudgeForegroundTransfer = undefined
     this.colorSmudgeLegacyTransfer = undefined
@@ -1276,6 +1277,29 @@ export class SmudgePainter {
     this.colorSmudgeTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
       'u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
       'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  /** Recorded/live/replay entry, before target or gesture mutation. Registry
+   * descriptors are deep-frozen; only their unbound metadata plan is retained.
+   * Current gradient bindings and residency are checked anew for every batch. */
+  prepareRecordedTexture191(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
+    if(brush.version!==191||brush.model!=='mixer')return
+    let plan=this.recordedTexture191Plans.get(brush)
+    if(!plan){
+      if(!isTextureCombinations191Scope(brush))throw Error('Invalid whole recorded Texture191 scope')
+      plan=brushPreparationResources(brush)
+      const bytes=brushPreparationBytes(plan,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)
+      if(bytes+brushPreparationTransientBytes(plan)>BRUSH_PREPARATION_BYTES)throw Error('Recorded Texture191 bank exceeds texture budget')
+      if(plan.some(r=>r.nativeImage||r.lookup32))assertNativeImageAdmission(plan,this.imageDimensionLimit())
+      if(Object.isFrozen(brush))this.recordedTexture191Plans.set(brush,plan)
+    }
+    const resources=bindBrushGradient(plan,execution?.brushSource?.gradient)
+    const release=this.wetTextures.leaseRequired(brushTextureLeasePlan(resources,'wet'))
+    try{
+      if(!this.texture191Transfers.has(this.texture191Family(brush)))this.prepareColorSmudgeTexture(brush)
+      for(const resource of resources)if(resource.painter==='wet'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
+      if(resources.some(resource=>resource.painter==='wet'&&!this.hasPreparedTexture(resource)))throw Error('Recorded Texture191 bank lost residency')
+    }finally{release()}
   }
 
   private texture191Family(brush:BrushDescriptor):string{
