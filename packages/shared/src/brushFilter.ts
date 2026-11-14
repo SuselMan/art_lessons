@@ -1,3 +1,4 @@
+import {hasFilterMask192Scope,isFilterMask192Payload,type FilterMask192Policy}from'./brushFilterMask192.js'
 export interface SpatialBrushFilter{version:1;kind:'gaussian'|'unsharp';radiusX:number;radiusY:number;amount:number;threshold:number;lightnessOnly:boolean}
 export interface FilterSmudge147 {smudgeMode:true;sourcePolicy:'canonical-begin-v1'}
 type PointwiseBrushFilter={version:2;kind:'invert'}|{version:2;kind:'desaturate';type:0|1|2|3|4|5}|{version:2;kind:'posterize';steps:number}
@@ -5,13 +6,16 @@ export type GaussianSmudge153=SpatialBrushFilter&FilterSmudge147&{kind:'gaussian
 export type UnsharpSmudge159=SpatialBrushFilter&FilterSmudge147&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}
 export type BitmapFilterSmudge169={version:2;kind:'invert';smudgeMode:true;sourcePolicy:'canonical-begin-v1';maskPolicy:'bitmap-alpha-v1'}
 export type BitmapFilterSmudge179=((Exclude<PointwiseBrushFilter,{kind:'invert'}>&FilterSmudge147)|GaussianSmudge153|UnsharpSmudge159)&{maskPolicy:'bitmap-alpha-v1'}
-export type BrushFilter=BitmapFilterSmudge179|BitmapFilterSmudge169|UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
+export type NativeFilterMask192=(PointwiseBrushFilter|(SpatialBrushFilter&{kind:'gaussian';spatialPolicy:'gaussian-halo-v1'})|(SpatialBrushFilter&{kind:'unsharp';spatialPolicy:'unsharp-lab-halo-v1'}))&FilterMask192Policy
+export type BrushFilter=NativeFilterMask192|BitmapFilterSmudge179|BitmapFilterSmudge169|UnsharpSmudge159|GaussianSmudge153|SpatialBrushFilter|PointwiseBrushFilter|(PointwiseBrushFilter&FilterSmudge147)
 export function isPosterizeBrushFilter(value:unknown):value is Extract<BrushFilter,{kind:'posterize'}>{
+ if(isFilterMask192Payload(value)&&value&&typeof value==='object'&&'kind'in value&&value.kind==='posterize')return true
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>
  return (Object.keys(v).length===3&&Object.keys(v).every(k=>k==='version'||k==='kind'||k==='steps')||v.smudgeMode===true&&v.sourcePolicy==='canonical-begin-v1'&&(Object.keys(v).length===5&&Object.keys(v).every(k=>['version','kind','steps','smudgeMode','sourcePolicy'].includes(k))||v.maskPolicy==='bitmap-alpha-v1'&&Object.keys(v).length===6&&Object.keys(v).every(k=>['version','kind','steps','smudgeMode','sourcePolicy','maskPolicy'].includes(k))))&&v.version===2&&v.kind==='posterize'&&typeof v.steps==='number'&&Number.isInteger(v.steps)&&v.steps>=2&&v.steps<=128
 }
 export function isFilterDescriptor(d:Record<string,unknown>):boolean{
+ if(d.version===192)return hasFilterMask192Scope(d)
  if(d.version===186)return hasFilterHostInitial186Scope(d)
  if(d.filter===undefined)return true
  if(d.filter&&typeof d.filter==='object'&&'maskPolicy'in d.filter)return hasFilterBitmapMaskScope(d)
@@ -25,6 +29,7 @@ export function isFilterDescriptor(d:Record<string,unknown>):boolean{
 
 /** Exact pointwise carried filter device, not a translated smudge imprint. */
 export function hasFilterSmudge147Scope(value:unknown):boolean {
+ if(value&&typeof value==='object'&&'version'in value&&value.version===192)return hasFilterMask192Scope(value)
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const d=value as Record<string,unknown>,f=d.filter
  return !!f&&typeof f==='object'&&!Array.isArray(f)&&(f as Record<string,unknown>).smudgeMode===true&&isFilterDescriptor(d)
@@ -32,6 +37,7 @@ export function hasFilterSmudge147Scope(value:unknown):boolean {
 
 /** Gaussian source OVER updates persistent neededRect; filtered output only dabRect. */
 export function hasFilterGaussian153Scope(value:unknown):boolean{
+ if(value&&typeof value==='object'&&'version'in value&&value.version===192)return hasFilterMask192Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='gaussian'
  if(value&&typeof value==='object'&&!Array.isArray(value)&&'version'in value&&value.version===186)return hasFilterHostInitial186Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='gaussian'
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  if(value&&typeof value==='object'&&!Array.isArray(value)){const d=value as Record<string,unknown>,f=d.filter;if(f&&typeof f==='object'&&'maskPolicy'in f)return (f as Record<string,unknown>).kind==='gaussian'&&hasFilterBitmap179Scope(d)}
@@ -45,6 +51,7 @@ export function hasFilterGaussian153Scope(value:unknown):boolean{
 
 /** Native Unsharp spatial device, both raw and Lab/alpha branches; exact newpolicy. */
 export function hasFilterUnsharp159Scope(value:unknown):boolean{
+ if(value&&typeof value==='object'&&'version'in value&&value.version===192)return hasFilterMask192Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='unsharp'
  if(value&&typeof value==='object'&&!Array.isArray(value)&&'version'in value&&value.version===186)return hasFilterHostInitial186Scope(value)&&'filter'in value&&!!value.filter&&typeof value.filter==='object'&&'kind'in value.filter&&value.filter.kind==='unsharp'
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  if(value&&typeof value==='object'&&!Array.isArray(value)){const d=value as Record<string,unknown>,f=d.filter;if(f&&typeof f==='object'&&'maskPolicy'in f)return (f as Record<string,unknown>).kind==='unsharp'&&hasFilterBitmap179Scope(d)}
@@ -81,7 +88,7 @@ export function hasFilterBitmap179Scope(value:unknown):boolean{
  const proxy={...d,filter,tip:{kind:'round',hardness:tip.hardness,aspect:tip.aspect,rotation:tip.rotation,angle:tip.angle}}
  return x.kind==='unsharp'?hasFilterUnsharp159Scope({...proxy,version:159}):x.kind==='gaussian'?hasFilterGaussian153Scope(proxy):isFilterDescriptor(proxy)
 }
-export function hasFilterBitmapMaskScope(value:unknown):boolean{return hasFilterBitmap169Scope(value)||hasFilterBitmap179Scope(value)||hasFilterHostInitial186Scope(value)&&!!value&&typeof value==='object'&&'tip'in value&&!!value.tip&&typeof value.tip==='object'&&'kind'in value.tip&&value.tip.kind==='bitmap'}
+export function hasFilterBitmapMaskScope(value:unknown):boolean{return hasFilterMask192Scope(value)&&!!value&&typeof value==='object'&&'tip'in value&&!!value.tip&&typeof value.tip==='object'&&'kind'in value.tip&&value.tip.kind==='bitmap'||hasFilterBitmap169Scope(value)||hasFilterBitmap179Scope(value)||hasFilterHostInitial186Scope(value)&&!!value&&typeof value==='object'&&'tip'in value&&!!value.tip&&typeof value.tip==='object'&&'kind'in value.tip&&value.tip.kind==='bitmap'}
 
 /** Guard-only host-initial admission. BEGIN already emits the first request.
  * Qualified native host domain: NO_SMOOTHING/fan-off, no active sensors or timer.
