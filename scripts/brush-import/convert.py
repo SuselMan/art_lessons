@@ -565,9 +565,13 @@ def validate_portable_mixer(descriptor,*,texture191=False):
         if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
-def validate_portable_profile(descriptor, *, parent=None,texture191=False):
+def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None):
     from independent_mask190 import validate_independent_mask190
-    if texture191:
+    if filter192 is not None:
+        from filter_mask192 import validate_filter192
+        validate_filter192(filter192,1 if parent is not None else 0)
+        mask190=True
+    elif texture191:
         from texture_combinations191 import texture191_role
         if not texture191_role(descriptor,parent):raise ValueError('Missing191 profile component authority')
         mask190=True
@@ -742,7 +746,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False):
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
-                or tip.get('kind')!='procedural' or profile['antialias'] is not False
+                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None else profile['antialias']is not False)
                 or profile.get('encoding')!='unorm32be'
                 or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000
@@ -801,6 +805,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==192:
+            from filter_mask192 import validate_filter192_portable
+            validate_filter192_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)
+            return
         if isinstance(d,dict)and d.get('version')==191:
             from texture_combinations191 import validate_texture191_portable
             validate_texture191_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)

@@ -6,6 +6,10 @@ def _number(v,lo,hi):return type(v)in(int,float)and math.isfinite(v)and lo<=v<=h
 
 def validate_canonical_effect_scopes(d,depth=0):
     deform=d.get('deform');f=d.get('filter')
+    if d.get('version')==192:
+        from filter_mask192 import validate_filter192
+        validate_filter192(d,depth)
+        return
     if d.get('version')==186:
         if depth or not filter_host_initial186_static(d):raise ValueError('Filter186 requires root static pressure-off host-initial scope')
         version=169 if d['tip']['kind']=='bitmap'and f['kind']=='invert'else 179 if d['tip']['kind']=='bitmap'else 159 if f['kind']=='unsharp'else 153 if f['kind']=='gaussian'else 147

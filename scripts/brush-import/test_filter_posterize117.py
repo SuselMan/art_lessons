@@ -18,8 +18,8 @@ class FilterPosterize117Tests(unittest.TestCase):
   for v in['0','1','129','2.5','NaN','Infinity','bad','']:
    with self.subTest(v=v),self.assertRaises(ValueError):self.convert('<param name="steps">'+v+'</param>')
   with self.assertRaises(ValueError):self.convert('<param name="steps">2</param><param name="steps">16</param>')
-  with self.assertRaises(ValueError):self.convert(mode='normal')
-  for key in['EraserMode','PaintOpSettings/isAirbrushing']:
+  self.assertEqual(self.convert(mode='normal')['descriptor']['filter']['composite'],'normal')
+  for key in['PaintOpSettings/isAirbrushing']:
    with self.assertRaises(ValueError):self.convert(extra='<param name="'+key+'">true</param>')
  def test_portable_positive_and_exactscope_negatives_before_any_output(self):
   result=self.convert();original={'library':{'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]},'assets':{}}

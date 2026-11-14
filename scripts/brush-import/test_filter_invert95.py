@@ -18,8 +18,10 @@ class FilterInvert95Tests(unittest.TestCase):
                 self.assertEqual(result['descriptor']['version'],95);self.assertEqual(result['descriptor']['filter'],{'version':2,'kind':'invert'})
         self.assertEqual(baseline['descriptor']['mixer']['source'],'previousCanvas')
     def test_existing_safety_guards_not_relaxed(self):
-        for key,value in [('EraserMode','true'),('PaintOpSettings/isAirbrushing','true')]:
+        for key,value in [('PaintOpSettings/isAirbrushing','true')]:
             with self.subTest(key=key),self.assertRaises(ValueError):self.convert(extra='<param name="'+key+'">'+value+'</param>')
+    def test_native_erase_uses_expanded192(self):
+        d=self.convert(extra='<param name="EraserMode">true</param>')['descriptor'];self.assertEqual(d['version'],192);self.assertEqual(d['filter']['composite'],'erase')
     def test_portable_preserves_exact_descriptor(self):
         result=self.convert();library={'schemaVersion':1,'brushes':[result],'assets':[],'skipped':[]}
         with tempfile.TemporaryDirectory()as folder:

@@ -5,7 +5,7 @@ from PIL import Image,PngImagePlugin
 from brush_contract import finalize_identity,compatibility
 
 
-def filter_preset(data,root,params,name,catalog,external):
+def _legacy_filter_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,xml
     kind={'gaussian blur':'gaussian','unsharp':'unsharp','invert':'invert','desaturate':'desaturate','posterize':'posterize'}.get(params.get('Filter/id'))
     if kind is None:raise ValueError('Unsupported brush filter: '+str(params.get('Filter/id')))
@@ -99,3 +99,18 @@ def filter_preset(data,root,params,name,catalog,external):
         note=compatibility('filterHostInitial186','Guard-only native host-initial admission on existing canonical-BEGIN Filter smudge. Grafetto already emits first request on down; no added timer, RNG, source recapture or renderer. Qualified NO_SMOOTHING/fan-off static pressure-off Size/Opacity/Flow/Strength/Rotation; native host smoothing/settings and pixel identity are not promised. Original airbrush aliases and KPP bytes remain the source identity; local Pixel bridge alone suppresses their unrelated timing parser. Existing COPY, filter payload, halos and budget remain unchanged.')
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']+[note];result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported'];result['descriptor']=finalize_identity(d,data)
     return result
+
+
+def filter_preset(data,root,params,name,catalog,external):
+    from krita_import import _native_preset_transaction,enabled
+    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
+        return _legacy_filter_preset(data,root,params,name,catalog,external)
+    # Historical complete imports retain exact descriptors and identities.
+    def legacy():
+        result=_legacy_filter_preset(data,root,params,name,catalog,external)
+        if any(enabled(params.get('Pressure'+k))for k in('Opacity','Flow','Scatter','Softness','Sharpness','Ratio'))or enabled(params.get('Texture/Pattern/Enabled'))or enabled(params.get('MaskingBrush/Enabled'))or any(n['status']=='unsupported'for n in result['compatibility']):raise ValueError('Expanded native Filter settings require192')
+        return result
+    try:return _native_preset_transaction(catalog,legacy)
+    except ValueError:
+        from native_filter192 import lower_filter192
+        return _native_preset_transaction(catalog,lambda:lower_filter192(data,root,params,name,catalog,external))
