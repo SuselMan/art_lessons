@@ -1,10 +1,10 @@
 import{describe,it,expect}from'vitest'
 import{readFileSync,readdirSync}from'node:fs'
 import{dirname,join}from'node:path'
-import{isBrushLibrary,hasBrushSourceInputs,hasIndependentMask190Scope,isIndependentMask190Component}from'./brushes.js'
+import{isBrushLibrary,hasBrushSourceInputs,hasIndependentMask190Scope,isIndependentMask190Component,brushUsesGradient,type BrushDescriptor}from'./brushes.js'
 import{isBrushBehavior}from'./brushBehavior.js'
 const source=()=>JSON.parse(readFileSync(process.env.NATIVE190_LIBRARY!,'utf8'))
-describe('whole native190 mask role/schema',()=>{
+describe.skipIf(!process.env.NATIVE190_LIBRARY)('whole native190 mask role/schema',()=>{
  it('accepts genuine seven-option native output and actual child identity only',()=>{
   const library=source(),root=library.brushes[0].descriptor,child=root.behavior.dual.brush
   expect(hasIndependentMask190Scope(root)).toBe(true);expect(isBrushLibrary(library)).toBe(true)
@@ -32,4 +32,14 @@ describe('whole native190 mask role/schema',()=>{
   expect(isBrushBehavior({version:2,dynamics:{size:response}})).toBe(true)
   const value=source();value.brushes[0].descriptor.version=189;expect(isBrushLibrary(value)).toBe(false)
  })
+})
+
+it('captures a gradient used only by the native190 child, retaining old source laws',()=>{
+ const plain={version:190,tip:{kind:'round'}} as BrushDescriptor
+ const colored={...plain,tip:{kind:'bitmap',color:{gradient:{gray:'asset:gray'}}}} as BrushDescriptor
+ const pair={...plain,behavior:{version:2,dual:{brush:colored,sampling:'independent',blendMode:'multiply'}}} as BrushDescriptor
+ expect(brushUsesGradient(pair)).toBe(true)
+ expect(brushUsesGradient({...pair,version:189})).toBe(false)
+ expect(brushUsesGradient({...pair,tip:colored.tip})).toBe(true)
+ expect(brushUsesGradient({...pair,behavior:{...pair.behavior!,dual:{...pair.behavior!.dual!,brush:plain}}})).toBe(false)
 })

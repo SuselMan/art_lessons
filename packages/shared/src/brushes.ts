@@ -183,7 +183,8 @@ export function brushForegroundRate(foreground:BrushForeground|undefined):BrushF
  return foreground && 'gradient' in foreground ? foreground.gradient : foreground
 }
 export function brushUsesGradient(brush:BrushDescriptor):boolean {
- return brush.texture?.material?.kind==='gradient' || !!brush.tip.color && 'gradient' in brush.tip.color || !!brush.mixer?.foreground && 'gradient' in brush.mixer.foreground
+ const own=(b:BrushDescriptor):boolean=>b.texture?.material?.kind==='gradient' || !!b.tip.color && 'gradient' in b.tip.color || !!b.mixer?.foreground && 'gradient' in b.mixer.foreground
+ return own(brush) || brush.version===190 && !!brush.behavior?.dual && own(brush.behavior.dual.brush)
 }
 export function brushTipColorPlanes(tip:BrushTip,index=0):readonly [AssetId,AssetId,AssetId]|undefined {
  const color=tip.color

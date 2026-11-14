@@ -1,4 +1,4 @@
-import { hasIndependentMask190Scope } from '@grafetto/shared'
+import { brushUsesGradient,hasIndependentMask190Scope } from '@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -105,6 +105,7 @@ export class BrushPainter {
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
     const mask190=hasIndependentMask190Scope(brush)
+    if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter

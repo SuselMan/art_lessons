@@ -167,6 +167,7 @@ export class BrushBehaviorPainter {
     execution?: BrushExecutionContext
     effectiveErase:boolean
     runtime?:CanonicalBeginRuntime
+    maskResourceRoot190?:BrushDescriptor
     target: BrushTarget
     preset: PencilPreset
     brush: BrushDescriptor
@@ -438,7 +439,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
 
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (!b)return
-    this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase,b.runtime)
+    this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution,b.effectiveErase,b.runtime,undefined,undefined,b.maskResourceRoot190)
     if(b.runtime?.capability==='filterSmudge147'||b.runtime?.capability==='spray146'||b.runtime?.capability==='cloneProjection149'||b.runtime?.capability==='cloneHealing152'){
       // END closes this source lifetime; duplicate END has no binding to dispatch.
       this.bindings.delete(scratch)
@@ -661,9 +662,10 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>},maskResourceRoot190?:BrushDescriptor): void {
     execution=mask190RootExecution(brush,execution)
     const mask190=mask190Role(brush,execution)!==undefined
+    if(mask190){if(execution!.maskRole190!.role==='primary')maskResourceRoot190=brush;else if(!maskResourceRoot190||maskResourceRoot190.id!==execution!.maskRole190!.rootId||maskResourceRoot190.behavior?.dual?.brush.id!==brush.id)throw Error('Missing validated whole Mask190 resource owner')}
     assertRecordedPen188Inputs(brush,dabs,endpoint,mask190)
     if(!mask190)assertAnimatedAlphaChild184Ready(brush,effectiveErase)
     const textureWash180=assertTextureGradientWash180Scope(brush)
@@ -701,7 +703,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     }
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
     const gradientWash=usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
-    if(gradientWash&&(!mask190&&!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
+    if(gradientWash&&!mask190&&(!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
     if(gradientWash&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
     const tangentWash=!!brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(tangentWash&&(!hasTangentNormalWash136Scope(brush)||effectiveErase))throw Error('Invalid Tangent Wash136 scope')
@@ -725,7 +727,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
     if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(brush.particle||brush.clone?1:4)){
-      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime)}
+      for(let i=0;i<dabs.length;i+=(brush.particle||brush.clone?1:4)){const last=i+(brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime,undefined,undefined,maskResourceRoot190)}
       return
     }
     if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');if(brush.bristle.soak)this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true);else this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
@@ -767,7 +769,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const imageResource=(id:TipMaskId,planes:readonly[string,string,string]|undefined)=>({id,grain:false,colorPlanes:planes,...(filteredGradient?{gradientSource:true as const}:gradientLut?{gradientMap:true as const,gradientLut}:{})})
     const pattern=canvasPattern?execution?.brushSource?.pattern:undefined
     if(canvasPattern){assertBrushExecutionContext(brush,execution);this.sketchBatch?.assertPatternPrepared();if(!this.sketchBatch)throw Error('Pattern programs are not prepared')}
-    const releaseTextures = this.leaseTextures(brush,effectiveErase,gradientLut,pattern)
+    const leaseGradientLut=mask190&&execution?.maskRole190?.needGradient?execution.brushSource?.gradient:gradientLut
+    const releaseTextures = this.leaseTextures(maskResourceRoot190??brush,effectiveErase,leaseGradientLut,pattern)
     try {
     const canvasPatternView=pattern?.kind==='rgba'?this.preparedImage(pattern.alpha,pattern.planes):undefined
     canvasPatternView?.assertCurrent()
@@ -787,7 +790,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       if(!view)throw Error('Pixel original RGBA frame was not prepared')
       view.assertCurrent();return view
     }
-    if(!filter147&&!sprayWash&&!particleWash&&!bristleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase, runtime })
+    if(!filter147&&!sprayWash&&!particleWash&&!bristleWash)this.bindings.set(scratch, { target, preset, brush, pressure, color, execution, effectiveErase, runtime, maskResourceRoot190 })
     if(brush.mypaint){(this.mypaintPass??=new MyPaintStrokePainter()).paint(target,dabs,brush,color,pressure,scratch,execution,finish,endpoint);return}
     const state = scratch.brushBehavior ?? beginBrushBehavior(dabs[0],execution)
     if(bristleWash){
@@ -832,7 +835,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         markContentPainted:bounds=>{ secondaryDirty=unionBounds(secondaryDirty,bounds) },
       }
       const child={...independent,behavior:independent.behavior??{version:2 as const}}
-      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint,mask190ChildExecution(brush,execution)),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish,undefined,mask190ChildExecution(brush,execution),effectiveErase)
+      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint,mask190ChildExecution(brush,execution)),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish,undefined,mask190ChildExecution(brush,execution),mask190?false:effectiveErase,undefined,undefined,undefined,maskResourceRoot190)
     }
 
     const accumulation=behavior.rendering?.accumulation
