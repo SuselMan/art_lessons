@@ -13,6 +13,10 @@ describe('whole native Filter192 mask contract',()=>{
     const b=filter192();b.tip.autoShape={version:1,spikes:5};b.tip.autoNoise={version:1,density:.6,randomness:.4};expect(isBrushLibrary(library192(b))).toBe(true)
     delete b.tip.autoShape;b.tip.profile={kind:'gaussian2D',shape:'ellipse',horizontalFade:.3,verticalFade:.7,antialias:true};expect(isBrushLibrary(library192(b))).toBe(true)
   })
+  it('allows the native circle curve antialias flag only in the new whole mask scope',()=>{
+    const b=filter192();b.tip.profile={kind:'radialCurve',lookup:FILTER192_MASK,resolution:1,encoding:'unorm32be',antialias:true};expect(isBrushLibrary(library192(b))).toBe(true)
+    b.version=147;expect(isBrushLibrary(library192(b))).toBe(false)
+  })
   it('keeps scalar texture modes and static destination opacity independent of the kernel',()=>{
     for(const mode of ['multiply','subtract','height','linearHeight','heightPhotoshop','linearHeightPhotoshop'] as const){const b=filter192();b.opacity=.4;b.texture={id:FILTER192_TEXTURE,strength:.75,periodPx:4,patternSize:{width:4,height:4},application:{mode,soft:false}};expect(isBrushLibrary(library192(b))).toBe(true)}
   })

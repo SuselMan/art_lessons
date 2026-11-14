@@ -148,7 +148,7 @@ export interface BrushTip {
     /** Opaque core plus a one-pixel outward band linear in squared distance. */
     | { kind: 'circleBand'; antialias: true }
     /** Native radial response table, UNORM32 big-endian words in CAS bytes. */
-    | { kind: 'radialCurve'; lookup: AssetId; resolution: number; encoding: 'unorm32be'; antialias: false }
+    | { kind: 'radialCurve'; lookup: AssetId; resolution: number; encoding: 'unorm32be'; antialias: boolean }
     | { kind:'radialCurveSoftness';lookup:AssetId;resolution:number;encoding:'softness-affine-unorm32be-v1';minimum:number;span:number;antialias:false }
   /** Native angular folding; source axes retain their independent ratio. */
   autoShape?:{version:1;spikes:number}
@@ -611,7 +611,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
       } else if (profile.kind === 'radialCurve') {
-        if (d.tip.kind !== 'procedural' || profile.antialias!==false || profile.encoding!=='unorm32be'
+        if (d.tip.kind !== 'procedural' || !filter192&&profile.antialias!==false || profile.encoding!=='unorm32be'
           || Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','antialias'].includes(key))
           || !ref(profile.lookup) || !numberIn(profile.resolution,1,40000) || !Number.isInteger(profile.resolution)
           || (assetSizes.get(profile.lookup as string) ?? 0)<4
