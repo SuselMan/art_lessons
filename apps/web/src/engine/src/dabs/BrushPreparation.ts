@@ -49,7 +49,7 @@ export function bindBrushGradient(resources:readonly BrushPreparationResource[],
 /** Small preflight shared by selected and never-selected READ paths. */
 export function brushUsesStampEffects(brush:BrushDescriptor):boolean {
  const activeNoise=!!brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)
- const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'||mode==='colorDodge'||mode==='colorBurn'||mode==='hardMixPhotoshop'||mode==='hardMixSofterPhotoshop'}
+ const extended=(b:BrushDescriptor|undefined)=>{const mode=b?.texture?.application?.mode;return mode==='darken'||mode==='overlay'||mode==='linearDodge'||mode==='linearBurn'||mode==='colorDodge'||mode==='colorBurn'||mode==='hardMixPhotoshop'||mode==='hardMixSofterPhotoshop'||mode==='height'||mode==='linearHeight'||mode==='heightPhotoshop'||mode==='linearHeightPhotoshop'}
  const inline=brush.behavior?.dual?.sampling!=='independent'?brush.behavior?.dual?.brush:undefined
  return !!textureMaterialKind(brush)||usesVariableGih(brush.tip)||usesPixelOriginalRgba(brush)||activeNoise||extended(brush)||extended(inline)||brush.tip.profile?.kind==='gaussian2D'||brush.tip.profile?.kind==='curveRectangle'||brush.tip.profile?.kind==='curveRectangleSoftness'
 }
