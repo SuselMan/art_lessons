@@ -47,7 +47,7 @@ class ColorSmudgeNativeTextureFallback109Tests(unittest.TestCase):
     root=Path(tmp);c,_=fixture(root,mode);m=c.write();payload={'library':m,'assets':{a['id']:base64.b64encode((c.output/a['file']).read_bytes()).decode()for a in m['assets']}};path=root/'new.grafetto-brushes.json';path.write_text(json.dumps(payload));out=Catalog(root/'portable');portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
     # Schema-only stored historical grain control; no native reinterpretation
     # occurs on portable import and no historical real-export identity claimed.
-    old=copy.deepcopy(payload);d=old['library']['brushes'][0]['descriptor'];d['texture'].pop('application');d['texture'].pop('patternSize');d['texture'].pop('offset');path=root/'old.grafetto-brushes.json';path.write_text(json.dumps(old));prior=Catalog(root/'old-portable');portable_bundle(path,prior);self.assertEqual(prior.brushes,old['library']['brushes'])
+    old=json.loads((Path(__file__).parent/'fixtures/smudge193_pre193_texture109.json').read_text());d=old['library']['brushes'][0]['descriptor'];d['texture'].pop('application');d['texture'].pop('patternSize');d['texture'].pop('offset');path=root/'old.grafetto-brushes.json';path.write_text(json.dumps(old));prior=Catalog(root/'old-portable');portable_bundle(path,prior);self.assertEqual(prior.brushes,old['library']['brushes'])
  def test_hatching_and_pixel_are_not_blanket_aliased_by_this_correction(self):
   for engine in('paintbrush','hatchingbrush'):
    for raw in(2,3):

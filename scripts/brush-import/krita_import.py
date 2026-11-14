@@ -898,7 +898,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
             if _bristle_source_capture is not None and kind in('png_brush','gbr_brush') and max(mask.size)<=1024:
                 _bristle_source_capture.update(width=mask.width,height=mask.height,angle=numeric(definition.get('angle'),0))
-            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
+            if not COMPONENT193.get()and kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
                 sampling=integer_image_sampling(original_sampling_image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:
                     d['tip']['imageSampling']=sampling
@@ -908,6 +908,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         source_metric=mask.size
+        if COMPONENT193.get()and d['tip'].get('kind')=='bitmap'and 'animation'not in d['tip']:
+            if any(type(v)is not int or not 1<=v<=2048 for v in source_metric):raise ValueError('Smudge193 static source geometry exceeds existing2048 bound')
+            d['tip']['sourceGeometry']={'version':1,'width':source_metric[0],'height':source_metric[1]}
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
         if stamp_images:
             channels=[]
@@ -1895,6 +1898,10 @@ def preset(data,name,catalog,external,depth=0,**options):
     image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
     if node.get('paintopid')!='colorsmudge':return _preset_without_smudge193(data,name,catalog,external,depth,**options)
     params={n.get('name'):n.text or''for n in node.findall('param')}
+    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))and(options.get('_allow_texture_material',True)is False or options.get('_default_input_policy')!=DEFAULT_NATIVE_INPUT_POLICY):
+        # Explicit private/direct legacy callers keep their old timer-disable
+        # contract; this is not public admission to a new193 timer family.
+        return _preset_without_smudge193(data,name,catalog,external,depth,**options)
     from color_smudge193 import NATIVE_MODES
     if params.get('CompositeOp','normal')not in NATIVE_MODES:raise ValueError('Unknown native Color Smudge composite')
     try:strategy=float(params.get('SmudgeRateMode','0'))
@@ -1906,6 +1913,11 @@ def preset(data,name,catalog,external,depth=0,**options):
         if radius_version not in(1,2)or not math.isfinite(radius)or not 0<=radius<=(300 if radius_version==1 else 3):raise ValueError('Raw native Color Smudge radius outside bounded native range')
     def legacy():
         result=_preset_without_smudge193(data,name,catalog,external,depth,**options);d=result['descriptor'];m=d.get('mixer',{})
+        tip=d.get('tip',{})
+        # Future static imports need original dimensions even when the old
+        # pigment strategy was accepted. Existing recorded histories are inert.
+        # Already working host-timer families retain their closed old contract.
+        if tip.get('kind')=='bitmap'and 'animation'not in tip and 'imageSampling'not in tip and not any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Static native Color Smudge geometry requires193')
         if any(n['status']=='unsupported'for n in result['compatibility'])or m.get('paintThickness')and m.get('colorRateComposite')=='erase'or m.get('algorithm')and d.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Whole native Color Smudge193 required')
         return result
     try:return _native_preset_transaction(catalog,legacy)

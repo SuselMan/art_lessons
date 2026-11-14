@@ -22,6 +22,9 @@ def scope193(d):
         q=m['sampling'];modern='algorithm'in m
         if not obj(q)or q.get('mode')!=('maskMean'if modern else'adaptiveMean')or type(q.get('radius'))not in(int,float)or not math.isfinite(q['radius'])or not 0<=q['radius']<=(1 if modern else 3):return False
     if m.get('colorRateComposite')=='erase'and b.get('erase')is not True or b.get('erase')is True and m.get('colorRateComposite')!='erase':return False
+    if 'sourceGeometry'in t:
+        g=t['sourceGeometry']
+        if t.get('kind')!='bitmap'or 'animation'in t or'imageSampling'in t or not obj(g)or set(g)!={'version','width','height'}or type(g.get('version'))is not int or g['version']!=1 or any(type(g.get(k))is not int or not 1<=g[k]<=2048 for k in('width','height')):return False
     if 'texture'in d:
         from texture_combinations191 import APPLICATIONS
         x=d['texture'];a=x.get('application')if obj(x)else None

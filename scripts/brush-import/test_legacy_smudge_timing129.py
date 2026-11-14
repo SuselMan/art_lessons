@@ -30,7 +30,12 @@ class LegacyTiming129(unittest.TestCase):
  def test_foreign_modern_projection_rate_or_disabled_conditions_do_not_auto_enable(self):
   for extra in [{'MergedPaint':'true'},{'SmudgeRateUseNewEngine':'true'},{'PressureRate':'true'},{'PaintOpSettings/ignoreSpacing':'true'},{'PaintOpSettings/isAirbrushing':'false'},{'Pressureh':'true','hValue':'1','hUseCurve':'true','hSensor':'<params id="pressure"/>'},{'MaskingBrush/Enabled':'true','MaskingBrush/UseMasterSize':'true','MaskingBrush/MasterSizeCoeff':'1','MaskingBrush/MaskingCompositeOp':'multiply','MaskingBrush/Preset/brush_definition':'<Brush type="auto_brush"><MaskGenerator type="circle" diameter="20"/></Brush>','MaskingBrush/Preset/SizeUseCurve':'false'}]:
    with self.subTest(extra=extra),tempfile.TemporaryDirectory()as tmp:
-    root=Path(tmp);a,_=imported(root/'a',extra);b,_=imported(root/'b',extra,timed_input=False);self.assertEqual(a.brushes,b.brushes);self.assertEqual(a.skipped,b.skipped)
+    root=Path(tmp);a,_=imported(root/'a',extra);b,_=imported(root/'b',extra,timed_input=False)
+    if extra.get('PaintOpSettings/isAirbrushing')=='false':self.assertEqual(a.brushes,b.brushes);self.assertEqual(a.skipped,b.skipped)
+    else:
+     # Public193 refuses new unsupported timer families; explicit private old
+     # callers retain the previous timer-disabled diagnostic record.
+     self.assertEqual(a.brushes,[]);self.assertEqual(len(a.skipped),1);self.assertEqual(len(b.brushes),1);self.assertNotIn('timing',b.brushes[0]['descriptor']['behavior'])
  def test_private_origin_full_record_identity_equals_explicit_legacy(self):
   with tempfile.TemporaryDirectory()as tmp:
    root=Path(tmp);raw=authored();resources={'own129.gih':pipe()};a=preset(raw,'Own129.kpp',Catalog(root/'a'),resources,_allow_texture_material=False,_default_input_policy=DEFAULT_NATIVE_INPUT_POLICY);b=preset(raw,'Own129.kpp',Catalog(root/'b'),resources,_allow_texture_material=False,timed_input=False);self.assertEqual(a,b);self.assertNotIn('timing',a['descriptor']['behavior'])

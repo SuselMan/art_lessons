@@ -47,6 +47,9 @@ def lower_smudge193(data,name,catalog,external,impl,options):
     bad=[n['feature']for n in result['compatibility']if n['status']=='unsupported']
     if bad:raise ValueError('Unlowered native Smudge193 settings: '+', '.join(bad))
     result['compatibility'].append(compatibility('colorSmudge193','Whole native Color Smudge keeps existing legacy/modern/unshaded-height feedback. Captured composite applies only to foreground Color Rate; final transfer is unchanged. Native Pixel Flow/Softness/Sharpness are ignored. Original tip geometry, per-request selectors and captured source inputs remain independent. Qt/ICC/U8/native RNG identity is not claimed.','supported'))
+    if 'sourceGeometry'in d['tip']:
+        result['compatibility'].append(compatibility('smudgeStaticGeometry193','Original static bitmap width/height and native square padding are retained as explicit geometry; no animation or descriptor proxy.','supported'))
+        result['compatibility'].append(compatibility('smudgeStaticResampling193','Static raw coverage/pigment uses the common native-geometry sampler. Native Qt integer pyramid/filter/subpixel pixel identity is not claimed.'))
     if text_warning:result['compatibility'].append(compatibility('smudgeText193',text_warning))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     result.update(preview=preset_preview(image),name=root.get('name')or name);finalize_identity(d,data);return result

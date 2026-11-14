@@ -13,7 +13,7 @@ class SmudgeStrategiesTests(unittest.TestCase):
                 c=self.brush({'SmudgeRateUseNewEngine':'true','CompositeOp':raw},definition)
                 self.assertEqual(c.skipped,[])
                 b=c.brushes[0];d=b['descriptor']
-                self.assertEqual(d['version'],82)
+                self.assertEqual(d['version'],193 if definition else 82)
                 self.assertEqual(d['mixer']['colorRateComposite'],mode)
                 self.assertEqual(d['mixer']['source'],'previousCanvas')
                 self.assertEqual(d['mixer']['algorithm'],'krita-stamp'if definition else'krita-mask')

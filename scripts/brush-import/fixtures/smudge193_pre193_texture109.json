@@ -1,0 +1,166 @@
+{
+  "library": {
+    "schemaVersion": 1,
+    "brushes": [
+      {
+        "descriptor": {
+          "id": "imported-8e7843edfb96f5fa3e01cf18",
+          "version": 36,
+          "model": "mixer",
+          "category": "paint",
+          "tip": {
+            "kind": "bitmap",
+            "mask": "asset:4e972baaee2ad54f78153134ef6484cd1a8e383d21582a21a481d4d214161916",
+            "hardness": 0.7,
+            "aspect": 1.0,
+            "rotation": "fixed",
+            "angle": 0.0,
+            "maskBounds": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 1.0,
+              "height": 1.0
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.1,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "texture": {
+            "id": "asset:a67289f7e7c37445f2ea1fb0f7a3a01a7c6feb38cb3af4776778d9827fc4ffc9",
+            "strength": 1,
+            "periodPx": 3,
+            "patternSize": {
+              "width": 3,
+              "height": 2
+            },
+            "application": {
+              "mode": "subtract",
+              "soft": false
+            },
+            "offset": {
+              "x": 0.0,
+              "y": 0.0,
+              "randomX": false,
+              "randomY": false
+            }
+          },
+          "mixer": {
+            "load": 0,
+            "pickup": 1,
+            "strength": 1,
+            "initialLoad": 0,
+            "smearAlpha": true,
+            "source": "previousCanvas",
+            "algorithm": "krita-mask"
+          },
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply"
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.1
+            }
+          }
+        },
+        "name": "Authored109",
+        "source": "original.kpp",
+        "warnings": [
+          "kritaEngine: Krita colorsmudge settings translated to Grafetto; vendor pixel equivalence is not claimed.",
+          "texture: Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.",
+          "colorSmudge: New ALPHAMASK feedback composition, squared dynamic Color Rate, Smearing/Dulling and mask-weighted mean. Adaptive mask-weighted Halton sampling with64/2% initial batch,16-tap convergence and radius retries;1024 taps/attempt and512px gather cap plus RGBA8 colour-space differences remain."
+        ],
+        "compatibility": [
+          {
+            "feature": "kritaEngine",
+            "status": "approximate",
+            "detail": "Krita colorsmudge settings translated to Grafetto; vendor pixel equivalence is not claimed."
+          },
+          {
+            "feature": "nativeTextureModeFallback",
+            "status": "supported",
+            "detail": "Native Color Smudge does not enable Lightness/Gradient texture flags; captured raw mode 2 uses SUBTRACT before scalar pattern preprocessing. No palette is read by this texture mode."
+          },
+          {
+            "feature": "texture",
+            "status": "approximate",
+            "detail": "Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison."
+          },
+          {
+            "feature": "colorSmudge",
+            "status": "approximate",
+            "detail": "New ALPHAMASK feedback composition, squared dynamic Color Rate, Smearing/Dulling and mask-weighted mean. Adaptive mask-weighted Halton sampling with64/2% initial batch,16-tap convergence and radius retries;1024 taps/attempt and512px gather cap plus RGBA8 colour-space differences remain."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAMAAACeL25MAAABgFBMVEX///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACMWuvzAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2DABAAAFAAB7lppCQAAAABJRU5ErkJggg==",
+        "sourceDefaults": {
+          "sizePx": 4.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      }
+    ],
+    "assets": [
+      {
+        "id": "asset:4e972baaee2ad54f78153134ef6484cd1a8e383d21582a21a481d4d214161916",
+        "size": 4,
+        "file": "4e972baaee2ad54f78153134ef6484cd1a8e383d21582a21a481d4d214161916.bin"
+      },
+      {
+        "id": "asset:a67289f7e7c37445f2ea1fb0f7a3a01a7c6feb38cb3af4776778d9827fc4ffc9",
+        "size": 4,
+        "file": "a67289f7e7c37445f2ea1fb0f7a3a01a7c6feb38cb3af4776778d9827fc4ffc9.bin"
+      }
+    ],
+    "skipped": []
+  },
+  "assets": {
+    "asset:4e972baaee2ad54f78153134ef6484cd1a8e383d21582a21a481d4d214161916": "gICAgICAgICAgICAgICAgA==",
+    "asset:a67289f7e7c37445f2ea1fb0f7a3a01a7c6feb38cb3af4776778d9827fc4ffc9": "f/9XACd//wAAAAAAAAAAAA=="
+  }
+}

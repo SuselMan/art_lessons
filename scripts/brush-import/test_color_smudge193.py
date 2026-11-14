@@ -100,3 +100,28 @@ class Smudge193Tests(unittest.TestCase):
             for key,value in [('ColorRateValue','NaN'),('SmudgeRateValue','bad'),('SmudgeRadiusValue','bad'),('SmudgeRadiusValue','NaN'),('SmudgeRadiusValue','301'),('SmudgeRadiusVersion','bad'),('SmudgeRadiusVersion','3')]:
                 raw=native193(extra='<param name="'+key+'">'+value+'</param>')
                 with self.subTest(key=key,value=value),self.assertRaises(ValueError):preset(raw,'bad.kpp',Catalog(Path(tmp)/str(len(value))),{})
+    def test_static_original_geometry_all_pigments_both_aspects_and_portable(self):
+        from color_smudge193 import validate_smudge193_portable
+        with tempfile.TemporaryDirectory()as tmp:
+            for width,height in((3,7),(7,3)):
+                for app in range(4):
+                    image=Image.new('RGBA',(width,height),(30,80,160,128));out=io.BytesIO();image.save(out,format='PNG');resource='<resources><resource filename="tip.png" type="brushes">'+base64.b64encode(out.getvalue()).decode()+'</resource></resources>'
+                    with self.subTest(width=width,height=height,app=app):
+                        c=Catalog(Path(tmp)/(str(width)+str(height)+str(app)));tip='<Brush type="png_brush" filename="tip.png" brushApplication="'+str(app)+'" spacing=".1"/>';d=preset(native193(mode='diff',tip=tip,extra=resource),'Geometry.kpp',c,{})['descriptor'];self.assertTrue(scope193(d));self.assertEqual(d['tip']['sourceGeometry'],{'version':1,'width':width,'height':height});self.assertNotIn('animation',d['tip']);self.assertNotIn('imageSampling',d['tip']);self.assertEqual(d['tip']['maskBounds'],{'x':0.,'y':0.,'width':.875,'height':.875});self.assertEqual(d['tip']['aspect'],1)
+                        validate_smudge193_portable(d,{a:v['size']for a,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
+                        for mutation in('width','unknown','animation','version','round','duplicateSampler'):
+                            bad=copy.deepcopy(d)
+                            if mutation=='width':bad['tip']['sourceGeometry']['width']=4 if width==3 else 3
+                            elif mutation=='unknown':bad['tip']['sourceGeometry']['unknown']=True
+                            elif mutation=='animation':bad['tip']['animation']={'mode':'incremental','frames':[bad['tip']['mask']]*2}
+                            elif mutation=='version':bad['version']=191
+                            elif mutation=='duplicateSampler':bad['tip']['imageSampling']={'kind':'integer-pyramid','signal':'inverse-gray','sourceRect':{'x':0,'y':0,'width':width,'height':height}}
+                            else:bad['tip']['kind']='round'
+                            with self.subTest(mutation=mutation),self.assertRaises(ValueError):validate_smudge193_portable(bad,{a:v['size']for a,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
+    def test_normal_static_imports_promote_geometry_but_keep_old_integer_masks(self):
+        from color_smudge193 import validate_smudge193_portable
+        with tempfile.TemporaryDirectory()as tmp:
+            for app in range(4):
+                image=Image.new('RGBA',(3,7),(30,80,160,128));out=io.BytesIO();image.save(out,format='PNG');resource='<resources><resource filename="normal.png" type="brushes">'+base64.b64encode(out.getvalue()).decode()+'</resource></resources>'
+                c=Catalog(Path(tmp)/str(app));d=preset(native193(mode='normal',tip='<Brush type="png_brush" filename="normal.png" brushApplication="'+str(app)+'" spacing=".1"/>',extra=resource),'Normal.kpp',c,{})['descriptor'];self.assertTrue(scope193(d));self.assertEqual(d['version'],193);self.assertEqual(d['tip']['sourceGeometry'],{'version':1,'width':3,'height':7});self.assertEqual(d['mixer']['colorRateComposite'],'normal');self.assertNotIn('imageSampling',d['tip']);validate_smudge193_portable(d,{a:v['size']for a,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
+            image=Image.new('RGB',(3,7),(64,64,64));out=io.BytesIO();image.save(out,format='PNG');resource='<resources><resource filename="opaque.png" type="brushes">'+base64.b64encode(out.getvalue()).decode()+'</resource></resources>';c=Catalog(Path(tmp)/'opaque');raw=native193(mode='normal',tip='<Brush type="png_brush" filename="opaque.png" brushApplication="0" spacing=".1"/>',extra=resource);d=preset(raw,'OldMask.kpp',c,{})['descriptor'];self.assertLess(d['version'],193);self.assertEqual(d['tip']['imageSampling']['sourceRect']['width'],3);self.assertEqual(d['tip']['imageSampling']['sourceRect']['height'],7);self.assertNotIn('sourceGeometry',d['tip'])

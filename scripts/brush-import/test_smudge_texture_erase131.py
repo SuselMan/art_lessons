@@ -32,7 +32,7 @@ class SmudgeTextureErase131Tests(unittest.TestCase):
   mutations=[lambda d:d.update(version=130),lambda d:d['mixer'].update(source='projectionCanvas'),lambda d:d['mixer'].pop('algorithm'),lambda d:d['behavior'].update(dual={}),lambda d:d['behavior'].update(timing={}),lambda d:d['tip'].update(animation={}),lambda d:d['texture']['application'].update(mode='overlay'),lambda d:d.update(clone=None),lambda d:d['mixer'].update(foreground={'gradient':{'rate':1}})]
   for mutation in mutations:
    with tempfile.TemporaryDirectory()as tmp:
-    root=Path(tmp);c=self.fixture(root);self.assertEqual(c.skipped,[]);d=copy.deepcopy(c.brushes[0]['descriptor']);mutation(d)
+    root=Path(tmp);c=texture103.historical_catalog(root,'texture131');self.assertEqual(c.skipped,[]);d=copy.deepcopy(c.brushes[0]['descriptor']);mutation(d)
     with self.assertRaises(ValueError):texture103.ModernTexture103Tests().portable(root,c,d)
     self.assertFalse(list((root/'portable').rglob('*.bin')))
  def test_native_scope_no_silent_foreign_modern_projection_pair(self):
@@ -42,7 +42,7 @@ class SmudgeTextureErase131Tests(unittest.TestCase):
  def test_old_modes_without_auto_and_legacy_are_unchanged(self):
   for mode in(0,1):
    with tempfile.TemporaryDirectory()as tmp:
-    c=self.fixture(Path(tmp),mode,{'Texture/Pattern/AutoInvertOnErase':'false'});self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertNotIn('eraseId',d['texture']);self.assertEqual(d['version'],88)
+    c=self.fixture(Path(tmp),mode,{'Texture/Pattern/AutoInvertOnErase':'false'});self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertNotIn('eraseId',d['texture']);self.assertEqual(d['version'],193);self.assertEqual(d['tip']['sourceGeometry'],{'version':1,'width':4,'height':4})
 
  def test_raw109_color_fallback_promotes_whole193_paired_erase(self):
   for mode in(2,3):
@@ -61,7 +61,7 @@ class SmudgeTextureErase131Tests(unittest.TestCase):
  def test_old88_malformed_mixer_behavior_rendering_rejects_beforeoutputs(self):
   for field,value in([('rendering',v)for v in(None,[],[1],0,'buildUp',True)]+[('behavior',v)for v in(None,[],0)]):
    with self.subTest(field=field,value=value),tempfile.TemporaryDirectory()as tmp:
-    root=Path(tmp);c=self.fixture(root,extra={'Texture/Pattern/AutoInvertOnErase':'false'});self.assertEqual(c.skipped,[]);d=copy.deepcopy(c.brushes[0]['descriptor']);self.assertEqual(d['version'],88)
+    root=Path(tmp);c=texture103.historical_catalog(root,'texture88');self.assertEqual(c.skipped,[]);d=copy.deepcopy(c.brushes[0]['descriptor']);self.assertEqual(d['version'],88)
     if field=='behavior':d['behavior']=value
     else:d['behavior']['rendering']=value
     with self.assertRaises(ValueError):convert.validate_portable_mixer(d)
