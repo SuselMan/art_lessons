@@ -15,6 +15,8 @@ describe('whole Color Smudge193 combinations',()=>{
  it('retains procedural shapes and actual unequal selected-frame resources',()=>{
   const d=smudge(true);d.tip={kind:'procedural',hardness:1,aspect:1.4,angle:0,rotation:'fixed',profile:{kind:'standard',shape:'rectangle',horizontalFade:.2,verticalFade:.7,antialias:true},autoNoise:{version:1,density:.5,randomness:.3},autoShape:{version:1,spikes:5}};expect(isBrushLibrary(library192(d))).toBe(true)
   d.tip={kind:'bitmap',hardness:1,aspect:1,angle:0,rotation:'fixed',mask:FILTER192_MASK,maskBounds:{x:0,y:0,width:1,height:1},animation:{mode:'pressure',rank:2,frames:[FILTER192_MASK,FILTER192_FRAME],geometry:{version:1,frames:[{sourceWidth:4,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}},{sourceWidth:2,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}}]}}};expect(isBrushLibrary(library192(d))).toBe(true)
+  d.mixer!.algorithm='krita-stamp';d.tip.color={planes:[FILTER192_MASK,FILTER192_MASK,FILTER192_MASK],frames:[[FILTER192_MASK,FILTER192_MASK,FILTER192_MASK],[FILTER192_FRAME,FILTER192_FRAME,FILTER192_FRAME]]};expect(isBrushLibrary(library192(d))).toBe(true)
+  d.tip.color={gradient:{gray:FILTER192_MASK,grayFrames:[FILTER192_MASK,FILTER192_FRAME]}};expect(isBrushLibrary(library192(d))).toBe(true)
   d.tip.animation!.frames[1]=`asset:${'f'.repeat(64)}`;expect(isBrushLibrary(library192(d))).toBe(false)
  })
  it('keeps the native Lightness unshaded source and foreground erasing',()=>{

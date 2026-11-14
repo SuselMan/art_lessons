@@ -768,7 +768,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
       if(geometry===undefined){if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false}
       else {
         // New86 only: equal physical planes WITHIN each frame; different frames may use different sides.
-        if(!pixelImage||!('planes' in color)&&!unequalSensorGradient126&&!mask190)return false
+        if(!pixelImage&&!smudge193||!('planes' in color)&&!unequalSensorGradient126&&!mask190)return false
         const colorFrames=('gradient'in color?((color.gradient as {grayFrames:string[]}).grayFrames.map(id=>[id])):(color.frames??[color.planes])) as unknown[][]
         if(frames.some((id,index)=>colorFrames[index].some(plane=>assetSizes.get(String(plane))!==assetSizes.get(String(id)))))return false
       }

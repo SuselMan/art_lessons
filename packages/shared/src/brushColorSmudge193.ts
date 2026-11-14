@@ -14,8 +14,9 @@ export function hasColorSmudge193Scope(v:unknown):boolean {
  if(!keys(m,['load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','colorRateComposite','algorithm','paintThickness'])||m.load!==0||m.initialLoad!==0||m.strength!==1||!unit(m.pickup)||typeof m.smearAlpha!=='boolean'||!['previousCanvas','projectionCanvas'].includes(String(m.source)))return false
  if(typeof m.colorRateComposite!=='string'||!(COLOR_SMUDGE193_COMPOSITES as readonly string[]).includes(m.colorRateComposite))return false
  if(!keys(b,['version','rendering','colorAdjustment','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','erase','falloff'])||!obj(r)||r.mode!=='buildUp'||r.accumulation!=='directOver'||r.blendMode!=='normal'||r.wetEdges!==0||r.burntEdges!==0||r.gammaCorrect===true||r.luminance===true)return false
- if(v.flow!==1||!Array.isArray(v.flowByPressure)||!v.flowByPressure.every(p=>Array.isArray(p)&&p.length===2&&unit(p[0])&&p[1]===1))return false
- if(!['round','procedural','bitmap'].includes(String(t.kind)))return false
+ if(v.flow!==1||v.flowPer!=='stamp'||!Array.isArray(v.flowByPressure)||v.flowByPressure.length<2||!v.flowByPressure.every(p=>Array.isArray(p)&&p.length===2&&unit(p[0])&&p[1]===1))return false
+ if(!['round','procedural','bitmap'].includes(String(t.kind))||t.alphaThreshold!==undefined)return false
+ for(const k of ['dynamics','modulations']){const controls=b[k];if(obj(controls)&&['flow','softness','sharpness'].some(target=>target in controls))return false}
  if((m.colorRateComposite==='erase')!==(b.erase===true))return false
  const modern=m.algorithm!==undefined
  if(modern&&!['krita-mask','krita-stamp'].includes(String(m.algorithm)))return false
