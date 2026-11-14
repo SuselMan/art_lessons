@@ -498,7 +498,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
-  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i),brush.version===187&&target==='size'?'native-size-absolute187-v1':undefined) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index),brush.version===187&&target==='size'?'native-size-absolute187-v1':undefined), 1)
+  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i),(brush.version===187||brush.version===189)&&target==='size'?'native-size-absolute187-v1':undefined) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index),(brush.version===187||brush.version===189)&&target==='size'?'native-size-absolute187-v1':undefined), 1)
   // Native Pixel queries this option once per logical dab before deposition.
   const lightness = brush.version>=90 && brush.model==='stamp' && brush.tip.material && (behavior?.dynamics?.lightnessStrength || behavior?.modulations?.lightnessStrength?.length)
     ? clamp(brush.tip.material.strength*dynamic('lightnessStrength',0x65000)) : undefined

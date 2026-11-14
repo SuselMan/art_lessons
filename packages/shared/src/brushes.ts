@@ -1,7 +1,7 @@
 import{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
 export{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
-import{hasIndependentChildAbsoluteSize187Scope}from'./childAbsoluteSize187.js'
-export{hasIndependentChildAbsoluteSize187Scope}from'./childAbsoluteSize187.js'
+import{hasIndependentChildAbsoluteSize187Scope,hasLockedChildAbsoluteSize189Scope}from'./childAbsoluteSize187.js'
+export{hasIndependentChildAbsoluteSize187Scope,hasLockedChildAbsoluteSize189Scope}from'./childAbsoluteSize187.js'
 import{hasAnimatedAlphaChild184Scope}from'./brushAnimatedAlphaChild184.js'
 export{hasAnimatedAlphaChild184Scope,assertAnimatedAlphaChild184Scope}from'./brushAnimatedAlphaChild184.js'
 export{hasTextureStrengthWash183Scope}from'./brushTextureLightnessWash171.js'
@@ -493,6 +493,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     const d = b.descriptor
     if((d.version===188||usesRecordedPen188Controls(d.behavior))&&!hasRecordedPen188Scope(d))return false
     if(d.version===187&&!hasIndependentChildAbsoluteSize187Scope(d))return false
+    if(d.version===189&&!hasLockedChildAbsoluteSize189Scope(d))return false
     if(d.version===184||d.version===185){
       if(!hasAnimatedAlphaChild184Scope(d))return false
       const child=(d.behavior as {dual:{brush:{tip:{animation:{frames:string[]}}}}}).dual.brush
@@ -844,13 +845,14 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if (d.model !== 'stamp' && (secondary.tip?.profile?.kind === 'gaussian'||secondary.tip?.profile?.kind === 'radialCurveSoftness'||secondary.tip?.autoShape!==undefined)) return false
         if (['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(secondary.tip?.profile?.kind??'')||secondary.tip?.autoNoise!==undefined||(d.model!=='stamp'&&secondary.texture?.eraseId!==undefined))return false
         if(secondary.version===187&&!hasIndependentChildAbsoluteSize187Scope(d))return false
+        if(secondary.version===189&&!hasLockedChildAbsoluteSize189Scope(d))return false
         if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput&&!isIndependentDrawingAnglePair(d)&&!hasPixelOriginalDual151Scope(d) || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         if(record(d.tip.material)&&secondary.behavior?.strokeInput){
           const alpha=assetSizes.get(String(d.tip.mask)),gray=assetSizes.get(String(d.tip.material.gray)),mask=assetSizes.get(String(secondary.tip.mask)),rect=secondary.tip.imageSampling?.sourceRect
           if(!isIndependentDrawingAnglePair(d)||!alpha||alpha>512||gray!==alpha||!mask||mask>512||!rect||rect.x+rect.width>mask||rect.y+rect.height>mask)return false
           if(record(d.tip.animation)){const frames=d.tip.animation.frames,grays=d.tip.material.grayFrames,children=secondary.tip.animation?.frames;if(!Array.isArray(frames)||!Array.isArray(grays)||!Array.isArray(children)||frames.some((id,i)=>assetSizes.get(String(id))!==alpha||assetSizes.get(String(grays[i]))!==alpha)||children.some(id=>assetSizes.get(String(id))!==mask))return false}
         }
-        const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary.version===187&&hasIndependentChildAbsoluteSize187Scope(d)?{...secondary,version:120}:secondary.behavior?.clockRead===undefined?secondary:{...secondary,behavior:{...secondary.behavior,clockRead:undefined}} }], skipped: [] }
+        const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: (secondary.version===187&&hasIndependentChildAbsoluteSize187Scope(d)||secondary.version===189&&hasLockedChildAbsoluteSize189Scope(d))?{...secondary,version:120}:secondary.behavior?.clockRead===undefined?secondary:{...secondary,behavior:{...secondary.behavior,clockRead:undefined}} }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
     }
@@ -985,7 +987,9 @@ export function isIndependentDrawingAnglePair(value:unknown):boolean {
   const dual=value.behavior.dual
   const child=record(dual.brush)?dual.brush:undefined
   const absolute187=hasIndependentChildAbsoluteSize187Scope(value)
+  const absolute189=hasLockedChildAbsoluteSize189Scope(value)
   if((value.version===187||child?.version===187)&&!absolute187)return false
+  if((value.version===189||child?.version===189)&&!absolute189)return false
   const images=record(value.tip)&&value.tip.imageSampling!==undefined||child&&record(child.tip)&&child.tip.imageSampling!==undefined
   if(images&&(typeof value.version!=='number'||value.version<122||!child||typeof child.version!=='number'||child.version<122))return false
   //130 is a closed animated sibling: 2..256 equal Lightness frames and
@@ -1018,7 +1022,7 @@ export function isIndependentDrawingAnglePair(value:unknown):boolean {
     if(material&&(tip.kind!=='bitmap'||tip.profile!==undefined||tip.alphaThreshold!==undefined))return false
     if(['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined&&!(animated130&&root&&['texture','scatter'].includes(k))))return false
     if(animated130&&root&&((d.scatter!==undefined&&(!record(d.scatter)||d.scatter.count!==1))||(d.texture!==undefined&&(!record(d.texture)||!record(d.texture.application)||d.texture.application.mode!=='subtract'||d.texture.material!==undefined||d.texture.eraseId!==undefined))))return false
-    if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(!root&&absolute187?['modulations']:[]),...(root?['dual',...(animated130?['modulations','colorAdjustment','scatter']:[])]:[])].includes(k)))return false
+    if(Object.keys(b).some(k=>!['version','rendering','rotation','strokeInput','speedInput','spacing',...(!root&&(absolute187||absolute189)?['modulations']:[]),...(root?['dual',...(animated130?['modulations','colorAdjustment','scatter']:[])]:[])].includes(k)))return false
     if(!record(rotation)||Object.keys(rotation).length!==2||rotation.follow!==1||rotation.random!=='none'||!record(input)||Object.keys(input).length!==2||input.version!==1||input.initialDirection!=='cursorHistory')return false
     if(record(b.spacing)&&Array.isArray(b.spacing.dynamics)&&b.spacing.dynamics.length)return false
     return record(render)&&render.blendMode==='normal'&&(material?render.accumulation==='alphaDarken':root?render.accumulation==='directOver':['directOver','alphaDarken'].includes(String(render.accumulation)))&&Number(render.wetEdges??0)===0&&Number(render.burntEdges??0)===0
