@@ -185,7 +185,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
       if(b!==brush||b.version<105)throw Error('Texture105 requires a root prepared brush')
       if(b.model==='mixer')usesColorSmudgeTexture(b)
-      else if(b.model!=='stamp'||b.behavior?.dual||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>b[k as keyof BrushDescriptor]!==undefined))throw Error('Texture105 requires root Pixel or modern MASK')
+      else if(b.model!=='stamp'||b.behavior?.dual&&!mask190||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>b[k as keyof BrushDescriptor]!==undefined))throw Error('Texture105 requires root Pixel or modern MASK')
     }
     if(b.bristle?.version===2&&b.bristle.ink.useSaturation){
       if(painter!=='stamp'||!b.bristle.saturationLookup)throw Error('Compiled Bristle saturation requires the stamp renderer')
