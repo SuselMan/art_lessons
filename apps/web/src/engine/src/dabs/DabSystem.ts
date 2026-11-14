@@ -1,3 +1,4 @@
+import { mask190SourceSize } from '../presets/independentMask190'
 import{assertRecordedPen188Inputs,assertRecordedPen188Values}from '../presets/recordedPen188'
 import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,canonicalPenInput,interpolatePenInput,type RecordedPenInput}from '@grafetto/shared'
 import{hasMyPaintTimer177Scope}from'@grafetto/shared'
@@ -589,7 +590,7 @@ export class DabSystem {
     fork.strokeInput = this.strokeInput ? structuredClone(this.strokeInput) : undefined
     fork.initialDirection = this.initialDirection
     fork._sourcePrevious = this._sourcePrevious ? { ...this._sourcePrevious } : undefined
-    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom,this.brushExecution?.brushSource)
+    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom,this.brushExecution?.brushSource,this.brushExecution?.maskRole190)
     fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
     fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
@@ -641,7 +642,7 @@ export class DabSystem {
     this._buf = [{ ...canonicalPenInput(pen),x, y, pressure: p, tiltX, tiltY,...(this.strokeInput || this.captureSourceTime ? {time} : {}),...(normalizedSpeed===undefined?{}:{normalizedSpeed}) }]
     // ds = 0: nothing has been dragged yet, so a bent-nib profile leaves this
     // dab round rather than pointing it along the placeholder angle below.
-    const initialAngle = this.strokeInput ? this.initialDirection : 0
+    const initialAngle = this.strokeInput||this.brushExecution?.maskRole190 ? this.initialDirection : 0
     const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, initialAngle, 0, normalizedSpeed,pen)
     if(this.captureSourceTime){first.sourceTime=time;first.t=time}
     if (this.strokeInput || this.inputKnots) {
@@ -1184,7 +1185,7 @@ export class DabSystem {
       ...canonicalPenInput(pen),x: fp.x, y: fp.y, pressure, tiltX, tiltY,
       size: fp.size, aspectRatio: fp.aspectRatio, angle: this.strokeInput ? pathAngle : fp.angle, opacity: 1, t: 0,
       ...(this.strokeInput||this.captureSourceAngle ? {sourceAngle:pathAngle} : {}),
-      ...(this.captureSourceSize ? {sourceSize:captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
+      ...(this.captureSourceSize ? {sourceSize:this.brushExecution?.maskRole190?mask190SourceSize(baseSize):captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
       ...(normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(normalizedSpeed)}),
     }
   }

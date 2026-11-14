@@ -371,6 +371,7 @@ uniform float u_erase;
 uniform sampler2D u_secondaryCoverage;
 uniform float u_secondaryMode;
 uniform float u_secondaryEnabled;
+uniform float u_secondaryGrayA;
 ${BRUSH_BLEND_GLSL}
 ${TEXTURE_ALPHA_EXTENDED_GLSL}
 void main() {
@@ -381,7 +382,10 @@ void main() {
  vec3 pigment=ink.rgb/max(ink.a,0.00392157);
  float coverage=ink.a;
  if(u_secondaryEnabled>0.5 && coverage>0.0) {
-  float secondary=texture2D(u_secondaryCoverage,uv).a;
+  vec4 maskSurface=texture2D(u_secondaryCoverage,uv);
+  // Mask190 paints into its own GrayA-equivalent surface. RGB is already
+  // premultiplied, so luminance(rgb) is gray*alpha, not gray alone.
+  float secondary=u_secondaryGrayA>0.5 ? dot(maskSurface.rgb,vec3(0.3,0.59,0.11)) : maskSurface.a;
   if(u_secondaryMode>100.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(9.0,0.0,0.0,0.0));
   else if(u_secondaryMode>99.5)coverage=brushTextureAlphaExtended(coverage,secondary,1.0,vec4(10.0,0.0,0.0,0.0));
   else coverage=clamp(brushBlend(vec3(coverage),vec3(secondary),u_secondaryMode).r,0.0,1.0);

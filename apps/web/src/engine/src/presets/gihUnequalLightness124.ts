@@ -2,10 +2,10 @@ import{isUnequalLightnessGih124,type BrushDescriptor}from'@grafetto/shared'
 import{importedAssetPixels}from'./importedBrushes'
 import{captureGihFrameMetadata}from'../raster/gihFrameGeometry'
 /** Full loaded metadata only; no mip building, pixel scan or resource authority. */
-export function assertUnequalLightnessGih124(brush:BrushDescriptor):boolean{
+export function assertUnequalLightnessGih124(brush:BrushDescriptor,mask190=false):boolean{
  const a=brush.tip.animation
  if(!brush.tip.material||!a?.geometry||!['angular','xtilt','ytilt','dimensions'].includes(a.mode))return false
- if(!isUnequalLightnessGih124(brush))throw Error('Unequal Lightness sensor requires124 closed scope')
+ if(!mask190&&!isUnequalLightnessGih124(brush))throw Error('Unequal Lightness sensor requires124 closed scope')
  const gray=brush.tip.material.grayFrames!,sides=a.frames.map((id,index)=>{
   const length=importedAssetPixels(id).length,side=Math.sqrt(length)
   if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0||importedAssetPixels(gray[index]).length!==length)throw Error('Unequal Lightness124 paired dimensions differ')

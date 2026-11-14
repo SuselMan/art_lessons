@@ -46,7 +46,9 @@ ENV NODE_ENV=production
 # on every start that's cheap to just not have.
 # Captured brush uploads execute the packaged bounded Python/Pillow importer.
 # prlimit comes from util-linux; SVG uses the same Node and runtime Sharp.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-venv util-linux && rm -rf /var/lib/apt/lists/*
+# Text brush masks resolve an installed face offline; DejaVu is the declared
+# fallback, and the resulting pixels are captured in CAS for every client.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-venv util-linux fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server

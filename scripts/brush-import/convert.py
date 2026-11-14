@@ -477,7 +477,7 @@ def validate_portable_dynamics(controls):
             for child in children:validate_portable_dynamics([child])
             continue
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
-                or control.get('control') not in ('barrelRotation','tangentialPressure','off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time','distance')
+                or control.get('control') not in ('pressureIn','perspective','barrelRotation','tangentialPressure','off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time','distance')
                 or (control.get('control')=='strokeRandom' and not (
                     ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
                     or ('randomStream' not in control and keyed(control.get('randomSource')))))
@@ -563,74 +563,77 @@ def validate_portable_mixer(descriptor):
 
 
 def validate_portable_profile(descriptor, *, parent=None):
-    """Bound the portable Python boundary; shared isBrushLibrary remains the
-    authoritative whole-library validator before installation."""
-    from mypaint_legacy156 import validate_mypaint_legacy156
-    validate_mypaint_legacy156(descriptor,parent)
-    from bristle_soak139 import validate_bristle_soak139,validate_bristle_initialization141
-    validate_bristle_soak139(descriptor,parent)
-    validate_bristle_initialization141(descriptor,parent)
-    from grid_wash137 import validate_grid_wash137
-    validate_grid_wash137(descriptor,parent)
-    from tangent_wash136 import validate_tangent_wash136
-    validate_tangent_wash136(descriptor,parent)
-    from bristle_wash135 import validate_bristle_wash135
-    validate_bristle_wash135(descriptor,parent)
-    from particle_wash134 import validate_particle_wash134
-    validate_particle_wash134(descriptor,parent)
-    from sketch_image_alpha162 import validate_sketch_image_alpha162
-    validate_sketch_image_alpha162(descriptor,parent)
-    from sketch_procedural173 import validate_sketch_procedural173,sketch_procedural173_scope
-    validate_sketch_procedural173(descriptor,parent)
-    from sketch_gih174 import validate_sketch_gih174,sketch_gih174_scope
-    from sketch_gih181 import validate_sketch_pressure_gih181,sketch_pressure_gih181_scope
-    from sketch_gih182 import validate_sketch_angular_gih182,sketch_angular_gih182_scope
-    validate_sketch_pressure_gih181(descriptor,parent)
-    validate_sketch_angular_gih182(descriptor,parent)
-    if not sketch_pressure_gih181_scope(descriptor)and not sketch_angular_gih182_scope(descriptor):validate_sketch_gih174(descriptor,parent)
-    from curve_timer167 import validate_curve_timer167
-    validate_curve_timer167(descriptor,parent)
-    from texture_lightness_wash171 import validate_texture_lightness_wash171
-    validate_texture_lightness_wash171(descriptor,parent)
-    from texture_gradient_wash180 import validate_texture_gradient_wash180
-    validate_texture_gradient_wash180(descriptor,parent)
-    from dual_mask170 import validate_pixel_alpha_dual170
-    validate_pixel_alpha_dual170(descriptor,parent)
-    from dual_mask168 import validate_pixel_alpha_dual168
-    validate_pixel_alpha_dual168(descriptor,parent)
-    from animated_alpha_child184 import validate_animated_alpha_child184
-    validate_animated_alpha_child184(descriptor,parent)
-    from sketch_timer161 import validate_sketch_timer161
-    validate_sketch_timer161(descriptor,parent)
-    from particle_timer157 import validate_particle_timer157
-    validate_particle_timer157(descriptor,parent)
-    from clone_projection149 import validate_clone_projection149
-    validate_clone_projection149(descriptor,1 if parent is not None else 0)
-    validate_clone_healing152(descriptor,1 if parent is not None else 0)
-    validate_legacy_color_smudge_overlay154(descriptor,1 if parent is not None else 0)
-    validate_legacy_color_smudge_minmax172(descriptor,1 if parent is not None else 0)
-    validate_legacy_color_smudge_dodge_burn176(descriptor,1 if parent is not None else 0)
-    validate_legacy_color_smudge_arithmetic175(descriptor,1 if parent is not None else 0)
-    from canonical_effect_scopes import validate_canonical_effect_scopes
-    validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
-    validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
-    validate_pixel_original_dual151(descriptor,1 if parent is not None else 0)
-    from spray_wash133 import validate_spray_wash133
-    validate_spray_wash133(descriptor)
-    from krita_spray import validate_spray_source146
-    validate_spray_source146(descriptor)
-    from spray_rectangle_noise155 import validate_spray_rectangle_noise155,spray_rectangle_noise155_scope
-    validate_spray_rectangle_noise155(descriptor,1 if parent is not None else 0)
-    from child_clock132 import validate_child_clock132_profile
-    validate_child_clock132_profile(descriptor,parent)
+    from independent_mask190 import validate_independent_mask190
+    mask190=validate_independent_mask190(descriptor,parent)
+    if not mask190:
+        """Bound the portable Python boundary; shared isBrushLibrary remains the
+        authoritative whole-library validator before installation."""
+        from mypaint_legacy156 import validate_mypaint_legacy156
+        validate_mypaint_legacy156(descriptor,parent)
+        from bristle_soak139 import validate_bristle_soak139,validate_bristle_initialization141
+        validate_bristle_soak139(descriptor,parent)
+        validate_bristle_initialization141(descriptor,parent)
+        from grid_wash137 import validate_grid_wash137
+        validate_grid_wash137(descriptor,parent)
+        from tangent_wash136 import validate_tangent_wash136
+        validate_tangent_wash136(descriptor,parent)
+        from bristle_wash135 import validate_bristle_wash135
+        validate_bristle_wash135(descriptor,parent)
+        from particle_wash134 import validate_particle_wash134
+        validate_particle_wash134(descriptor,parent)
+        from sketch_image_alpha162 import validate_sketch_image_alpha162
+        validate_sketch_image_alpha162(descriptor,parent)
+        from sketch_procedural173 import validate_sketch_procedural173,sketch_procedural173_scope
+        validate_sketch_procedural173(descriptor,parent)
+        from sketch_gih174 import validate_sketch_gih174,sketch_gih174_scope
+        from sketch_gih181 import validate_sketch_pressure_gih181,sketch_pressure_gih181_scope
+        from sketch_gih182 import validate_sketch_angular_gih182,sketch_angular_gih182_scope
+        validate_sketch_pressure_gih181(descriptor,parent)
+        validate_sketch_angular_gih182(descriptor,parent)
+        if not sketch_pressure_gih181_scope(descriptor)and not sketch_angular_gih182_scope(descriptor):validate_sketch_gih174(descriptor,parent)
+        from curve_timer167 import validate_curve_timer167
+        validate_curve_timer167(descriptor,parent)
+        from texture_lightness_wash171 import validate_texture_lightness_wash171
+        validate_texture_lightness_wash171(descriptor,parent)
+        from texture_gradient_wash180 import validate_texture_gradient_wash180
+        validate_texture_gradient_wash180(descriptor,parent)
+        from dual_mask170 import validate_pixel_alpha_dual170
+        validate_pixel_alpha_dual170(descriptor,parent)
+        from dual_mask168 import validate_pixel_alpha_dual168
+        validate_pixel_alpha_dual168(descriptor,parent)
+        from animated_alpha_child184 import validate_animated_alpha_child184
+        validate_animated_alpha_child184(descriptor,parent)
+        from sketch_timer161 import validate_sketch_timer161
+        validate_sketch_timer161(descriptor,parent)
+        from particle_timer157 import validate_particle_timer157
+        validate_particle_timer157(descriptor,parent)
+        from clone_projection149 import validate_clone_projection149
+        validate_clone_projection149(descriptor,1 if parent is not None else 0)
+        validate_clone_healing152(descriptor,1 if parent is not None else 0)
+        validate_legacy_color_smudge_overlay154(descriptor,1 if parent is not None else 0)
+        validate_legacy_color_smudge_minmax172(descriptor,1 if parent is not None else 0)
+        validate_legacy_color_smudge_dodge_burn176(descriptor,1 if parent is not None else 0)
+        validate_legacy_color_smudge_arithmetic175(descriptor,1 if parent is not None else 0)
+        from canonical_effect_scopes import validate_canonical_effect_scopes
+        validate_canonical_effect_scopes(descriptor,1 if parent is not None else 0)
+        validate_pixel_original_hsv150(descriptor,1 if parent is not None else 0)
+        validate_pixel_original_dual151(descriptor,1 if parent is not None else 0)
+        from spray_wash133 import validate_spray_wash133
+        validate_spray_wash133(descriptor)
+        from krita_spray import validate_spray_source146
+        validate_spray_source146(descriptor)
+        from spray_rectangle_noise155 import validate_spray_rectangle_noise155,spray_rectangle_noise155_scope
+        validate_spray_rectangle_noise155(descriptor,1 if parent is not None else 0)
+        from child_clock132 import validate_child_clock132_profile
+        validate_child_clock132_profile(descriptor,parent)
     tip=descriptor['tip']
     profile=tip.get('profile')
     behavior=descriptor.get('behavior',{})
     if isinstance(behavior,dict):
         rendering=behavior.get('rendering',{})
         if any(isinstance(behavior.get(k),dict) and any(mode in('hardMixPhotoshop','kritaHardMix') for mode in behavior[k].values()) for k in ('grain','dual','wetMix')) or isinstance(rendering,dict) and rendering.get('burntEdgesMode')in('hardMixPhotoshop','kritaHardMix'):raise ValueError('Extended composite is rendering-only')
-        if isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
-        if isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
+        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='hardMixPhotoshop' and (descriptor['version']<102 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Photoshop Hard Mix requires root Pixel102')
+        if not mask190 and isinstance(rendering,dict) and rendering.get('blendMode')=='kritaHardMix' and (descriptor['version']<104 or descriptor.get('model')!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True or any(k in descriptor for k in ('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))):raise ValueError('Krita Hard Mix requires root Pixel104')
     filter_config=descriptor.get('filter')
     if isinstance(filter_config,dict)and filter_config.get('smudgeMode')is True:
         # The complete new147 scope was validated above. Reuse unchanged
@@ -672,7 +675,7 @@ def validate_portable_profile(descriptor, *, parent=None):
         if not isinstance(spray,dict) or not isinstance(spray.get('particle'),dict) or not isinstance(spray.get('color'),dict) or not isinstance(behavior,dict):raise ValueError('Invalid portable Spray Auto-mask noise records')
         particle=spray['particle'];color=spray['color']
         if descriptor.get('version',0)<96 or particle.get('shape')!='tip' or particle.get('image') or any(color.get(k) for k in ('sampleInput','mixBackground','fillBackground')) or 'dual'in behavior:raise ValueError('Invalid portable Spray Auto-mask noise combination')
-    if noise is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness') and(descriptor['version']<98 or 'autoShape'in tip):raise ValueError('Rectangle Auto-mask noise requires revision98 without spikes')
+    if noise is not None and profile.get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness') and not mask190 and(descriptor['version']<98 or 'autoShape'in tip):raise ValueError('Rectangle Auto-mask noise requires revision98 without spikes')
     auto=tip.get('autoShape')
     if auto is not None and (not isinstance(auto,dict)or set(auto)!={'version','spikes'}or type(auto.get('version'))is not int or auto['version']!=1
             or type(auto.get('spikes'))is not int or not 3<=auto['spikes']<=20 or descriptor.get('model')!='stamp'or tip.get('kind')!='procedural'
@@ -701,7 +704,7 @@ def validate_portable_profile(descriptor, *, parent=None):
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
                 or 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
                 or any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
-                or 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
+                or not mask190 and 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
         if kind=='gaussian2D':
             if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
                     or any(not finite(profile.get(k),0,1)for k in('horizontalFade','verticalFade'))):raise ValueError('Invalid portable 2D Gaussian profile')
@@ -791,6 +794,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        from independent_mask190 import validate_independent_mask190,validate_mask190_portable
+        if isinstance(d,dict)and validate_independent_mask190(d,parent):
+            validate_mask190_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)
+            return
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         ex=d.get('experiment')

@@ -1,3 +1,4 @@
+from independent_mask190 import COMPONENT190
 from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope
@@ -363,6 +364,7 @@ def raster(data, name, brush=False, svg_policy=None):
 
 def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_policy=False, allow_recorded_pen=False):
     """Read native sensor groups; preserve legacy products or emit a bounded expression."""
+    allow_recorded_pen=allow_recorded_pen or COMPONENT190.get()
     if not enabled(params.get(option+'UseCurve','true')):
         return []
     sensor_definition=params.get(option+'Sensor') or '<params id="pressure"/>'
@@ -384,6 +386,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     controls=[]
     source_ids=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress','distance':'distance'}
+    if COMPONENT190.get():supported.update(pressurein='pressureIn',perspective='perspective')
     if allow_time:supported['time']='time'
     if allow_recorded_pen:supported.update(rotation='barrelRotation',tangentialpressure='tangentialPressure')
     for node in sensors:
@@ -441,7 +444,7 @@ def size_like_controls(params, option, notes, *, allow_time=False):
     if not enabled(params.get(option+'UseCurve','true')): return []
     sensor=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
     sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
-    if any(node.get('id')=='rotation' for node in sensors):
+    if not COMPONENT190.get()and any(node.get('id')=='rotation' for node in sensors):
         notes.append(compatibility(option+'SensorCombination','Stylus rotation requires a recorded twist channel; constant rate retained.','unsupported'))
         return []
     return sensor_controls(params,option,notes,allow_time=allow_time)
@@ -450,7 +453,7 @@ def size_like_controls(params, option, notes, *, allow_time=False):
 # Public native entry policy; private adapters and explicit legacyFalse stay unchanged.
 DEFAULT_NATIVE_INPUT_POLICY='bounded-root-pixel-timing-v1'
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None, _primary_clock_read=False, _bristle_source_capture=None):
+def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, _allow_texture_material=True, _default_input_policy=None, _native_sampling_candidate=None, _primary_clock_read=False, _bristle_source_capture=None):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(_allow_texture_material) is not bool: raise ValueError('Private texture origin must be boolean')
@@ -479,7 +482,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     for pen_key,pen_value in params.items():
         if not pen_key.endswith('Sensor')or not enabled(params.get('Pressure'+pen_key[:-6],'false'))or not enabled(params.get(pen_key[:-6]+'UseCurve','true')):continue
         pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
-        if any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
+        if not COMPONENT190.get()and any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
     # XML bytearray properties have an outer serialization layer. The embedded
     # pattern string itself is base64, hence two layers for bytearray patterns.
     for p in root.findall('param'):
@@ -494,7 +497,12 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             and depth==0 and _allow_texture_material and enabled(params.get('PaintOpSettings/isAirbrushing'))):
         timed_input=True
     eraser=params.get('CompositeOp') in ('erase','destination-out') or enabled(params.get('Krita/erase'))
-    resources = dict(external)
+    if COMPONENT190.get():
+        def native_resource190(key):
+            value=external[key]
+            return value()if callable(value)else value
+        resources={key:(lambda key=key:native_resource190(key))for key in external}
+    else:resources=dict(external)
     reference_resources = {}
     external_hashes = {}
     matched_payloads = {}
@@ -1124,7 +1132,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             and numeric(params.get('RotationcurveMode'),0)==0):
         node=rotation_sensors[0]
         curve=(params.get('RotationcommonCurve') if enabled(params.get('RotationUseSameCurve','true')) else None) or node.findtext('curve') or '0,0;1,1;'
-        if native_transfer(curve)==[[0,0],[1,1]] and not enabled(node.get('lockedAngleMode')):
+        if native_transfer(curve)==[[0,0],[1,1]] and not enabled(node.get('lockedAngleMode'))and not(COMPONENT190.get()and enabled(node.get('fanCornersEnabled'))):
             offset=numeric(node.get('angleOffset'))
             if -360<=offset<=360:
                 d['tip']['angle']=math.remainder(d['tip']['angle']+math.radians(offset),2*math.pi)
@@ -1134,7 +1142,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if (not rotation_decoded and enabled(params.get('PressureRotation'))
             and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
             and -1<=strength<=1 and 1<=len(rotation_sensors)<=16
-            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')+ (('rotation','tangentialpressure')if engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))else()) for node in rotation_sensors)):
+            and all(node.get('id') in ('fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')+ (('rotation','tangentialpressure','pressurein','perspective')if COMPONENT190.get()else('rotation','tangentialpressure')if engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))else()) for node in rotation_sensors)):
         controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input,allow_recorded_pen=engine=='paintbrush'and depth==0 and not enabled(params.get('MaskingBrush/Enabled')))
         if len(controls)==len(rotation_sensors):
             additive=[{**c,**({'control':'tiltDirection'}if node.get('id')=='ascension'else{})} for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke','ascension','rotation')]
@@ -1147,7 +1155,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if (not rotation_decoded and depth==0 and enabled(params.get('PressureRotation'))and enabled(params.get('RotationUseCurve','true'))
             and -1<=strength<=1 and numeric(params.get('RotationcurveMode'),0)in(0,1,2,3,4)
             and 1<=len(rotation_sensors)<=16 and sum(node.get('id')=='drawingangle'for node in rotation_sensors)==1
-            and all(node.get('id')in('drawingangle','fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')for node in rotation_sensors)):
+            and all(node.get('id')in('drawingangle','fuzzy','fuzzystroke','ascension','pressure','declination','xtilt','ytilt','speed','time','fade','distance')+(('rotation','tangentialpressure','pressurein','perspective')if COMPONENT190.get()else())for node in rotation_sensors)):
         local=[];controls=sensor_controls(params,'Rotation',local,allow_time=timed_input)
         if len(controls)==len(rotation_sensors)and not any(n['status']=='unsupported'for n in local):
             index=next(i for i,node in enumerate(rotation_sensors)if node.get('id')=='drawingangle');node=rotation_sensors[index]
@@ -1156,7 +1164,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             composition={'strength':strength,'additive':[],'scaling':[],'absolute':{'locked':locked,'angleOffset':offset,'curve':controls[index]['curve']}}
             for n,c in zip(rotation_sensors,controls):
                 if n.get('id')=='drawingangle':continue
-                additive=n.get('id')in('fuzzy','fuzzystroke','ascension')
+                additive=n.get('id')in('fuzzy','fuzzystroke','ascension','rotation')
                 composition['additive'if additive else'scaling'].append({**c,**({'control':'tiltDirection'}if n.get('id')=='ascension'else{})})
             mode=int(numeric(params.get('RotationcurveMode'),0))
             if mode:composition['scalingMode']={1:'sum',2:'max',3:'min',4:'difference'}[mode]
@@ -1521,10 +1529,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if gih_uses_mode(d['tip'].get('animation',{}),'angular'):
         # GIH selection uses DrawingAngle even without an active Rotation sensor.
         # Enable the existing author capture by default, never a test-only CLI opt-in.
-        if enabled(params.get('PressureRotation')):
+        if not COMPONENT190.get()and enabled(params.get('PressureRotation')):
             policy=stroke_input_policy(params,xml,native_transfer)
             if policy is None or policy.get('fanCorners') or behavior.get('rotation')!={'follow':1,'random':'none'}:raise ValueError('Angular GIH active rotation requires identity unlocked DrawingAngle without fan')
-        behavior['strokeInput']={'version':1,'initialDirection':'cursorHistory'}
+        behavior.setdefault('strokeInput',{'version':1,'initialDirection':'cursorHistory'})
         notes.append(compatibility('gihAngular','Captured DrawingAngle chooses floor(normalize(angle+135deg)/360deg*rank), modulo actual frames. Movement >=.5 is measured per logical attempt, including rejected attempts. Explicit first-request-v1 paints the first request; native first-point initialization and float-vector threshold rounding may differ.','supported'))
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     def native_keyed(value):
@@ -1588,11 +1596,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             d['tip']['color']['adjustmentPolicy']='native-image-stamp-v1'
             d['version']=max(d['version'],150)
             if behavior.get('dual'):d['version']=max(d['version'],151)
-            if depth or not(pixel_original_hsv150_scope(d)or pixel_original_dual151_scope(d)):raise ValueError('Pixel original RGBA HSV150 requires root static native IMAGESTAMP')
+            if not COMPONENT190.get()and (depth or not(pixel_original_hsv150_scope(d)or pixel_original_dual151_scope(d))):raise ValueError('Pixel original RGBA HSV150 requires root static native IMAGESTAMP')
             notes.append(compatibility('hsvImageStamp150','Native IMAGESTAMP ignores transformed foreground HSV; controls and existing stochastic evaluation are retained. Native RNG query/ICC bit identity is not claimed.','supported'))
         if behavior.get('dual'):
             d['version']=max(d['version'],151)
-            if depth or not pixel_original_dual151_scope(d):raise ValueError('Pixel original RGBA requires closed ALPHAMASK151 pair')
+            if not COMPONENT190.get()and (depth or not pixel_original_dual151_scope(d)):raise ValueError('Pixel original RGBA requires closed ALPHAMASK151 pair')
             notes.append(compatibility('pixelOriginalDual151','Independent ordinary mask modifies accumulated original-colour stroke alpha; source RGB and existing independent child evaluation are retained. Functional alpha composition, not native U8/RNG identity.','supported'))
         if behavior.get('edgeBleed')or any(behavior.get('dynamics',{}).get(k)or behavior.get('modulations',{}).get(k)for k in('hue','saturation','brightness')):raise ValueError('Pixel original RGBA active colour adjustments are not implemented')
         d['version']=max(d['version'],84)
@@ -1607,20 +1615,20 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             # Generic expression returns a factor normalized by its constant;
             # NEW183 retains that native external constant exactly once.
             if any('combine'in c for c in behavior.get('modulations',{}).get('grainDepth',[])):t['strength']=clamp(numeric(params.get('Texture/Strength/Value'),1))
-            if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_strength_wash183_scope(d):raise ValueError('Native Texture Strength Wash183 requires deterministic root controls')
+            if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_strength_wash183_scope(d)):raise ValueError('Native Texture Strength Wash183 requires deterministic root controls')
             notes.append(compatibility('textureStrengthWash183','Native fade maps to existing logical dabProgress and distance to captured canonical world path; deterministic pressure/fade/distance scaling combinations retain constant before clamp. Existing Lightness/Gradient varying-pigment Wash applies external opacity once; no native subdivision/U8 identity claim.','supported'))
         texture_wash171=(t['material'].get('kind')=='lightness'and render.get('accumulation')=='alphaDarken')
         if texture_wash171:
             from texture_lightness_wash171 import texture_lightness_wash171_scope
             d['version']=max(d['version'],171)
             native_timer171=any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
-            if depth or native_timer171 or not texture_lightness_wash171_scope(d):raise ValueError('Native Texture Lightness Wash171 requires closed root static MASK Pixel')
+            if not COMPONENT190.get()and (depth or native_timer171 or not texture_lightness_wash171_scope(d)):raise ValueError('Native Texture Lightness Wash171 requires closed root static MASK Pixel')
             notes.append(compatibility('textureLightnessWash171','Native Lightness texture modifies each dab RGB/alpha before existing Wash feedback; varying pigment uses previous Wash coverage, external opacity is applied once. Functional normalized colour law; no ICC/U8 identity claim.','supported'))
         texture_wash180=(t['material'].get('kind')=='gradient'and render.get('accumulation')=='alphaDarken')
         if texture_wash180:
             from texture_gradient_wash180 import texture_gradient_wash180_scope
             d['version']=max(d['version'],180)
-            if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_gradient_wash180_scope(d):raise ValueError('Native Texture Gradient Wash180 requires closed root static MASK Pixel')
+            if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_gradient_wash180_scope(d)):raise ValueError('Native Texture Gradient Wash180 requires closed root static MASK Pixel')
             notes.append(compatibility('textureGradientWash180','Native Gradient texture maps filtered pattern gray through the captured palette and alpha-aware strength mix before existing varying-pigment Wash feedback. External stroke opacity applies once; existing source/packing/budget and normalized colour law, not ICC/U8 identity.','supported'))
         if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_wash171 and not texture_wash180)or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
             raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
@@ -1660,20 +1668,20 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         notes.append(compatibility('legacyMergedForeground178','Captured visible-layer order/opacity uses existing projectionCanvas feedback per request, with current target baseline and existing legacy foreground composite. Historical sources retain existing replay-prefix authority; native cached-overlay, ICC/U8 and parallel-author pixel identity are not claimed.'))
     if d.get('mixer',{}).get('colorRateComposite')in('dodge','burn'):
         d['version']=max(d['version'],176)
-        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d)):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundDodgeBurn176','Native SDR Dodge/Burn foreground Color Rate clamps division BEFORE alpha-aware foreground union and existing COPY/OVER. Dodge source1/destination0 remains0; Burn destination1/source0 remains1. Functional normalized colour, not HDR/ICC/native U8 division identity.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('add','subtract'):
         d['version']=max(d['version'],175)
-        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d)):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundArithmetic175','Native SDR Add/Subtract acts only on foreground Color Rate: channel addition/subtraction is bounded BEFORE alpha-aware foreground union and existing final COPY/OVER. Existing legacy compensation and pressure laws retained; HDR/ICC/native U8 identity not claimed.','supported'))
         if mode=='linear_dodge':notes.append(compatibility('legacyLinearDodgeAlias','Native Linear Dodge selects the SAME addition function as Add; source settings identity is retained, not a second algorithm.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('darken','lighten'):
         d['version']=max(d['version'],172)
-        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_minmax172_scope(d):raise ValueError('Legacy MinMax172 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_minmax172_scope(d)):raise ValueError('Legacy MinMax172 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundMinMax172','Native legacy Darken/Lighten acts only on foreground Color Rate using alpha-aware separable min/max; existing smear COPY and final smearAlpha COPY/OVER keep their own opacity laws. Normalized functional colour, not ICC/U8 identity.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')=='overlay':
         d['version']=max(d['version'],154)
-        if depth or not legacy_color_smudge_overlay154_scope(d):raise ValueError('Legacy Overlay154 requires closed ordinary local ALPHAMASK scope')
+        if not COMPONENT190.get()and (depth or not legacy_color_smudge_overlay154_scope(d)):raise ValueError('Legacy Overlay154 requires closed ordinary local ALPHAMASK scope')
         notes.append(compatibility('legacyForegroundOverlay154','Native legacy ALPHAMASK applies Overlay only to foreground Color Rate; legacy max-SmudgeRate compensation, smear COPY and final smearAlpha COPY/OVER plus smudgeRate*opacity remain unchanged. Functional normalized blend, not ICC/U8 identity.','supported'))
     if d['tip'].get('autoShape'):d['version']=max(d['version'],71)
     if behavior.get('dual',{}).get('sampling')!='independent'and behavior.get('dual',{}).get('brush',{}).get('behavior',{}).get('mirror'):d['version']=max(d['version'],73)
@@ -1681,36 +1689,36 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if d['tip'].get('animation',{}).get('geometry') is not None:
         d['version']=max(d['version'],(119 if 'planes'in d['tip'].get('color',{})else 118)if d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions')else 86)
         if 'planes'in d['tip'].get('color',{})and d['tip']['animation']['mode']in('angular','xtilt','ytilt','dimensions'):
-            if not is_sensor_original_rgba119(d):raise ValueError('Original RGBA sensor geometry requires unequal119 scope')
+            if not COMPONENT190.get()and (not is_sensor_original_rgba119(d)):raise ValueError('Original RGBA sensor geometry requires unequal119 scope')
             notes.append(compatibility('gihSensorOriginalRgba','Unequal original ImageStamp RGBA frames retain selected RGB/alpha planes and86 geometry under119 sensor policies. Foreground colour is not substituted; existing prepared RGBA cache/leases and finite admission are reused. Qt filtering, native ICC and byte projection differ.'))
     if d['tip'].get('animation',{}).get('mode')in('angular','xtilt','ytilt','dimensions')and'geometry'not in d['tip']['animation']and'planes'in d['tip'].get('color',{}):
         d['version']=max(d['version'],121)
-        if not is_sensor_original_rgba121(d):raise ValueError('Equal original RGBA sensor requires121 closed scope')
+        if not COMPONENT190.get()and (not is_sensor_original_rgba121(d)):raise ValueError('Equal original RGBA sensor requires121 closed scope')
         notes.append(compatibility('gihEqualSensorOriginalRgba','Equal original ImageStamp RGBA frames retain selected RGB and alpha under121 sensor policies, using the existing prepared RGBA cache and finite leases. Foreground colour is not substituted. Qt filtering, native ICC and byte projection differ.'))
     if d['tip'].get('animation',{}).get('mode')in('angular','xtilt','ytilt','dimensions')and'geometry'not in d['tip']['animation']and d['tip'].get('material',{}).get('kind')=='lightness':
         d['version']=max(d['version'],123)
-        if not is_equal_lightness_gih123(d):raise ValueError('Equal Lightness sensor requires123 closed scope')
+        if not COMPONENT190.get()and (not is_equal_lightness_gih123(d)):raise ValueError('Equal Lightness sensor requires123 closed scope')
         notes.append(compatibility('gihEqualSensorLightness','Equal native LIGHTNESSMAP frames retain selected adjusted gray and alpha under123 sensor policies, using existing paired material packing and required finite bank readiness. Native ICC, subpixel filtering and byte projection differ.'))
     if d['tip'].get('animation',{}).get('mode')in('angular','xtilt','ytilt','dimensions')and'geometry'in d['tip']['animation']and d['tip'].get('material',{}).get('kind')=='lightness':
         d['version']=max(d['version'],124)
-        if not is_unequal_lightness_gih124(d):raise ValueError('Unequal Lightness sensor requires124 closed scope')
+        if not COMPONENT190.get()and (not is_unequal_lightness_gih124(d)):raise ValueError('Unequal Lightness sensor requires124 closed scope')
         notes.append(compatibility('gihUnequalSensorLightness','Original selected LIGHTNESSMAP gray/alpha and118 physical geometry retained under124; existing per-size material groups and required finite readiness reused. Native ICC/filtering and byte projection differ.'))
     if d['tip'].get('animation',{}).get('mode')in('angular','xtilt','ytilt','dimensions')and 'gradient'in d['tip'].get('color',{}):
         geometry='geometry'in d['tip']['animation']
         d['version']=max(d['version'],126 if geometry else 125)
-        if not _allow_texture_material or engine!='paintbrush' or depth or not(unequal_gradient_gih126 and is_unequal_gradient_gih126(d)if geometry else equal_gradient_gih125 and is_equal_gradient_gih125(d)):raise ValueError('Gradient sensor requires125 equal or126 unequal closed native Pixel scope')
+        if not COMPONENT190.get()and (not _allow_texture_material or engine!='paintbrush' or depth or not(unequal_gradient_gih126 and is_unequal_gradient_gih126(d)if geometry else equal_gradient_gih125 and is_equal_gradient_gih125(d))):raise ValueError('Gradient sensor requires125 equal or126 unequal closed native Pixel scope')
         notes.append(compatibility('gihUnequalSensorGradient'if geometry else'gihEqualSensorGradient',('Unequal original GRADIENTMAP frames retain118 physical geometry; selected adjusted gray and alpha are filtered before the captured256 palette. Existing bound finite bank readiness reused; native ICC/filtering/byte projection differ.'if geometry else'Equal native GRADIENTMAP frames filter selected independent adjusted gray and alpha before the captured 256-sample palette. Required finite bound bank readiness is reused. Native ICC, subpixel filtering and byte projection differ.')))
     if behavior.get('dual',{}).get('brush',{}).get('tip',{}).get('animation',{}).get('mode')=='velocity':d['version']=max(d['version'],92)
     if d['tip'].get('animation',{}).get('mode')=='angular':
-        if (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')
+        if not COMPONENT190.get()and (engine!='paintbrush' or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('Angular GIH requires root static normal directOver Pixel without timers/erase/dual')
         d['version']=max(d['version'],110)
     if d['tip'].get('animation',{}).get('mode')in('xtilt','ytilt'):
-        if(engine!='paintbrush' or not _allow_texture_material or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('strokeInput',{}).get('fanCorners') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('GIH tilt requires root static normal directOver Pixel')
+        if not COMPONENT190.get()and(engine!='paintbrush' or not _allow_texture_material or depth or eraser or any(k in d for k in('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or behavior.get('dual') or behavior.get('timing') or behavior.get('sequentialRandom') or behavior.get('strokeInput',{}).get('fanCorners') or behavior.get('rendering',{}).get('blendMode')!='normal' or behavior.get('rendering',{}).get('accumulation')!='directOver' or behavior.get('rendering',{}).get('wetEdges',0)!=0 or behavior.get('rendering',{}).get('burntEdges',0)!=0):raise ValueError('GIH tilt requires root static normal directOver Pixel')
         d['version']=max(d['version'],112)
         notes.append(compatibility('gihTilt','Captured degree-axis F32, Qt5-half-up-v1 rounding and unsigned actual-EOF modulo retained; other Qt rounding/device calibration and native subpixel precision are not claimed. Tilt does not require Angular movement gating.','supported'))
     if d['tip'].get('animation',{}).get('mode')=='dimensions':
         d['version']=max(d['version'],115 if gih_uses_mode(d['tip']['animation'],'random')or gih_uses_mode(d['tip']['animation'],'incremental')else 113)
-        validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
+        if not COMPONENT190.get():validate_dimensions(d,depth,_allow_texture_material and engine=='paintbrush')
     if child_drawing_angle is not None:
         dual=behavior['dual'];child=dual['brush'];identity_policy={'version':1,'initialDirection':'cursorHistory'}
         animated_pair130=bool(d['tip'].get('material',{}).get('kind')=='lightness'and d['tip'].get('animation',{}).get('mode')=='random'and 2<=len(d['tip'].get('animation',{}).get('frames',[]))<=256 and child['tip'].get('animation',{}).get('mode')=='random'and 2<=len(child['tip'].get('animation',{}).get('frames',[]))<=256 and child_sampling_candidate)
@@ -1738,7 +1746,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     child187=behavior.get('dual',{}).get('brush',{})
     if has_absolute_combination(child187):
         from child_absolute_size187 import independent_child_absolute_size187_scope,locked_child_absolute_size189_scope
-        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not(independent_child_absolute_size187_scope(d)or locked_child_absolute_size189_scope(d))or not independent_drawing_angle_pair(d):raise ValueError('Child absolute Size187 requires static identity DrawingAngle root and child')
+        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not(independent_child_absolute_size187_scope(d)or locked_child_absolute_size189_scope(d))or not independent_drawing_angle_pair(d)):raise ValueError('Child absolute Size187 requires static identity DrawingAngle root and child')
         if d['version']==189:
             notes.append(compatibility('masking.absoluteSize189','Independent ordinary ALPHA child locked Size uses its own first nonhover request sourceAngle in separate geometry/render state. Native first-request lock and identity/nonidentity transfer reuse existing source wire; option constant is clamped before external factor once. Other targets, fan, animation, timers and stochastic controls stay outside189. No native spline/pixel/RNG identity claim.','supported'))
         else:
@@ -1798,25 +1806,46 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         from dual_mask170 import pixel_alpha_dual170_scope
         d['version']=max(d['version'],170)
         native_timer170=any(enabled(params.get(prefix+key))for prefix in('','MaskingBrush/Preset/')for key in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
-        if depth or engine!='paintbrush'or native_timer170 or not pixel_alpha_dual170_scope(d):raise ValueError('Native Hard Mix Photoshop masking requires closed root Pixel ALPHAMASK170')
+        if not COMPONENT190.get()and (depth or engine!='paintbrush'or native_timer170 or not pixel_alpha_dual170_scope(d)):raise ValueError('Native Hard Mix Photoshop masking requires closed root Pixel ALPHAMASK170')
         notes.append(compatibility('masking.alphaHardMixPhotoshop170','Native41bef no-strength GrayA masking applies Hard Mix Photoshop threshold to accumulated parentAlpha + secondaryGrayAlpha (strictly greater than unit); parent pigment and independent mask geometry retained. No native U8/Qt sampling identity claim.','supported'))
     if behavior.get('dual',{}).get('blendMode')=='hardMixSofterPhotoshop':
         from dual_mask168 import pixel_alpha_dual168_scope
         d['version']=max(d['version'],168)
-        if depth or engine!='paintbrush'or not pixel_alpha_dual168_scope(d):raise ValueError('Native Hard Mix Softer masking requires closed root Pixel ALPHAMASK168')
+        if not COMPONENT190.get()and (depth or engine!='paintbrush'or not pixel_alpha_dual168_scope(d)):raise ValueError('Native Hard Mix Softer masking requires closed root Pixel ALPHAMASK168')
         notes.append(compatibility('masking.alphaHardMixSofter168','Native41bef no-strength GrayA masking applies clamp(3*primaryAlpha-2*(1-secondaryGrayAlpha),0,1) to accumulated primary alpha; parent pigment and independent mask geometry retained. No native U8/Qt sampling identity claim.','supported'))
     from recorded_pen188 import uses_recorded_pen188_controls,recorded_pen188_scope
-    if uses_recorded_pen188_controls(d.get('behavior')):
+    if not COMPONENT190.get()and uses_recorded_pen188_controls(d.get('behavior')):
         d['version']=188
-        if depth or engine!='paintbrush'or not recorded_pen188_scope(d):raise ValueError('Recorded pen controls require closed ordinary root Pixel188')
+        if not COMPONENT190.get()and (depth or engine!='paintbrush'or not recorded_pen188_scope(d)):raise ValueError('Recorded pen controls require closed ordinary root Pixel188')
         notes.append(compatibility('RecordedPen188','Native signed additive barrel rotation and normalized tangential scaling use author-captured v6 fields before sampler geometry; no hardware calibration/pixel identity claim.','supported'))
-    validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
+    if not COMPONENT190.get():validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result
+
+
+
+def preset(data,name,catalog,external,depth=0,*,sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None):
+    options=dict(sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_allow_texture_material=_allow_texture_material,_default_input_policy=_default_input_policy,_native_sampling_candidate=_native_sampling_candidate,_primary_clock_read=_primary_clock_read,_bristle_source_capture=_bristle_source_capture)
+    if depth or COMPONENT190.get():return _preset_impl(data,name,catalog,external,depth,**options)
+    image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
+    params={n.get('name'):n.text or''for n in root.findall('param')}
+    if root.get('paintopid')!='paintbrush'or not enabled(params.get('MaskingBrush/Enabled')):return _preset_impl(data,name,catalog,external,depth,**options)
+    class Needs190(ValueError):pass
+    def legacy():
+        result=_preset_impl(data,name,catalog,external,depth,**options);d=result['descriptor'];child=d.get('behavior',{}).get('dual',{}).get('brush',{});t=child.get('tip',{})
+        # Already qualified closed histories keep their exact whole records.
+        if d['version']in(120,122,128,130,132,151,168,170,184,185,187,189)and not any(n['status']=='unsupported'for n in result['compatibility']):return result
+        advanced=('fanCornersEnabled="1"'in params.get('MaskingBrush/Preset/RotationSensor','')or 'fanCornersEnabled="true"'in params.get('MaskingBrush/Preset/RotationSensor','')or not enabled(params.get('MaskingBrush/UseMasterSize','true'))or any(n['status']=='unsupported'for n in result['compatibility'])or any(k in t for k in('animation','autoShape','autoNoise','color','material'))or t.get('profile',{}).get('kind')not in(None,'standard')or d.get('texture')or d.get('tip',{}).get('color')or d.get('tip',{}).get('material'))
+        if advanced:raise Needs190('Whole native masking settings require190')
+        return result
+    try:return _native_preset_transaction(catalog,legacy)
+    except ValueError:
+        from native_mask190 import lower_pair
+        return lower_pair(data,name,catalog,external,_preset_impl,options)
 
 
 def _native_preset_transaction(catalog, produce):

@@ -6,9 +6,9 @@ export function isEqualLightnessGih123Candidate(brush:BrushDescriptor):boolean{
 }
 /** Loaded paired metadata only. Called before plan/cache/lease/state; no decode,
  * allocation of pixel planes, byte scan or resource authority inferred here. */
-export function assertEqualLightnessGih123(brush:BrushDescriptor):boolean{
+export function assertEqualLightnessGih123(brush:BrushDescriptor,mask190=false):boolean{
  if(!isEqualLightnessGih123Candidate(brush))return false
- if(!isEqualLightnessGih123(brush))throw Error('Equal Lightness sensor requires123 closed scope')
+ if(!mask190&&!isEqualLightnessGih123(brush))throw Error('Equal Lightness sensor requires123 closed scope')
  const a=brush.tip.animation!,m=brush.tip.material!;let side:number|undefined
  for(let i=0;i<a.frames.length;i++){
   const length=importedAssetPixels(a.frames[i]).length,current=Math.sqrt(length)

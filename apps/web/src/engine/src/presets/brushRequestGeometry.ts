@@ -28,9 +28,9 @@ function alignedExtent(extent: number): number {
  * allocation differs from both the continuous circle and its visible pixels.
  * `angle` already includes the static tip angle; never add it a second time.
  */
-export function brushRequestGeometry(sourceSize: number, scale: number, angle: number): BrushRequestGeometry {
-  if (!Number.isInteger(sourceSize) || sourceSize < 1 || sourceSize > 100000)
-    throw new RangeError('Sequential brush requires a canonical integer sourceSize')
+export function brushRequestGeometry(sourceSize: number, scale: number, angle: number, physicalF32 = false): BrushRequestGeometry {
+  if (physicalF32 ? (!Number.isFinite(sourceSize) || sourceSize <= 0 || sourceSize > 100000 || Math.fround(sourceSize) !== sourceSize) : (!Number.isInteger(sourceSize) || sourceSize < 1 || sourceSize > 100000))
+    throw new RangeError(physicalF32 ? 'Independent mask requires a canonical positive F32 sourceSize' : 'Sequential brush requires a canonical integer sourceSize')
   if (!Number.isFinite(scale) || scale < 0 || !Number.isFinite(angle))
     throw new RangeError('Invalid source brush geometry')
   const diameter = sourceSize * scale

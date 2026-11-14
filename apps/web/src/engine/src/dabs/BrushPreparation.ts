@@ -1,3 +1,4 @@
+import { hasIndependentMask190Scope } from '@grafetto/shared'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
@@ -108,7 +109,9 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  assertAnimatedAlphaChild184Ready(brush,capturedErase)
+  const mask190=hasIndependentMask190Scope(brush)
+  if(brush.version===190&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
+  if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
   if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase))throw Error('Invalid legacy foreground DodgeBurn176 scope')
   if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Arithmetic175 scope')
@@ -122,17 +125,17 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
   const sprayWash=hasSprayWash133Scope(brush)
   if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&(!sprayWash||!isBrushSpray(brush.spray)))throw Error('Invalid Spray Wash133 scope')
-  if(assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
+  if(!mask190&&assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
-  if(assertEqualLightnessGih123(brush)||assertUnequalLightnessGih124(brush))materialPlans.delete(brush.tip)
+  if(assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190))materialPlans.delete(brush.tip)
   usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
   assertTextureGradientWash180Planes(brush)
   if(brush.sketch?.maskSignal==='gih-alpha-v1'&&brush.tip.animation?.mode==='angular'&&(!hasSketchAngularGih182Scope(brush)||capturedErase))throw Error('Invalid Sketch182 angular scope')
   if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
-  if(usesVariableGih(brush.tip))prepareVariableGih(brush)
+  if(usesVariableGih(brush.tip))prepareVariableGih(brush,mask190)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
@@ -175,6 +178,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet', covered = false) => {
+    if(mask190&&usesVariableGih(b.tip))prepareVariableGih(b,true)
+    if(mask190){assertEqualLightnessGih123(b,true);assertUnequalLightnessGih124(b,true)}
     // Source143 is CPU initialization data, never a GPU sampler or lease.
     assertBristleSource143Ready(b)
     if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
@@ -187,9 +192,9 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       const resource:BrushPreparationResource={painter,id:b.bristle.saturationLookup.asset,grain:false,bristleSaturation:b.bristle}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
-    if(b.behavior?.dual&&usesVariableGih(b.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
-    if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b)}
-    if(b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
+    if(!mask190&&b.behavior?.dual&&usesVariableGih(b.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
+    if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b,mask190);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b,mask190)}
+    if(!mask190&&b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId){
       if(b!==brush||!hasSmudgeTextureErase131Scope(b))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
       const ids=[b.tip.kind==='bitmap'?b.tip.mask:undefined,b.texture.id,b.texture.eraseId]
@@ -197,9 +202,9 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(sides.some(side=>!Number.isInteger(side)||side<2||side>512||(side&(side-1))!==0)||sides[1]!==sides[2])throw Error('Texture erase131 requires bounded paired CAS')
     }
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
-    if(newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray&&!hasSprayRectangleNoise155Scope(b))||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
-    if(b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
-    if(b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
+    if(!mask190&&newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray&&!hasSprayRectangleNoise155Scope(b))||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
+    if(!mask190&&b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
+    if(!mask190&&b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
     if(b.tip.autoNoise&&painter!=='stamp')throw Error('Auto-mask noise requires the stamp renderer')
     if (b.tip.profile?.kind === 'circleBand') {
       if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')

@@ -1,3 +1,5 @@
+import { independentChildFan190Requests, type IndependentChildFan190State } from '../input/independentChildFan190'
+import { mask190Role } from './independentMask190'
 import{assertRecordedPen188Values,recordedPen188Carrier}from './recordedPen188'
 import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,interpolatePenInput}from '@grafetto/shared'
 import{hasSketchGih174Scope,hasSketchPressureGih181Scope,hasSketchAngularGih182Scope}from'@grafetto/shared'
@@ -23,6 +25,7 @@ import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@gr
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  maxPressure?:number
   sprayPainterOpacity?:number
   deform?:DeformState
   experiment?:ExperimentState
@@ -65,8 +68,8 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 }
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
-export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number):BrushSpacingAxes {
-  if(brush.version===188)assertRecordedPen188Values(input)
+export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number,commitGeometry=false):BrushSpacingAxes {
+  if(brush.version===188||brush.version===190)assertRecordedPen188Values(input)
   if(brush.deform){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*profile.coefficient);return{x:step,y:step,angle:0}}
   if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
@@ -75,7 +78,7 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
   // New request probes are pure: spacing never consumes placement draws or
   // advances the gesture's previous-point/animation state.
   const native = !!brush.behavior?.sequentialRandom
-  const stamp=behaviorStampsForDab(brush,input,native ? structuredClone(state) : state,[0,0,0],{geometryOnly:native})[0]
+  const stamp=behaviorStampsForDab(brush,input,native && !commitGeometry ? structuredClone(state) : state,[0,0,0],{geometryOnly:native})[0]
   if (!stamp) return {x:.5,y:.5,angle:pathAngle}
   const diameter=native
     ? stamp.sourceDiameter!*(Math.abs(Math.cos(brush.tip.angle))+Math.abs(Math.sin(brush.tip.angle)))
@@ -87,13 +90,13 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
   const x=axis(diameter*stamp.aspect*(axisScale?.x ?? 1)),y=axis(diameter*(brush.tip.autoShape?stamp.aspect:1)*(axisScale?.y ?? 1))
   return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:angleOffset === undefined ? stamp.angle : stamp.angle+angleOffset}
 }
-export interface SecondarySamplingState { sourceCursor?:{x:number;y:number;angle:number}; previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
+export interface SecondarySamplingState { childFan?:IndependentChildFan190State; childFanPrevious?:{dab:Dab;baseDiameter:number}; sourceCursor?:{x:number;y:number;angle:number}; previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
 /** Resample the recorded centreline using the child's own source geometry.
  * The bounded segment loop and independent phase survive network chunks. */
 export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true, endpoint?: Dab & {baseSize:number}, execution?: BrushExecutionContext): Dab[] {
   const sourceAware=child.behavior?.strokeInput!==undefined
-  if(sourceAware&&!isIndependentDrawingAnglePair(primary))throw Error('Independent DrawingAngle requires matching120 root/child policies')
-  if(sourceAware)assertBrushSourceInputs(primary,dabs,endpoint)
+  if(sourceAware&&!(primary.version===190&&execution?.maskRole190?.rootId===primary.id)&&!isIndependentDrawingAnglePair(primary))throw Error('Independent DrawingAngle requires matching120 root/child policies')
+  if(sourceAware)assertBrushSourceInputs(primary,dabs,endpoint,primary.version===190&&execution?.maskRole190?{...execution,maskRole190:{...execution.maskRole190,role:'primary'}}:execution)
   const capture=sourceAware?((dab:Dab):void=>{
     const previous=state.sourceCursor
     const angle=previous?sourceDrawingDirection(previous,dab,previous.angle):dab.sourceAngle
@@ -102,19 +105,35 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     state.sourceCursor={x:dab.x,y:dab.y,angle}
   }):undefined
   const result: Dab[] = []
-  const baseSize=(d:Dab):number=>endpoint ? endpoint.baseSize : d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
-  const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
+  const resourceSize=primary.version===190&&primary.behavior?.dual?.sizePolicy?.kind==='resource'?primary.behavior.dual.sizePolicy.diameter:undefined
+  const baseSize=(d:Dab):number=>resourceSize??(primary.version===190?d.sourceSize!:(endpoint ? endpoint.baseSize : d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)))
+  const size = (d:Dab):Dab=>({...d,...(primary.version===190?{sourceSize:Math.fround(baseSize(d)),sourceScale:Math.fround(curveAt(child.sizeByPressure,sizePressure?d.pressure:1))}:{}),opacity:child.opacity ?? 1,
     size:baseSize(d)*curveAt(child.sizeByPressure,sizePressure?d.pressure:1),
     aspectRatio:child.tip.aspect,angle:child.tip.rotation==='fixed'?child.tip.angle:d.angle})
   const spacing=(dab:Dab,pathAngle:number):number=>{
     const profile=child.behavior?.spacing ?? {mode:'diameter' as const,coefficient:child.spacing}
     const geometry=state.geometry ??= beginBrushBehavior(dab,execution)
-    state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle)
+    state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle,undefined,primary.version===190)
     return brushSpacingStep(state.axes,pathAngle)
+  }
+  const emit=(point:Dab,baseDiameter:number):number=>{
+    if(primary.version!==190){capture?.(point);result.push(point);return spacing(point,point.angle)}
+    const previous=state.childFanPrevious
+    const requests=independentChildFan190Requests(state.childFan??={}, {...point,angle:point.sourceAngle??point.angle},child.behavior?.strokeInput?.fanCorners?.stepDegrees)
+    let finalSpacing=.5
+    for(const request of requests){
+      const info=request.information,fraction=request.fraction
+      const projectedBase=previous?previous.baseDiameter+fraction*(baseDiameter-previous.baseDiameter):baseDiameter
+      const placed:Dab={...point,...info,angle:child.tip.rotation==='fixed'?child.tip.angle:previous?previous.dab.angle+fraction*(point.angle-previous.dab.angle):point.angle,sourceAngle:info.angle,sourceSize:Math.fround(projectedBase),sourceScale:Math.fround(curveAt(child.sizeByPressure,sizePressure?info.pressure:1)),size:projectedBase*curveAt(child.sizeByPressure,sizePressure?info.pressure:1),...(previous?.dab.sourceTime===undefined||point.sourceTime===undefined?{}:{sourceTime:previous.dab.sourceTime+fraction*(point.sourceTime-previous.dab.sourceTime)})}
+      result.push(placed);finalSpacing=spacing(placed,info.angle)
+    }
+    state.sourceCursor={x:point.x,y:point.y,angle:state.childFan!.previous!.angle}
+    state.childFanPrevious={dab:{...point},baseDiameter}
+    return finalSpacing
   }
   for (const raw of endpoint ? [...dabs,endpoint] : dabs) {
     const dab=size(raw),previous=state.previous
-    if(!previous){capture?.(dab);result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous={...raw};continue}
+    if(!previous){state.remaining=emit(dab,baseSize(raw));state.direction=dab.angle;state.previous={...raw};continue}
     const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
     if(!length){state.previous={...raw};continue}
     const direction=Math.atan2(dab.y-previous.y,dab.x-previous.x)
@@ -124,8 +143,8 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     while(travel<=length){
       const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
       const pressure=lerp(previous.pressure,raw.pressure)
-      const point:Dab={...(hasRecordedPenInput(previous)||hasRecordedPenInput(raw)?interpolatePenInput(previous,raw,t):EMPTY_RECORDED_PEN_INPUT),x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.sourceTime===undefined||raw.sourceTime===undefined?{}:{sourceTime:(1-t)*previous.sourceTime+t*raw.sourceTime}),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
-      capture?.(point);result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
+      const point:Dab={...(primary.version===190?{sourceSize:Math.fround(lerp(baseSize(previous),baseSize(raw))),sourceScale:Math.fround(curveAt(child.sizeByPressure,sizePressure?pressure:1))}:{}),...(hasRecordedPenInput(previous)||hasRecordedPenInput(raw)?interpolatePenInput(previous,raw,t):EMPTY_RECORDED_PEN_INPUT),x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.sourceTime===undefined||raw.sourceTime===undefined?{}:{sourceTime:(1-t)*previous.sourceTime+t*raw.sourceTime}),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
+      travel+=Math.max(stepFloor,primary.version===190?emit(point,lerp(baseSize(previous),baseSize(raw))):(()=>{capture?.(point);result.push(point);return spacing(point,direction)})())
     }
     state.remaining=travel-length;state.direction=direction;state.previous={...raw}
   }
@@ -202,7 +221,7 @@ export function splitBrushTail(stamps: BehaviorPlaced[], distance: number, end: 
 }
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
 export function beginBrushBehavior(dab: Dab, execution?: BrushExecutionContext): BrushBehaviorState {
-  return { ...(execution ? {execution:brushExecutionContext(execution.brushRandom,execution.brushSource)} : {}), charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
+  return { ...(execution ? {execution:brushExecutionContext(execution.brushRandom,execution.brushSource,execution.maskRole190)} : {}), charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
 }
 /** PointerEvent tilt axes describe slopes, not independent polar angles. */
 function penTilt(dab:Dab): {angle:number;azimuth:number} {
@@ -251,7 +270,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const sensor = d.control==='barrelRotation'||d.control==='tangentialPressure'?recordedPen188Carrier(d.control,dab):d.control === 'strokeRandom' ? d.randomSource ? keyedStrokeValue(d.randomSource.key,state) : brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
+  const sensor = d.control==='barrelRotation'||d.control==='tangentialPressure'?recordedPen188Carrier(d.control,dab):d.control === 'strokeRandom' ? d.randomSource ? keyedStrokeValue(d.randomSource.key,state) : brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure : d.control === 'pressureIn' ? Math.max(state.maxPressure??0,dab.pressure) : d.control === 'perspective' ? 1
     : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
@@ -416,7 +435,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number,
   number
 ], options: {sketchMask?:SketchMaskView;geometryOnly?:boolean;sprayRequest?:{spray?:{geometry:{x:number;y:number;radius:number};opacityScale:number;foreground:readonly[number,number,number]}}} = {}): BehaviorStamp[] {
-  if(brush.version===188)assertRecordedPen188Values(dab)
+  if(brush.version===188||brush.version===190)assertRecordedPen188Values(dab)
   assertSketchDistanceOpacityPolicy(brush)
   const sketchAngular182=hasSketchAngularGih182Scope(brush)
   const sketchMask=brush.sketch?.mode==='mask'?(options.sketchMask??prepareSketchMask(brush)):undefined
@@ -426,22 +445,23 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const activeNoise=!!noise&&(noise.density!==1||noise.randomness!==0)
   const noiseSeed=activeNoise?state.execution?.brushRandom?.strokeSeed:undefined
   if(activeNoise&&noiseSeed===undefined)throw Error('Auto-mask noise requires a captured stroke seed')
+  const mask190=mask190Role(brush,state.execution)!==undefined
   const dimensions=brush.tip.animation?.mode==='dimensions',angular=!sketchAngular182&&brushAnimationUsesMode(brush.tip.animation,'angular')
   const originalSensorRgba119=brush.tip.color!==undefined&&(hasOriginalRgbaGih119Scope(brush)||hasEqualOriginalRgbaGih121Scope(brush)||hasEqualGradientGih125Scope(brush)||hasUnequalGradientGih126Scope(brush))
   const equalSensorLightness123=brush.tip.material!==undefined&&(hasEqualLightnessGih123Scope(brush)||hasUnequalLightnessGih124Scope(brush))
   const sensorGeometry=!!brush.tip.animation?.geometry&&(dimensions||brush.tip.animation.mode==='angular'||brush.tip.animation.mode==='xtilt'||brush.tip.animation.mode==='ytilt')
-  if(sensorGeometry&&(brush.version<118||brush.tip.animation!.frames.length<2||(brush.scatter?.radius??0)>0||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','wet','texture','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('Sensor GIH geometry requires118 alpha without positional scatter')
+  if(!mask190&&sensorGeometry&&(brush.version<118||brush.tip.animation!.frames.length<2||(brush.scatter?.radius??0)>0||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','wet','texture','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('Sensor GIH geometry requires118 alpha without positional scatter')
   const native=!!behavior?.sequentialRandom
   if(native || behavior?.strokeInput || dimensions) {
     assertBrushExecutionContext(brush,state.execution)
-    assertBrushSourceInputs(brush,[dab])
+    assertBrushSourceInputs(brush,[dab],undefined,state.execution)
   }
-  if(behavior?.dual?.brush.tip.animation?.mode==='dimensions')throw Error('Multidimensional GIH child is unsupported')
-  if(dimensions&&(brush.version<(brushAnimationUsesMode(brush.tip.animation,'random')||brushAnimationUsesMode(brush.tip.animation,'incremental')?115:113)||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.profile||brush.tip.imageSampling||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0||angular&&(!behavior.strokeInput||behavior.strokeInput.version!==1||behavior.strokeInput.initialDirection!=='cursorHistory')))throw Error('Multidimensional GIH requires root static Pixel source policy')
+  if(!mask190&&behavior?.dual?.brush.tip.animation?.mode==='dimensions')throw Error('Multidimensional GIH child is unsupported')
+  if(!mask190&&dimensions&&(brush.version<(brushAnimationUsesMode(brush.tip.animation,'random')||brushAnimationUsesMode(brush.tip.animation,'incremental')?115:113)||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.profile||brush.tip.imageSampling||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0||angular&&(!behavior.strokeInput||behavior.strokeInput.version!==1||behavior.strokeInput.initialDirection!=='cursorHistory')))throw Error('Multidimensional GIH requires root static Pixel source policy')
   // Tilt112 is root-only; reject forged child/mixed descriptors before any selector/counter mutation.
   const tiltSelector=brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt',childTilt=behavior?.dual?.brush.tip.animation?.mode==='xtilt'||behavior?.dual?.brush.tip.animation?.mode==='ytilt'
-  if(childTilt)throw Error('GIH tilt child is unsupported')
-  if(tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry&&brush.version<118||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
+  if(!mask190&&childTilt)throw Error('GIH tilt child is unsupported')
+  if(!mask190&&tiltSelector&&(brush.version<112||brush.model!=='stamp'||brush.tip.kind!=='bitmap'||brush.tip.animation?.geometry&&brush.version<118||(brush.tip.color!==undefined&&!originalSensorRgba119)||(brush.tip.material&&!equalSensorLightness123)||brush.tip.imageSampling||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>brush[k as keyof BrushDescriptor]!==undefined)||!behavior||behavior.dual||behavior.erase||behavior.timing||behavior.sequentialRandom||behavior.strokeInput?.fanCorners||behavior.rendering?.blendMode!=='normal'||behavior.rendering.accumulation!=='directOver'||(behavior.rendering.wetEdges??0)!==0||(behavior.rendering.burntEdges??0)!==0))throw Error('GIH tilt requires root static normal directOver Pixel')
   // Validate both selectors before advancing any real gesture state.
   const velocity=brush.tip.animation?.mode==='velocity'||behavior?.dual?.brush.tip.animation?.mode==='velocity'||dimensions&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   if(velocity){
@@ -455,8 +475,9 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   // Independent sensor masks are queried only by their own resampled child dabs.
   // Admitted independent DrawingAngle pairs also choose random frames only in
   // their own recursive paint. Historical non-pair metadata paths stay unchanged.
-  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity'||isIndependentDrawingAnglePair(brush))) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
+  const dualIndex=behavior?.dual && !(behavior.dual.sampling==='independent'&&(mask190||behavior.dual.brush.tip.animation?.mode==='pressure'||behavior.dual.brush.tip.animation?.mode==='velocity'||isIndependentDrawingAnglePair(brush))) ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1,dab.pressure,dab.normalizedSpeed) : undefined
   if(!hasSketchGih174Scope(brush)&&!hasSketchPressureGih181Scope(brush)&&!hasSketchAngularGih182Scope(brush))advanceBrushAnimation(brush, state)
+  if(mask190)state.maxPressure=Math.max(state.maxPressure??0,dab.pressure)
   if(angular){
     const previous=state.angularCursor
     const x=Math.fround(dab.x),y=Math.fround(dab.y)
@@ -498,7 +519,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
-  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i),(brush.version===187||brush.version===189)&&target==='size'?'native-size-absolute187-v1':undefined) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index),(brush.version===187||brush.version===189)&&target==='size'?'native-size-absolute187-v1':undefined), 1)
+  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i),((brush.version===187||brush.version===189)&&target==='size'||mask190Role(brush,state.execution)!==undefined)?'native-size-absolute187-v1':undefined) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index),((brush.version===187||brush.version===189)&&target==='size'||mask190Role(brush,state.execution)!==undefined)?'native-size-absolute187-v1':undefined), 1)
   // Native Pixel queries this option once per logical dab before deposition.
   const lightness = brush.version>=90 && brush.model==='stamp' && brush.tip.material && (behavior?.dynamics?.lightnessStrength || behavior?.modulations?.lightnessStrength?.length)
     ? clamp(brush.tip.material.strength*dynamic('lightnessStrength',0x65000)) : undefined
@@ -536,7 +557,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   let sourceDiameter: number | undefined
   let nativePosition: {x:number;y:number} | undefined
   if(native) {
-    const geometry=brushRequestGeometry(dab.sourceSize!,dab.sourceScale!*sizeScale,angle)
+    const geometry=brushRequestGeometry(dab.sourceSize!,dab.sourceScale!*sizeScale,angle,mask190)
     sourceDiameter=geometry.width
     if(!geometry.admitted) {
       state.previous={...dab}

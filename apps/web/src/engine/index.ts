@@ -1,5 +1,6 @@
-import{assertRecordedPen188Brush,captureRecordedPen188Input}from './src/presets/recordedPen188'
-import{hasRecordedPen188Scope,usesRecordedPen188Controls}from '@grafetto/shared'
+import { mask190RootExecution } from './src/presets/independentMask190'
+import{assertRecordedPen188Brush,captureLatchedRecordedPenInput}from './src/presets/recordedPen188'
+import{usesRecordedPen188Controls}from '@grafetto/shared'
 import{hasMyPaintTimer177Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
 import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
@@ -2511,8 +2512,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _configureAuthorSampler(sampler:DabSystem,snapshot:AuthorStartSnapshot,execution:BrushExecutionContext|undefined):void{
     const recordedPenBrush=snapshot.opts.tool==='digitalBrush'?digitalBrushFromPreset(snapshot.opts.pencilType):undefined
-    if(recordedPenBrush)assertRecordedPen188Brush(recordedPenBrush)
-    sampler.recordedPen188=recordedPenBrush&&hasRecordedPen188Scope(recordedPenBrush)?recordedPenBrush:undefined
+    if(recordedPenBrush)execution=mask190RootExecution(recordedPenBrush,execution)
+    sampler.recordedPen188=recordedPenBrush&&assertRecordedPen188Brush(recordedPenBrush)?recordedPenBrush:undefined
     sampler.cameraAngle=snapshot.cameraAngle;sampler.brushExecution=execution
     sampler.setShaping(shapingForTool(
       snapshot.opts.tool, snapshot.opts.pencilType,
@@ -2560,8 +2561,8 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection
-    sampler.captureSourceAngle=!!spacingBrush?.tangentNormal
-    sampler.captureSourceSize = !!spacingBrush && (!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
+    sampler.captureSourceAngle=spacingBrush?.version===190||!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush && (spacingBrush.version===190||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
     const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush && (spacingBrush.behavior?.sequentialRandom || sampler.recordedPen188) ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     sampler.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
@@ -2608,7 +2609,7 @@ export class PencilEngine implements PencilEngineAPI {
     const strokeId=createBrushRandomStrokeId(createBrushSourceNonce(nanoid(10),snapshot.brushSource),seeds)
     const sampler=this._dabs.forkForPreview()
     this._configureAuthorSampler(sampler,snapshot,brushExecutionContext(seeds,snapshot.brushSource))
-    const dabs=sampler.startStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),0,captureRecordedPen188Input(sampler.recordedPen188,input))
+    const dabs=sampler.startStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),0,captureLatchedRecordedPenInput(sampler.recordedPen188,input))
     bakeDabOpacity(dabs,input.speed,snapshot.opts.tool,snapshot.opts.pencilType,snapshot.opts.opacity,snapshot.opts.size,sampler.spacingFactor)
     const canonical=dabs.map(codecDab)
     return{input,snapshot,seeds,strokeId,sampler,dabs:canonical,committed:false,capability:this._beginCapability(digitalBrushFromPreset(snapshot.opts.pencilType))}
@@ -3336,7 +3337,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -4494,7 +4495,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -6742,7 +6743,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
     const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
     // A late page can resolve metadata already held by the other page. Use
@@ -7077,9 +7078,9 @@ export class PencilEngine implements PencilEngineAPI {
     const layerId=this._activeId
     if(!layerId || !this._layers.has(layerId) || this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedRecoveryLayers.has(layerId))return
     const sourceZoom=this._sourceInputZoom()
-    const policy=this._opts.tool==='digitalBrush'?digitalBrushFromPreset(this._opts.pencilType).behavior?.strokeInput:undefined
-    if(policy && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
+    const policy=brush?.behavior?.strokeInput
+    if((policy||brush?.version===190) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const projection=brush&&(brush.mixer?.source==='projectionCanvas'||hasCloneProjection149Scope(brush)||(hasCloneHealing152Scope(brush)&&brush.clone?.source==='projectionCanvas')) ? this._compositeOrder.map(item=>({...item})) : undefined
     const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     if(brush?.clone&&!this._cloneSource)return
@@ -7133,7 +7134,7 @@ export class PencilEngine implements PencilEngineAPI {
       const pending=this._gridAuthor,input={...e,...this._snapPoint(e.x,e.y)}
       if(pending.capability==='bristleSoak139'?!firstBristleLine139(pending.dabs):!pending.dabs.some(isGridRenderableDab137)){
         const elapsed=Math.max(0,e.timeStamp-pending.input.timeStamp)
-        const dabs=pending.sampler.continueStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,pending.snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),elapsed,captureRecordedPen188Input(pending.sampler.recordedPen188,input))
+        const dabs=pending.sampler.continueStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,pending.snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),elapsed,captureLatchedRecordedPenInput(pending.sampler.recordedPen188,input))
         bakeDabOpacity(dabs,input.speed,pending.snapshot.opts.tool,pending.snapshot.opts.pencilType,pending.snapshot.opts.opacity,pending.snapshot.opts.size,pending.sampler.spacingFactor)
         pending.dabs=pending.capability==='bristleSoak139'?[...pending.dabs,...dabs.map(codecDab)]:dabs.map(codecDab)
         if(pending.capability==='bristleSoak139'?!!firstBristleLine139(pending.dabs):pending.dabs.some(isGridRenderableDab137)){pending.firstElapsed=elapsed;pending.latest=undefined;this._tryGridAuthorStart(pending)}
@@ -7186,7 +7187,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private *_paintTimedInput(input:PointerData,time:number,speed:number,cameraAngle:number,role:'real'|'hold'='hold'):Generator<void,void,void> {
     if(!this._strokeLayerId)return
-    const stream=this._dabs.continueTimedStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,this._physicalSize,speed,this._normalizedBrushSpeed(input),time,role,captureRecordedPen188Input(this._dabs.recordedPen188,input))
+    const stream=this._dabs.continueTimedStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,this._physicalSize,speed,this._normalizedBrushSpeed(input),time,role,captureLatchedRecordedPenInput(this._dabs.recordedPen188,input))
     let batch:Dab[]=[]
     try {
       while(true){
@@ -7457,7 +7458,7 @@ export class PencilEngine implements PencilEngineAPI {
       const cfg = this._dwellCfg
       this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
     }
-    const dabs = this._gridAuthor?.committed?(()=>{this._dabs=this._gridAuthor!.sampler;return this._gridAuthor!.dabs})():this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp,captureRecordedPen188Input(this._dabs.recordedPen188,e))
+    const dabs = this._gridAuthor?.committed?(()=>{this._dabs=this._gridAuthor!.sampler;return this._gridAuthor!.dabs})():this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
     this._paintStrokeDabs(dabs, e.speed, this._gridAuthor?.firstElapsed??0)
     this._display()
     this._handlers.strokeStart?.(e)
@@ -7501,7 +7502,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(this._dabs.timing)this._airbrushInput={...e,x,y}
     const sourceTime=this._dabs.timing?this._timedElapsed():e.timeStamp-this._strokeStartTimestamp
-    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),sourceTime,captureRecordedPen188Input(this._dabs.recordedPen188,e))
+    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),sourceTime,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
     let painted = false
     if (dabs.length) {
       const t0 = performance.now()
@@ -7587,7 +7588,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Ruler tool (#89): keep the speculative preview visually consistent
       // with the real path above, which snaps too.
       const { x, y } = this._snapPoint(s.x, s.y)
-      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed,this._normalizedBrushSpeed(s),this._dabs.timing?this._timedClockLast+Math.max(0,s.timeStamp-(this._airbrushInput?.timeStamp??s.timeStamp)):s.timeStamp-this._strokeStartTimestamp,captureRecordedPen188Input(fork.recordedPen188,s)))
+      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed,this._normalizedBrushSpeed(s),this._dabs.timing?this._timedClockLast+Math.max(0,s.timeStamp-(this._airbrushInput?.timeStamp??s.timeStamp)):s.timeStamp-this._strokeStartTimestamp,captureLatchedRecordedPenInput(fork.recordedPen188,s)))
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
@@ -7621,13 +7622,13 @@ export class PencilEngine implements PencilEngineAPI {
     const t0 = this._debug ? performance.now() : 0
     const held=this._airbrushInput
     const finalTime=capturedTime??(this._dabs.timing?this._timedElapsed():e.timeStamp-this._strokeStartTimestamp)
-    const dabs = !catchupDone && held && !e.cancelled ? this._dabs.continueStroke(held.x,held.y,held.pressure,held.tiltX,held.tiltY,this._physicalSize,0,0,finalTime,captureRecordedPen188Input(this._dabs.recordedPen188,held)) : []
+    const dabs = !catchupDone && held && !e.cancelled ? this._dabs.continueStroke(held.x,held.y,held.pressure,held.tiltX,held.tiltY,this._physicalSize,0,0,finalTime,captureLatchedRecordedPenInput(this._dabs.recordedPen188,held)) : []
     dabs.push(...this._dabs.endStroke(this._physicalSize, e.speed))
     const endpointBrush=this._strokeTool==='digitalBrush' ? digitalBrushFromPreset(this._strokePreset) : undefined
     const endInput=endpointBrush?.mypaint||endpointBrush?.behavior?.dual?.sampling==='independent' ? this._dabs.peekEndSample(this._physicalSize,e.speed) : undefined
     let strokeEndSample:StrokeOperation['strokeEndSample']
     if(endInput) {
-      if(this._dabs.recordedPen188)Object.assign(endInput,captureRecordedPen188Input(this._dabs.recordedPen188,e))
+      if(this._dabs.recordedPen188)Object.assign(endInput,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
       endInput.t=Math.max(0,finalTime)
       if(this._dabs.captureSourceTime)endInput.sourceTime=Math.max(0,finalTime)
       this._bakeDabOpacity([endInput],e.speed,this._strokeTool,this._strokePreset,(this._authorSnapshot?.opts.opacity??this._opts.opacity))
@@ -8759,7 +8760,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Prepare this exact capability before the painter advances gesture state.
     if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
     this._brush.prepareRecordedStampResources(stamp.brush)
-    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color)this._brush.preparePixelGradient(stamp.brush,execution)
+    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||stamp.brush.version===190&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)

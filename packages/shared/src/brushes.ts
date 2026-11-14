@@ -1,3 +1,5 @@
+import{hasIndependentMask190Scope,isIndependentMask190Component,usesNativeMask190Controls}from'./independentMask190.js'
+export{hasIndependentMask190Scope,isIndependentMask190Component,usesNativeMask190Controls,INDEPENDENT_MASK190_MODES}from'./independentMask190.js'
 import{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
 export{hasRecordedPen188Scope,usesRecordedPen188Controls}from'./brushRecordedPen188.js'
 import{hasIndependentChildAbsoluteSize187Scope,hasLockedChildAbsoluteSize189Scope}from'./childAbsoluteSize187.js'
@@ -466,6 +468,10 @@ function isBrushPreview(value: unknown): boolean {
 }
 
 export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxBrushes?: number; maxAssets?: number } = {}): value is BrushLibrary {
+ return isBrushLibraryWithMaskContext(value,limits)
+}
+/** Only internal recursion can supply the actual validated190 parent. */
+function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;maxBrushes?:number;maxAssets?:number}={},maskRoot?:unknown):value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
     || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
   const ids = new Set<string>()
@@ -491,7 +497,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
-    if((d.version===188||usesRecordedPen188Controls(d.behavior))&&!hasRecordedPen188Scope(d))return false
+    const mask190=hasIndependentMask190Scope(d)||isIndependentMask190Component(maskRoot,d)
+    if(d.version===190&&!mask190||usesNativeMask190Controls(d.behavior)&&!mask190||record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.sizePolicy!==undefined&&!mask190)return false
+    if(!mask190&&(d.version===188||usesRecordedPen188Controls(d.behavior))&&!hasRecordedPen188Scope(d))return false
     if(d.version===187&&!hasIndependentChildAbsoluteSize187Scope(d))return false
     if(d.version===189&&!hasLockedChildAbsoluteSize189Scope(d))return false
     if(d.version===184||d.version===185){
@@ -500,8 +508,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const sides=child.tip.animation.frames.map(id=>assetSizes.get(id))
       if(sides.some(side=>side===undefined||side<2||side>512)||sides.some(side=>side!==sides[0]))return false
     }
-    if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixPhotoshopAlpha'&&!hasPixelAlphaDual170Scope(d))return false
-    if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixSofterPhotoshop'&&!hasPixelAlphaDual168Scope(d))return false
+    if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixPhotoshopAlpha'&&!hasPixelAlphaDual170Scope(d)&&!mask190)return false
+    if(record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.blendMode==='hardMixSofterPhotoshop'&&!hasPixelAlphaDual168Scope(d)&&!mask190)return false
     const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
@@ -579,7 +587,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || (record(d.behavior.rendering) && d.behavior.rendering.wetEdges !== undefined && d.behavior.rendering.wetEdges !== 0)
         || typeof profile.antialias !== 'boolean') return false
       const rectangleProfile=['gaussian2D','curveRectangle','curveRectangleSoftness'].includes(String(profile.kind))
-      if(rectangleProfile&&(d.model!=='stamp'||d.tip.kind!=='procedural'||d.tip.autoNoise!==undefined&&(Number(d.version)<98||d.tip.autoShape!==undefined)||d.behavior.dual!==undefined||d.spray!==undefined&&!hasSprayRectangleNoise155Scope(d)||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if(!mask190&&rectangleProfile&&(d.model!=='stamp'||d.tip.kind!=='procedural'||d.tip.autoNoise!==undefined&&(Number(d.version)<98||d.tip.autoShape!==undefined)||d.behavior.dual!==undefined||d.spray!==undefined&&!hasSprayRectangleNoise155Scope(d)||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if(profile.kind==='gaussian2D'){
         if(Number(d.version)<78||!['ellipse','rectangle'].includes(String(profile.shape))||Object.keys(profile).some(k=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))||!numberIn(profile.horizontalFade,0,1)||!numberIn(profile.verticalFade,0,1))return false
       }else if(profile.kind==='curveRectangle'||profile.kind==='curveRectangleSoftness'){
@@ -668,7 +676,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     const equalSensorLightness123=isEqualLightnessGih123(d),unequalSensorLightness124=isUnequalLightnessGih124(d)
     const equalSensorGradient125=isEqualGradientGih125(d),unequalSensorGradient126=isUnequalGradientGih126(d)
     const variableChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)?d.behavior.dual.brush:undefined
-    if(record(variableChild)&&record(variableChild.tip)&&record(variableChild.tip.animation)&&variableChild.tip.animation.geometry!==undefined)return false
+    if(!mask190&&record(variableChild)&&record(variableChild.tip)&&record(variableChild.tip.animation)&&variableChild.tip.animation.geometry!==undefined)return false
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
       if (d.tip.kind !== 'bitmap' || !record(animation)
@@ -698,11 +706,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         // Revision86 preserves original per-frame geometry; legacy animations retain their equal-size law.
         const geometry=animation.geometry,tip=d.tip
         const sensorGeometry=['angular','xtilt','ytilt','dimensions'].includes(String(animation.mode))
-        if(sensorGeometry&&(Number(d.version)<118||frameIds.length<2||record(d.scatter)&&Number(d.scatter.radius)>0||(tip.color!==undefined&&!originalSensorRgba119&&!unequalSensorGradient126)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!unequalSensorLightness124))))return false
+        if(!mask190&&sensorGeometry&&(Number(d.version)<118||frameIds.length<2||record(d.scatter)&&Number(d.scatter.radius)>0||(tip.color!==undefined&&!originalSensorRgba119&&!unequalSensorGradient126)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!unequalSensorLightness124))))return false
         if(Number(d.version)<86||d.model!=='stamp'||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
-          ||d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined&&!unequalSensorLightness124
-          ||record(d.behavior)&&(d.behavior.edgeBleed!==undefined||d.behavior.colorAdjustment!==undefined||record(d.behavior.rendering)&&!!d.behavior.rendering.wetEdges||record(d.behavior.dynamics)&&d.behavior.dynamics.sharpness!==undefined||record(d.behavior.modulations)&&d.behavior.modulations.sharpness!==undefined)
-          ||record(d.behavior)&&d.behavior.dual!==undefined||!record(geometry)
+          ||d.tip.profile!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined&&!unequalSensorLightness124&&!mask190
+          ||record(d.behavior)&&(d.behavior.edgeBleed!==undefined||!mask190&&d.behavior.colorAdjustment!==undefined||record(d.behavior.rendering)&&!!d.behavior.rendering.wetEdges||!mask190&&record(d.behavior.dynamics)&&d.behavior.dynamics.sharpness!==undefined||!mask190&&record(d.behavior.modulations)&&d.behavior.modulations.sharpness!==undefined)
+          ||!mask190&&record(d.behavior)&&d.behavior.dual!==undefined||!record(geometry)
           ||Object.keys(geometry).some(k=>!['version','frames'].includes(k))||geometry.version!==1
           ||!Array.isArray(geometry.frames)||geometry.frames.length!==frameIds.length)return false
         for(let i=0;i<frameIds.length;i++){
@@ -720,13 +728,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       }
     }
     const pixelGradient=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&record(d.tip.color.gradient)
-    if(pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined&&!equalSensorGradient125&&!unequalSensorGradient126||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasPixelGradientWash138Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
+    if(!mask190&&pixelGradient&&(Number(d.version)<97||d.tip.animation!==undefined&&!equalSensorGradient125&&!unequalSensorGradient126||Number(assetSizes.get(String(d.tip.mask)))>512||!record(d.behavior)||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasPixelGradientWash138Scope(d))||d.behavior.rendering.blendMode!=='normal'))return false
     if((equalSensorGradient125||unequalSensorGradient126)&&(d.tip.animation as {frames:string[]}).frames.some(id=>Number(assetSizes.get(id))>512))return false
     const pixelImage=d.model==='stamp'&&d.spray===undefined&&record(d.tip.color)&&(Array.isArray(d.tip.color.planes)||pixelGradient)
     if(hasPixelOriginalDual151Scope(d)){const b=d.behavior;if(!record(b)||!record(b.dual)||!record(b.dual.brush)||!record(b.dual.brush.tip))return false;const childTip=b.dual.brush.tip,main=assetSizes.get(String(d.tip.mask)),secondary=childTip.kind==='bitmap'?assetSizes.get(String(childTip.mask)):undefined;if(!main||main>512||childTip.kind==='bitmap'&&(!secondary||secondary>512))return false}
-    if(pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined&&!hasPixelOriginalDual151Scope(d)||d.behavior.colorAdjustment!==undefined&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d)||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
+    if(!mask190&&pixelImage&&(Number(d.version)<84||d.mixer!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.tip.imageSampling!==undefined||d.tip.material!==undefined||!record(d.behavior)||d.behavior.dual!==undefined&&!hasPixelOriginalDual151Scope(d)||d.behavior.colorAdjustment!==undefined&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d)||d.behavior.edgeBleed!==undefined||['sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||['hue','saturation','brightness'].some(k=>record(d.behavior)&&((record(d.behavior.dynamics)&&d.behavior.dynamics[k]!==undefined)||(record(d.behavior.modulations)&&d.behavior.modulations[k]!==undefined)))))return false
     if(d.tip.color !== undefined) {
-      if(record(d.tip.color)&&'adjustmentPolicy'in d.tip.color&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d))return false
+      if(!mask190&&record(d.tip.color)&&'adjustmentPolicy'in d.tip.color&&!hasPixelOriginalHsv150Scope(d)&&!hasPixelOriginalDual151Scope(d))return false
       const color=d.tip.color,frames=(d.tip.animation as {frames?:unknown[]}|undefined)?.frames ?? [d.tip.mask]
       const tuple=(v:unknown):v is AssetId[]=>Array.isArray(v)&&v.length===3&&v.every(ref)
       if(!(d.model==='mixer'&&(d.mixer as {algorithm?:string}|undefined)?.algorithm==='krita-stamp'||sprayImage||pixelImage)||d.tip.kind!=='bitmap'||d.tip.material!==undefined||d.tip.imageSampling!==undefined||!record(color))return false
@@ -747,7 +755,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if(geometry===undefined){if(new Set(value.assets.filter(a=>ids.includes(a.id)).map(a=>a.size)).size!==1)return false}
       else {
         // New86 only: equal physical planes WITHIN each frame; different frames may use different sides.
-        if(!pixelImage||!('planes' in color)&&!unequalSensorGradient126)return false
+        if(!pixelImage||!('planes' in color)&&!unequalSensorGradient126&&!mask190)return false
         const colorFrames=('gradient'in color?((color.gradient as {grayFrames:string[]}).grayFrames.map(id=>[id])):(color.frames??[color.planes])) as unknown[][]
         if(frames.some((id,index)=>colorFrames[index].some(plane=>assetSizes.get(String(plane))!==assetSizes.get(String(id)))))return false
       }
@@ -764,7 +772,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || material.grayFrames[0] !== material.gray || !material.grayFrames.every(ref) : material.grayFrames !== undefined) return false
       const grayFrames = (material.grayFrames ?? [material.gray]) as unknown[]
       const paired = [...alphaFrames,...grayFrames]
-      if(unequalSensorLightness124){if(alphaFrames.some((id,index)=>assetSizes.get(String(id))!==assetSizes.get(String(grayFrames[index]))))return false}
+      if(unequalSensorLightness124||mask190){if(alphaFrames.some((id,index)=>assetSizes.get(String(id))!==assetSizes.get(String(grayFrames[index]))))return false}
       else if (new Set(value.assets.filter(asset => paired.includes(asset.id)).map(asset => asset.size)).size !== 1) return false
     }
     const key = `${d.id}@${d.version}`
@@ -777,13 +785,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || Object.keys(t).some(key => !['id','eraseId','periodPx','strength','application','patternSize','offset','material'].includes(key))) return false
       if(t.material!==undefined){
         const m=t.material
-        if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||(d.behavior.rendering.accumulation!=='directOver'&&!hasTextureLightnessWash171Scope(d)&&!hasTextureGradientWash180Scope(d)))return false
+        if(!record(m)||(m.kind!=='lightness'&&m.kind!=='gradient')||Number(d.version)<(m.kind==='gradient'?111:108)||Object.keys(m).some(k=>!['kind','alpha'].includes(k))||!ref(m.alpha)||!String(t.id).startsWith('asset:')||assetSizes.get(String(t.id))!==assetSizes.get(String(m.alpha))||!record(t.patternSize)||t.application!==undefined||t.eraseId!==undefined||d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.color!==undefined||d.tip.material!==undefined||d.tip.animation!==undefined||d.tip.imageSampling!==undefined||d.tip.profile!==undefined||d.tip.autoNoise!==undefined||d.tip.autoShape!==undefined||d.wet!==undefined||d.paperInteraction!==0||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||!mask190&&d.behavior.dual!==undefined||d.behavior.erase===true||d.behavior.edgeBleed!==undefined||d.behavior.grain!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||(d.behavior.rendering.accumulation!=='directOver'&&!hasTextureLightnessWash171Scope(d)&&!hasTextureGradientWash180Scope(d)&&!mask190))return false
       }
       if(t.eraseId!==undefined&&(!ref(t.eraseId)||(d.model!=='stamp'&&!hasSmudgeTextureErase131Scope(d))||Number(d.version)<77||t.application===undefined||assetSizes.get(String(t.eraseId))!==assetSizes.get(String(t.id))))return false
       if(d.model==='mixer'&&t.eraseId!==undefined&&((assetSizes.get(String(d.tip.mask))??Infinity)>512||(assetSizes.get(String(t.id))??Infinity)>512))return false
       if(record(t.application)&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(String(t.application.mode))){
         const modern=Number(d.version)>=105&&d.model==='mixer'&&record(d.mixer)&&d.mixer.algorithm==='krita-mask'&&d.mixer.source==='previousCanvas'&&d.mixer.colorRateComposite===undefined&&d.mixer.paintThickness===undefined&&d.tip.kind==='bitmap'&&d.tip.animation===undefined&&d.tip.color===undefined&&d.tip.material===undefined&&record(d.behavior)&&d.behavior.dual===undefined&&d.behavior.erase!==true&&record(d.behavior.rendering)&&d.behavior.rendering.blendMode==='normal'&&t.eraseId===undefined
-        const pixel=Number(d.version)>=105&&d.model==='stamp'&&['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)&&record(d.behavior)&&d.behavior.dual===undefined
+        const pixel=Number(d.version)>=105&&d.model==='stamp'&&['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].every(k=>d[k]===undefined)&&record(d.behavior)&&(d.behavior.dual===undefined||mask190)
         if(!pixel&&!modern)return false
       }
       if(record(t.application)&&['darken','overlay','linearDodge','linearBurn'].includes(String(t.application.mode))){
@@ -811,13 +819,17 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.wet.bloom !== undefined && !numberIn(d.wet.bloom, 0, 1)) || (d.wet.feather !== undefined && !numberIn(d.wet.feather, 0, 1)))) return false
     if (d.behavior !== undefined) {
       if (!isBrushBehavior(d.behavior)) return false
-      if(d.behavior.clockRead!==undefined)return false
-      if(d.behavior.dual&&(d.behavior.dual.brush.behavior?.clockRead!==undefined||d.behavior.dual.brush.version>=132&&hasTimeControl132(d.behavior.dual.brush.behavior))&&!isIndependentChildClock132Pair(d))return false
-      if(d.behavior.rendering?.blendMode==='hardMixPhotoshop'&&(Number(d.version)<102||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
-      if(d.behavior.rendering?.blendMode==='kritaHardMix'&&(Number(d.version)<104||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
-      if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
+      if(d.behavior.clockRead!==undefined&&!mask190)return false
+      if(!mask190&&d.behavior.dual&&(d.behavior.dual.brush.behavior?.clockRead!==undefined||d.behavior.dual.brush.version>=132&&hasTimeControl132(d.behavior.dual.brush.behavior))&&!isIndependentChildClock132Pair(d))return false
+      if(!mask190&&d.behavior.rendering?.blendMode==='hardMixPhotoshop'&&(Number(d.version)<102||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if(!mask190&&d.behavior.rendering?.blendMode==='kritaHardMix'&&(Number(d.version)<104||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
+      if (!mask190&&d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
-      if (secondary) {
+      if(secondary&&mask190){
+        const probe={schemaVersion:1,assets:value.assets,brushes:[{name:'secondary',source:b.source,warnings:[],descriptor:secondary}],skipped:[]}
+        if(!isBrushLibraryWithMaskContext(probe,limits,maskRoot??d))return false
+      }
+      if (secondary&&!mask190) {
         if(secondary.behavior?.dual?.blendMode==='hardMixSofterPhotoshop'||secondary.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')return false
         if(secondary.curveTrace&&secondary.behavior?.timing)return false
         if(secondary.mixer?.colorRateComposite==='dodge'||secondary.mixer?.colorRateComposite==='burn'||secondary.mixer?.colorRateComposite==='add'||secondary.mixer?.colorRateComposite==='subtract'||secondary.mixer?.colorRateComposite==='overlay'||secondary.mixer?.colorRateComposite==='darken'||secondary.mixer?.colorRateComposite==='lighten')return false
@@ -857,21 +869,21 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       }
     }
     const tiltChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
-    if(record(tiltChild)&&(tiltChild.mode==='xtilt'||tiltChild.mode==='ytilt'))return false
-    if(record(d.tip.animation)&&(d.tip.animation.mode==='xtilt'||d.tip.animation.mode==='ytilt')){
+    if(!mask190&&record(tiltChild)&&(tiltChild.mode==='xtilt'||tiltChild.mode==='ytilt'))return false
+    if(!mask190&&record(d.tip.animation)&&(d.tip.animation.mode==='xtilt'||d.tip.animation.mode==='ytilt')){
       const tip=d.tip,b=record(d.behavior)?d.behavior:undefined
       if(d.model!=='stamp'||tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||(tip.color!==undefined&&!originalSensorRgba119&&!equalSensorGradient125&&!unequalSensorGradient126)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!(equalSensorLightness123||unequalSensorLightness124)))||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||record(b.strokeInput)&&b.strokeInput.fanCorners!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0)return false
     }
     const angularChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
-    if(record(angularChild)&&angularChild.mode==='angular')return false
-    if(record(d.tip.animation)&&d.tip.animation.mode==='angular'&&!hasSketchAngularGih182Scope(d)){
+    if(!mask190&&record(angularChild)&&angularChild.mode==='angular')return false
+    if(!mask190&&record(d.tip.animation)&&d.tip.animation.mode==='angular'&&!hasSketchAngularGih182Scope(d)){
       const tip=d.tip
       const b=record(d.behavior)?d.behavior:undefined, input=b&&record(b.strokeInput)?b.strokeInput:undefined
       if(d.model!=='stamp'||d.tip.kind!=='bitmap'||d.tip.animation.geometry!==undefined&&Number(d.version)<118||(tip.color!==undefined&&!originalSensorRgba119&&!equalSensorGradient125&&!unequalSensorGradient126)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!(equalSensorLightness123||unequalSensorLightness124)))||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||!input||input.version!==1||input.initialDirection!=='cursorHistory'||input.fanCorners!==undefined)return false
     }
     const dimensionsChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
-    if(record(dimensionsChild)&&dimensionsChild.mode==='dimensions')return false
-    if(record(d.tip.animation)&&d.tip.animation.mode==='dimensions'){
+    if(!mask190&&record(dimensionsChild)&&dimensionsChild.mode==='dimensions')return false
+    if(!mask190&&record(d.tip.animation)&&d.tip.animation.mode==='dimensions'){
       const tip=d.tip,b=record(d.behavior)?d.behavior:undefined,input=b&&record(b.strokeInput)?b.strokeInput:undefined,angular=brushAnimationUsesMode(tip.animation,'angular')
       if(d.model!=='stamp'||tip.kind!=='bitmap'||(tip.color!==undefined&&!originalSensorRgba119&&!equalSensorGradient125&&!unequalSensorGradient126)||['material','imageSampling','profile','autoNoise','autoShape'].some(k=>tip[k]!==undefined&&(k!=='material'||!(equalSensorLightness123||unequalSensorLightness124)))||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet','texture'].some(k=>d[k]!==undefined)||!b||b.dual!==undefined||b.erase===true||b.timing!==undefined||b.sequentialRandom!==undefined||!record(b.rendering)||b.rendering.blendMode!=='normal'||b.rendering.accumulation!=='directOver'||Number(b.rendering.wetEdges??0)!==0||Number(b.rendering.burntEdges??0)!==0||input?.fanCorners!==undefined||angular&&(!input||input.version!==1||input.initialDirection!=='cursorHistory'))return false
     }
@@ -879,7 +891,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     // Child-only speedInput would not capture a channel on the author pipeline.
     const velocityChild=record(d.behavior)&&record(d.behavior.dual)&&record(d.behavior.dual.brush)&&record(d.behavior.dual.brush.tip)?d.behavior.dual.brush.tip.animation:undefined
     if(brushAnimationUsesMode(d.tip.animation,'velocity')||record(velocityChild)&&velocityChild.mode==='velocity'){
-      const speed=record(d.behavior)?d.behavior.speedInput:undefined
+      const speed=record(maskRoot)&&record(maskRoot.behavior)?maskRoot.behavior.speedInput:record(d.behavior)?d.behavior.speedInput:undefined
       if(Number(d.version)<92||!record(speed)||speed.version!==1||speed.space!=='view'||speed.maximum!==30||speed.estimator!=='grafettoEMA30ms')return false
     }
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
@@ -983,6 +995,7 @@ export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
  * The root captures the existing wire channel; the child owns its resampled cursor.
  */
 export function isIndependentDrawingAnglePair(value:unknown):boolean {
+  if(hasIndependentMask190Scope(value))return true
   if(!record(value)||!record(value.behavior)||!record(value.behavior.dual))return false
   const dual=value.behavior.dual
   const child=record(dual.brush)?dual.brush:undefined
@@ -1069,7 +1082,7 @@ export function brushAnimationUsesMode(animation:unknown,mode:string):boolean {
 }
 /** Shared fast-path predicate for client and server packet admission. */
 export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
- return hasBristleInitializationScope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+ return hasIndependentMask190Scope(brush)||hasBristleInitializationScope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
   ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
 }
 
@@ -1080,7 +1093,7 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
   if(brush.sketch&&brush.behavior?.timing&&!hasSketchTimer161Scope(brush))return false
   if(brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasSmudgeTextureErase131Scope(brush))return false
-  const resize140=hasBristleInitializationScope(brush),allocation=!!brush.behavior?.sequentialRandom||resize140, direction=!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
+  const mask190=hasIndependentMask190Scope(brush),resize140=hasBristleInitializationScope(brush),allocation=mask190||!!brush.behavior?.sequentialRandom||resize140, direction=mask190||!!brush.behavior?.strokeInput||!!brush.tangentNormal, time=brushRequiresSourceTime(brush)
   if(brush.model==='mixer'&&brush.version>=129&&time&&!hasLegacySmudgeTiming129Scope(brush)&&!hasDeformTimer160Scope(brush))return false
   const velocity=brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined
@@ -1104,8 +1117,8 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
     &&(!time||isDabSourceTime(d.sourceTime))
     &&(!velocity||(typeof d.normalizedSpeed==='number'&&Number.isFinite(d.normalizedSpeed)&&d.normalizedSpeed>=0&&d.normalizedSpeed<=1))
     &&(!direction||(typeof d.sourceAngle==='number'&&Number.isFinite(d.sourceAngle)))
-    &&(!allocation||(Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
-      &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1))
+    &&(!allocation||((mask190?typeof d.sourceSize==='number'&&Number.isFinite(d.sourceSize)&&d.sourceSize>0&&d.sourceSize<=100000&&Math.fround(d.sourceSize)===d.sourceSize:Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000)
+      &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1&&(!mask190||Math.fround(d.sourceScale)===d.sourceScale)))
   return dabs.every(valid)&&(!endpoint||valid(endpoint))
 }
 

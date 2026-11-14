@@ -1,5 +1,5 @@
 import{captureGihFrameMetadata}from'../raster/gihFrameGeometry'
-import {hasPixelOriginalDual151Scope,hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {hasIndependentMask190Scope,hasPixelOriginalDual151Scope,hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
@@ -10,20 +10,20 @@ export function usesPixelOriginalRgba(brush:BrushDescriptor):boolean {
 export function usesFilteredPixelGradient(brush:BrushDescriptor):boolean{
  return usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.tip.color.gradient.sampling==='filteredGray-v1'
 }
-export function assertPixelOriginalRgba(brush:BrushDescriptor):void {
+export function assertPixelOriginalRgba(brush:BrushDescriptor,mask190=false):void {
  if(!usesPixelOriginalRgba(brush))throw Error('Expected Pixel original RGBA stamp')
  const color=brush.tip.color
  if(!color)throw Error('Expected original RGB planes')
  if('gradient' in color){
   if(color.gradient.sampling!==undefined&&(brush.version<100||color.gradient.sampling!=='filteredGray-v1'))throw Error('Unsupported Pixel gradient sampling policy')
   if(!hasPixelGradientWash138Scope(brush)){
-  if(brush.version<97||brush.tip.animation&&!isEqualGradientGih125(brush)&&!isUnequalGradientGih126(brush)||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal')throw Error('Unsupported Pixel gradient map combination')
+  if(!mask190&&(brush.version<97||brush.tip.animation&&!isEqualGradientGih125(brush)&&!isUnequalGradientGih126(brush)||brush.spray||brush.behavior?.rendering?.accumulation!=='directOver'||brush.behavior.rendering.blendMode!=='normal'))throw Error('Unsupported Pixel gradient map combination')
   }
  }else if(brush.tip.animation?color.frames?.length!==brush.tip.animation.frames.length:color.frames!==undefined)throw Error('Pixel original RGBA frame planes differ')
  const b=brush.behavior
- if(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual&&!hasPixelOriginalDual151Scope(brush)||brush.mixer)throw Error('Unsupported Pixel original RGBA combination')
- if(color&&'adjustmentPolicy'in color&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush))throw Error('Unsupported native IMAGESTAMP150 policy')
- if(b?.colorAdjustment&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush)||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length))throw Error('Pixel original RGBA adjustments are not implemented')
+ if(!mask190&&(brush.version<84||brush.tip.kind!=='bitmap'||brush.tip.profile||brush.tip.autoNoise||brush.tip.autoShape||brush.tip.imageSampling||brush.tip.material||b?.dual&&!hasPixelOriginalDual151Scope(brush)||brush.mixer))throw Error('Unsupported Pixel original RGBA combination')
+ if(!mask190&&color&&'adjustmentPolicy'in color&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush))throw Error('Unsupported native IMAGESTAMP150 policy')
+ if(!mask190&&(b?.colorAdjustment&&!hasPixelOriginalHsv150Scope(brush)&&!hasPixelOriginalDual151Scope(brush)||b?.edgeBleed||(['hue','saturation','brightness']as const).some(k=>b?.dynamics?.[k]||b?.modulations?.[k]?.length)))throw Error('Pixel original RGBA adjustments are not implemented')
 }
 export interface PixelOriginalRgbaFrame {
  readonly id:TipMaskId
@@ -31,21 +31,21 @@ export interface PixelOriginalRgbaFrame {
 }
 /** Bounded metadata inventory, not a texture/pixel cache. The same alpha may
  * appear with different RGB frames; never deduplicate by alpha ID alone. */
-export function pixelOriginalRgbaFrames(brush:BrushDescriptor):readonly PixelOriginalRgbaFrame[] {
- assertPixelOriginalRgba(brush)
+export function pixelOriginalRgbaFrames(brush:BrushDescriptor,mask190=false):readonly PixelOriginalRgbaFrame[] {
+ assertPixelOriginalRgba(brush,mask190)
  // Equal121 skips prepareVariableGih: full inventory validation belongs HERE,
  // before Painter acquires leases, invokes prepared owners or mutates scratch.
  const animation=brush.tip.animation
  const gradientWash=hasPixelGradientWash138Scope(brush)
  const originalDual=hasPixelOriginalDual151Scope(brush)
  const equalSensor=!!animation&&!animation.geometry&&['angular','xtilt','ytilt','dimensions'].includes(animation.mode)&&!!brush.tip.color&&'planes'in brush.tip.color
- if(equalSensor&&!isEqualOriginalRgbaGih121(brush))throw Error('Equal original RGBA sensor requires121 closed scope')
+ if(equalSensor&&!mask190&&!isEqualOriginalRgbaGih121(brush))throw Error('Equal original RGBA sensor requires121 closed scope')
  const sensorGradient=!!animation&&!!brush.tip.color&&'gradient'in brush.tip.color
  const unequalGradient=sensorGradient&&!!animation?.geometry
  const equalGradient=sensorGradient&&!unequalGradient
- if(unequalGradient&&!isUnequalGradientGih126(brush))throw Error('Unequal Gradient sensor requires126 closed scope')
+ if(unequalGradient&&!mask190&&!isUnequalGradientGih126(brush))throw Error('Unequal Gradient sensor requires126 closed scope')
  if(unequalGradient){if(!animation?.geometry)throw Error('Missing unequal Gradient126 geometry');const rows=captureGihFrameMetadata(animation.geometry!.frames,animation.frames.map(id=>Math.sqrt(importedAssetPixels(id).length)));if(!brush.tip.maskBounds||(['x','y','width','height']as const).some(k=>!Object.is(brush.tip.maskBounds![k],rows[0].maskBounds[k])))throw Error('Unequal Gradient126 reference bounds differ')}
- if(equalGradient&&!isEqualGradientGih125(brush))throw Error('Equal Gradient sensor requires125 closed scope')
+ if(equalGradient&&!mask190&&!isEqualGradientGih125(brush))throw Error('Equal Gradient sensor requires125 closed scope')
  let equalSide:number|undefined
  const frames=brush.tip.animation?.frames??(brush.tip.mask?[brush.tip.mask]:[])
  if(!frames.length||frames.length>256)throw new RangeError('Invalid Pixel original RGBA frame inventory')
@@ -98,6 +98,7 @@ vec3 brushOriginalRgbaPigment(vec4 sampleValue) {
 `
 
 export function assertPixelOriginalDual151Resources(brush:BrushDescriptor):boolean{
+ if(hasIndependentMask190Scope(brush)){for(const component of [brush,brush.behavior!.dual!.brush])if(usesPixelOriginalRgba(component))pixelOriginalRgbaFrames(component,true);return true}
  if(!hasPixelOriginalDual151Scope(brush)){if(usesPixelOriginalRgba(brush)&&brush.behavior?.dual)throw Error('Invalid original RGBA dual151 scope');return false}
  pixelOriginalRgbaFrames(brush)
  const child=brush.behavior!.dual!.brush,t=child.tip

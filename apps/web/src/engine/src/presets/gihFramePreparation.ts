@@ -4,13 +4,13 @@ import type {BrushDescriptor,BrushTip} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import {captureGihFrameMetadata,gihFrameSampleTransform,type GihFrameMetadata} from '../raster/gihFrameGeometry'
 export function usesVariableGih(tip:BrushTip):boolean{return tip.animation?.geometry!==undefined}
-export function prepareVariableGih(brush:BrushDescriptor):readonly GihFrameMetadata[]{
- const unequalLightness=assertUnequalLightnessGih124(brush),unequalGradient=isUnequalGradientGih126(brush)
+export function prepareVariableGih(brush:BrushDescriptor,mask190=false):readonly GihFrameMetadata[]{
+ const unequalLightness=assertUnequalLightnessGih124(brush,mask190),unequalGradient=isUnequalGradientGih126(brush)||(mask190&&!!brush.tip.animation?.geometry&&!!brush.tip.color&&'gradient'in brush.tip.color)
  const tip=brush.tip,a=tip.animation,g=a?.geometry,b=brush.behavior
- if(tip.color&&a&&['angular','xtilt','ytilt','dimensions'].includes(a.mode)&&!isOriginalRgbaGih119(brush)&&!unequalGradient)throw Error('Original RGBA sensor geometry requires unequal119 scope')
- if(!g||brush.version<86||brush.model!=='stamp'||tip.kind!=='bitmap'||brush.mixer||(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const).some(k=>brush[k]!==undefined)||b?.dual||tip.profile||tip.autoNoise||tip.autoShape||tip.imageSampling||tip.material&&!unequalLightness||b?.colorAdjustment||b?.edgeBleed||b?.rendering?.wetEdges||b?.dynamics?.sharpness||b?.modulations?.sharpness?.length)throw Error('Unsupported variable GIH geometry combination')
- if(tip.color&& !('planes' in tip.color)&&!unequalGradient)throw Error('Variable GIH gradient is unsupported')
- if(g.version!==1||!a||g.frames.length!==a.frames.length)throw Error('Invalid variable GIH geometry')
+ if(!mask190&&tip.color&&a&&['angular','xtilt','ytilt','dimensions'].includes(a.mode)&&!isOriginalRgbaGih119(brush)&&!unequalGradient)throw Error('Original RGBA sensor geometry requires unequal119 scope')
+ if(!mask190&&(!g||brush.version<86||brush.model!=='stamp'||tip.kind!=='bitmap'||brush.mixer||(['spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal']as const).some(k=>brush[k]!==undefined)||b?.dual||tip.profile||tip.autoNoise||tip.autoShape||tip.imageSampling||tip.material&&!unequalLightness||b?.colorAdjustment||b?.edgeBleed||b?.rendering?.wetEdges||b?.dynamics?.sharpness||b?.modulations?.sharpness?.length))throw Error('Unsupported variable GIH geometry combination')
+ if(!mask190&&tip.color&& !('planes' in tip.color)&&!unequalGradient)throw Error('Variable GIH gradient is unsupported')
+ if(!g||g.version!==1||!a||g.frames.length!==a.frames.length)throw Error('Invalid variable GIH geometry')
  const sides=a.frames.map(id=>Math.sqrt(importedAssetPixels(id).length))
  const rows=captureGihFrameMetadata(g.frames,sides)
  if(!tip.maskBounds||(['x','y','width','height']as const).some(k=>!Object.is(tip.maskBounds![k],rows[0].maskBounds[k])))throw Error('Variable GIH reference bounds differ')
