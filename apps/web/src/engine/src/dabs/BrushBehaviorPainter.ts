@@ -1,3 +1,4 @@
+import {hasFilterMask192Scope} from '@grafetto/shared'
 import { mask190RootExecution, mask190ChildExecution, mask190Role } from '../presets/independentMask190'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
@@ -217,7 +218,7 @@ export class BrushBehaviorPainter {
   private clonePass?:CloneBrushPass
   prepareClone():void{(this.clonePass??=new CloneBrushPass(this.ctx.gl)).prepare()}
   private filterSmudge147?:FilterSmudge147Pass
-  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.filter&&'maskPolicy'in brush.filter&&!hasFilterBitmapMaskScope(brush))throw Error('Invalid Filter169 bitmap scope');if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush)}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.version===192&&!hasFilterMask192Scope(brush))throw Error('Invalid Filter192 preparation scope');if(brush?.filter&&'maskPolicy'in brush.filter&&!(brush.version===192?hasFilterMask192Scope(brush):hasFilterBitmapMaskScope(brush)))throw Error('Invalid Filter169 bitmap scope');if(brush&&(brush.version===159||brush.filter&&'spatialPolicy'in brush.filter&&brush.filter.kind==='unsharp')&&!hasFilterUnsharp159Scope(brush))throw Error('Invalid Unsharp159 preparation scope');(this.filterSmudge147??=new FilterSmudge147Pass(this.ctx.gl)).prepare(brush,brush?.version===192)}
   private filterPass?:FilterBrushPass
   prepareFilter():void{(this.filterPass??=new FilterBrushPass(this.ctx.gl)).prepare()}
   initGL(): void {
@@ -382,27 +383,31 @@ export class BrushBehaviorPainter {
   invalidateFilterBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability!=='filterSmudge147')return;const state=scratch.filterSmudge147State,source=scratch.canonicalSource;scratch.filterSmudge147State=undefined;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;let failed=false,error:unknown;try{state?.release()}catch(e){failed=true;error=e}try{source.release()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}
   prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
     const brush=paint.brush,binding=runtime.binding
+    execution=mask190RootExecution(brush,execution)
     if(!hasFilterSmudge147Scope(brush)||runtime.capability!=='filterSmudge147'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid Filter147 BEGIN identity')
-    assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    assertBrushSourceInputs(brush,[first],undefined,execution);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const existing=scratch.canonicalSource;if(existing){existing.assertCurrent();return existing.target===target&&existing.capability==='filterSmudge147'&&canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':filter147'}}
     if(scratch.brushBehavior?.dabSequence)throw Error('Filter147 capture after accepted request forbidden')
     if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource||!this.filterSmudge147)throw Error('Filter147 canonical source/prewarm unavailable')
-    this.filterSmudge147.assertPrepared(brush);const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'filterSmudge147');if(opened.kind==='notReady')return opened
+    this.filterSmudge147.assertPrepared(brush,brush.version===192);const prior=scratch.brushBehavior,opened=this.ctx.openCanonicalBegin(target,binding,'filterSmudge147');if(opened.kind==='notReady')return opened
     const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'filterSmudge147');if(captured.kind==='notReady')return captured
     if(scratch.brushBehavior!==prior||scratch.canonicalSource){captured.owner.release();throw Error('Filter147 owner changed during capture')}scratch.canonicalSource=captured.owner;return{kind:'ready'}
   }
   private paintFilter147Requests(target:BrushTarget,dabs:readonly Dab[],preset:PencilPreset,brush:BrushDescriptor,pressure:BrushPressureSettings,color:[number,number,number],scratch:BehaviorScratch,finish:boolean,endpoint:(Dab&{baseSize:number})|undefined,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):void{
     assertBrushSourceInputs(brush,dabs,endpoint,execution);assertBrushExecutionContext(brush,execution);if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     if(!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Filter147 resource owner unavailable')
+    const filterFrames=brush.version===192&&usesVariableGih(brush.tip)?prepareVariableGih(brush,true):undefined
     let accepted=0
     for(const dab of dabs){
       const prior=scratch.brushBehavior,base=prior?structuredClone(prior):beginBrushBehavior(dab,execution),probe=structuredClone(base),stamps=behaviorStampsForDab(brush,dab,probe,color)
       let bounds:BrushBounds|undefined
-      for(const stamp of stamps){const radius=stamp.size*preset.sizeMultiplier*.5;if(radius<.25)continue;const footprint=brushFootprintBounds(stamp.x,stamp.y,radius,stamp.aspect,stamp.angle,1);if(footprint)bounds=unionBounds(bounds,footprint)}
+      for(const stamp of stamps){const radius=stamp.size*preset.sizeMultiplier*.5;if(brush.version===192?radius<.005:radius<.25)continue;const frame=filterFrames?variableGihStamp(brush,filterFrames,{...stamp,radius}):undefined
+        const allocation=brush.version===192&&brush.tip.autoShape?autoSpikeAllocation(radius,stamp.aspect,brush.tip.autoShape.spikes):{radius,aspect:stamp.aspect}
+        const footprint=frame?{minX:frame.x,minY:frame.y,maxX:frame.x+frame.width,maxY:frame.y+frame.height}:brush.version===192&&brush.tip.imageSampling?nativeImageDomain(brush.tip,stamp.x,stamp.y,radius*stamp.aspect,radius,stamp.angle):brushFootprintBounds(stamp.x,stamp.y,allocation.radius,allocation.aspect,stamp.angle,1);if(footprint)bounds=unionBounds(bounds,footprint)}
       if(!bounds){scratch.brushBehavior=probe;accepted++;continue}
       // Recovery/reentrant replay must finish before any outer request lease.
       const tiles=target.resolveForPaint(bounds)
-      const f=brush.filter,spatial=(hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush))&&f&&'radiusX'in f?{...(hasFilterUnsharp159Scope(brush)?planUnsharp159(bounds,f.radiusX):planGaussian153(bounds,f.radiusX,f.radiusY)),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
+      const f=brush.filter,native192=brush.version===192,spatial=(native192?f?.kind==='gaussian'||f?.kind==='unsharp':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush))&&f&&'radiusX'in f?{...((native192?f.kind==='unsharp':hasFilterUnsharp159Scope(brush))?planUnsharp159(bounds,f.radiusX):planGaussian153(bounds,f.radiusX,f.radiusY)),destinations:[]as Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>}:undefined
       const temporaryTiles=spatial?target.resolveForPaint(spatial.needed):tiles
       if(scratch.brushBehavior!==prior)throw Error('Filter147 gesture changed during recovery')
       const existing=scratch.filterSmudge147State,state=existing??new FilterSmudge147State(scratch.canonicalSource!.retain(),(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes))
@@ -411,7 +416,7 @@ export class BrushBehaviorPainter {
         const planned=state.prepareRequest(temporaryTiles,spatial);if(planned.kind==='notReady')throw new FilterSmudge147Blocked(planned,accepted);request=planned.request
         let staged=base
         const proxy=new Proxy(scratch,{get:(target,key)=>key==='brushBehavior'?staged:typeof Reflect.get(target,key)==='function'?Reflect.get(target,key).bind(target):Reflect.get(target,key),set:(target,key,value)=>{if(key==='brushBehavior'){staged=value;return true}return Reflect.set(target,key,value)}})
-        this.paint(target,[dab],preset,brush,pressure,color,proxy,finish&&accepted===dabs.length-1,finish?endpoint:undefined,execution,false,runtime,{state,request,tiles})
+        this.paint(target,[dab],preset,brush,pressure,color,proxy,finish&&accepted===dabs.length-1,finish?endpoint:undefined,execution,false,runtime,{state,request,tiles,gihFrames:filterFrames})
         scratch.brushBehavior=staged;scratch.filterSmudge147State=state;this.bindings.set(scratch,{target,preset,brush,pressure,color,execution,effectiveErase:false,runtime});published=true;accepted++
       }catch(error){failed=true;failure=error}
       finally{for(const release of[()=>request?.release(),()=>{if(!existing&&!published)state.release()}])try{release()}catch(error){if(!failed){failed=true;failure=error}}}
@@ -671,7 +676,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>},maskResourceRoot190?:BrushDescriptor): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext,effectiveErase = !!brush.behavior?.erase,runtime?:CanonicalBeginRuntime,filterRequest?:{state:FilterSmudge147State;request:FilterSmudge147Request;tiles:ReturnType<BrushTarget['resolveForPaint']>;gihFrames?:ReturnType<typeof prepareVariableGih>},healingRequest?:{tiles:ReturnType<BrushTarget['resolveForPaint']>;destinations:Array<{tile:ReturnType<BrushTarget['resolveForPaint']>[number];mask:AccumulationBuffer}>},maskResourceRoot190?:BrushDescriptor): void {
     execution=mask190RootExecution(brush,execution)
     const mask190=mask190Role(brush,execution)!==undefined
     if(mask190){if(execution!.maskRole190!.role==='primary')maskResourceRoot190=brush;else if(!maskResourceRoot190||maskResourceRoot190.id!==execution!.maskRole190!.rootId||maskResourceRoot190.behavior?.dual?.brush.id!==brush.id)throw Error('Missing validated whole Mask190 resource owner')}
@@ -706,8 +711,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const filter147=!!brush.filter&&'smudgeMode'in brush.filter
     if(filter147){
       const source=scratch.canonicalSource
-      if(!hasFilterSmudge147Scope(brush)||effectiveErase||runtime?.capability!=='filterSmudge147'||!source||source.capability!=='filterSmudge147'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Filter147 requires its prepared canonical BEGIN source')
-      source.assertCurrent();this.filterSmudge147?.assertPrepared(brush);if(!this.filterSmudge147)throw Error('Filter147 programs not prepared')
+      if((!(brush.version===192&&mask190)&&!hasFilterSmudge147Scope(brush))||effectiveErase||runtime?.capability!=='filterSmudge147'||!source||source.capability!=='filterSmudge147'||source.target!==target||canonicalBeginBindingKey(source.binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Filter147 requires its prepared canonical BEGIN source')
+      source.assertCurrent();this.filterSmudge147?.assertPrepared(brush,brush.version===192&&mask190);if(!this.filterSmudge147)throw Error('Filter147 programs not prepared')
       if(!filterRequest){this.paintFilter147Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}
     }
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
@@ -731,7 +736,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     assertUnequalLightnessGih124(brush,mask190)
     const extendedComposite=(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
     if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')&&!extendedComposite)throw Error('Extended composite is not prepared')
-    const gihFrames=usesVariableGih(brush.tip)?prepareVariableGih(brush,mask190):undefined
+    const gihFrames=filterRequest?.gihFrames??(usesVariableGih(brush.tip)?prepareVariableGih(brush,mask190):undefined)
     if(!mask190&&brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
@@ -899,7 +904,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         // Compact only this invocation's array and place its wrappers without cloning each hair.
         let count=0
         for(const st of emitted){
-          if(!(gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25))continue
+          if(!(gihFrames||brush.behavior?.sequentialRandom||brush.version===192 ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25))continue
           const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
           const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
           const placed=st as BehaviorPlaced
@@ -921,7 +926,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         const ink=state.bristle!.ink??=createBristleInkState(brush.bristle.hairs.length)
         const span=saturationTable?advancePreparedBristleSaturationInk(saturationTable,bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias):advanceBristleInkBulk(bristleInkProfile!,ink,geometry.hair,geometry.start,geometry.end,geometry.length,geometry.pressure,brush.bristle.antialias)
         return {...st,flowScale:1,bristleInkSpan:geometry.sampleAlpha===undefined?span:{...span,sampleAlpha:geometry.sampleAlpha}}
-      }).filter(st=>gihFrames||brush.behavior?.sequentialRandom ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25).map(st => {
+      }).filter(st=>gihFrames||brush.behavior?.sequentialRandom||brush.version===192 ? st.size>0 : st.size*placedSizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
@@ -1405,7 +1410,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         continue
       }
       if(filter147){
-        this.filterSmudge147!.paint(brush,filterRequest!.state,filterRequest!.request,tile,bounds,coverage,1)
+        this.filterSmudge147!.paint(brush,filterRequest!.state,filterRequest!.request,tile,bounds,coverage,1,brush.version===192&&mask190)
         continue
       }
       if(brush.filter){
@@ -1414,7 +1419,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       }
       this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite)
     }
-    if(filter147)this.filterSmudge147!.finishSpatial(brush,filterRequest!.state,filterRequest!.request)
+    if(filter147)this.filterSmudge147!.finishSpatial(brush,filterRequest!.state,filterRequest!.request,brush.version===192&&mask190)
     if(!healingRequest)target.markContentPainted(bounds)
     } finally { releaseTextures() }
   }

@@ -1,10 +1,10 @@
-import { hasIndependentMask190Scope, isTextureCombinations191Scope, brushRequiresSourceTime, brushRequiresRandomContext, brushUsesGradient, brushAnimationUsesMode, type BrushDescriptor } from '@grafetto/shared'
+import { hasFilterMask192Scope, hasIndependentMask190Scope, isTextureCombinations191Scope, brushRequiresSourceTime, brushRequiresRandomContext, brushUsesGradient, brushAnimationUsesMode, type BrushDescriptor } from '@grafetto/shared'
 import type { BrushExecutionContext } from './brushExecutionContext'
 
 /** Internal execution capability, never an operation/dab/wire field. The whole
  * root descriptor is validated before creating the compact child role. */
 export interface MaskRole190 {
-  readonly version?:190|191
+  readonly version?:190|191|192
   readonly rootId: string
   readonly childId: string
   readonly role: 'primary' | 'child'
@@ -15,7 +15,7 @@ export interface MaskRole190 {
 }
 export function mask190Role(brush: BrushDescriptor, execution?: BrushExecutionContext): MaskRole190['role'] | undefined {
   const role = execution?.maskRole190
-  if (brush.version !== 190 && brush.version !== 191) {
+  if (brush.version !== 190 && brush.version !== 191 && brush.version !== 192) {
     if (role) throw Error('Mask190 execution role requires descriptor190')
     return undefined
   }
@@ -23,7 +23,7 @@ export function mask190Role(brush: BrushDescriptor, execution?: BrushExecutionCo
   return role.role
 }
 export function mask190RootExecution(brush: BrushDescriptor, execution?: BrushExecutionContext): BrushExecutionContext | undefined {
-  if (brush.version !== 190 && brush.version !== 191) return execution
+  if (brush.version !== 190 && brush.version !== 191 && brush.version !== 192) return execution
   if (execution?.maskRole190?.role === 'child') {
     mask190Role(brush, execution)
     return execution
@@ -33,11 +33,11 @@ export function mask190RootExecution(brush: BrushDescriptor, execution?: BrushEx
     if(execution.maskRole190.childId!==(brush.behavior?.dual?.brush.id??''))throw Error('Mask190 child capability changed')
     return execution
   }
-  if (!(brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush))) throw Error('Invalid whole independent Mask190 scope')
+  if (!(brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush))) throw Error('Invalid whole independent Mask190 scope')
   const child = brush.behavior?.dual?.brush
   const speedControl=(v:unknown):boolean=>{if(!v||typeof v!=='object')return false;if('control'in v&&v.control==='speed')return true;return Object.entries(v).some(([key,value])=>key!=='dual'&&speedControl(value))}
   const needSpeed=[brush,...(child?[child]:[])].some(b=>brushAnimationUsesMode(b.tip.animation,'velocity')||speedControl(b.behavior))
-  return { ...execution, maskRole190: { version:brush.version as 190|191, rootId: brush.id, childId: child?.id??'', role: 'primary', needTime:brushRequiresSourceTime(brush),needSpeed,needRandom:brushRequiresRandomContext(brush),needGradient:brushUsesGradient(brush) } }
+  return { ...execution, maskRole190: { version:brush.version as 190|191|192, rootId: brush.id, childId: child?.id??'', role: 'primary', needTime:brushRequiresSourceTime(brush),needSpeed,needRandom:brushRequiresRandomContext(brush),needGradient:brushUsesGradient(brush) } }
 }
 export function mask190ChildExecution(root: BrushDescriptor, execution?: BrushExecutionContext): BrushExecutionContext | undefined {
   if (root.version !== 190 && root.version !== 191) return execution

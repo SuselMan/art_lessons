@@ -450,7 +450,7 @@ void main() {
 /** One opt-in composite family; historical shader literals stay byte-identical. */
 export function createBrushCompositeFragment(extendedBlend=false):string {
   if(!extendedBlend)return BRUSH_COMPOSITE_FRAG
-  const extended=BRUSH_BLEND_GLSL.replace('vec3 brushBlend(',KRITA_HARD_MIX_GLSL+'vec3 brushBlend(').replace('  return brushSetLum(b,brushLum(s));','  if(mode>26.5) return vec3(brushKritaHardMix(b.r,s.r),brushKritaHardMix(b.g,s.g),brushKritaHardMix(b.b,s.b));\n  if(mode>25.5) return vec3(b.r+s.r>1.0?1.0:0.0,b.g+s.g>1.0?1.0:0.0,b.b+s.b>1.0?1.0:0.0);\n  return brushSetLum(b,brushLum(s));')
+  const extended=createBrushBlendGLSL()
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
 }
 
@@ -515,10 +515,7 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       if(profile.x<2.5)return (255.0-brushStandardTransparency(p,radii,profile))/255.0;
       vec2 u=p/radii;float q=dot(u,u);
       if(profile.x>3.5)return brushRadialSoftnessMask(lookup,q,basis,softness);
-      if(q>1.0)return 0.0;
-      float pos=q*profile.y,index=floor(pos);
-      float value=mix(brushCurveValue(lookup,index,profile.z),brushCurveValue(lookup,index+1.0,profile.z),pos-index);
-      return (255.0-floor(clamp((1.0-value)*255.0,0.0,255.0)))/255.0;
+      return brushRadialCurveMask(lookup,q,profile,radii);
     }
     float brushProceduralMaskWithSpikes(vec2 pixel,mat2 frame,vec4 geometry,vec4 profile,sampler2D lookup,vec4 basis,float softness,float spikes) {
       if(spikes<2.5)return brushProceduralMaskWithSoftness(pixel,frame,geometry,profile,lookup,basis,softness);
@@ -626,4 +623,9 @@ ${filteredGradient?'':'  uniform sampler2D u_gradientPalette;'}
     } else if(u_textureApplication.x>0.5) {`)
   }
   return source
+}
+
+/** The same full 28-mode bank for fixed-selection filters and pigment compositing. */
+export function createBrushBlendGLSL():string {
+ return BRUSH_BLEND_GLSL.replace('vec3 brushBlend(',KRITA_HARD_MIX_GLSL+'vec3 brushBlend(').replace('  return brushSetLum(b,brushLum(s));','  if(mode>26.5) return vec3(brushKritaHardMix(b.r,s.r),brushKritaHardMix(b.g,s.g),brushKritaHardMix(b.b,s.b));\n  if(mode>25.5) return vec3(b.r+s.r>1.0?1.0:0.0,b.g+s.g>1.0?1.0:0.0,b.b+s.b>1.0?1.0:0.0);\n  return brushSetLum(b,brushLum(s));')
 }

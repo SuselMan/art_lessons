@@ -1,6 +1,6 @@
 import{textureEraseId}from'../presets/brushTextureErase'
 import{textureMaterialVariant}from'../presets/textureLightness'
-import { brushUsesGradient,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import { brushUsesGradient,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -106,12 +106,12 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
-    if(bitmapFilter&&!hasFilterBitmapMaskScope(brush))throw Error('Invalid Filter169 bitmap scope')
+    if(bitmapFilter&&!(brush.version===192?hasFilterMask192Scope(brush):hasFilterBitmapMaskScope(brush)))throw Error('Invalid Filter169 bitmap scope')
     const alphaDual=mask190||assertPixelAlphaDual168Scope(brush)||assertPixelAlphaDual170Scope(brush)
     const originalDual=assertPixelOriginalDual151Resources(brush)
     const tangentWash=hasTangentNormalWash136Scope(brush)
@@ -129,7 +129,7 @@ export class BrushPainter {
     const lightness=assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
-    const resources=existing??brushPreparationResources(bitmapFilter?{...brush,model:'stamp'}:brush)
+    const resources=existing??brushPreparationResources(bitmapFilter&&brush.version!==192?{...brush,model:'stamp'}:brush)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
@@ -391,7 +391,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
 
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
-    const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190){
       const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
       if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return

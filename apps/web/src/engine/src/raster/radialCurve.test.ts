@@ -27,3 +27,13 @@ it('isolates lookup samplers from every historical compiler input',()=>{
     expect(shader).not.toContain('${')
   }
 })
+it('native soft-circle AA quantizes base before its one-pixel inverse fade, independently of LUT resolution',()=>{
+ const bytes=identity(4)
+ // rx=2,ry=4 -> qStart=(.5*(.5+.75))²=.390625;
+ // inverse(base)=floor((1-.390625*.8)*255)=175; at q=.8 ->floor(175+(.8-.390625)*80/.609375)=228.
+ expect(radialCurveAlpha(.8,bytes,4,[2,4])).toBe(27)
+ expect(radialCurveAlpha(.390625,bytes,4,[2,4])).toBe(radialCurveAlpha(.390625,bytes,4))
+ expect(radialCurveAlpha(1,bytes,4,[2,4])).toBe(0)
+ expect(radialCurveAlpha(.5,bytes,4,[.25,.5])).toBe(0)
+ expect(()=>radialCurveAlpha(.5,bytes,4,[0,2])).toThrow('geometry')
+})

@@ -17,7 +17,7 @@ export function proceduralProfileUniforms(profile?: Profile, lookupSide?: number
     if (profile?.kind === 'circleBand') throw Error('Circle band uses a separate max-alpha program')
     if (profile?.kind === 'radialCurve' || profile?.kind === 'radialCurveSoftness') {
         if (!lookupSide) throw Error('Radial curve requires its lookup resource')
-        return [profile.kind==='radialCurveSoftness'?4:3, profile.resolution, lookupSide, 0]
+        return [profile.kind==='radialCurveSoftness'?4:3, profile.resolution, lookupSide, profile.antialias?1:0]
     }
     if (!profile)
         return [-1, 0, 0, 0];
@@ -87,7 +87,9 @@ export function proceduralMaskAlpha(x: number, y: number, width: number, height:
     if (profile.kind === 'radialCurve') {
         if (!lookup) throw Error('Radial curve requires its lookup resource')
         const c=Math.cos(angle),s=Math.sin(angle),u=(c*x+s*y)/(width*.5),v=(-s*x+c*y)/(height*.5)
-        return radialCurveAlpha(u*u+v*v,lookup,profile.resolution)
+        if(!profile.antialias)return radialCurveAlpha(u*u+v*v,lookup,profile.resolution)
+        const resolution=profile.resolution
+        return maskStencilAlpha(x,y,proceduralSampleCount(Math.min(width,height),true),(px,py)=>{const a=(c*px+s*py)/(width*.5),b=(-s*px+c*py)/(height*.5);return 255-radialCurveAlpha(a*a+b*b,lookup,resolution,[width*.5,height*.5])})
     }
     if (![x, y, width, height, angle].every(Number.isFinite) || width <= 0 || height <= 0)
         return 0;
@@ -116,7 +118,7 @@ function proceduralSpikesAlpha(x:number,y:number,width:number,height:number,prof
         const q=(fx/rx)**2+(fy/ry)**2
         if(profile.kind==='radialCurveSoftness')return 255-radialSoftnessAlpha(q,basis!,softness)
         if(!lookup)throw Error('Radial curve requires its lookup resource')
-        return 255-radialCurveAlpha(q,lookup,profile.resolution)
+        return 255-radialCurveAlpha(q,lookup,profile.resolution,profile.antialias?[rx,ry]:undefined)
     })
 }
 const STANDARD_GLSL = `

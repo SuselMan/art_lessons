@@ -1,4 +1,4 @@
-import { hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import { hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
@@ -109,8 +109,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
-  if((brush.version===190||brush.version===191)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
+  const mask190=brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+  if((brush.version===190||brush.version===191||brush.version===192)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
   if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
   if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(brush.version!==191&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground DodgeBurn176 scope')
@@ -129,7 +129,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
   if(assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190))materialPlans.delete(brush.tip)
-  usesColorSmudgeTexture(brush)
+  if(brush.version!==192)usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
   assertTextureGradientWash180Planes(brush)
@@ -185,7 +185,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     assertBristleSource143Ready(b)
     if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
       if(b!==brush||b.version<105)throw Error('Texture105 requires a root prepared brush')
-      if(b.model==='mixer')usesColorSmudgeTexture(b)
+      if(b.version===192&&mask190){/* Native Filter uses the existing scalar alpha texture shader. */}
+      else if(b.model==='mixer')usesColorSmudgeTexture(b)
       else if(b.model!=='stamp'||b.behavior?.dual&&!mask190||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>b[k as keyof BrushDescriptor]!==undefined))throw Error('Texture105 requires root Pixel or modern MASK')
     }
     if(b.bristle?.version===2&&b.bristle.ink.useSaturation){
@@ -254,7 +255,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   // Filter169 mask is consumed by the existing stamp renderer; no WET duplicate bank.
-  visit(brush, hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
+  visit(brush, (brush.version===192&&mask190)||hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 
