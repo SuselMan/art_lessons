@@ -1,7 +1,9 @@
 /** Closed source-time129 capability, not a full descriptor or loaded-CAS validator. */
-export function hasLegacySmudgeTiming129Scope(value:unknown,requireTiming=true):boolean {
+export function hasLegacySmudgeTiming129Scope(value:unknown,requireTiming=true):boolean{return legacySmudgeTimingCore(value,requireTiming,false)}
+/** Reuse only existing129 core;191 changes texture application, not cursor/timer. */
+export function legacySmudgeTimingCore(value:unknown,requireTiming=true,texture191=false):boolean {
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
- if(!obj(value))return false
+ if(!obj(value)||texture191&&value.version!==191)return false
  const d=value,t=d.tip,m=d.mixer,b=d.behavior
  if(d.paperInteraction!==0||d.model!=='mixer'||!obj(t)||!obj(m)||!obj(b)||m.source!=='previousCanvas'||m.load!==0||m.initialLoad!==0||m.strength!==1)return false
  if(['wet','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>k in d)||['dual','erase','wetMix','taper','sequentialRandom','strokeInput','colorAdjustment','edgeBleed','grain'].some(k=>k in b))return false
@@ -9,7 +11,7 @@ export function hasLegacySmudgeTiming129Scope(value:unknown,requireTiming=true):
  const render=b.rendering
  if(!obj(render)||render.mode!=='buildUp'||render.wetEdges!==0||render.burntEdges!==0||render.blendMode!=='normal'||render.accumulation!==undefined)return false
  const texture=d.texture
- if(texture!==undefined&&(!obj(texture)||'material'in texture||'eraseId'in texture||!obj(texture.application)||texture.application.mode!=='multiply'||texture.application.soft!==false))return false
+ if(!texture191&&texture!==undefined&&(!obj(texture)||'material'in texture||'eraseId'in texture||!obj(texture.application)||texture.application.mode!=='multiply'||texture.application.soft!==false))return false
  const a=t.animation
  if(a!==undefined&&(!obj(a)||!['random','incremental'].includes(String(a.mode))||!Array.isArray(a.frames)||a.frames.length<2||a.frames.length>256||Object.keys(a).some(k=>!['mode','frames'].includes(k))))return false
  const pickup=m.pickupDynamics

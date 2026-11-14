@@ -1,3 +1,4 @@
+import{brush129,asset129}from'../../../../../../packages/shared/src/legacySmudgeTiming129.testFixture'
 import { DabSystem } from '../dabs/DabSystem'
 import { brushPreparationPlan } from '../dabs/BrushPreparation'
 import { brush119, assets119, rgb119 } from '../../../../../../packages/shared/src/gihOriginalRgba119.testFixture'
@@ -190,4 +191,35 @@ it('commits own native geometry pressure history once per actual child request',
  expect(state.geometry!.maxPressure).toBe(.8)
  expect(state.geometry!.previous!.pressure).toBeLessThan(.8)
  expect(state.geometry!.sequentialRandom).toBeUndefined()
+})
+
+it('191 texture role captures all five source scalars, retains END and avoids resource rescans after admission',()=>{
+ const {root,child}=pair();root.version=child.version=191
+ root.texture={id:`asset:${'b'.repeat(64)}`,strength:.7,periodPx:4,patternSize:{width:4,height:4},application:{mode:'height',soft:false}}
+ const execution=mask190RootExecution(root,brushExecutionContext({version:1,sequentialSeed:0,strokeSeed:0xffffffff}))!
+ expect(execution.maskRole190?.version).toBe(191)
+ const captured=captureLatchedRecordedPenInput(root,{pointerType:'pen',sourceTwist:271,sourceTangentialPressure:.25})
+ expect(captured).toEqual({sourceTwist:271,sourceTangentialPressure:.25})
+ for(const key of ['sourceSize','sourceScale','sourceAngle','sourceTwist','sourceTangentialPressure']as const){
+  expect(()=>assertBrushSourceInputs(root,[{...point(),[key]:undefined}],undefined,execution)).toThrow()
+  expect(()=>assertBrushSourceInputs(root,[],{...point(),[key]:undefined},execution)).toThrow()
+ }
+ const copied=structuredClone(execution);expect(()=>assertBrushSourceInputs(root,[point()],point(),copied)).not.toThrow()
+ Object.defineProperty(root,'tip',{get:()=>{throw Error('unexpected full resource admission on hot path')}})
+ expect(mask190RootExecution(root,copied)).toBe(copied)
+ expect(()=>assertBrushSourceInputs(root,[point()],point(),copied)).not.toThrow()
+})
+
+it.each(['incremental','random']as const)('191 reuses existing legacy129 %s timed GIH and source clock across chunk/savepoint boundaries',mode=>{
+ const root=brush129(),second=`asset:${'c'.repeat(64)}`as const;root.version=191;root.tip.animation={mode,frames:[asset129,second]}
+ root.texture={id:`asset:${'b'.repeat(64)}`,strength:.7,periodPx:4,patternSize:{width:4,height:4},application:{mode:'height',soft:false}}
+ const execution=mask190RootExecution(root,brushExecutionContext({version:1,sequentialSeed:17,strokeSeed:42}))!
+ expect(execution.maskRole190?.needTime).toBe(true)
+ expect(()=>assertBrushSourceInputs(root,[point()],undefined,execution)).toThrow()
+ const inputs=[0,1,4,8].map((time,i)=>({...point(i*4),sourceTime:time}))
+ expect(()=>assertBrushSourceInputs(root,inputs,inputs.at(-1),execution)).not.toThrow()
+ expect(()=>assertBrushSourceInputs(root,[],point(),execution)).toThrow()
+ const run=(chunk:number)=>{let state=beginBrushBehavior(inputs[0],execution);const out=[];for(let i=0;i<inputs.length;i+=chunk){for(const d of inputs.slice(i,i+chunk))out.push(...behaviorStampsForDab(root,d,state,[1,0,0]));state=structuredClone(state)}return{out,state}}
+ const whole=run(4);expect(run(1)).toEqual(whole);expect(whole.out.map(s=>s.mask).every(id=>root.tip.animation!.frames.some(frame=>frame===id))).toBe(true)
+ if(mode==='incremental')expect(new Set(whole.out.map(s=>s.mask)).size).toBe(2)
 })

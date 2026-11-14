@@ -367,8 +367,9 @@ export function wetTransferFragment(procedural = false, integerImages = false, r
 
 /** Only the admitted103 modern MASK program gets the Pixel75 alpha graph.
  * Existing program strings, operands, samplers and historical1/2 stay intact. */
-export function colorSmudgeTextureFragment():string {
- const legacy=wetTransferFragment(true,true,true,true)
+export function colorSmudgeTextureFragment():string {return withColorSmudgeTextureAlpha(wetTransferFragment(true,true,true,true))}
+/** Compose native scalar texture alpha with any already implemented strategy. */
+export function withColorSmudgeTextureAlpha(legacy:string):string {
  const anchor=' if(application.x<1.5)'
  if(legacy.split(anchor).length!==2)throw Error('Wet texture alpha anchor changed')
  return legacy.replace(BRUSH_TEXTURE_APPLICATION_GLSL,TEXTURE_ALPHA_EXTENDED_GLSL+BRUSH_TEXTURE_APPLICATION_GLSL.replace(anchor,' if(application.x>2.5)return brushTextureAlphaExtended(a,t,s,application);\n'+anchor))

@@ -31,3 +31,25 @@ it('same existing wet owner plans/protects/binds only recorded erase pair, warm 
 it('existing preparation validates closed scope and loaded paired lengths before any GPU work',()=>{const b=loaded131();b.texture!.eraseId=('asset:'+'f131'.repeat(16))as`asset:${string}`;installBrushPixels(b.texture!.eraseId,new Uint8Array(64));expect(()=>brushPreparationResources(b)).toThrow('paired CAS');b.texture!.eraseId=erase131;Reflect.set(b.behavior!,'dual',null);expect(()=>brushPreparationResources(b)).toThrow('closed modern MASK131')})
 
 it('loaded pair mismatch fails actual paint before resumeGesture or context access',()=>{const b=loaded131();b.texture!.eraseId=('asset:'+'f131'.repeat(16))as`asset:${string}`;installBrushPixels(b.texture!.eraseId,new Uint8Array(64));const p=Object.create(SmudgePainter.prototype)as SmudgePainter,touch=vi.fn();Object.defineProperty(p,'ctx',{get(){touch();throw Error('late context')}});const target=new Proxy({},{get(){touch();throw Error('late target')}})as ILayerBuffer,paint:MixerPaint={brush:b,color:[1,0,0],load:0,pickup:1,strength:1,pressure:false,sizeMultiplier:1,curve:[[0,1],[1,1]]};expect(()=>p.paint(target,[dab129(0)],'own',undefined,'own',paint,brushExecutionContext({version:1,sequentialSeed:17,strokeSeed:42}))).toThrow('paired CAS');expect(touch).not.toHaveBeenCalled()})
+
+it('public191 erasing Height validates the whole scope, leases only erase gray, and draws prepared modernForeground without lazy work',()=>{
+ const b=loaded131();b.version=191;b.texture!.application={mode:'height',soft:true}
+ const gl=new MockGL(),p=new SmudgePainter({gl:gl as unknown as WebGLRenderingContext}as SmudgeContext),texture=gl.createTexture()
+ Reflect.set(p,'ctx',{paper:{texture,worldSize:()=>({w:64,h:64}),scale:1,fillThreshold:0,fillCap:0},quadBuf:()=>gl.createBuffer()});p.initGL()
+ try{
+  const group=brushPreparationResources(b);expect(group.some(r=>r.id===erase131&&r.grain)).toBe(true);expect(group.some(r=>r.id===normal131)).toBe(false)
+  for(const resource of group)p.prepareTexture(group,resource);p.prepareColorSmudgeTexture(b)
+  const lookup=vi.spyOn(p as unknown as{wetTexture:(...args:unknown[])=>unknown},'wetTexture'),bank=Reflect.get(p,'wetTextures')as{protect:(keys:string[])=>void;lease:(resources:{key:string;bytes:number}[])=>()=>void},protect=vi.spyOn(bank,'protect'),lease=vi.spyOn(bank,'lease'),compile=vi.spyOn(gl,'createProgram'),upload=vi.spyOn(gl,'texImage2D')
+  const buffer={width:64,height:64,beginReplaceDraw:vi.fn(),beginErase:vi.fn(),endDraw:vi.fn()},draw=Reflect.get(p,'drawTransferDab')as(...a:unknown[])=>void
+  const wet={stamp:{mask:mask131,aspect:1,angle:.3,edgeSoftness:0,opacityScale:1,color:[.2,.5,.8]},paint:{brush:b,strength:1},seed:1,step:{pickup:.6},foregroundRate:.7}
+  const body=vi.fn((_layer:unknown,dab:unknown)=>draw.call(p,{buffer,originX:0,originY:0},dab,4,{texture},0,0,16,'lay',1,wet,{texture}));Reflect.set(p,'paintBehaviorDab',body)
+  const paint:MixerPaint={brush:b,color:[1,0,0],load:0,pickup:1,strength:1,pressure:false,sizeMultiplier:1,curve:[[0,1],[1,1]]},dab={...dab129(0),sourceSize:8,sourceScale:1,sourceAngle:Math.PI/2,sourceTwist:0,sourceTangentialPressure:.5}
+  p.paint({}as ILayerBuffer,[dab],'own',undefined,'own191',paint,brushExecutionContext({version:1,sequentialSeed:17,strokeSeed:42}))
+  expect(body).toHaveBeenCalledOnce();expect(lease.mock.calls[0][0].some(r=>r.key===brushTextureResourceKey({id:erase131,grain:true,discrete:true}))).toBe(true)
+  expect(lookup.mock.calls.some(a=>a[0]===erase131&&a[1]===true)).toBe(true);expect(lookup.mock.calls.some(a=>a[0]===normal131)).toBe(false)
+  expect(protect.mock.calls.some(([keys])=>keys.includes(brushTextureResourceKey({id:erase131,grain:true,discrete:true})))).toBe(true)
+  const bindings=Reflect.get(p,'texture191Transfers')as Map<string,{program:{uniforms:Map<string,unknown>}}>,uniforms=bindings.get('modernForeground')!.program.uniforms
+  expect(uniforms.get('u_textureApplication')).toEqual([11,1,3,2]);expect(uniforms.get('u_colorSmudgeComposite')).toBe(6)
+  expect(compile).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(buffer.beginErase).not.toHaveBeenCalled();expect(buffer.beginReplaceDraw).toHaveBeenCalledOnce()
+ }finally{p.destroy()}
+})

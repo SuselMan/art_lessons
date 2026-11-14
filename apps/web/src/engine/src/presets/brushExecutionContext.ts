@@ -30,6 +30,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
     if(context?.brushRandom!==undefined&&!isBrushRandomSeeds(context.brushRandom))throw Error('Invalid Mask190 execution seeds')
     if(role.needRandom&&!context?.brushRandom)throw Error('Mask190 requires an explicit gesture random context')
     if(role.needGradient&&!context?.brushSource?.gradient)throw Error('Mask190 requires captured gradient source')
+    if(brush.version===191&&brush.mixer){if(context?.brushSource!==undefined&&!isBrushSourceContext(context.brushSource))throw Error('Invalid captured Texture191 source');if(brush.mixer.source==='projectionCanvas'&&!context?.brushSource?.projection)throw Error('Merged Texture191 brush requires recorded projection sources')}
     return
   }
   if(brush.behavior?.clockRead!==undefined&&(!isPrimaryClockRead132Marker(brush.behavior.clockRead)||brush.version<132))throw Error('Invalid child clock132 marker')
@@ -51,7 +52,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
 }
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {
   const previousRole=previous?.maskRole190,nextRole=incoming?.maskRole190
-  if(previousRole?.rootId!==nextRole?.rootId||previousRole?.childId!==nextRole?.childId||previousRole?.role!==nextRole?.role||previousRole?.needTime!==nextRole?.needTime||previousRole?.needSpeed!==nextRole?.needSpeed||previousRole?.needRandom!==nextRole?.needRandom||previousRole?.needGradient!==nextRole?.needGradient)throw Error('Mask190 execution role changed during a gesture')
+  if((previousRole?.version??190)!==(nextRole?.version??190)||previousRole?.rootId!==nextRole?.rootId||previousRole?.childId!==nextRole?.childId||previousRole?.role!==nextRole?.role||previousRole?.needTime!==nextRole?.needTime||previousRole?.needSpeed!==nextRole?.needSpeed||previousRole?.needRandom!==nextRole?.needRandom||previousRole?.needGradient!==nextRole?.needGradient)throw Error('Mask190 execution role changed during a gesture')
   const a = previous?.brushRandom, b = incoming?.brushRandom
   if(a && (!b || a.version !== b.version || a.strokeSeed !== b.strokeSeed || a.sequentialSeed !== b.sequentialSeed)) throw Error('Brush execution context changed during a gesture')
   const x=previous?.brushSource,y=incoming?.brushSource

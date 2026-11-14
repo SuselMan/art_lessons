@@ -35,3 +35,20 @@ it('missing103 preflight rejects before source leases, imprint/gesture state and
  const snapshots=['imprints','wetGestures','replayChunks'].map(key=>[key,Array.from((Reflect.get(p,key)as Map<unknown,unknown>).entries())]as const)
  try{expect(()=>p.paint(target,[dab],'actor',undefined,'gesture',paint)).toThrow('Modern texture103 was not prepared');expect(open).not.toHaveBeenCalled();expect(allocate).not.toHaveBeenCalled();expect(resolve).not.toHaveBeenCalled();expect(mark).not.toHaveBeenCalled();expect(body).not.toHaveBeenCalled();expect(compile).not.toHaveBeenCalled();for(const[key,before]of snapshots)expect(Array.from((Reflect.get(p,key)as Map<unknown,unknown>).entries())).toEqual(before)}finally{p.destroy()}
 })
+
+it.each(['modern','legacyOverlay']as const)('191 actual %s transfer composes Height with the existing mixing family without lazy program/upload',async family=>{
+ const{installBrushPixels,clearImportedBrushPixels}=await import('../presets/importedBrushes')
+ installBrushPixels(a,new Uint8Array(16).fill(128));installBrushPixels(t,new Uint8Array(16).fill(96))
+ const gl=new MockGL(),p=new SmudgePainter({gl:gl as unknown as WebGLRenderingContext}as SmudgeContext),texture=gl.createTexture();Reflect.set(p,'ctx',{paper:{texture,worldSize:()=>({w:64,h:64}),scale:1,fillThreshold:0,fillCap:0},quadBuf:()=>gl.createBuffer()});p.initGL()
+ try{
+  const b=brush();b.version=191;b.texture!.application!.mode='linearHeightPhotoshop';if(family==='legacyOverlay'){delete b.mixer!.algorithm;b.mixer!.colorRateComposite='overlay'}
+  const plan=brushPreparationPlan(b);for(const r of plan.resources)p.prepareTexture(plan.resources,r);p.prepareColorSmudgeTexture(b)
+  const uploads=vi.spyOn(gl,'texImage2D'),compiles=vi.spyOn(gl,'createProgram'),draw=Reflect.get(p,'drawTransferDab')as(...args:unknown[])=>void
+  const wet={stamp:{aspect:1,angle:0,edgeSoftness:0,opacityScale:1,color:[.2,.5,.8]},paint:{brush:b,strength:1},seed:1,step:{pickup:.6},foregroundRate:0}
+  draw.call(p,{buffer:{width:64,height:64,beginReplaceDraw:vi.fn(),endDraw:vi.fn()},originX:0,originY:0},{x:10,y:10,pressure:1,opacity:1},4,{texture},0,0,16,'lay',1,wet,{texture})
+  const bindings=Reflect.get(p,'texture191Transfers')as Map<string,{program:{uniforms:Map<string,unknown>}}>
+  expect(bindings.size).toBe(1);const uniforms=[...bindings.values()][0].program.uniforms
+  expect(uniforms.get('u_textureApplication')).toEqual([14,1,4,4]);expect(uniforms.get('u_grainStrength')).toBe(.75)
+  expect(uploads).not.toHaveBeenCalled();expect(compiles).not.toHaveBeenCalled()
+ }finally{p.destroy();clearImportedBrushPixels()}
+})

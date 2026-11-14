@@ -13,15 +13,15 @@ export function usesNativeMask190Controls(value:unknown):boolean {
 /** Native Pixel mask components only. Asset references/planes/profile parameters
  * are validated by the full library validator; this establishes execution role,
  * not an alternative permissive schema or a version-downgrade proxy. */
-function component(value:unknown,root:boolean):value is Record<string,unknown>{
- if(!record(value)||value.version!==190||value.model!=='stamp'||!record(value.tip)||!record(value.behavior)||otherEngines.some(k=>value[k]!==undefined))return false
+export function nativeMaskComponentStructure(value:unknown,root:boolean,revision:190|191=190):value is Record<string,unknown>{
+ if(!record(value)||value.version!==revision||value.model!=='stamp'||!record(value.tip)||!record(value.behavior)||otherEngines.some(k=>value[k]!==undefined))return false
  const tip=value.tip,b=value.behavior
  // Canvas texture materials with masking have a separate feedback contract.
  // Tip Lightness/Gradient resources below remain ordinary mask resources.
- if(root&&record(value.texture)&&value.texture.material!==undefined)return false
+ if(revision===190&&root&&record(value.texture)&&value.texture.material!==undefined)return false
  if(typeof tip.kind!=='string'||!['round','procedural','bitmap'].includes(tip.kind)||record(tip.profile)&&tip.profile.kind==='circleBand')return false
  if(!isBrushBehavior(b))return false
- if(root){if(!record(b.dual)||b.dual.sampling!=='independent')return false}
+ if(root){if(revision===190&&(!record(b.dual)||b.dual.sampling!=='independent'))return false}
  else {
   if(value.texture!==undefined||value.wet!==undefined||value.paperInteraction!==0)return false
   if(!keys(b,['version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','softness','falloff','erase']))return false
@@ -40,9 +40,9 @@ function component(value:unknown,root:boolean):value is Record<string,unknown>{
 /** Whole native190 pair. No orphan190 or other paint engine gains admission.
  * Existing <=189 descriptor and sensor laws remain versioned separately. */
 export function hasIndependentMask190Scope(value:unknown):boolean {
- if(!component(value,true)||!record(value.behavior)||!record(value.behavior.dual))return false
+ if(!nativeMaskComponentStructure(value,true)||!record(value.behavior)||!record(value.behavior.dual))return false
  const dual=value.behavior.dual
- if(!component(dual.brush,false)||typeof dual.blendMode!=='string'||!(INDEPENDENT_MASK190_MODES as readonly string[]).includes(dual.blendMode))return false
+ if(!nativeMaskComponentStructure(dual.brush,false)||typeof dual.blendMode!=='string'||!(INDEPENDENT_MASK190_MODES as readonly string[]).includes(dual.blendMode))return false
  return true
 }
 /** Private validator/engine role proof: actual node identity under a valid root,

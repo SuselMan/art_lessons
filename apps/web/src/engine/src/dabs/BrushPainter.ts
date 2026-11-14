@@ -1,4 +1,6 @@
-import { brushUsesGradient,hasIndependentMask190Scope } from '@grafetto/shared'
+import{textureEraseId}from'../presets/brushTextureErase'
+import{textureMaterialVariant}from'../presets/textureLightness'
+import { brushUsesGradient,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -100,11 +102,11 @@ export class BrushPainter {
       // Peer/cold use the same admitted cache/lease; selection is not readiness.
       try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
       catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
-    },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),(brush,lut)=>this.preparedTextureLightness(brush,lut))
+    },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),(brush,lut,effectiveErase)=>this.preparedTextureLightness(brush,lut,effectiveErase))
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const mask190=hasIndependentMask190Scope(brush)
+    const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
@@ -150,7 +152,11 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        if(brush&&hasTextureGradientWash180Scope(brush))this.prepareStampEffects(false,'gradient')
+        if(brush?.version===191){
+          this.prepareStampEffects(usesFilteredPixelGradient(brush),textureMaterialVariant(brush,true))
+          const child=brush.behavior?.dual?.brush;if(child&&usesFilteredPixelGradient(child))this.prepareStampEffects(true)
+        }
+        else if(brush&&hasTextureGradientWash180Scope(brush))this.prepareStampEffects(false,'gradient')
         else if(brush&&hasTextureLightnessWash171Scope(brush))this.prepareStampEffects(false,true)
         else if(filteredGradient)this.prepareStampEffects(true)
         else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
@@ -368,7 +374,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     if(!usesTextureLightness(brush))return
     const resources=brushPreparationResources(brush);assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
-    try{this.prepareStampEffects(false,true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+    try{this.prepareStampEffects(usesFilteredPixelGradient(brush),true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
   }
 
   /** Recorded texture palette is bound before any request/state mutation. */
@@ -380,14 +386,14 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     if(hasTextureGradientWash180Scope(brush)){const required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Texture Gradient Wash180 bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
     assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
-    try{this.prepareStampEffects(false,'gradient');for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+    try{this.prepareStampEffects(usesFilteredPixelGradient(brush),'gradient');for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
   }
 
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
-    const mask190=hasIndependentMask190Scope(brush)
+    const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190){
-      const components=[brush,brush.behavior!.dual!.brush]
+      const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
       if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return
       assertBrushExecutionContext(brush,execution)
       for(const component of components)if(usesPixelOriginalRgba(component))pixelOriginalRgbaFrames(component,true)
@@ -410,15 +416,15 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     if(usesFilteredPixelGradient(brush))assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
     let failed=false
-    try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
+    try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true,textureMaterialVariant(brush,brush.version===191));for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
   }
-  private preparedTextureLightness(brush:BrushDescriptor,lut?:string){
+  private preparedTextureLightness(brush:BrushDescriptor,lut?:string,effectiveErase=false){
     if(!textureMaterialKind(brush))throw Error('Texture material is missing')
-    const resource=brushPreparationResources(brush).find(r=>r.patternAlpha),epoch=this.colorEpoch
+    const resource=brushPreparationResources(brush).find(r=>r.patternAlpha&&r.id===textureEraseId(brush.texture,effectiveErase)),epoch=this.colorEpoch
     if(!resource)throw Error('Texture Lightness108 resource is missing')
     const key=brushTextureResourceKey(resource),texture=this.textures.get(key),side=Math.sqrt(importedAssetPixels(resource.id).length)
     if(!texture)throw Error('Texture Lightness108 resource was not prepared')
-    const paletteKey=usesTextureGradient(brush)?brushTextureResourceKey(bindBrushGradient([{painter:'stamp',id:resource.id,grain:false,gradientPalette:true}],lut)[0]):undefined,paletteTexture=paletteKey?this.textures.get(paletteKey):undefined
+    const paletteKey=usesTextureGradient(brush)?brushTextureResourceKey(bindBrushGradient([{painter:'stamp',id:brush.texture!.id,grain:false,gradientPalette:true}],lut)[0]):undefined,paletteTexture=paletteKey?this.textures.get(paletteKey):undefined
     if(paletteKey&&!paletteTexture)throw Error('Texture gradient palette was not prepared')
     const assertPalette=()=>{if(epoch!==this.colorEpoch||!paletteKey||this.textures.get(paletteKey)!==paletteTexture)throw Error('Texture gradient palette owner was retired')}
     const palette=paletteTexture?{texture:paletteTexture,assertCurrent:assertPalette}:undefined

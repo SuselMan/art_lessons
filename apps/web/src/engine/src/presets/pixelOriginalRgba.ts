@@ -1,5 +1,5 @@
 import{captureGihFrameMetadata}from'../raster/gihFrameGeometry'
-import {hasIndependentMask190Scope,hasPixelOriginalDual151Scope,hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
+import {hasIndependentMask190Scope,isTextureCombinations191Scope,hasPixelOriginalDual151Scope,hasPixelOriginalHsv150Scope,hasPixelGradientWash138Scope,isEqualOriginalRgbaGih121,isEqualGradientGih125,isUnequalGradientGih126,brushTipColorPlanes,type BrushDescriptor,type TipMaskId} from '@grafetto/shared'
 import {importedAssetPixels} from './importedBrushes'
 import type {PreparedBrushImageView} from '../dabs/PreparedBrushImageView'
 /** Pixel IMAGESTAMP shares Spray's prepared RGBA plane/cache/epoch lease.
@@ -98,7 +98,7 @@ vec3 brushOriginalRgbaPigment(vec4 sampleValue) {
 `
 
 export function assertPixelOriginalDual151Resources(brush:BrushDescriptor):boolean{
- if(hasIndependentMask190Scope(brush)){for(const component of [brush,brush.behavior!.dual!.brush])if(usesPixelOriginalRgba(component))pixelOriginalRgbaFrames(component,true);return true}
+ if(hasIndependentMask190Scope(brush)||brush.version===191&&isTextureCombinations191Scope(brush)){for(const component of [brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])])if(usesPixelOriginalRgba(component))pixelOriginalRgbaFrames(component,true);return true}
  if(!hasPixelOriginalDual151Scope(brush)){if(usesPixelOriginalRgba(brush)&&brush.behavior?.dual)throw Error('Invalid original RGBA dual151 scope');return false}
  pixelOriginalRgbaFrames(brush)
  const child=brush.behavior!.dual!.brush,t=child.tip

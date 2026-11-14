@@ -1,4 +1,4 @@
-import { hasIndependentMask190Scope } from '@grafetto/shared'
+import { hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
@@ -109,16 +109,16 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const mask190=hasIndependentMask190Scope(brush)
-  if(brush.version===190&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
+  const mask190=brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+  if((brush.version===190||brush.version===191)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
   if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
-  if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase))throw Error('Invalid legacy foreground DodgeBurn176 scope')
-  if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Arithmetic175 scope')
-  if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase))throw Error('Invalid legacy foreground MinMax172 scope')
-  if(brush.mixer?.colorRateComposite==='overlay'&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase))throw Error('Invalid legacy foreground Overlay154 scope')
+  if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(brush.version!==191&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground DodgeBurn176 scope')
+  if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(brush.version!==191&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Arithmetic175 scope')
+  if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(brush.version!==191&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground MinMax172 scope')
+  if(brush.mixer?.colorRateComposite==='overlay'&&(brush.version!==191&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Overlay154 scope')
   if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
-  if(assertTextureGradientWash180Scope(brush)&&capturedErase)throw Error('Texture Gradient Wash180 erase is outside scope')
+  if(brush.version!==191&&assertTextureGradientWash180Scope(brush)&&capturedErase)throw Error('Texture Gradient Wash180 erase is outside scope')
   const bristleWash=hasBristleWash135Scope(brush)
   if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
   const particleWash=hasParticleWash134Scope(brush)
@@ -152,7 +152,8 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   else if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')
   else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
-  if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
+  if(brush.version===191&&brush.model==='mixer'&&brush.texture?.application)capabilities.add('colorSmudgeTexture')
+  else if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
   else if(brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')capabilities.add('colorSmudgeLegacyDodgeBurn176')
   else if(brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')capabilities.add('colorSmudgeLegacyArithmetic175')
   else if(brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')capabilities.add('colorSmudgeLegacyMinMax172')
@@ -196,10 +197,10 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b,mask190);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b,mask190)}
     if(!mask190&&b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId){
-      if(b!==brush||!hasSmudgeTextureErase131Scope(b))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
+      if(b!==brush||(b.version===191?!mask190:!hasSmudgeTextureErase131Scope(b)))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
       const ids=[b.tip.kind==='bitmap'?b.tip.mask:undefined,b.texture.id,b.texture.eraseId]
       const sides=ids.map(id=>id?.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):NaN)
-      if(sides.some(side=>!Number.isInteger(side)||side<2||side>512||(side&(side-1))!==0)||sides[1]!==sides[2])throw Error('Texture erase131 requires bounded paired CAS')
+      if(sides.some(side=>!Number.isInteger(side)||side<2||side>(b.version===191?2048:512)||(side&(side-1))!==0)||sides[1]!==sides[2])throw Error('Texture erase131 requires bounded paired CAS')
     }
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
     if(!mask190&&newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray&&!hasSprayRectangleNoise155Scope(b))||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
@@ -236,6 +237,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
       if(b!==brush||!textureMaterialKind(b)||painter!=='stamp')throw Error('Texture Lightness108 is root-only')
       const resource:BrushPreparationResource={painter,id:b.texture.id,grain:true,discrete:true,patternAlpha:b.texture.material.alpha,patternSize:b.texture.patternSize}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
+      if(b.texture.eraseId&&b.texture.material.eraseAlpha){const erased:BrushPreparationResource={...resource,id:b.texture.eraseId,patternAlpha:b.texture.material.eraseAlpha};resources.set(`${painter}:${brushTextureResourceKey(erased)}`,erased)}
       if(b.texture.material.kind==='gradient'){const palette:BrushPreparationResource={painter,id:b.texture.id,grain:false,gradientPalette:true};resources.set(`${painter}:${brushTextureResourceKey(palette)}`,palette)}
     }else add(painter, textureEraseId(b.texture,capturedErase), true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }

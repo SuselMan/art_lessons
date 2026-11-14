@@ -63,7 +63,7 @@ def text_resource(definition,external):
     lowered=ET.Element('Brush',dict(definition.attrib));lowered.set('type','gbr_brush');lowered.set('filename',filename);lowered.set('brushApplication','0');lowered.set('ColorAsMask','1')
     return lowered,('TextBrush font substituted: '+family+' -> '+actual_family+'; 'if substituted else'TextBrush font resolved: '+actual_family+'; ')+('requested bold/italic unavailable; available style substituted; 'if missing_style else'available requested weight/style selected; ')+'offline coverage retains underline/strike and UTF16 pipe positions; no native Qt/font pixel identity claim.'
 
-def lower_pair(data,name,catalog,external,impl,options):
+def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=independent_mask190_scope):
     import xml.etree.ElementTree as ET
     from krita_import import xml,enabled,numeric,compatibility
     from brush_contract import finalize_identity
@@ -101,7 +101,7 @@ def lower_pair(data,name,catalog,external,impl,options):
         components.append(result);notes.extend({**n,'feature':('masking.'if child else'')+n['feature']}for n in result['compatibility'])
         warnings.extend(result.get('warnings',[]))
     parent,child=(c['descriptor']for c in components)
-    parent['version']=child['version']=190
+    parent['version']=child['version']=revision
     ratio=numeric(params.get('MaskingBrush/MasterSizeCoeff'),1)
     if not math.isfinite(ratio)or not .01<=ratio<=8:raise ValueError('Native master size coefficient outside existing.01..8 bound')
     dual={'brush':child,'blendMode':MODES.get(params.get('MaskingBrush/MaskingCompositeOp','multiply')),'sampling':'independent'}
@@ -114,7 +114,7 @@ def lower_pair(data,name,catalog,external,impl,options):
     parent['behavior']['dual']=dual
     # Source channel capture belongs to the whole root, not merely to the child.
     if any(c['descriptor'].get('behavior',{}).get('speedInput')for c in components):parent['behavior']['speedInput']={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'}
-    if not independent_mask190_scope(parent):raise ValueError('Native190 whole role scope rejected')
+    if not scope(parent):raise ValueError('Native190 whole role scope rejected')
     child_seed=data+b'\0MaskingBrush/Preset/'
     finalize_identity(child,child_seed);finalize_identity(parent,data)
     notes.append(compatibility('masking190','Native Pixel seven masking options retained with independent component cursor/state, accumulated GrayA and ten factory mask operations. Perspective uses native default1 without an external assistant scene. No font/ICC/native random or pixel identity claim.','supported'))

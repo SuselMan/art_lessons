@@ -1,9 +1,10 @@
-import { hasIndependentMask190Scope, brushRequiresSourceTime, brushRequiresRandomContext, brushUsesGradient, brushAnimationUsesMode, type BrushDescriptor } from '@grafetto/shared'
+import { hasIndependentMask190Scope, isTextureCombinations191Scope, brushRequiresSourceTime, brushRequiresRandomContext, brushUsesGradient, brushAnimationUsesMode, type BrushDescriptor } from '@grafetto/shared'
 import type { BrushExecutionContext } from './brushExecutionContext'
 
 /** Internal execution capability, never an operation/dab/wire field. The whole
  * root descriptor is validated before creating the compact child role. */
 export interface MaskRole190 {
+  readonly version?:190|191
   readonly rootId: string
   readonly childId: string
   readonly role: 'primary' | 'child'
@@ -14,33 +15,33 @@ export interface MaskRole190 {
 }
 export function mask190Role(brush: BrushDescriptor, execution?: BrushExecutionContext): MaskRole190['role'] | undefined {
   const role = execution?.maskRole190
-  if (brush.version !== 190) {
+  if (brush.version !== 190 && brush.version !== 191) {
     if (role) throw Error('Mask190 execution role requires descriptor190')
     return undefined
   }
-  if (!role || (role.role === 'primary' ? role.rootId : role.childId) !== brush.id) throw Error('Missing or mismatched Mask190 execution role')
+  if (!role || (role.version??190)!==brush.version || (role.role === 'primary' ? role.rootId : role.childId) !== brush.id) throw Error('Missing or mismatched Mask190 execution role')
   return role.role
 }
 export function mask190RootExecution(brush: BrushDescriptor, execution?: BrushExecutionContext): BrushExecutionContext | undefined {
-  if (brush.version !== 190) return execution
+  if (brush.version !== 190 && brush.version !== 191) return execution
   if (execution?.maskRole190?.role === 'child') {
     mask190Role(brush, execution)
     return execution
   }
   if(execution?.maskRole190){
     mask190Role(brush,execution)
-    if(execution.maskRole190.childId!==brush.behavior?.dual?.brush.id)throw Error('Mask190 child capability changed')
+    if(execution.maskRole190.childId!==(brush.behavior?.dual?.brush.id??''))throw Error('Mask190 child capability changed')
     return execution
   }
-  if (!hasIndependentMask190Scope(brush)) throw Error('Invalid whole independent Mask190 scope')
-  const child = brush.behavior!.dual!.brush
+  if (!(brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush))) throw Error('Invalid whole independent Mask190 scope')
+  const child = brush.behavior?.dual?.brush
   const speedControl=(v:unknown):boolean=>{if(!v||typeof v!=='object')return false;if('control'in v&&v.control==='speed')return true;return Object.entries(v).some(([key,value])=>key!=='dual'&&speedControl(value))}
-  const needSpeed=[brush,child].some(b=>brushAnimationUsesMode(b.tip.animation,'velocity')||speedControl(b.behavior))
-  return { ...execution, maskRole190: { rootId: brush.id, childId: child.id, role: 'primary', needTime:brushRequiresSourceTime(brush),needSpeed,needRandom:brushRequiresRandomContext(brush),needGradient:brushUsesGradient(brush) } }
+  const needSpeed=[brush,...(child?[child]:[])].some(b=>brushAnimationUsesMode(b.tip.animation,'velocity')||speedControl(b.behavior))
+  return { ...execution, maskRole190: { version:brush.version as 190|191, rootId: brush.id, childId: child?.id??'', role: 'primary', needTime:brushRequiresSourceTime(brush),needSpeed,needRandom:brushRequiresRandomContext(brush),needGradient:brushUsesGradient(brush) } }
 }
 export function mask190ChildExecution(root: BrushDescriptor, execution?: BrushExecutionContext): BrushExecutionContext | undefined {
-  if (root.version !== 190) return execution
-  if (mask190Role(root, execution) !== 'primary') throw Error('Mask190 child requires validated primary execution')
+  if (root.version !== 190 && root.version !== 191) return execution
+  if (!root.behavior?.dual || mask190Role(root, execution) !== 'primary') throw Error('Mask190 child requires validated primary execution')
   return { ...execution, maskRole190: { ...execution!.maskRole190!, role: 'child' } }
 }
 

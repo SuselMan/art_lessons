@@ -250,11 +250,11 @@ export function hasValidRecordedPenOperation(value:unknown):boolean {
  if(!value||typeof value!=='object')return false
  const op=value as Record<string,unknown>;if(op.type!=='stroke')return true
  const token=typeof op.preset==='string'?/^brush:[A-Za-z0-9-]+@(\d+)(?::[A-Za-z0-9-]+)*$/.exec(op.preset):null
- const mask190=!!token&&Number(token[1])===190
- const required=!!token&&(Number(token[1])===188||mask190)
+ const capturedGeometry=!!token&&[190,191].includes(Number(token[1]))
+ const required=!!token&&(Number(token[1])===188||capturedGeometry)
  let decoded:Dab[]|undefined
  const both=(v:unknown):boolean=>{if(!v||typeof v!=='object')return false;const d=v as Record<string,unknown>;return isSourceTwist(d.sourceTwist)&&isSourceTangentialPressure(d.sourceTangentialPressure)&&Math.fround(d.sourceTwist)===d.sourceTwist&&Math.fround(d.sourceTangentialPressure)===d.sourceTangentialPressure}
- const canonical=(v:unknown):boolean=>{if(!both(v))return false;if(!mask190)return true;const d=v as Record<string,unknown>;return isDabSourceSize(d.sourceSize)&&isDabSourceScale(d.sourceScale)&&isDabSourceAngle(d.sourceAngle)&&Math.fround(d.sourceSize)===d.sourceSize&&Math.fround(d.sourceScale)===d.sourceScale}
+ const canonical=(v:unknown):boolean=>{if(!both(v))return false;if(!capturedGeometry)return true;const d=v as Record<string,unknown>;return isDabSourceSize(d.sourceSize)&&isDabSourceScale(d.sourceScale)&&isDabSourceAngle(d.sourceAngle)&&Math.fround(d.sourceSize)===d.sourceSize&&Math.fround(d.sourceScale)===d.sourceScale}
  try{
   if(typeof op.dabsPacked==='string'&&Number(op.dabsPacked.slice(0,op.dabsPacked.indexOf(':')))===6){if(op.dabs!==undefined)return false;decoded=unpackDabs(op.dabsPacked)}
   if(Array.isArray(op.dabs))for(const v of op.dabs){if(!v||typeof v!=='object')continue;const d=v as Record<string,unknown>;if(d.sourceTwist!==undefined&&!isSourceTwist(d.sourceTwist)||d.sourceTangentialPressure!==undefined&&!isSourceTangentialPressure(d.sourceTangentialPressure))return false}

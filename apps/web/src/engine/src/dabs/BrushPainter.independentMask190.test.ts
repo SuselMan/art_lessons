@@ -12,12 +12,14 @@ import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 import type{PencilPreset}from'../presets/pencilPresets'
 function pair(){const root=childSize187(),child=root.behavior!.dual!.brush;root.version=child.version=190;root.tip={kind:'round',hardness:1,aspect:1,angle:0,rotation:'fixed'};child.tip={...root.tip};child.behavior!.modulations=undefined;child.sizeByPressure=[[0,1],[1,1]];return root}
-it.each(['plain','rootGradient','childGradient','erase','rootGradientErase','rootTexture105'])('actual public190 %s paint retains the validated whole resource owner through child recursion and releases both required leases',mode=>{
+it.each(['plain','rootGradient','childGradient','erase','rootGradientErase','rootTexture105','texture191GradientMask','texture191GradientMaskErase'])('actual public190 %s paint retains the validated whole resource owner through child recursion and releases both required leases',mode=>{
  const gl=Object.assign(new MockGL(),{blendColor:vi.fn()}),painter=new BrushPainter({gl,quadBuf:()=>gl.createBuffer(),paper:{texture:gl.createTexture(),worldSize:()=>({w:64,h:64}),scale:1},segmentLength:()=>1}as unknown as BrushContext),root=pair(),child=root.behavior!.dual!.brush
- const gradient=mode==='rootGradient'||mode==='childGradient'||mode==='rootGradientErase'
+ if(mode.startsWith('texture191GradientMask')){root.version=child.version=191;installBrushPixels(gray138,new Uint8Array(16).fill(127));installBrushPixels(alpha138,new Uint8Array(16).fill(255));root.texture={id:gray138,strength:.75,periodPx:4,patternSize:{width:4,height:4},material:{kind:'gradient',alpha:alpha138}};root.tip=gradient138().tip;child.tip=gradient138().tip}
+ const gradient=mode.startsWith('texture191GradientMask')||mode==='rootGradient'||mode==='childGradient'||mode==='rootGradientErase'
  if(gradient){installBrushPixels(alpha138,new Uint8Array(16).fill(255));installBrushPixels(gray138,new Uint8Array(16).fill(127));(mode==='childGradient'?child:root).tip=gradient138().tip}
  if(mode==='rootTexture105'){installBrushPixels(gray138,new Uint8Array(16).fill(127));root.texture={id:gray138,strength:.75,periodPx:4,patternSize:{width:4,height:4},application:{mode:'colorDodge',soft:true}}}
- if(mode==='erase'||mode==='rootGradientErase')root.behavior!.erase=true
+ if(mode==='texture191GradientMaskErase'){const erase=`asset:${'e'.repeat(64)}`as const,eraseAlpha=`asset:${'f'.repeat(64)}`as const;installBrushPixels(erase,new Uint8Array(16).fill(21));installBrushPixels(eraseAlpha,new Uint8Array(16).fill(71));root.texture!.eraseId=erase;root.texture!.material!.eraseAlpha=eraseAlpha}
+ if(mode==='erase'||mode==='rootGradientErase'||mode==='texture191GradientMaskErase')root.behavior!.erase=true
  painter.initGL()
  const buffer=()=>({width:64,height:64,texture:{},beginDraw(){},beginReplaceDraw(){},clear(){},endDraw(){},copyRegionInto(){}}as unknown as AccumulationBuffer),rootBuffer=buffer(),childBuffer=buffer(),make=()=>({getOrCreate:()=>({original:buffer(),coverage:buffer()}),brushCeiling:buffer,brushCeilingCopy:buffer,noteBrushEdgePx:()=>0})as unknown as BehaviorScratch,childScratch=make(),scratch=make()
  scratch.brushSecondary=()=>({scratch:childScratch,sampling:{remaining:0},tile:()=>childBuffer})
@@ -28,11 +30,13 @@ it.each(['plain','rootGradient','childGradient','erase','rootGradientErase','roo
   // rather than weaken resource admission for arbitrary child descriptors.
   expect(()=>brushPreparationResources(child)).toThrow()
   painter.prepareRecordedStampResources(root);if(gradient)painter.preparePixelGradient(root,execution)
+  if(mode==='texture191GradientMaskErase'){const resources=brushPreparationResources(root);expect(resources.some(r=>r.id===root.texture!.eraseId&&r.patternAlpha===root.texture!.material!.eraseAlpha)).toBe(true)}
   const textureApplications:number[][]=[];const four=vi.spyOn(gl,'uniform4f').mockImplementation((loc,...values)=>{loc.program.uniforms.set(loc.name,values);if(loc.name==='u_textureApplication')textureApplications.push(values)})
-  const erases:number[]=[],secondary:number[]=[];const one=vi.spyOn(gl,'uniform1f').mockImplementation((loc,value)=>{loc.program.uniforms.set(loc.name,value);if(loc.name==='u_erase')erases.push(value);if(loc.name==='u_secondaryEnabled')secondary.push(value)})
+  const erases:number[]=[],secondary:number[]=[],grayA:number[]=[];const one=vi.spyOn(gl,'uniform1f').mockImplementation((loc,value)=>{loc.program.uniforms.set(loc.name,value);if(loc.name==='u_erase')erases.push(value);if(loc.name==='u_secondaryEnabled')secondary.push(value);if(loc.name==='u_secondaryGrayA')grayA.push(value)})
   const cache=painter['textures'],before=cache['leases'].size,lease=vi.spyOn(cache,'leaseRequired'),upload=vi.spyOn(gl,'texImage2D'),draw=vi.spyOn(gl,'drawArrays').mockImplementation(()=>{if(secondary.at(-1)===1)throw stop})
   expect(()=>painter.paint(target,[dab],{sizeMultiplier:1}as PencilPreset,{brush:root,pressure:{size:true,opacity:true}},[1,0,0],scratch,undefined,execution)).toThrow(stop)
   if(mode==='rootTexture105')expect(textureApplications.some(v=>v[0]===7&&v[1]===1&&v[2]===4&&v[3]===4)).toBe(true)
+  if(mode.startsWith('texture191GradientMask'))expect(grayA.at(-1)).toBe(1)
   expect(childScratch.brushBehavior?.execution?.maskRole190?.role).toBe('child')
   expect(lease.mock.calls.length).toBeGreaterThanOrEqual(2)
   expect(cache['leases'].size).toBe(before)

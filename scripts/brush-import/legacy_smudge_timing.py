@@ -1,7 +1,9 @@
 """Closed129 legacy timing capability; schema and CAS validation remain existing owners."""
 import math
 
-def legacy_smudge_timing_scope(d, require_timing=True):
+def legacy_smudge_timing_scope(d,require_timing=True):return legacy_smudge_timing_core(d,require_timing,False)
+
+def legacy_smudge_timing_core(d,require_timing=True,texture191=False):
     if not isinstance(d,dict):return False
     t,m,b=d.get('tip'),d.get('mixer'),d.get('behavior')
     if d.get('paperInteraction')!=0 or d.get('model')!='mixer'or not all(isinstance(v,dict)for v in(t,m,b))or m.get('source')!='previousCanvas'or m.get('load')!=0 or m.get('initialLoad')!=0 or m.get('strength')!=1:return False
@@ -10,7 +12,7 @@ def legacy_smudge_timing_scope(d, require_timing=True):
     render=b.get('rendering',{})
     if render.get('mode')!='buildUp'or render.get('wetEdges')!=0 or render.get('burntEdges')!=0 or render.get('blendMode')!='normal'or 'accumulation'in render:return False
     texture=d.get('texture')
-    if 'texture'in d and(not isinstance(texture,dict)or 'material'in texture or 'eraseId'in texture or not isinstance(texture.get('application'),dict)or texture['application'].get('mode')!='multiply'or texture['application'].get('soft')is not False):return False
+    if not texture191 and 'texture'in d and(not isinstance(texture,dict)or 'material'in texture or 'eraseId'in texture or not isinstance(texture.get('application'),dict)or texture['application'].get('mode')!='multiply'or texture['application'].get('soft')is not False):return False
     a=t.get('animation')
     if a is not None and(not isinstance(a,dict)or a.get('mode')not in('random','incremental')or not isinstance(a.get('frames'),list)or not 2<=len(a['frames'])<=256 or set(a)-{'mode','frames'}):return False
     pickup=m.get('pickupDynamics')

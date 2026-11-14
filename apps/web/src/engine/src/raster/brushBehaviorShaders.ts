@@ -454,9 +454,9 @@ export function createBrushCompositeFragment(extendedBlend=false):string {
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
 }
 
-export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false,textureLightness=false,textureGradient=false): string {
-  if(textureGradient&&(!autoNoise||filteredGradient||textureLightness))throw Error('Texture Gradient requires its own effects capability')
-  if(textureLightness&&(!autoNoise||filteredGradient))throw Error('Texture Lightness requires its own effects capability')
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false, autoNoise=false,filteredGradient=false,textureLightness=false,textureGradient=false,composedTexture191=false): string {
+  if(textureGradient&&(!autoNoise||filteredGradient&&!composedTexture191||textureLightness))throw Error('Texture Gradient requires its own effects capability')
+  if(textureLightness&&(!autoNoise||filteredGradient&&!composedTexture191))throw Error('Texture Lightness requires its own effects capability')
   if(filteredGradient&&!autoNoise)throw Error('Filtered gradient requires the private effects capability')
   if(autoNoise&&(!procedural||!integerImages||!radialCurves))throw Error('Auto-mask noise requires the full procedural capability')
   if (!procedural && !integerImages && !radialCurves) return BRUSH_STAMP_FRAG
@@ -610,7 +610,7 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
     const grid=BRUSH_TEXTURE_APPLICATION_GLSL.slice(BRUSH_TEXTURE_APPLICATION_GLSL.indexOf('float brushTextureGrid(')).replace('float brushTextureGrid(','vec4 brushTextureGridRgba(').replace('return mix(value.r,value.a,alphaChannel);','return value;')
     replace('  void main() {',grid+`
   uniform float u_textureMaterial;
-  uniform sampler2D u_gradientPalette;
+${filteredGradient?'':'  uniform sampler2D u_gradientPalette;'}
   void main() {`)
     replace('    if(u_textureApplication.x>0.5) {',`    if(u_textureMaterial>0.5) {
       vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);

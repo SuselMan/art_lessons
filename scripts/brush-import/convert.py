@@ -507,7 +507,10 @@ def validate_portable_dynamics(controls):
         else: raise ValueError('Invalid portable dynamic curve')
 
 
-def validate_portable_mixer(descriptor):
+def validate_portable_mixer(descriptor,*,texture191=False):
+    if texture191:
+        from texture_combinations191 import texture191_scope
+        if not texture191_scope(descriptor):raise ValueError('Missing191 whole mixer authority')
     mixer=descriptor.get('mixer')
     if mixer is None:
         if descriptor['model']=='mixer': raise ValueError('Missing portable mixer')
@@ -528,7 +531,7 @@ def validate_portable_mixer(descriptor):
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
         valid=(legacy_color_smudge_dodge_burn176_scope(descriptor)if mode in('dodge','burn')else legacy_color_smudge_arithmetic175_scope(descriptor)if mode in('add','subtract')else legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
-        if not valid or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
+        if not(valid or texture191) or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
@@ -562,9 +565,13 @@ def validate_portable_mixer(descriptor):
         if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
-def validate_portable_profile(descriptor, *, parent=None):
+def validate_portable_profile(descriptor, *, parent=None,texture191=False):
     from independent_mask190 import validate_independent_mask190
-    mask190=validate_independent_mask190(descriptor,parent)
+    if texture191:
+        from texture_combinations191 import texture191_role
+        if not texture191_role(descriptor,parent):raise ValueError('Missing191 profile component authority')
+        mask190=True
+    else:mask190=validate_independent_mask190(descriptor,parent)
     if not mask190:
         """Bound the portable Python boundary; shared isBrushLibrary remains the
         authoritative whole-library validator before installation."""
@@ -794,6 +801,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==191:
+            from texture_combinations191 import validate_texture191_portable
+            validate_texture191_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)
+            return
         from independent_mask190 import validate_independent_mask190,validate_mask190_portable
         if isinstance(d,dict)and validate_independent_mask190(d,parent):
             validate_mask190_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)

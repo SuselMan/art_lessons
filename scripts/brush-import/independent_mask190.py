@@ -10,11 +10,11 @@ OTHER_ENGINES=('mixer','spray','sketch','bristle','curveTrace','hatching','grid'
 def uses_native_mask190_controls(v):
     if isinstance(v,dict):return v.get('control')in('pressureIn','perspective')or any(uses_native_mask190_controls(x)for k,x in v.items()if k!='dual')
     return isinstance(v,list)and any(uses_native_mask190_controls(x)for x in v)
-def component190(d,root=False):
-    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']!=190 or d.get('model')!='stamp'or any(k in d for k in OTHER_ENGINES):return False
+def component190(d,root=False,revision=190):
+    if not isinstance(d,dict)or type(d.get('version'))is not int or d['version']!=revision or d.get('model')!='stamp'or any(k in d for k in OTHER_ENGINES):return False
     tip=d.get('tip');b=d.get('behavior')
     if not isinstance(tip,dict)or tip.get('kind')not in('round','procedural','bitmap')or isinstance(tip.get('profile'),dict)and tip['profile'].get('kind')=='circleBand'or not isinstance(b,dict)or b.get('version')!=2:return False
-    if root and isinstance(d.get('texture'),dict)and 'material'in d['texture']:return False
+    if revision==190 and root and isinstance(d.get('texture'),dict)and 'material'in d['texture']:return False
     if not root:
         if any(k in d for k in('texture','wet'))or d.get('paperInteraction')!=0:return False
         if set(b)-{'version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','softness','falloff','erase'}or b.get('erase')is True:return False
@@ -38,15 +38,16 @@ def validate_independent_mask190(d,parent=None):
         if not active or not independent_mask190_scope(whole)or parent is not None and whole['behavior']['dual']['brush']is not d:raise ValueError('Invalid native independent mask190 role')
     return active and independent_mask190_scope(whole)
 
-def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator,parent=None):
+def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator,parent=None,*,role_validator=None):
     """Complete190 assembly plus existing primitive profile/curve validators.
     Physical planes/geometry remain actual CAS metadata, never a descriptor proxy.
     """
     from variable_gih import frame_bounds,same_bounds
-    if not validate_independent_mask190(d,parent):raise ValueError('Missing whole190 authority')
+    if not (role_validator(d,parent)if role_validator else validate_independent_mask190(d,parent)):raise ValueError('Missing whole component authority')
     finite=lambda x,a,b:type(x)in(int,float)and math.isfinite(x)and a<=x<=b
     ref=lambda x:isinstance(x,str)and x in asset_sizes
     allowed={'id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior'}
+    if role_validator and d.get('model')=='mixer':allowed.add('mixer')
     if set(d)-allowed or not isinstance(d.get('id'),str)or not d['id'].startswith('imported-')or d.get('category')not in('line','paint','wet','soft','texture','scatter')or not finite(d.get('paperInteraction'),0,1)or not finite(d.get('spacing'),.000001,2)or not finite(d.get('flow'),0,1)or not finite(d.get('opacity'),0,1)or d.get('flowPer')not in('pass','stamp')or not finite(d.get('pressureSmoothingPx'),0,100):raise ValueError('Invalid190 descriptor fields')
     tip=d['tip'];b=d['behavior']
     if any(k in tip and tip[k]is None for k in('profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold')):raise ValueError('Null190 tip metadata')
@@ -70,8 +71,9 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
             for x in v:controls(x)
     controls(b)
     validate_behavior190(b,dynamics_validator)
-    profile_validator(d,parent=parent)
-    validate_descriptor190_primitives(d,asset_sizes)
+    if role_validator:profile_validator(d,parent=parent,texture191=True)
+    else:profile_validator(d,parent=parent)
+    validate_descriptor190_primitives(d,asset_sizes,texture191=role_validator is not None)
     animation=tip.get('animation');frames=[tip.get('mask')]
     if animation is not None:
         if not isinstance(animation,dict)or set(animation)-{'mode','frames','rank','cursorPolicy','roundingPolicy','randomPolicy','dimensions','geometry'}or animation.get('mode')not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental','dimensions'):raise ValueError('Invalid190 animation')
@@ -120,7 +122,7 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
             if not isinstance(planes,list)or planes[0]!=v.get('planes')or any(not isinstance(row,list)or len(row)!=3 for row in planes):raise ValueError('Invalid190 RGB planes')
         if len(planes)!=len(frames)or any(not ref(a)or asset_sizes[a]!=asset_sizes[frames[i]]for i,row in enumerate(planes)for a in row):raise ValueError('190 paired CAS sizes differ')
     if 'dual'in b:
-        validate_mask190_portable(b['dual']['brush'],asset_sizes,profile_validator,dynamics_validator,d)
+        validate_mask190_portable(b['dual']['brush'],asset_sizes,profile_validator,dynamics_validator,d,role_validator=role_validator)
 
 
 def validate_behavior190(b,dynamics_validator):
@@ -184,7 +186,7 @@ def validate_behavior190(b,dynamics_validator):
     if 'taper'in b:obj(b['taper'],dict.fromkeys(('start','end','size','opacity'),finite)|{'pressure':boolean})
 
 
-def validate_descriptor190_primitives(d,asset_sizes):
+def validate_descriptor190_primitives(d,asset_sizes,*,texture191=False):
     def fail():raise ValueError('Invalid190 primitive descriptor')
     def finite(x,a=0,z=1):return type(x)in(int,float)and math.isfinite(x)and a<=x<=z
     def integer(x,a,z):return type(x)is int and a<=x<=z
@@ -211,6 +213,9 @@ def validate_descriptor190_primitives(d,asset_sizes):
     if 'lookup'in profile:
         a=profile['lookup'];factor=8 if profile['kind']in('radialCurveSoftness','curveRectangleSoftness')else 4
         if not ref(a)or asset_sizes[a]<4 or asset_sizes[a]**2<factor*(profile['resolution']+2):fail()
-    if 'texture'in d:
+    if 'texture'in d and texture191:
+        from texture_combinations191 import validate_texture191_primitives
+        validate_texture191_primitives(d['texture'],asset_sizes)
+    if 'texture'in d and not texture191:
         t=d['texture'];obj(t,{'id':ref,'periodPx':lambda x:finite(x,1,8192),'strength':finite},{'eraseId':ref,'application':lambda v:obj(v,{'mode':lambda x:isinstance(x,str)and x in('multiply','subtract','darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'),'soft':lambda x:type(x)is bool}),'patternSize':lambda v:obj(v,{'width':lambda x:integer(x,1,asset_sizes[t['id']]),'height':lambda x:integer(x,1,asset_sizes[t['id']])}),'offset':lambda v:obj(v,{'x':lambda x:finite(x,-8192,8192),'y':lambda x:finite(x,-8192,8192),'randomX':lambda x:type(x)is bool,'randomY':lambda x:type(x)is bool})})
         if 'eraseId'in t and('application'not in t or asset_sizes[t['eraseId']]!=asset_sizes[t['id']]):fail()

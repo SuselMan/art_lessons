@@ -182,6 +182,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private materialTipGradientStamps=new Map<string,{program:WebGLProgram;uniforms:Uniforms;position:number}>()
   private textureGradientStamp?:{program:WebGLProgram;uniforms:Uniforms;position:number}
   private lightnessStamp?:{program:WebGLProgram;uniforms:Uniforms;position:number}
   private gradientStamp?:{program:WebGLProgram;uniforms:Uniforms;position:number}
@@ -202,9 +203,9 @@ export class BrushBehaviorPainter {
   private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string,pattern?:BrushPattern) => () => void
   private readonly preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView
-  private readonly preparedTextureLightness:(brush:BrushDescriptor,lut?:string)=>PreparedBrushImageView
+  private readonly preparedTextureLightness:(brush:BrushDescriptor,lut?:string,effectiveErase?:boolean)=>PreparedBrushImageView
   private readonly preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string,pattern?:BrushPattern) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource,preparedTextureLightness:(brush:BrushDescriptor,lut?:string)=>PreparedBrushImageView=()=>{throw Error('Texture Lightness108 view owner is not installed')}) { this.preparedTextureLightness=preparedTextureLightness;this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor,effectiveErase?:boolean,gradientLut?:string,pattern?:BrushPattern) => () => void,preparedImage:(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushTip["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1')=>PreparedBrushImageView=()=>{throw Error('Spray RGBA view owner is not installed')},preparedSprayMask:(id:TipMaskId,bounds?:BrushTip["maskBounds"])=>PreparedBrushImageView=()=>{throw Error('Spray mask view owner is not installed')},saturationResource?:(bristle:BrushBristle)=>PreparedBristleSaturationResource,preparedTextureLightness:(brush:BrushDescriptor,lut?:string,effectiveErase?:boolean)=>PreparedBrushImageView=()=>{throw Error('Texture Lightness108 view owner is not installed')}) { this.preparedTextureLightness=preparedTextureLightness;this.saturationResource=saturationResource;this.preparedImage=preparedImage;this.preparedSprayMask=preparedSprayMask;this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
@@ -238,6 +239,7 @@ export class BrushBehaviorPainter {
     this.gradientStamp=undefined
     this.lightnessStamp=undefined
     this.textureGradientStamp=undefined
+    this.materialTipGradientStamps.clear()
     this.effectsStamp = undefined
     this.imageStamp = undefined
     const gl = this.ctx.gl
@@ -310,6 +312,11 @@ export class BrushBehaviorPainter {
   prepareIntegerImages(): void { this.stampFor(true, true) }
 
   private stampFor(procedural: boolean, integerImages = false, radialCurves = false,autoNoise=false,filteredGradient=false,textureLightness:TextureMaterialVariant=false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if(filteredGradient&&textureLightness){
+      const key=textureLightness===true?'lightness':'gradient';let binding=this.materialTipGradientStamps.get(key)
+      if(!binding){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true,true,true,textureLightness===true,textureLightness==='gradient',true));binding={program,uniforms:getUniforms(gl,program,[...STAMP_UNIFORMS,...NOISE_UNIFORMS,'u_textureMaterial','u_gradientPalette']),position:gl.getAttribLocation(program,'a_position')};this.materialTipGradientStamps.set(key,binding)}
+      return binding
+    }
     if(textureLightness==='gradient'){
       if(!this.textureGradientStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true,true,false,false,true));this.textureGradientStamp={program,uniforms:getUniforms(gl,program,[...STAMP_UNIFORMS,...NOISE_UNIFORMS,'u_textureMaterial','u_gradientPalette']),position:gl.getAttribLocation(program,'a_position')}}
       return this.textureGradientStamp
@@ -473,6 +480,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
+    for(const binding of this.materialTipGradientStamps.values())gl.deleteProgram(binding.program)
+    this.materialTipGradientStamps.clear()
     if(this.textureGradientStamp)gl.deleteProgram(this.textureGradientStamp.program)
     if(this.lightnessStamp)gl.deleteProgram(this.lightnessStamp.program)
     if(this.gradientStamp)gl.deleteProgram(this.gradientStamp.program)
@@ -513,7 +522,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.uniform1i(c.u_secondaryCoverage,6)
       gl.uniform1f(c.u_secondaryMode,behavior.dual?.blendMode==='hardMixPhotoshopAlpha'?101:behavior.dual?.blendMode==='hardMixSofterPhotoshop'?100:blend(behavior.dual?.blendMode))
       gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
-      gl.uniform1f(c.u_secondaryGrayA,secondaryState&&brush.version===190?1:0)
+      gl.uniform1f(c.u_secondaryGrayA,secondaryState&&(brush.version===190||brush.version===191)?1:0)
       const wet=brush.wet
       const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
       gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??0)
@@ -668,10 +677,10 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(mask190){if(execution!.maskRole190!.role==='primary')maskResourceRoot190=brush;else if(!maskResourceRoot190||maskResourceRoot190.id!==execution!.maskRole190!.rootId||maskResourceRoot190.behavior?.dual?.brush.id!==brush.id)throw Error('Missing validated whole Mask190 resource owner')}
     assertRecordedPen188Inputs(brush,dabs,endpoint,mask190)
     if(!mask190)assertAnimatedAlphaChild184Ready(brush,effectiveErase)
-    const textureWash180=assertTextureGradientWash180Scope(brush)
+    const textureWash180=brush.version!==191&&assertTextureGradientWash180Scope(brush)
     if(textureWash180&&effectiveErase)throw Error('Texture Gradient Wash180 erase is outside scope')
     if(textureWash180){assertBrushExecutionContext(brush,execution);assertTextureGradientWash180Planes(brush)}
-    const textureWash171=assertTextureLightnessWash171Scope(brush)
+    const textureWash171=brush.version!==191&&assertTextureLightnessWash171Scope(brush)
     if(textureWash171&&effectiveErase)throw Error('Texture Lightness Wash171 erase is outside scope')
     if(textureWash171)assertTextureLightnessWash171Planes(brush)
     if(brush.curveTrace&&brush.behavior?.timing){if(!hasCurveHostTimer167Scope(brush)||effectiveErase)throw Error('Invalid Curve host timer167 scope');assertBrushSourceInputs(brush,dabs,endpoint,execution);assertBrushExecutionContext(brush,execution)}
@@ -704,7 +713,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
     const gradientWash=usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(gradientWash&&!mask190&&(!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
-    if(gradientWash&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
+    if(gradientWash&&!brush.texture?.material&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
     const tangentWash=!!brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(tangentWash&&(!hasTangentNormalWash136Scope(brush)||effectiveErase))throw Error('Invalid Tangent Wash136 scope')
     if(tangentWash&&!this.proceduralStamp)throw Error('Tangent Wash136 procedural program was not prepared')
@@ -740,16 +749,16 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     }
     assertBrushSourceInputs(brush,dabs,endpoint,execution)
     assertBrushExecutionContext(brush,execution)
-    const materialVariant=textureMaterialVariant(brush),textureLightness=materialVariant===true,textureGradient=materialVariant==='gradient'
-    if(textureLightness&&!this.lightnessStamp)throw Error('Texture Lightness108 program was not prepared')
-    if(textureGradient&&!this.textureGradientStamp)throw Error('Texture Gradient111 program was not prepared')
+    const filteredGradient=usesFilteredPixelGradient(brush)
+    const materialVariant=textureMaterialVariant(brush,brush.version===191&&mask190),textureLightness=materialVariant===true,textureGradient=materialVariant==='gradient'
+    if(textureLightness&&!(filteredGradient?this.materialTipGradientStamps.has('lightness'):this.lightnessStamp))throw Error('Texture Lightness108 program was not prepared')
+    if(textureGradient&&!(filteredGradient?this.materialTipGradientStamps.has('gradient'):this.textureGradientStamp))throw Error('Texture Gradient111 program was not prepared')
     // Sketch173 line width is already in world pixels; tip aspect only sizes its selector.
     const placedSizeMultiplier=brush.sketch?.maskSignal==='procedural-standard-v1'?1:preset.sizeMultiplier
     const sketchMask=brush.sketch?.mode==='mask'?prepareSketchMask(brush):undefined
     if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')for(const dab of dabs)sketchMask!.forDab(dab)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
-    const filteredGradient=usesFilteredPixelGradient(brush)
     const originalRgba=usesPixelOriginalRgba(brush)
     if(!mask190&&originalRgba&&brush.behavior?.dual&&(!hasPixelOriginalDual151Scope(brush)||effectiveErase))throw Error('Invalid original RGBA dual151 scope')
     const originalFrames=originalRgba?pixelOriginalRgbaFrames(brush,mask190):undefined
@@ -774,7 +783,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     try {
     const canvasPatternView=pattern?.kind==='rgba'?this.preparedImage(pattern.alpha,pattern.planes):undefined
     canvasPatternView?.assertCurrent()
-    const materialPattern=materialVariant?this.preparedTextureLightness(brush,gradientLut):undefined
+    const materialPattern=materialVariant?this.preparedTextureLightness(brush,gradientLut,effectiveErase):undefined
     materialPattern?.assertCurrent()
     // The common prepared callback/lease is installed by Spray V2. No lazy
     // RGB upload, alternate cache or foreground fallback is permitted here.
@@ -862,7 +871,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
       state.washColor??=[...color]
     }
-    const constantPigment=!textureWash180&&!textureWash171&&!tangentWash&&!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    const constantPigment=!(brush.version===191&&materialVariant)&&!textureWash180&&!textureWash171&&!tangentWash&&!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
     const saturationTable=brush.bristle?.version===2&&brush.bristle.ink.useSaturation?this.bristleRequests!.preparedSaturationTable(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {
@@ -979,7 +988,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       ...((filteredGradient||textureGradient)&&brush.tip.mask?[brushTextureResourceKey({id:brush.tip.mask,grain:false,gradientPalette:true,gradientLut})]:[]),
       ...(tip&&originalRgba ? [brushTextureResourceKey(imageResource(tip,colorPlanes))] : tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
       ...(dual && (!secondary?.tip.imageSampling || dualImage) ? [brushTextureResourceKey({...brushTipResource(dual,dualGray,secondary?.tip),nativeImage:dualImage})] : []),
-      ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined,patternAlpha:brush.texture?.material?.alpha,patternSize:brush.texture?.patternSize})] : []),
+      ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined,patternAlpha:effectiveErase&&brush.texture?.eraseId?brush.texture.material?.eraseAlpha:brush.texture?.material?.alpha,patternSize:brush.texture?.patternSize})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])}
     const effects=brushUsesStampEffects(brush)
@@ -1096,7 +1105,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
             const mainImage = currentMask && brush.tip.imageSampling ? nativeImageResource(currentMask, brush.tip, 2 * s.radius * s.aspect) : undefined
             const childRadiusX = s.radius * s.aspect * imageRatio / (1 + s.edgeSoftness * .15)
             const dualImage = currentDual && secondary?.tip.imageSampling ? nativeImageResource(currentDual, secondary.tip, 2 * childRadiusX) : undefined
-            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!(brush.texture?.application||brush.texture?.material),!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage,s.colorPlanes)
+            protect(currentMask,primaryTextureId,currentDual,secondaryTextureId,!!(brush.texture?.application||brush.texture?.material),!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage,s.colorPlanes)
             // Resolve the whole group before binding. Lazy upload restores GL
             // state and cannot evict another sampler in this protected group.
             const rgbaView=originalRgba?originalView(currentMask,s.colorPlanes,s.frameIndex):undefined

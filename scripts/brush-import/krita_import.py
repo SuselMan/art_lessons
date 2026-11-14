@@ -1,3 +1,4 @@
+from texture_combinations191 import COMPONENT191
 from independent_mask190 import COMPONENT190
 from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
@@ -13,7 +14,7 @@ from legacy_color_smudge_overlay154 import legacy_color_smudge_overlay154_scope
 from pixel_original_hsv150 import pixel_original_hsv150_scope
 from pixel_gradient_wash138 import pixel_gradient_wash138_scope
 from smudge_texture_erase131 import smudge_texture_erase131_scope
-from legacy_smudge_timing import legacy_smudge_timing_scope
+from legacy_smudge_timing import legacy_smudge_timing_scope,legacy_smudge_timing_core
 from variable_gih import validate_variable_gih_descriptor,is_sensor_original_rgba119,is_sensor_original_rgba121,is_equal_lightness_gih123,is_equal_gradient_gih125,is_unequal_gradient_gih126,is_unequal_lightness_gih124
 from gih_dimensions import uses_mode as gih_uses_mode,validate_dimensions
 import base64
@@ -1224,6 +1225,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
         texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
         texture_modes={0:'multiply',1:'subtract',4:'darken',5:'overlay',6:'colorDodge',7:'colorBurn',8:'linearDodge',9:'linearBurn',10:'hardMixPhotoshop',11:'hardMixSofterPhotoshop'}
+        if COMPONENT191.get():texture_modes.update({12:'height',13:'linearHeight',14:'heightPhotoshop',15:'linearHeightPhotoshop'})
         texture_supported=texture_mode in (0,1)or(engine=='paintbrush'and _allow_texture_material and texture_mode in(2,3))or(engine in('paintbrush','colorsmudge')and texture_mode in texture_modes)
         if texture_supported:
             prefix='Texture/Pattern/'
@@ -1254,6 +1256,12 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             pattern_alpha=(compiled.getchannel('A') if compiled.mode=='RGBA'else Image.new('L',compiled.size,255)) if texture_mode in(2,3) else None
             mask=compiled.getchannel('R') if compiled.mode=='RGBA' else compiled
             erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']}) if (engine=='paintbrush'and texture_mode not in(2,3)or engine=='colorsmudge'and _allow_texture_material and depth==0 and eraser and enabled(params.get('SmudgeRateUseNewEngine','false'))and numeric(params.get(prefix+'TexturingMode'),0)in(0,1)) and enabled(params.get(prefix+'AutoInvertOnErase')) else None
+            if COMPONENT191.get()and engine=='colorsmudge'and texture_mode not in(2,3)and enabled(params.get(prefix+'AutoInvertOnErase')):
+                erase_pattern=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']})
+            erase_alpha=None
+            if COMPONENT191.get()and texture_mode in(2,3)and enabled(params.get(prefix+'AutoInvertOnErase')):
+                erase_compiled=preprocess_texture(authored_pattern,**{**tone,'invert':not tone['invert']},preserve_alpha=True)
+                erase_pattern=erase_compiled.getchannel('R');erase_alpha=erase_compiled.getchannel('A')
             width,height=mask.size
             pot=max(2,1<<(max(width,height)-1).bit_length())
             padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
@@ -1269,6 +1277,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if erase_pattern is not None:
                 erase_padded=Image.new('L',(pot,pot));erase_padded.paste(erase_pattern,(0,0))
                 d['texture']['eraseId']=catalog.asset(erase_padded,warnings,grain=True);d['version']=max(d['version'],77)
+                if erase_alpha is not None:
+                    alpha_padded=Image.new('L',(pot,pot));alpha_padded.paste(erase_alpha,(0,0));d['texture']['material']['eraseAlpha']=catalog.asset(alpha_padded,warnings,grain=True)
                 notes.append(compatibility('textureEraseInvert','Paired normal/erase pattern is compiled before neutral-point remap and cutoff; recorded effective erasing selects the resource.','supported'))
             if texture_mode not in (0,1):d['version']=max(d['version'],75)
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
@@ -1445,7 +1455,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # The default policy stays the same public entry; no private bridge or child
     # inherits root timing authority. Sensor parsing above keeps historical paths.
     legacy_refresh129=(engine=='colorsmudge' and depth==0 and _allow_texture_material
-                       and legacy_smudge_timing_scope({**d,'behavior':behavior},False)
+                       and (legacy_smudge_timing_core({**d,'behavior':behavior},False,True)if COMPONENT191.get()else legacy_smudge_timing_scope({**d,'behavior':behavior},False))
                        and not enabled(params.get('PressureRate'))
                        and not enabled(params.get('PaintOpSettings/ignoreSpacing')))
     try:legacy_rate129=float(params.get('PaintOpSettings/rate',20))
@@ -1630,7 +1640,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['version']=max(d['version'],180)
             if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_gradient_wash180_scope(d)):raise ValueError('Native Texture Gradient Wash180 requires closed root static MASK Pixel')
             notes.append(compatibility('textureGradientWash180','Native Gradient texture maps filtered pattern gray through the captured palette and alpha-aware strength mix before existing varying-pigment Wash feedback. External stroke opacity applies once; existing source/packing/budget and normalized colour law, not ICC/U8 identity.','supported'))
-        if (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_wash171 and not texture_wash180)or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
+        if not COMPONENT191.get()and (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_wash171 and not texture_wash180)or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
             raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
         d['version']=max(d['version'],111 if t['material']['kind']=='gradient'else 108)
         if t['material']['kind']=='gradient':notes.append(compatibility('textureGradient','Pattern gray is filtered before captured256 palette lookup; alpha is clamped to already coloured dab and mixed with native byte-rounded strength using alpha-aware weighted colour. Functional RGB/alpha graph; ICC/native U8 identity is not claimed.','supported'))
@@ -1639,14 +1649,14 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if d.get('texture',{}).get('application',{}).get('mode')in('darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
         if engine=='colorsmudge':
             m=d.get('mixer',{});tip=d['tip']
-            if (m.get('algorithm')!='krita-mask'or m.get('source')!='previousCanvas'or m.get('colorRateComposite')is not None or m.get('paintThickness')is not None or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material'))or behavior.get('dual')or behavior.get('erase')or behavior.get('rendering',{}).get('blendMode')!='normal'or d['texture'].get('eraseId')):
+            if not COMPONENT191.get()and (m.get('algorithm')!='krita-mask'or m.get('source')!='previousCanvas'or m.get('colorRateComposite')is not None or m.get('paintThickness')is not None or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material'))or behavior.get('dual')or behavior.get('erase')or behavior.get('rendering',{}).get('blendMode')!='normal'or d['texture'].get('eraseId')):
                 raise ValueError('Modern texture103 requires root static MASK previousCanvas normal Color Smudge')
             d['version']=max(d['version'],103)
             if d['texture']['application']['mode']in('darken','overlay','linearDodge','linearBurn'):
                 notes.append(compatibility('colorSmudgeTexture','Modern MASK applies native alpha-role darken/overlay/linearDodge/linearBurn through the shared Pixel75 functional graph; GPU/native U8 staging is not byte-identical.','supported'))
         else:d['version']=max(d['version'],75)
         if d['texture']['application']['mode']in('colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'):
-            if engine not in('paintbrush','colorsmudge')or behavior.get('dual'):raise ValueError('Texture105 requires root Pixel or modern MASK')
+            if not COMPONENT191.get()and(engine not in('paintbrush','colorsmudge')or behavior.get('dual')):raise ValueError('Texture105 requires root Pixel or modern MASK')
             d['version']=max(d['version'],105)
             notes.append(compatibility('textureAlpha105','Native alpha-role Dodge/Burn/Photoshop Hard Mix/Softer strength laws retained, including no-resurrection and soft union factors; normalized functional math differs from staged native U8 rounding.'))
     if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
@@ -1756,7 +1766,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if legacy_refresh129 and timed_input and behavior.get('timing') is not None:
         d['version']=max(d['version'],129)
     if engine=='colorsmudge'and d.get('texture',{}).get('eraseId'):
-        if depth or not _allow_texture_material or not smudge_texture_erase131_scope(d,False)or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip'].get('mask'),d['texture']['id'],d['texture']['eraseId'])):raise ValueError('Texture erase131 requires root static modern MASK previousCanvas foreground erase')
+        if not COMPONENT191.get()and(depth or not _allow_texture_material or not smudge_texture_erase131_scope(d,False)or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip'].get('mask'),d['texture']['id'],d['texture']['eraseId']))):raise ValueError('Texture erase131 requires root static modern MASK previousCanvas foreground erase')
         d['version']=max(d['version'],131)
     #132 internal permission only reads captured primary clock for Size. It
     # cannot activate child timing or leak to a foreign/private adapter.
@@ -1828,7 +1838,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
 
 
 
-def preset(data,name,catalog,external,depth=0,*,sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None):
+def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None):
     options=dict(sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_allow_texture_material=_allow_texture_material,_default_input_policy=_default_input_policy,_native_sampling_candidate=_native_sampling_candidate,_primary_clock_read=_primary_clock_read,_bristle_source_capture=_bristle_source_capture)
     if depth or COMPONENT190.get():return _preset_impl(data,name,catalog,external,depth,**options)
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
@@ -1846,6 +1856,22 @@ def preset(data,name,catalog,external,depth=0,*,sequential_xy=False,stroke_input
     except ValueError:
         from native_mask190 import lower_pair
         return lower_pair(data,name,catalog,external,_preset_impl,options)
+
+
+def preset(data,name,catalog,external,depth=0,**options):
+    if depth or COMPONENT191.get():return _preset_without_texture191(data,name,catalog,external,depth,**options)
+    image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
+    params={n.get('name'):n.text or''for n in node.findall('param')}
+    candidate=node.get('paintopid')in('paintbrush','colorsmudge')and enabled(params.get('Texture/Pattern/Enabled'))
+    height=candidate and numeric(params.get('Texture/Pattern/TexturingMode'),0)in(12,13,14,15)
+    if not height:
+        try:return _native_preset_transaction(catalog,lambda:_preset_without_texture191(data,name,catalog,external,depth,**options))
+        except ValueError:
+            if not candidate:raise
+    from native_texture191 import lower_texture191
+    defaults=dict(sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None)
+    defaults.update(options)
+    return _native_preset_transaction(catalog,lambda:lower_texture191(data,name,catalog,external,_preset_impl,defaults))
 
 
 def _native_preset_transaction(catalog, produce):

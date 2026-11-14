@@ -2561,8 +2561,8 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection
-    sampler.captureSourceAngle=spacingBrush?.version===190||!!spacingBrush?.tangentNormal
-    sampler.captureSourceSize = !!spacingBrush && (spacingBrush.version===190||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
+    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191)||!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
     const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush && (spacingBrush.behavior?.sequentialRandom || sampler.recordedPen188) ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     sampler.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
@@ -3337,7 +3337,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -4100,7 +4100,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor),textureMaterialVariant(descriptor))
       else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
       else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
-      else if (painter === 'colorSmudgeTexture') this._smudge.prepareColorSmudgeTexture()
+      else if (painter === 'colorSmudgeTexture') this._smudge.prepareColorSmudgeTexture(descriptor)
       else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
       else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
       else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy(descriptor.mixer?.colorRateComposite==='overlay')
@@ -4495,7 +4495,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -6743,7 +6743,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if(brush.version===190 || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
     const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
     // A late page can resolve metadata already held by the other page. Use
@@ -7080,7 +7080,7 @@ export class PencilEngine implements PencilEngineAPI {
     const sourceZoom=this._sourceInputZoom()
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
     const policy=brush?.behavior?.strokeInput
-    if((policy||brush?.version===190) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    if((policy||brush?.version===190||brush?.version===191) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const projection=brush&&(brush.mixer?.source==='projectionCanvas'||hasCloneProjection149Scope(brush)||(hasCloneHealing152Scope(brush)&&brush.clone?.source==='projectionCanvas')) ? this._compositeOrder.map(item=>({...item})) : undefined
     const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     if(brush?.clone&&!this._cloneSource)return
@@ -8442,7 +8442,7 @@ export class PencilEngine implements PencilEngineAPI {
         return undefined
       }
       if(paint?.brush&&this._beginCapability(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
-      if (paint) { if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} if(paint.brush&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { if(paint.brush?.version!==191){if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(paint.brush.version!==191&&!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(paint.brush.version!==191&&!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(paint.brush.version!==191&&!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(paint.brush.version!==191&&!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} }if(paint.brush&&paint.brush.version!==191&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(paint.brush); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -8760,7 +8760,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Prepare this exact capability before the painter advances gesture state.
     if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
     this._brush.prepareRecordedStampResources(stamp.brush)
-    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||stamp.brush.version===190&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
+    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)
