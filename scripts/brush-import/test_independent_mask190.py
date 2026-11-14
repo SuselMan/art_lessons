@@ -77,6 +77,7 @@ class IndependentMask190Tests(unittest.TestCase):
   actual=ImageFont.truetype
   with patch('native_mask190.subprocess.run',side_effect=FileNotFoundError),patch('native_mask190.ImageFont.truetype',wraps=actual)as font:
    _,warning=text_resource(definition,{});self.assertIn('BoldOblique.ttf',font.call_args.args[0]);self.assertIn('substituted',warning)
+ @unittest.skipUnless(os.environ.get("OLD187188"), "External immutable187188 fixture requires OLD187188")
  def test_old187188_whole_records_remain_exact(self):
   original=Path(os.environ['OLD187188']);expected=json.loads((original/'Authored187188.grafetto-brushes.json').read_text())['library']
   with tempfile.TemporaryDirectory()as tmp:
