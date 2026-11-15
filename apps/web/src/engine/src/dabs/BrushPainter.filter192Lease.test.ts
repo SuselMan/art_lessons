@@ -12,3 +12,17 @@ it.each(['procedural','bitmap'] as const)('actual constructor-installed192 %s le
   expect(leases.size).toBe(count)
  }finally{p.destroy()}
 })
+
+// Genuine legacy147 payload under the whole195 host policy must use its actual
+// STAMP mask consumer, independently of its serialized mixer model.
+import fs from'node:fs'
+import type{BrushLibrary}from'@grafetto/shared'
+const native195=process.env.NATIVE195_LIBRARY?JSON.parse(fs.readFileSync(process.env.NATIVE195_LIBRARY,'utf8'))as BrushLibrary:undefined
+it.skipIf(!native195)('prepares the actual default Filter195 stamp bank and protects its draw group without cold uploads',()=>{
+ const b=native195!.brushes.find(r=>r.source==='host-default-filter.kpp')!.descriptor,before=JSON.stringify(b),gl=Object.assign(new MockGL(),{blendColor:vi.fn()}),p=new BrushPainter({gl,quadBuf:()=>gl.createBuffer(),paper:{texture:gl.createTexture(),worldSize:()=>({w:64,h:64}),scale:1},segmentLength:()=>1}as unknown as BrushContext);p.initGL()
+ try{expect(b.filter).not.toHaveProperty('maskPolicy');p.prepareRecordedStampResources(b);p.prepareFilterSmudge147(b)
+  const callback=Reflect.get(Reflect.get(p,'behavior'),'leaseTextures')as(brush:BrushDescriptor,effectiveErase:boolean)=>()=>void,cache=Reflect.get(p,'textures'),leases=Reflect.get(cache,'leases')as Map<symbol,unknown>,protect=Reflect.get(cache,'protect')as(keys:readonly string[])=>void,count=leases.size,compile=vi.spyOn(gl,'createProgram'),upload=vi.spyOn(gl,'texImage2D');let release:(()=>void)|undefined
+  try{release=callback(b,false);expect(()=>Reflect.apply(protect,cache,[['g:cloud','g:grit']])).not.toThrow();expect(leases.size).toBeGreaterThan(count);expect(compile).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(JSON.stringify(b)).toBe(before)}finally{release?.()}
+  expect(leases.size).toBe(count)
+ }finally{p.destroy()}
+})

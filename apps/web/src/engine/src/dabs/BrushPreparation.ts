@@ -262,7 +262,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   // Filter169 mask is consumed by the existing stamp renderer; no WET duplicate bank.
-  visit(brush, (usesNativeFilterMask(brush)&&mask190)||hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
+  visit(brush, brush.version===195&&!!brush.filter&&mask190||(usesNativeFilterMask(brush)&&mask190)||hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 
