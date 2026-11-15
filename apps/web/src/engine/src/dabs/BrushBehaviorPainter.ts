@@ -367,6 +367,7 @@ export class BrushBehaviorPainter {
   invalidateSprayBegin(scratch:BehaviorScratch):void{if(scratch.canonicalSource?.capability==='spray146'){const owner=scratch.canonicalSource;scratch.canonicalSource=undefined;scratch.brushBehavior=undefined;owner.release()}}
   prepareSprayBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
     const brush=paint.brush,binding=runtime.binding
+    execution=mask190RootExecution(brush,execution)
     if(!(brush.version===194||hasSpraySource146Scope(brush))||runtime.capability!=='spray146'||userId!==binding.userId||strokeId!==binding.strokeId||!Number.isFinite(first.size)||first.size<=0)throw Error('Invalid Spray146 BEGIN identity')
     assertBrushSourceInputs(brush,[first]);assertBrushExecutionContext(brush,execution)
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
