@@ -63,6 +63,13 @@ def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     result['sourceDefaults']={'sizePx':width,'opacity':d['opacity'],'flow':1}
     ignored={'kritaEngine','standardMaskProfile','autoSpacing'}
     result['compatibility']=[n for n in result['compatibility']if n['feature']not in ignored]+notes
+    # Retire only an exact option already lowered into this195 render payload.
+    from native_timing195 import TIMING195
+    if TIMING195.get() and dynamics.get('width'):
+        for note in result['compatibility']:
+            if note['feature']=='activeDynamics':
+                note['detail']=', '.join(v for v in note['detail'].split(', ')if v!='PressureLine width')
+        result['compatibility']=[n for n in result['compatibility']if n['feature']!='activeDynamics' or n['detail']]
     result['compatibility'].append(compatibility('curveTrace','Basic input cubic smoothing and0.5px subdivision before the bounded history (depth8 admission); native default input law, not raw browser sample history. Native bounded history, quadratic midpoint or cubic one-third/two-third controls, optional connection and independent path/request opacity retained. Adaptive de Casteljau stops at0.25px flatness or256 segments; capsule AA/joins differ from Qt painter paths. Size slider controls line width.'))
     if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','This native paintop evaluates Opacity, not Flow. Unused captured Flow settings do not affect rendering.','supported'))
     if ignored_mirror:result['compatibility'].append(compatibility('ignoredNativeMirror','This native paintop does not connect the brush Mirror option to its rendering path. Captured unused Brush Mirror settings do not change rendering; canvas symmetry is separate.','supported'))

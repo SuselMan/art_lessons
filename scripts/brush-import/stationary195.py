@@ -63,8 +63,10 @@ def validate_payload195(d,dynamics,sizes,raw_assets):
             if v['count']*v['iterations']>16384:raise ValueError('Native195 Particle budget')
         elif family=='deform':obj(v,{'version':exact(1),'mode':integer(1,8),'amount':number(),'counter':boolean,'bilinear':boolean,'density':number(),'jitter':number(0,10),'baseScale':number(.01,10)},{'sourcePolicy':exact('canonical-begin-v1')})
         elif family=='curveTrace':
-            obj(v,{'version':enum(1,2),'history':integer(2,128),'smoothing':boolean,'connect':boolean,'opacity':number()},{'dynamics':lambda x:isinstance(x,list)})
-            if 'dynamics'in v:dynamics(v['dynamics'])
+            obj(v,{'version':enum(1,2),'history':integer(2,128),'smoothing':boolean,'connect':boolean,'opacity':number()},{'dynamics':lambda x:isinstance(x,dict)})
+            if 'dynamics'in v:
+                if set(v['dynamics'])-{'width','opacity'}:raise ValueError('Invalid native195 Curve dynamics')
+                for controls in v['dynamics'].values():dynamics(controls)
         elif family=='hatching':
             obj(v,{'version':exact(1),'angle':number(-360,360),'separation':number(.1,10000),'thickness':number(.1,1000),'origin':sequence(2,number(-1e9,1e9)),'style':enum('none','perpendicular','minusPlus','plusMinus','moire'),'intervals':integer(2,7),'antialias':boolean,'subpixel':boolean},{'dynamics':lambda x:isinstance(x,dict),'opaqueBackground':exact(True)})
             if 'dynamics'in v:
