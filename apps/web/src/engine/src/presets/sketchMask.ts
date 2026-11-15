@@ -1,3 +1,4 @@
+import{usesNativeSketchSpray}from'./nativeBrushFeatures'
 import{prepareSketchMask194}from'./sketchMask194'
 import type{BrushExecutionContext}from'./brushExecutionContext'
 import{curveAt}from'./digitalBrushPresets'
@@ -15,7 +16,7 @@ export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
  if(policy!==undefined&&(brush.version<114||brush.sketch?.mode!=='mask'||!brush.sketch.distanceOpacity||policy!=='generic-clamp-v1')||brush.sketch?.mode==='mask'&&brush.sketch.distanceOpacity&&policy!=='generic-clamp-v1')throw Error('Invalid Sketch114 distance opacity policy')
 }
 export function prepareSketchMask(brush:BrushDescriptor,execution?:BrushExecutionContext):SketchMaskView|undefined{
- if(brush.version===194&&brush.sketch?.mode==='mask')return prepareSketchMask194(brush,execution)
+ if(usesNativeSketchSpray(brush)&&brush.sketch?.mode==='mask')return prepareSketchMask194(brush,execution)
  assertSketchDistanceOpacityPolicy(brush)
  if(brush.sketch?.maskSignal==='gih-alpha-v1')return prepareSketchGih174(brush)
  if(brush.sketch?.maskSignal==='procedural-standard-v1'){if(!hasSketchProcedural173Scope(brush))throw Error('Invalid Sketch173 procedural scope');return proceduralSketchMask173(brush)}

@@ -1,3 +1,4 @@
+import{usesNativeSketchSpray}from'./nativeBrushFeatures'
 import type { BrushDescriptor, Dab } from '@grafetto/shared'
 import { brushDabRandom, type BrushStamp } from './digitalBrushPresets'
 /** Bounded expansion of one recorded spray centre. Independent of frame/chunk/tile. */
@@ -22,9 +23,9 @@ export function sprayStamps(brush:BrushDescriptor,dab:Dab,seed:number,ordinal:nu
     angle=angle*(1-s.dynamics.pathAngle)+direction*s.dynamics.pathAngle
     const particleScale=s.dynamics.randomSize?r(3):1
     const proportional=s.particle.proportional?s.diameter*s.scale/100:1
-    const nativeResource=brush.version===194&&s.particle.shape==='tip'
+    const nativeResource=usesNativeSketchSpray(brush)&&s.particle.shape==='tip'
     const width=nativeResource?s.particle.width*proportional*particleScale:Math.max(1,s.particle.width*proportional*particleScale),height=nativeResource?s.particle.height*proportional*particleScale:Math.max(1,s.particle.height*proportional*particleScale)
-    result.push({x:cx+cos*x-sin*y,y:cy+sin*x+cos*y,size:height,aspect:width/height,angle,flowScale:s.color.randomOpacity?Math.pow(random(16+(s.color.perParticle?i:0)*16+7),s.particle.image||brush.version===194&&brush.tip.color&&'planes'in brush.tip.color?1:2):1})
+    result.push({x:cx+cos*x-sin*y,y:cy+sin*x+cos*y,size:height,aspect:width/height,angle,flowScale:s.color.randomOpacity?Math.pow(random(16+(s.color.perParticle?i:0)*16+7),s.particle.image||usesNativeSketchSpray(brush)&&brush.tip.color&&'planes'in brush.tip.color?1:2):1})
   }
   return result
 }

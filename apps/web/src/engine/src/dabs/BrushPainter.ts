@@ -1,27 +1,32 @@
+import{mask190RootExecution}from'../presets/independentMask190'
+import{usesNativePixelMaterials}from'../presets/nativeBrushFeatures'
+import{hasBristleInitializationScope,hasBristleSoak139Scope,hasBristleSource143Scope,hasBristleWash135Scope,hasExperimentCurrentPattern158Scope,hasFilterBitmapMaskScope,hasFilterMask192Scope,hasParticleWash134Scope,hasTangentNormalWash136Scope}from'../presets/stationary195Scopes'
+import{hasStationary195Scope}from'@grafetto/shared'
+import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
 import{textureEraseId}from'../presets/brushTextureErase'
 import{textureMaterialVariant}from'../presets/textureLightness'
-import { brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import{ brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasIndependentMask190Scope,isTextureCombinations191Scope }from'@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
 import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
-import{hasFilterBitmapMaskScope}from'@grafetto/shared'
+
 import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
-import {hasExperimentCurrentPattern158Scope,isBrushPattern,type BrushPattern} from '@grafetto/shared'
+import{isBrushPattern,type BrushPattern}from'@grafetto/shared'
 import{assertPixelOriginalDual151Resources}from'../presets/pixelOriginalRgba'
-import type{CanonicalBeginLayeredView}from'./CanonicalBeginSource'
-import {hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleSource143Scope} from '@grafetto/shared'
+import{CanonicalBeginSource,type CanonicalBeginLayeredView}from'./CanonicalBeginSource'
+
 import {BristleSoakGather139} from '../raster/BristleSoakGather139'
 import {bristleSoakPoints139} from '../presets/bristleSoak139'
 import {buildBristleInitialization140,assertBristleInitializationSize140,assertBristleSource143Ready} from '../presets/bristleInitialization140'
 import {createBristleInkState} from '../presets/brushBristleInk'
 import {beginBrushBehavior} from '../presets/brushBehavior'
-import {canonicalBeginBindingKey,firstBristleLine139,type BristleFirstLine139,type CanonicalBeginNotReady,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
+import {canonicalBeginBindingKey,firstBristleLine139,isBristleAnchor139,type BristleFirstLine139,type CanonicalBeginNotReady,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
 import type{BorrowedGridWash}from'./GridWashRuntime'
-import{hasTangentNormalWash136Scope}from'@grafetto/shared'
-import{hasBristleWash135Scope}from'@grafetto/shared'
-import{hasParticleWash134Scope}from'@grafetto/shared'
+
+
+
 import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
 import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
@@ -89,7 +94,7 @@ export class BrushPainter {
     this.textures=new BrushTextureCache(ctx.gl)
     this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
     this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut,pattern) => {
-      const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version !== 192 && brush.version !== 193 ? { ...brush, model: 'stamp' } : brush,effectiveErase)
+      const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version!==195 && !usesNativeFilterMask(brush) && !usesNativeSmudgeFeatures(brush) ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
       const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
       if(required)return this.acquireRecordedStampResources(required,false)
@@ -106,12 +111,12 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
     const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
-    if(bitmapFilter&&!(brush.version===192?hasFilterMask192Scope(brush):hasFilterBitmapMaskScope(brush)))throw Error('Invalid Filter169 bitmap scope')
+    if(bitmapFilter&&!(usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):hasFilterBitmapMaskScope(brush)))throw Error('Invalid Filter169 bitmap scope')
     const alphaDual=mask190||assertPixelAlphaDual168Scope(brush)||assertPixelAlphaDual170Scope(brush)
     const originalDual=assertPixelOriginalDual151Resources(brush)
     const tangentWash=hasTangentNormalWash136Scope(brush)
@@ -120,16 +125,16 @@ export class BrushPainter {
     if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
     const particleWash=hasParticleWash134Scope(brush)
     if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
-    const wash=hasSprayWash133Scope(brush)||brush.version===194&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'||particleWash||bristleWash||tangentWash
+    const wash=hasSprayWash133Scope(brush)||usesNativeSketchSpray(brush)&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'||particleWash||bristleWash||tangentWash
     if(wash&&!particleWash&&!bristleWash&&!tangentWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
     if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
     if(textureWash180&&!paletteBound)return undefined
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
-    if(gradient){if(brush.version!==194)pixelOriginalRgbaFrames(brush,mask190);if(!paletteBound)return undefined}
+    if(gradient){if(!usesNativeSketchSpray(brush))pixelOriginalRgbaFrames(brush,mask190);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
-    const resources=existing??brushPreparationResources(bitmapFilter&&brush.version!==192?{...brush,model:'stamp'}:brush)
+    const resources=existing??brushPreparationResources(bitmapFilter&&!usesNativeFilterMask(brush)?{...brush,model:'stamp'}:brush)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
@@ -152,8 +157,8 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
-        if(brush?.version===194){this.prepareCompositeEffects(true);if(brush.sketch){this.prepareSketchLines();if(brush.behavior?.rendering?.accumulation==='alphaDarken')this.prepareBristleWash()}if(brush.spray){this.prepareSprayShapes();this.prepareSprayImages();this.prepareSpraySources(false,true);this.prepareSpraySources(true,true)}}
-        if(brush?.version===191){
+        if(brush&&usesNativeSketchSpray(brush)){this.prepareCompositeEffects(true);if(brush.sketch){this.prepareSketchLines();if(brush.behavior?.rendering?.accumulation==='alphaDarken')this.prepareBristleWash()}if(brush.spray){this.prepareSprayShapes();this.prepareSprayImages();this.prepareSpraySources(false,true);this.prepareSpraySources(true,true)}}
+        if(brush&&usesNativePixelMaterials(brush)){
           this.prepareStampEffects(usesFilteredPixelGradient(brush),textureMaterialVariant(brush,true))
           const child=brush.behavior?.dual?.brush;if(child&&usesFilteredPixelGradient(child))this.prepareStampEffects(true)
         }
@@ -207,7 +212,12 @@ export class BrushPainter {
         const previous=scratch.brushBehavior?.previous
         assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
       }
-      const valid=dabs.filter(d=>Number.isFinite(d.size)&&d.size>0),state=scratch.brushBehavior,oldAnchor=state?.bristle?.previous
+      if(brush.version===195&&dabs.length&&!scratch.brushBehavior?.bristle?.soak){
+        if(!runtime)throw Error('Bristle195 requires canonical BEGIN runtime')
+        const initial=this.prepareBristleInitial195(target,dabs.find(isBristleAnchor139)??dabs[0],runtime.binding.userId,runtime.binding.strokeId,stamp,execution,runtime,scratch)
+        if(initial.kind==='notReady')return{...initial,acceptedDabs:0}
+      }
+      const valid=brush.version===195?dabs:dabs.filter(d=>Number.isFinite(d.size)&&d.size>0),state=scratch.brushBehavior,oldAnchor=state?.bristle?.previous
       const previous=oldAnchor?{...(state?.previous??valid[0]??_previous!),...oldAnchor}:_previous
       const line=firstBristleLine139(valid,previous)
       if(line){
@@ -228,11 +238,12 @@ cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{retur
 invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateCloneBegin(scratch)}
 
   prepareBristleSoak(brush:BrushDescriptor):void {
+    if(brush.version===195&&!hasStationary195Scope(brush))throw Error('Invalid whole stationary195 preparation scope')
     if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2)throw Error('Invalid Bristle Soak139 scope')
     this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)
     ;(this.soakGather??=new BristleSoakGather139(this.ctx.gl)).prepare()
   }
-  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.filter&&'maskPolicy'in brush.filter)this.prepareRecordedStampResources(brush);this.behavior.prepareFilterSmudge147(brush)}
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.version===195&&!hasStationary195Scope(brush))throw Error('Invalid whole stationary195 preparation scope');if(brush?.filter&&'maskPolicy'in brush.filter)this.prepareRecordedStampResources(brush);this.behavior.prepareFilterSmudge147(brush)}
   prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{if(paint.brush.filter&&'maskPolicy'in paint.brush.filter){const resources=this.recordedStampResources(paint.brush)!;if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Filter169 mask bank is not prepared')}return this.behavior.prepareFilterBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
   filterBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.filterBeginBinding(scratch)}
   invalidateFilterBegin(scratch:BehaviorScratch):void{this.behavior.invalidateFilterBegin(scratch)}
@@ -242,21 +253,44 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   bristleSoakBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.brushBehavior?.bristle?.soak?.binding}
   invalidateBristleSoak(scratch:BehaviorScratch):void {if(this.bristleSoakBinding(scratch))scratch.brushBehavior=undefined}
   prepareBristleSoakGesture(target:ILayerBuffer,line:BristleFirstLine139,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    if(!firstBristleLine139([line.previous,line.current]))throw Error('Bristle Soak requires an actual positive pair')
+    return this.prepareBristleSoakPalette139(target,line.previous,line.current,userId,strokeId,paint,execution,runtime,scratch)
+  }
+  prepareBristleInitial195(target:ILayerBuffer,anchor:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    execution=mask190RootExecution(paint.brush,execution)
+    if(paint.brush.version!==195||!hasBristleSoak139Scope(paint.brush)||runtime.capability!=='bristleSoak139'||runtime.binding.userId!==userId||runtime.binding.strokeId!==strokeId)throw Error('Invalid Bristle195 initial BEGIN')
+    assertBrushSourceInputs(paint.brush,[anchor]);assertBrushExecutionContext(paint.brush,execution)
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    if(scratch.brushBehavior?.bristle?.soak||scratch.canonicalSource&&!isBristleAnchor139(anchor)){const binding=scratch.brushBehavior?.bristle?.soak?.binding??scratch.canonicalSource!.binding;if(canonicalBeginBindingKey(binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Bristle195 BEGIN changed');return{kind:'ready'}}
+    if(isBristleAnchor139(anchor))return this.prepareBristleSoakPalette139(target,anchor,undefined,userId,strokeId,paint,execution,runtime,scratch)
+    if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Bristle195 source owner unavailable')
+    const initialization=paint.brush.bristle?.version===2&&paint.brush.bristle.soak?.resizePolicy==='mask-population-v1'?buildBristleInitialization140(paint.brush,assertBristleInitializationSize140(undefined,[anchor])):undefined
+    const opened=this.ctx.openCanonicalBegin(target,runtime.binding,'bristleSoak139');if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,runtime.binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'bristleSoak139')
+    if(captured.kind==='notReady')return captured
+    const state=scratch.brushBehavior??beginBrushBehavior(anchor,execution)
+    if(initialization)state.bristle={...(state.bristle??{ordinal:0,oldPressure:1,ends:[]}),initialization,ink:initialization.hairs.length?createBristleInkState(initialization.hairs.length):undefined}
+    scratch.brushBehavior=state;scratch.canonicalSource=captured.owner;return{kind:'ready'}
+  }
+  private prepareBristleSoakPalette139(target:ILayerBuffer,anchor:Dab,current:Dab|undefined,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
     const brush=paint.brush,binding=runtime.binding
-    if(!hasBristleSoak139Scope(brush)||runtime.capability!=='bristleSoak139'||userId!==binding.userId||strokeId!==binding.strokeId||!firstBristleLine139([line.previous,line.current]))throw Error('Invalid Bristle Soak BEGIN identity')
-    assertBrushSourceInputs(brush,[line.previous,line.current]);assertBrushExecutionContext(brush,execution)
+    execution=mask190RootExecution(brush,execution)
+    if(!hasBristleSoak139Scope(brush)||runtime.capability!=='bristleSoak139'||userId!==binding.userId||strokeId!==binding.strokeId||!isBristleAnchor139(anchor))throw Error('Invalid Bristle Soak BEGIN identity')
+    assertBrushSourceInputs(brush,current?[anchor,current]:[anchor]);assertBrushExecutionContext(brush,execution)
     this.behavior.assertBristleSoakPrepared139(brush);this.soakGather?.assertPrepared()
     if(!this.soakGather||!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch)throw Error('Bristle Soak source/gather owner is unavailable')
     if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
     const existing=scratch.brushBehavior?.bristle?.soak
     const resize=brush.bristle?.version===2&&brush.bristle.soak?.resizePolicy==='mask-population-v1'
-    const anchor=scratch.brushBehavior?.previous
-    const sourceSize=resize?assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,anchor?[anchor,line.previous,line.current]:[line.previous,line.current]):undefined
+    const previousAnchor=scratch.brushBehavior?.previous
+    const sourceSize=resize?assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previousAnchor?[previousAnchor,anchor,...(current?[current]:[])]:[anchor,...(current?[current]:[])]):undefined
     if(existing)return canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':bristle-soak'}
     const prior=scratch.brushBehavior
-    if(prior?.bristle?.ordinal)throw Error('Bristle Soak capture after accepted line is forbidden')
+    if(prior?.bristle?.ordinal&&!scratch.canonicalSource)throw Error('Bristle Soak capture after accepted line is forbidden')
     const initialization=resize?buildBristleInitialization140(brush,sourceSize!):undefined
-    const points=bristleSoakPoints139(brush,line.previous,initialization),opened=this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
+    const points=bristleSoakPoints139(brush,anchor,initialization),frozen=scratch.canonicalSource
+    if(frozen&&(frozen.capability!=='bristleSoak139'||frozen.target!==target||canonicalBeginBindingKey(frozen.binding)!==canonicalBeginBindingKey(binding)))throw Error('Bristle195 frozen source identity changed')
+    const opened=frozen?{kind:'ready' as const,view:{binding:frozen.binding,tiles:frozen.tiles,assertCurrent:()=>frozen.assertCurrent(),release:()=>{if(scratch.canonicalSource===frozen)scratch.canonicalSource=undefined;frozen.release()}}}:this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
     if(opened.kind==='notReady')return opened
     let failed=false,primary:unknown,rgba:Uint8Array|undefined
     try{
@@ -269,7 +303,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     if(failed)throw primary
     if(scratch.brushBehavior!==prior)throw Error('Bristle Soak owner changed during capture')
     // Publish only after successful gather, authority checks AND source release.
-    const state=prior??beginBrushBehavior(line.previous,execution)
+    const state=prior??beginBrushBehavior(anchor,execution)
     const bristle=state.bristle??{ordinal:0,oldPressure:1,ends:[]}
     state.bristle={...bristle,...(initialization?{initialization,ink:initialization.hairs.length?createBristleInkState(initialization.hairs.length):undefined}:{}),soak:{binding:structuredClone(binding),rgba:rgba!}}
     scratch.brushBehavior=state
@@ -392,8 +426,8 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
 
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
-    if(brush.version===194){if(!brushUsesGradient(brush))return;assertBrushExecutionContext(brush,execution);const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient),required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Sketch/Spray194 gradient bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
-    const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    if(brush&&usesNativeSketchSpray(brush)){if(!brushUsesGradient(brush))return;assertBrushExecutionContext(brush,execution);const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient),required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Sketch/Spray194 gradient bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
+    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190){
       const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
       if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return
@@ -418,7 +452,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     if(usesFilteredPixelGradient(brush))assertNativeImageAdmission(resources,this.imageDimensionLimit())
     const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
     let failed=false
-    try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true,textureMaterialVariant(brush,brush.version===191));for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
+    try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true,textureMaterialVariant(brush,usesNativePixelMaterials(brush)));for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
   }
   private preparedTextureLightness(brush:BrushDescriptor,lut?:string,effectiveErase=false){
     if(!textureMaterialKind(brush))throw Error('Texture material is missing')

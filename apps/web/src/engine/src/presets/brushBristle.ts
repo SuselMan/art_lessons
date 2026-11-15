@@ -1,7 +1,8 @@
+import{hasBristleNativePointCoverage}from'./stationary195Scopes'
 import {bristleSoakHair139,type BristleSoakState139} from './bristleSoak139'
 import type {BristleInkState} from './brushBristleInk'
 import {assertBristleInitializationSize140,buildBristleInitialization140,type BristleInitialization140} from './bristleInitialization140'
-import {hasBristleNativePointCoverage,type BrushDescriptor,type Dab} from '@grafetto/shared'
+import{type BrushDescriptor,type Dab}from'@grafetto/shared'
 import {brushDabRandom} from './digitalBrushPresets'
 import type {SketchStamp} from './brushSketch'
 export interface BristleState {ordinal:number;oldPressure:number;previous?:{x:number;y:number};ends:[number,number][];ink?:BristleInkState;soak?:BristleSoakState139;initialization?:BristleInitialization140}

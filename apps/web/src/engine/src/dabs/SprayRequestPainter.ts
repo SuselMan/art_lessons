@@ -1,8 +1,10 @@
+import{hasSpraySource146Scope,hasSprayWash133Scope}from'../presets/stationary195Scopes'
+import{usesNativeSketchSpray}from'../presets/nativeBrushFeatures'
 import{prepareSprayMask194,spray194FrameGeometry,type SprayMask194}from'../presets/sprayMask194'
 import type {CanonicalBeginSource} from './CanonicalBeginSource'
-import {hasSpraySource146Scope} from '@grafetto/shared'
+
 import type{RequestWashBatch}from'./RequestWashBatch'
-import{hasSprayWash133Scope}from'@grafetto/shared'
+
 import{advanceWashOpacity}from'../presets/brushWash'
 import{sprayWashRegions}from'../presets/sprayWash133'
 import type{BrushPressureSettings}from'../presets/digitalBrushPresets'
@@ -46,10 +48,10 @@ export class SprayRequestPainter{
  destroy(){this.sourcePrepared=false;this.epoch={};this.source?.destroy();this.batch.destroy();this.images?.destroy()}
  paint(target:TiledLayerBuffer,dabs:readonly Dab[],brush:BrushDescriptor,state:SprayRequestState,color:[number,number,number],pressure:BrushPressureSettings,sizeMultiplier:number,washOwner?:SprayWashOwner133,source?:CanonicalBeginSource,present194?: (request:AccumulationBuffer,tile:ReturnType<TiledLayerBuffer['resolveForPaint']>[number],bounds:{minX:number;minY:number;maxX:number;maxY:number},opacity:number)=>void,prepared194?:SprayMask194){
   const canonical=brush.spray?.color.sourcePolicy!==undefined
-  if(canonical&&(!(brush.version===194||hasSpraySource146Scope(brush))||!source||source.capability!=='spray146'||source.target!==target))throw Error('Spray146 frozen source is missing')
+  if(canonical&&(!(usesNativeSketchSpray(brush)||hasSpraySource146Scope(brush))||!source||source.capability!=='spray146'||source.target!==target))throw Error('Spray146 frozen source is missing')
   if(canonical)this.assertSourcePrepared()
   source?.assertCurrent()
-  const native194=brush.version===194?(prepared194??prepareSprayMask194(brush,state.execution)):undefined
+  const native194=usesNativeSketchSpray(brush)?(prepared194??prepareSprayMask194(brush,state.execution)):undefined
   const wash=hasSprayWash133Scope(brush)||!!native194&&brush.behavior?.rendering?.accumulation==='alphaDarken'
   if(wash){if(!washOwner)throw Error('Spray Wash requires its stroke owner');this.assertWashPrepared()}else if(washOwner)throw Error('Invalid Spray Wash scope')
   const spray=brush.spray!,imageParticle=!!spray.particle.image||native194?.application==='rgba',epoch=this.epoch,current=()=>{if(epoch!==this.epoch)throw Error('Spray request GL generation changed');source?.assertCurrent()}

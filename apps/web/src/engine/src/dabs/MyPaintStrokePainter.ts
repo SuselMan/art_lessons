@@ -1,5 +1,7 @@
+import{mask190RootExecution}from'../presets/independentMask190'
+import{hasMyPaintTimer177Scope,isMyPaintDescriptor}from'../presets/stationary195Scopes'
 import type{BrushDescriptor,Dab}from'@grafetto/shared'
-import{MYPAINT_SCHEMA,isMyPaintDescriptor,hasMyPaintTimer177Scope}from'@grafetto/shared'
+import{MYPAINT_SCHEMA}from'@grafetto/shared'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 import type{BehaviorScratch}from'./BrushBehaviorPainter'
@@ -41,7 +43,8 @@ export class MyPaintStrokePainter{
   }catch(e){state.destroy();throw e}
  }
  paint(target:Target,dabs:readonly Dab[],brush:BrushDescriptor,color:[number,number,number],pressure:BrushPressureSettings,scratch:BehaviorScratch,execution?:BrushExecutionContext,finish=false,endpoint?:Dab):void{
-  if(brush.version===177){
+  if(brush.version===195)execution=mask190RootExecution(brush,execution)
+  if(brush.version===177||brush.version===195){
    if(!hasMyPaintTimer177Scope(brush))throw Error('Invalid MyPaint timer177 policy')
    assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,dabs,endpoint)
    let previous=this.states.get(scratch)?.previous?.sourceTime??-Infinity

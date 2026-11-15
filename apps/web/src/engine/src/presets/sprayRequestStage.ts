@@ -1,4 +1,6 @@
-import{hasSprayWash133Scope,type BrushDescriptor}from'@grafetto/shared'
+import{usesNativeSketchSpray}from'./nativeBrushFeatures'
+import{hasSprayWash133Scope}from'./stationary195Scopes'
+import{type BrushDescriptor}from'@grafetto/shared'
 import type{BehaviorStamp,BrushBehaviorState}from'./brushBehavior'
 import{sprayParticleColorControls}from'./sprayParticleColor'
 export type SprayRequestState=BrushBehaviorState&{sprayPainterOpacity?:number}
@@ -11,7 +13,7 @@ export interface PreparedSprayRequest{readonly stamps:readonly BehaviorStamp[];r
  */
 export function stageSpraySourceRequest<T extends PreparedSprayRequest>(brush:BrushDescriptor,state:SprayRequestState,expand:(working:SprayRequestState)=>T){
  const spray=brush.spray
- if(!spray||!(spray.color.sampleInput||spray.color.mixBackground||spray.color.fillBackground||hasSprayWash133Scope(brush)||brush.version===194)||brush.behavior?.dual||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment||brush.deform||brush.grid||brush.hatching||brush.clone||brush.filter||brush.mypaint||brush.tangentNormal||state.sketch||state.bristle||state.curveTrace||state.particle||state.experiment||state.deform||(state.pending?.length??0)>4096)throw Error('Spray request staging requires an isolated source-colour request')
+ if(!spray||!(spray.color.sampleInput||spray.color.mixBackground||spray.color.fillBackground||hasSprayWash133Scope(brush)||usesNativeSketchSpray(brush))||brush.behavior?.dual||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment||brush.deform||brush.grid||brush.hatching||brush.clone||brush.filter||brush.mypaint||brush.tangentNormal||state.sketch||state.bristle||state.curveTrace||state.particle||state.experiment||state.deform||(state.pending?.length??0)>4096)throw Error('Spray request staging requires an isolated source-colour request')
  const entries=Object.entries(state),keys=Object.keys(state),execution=state.execution
  const{execution:_execution,...plain}=state
  const working:SprayRequestState={...structuredClone(plain),...(execution===undefined?{}:{execution})}

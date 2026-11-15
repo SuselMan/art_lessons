@@ -1,24 +1,28 @@
+import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSpraySource146Scope}from'./src/presets/stationary195Scopes'
+import{hasGridWash137Scope}from'./src/presets/stationary195Scopes'
+import{hasBristleInitializationScope,hasBristleNativePointCoverage,hasBristleSoak139Scope,hasCloneHealing152Scope,hasCloneProjection149Scope,hasDeformOldData145Scope,hasExperimentCurrentPattern158Scope,hasFilterSmudge147Scope,hasMyPaintTimer177Scope,hasTangentNormalWash136Scope}from'./src/presets/stationary195Scopes'
+import{usesNativeSmudgeTexture,usesNativeSmudgeFeatures,usesNativeSketchSpray}from'./src/presets/nativeBrushFeatures'
 import { mask190RootExecution } from './src/presets/independentMask190'
 import{assertRecordedPen188Brush,captureLatchedRecordedPenInput}from './src/presets/recordedPen188'
-import{usesRecordedPen188Controls}from '@grafetto/shared'
-import{hasMyPaintTimer177Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
+import{usesRecordedPen188Controls}from'@grafetto/shared'
+
+
+
+
 import{hasCurveHostTimer167Scope}from'@grafetto/shared'
 import{hasSketchTimer161Scope}from'@grafetto/shared'
 import{hasDeformTimer160Scope}from'@grafetto/shared'
-import {hasExperimentCurrentPattern158Scope,copyBrushPattern,isBrushPattern,type BrushPattern} from '@grafetto/shared'
+import{copyBrushPattern,isBrushPattern,type BrushPattern}from'@grafetto/shared'
 import{hasParticleTimer157Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
+
 import type{CanonicalBeginLayeredView}from'./src/dabs/CanonicalBeginSource'
-import {hasCloneHealing152Scope,hasCloneProjection149Scope,hasFilterSmudge147Scope,hasDeformOldData145Scope,hasSpraySource146Scope,hasBristleSoak139Scope,hasBristleInitializationScope,hasBristleNativePointCoverage} from '@grafetto/shared'
+
 import {CanonicalBeginBlocked,canonicalBeginIsStamp,canonicalBeginBindingKey,firstBristleLine139,isBristleAnchor139,type CanonicalBeginCapability,type CanonicalBeginRuntime,type CanonicalBeginOwnerInfo} from './src/dabs/CanonicalBeginRuntime'
 import {isGridRenderableDab137} from './src/dabs/GridWashRuntime'
 import {hasOpenGridGesture,type WashOp} from './src/oplog/checkpointStore'
-import {hasGridWash137Scope} from '@grafetto/shared'
+
 import type {GridWashBinding,GridWashNotReady,GridBeginResult,GridDestinationPinsResult,GridWashPaintResult,GridWashPrepareResult} from './src/dabs/GridWashRuntime'
-import{hasTangentNormalWash136Scope}from'@grafetto/shared'
+
 import {textureMaterialVariant} from './src/presets/textureLightness'
 import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
 import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
@@ -30,7 +34,7 @@ import { createCursorHistory, pushCursorHistory, startCursorDirection } from './
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
-import { copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds } from '@grafetto/shared'
+import{ copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds }from'@grafetto/shared'
 import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
@@ -161,7 +165,7 @@ import { compactHistoricalLayer, type HistoricalProjectionSource } from './src/b
 import { packColorSmudge, restoreCheckpointMaterial } from './src/oplog/materialCheckpoint'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
-import { brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample } from '@grafetto/shared'
+import{ brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample }from'@grafetto/shared'
 
 type HistoricalProjectionEntry={buffer:HistoricalProjectionSource;bytes:number;replayTarget?:ILayerBuffer}
 interface RebuiltProjectionProof {
@@ -2297,7 +2301,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush.bristle?.version===2&&brush.bristle.soak){if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope');return'bristleSoak139'}
     if(brush.deform?.sourcePolicy==='canonical-begin-v1'){if(!hasDeformOldData145Scope(brush))throw Error('Invalid Deform145 scope');return'deformOld145'}
     if(brush.filter&&'smudgeMode'in brush.filter){if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');return'filterSmudge147'}
-    if(brush.spray?.color.sourcePolicy==='canonical-begin-v1'){if(!(brush.version===194||hasSpraySource146Scope(brush)))throw Error('Invalid Spray146 scope');return'spray146'}
+    if(brush.spray?.color.sourcePolicy==='canonical-begin-v1'){if(!(usesNativeSketchSpray(brush)||brush.version===195||hasSpraySource146Scope(brush)))throw Error('Invalid Spray146 scope');return'spray146'}
     return undefined
   }
   private _isCanonicalBeginOperation(op:WashOp):boolean{return op.type==='stroke'&&op.tool==='digitalBrush'&&!!op.preset&&this._beginCapability(digitalBrushFromPreset(op.preset))!==undefined}
@@ -2305,7 +2309,7 @@ export class PencilEngine implements PencilEngineAPI {
     let previous:Dab|undefined
     for(const entry of entries){const op=entry.op;if(op.type!=='stroke'||op.layerId!==layerId||op.userId!==userId||op.strokeId!==strokeId)continue
       const dabs=strokeDabs(op)
-      if(capability==='bristleSoak139'?firstBristleLine139(dabs,previous):dabs.some(isGridRenderableDab137))return entry
+      if(capability==='bristleSoak139'?(op.preset&&digitalBrushFromPreset(op.preset).version===195?dabs.length>0:firstBristleLine139(dabs,previous)):dabs.some(isGridRenderableDab137))return entry
       if(capability==='bristleSoak139')for(const dab of dabs)if(isBristleAnchor139(dab))previous=dab
     }
     return undefined
@@ -2553,6 +2557,8 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
     sampler.strokeInput=spacingBrush?.behavior?.strokeInput
     sampler.timing=spacingBrush?.behavior?.timing
+    const stationary195=sampler.brushExecution?.maskRole190?.stationary195
+    sampler.stationary195=stationary195?{...stationary195,updateSpacingBetweenDabs:sampler.timing?.version===2&&sampler.timing.updateSpacingBetweenDabs,ignoreRate:!!spacingBrush?.mypaint}:undefined
     sampler.mypaintTiming177=hasMyPaintTimer177Scope(spacingBrush)?spacingBrush!:undefined
     sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
     sampler.sketchTiming161=hasSketchTimer161Scope(spacingBrush)?spacingBrush!:undefined
@@ -2561,8 +2567,8 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection
-    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191||spacingBrush?.version===192||spacingBrush?.version===193||spacingBrush?.version===194)||!!spacingBrush?.tangentNormal
-    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191||spacingBrush.version===192||spacingBrush.version===193||spacingBrush.version===194)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
+    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191||spacingBrush?.version===192||spacingBrush?.version===193||spacingBrush?.version===194||spacingBrush?.version===195)||!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191||spacingBrush.version===192||spacingBrush.version===193||spacingBrush.version===194||spacingBrush.version===195)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
     const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush && (spacingBrush.behavior?.sequentialRandom || sampler.recordedPen188) ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     sampler.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
@@ -2619,16 +2625,17 @@ export class PencilEngine implements PencilEngineAPI {
     const target=this._layers.get(candidate.snapshot.layerId)
     if(!target||this._activeId!==candidate.snapshot.layerId){this._cancelGridAuthorStart();return}
     const capability=candidate.capability??'grid137',line=capability==='bristleSoak139'?firstBristleLine139(candidate.dabs):undefined
-    if(capability==='bristleSoak139'?!line:!candidate.dabs.some(isGridRenderableDab137))return
+    const initialSoak195=capability==='bristleSoak139'&&digitalBrushFromPreset(candidate.snapshot.opts.pencilType).version===195
+    if(capability==='bristleSoak139'?(initialSoak195?!candidate.dabs.length:!line):!candidate.dabs.some(isGridRenderableDab137))return
     const runtime=this._gridBinding(target,this._userId,candidate.strokeId,capability)
     if('kind'in runtime){candidate.blocked=runtime;return}
     let prepared:GridWashPrepareResult
     if(canonicalBeginIsStamp(capability)){
       const brush=digitalBrushFromPreset(candidate.snapshot.opts.pencilType),profile=ribbonProfileFor('digitalBrush',candidate.snapshot.opts.pencilType)
-      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);if(brush.version===194&&brushUsesGradient(brush))this._brush.preparePixelGradient(brush,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource));this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
+      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);if(usesNativeSketchSpray(brush)&&brushUsesGradient(brush))this._brush.preparePixelGradient(brush,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource));this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
       if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
       const scratch=candidate.scratch??=new RibbonStrokeScratch(this._ribbonScratchPool,profile.ink,profile.normalizeDeposit)
-      try{prepared=capability==='bristleSoak139'?this._brush.prepareBristleSoakGesture(target,line!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='filterSmudge147'?this._brush.prepareFilterBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):(capability==='cloneProjection149'||capability==='cloneHealing152')?this._brush.prepareCloneBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):this._brush.prepareSprayBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch)}catch(error){candidate.scratch=undefined;try{scratch.destroy()}catch{/* Preserve the primary, including undefined. */}throw error}
+      try{prepared=initialSoak195?this._brush.prepareBristleInitial195(target,candidate.dabs[0],this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='bristleSoak139'?this._brush.prepareBristleSoakGesture(target,line!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='filterSmudge147'?this._brush.prepareFilterBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):(capability==='cloneProjection149'||capability==='cloneHealing152')?this._brush.prepareCloneBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):this._brush.prepareSprayBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch)}catch(error){candidate.scratch=undefined;try{scratch.destroy()}catch{/* Preserve the primary, including undefined. */}throw error}
     }else{
       const paint=digitalBrushMixer(candidate.snapshot.opts.pencilType,candidate.snapshot.opts.graphiteColor)
       if(!paint)throw Error('Grid137 mixer metadata missing')
@@ -2651,6 +2658,11 @@ export class PencilEngine implements PencilEngineAPI {
       owner._executeAuthorStart(candidate.input,candidate.snapshot)
       if(owner._strokeId!==candidate.strokeId){if(candidate.capability&&canonicalBeginIsStamp(candidate.capability)){owner._cancelOwnedAuthor(false);return}owner._smudge.finishGesture(owner._userId,candidate.strokeId);owner._gridAuthor=undefined;return}
       const latest=candidate.latest;candidate.latest=undefined;if(latest)owner._onMoveCurrent(latest)
+      // A canonical source may wait before it owns a real gesture. Arm the
+      // same author clock only after that start lands, never for an ended,
+      // cancelled or replaced session queued while BEGIN was being acquired.
+      if(owner._gridAuthor===candidate&&owner._authorProducer===session&&!session.ended&&owner._strokeId===candidate.strokeId&&owner._dabs.timing){owner._airbrushInput={...session.input};owner._scheduleAirbrush()}
+
     })
   }
   private _retireStagedBeginScratch(candidate:GridAuthorCandidate|undefined,lost=false):void{
@@ -2693,7 +2705,7 @@ export class PencilEngine implements PencilEngineAPI {
     const prior=previous??(stored&&dabs[0]?{...dabs[0],...stored}:undefined)
     const capability=this._beginCapability(digitalBrushFromPreset(presetName))!
     if(capability!=='bristleSoak139'&&!standing?.canonicalSource&&!dabs.some(isGridRenderableDab137))return{kind:'painted',acceptedDabs:dabs.length}
-    const needsSource=capability==='bristleSoak139'?(!!(standing&&this._brush.bristleSoakBinding(standing))||!!firstBristleLine139(dabs,prior)):(!!standing?.canonicalSource||dabs.some(isGridRenderableDab137))
+    const needsSource=capability==='bristleSoak139'?(digitalBrushFromPreset(presetName).version===195&&dabs.length>0||!!standing?.canonicalSource||!!(standing&&this._brush.bristleSoakBinding(standing))||!!firstBristleLine139(dabs,prior)):(!!standing?.canonicalSource||dabs.some(isGridRenderableDab137))
     const runtime=needsSource?this._gridBinding(target,userId,strokeId,capability):undefined
     if(runtime&&'kind'in runtime)return{...runtime,acceptedDabs:0}
     const acceptedBefore=standing?.brushBehavior?.dabSequence??0
@@ -3337,7 +3349,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -4497,7 +4509,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -6745,7 +6757,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
     const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
     // A late page can resolve metadata already held by the other page. Use
@@ -7045,8 +7057,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleAuthorVisibility=():void=>{
     if(typeof document!=='undefined' && document.hidden)this._cancelOwnedAuthor(false,true)
   }
-  private _scheduleAirbrush():void {
+  private _scheduleAirbrush(restart=false):void {
     const session=this._authorProducer
+    const timing=session?.snapshot.opts.tool==='digitalBrush'?digitalBrushFromPreset(session.snapshot.opts.pencilType).behavior?.timing:undefined
+    if(restart&&timing?.version===2&&this._airbrushTimer!==null){clearTimeout(this._airbrushTimer);this._airbrushTimer=null}
+    if(timing?.version===2&&timing.hostRate===0)return
+
     if(this._airbrushTimer!==null || !session || session.ended)return
     this._airbrushTimer=setTimeout(()=>{
       this._airbrushTimer=null
@@ -7054,7 +7070,7 @@ export class PencilEngine implements PencilEngineAPI {
       const time=this._captureAuthorTime(session,performance.now())
       if(session.hold)session.hold.times.push(time)
       else {
-        const hold={times:[time],input:{...session.input},cameraAngle:session.cameraAngle};session.hold=hold
+        const hold={times:[time],input:timing?.version===2?{...session.input,speed:0,viewSpeed:0,normalizedSpeed:0}:{...session.input},cameraAngle:session.cameraAngle};session.hold=hold
         const owner=this
         this._authorInput.enqueue(function*(){
           try {
@@ -7068,7 +7084,7 @@ export class PencilEngine implements PencilEngineAPI {
         })
       }
       this._scheduleAirbrush()
-    },session.snapshot.opts.tool==='digitalBrush'&&digitalBrushFromPreset(session.snapshot.opts.pencilType).mypaint?16:1)
+    },timing?.version===2?Math.max(1,Math.floor(500/timing.hostRate)):session.snapshot.opts.tool==='digitalBrush'&&digitalBrushFromPreset(session.snapshot.opts.pencilType).mypaint?16:1)
   }
   private _captureAuthorTime(session:TimedAuthorSession,now:number):number {
     session.lastTime=Math.max(session.lastTime,Math.floor(now-session.snapshot.dispatchNow))
@@ -7082,7 +7098,7 @@ export class PencilEngine implements PencilEngineAPI {
     const sourceZoom=this._sourceInputZoom()
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
     const policy=brush?.behavior?.strokeInput
-    if((policy||brush?.version===190||brush?.version===191||brush?.version===192||brush?.version===193||brush?.version===194) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    if((policy||brush?.version===190||brush?.version===191||brush?.version===192||brush?.version===193||brush?.version===194||brush?.version===195) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const projection=brush&&(brush.mixer?.source==='projectionCanvas'||hasCloneProjection149Scope(brush)||(hasCloneHealing152Scope(brush)&&brush.clone?.source==='projectionCanvas')) ? this._compositeOrder.map(item=>({...item})) : undefined
     const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     if(brush?.clone&&!this._cloneSource)return
@@ -7150,6 +7166,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(session.ended)return
     const input={...e,...this._snapPoint(e.x,e.y)},time=this._captureAuthorTime(session,now),cameraAngle=this._authorCameraAngle
     session.hold=undefined;session.input=input;session.cameraAngle=cameraAngle
+    if(this._dabs.timing?.version===2)this._scheduleAirbrush(true)
     this._handlers.pointer?.(input)
     this._airbrushInput={...input}
     const owner=this
@@ -7178,7 +7195,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._stopAirbrush()
     const owner=this,endingGrid=this._gridAuthor
     this._authorInput.enqueue(function*(){
-      if(owner._dabs.timing && !input.cancelled)yield* owner._paintTimedInput(held,time,0,session.cameraAngle)
+      if(owner._dabs.timing && owner._dabs.timing.version!==2 && !input.cancelled)yield* owner._paintTimedInput(held,time,0,session.cameraAngle)
       owner._executeAuthorEnd(input,time,true)
       owner._wakeGridResources()
       if(!endingGrid||!owner._authorInput.isParked){
@@ -8445,7 +8462,7 @@ export class PencilEngine implements PencilEngineAPI {
         return undefined
       }
       if(paint?.brush&&this._beginCapability(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
-      if (paint) { if(paint.brush?.version!==191&&paint.brush?.version!==193){if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(paint.brush.version!==191&&paint.brush.version!==193&&!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(paint.brush.version!==191&&paint.brush.version!==193&&!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(paint.brush.version!==191&&paint.brush.version!==193&&!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(paint.brush.version!==191&&paint.brush.version!==193&&!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} }if(paint.brush&&paint.brush.version!==191&&paint.brush.version!==193&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(paint.brush); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)){if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} }if(paint.brush&&!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(paint.brush); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -8636,6 +8653,12 @@ export class PencilEngine implements PencilEngineAPI {
       const brush=digitalBrushFromPreset(presetName),stored=scratch.brushBehavior?.bristle?.previous
       const previous=prevDab??chunk?.prevDab??(stored&&dabs[0]?{...dabs[0],...stored}:undefined)
       const line=firstBristleLine139(dabs,previous)
+      if(brush.version===195&&dabs.length&&!this._brush.bristleSoakBinding(scratch)){
+        if(!profile.brushStamp)throw Error('Bristle195 stamp profile missing')
+        this._brush.prepareBristleSoak(brush)
+        const initial=this._brush.prepareBristleInitial195(target,dabs.find(isBristleAnchor139)??dabs[0],canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch)
+        if(initial.kind==='notReady')throw new GridHostNotReady(initial,canonicalBeginRuntime.binding.layerId)
+      }
       if(line){
         if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
         this._brush.prepareBristleSoak(brush)
@@ -8645,7 +8668,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(canonicalBeginRuntime?.capability==='spray146'){
       const first=dabs.find(isGridRenderableDab137)
-      if(first){if(!profile.brushStamp)throw Error('Spray146 stamp profile missing');this._brush.prepareRecordedStampResources(profile.brushStamp.brush);if(profile.brushStamp.brush.version===194&&brushUsesGradient(profile.brushStamp.brush))this._brush.preparePixelGradient(profile.brushStamp.brush,execution);this._brush.prepareSpraySources();const ready=this._brush.prepareSprayBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+      if(first){if(!profile.brushStamp)throw Error('Spray146 stamp profile missing');this._brush.prepareRecordedStampResources(profile.brushStamp.brush);if(usesNativeSketchSpray(profile.brushStamp.brush)&&brushUsesGradient(profile.brushStamp.brush))this._brush.preparePixelGradient(profile.brushStamp.brush,execution);this._brush.prepareSpraySources();const ready=this._brush.prepareSprayBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
     }
     if(canonicalBeginRuntime?.capability==='cloneProjection149'||canonicalBeginRuntime?.capability==='cloneHealing152'){
       const first=dabs.find(isGridRenderableDab137)
@@ -8763,7 +8786,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Prepare this exact capability before the painter advances gesture state.
     if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
     this._brush.prepareRecordedStampResources(stamp.brush)
-    if(stamp.brush.version===194?brushUsesGradient(stamp.brush):stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
+    if(usesNativeSketchSpray(stamp.brush)?brushUsesGradient(stamp.brush):stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)

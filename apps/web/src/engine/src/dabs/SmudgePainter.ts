@@ -1,3 +1,9 @@
+import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope}from'../presets/stationary195Scopes'
+import{usesNativeSmudgeTexture}from'../presets/nativeBrushFeatures'
+import{hasGridWash137Scope}from'../presets/stationary195Scopes'
+import{hasDeformOldData145Scope}from'../presets/stationary195Scopes'
+import{hasStationary195Scope}from'@grafetto/shared'
+import{usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
 import {COLOR_SMUDGE193_UNIFORMS,colorSmudge193Fragment,colorSmudge193CompositeCode} from '../raster/colorSmudge193Shader'
 import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
 import {autoSpikeAllocation} from '../raster/autoSpikes'
@@ -6,15 +12,15 @@ import {prepareAutoMaskNoise,autoMaskNoiseUniforms,autoMaskNoiseCoordinateBytes,
 import{hasColorSmudge193Scope,isTextureCombinations191Scope}from'@grafetto/shared'
 import{mask190RootExecution}from'../presets/independentMask190'
 type LegacyColorSmudgeFamily='base83'|'overlay154'|'minmax172'|'arithmetic175'|'dodgeBurn176'
-import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
+
+
+
+
 import{CanonicalBeginSource}from'./CanonicalBeginSource'
 import{canonicalBeginBindingKey,type CanonicalBeginRuntime,type CanonicalBeginBinding,type CanonicalBeginOwnerInfo,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginResult}from'./CanonicalBeginRuntime'
-import{hasDeformOldData145Scope}from'@grafetto/shared'
+
 import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
-import{hasGridWash137Scope,hasGridBeginIdentity137}from'@grafetto/shared'
+import{hasGridBeginIdentity137}from'@grafetto/shared'
 import{GridWashOwner,GridWashBudget,gridGestureKey137,isGridRenderableDab137,gridGeometryNotReady,gridNotReady,gridCapacity,gridDestinationPlan,type GridBounds,type GridWashRuntime,type GridWashNotReady,type GridWashBinding,type GridBeginResult,type GridDestinationPinsResult,type GridWashPrepareResult,type GridWashPaintResult,type GridWashOwnerInfo,type BorrowedGridWash}from'./GridWashRuntime'
 import{sprayWashRegions}from'../presets/sprayWash133'
 import {textureEraseId} from '../presets/brushTextureErase'
@@ -58,7 +64,7 @@ import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brus
 
 import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
-import { brushForegroundRate,sampleBrushGradient,brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
+import{ brushForegroundRate,sampleBrushGradient,brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab }from'@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -473,13 +479,13 @@ export class SmudgePainter {
     execution?: BrushExecutionContext,
     gridRuntime?:CanonicalBeginRuntime,
   ): GridWashPaintResult|void {
-    if((paint?.brush?.version===191||paint?.brush?.version===193)){execution=mask190RootExecution(paint.brush,execution);assertBrushExecutionContext(paint.brush,execution)}
+    if(paint?.brush&&(usesNativeSmudgeTexture(paint.brush)||paint.brush.version===195||usesNativeSmudgeFeatures(paint.brush))){execution=mask190RootExecution(paint.brush,execution);assertBrushExecutionContext(paint.brush,execution)}
     if(paint?.brush?.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')throw Error('Pixel alpha dual170 requires ordinary BrushPainter path')
     if(paint?.brush?.behavior?.dual?.blendMode==='hardMixSofterPhotoshop')throw Error('Pixel alpha dual168 requires ordinary BrushPainter path')
-    if(paint?.brush?.version!==191&&paint?.brush?.version!==193){if(paint?.brush?.mixer?.colorRateComposite==='dodge'||paint?.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}}
-    if(paint?.brush?.version!==191&&paint?.brush?.version!==193){if(paint?.brush?.mixer?.colorRateComposite==='add'||paint?.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}}
-    if(paint?.brush?.version!==191&&paint?.brush?.version!==193){if(paint?.brush?.mixer?.colorRateComposite==='darken'||paint?.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}}
-    if(paint?.brush?.version!==191&&paint?.brush?.version!==193){if(paint?.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='dodge'||paint?.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='add'||paint?.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='darken'||paint?.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}}
     if(paint?.brush?.deform?.sourcePolicy!==undefined){
       if(!hasDeformOldData145Scope(paint.brush))throw Error('Invalid Deform145 scope')
       assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
@@ -503,7 +509,7 @@ export class SmudgePainter {
     // read+write WebGL1 forbids. A harmless no-op: the real dabs below
     // always paint straight into the real layer regardless (see
     // the engine's _paintDabs doc comment on this parameter).
-    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs,undefined,execution); if((paint.brush.version===193||paint.brush.version===191&&paint.brush.texture?.application)&&!this.texture191Transfers.has(this.texture191Family(paint.brush)))throw Error('Texture191 transfer was not prepared');if(paint.brush.version!==191&&paint.brush.version!==193&&usesColorSmudgeTexture(paint.brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared') }
+    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs,undefined,execution); if((usesNativeSmudgeFeatures(paint.brush)||usesNativeSmudgeTexture(paint.brush)&&paint.brush.texture?.application)&&!this.texture191Transfers.has(this.texture191Family(paint.brush)))throw Error('Texture191 transfer was not prepared');if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&usesColorSmudgeTexture(paint.brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared') }
     if (target instanceof AccumulationBuffer) return
     const projectionRead=paint?.brush?.mixer?.source==='projectionCanvas' ? this.ctx.openProjection?.(execution!.brushSource!,target) : undefined
     let releaseTextures:(()=>void)|undefined,failed=false
@@ -523,10 +529,10 @@ export class SmudgePainter {
     } : target
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
-    const resources = paint?.brush ? bindBrushGradient((paint.brush.version===193||paint.brush.version===191?this.recordedTexture191Plans.get(paint.brush)?.resources:undefined)??brushPreparationResources(paint.brush),execution?.brushSource?.gradient) : undefined
+    const resources = paint?.brush ? bindBrushGradient((usesNativeSmudgeFeatures(paint.brush)||usesNativeSmudgeTexture(paint.brush)?this.recordedTexture191Plans.get(paint.brush)?.resources:undefined)??brushPreparationResources(paint.brush),execution?.brushSource?.gradient) : undefined
     if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
     releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : undefined
-    const gihFrames=paint?.brush?.version===193&&usesVariableGih(paint.brush.tip)?this.recordedTexture191Plans.get(paint.brush)?.gihFrames??prepareVariableGih(paint.brush,true):undefined
+    const gihFrames=paint?.brush&&usesNativeSmudgeFeatures(paint.brush)&&usesVariableGih(paint.brush.tip)?this.recordedTexture191Plans.get(paint.brush)?.gihFrames??prepareVariableGih(paint.brush,true):undefined
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs,target)
     for (const dab of dabs) {
       if (paint?.brush) {
@@ -632,7 +638,7 @@ export class SmudgePainter {
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,gradientColor?.color ?? paint.color)) {
       let shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
       const wetStamp: WetStamp = {gradientLut:brush.tip.color&&'gradient' in brush.tip.color ? state.behavior.execution!.brushSource!.gradient : undefined,foregroundAlpha:gradientColor?.alpha,projection,thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
-      if(brush.version===193){
+      if(usesNativeSmudgeFeatures(brush)){
         const radius=this.radiusOf(shaped,paint)
         wetStamp.sourceRadius=radius;wetStamp.sourceAspect=stamp.aspect;wetStamp.sourceAngle=stamp.angle
         if(gihFrames){
@@ -648,13 +654,13 @@ export class SmudgePainter {
         }
       }
       if (brushSamplesCanvas(brush)) {
-        if (brush.version===193?!(this.radiusOf(shaped,paint)>0):this.radiusOf(shaped,paint)<0.5) continue
+        if (brush&&usesNativeSmudgeFeatures(brush)?!(this.radiusOf(shaped,paint)>0):this.radiusOf(shaped,paint)<0.5) continue
         const mean=brush.mixer.sampling
         const previousPlaced = mean ? state.previousMeanPlaced : state.previousPlaced
         // Own gesture state, independent of frame selection/RNG. The first
         // placed contact establishes the source centre without painting.
         if(mean){
-          const placed=brush.version===193?wetStamp.stamp:stamp
+          const placed=brush&&usesNativeSmudgeFeatures(brush)?wetStamp.stamp:stamp
           const bounds=brushFootprintBounds(shaped.x,shaped.y,this.radiusOf(shaped,paint),placed.aspect,placed.angle)!
           state.previousMeanPlaced=canvasMeanPlacedCenter(wetStamp.meanRect??canvasMeanDabRect(shaped.x,shaped.y,bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))
         }else {
@@ -665,7 +671,7 @@ export class SmudgePainter {
           shaped={...shaped,...placement.maskCenter}
           wetStamp.stamp={...wetStamp.stamp,...placement.maskCenter}
         }
-        if(brush.version===193)wetStamp.sourceCenter={x:shaped.x,y:shaped.y}
+        if(usesNativeSmudgeFeatures(brush))wetStamp.sourceCenter={x:shaped.x,y:shaped.y}
         if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
       } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
     }
@@ -699,6 +705,7 @@ export class SmudgePainter {
   prepareDeformGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):CanonicalBeginPrepareResult{
     if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
     const brush=paint.brush,binding=runtime.binding
+    if(brush)execution=mask190RootExecution(brush,execution)
     if(!brush||!hasDeformOldData145Scope(brush)||runtime.capability!=='deformOld145'||binding.userId!==userId||!binding.layerId||!binding.strokeId||!binding.prefixKey)throw Error('Invalid Deform145 BEGIN')
     assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,[firstDab])
     const key=this.deformKey(binding),prior=this.wetGestures.get(key)
@@ -768,6 +775,7 @@ export class SmudgePainter {
   /** Owned capture BEFORE host author fields/operation publication. No dab is consumed. */
   prepareGridGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:GridWashRuntime):GridWashPrepareResult{
     const brush=paint.brush,binding=runtime.binding
+    if(brush)execution=mask190RootExecution(brush,execution)
     if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
     if(!brush||!hasGridWash137Scope(brush)||!hasGridBeginIdentity137({type:'stroke',strokeId:binding.strokeId})||binding.userId!==userId||!binding.layerId||!binding.prefixKey||!Number.isSafeInteger(binding.targetGeneration)||binding.targetGeneration<0)throw Error('Invalid Grid Wash137 binding/scope')
     if(!(target instanceof TiledLayerBuffer))throw Error('Grid Wash requires its tiled layer target')
@@ -977,7 +985,7 @@ export class SmudgePainter {
    *  a seam. */
   private applyDab(target: SmudgeLayer, dab: Dab, travel: number, userId: string, paint?: MixerPaint, wet?: WetStamp, previousCanvas?: { x: number; y: number }): void {
     const radius = this.radiusOf(dab, paint)
-    if (paint?.brush?.version===193?!(radius>0):radius<0.5) return
+    if (usesNativeSmudgeFeatures(paint?.brush)?!(radius>0):radius<0.5) return
     const footprint=brushFootprintBounds(dab.x,dab.y,radius,wet?.stamp.aspect ?? 1,wet?.stamp.angle ?? 0,1)
     if(!footprint)return
     const reach = Math.max(footprint.maxX-dab.x,footprint.maxY-dab.y)
@@ -1306,12 +1314,12 @@ export class SmudgePainter {
    * descriptors are deep-frozen; only their unbound metadata plan is retained.
    * Current gradient bindings and residency are checked anew for every batch. */
   prepareRecordedTexture191(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
-    if((brush.version!==191&&brush.version!==193)||brush.model!=='mixer')return
+    if((!usesNativeSmudgeTexture(brush)&&!usesNativeSmudgeFeatures(brush))||brush.model!=='mixer')return
     let plan=this.recordedTexture191Plans.get(brush)
     if(!plan){
-      if(!(brush.version===193?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush)))throw Error('Invalid whole recorded Texture191 scope')
+      if(!(brush.version===195?hasStationary195Scope(brush):brush&&usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush)))throw Error('Invalid whole recorded Texture191 scope')
       const resources=brushPreparationResources(brush)
-      plan={resources,...(brush.version===193&&usesVariableGih(brush.tip)?{gihFrames:prepareVariableGih(brush,true)}:{})}
+      plan={resources,...(usesNativeSmudgeFeatures(brush)&&usesVariableGih(brush.tip)?{gihFrames:prepareVariableGih(brush,true)}:{})}
       const bytes=brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)
       if(bytes+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Recorded Texture191 bank exceeds texture budget')
       if(resources.some(r=>r.nativeImage||r.lookup32))assertNativeImageAdmission(resources,this.imageDimensionLimit())
@@ -1327,27 +1335,27 @@ export class SmudgePainter {
   }
 
   private texture191Family(brush:BrushDescriptor):string{
-    if(brush.version===193)return brush.mixer?.algorithm?'193:modern':'193:legacy'
+    if(usesNativeSmudgeFeatures(brush))return brush.mixer?.algorithm?'193:modern':'193:legacy'
     const c=brush.mixer?.colorRateComposite
     if(brush.mixer?.algorithm)return colorSmudgeCompositeCode(c)>0?'modernForeground':'modern'
     return c==='overlay'?'overlay154':c==='darken'||c==='lighten'?'minmax172':c==='add'||c==='subtract'?'arithmetic175':c==='dodge'||c==='burn'?'dodgeBurn176':'base83'
   }
   private prepareTexture191(brush:BrushDescriptor):void{
-    if(!(brush.version===193?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush))||brush.model!=='mixer'||brush.version!==193&&!brush.texture?.application)throw Error('Invalid whole Texture191 transfer scope')
+    if(!(brush.version===195?hasStationary195Scope(brush):brush&&usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush))||brush.model!=='mixer'||!usesNativeSmudgeFeatures(brush)&&!brush.texture?.application)throw Error('Invalid whole Texture191 transfer scope')
     const key=this.texture191Family(brush);if(this.texture191Transfers.has(key))return
     this.prepareColorSmudgeMean();this.prepareMaterialProjection()
-    let source=brush.version===193?colorSmudge193Fragment(!!brush.mixer?.algorithm):wetTransferFragment(true,true,true,!!brush.mixer?.algorithm)
-    if(brush.version===193){/* Whole foreground bank is already composed. */}
+    let source=brush&&usesNativeSmudgeFeatures(brush)?colorSmudge193Fragment(!!brush.mixer?.algorithm):wetTransferFragment(true,true,true,!!brush.mixer?.algorithm)
+    if(usesNativeSmudgeFeatures(brush)){/* Whole foreground bank is already composed. */}
     else if(key==='modernForeground')source=colorSmudgeForegroundFragment(source)
     else if(key==='dodgeBurn176')source=colorSmudgeDodgeBurn176Fragment(source)
     else if(key!=='modern')source=colorSmudgeLegacyFragment(source,key==='overlay154',key==='minmax172',key==='arithmetic175')
-    if(brush.version!==193)source=withColorSmudgeTextureAlpha(source)
+    if(!usesNativeSmudgeFeatures(brush))source=withColorSmudgeTextureAlpha(source)
     const gl=this.gl,program=createProgram(gl,DAB_VERT,source)
-    this.texture191Transfers.set(key,{program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,...(brush.version===193?COLOR_SMUDGE193_UNIFORMS:[]),'u_colorSmudgeComposite','u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap','u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])})
+    this.texture191Transfers.set(key,{program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,...(brush&&usesNativeSmudgeFeatures(brush)?COLOR_SMUDGE193_UNIFORMS:[]),'u_colorSmudgeComposite','u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap','u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])})
   }
 
   prepareColorSmudgeTexture(brush?:BrushDescriptor): void {
-    if(brush?.version===191||brush?.version===193){this.prepareTexture191(brush);return}
+    if(brush&&(usesNativeSmudgeTexture(brush)||usesNativeSmudgeFeatures(brush))){this.prepareTexture191(brush);return}
     this.prepareColorSmudgeMean()
     this.prepareMaterialProjection()
     if(this.colorSmudgeTextureTransfer)return
@@ -1491,7 +1499,7 @@ export class SmudgePainter {
     const { gl } = this
     const { buffer } = tile
     const paper = this.ctx.paper
-    const brush=wet?.paint.brush,dual=brush?.behavior?.dual,texture191=brush?.version===193||brush?.version===191&&!!brush.texture?.application
+    const brush=wet?.paint.brush,dual=brush?.behavior?.dual,texture191=usesNativeSmudgeFeatures(brush)||!!brush&&usesNativeSmudgeTexture(brush)&&!!brush.texture?.application
     const texture191Binding=texture191?this.texture191Transfers.get(this.texture191Family(brush!)):undefined
     if(texture191&&!texture191Binding)throw Error('Texture191 transfer was not prepared')
     const overlay154=wet?.paint.brush?.mixer?.colorRateComposite==='overlay'
@@ -1506,10 +1514,10 @@ export class SmudgePainter {
     // beginning the destination pass so allocation cannot redirect this dab.
     const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
     if(brush&&!texture191&&usesColorSmudgeTexture(brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared')
-    const composite=brush?.version===193?colorSmudge193CompositeCode(brush.mixer?.colorRateComposite):colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
+    const composite=brush&&usesNativeSmudgeFeatures(brush)?colorSmudge193CompositeCode(brush.mixer?.colorRateComposite):colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
     const legacyComposite=composite===4||composite===5||(composite===6||composite===7||composite===8||composite===9||composite===10||composite===11||composite===12||composite===13)&&!brush?.mixer?.algorithm
     if(!texture191&&composite===6&&(!brush||brush.version<88||brush.model!=='mixer'||brush.behavior?.erase!==true||!brushSamplesCanvas(brush)))throw Error('Foreground erase requires Color Smudge88')
-    if(brush?.version!==193&&legacyComposite && (brush?.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
+    if(!usesNativeSmudgeFeatures(brush)&&legacyComposite && (!brush||brush.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
     const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? brushTipSamplerId(dual?.brush.tip)
     const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
@@ -1517,7 +1525,7 @@ export class SmudgePainter {
     const imageRatio = dual && brush ? Math.max(.01,curveAt(dual.brush.sizeByPressure,dab.pressure)/Math.max(.01,curveAt(brush.sizeByPressure,dab.pressure))*(dual.brush.scatter?.scale ?? 1)) : 1
     const imageChildRx = Math.fround(Math.fround(Math.fround(radius)*Math.fround(wet?.stamp.aspect ?? 1))*imageRatio/(1+(wet?.stamp.edgeSoftness ?? 0)*.15))
     const childImage = dualTip && dual?.brush.tip.imageSampling ? nativeImageResource(dualTip,dual.brush.tip,2*imageChildRx) : undefined
-    const lookup32=brush?.version===193?!!brush.tip.profile&&['radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'].includes(brush.tip.profile.kind):brush?.tip.profile?.kind==='radialCurve'
+    const lookup32=brush&&usesNativeSmudgeFeatures(brush)?!!brush.tip.profile&&['radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'].includes(brush.tip.profile.kind):brush?.tip.profile?.kind==='radialCurve'
     const grainId=textureEraseId(brush?.texture,!!brush?.behavior?.erase)
     this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes:wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] : undefined),nativeImage:mainImage,lookup32:lookup32?true:undefined,gradientMap:wet?.gradientLut?true:undefined,gradientLut:wet?.gradientLut})] : []),...(brush?.texture ? [brushTextureResourceKey({id:grainId!,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
     const colorPlanes=wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] as const : undefined)
@@ -1530,7 +1538,7 @@ export class SmudgePainter {
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
-    const primaryProfile = brush?.version===193?brush.tip.profile:(brush?.tip.profile?.kind === 'standard' || brush?.tip.profile?.kind === 'radialCurve') ? brush.tip.profile : undefined
+    const primaryProfile = brush&&usesNativeSmudgeFeatures(brush)?brush.tip.profile:(brush?.tip.profile?.kind === 'standard' || brush?.tip.profile?.kind === 'radialCurve') ? brush.tip.profile : undefined
     const childProfile = !wet?.secondary && (dual?.brush.tip.profile?.kind === 'standard' || dual?.brush.tip.profile?.kind === 'radialCurve')
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
@@ -1595,7 +1603,7 @@ export class SmudgePainter {
       if(mainImage && brush) gl.uniform4f(u.u_tipImageDomain,...nativeImageDomainUniform(nativeImageDomain(brush.tip,dab.x,dab.y,radius*(wet?.stamp.aspect ?? 1),radius,wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
       if(childImage && dual) gl.uniform4f(u.u_dualImageDomain,...nativeImageDomainUniform(nativeImageDomain(dual.brush.tip,dab.x,dab.y,imageChildRx,imageChildRx/dual.brush.tip.aspect,dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
     }
-    if(brush?.version===193&&wet){
+    if(brush&&usesNativeSmudgeFeatures(brush)&&wet){
       const profile=brush.tip.profile,ry=(wet.sourceRadius??radius)*(wet.maskScale??1),rx=ry*(wet.sourceAspect??wet.stamp.aspect)
       gl.uniform1f(u.u_generatorAngle193,wet.sourceAngle??wet.stamp.angle)
       gl.uniform2f(u.u_generatorCenter193,dab.x-tile.originX,dab.y-tile.originY)
@@ -1649,7 +1657,7 @@ export class SmudgePainter {
     const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
     if(modern)foregroundOpacity=rates.color
     if(binding && (texture191Binding&&modern || binding===this.colorSmudgeTransfer || binding===this.colorSmudgeTextureTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
-    if(binding && (texture191Binding&&(brush?.version===193||composite>0) || binding===this.colorSmudgeForegroundTransfer || (binding===this.colorSmudgeLegacyTransfer||binding===this.colorSmudgeLegacyOverlayTransfer||binding===this.colorSmudgeLegacyMinMaxTransfer||binding===this.colorSmudgeLegacyArithmeticTransfer||binding===this.colorSmudgeLegacyDodgeBurnTransfer)))gl.uniform1f(u.u_colorSmudgeComposite,composite)
+    if(binding && (texture191Binding&&(usesNativeSmudgeFeatures(brush)||composite>0) || binding===this.colorSmudgeForegroundTransfer || (binding===this.colorSmudgeLegacyTransfer||binding===this.colorSmudgeLegacyOverlayTransfer||binding===this.colorSmudgeLegacyMinMaxTransfer||binding===this.colorSmudgeLegacyArithmeticTransfer||binding===this.colorSmudgeLegacyDodgeBurnTransfer)))gl.uniform1f(u.u_colorSmudgeComposite,composite)
     foregroundOpacity*=wet?.foregroundAlpha ?? 1
     gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
     const thickness=wet?.thickness ?? 1
@@ -1741,7 +1749,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_dabRadius, radius)
     gl.uniform1f(u.u_angle, wet?.stamp.angle ?? 0)
     gl.uniform1f(u.u_aspectRatio, wet?.stamp.aspect ?? 1)
-    if(brush?.version===193&&wet){
+    if(brush&&usesNativeSmudgeFeatures(brush)&&wet){
       if(wet.gih){gl.uniform1f(u.u_wickPx,0);gl.uniform1f(u.u_angle,0)}
       else if(brush.tip.autoShape){gl.uniform1f(u.u_wickPx,0);gl.uniform1f(u.u_angle,0)}
     }

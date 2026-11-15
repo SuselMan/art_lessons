@@ -1,3 +1,4 @@
+import{tangentConstructorIsPoint195}from'../presets/tangentConstructor195'
 import { mask190SourceSize } from '../presets/independentMask190'
 import{assertRecordedPen188Inputs,assertRecordedPen188Values}from '../presets/recordedPen188'
 import{EMPTY_RECORDED_PEN_INPUT,hasRecordedPenInput,canonicalPenInput,interpolatePenInput,type RecordedPenInput}from '@grafetto/shared'
@@ -155,6 +156,14 @@ const STATIONARY_PX = 0.5
 // travel in one sample, i.e. around 2800 px/s on a 120Hz stylus.
 const MAX_PRESSURE_FILTER_STEP = 0.9
 
+/** Latched once from a validated whole195 root; never a wire or frame-time field. */
+export interface StationaryAuthorPolicy195 {
+ readonly family:string
+ readonly callback:'refreshOnly'|'effective'|'movingBypass'|'lineCallback'
+ readonly updateSpacingBetweenDabs:boolean
+ readonly ignoreRate?:boolean
+}
+
 export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
@@ -171,6 +180,7 @@ export class DabSystem {
   sketchTiming161?:BrushDescriptor
   curveHostTiming167?:BrushDescriptor
   particleTiming157?:BrushDescriptor
+  stationary195?:StationaryAuthorPolicy195
   timing?: NonNullable<BrushDescriptor['behavior']>['timing']
   private _timingState=new SourceDistanceTiming()
   private _timingPoint?: SourcePaintInformation
@@ -582,6 +592,7 @@ export class DabSystem {
     fork.sketchTiming161=this.sketchTiming161
     fork.curveHostTiming167=this.curveHostTiming167
     fork.particleTiming157=this.particleTiming157
+    fork.stationary195=this.stationary195
     fork.timing=this.timing?structuredClone(this.timing):undefined
     fork._timingState=this._timingState.clone()
     fork._timingPoint=this._timingPoint?{...this._timingPoint}:undefined
@@ -627,7 +638,7 @@ export class DabSystem {
     if(this.recordedPen188)assertRecordedPen188Inputs(this.recordedPen188,[pen])
     canonicalPenInput(pen) // Validate optional ABI before author state changes.
     if(this._timingStreamActive)throw Error('Cannot start before source input completes')
-    if(this.mypaintTiming177&&(!Number.isFinite(baseSize)||baseSize<=0||!hasMyPaintTimer177Scope(this.mypaintTiming177)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.mypaintTiming177.behavior!.timing)))throw Error('Invalid author MyPaint timer177')
+    if(!this.stationary195&&this.mypaintTiming177&&(!Number.isFinite(baseSize)||baseSize<=0||!hasMyPaintTimer177Scope(this.mypaintTiming177)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.mypaintTiming177.behavior!.timing)))throw Error('Invalid author MyPaint timer177')
     if(this.deformTiming160&&(!hasDeformTimer160Scope(this.deformTiming160)||!this.captureSourceTime||this.inputKnots||JSON.stringify(this.timing)!==JSON.stringify(this.deformTiming160.behavior!.timing)))throw Error('Invalid author Deform timer160')
     if(this.sketchTiming161&&(!hasSketchTimer161Scope(this.sketchTiming161)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.sketchTiming161.behavior!.timing)))throw Error('Invalid author Sketch timer161')
     if(this.particleTiming157&&(!hasParticleTimer157Scope(this.particleTiming157)||!this.inputKnots||!this.captureSourceTime||JSON.stringify(this.timing)!==JSON.stringify(this.particleTiming157.behavior!.timing)))throw Error('Invalid author Particle timer157')
@@ -660,6 +671,7 @@ export class DabSystem {
     this._pendingSpacing = this._spacingAfter(first, baseSize, nominalDabSpacing(baseSize, this.spacingFactor))
     if(this.timing){
       first.t=time;first.sourceTime=time
+      this._acceptStationaryRequest195(first)
       this._timingPoint={...canonicalPenInput(pen),x,y,pressure:p,tiltX,tiltY,t:time,angle:initialAngle,...(normalizedSpeed===undefined?{}:{normalizedSpeed})}
       this._sourcePrevious={...this._timingPoint}
       this._timingInterval=this._timingAfter(first)
@@ -974,8 +986,8 @@ export class DabSystem {
       this._spacingAxes={x:spacing,y:spacing,angle:0}
       return spacing
     }
-    if(this.deformTiming160){
-      const brush=this.deformTiming160,scale=brush.deform!.baseScale
+    if(this.deformTiming160||this.stationary195?.family==='deform'){
+      const brush=this.deformTiming160??this.recordedPen188!,scale=brush.deform!.baseScale
       // Native constructor uses unpressured diameter, not emitted Size sensors.
       const spacing=baseSize/scale>2 ? Math.max(.5,baseSize*brush.behavior!.spacing!.coefficient) : 1
       this._spacingAxes={x:spacing,y:spacing,angle:0}
@@ -991,7 +1003,7 @@ export class DabSystem {
       // dabs keep their actual pacing time and never consult that clock.
       const t = this.strokeInput || this.captureSourceTime || dab.normalizedSpeed!==undefined ? dab.t : previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
       const input=codecDab({ ...dab, t })
-      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle,baseSize)
+      this._spacingAxes=brushSourceSpacingAxes(brush,input,this.stationary195?structuredClone(state):state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle,baseSize)
       return this._autoSpacingStep(this._pathAngle)
     }
     const fp = this.footprint
@@ -1073,7 +1085,7 @@ export class DabSystem {
   private _sourceRequests(sample: SourcePaintInformation, baseSize: number): Dab[] {
     return [...this._sourceRequestStream(sample,baseSize)]
   }
-  private *_sourceRequestStream(sample:SourcePaintInformation,baseSize:number):Generator<Dab,void> {
+  private *_sourceRequestStream(sample:SourcePaintInformation,baseSize:number,requestKind:'point'|'line'='point'):Generator<Dab,void> {
     const previous=this._sourcePrevious
     const next={...sample,angle:previous ? sourceDrawingDirection(previous,sample,previous.angle) : this.initialDirection}
     const fans=previous && this.strokeInput?.fanCorners
@@ -1085,14 +1097,25 @@ export class DabSystem {
       dab.t=request.t
       if(this.captureSourceTime)dab.sourceTime=request.t
       this._sourcePrevious={...request}
+      this._acceptStationaryRequest195(dab,requestKind)
       yield dab
     }
   }
 
-  private _timingAfter(dab:Dab):number {
+  private _acceptStationaryRequest195(dab:Dab,kind:'point'|'line'='point'):void {
+    if(!this.stationary195)return
+    const state=this._spacingBehavior??=beginBrushBehavior(dab,this.brushExecution),previous=state.previous
+    if(previous)state.distance+=Math.hypot(dab.x-previous.x,dab.y-previous.y)
+    const registered=kind==='point'||this.stationary195.family==='bristle'
+    if(registered){state.maxPressure=Math.max(state.maxPressure??0,dab.pressure);state.dabSequence=(state.dabSequence??0)+1}
+    state.previous={...dab}
+  }
+
+  private _timingAfter(dab:Dab):number|undefined {
+    if(this.stationary195&&(this.stationary195.callback==='refreshOnly'||this.stationary195.callback==='lineCallback'))return undefined
     const state=this._spacingBehavior ?? beginBrushBehavior(dab,this.brushExecution)
-    const factor=this.timing?.rateDynamics?.reduce((value,control)=>value*brushDynamicValue(control,dab,state,0),1)??1
-    return sourceTimingInterval(this.timing!.rate,factor)
+    const factor=this.stationary195?.ignoreRate?1:this.timing?.rateDynamics?.reduce((value,control)=>value*brushDynamicValue(control,dab,state,0),1)??1
+    return sourceTimingInterval(this.timing!.rate,this.stationary195&&this.timing!.rate===0?0:factor)
   }
 
   /** One serial author input. Pump in bounded batches; do not interleave inputs
@@ -1112,6 +1135,11 @@ export class DabSystem {
     const previous=this._timingPoint
     if(!previous)return
     if(next.t<previous.t)throw Error('Source timing input moved backwards')
+    if(this.stationary195?.callback==='lineCallback'||this.stationary195?.family==='tangentNormal'&&this.recordedPen188&&tangentConstructorIsPoint195(this.recordedPen188,baseSize)){
+      yield* this._sourceRequestStream(next,baseSize,'line')
+      this._timingPoint={...next};this._buf=[{...next,time:next.t}]
+      return
+    }
     // Curve consumes the host callback itself, not an effectiveTiming dab.
     // Every real event (even same-position pressure) restarts the QTimer deadline.
     if(this.curveHostTiming167&&role==='real'){
@@ -1122,15 +1150,15 @@ export class DabSystem {
     }
     // Native Particle and Sketch bypass base timing for moving host inputs; it does not
     // spend/reset the stationary accumulator on this branch. No spatial resampling.
-    if((this.particleTiming157||this.sketchTiming161)&&(next.x!==previous.x||next.y!==previous.y)){
-      yield* this._sourceRequestStream(next,baseSize)
+    if((this.stationary195?.callback==='movingBypass'||this.particleTiming157||this.sketchTiming161)&&(next.x!==previous.x||next.y!==previous.y)){
+      yield* this._sourceRequestStream(next,baseSize,this.stationary195?'line':'point')
       this._timingPoint={...next};this._buf=[{...next,time:next.t}]
       return
     }
     let current={...previous}
     while(true){
       const axes=this._spacingAxes??{x:this._pendingSpacing,y:this._pendingSpacing,angle:0}
-      const factor=this._timingState.next(current,next,{...axes,enabled:!this.timing!.ignoreDistanceSpacing,isotropic:this.autoSpacing?.isotropic??true},this._timingInterval)
+      const factor=this._timingState.next(current,next,{...axes,enabled:this.stationary195?.callback==='refreshOnly'||!this.timing!.ignoreDistanceSpacing,isotropic:this.autoSpacing?.isotropic??true},this._timingInterval)
       if(factor<0)break
       const mix=(a:number,b:number)=>(1-factor)*a+factor*b
       const point:SourcePaintInformation={...(hasRecordedPenInput(current)||hasRecordedPenInput(next)?interpolatePenInput(current,next,factor):EMPTY_RECORDED_PEN_INPUT),x:mix(current.x,next.x),y:mix(current.y,next.y),pressure:mix(current.pressure,next.pressure),tiltX:mix(current.tiltX,next.tiltX),tiltY:mix(current.tiltY,next.tiltY),t:mix(current.t,next.t),angle:0,
@@ -1145,7 +1173,7 @@ export class DabSystem {
     }
     if(this._timingState.spacingElapsed>=50 || this._timingState.timingElapsed>=50){
       const refresh: Dab={...this._forkPreview()._makeDab(next.x,next.y,next.pressure,next.tiltX,next.tiltY,baseSize,sourceDrawingDirection(previous,next,this._sourcePrevious?.angle??previous.angle),0,next.normalizedSpeed,next),t:next.t,sourceTime:next.t}
-      if(this._timingState.spacingElapsed>=50){this._pendingSpacing=this._spacingAfter(refresh,baseSize,this.autoSpacing?Infinity:nominalDabSpacing(baseSize,this.spacingFactor));this._timingState.updateSpacing()}
+      if((!this.stationary195||this.stationary195.updateSpacingBetweenDabs)&&this._timingState.spacingElapsed>=50){this._pendingSpacing=this._spacingAfter(refresh,baseSize,this.autoSpacing?Infinity:nominalDabSpacing(baseSize,this.spacingFactor));this._timingState.updateSpacing()}
       if(this._timingState.timingElapsed>=50){this._timingInterval=this._timingAfter(refresh);this._timingState.updateTiming()}
     }
     this._timingPoint={...next}
@@ -1185,7 +1213,7 @@ export class DabSystem {
       ...canonicalPenInput(pen),x: fp.x, y: fp.y, pressure, tiltX, tiltY,
       size: fp.size, aspectRatio: fp.aspectRatio, angle: this.strokeInput ? pathAngle : fp.angle, opacity: 1, t: 0,
       ...(this.strokeInput||this.captureSourceAngle ? {sourceAngle:pathAngle} : {}),
-      ...(this.captureSourceSize ? {sourceSize:this.brushExecution?.maskRole190?mask190SourceSize(baseSize):captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
+      ...(this.captureSourceSize ? {sourceSize:this.brushExecution?.maskRole190&&(!this.stationary195||['pixel','smudge','filter','sketch','spray'].includes(this.stationary195.family))?mask190SourceSize(baseSize):captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
       ...(normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(normalizedSpeed)}),
     }
   }

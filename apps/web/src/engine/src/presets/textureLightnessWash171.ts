@@ -1,8 +1,9 @@
+import{usesNativePixelMaterials,usesNativeSmudgeTexture}from'./nativeBrushFeatures'
 import{assertTextureLightnessWash171Scope,type BrushDescriptor}from'@grafetto/shared'
 import{importedAssetPixels}from'./importedBrushes'
 /** Borrowed immutable source metadata only. Existing108 upload validates padding. */
 export function assertTextureLightnessWash171Planes(brush:BrushDescriptor):boolean{
- if(brush.version===191)return false
+ if(usesNativePixelMaterials(brush)||usesNativeSmudgeTexture(brush))return false
  if(!assertTextureLightnessWash171Scope(brush))return false
  const t=brush.texture!,m=t.material!,grid=t.patternSize
  const side=(id:string)=>{const n=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(n)||n<2||n>2048||(n&(n-1))!==0)throw Error('Texture Wash171 source plane is not canonical');return n}

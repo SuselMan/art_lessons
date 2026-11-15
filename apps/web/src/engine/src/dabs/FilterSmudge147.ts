@@ -1,9 +1,11 @@
+import{usesNativeFilterMask}from'../presets/nativeBrushFeatures'
+import{hasFilterGaussian153Scope,hasFilterSmudge147Scope,hasFilterUnsharp159Scope}from'../presets/stationary195Scopes'
 import { FILTER_COMPOSITE192_GLSL,filterComposite192Code,filterSourceOver192 } from './filterComposite192'
 import{FilterGaussian153Pass}from'./FilterGaussian153'
-import{hasFilterUnsharp159Scope,hasFilterGaussian153Scope}from'@grafetto/shared'
-const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush?.version===192?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
-const unsharpFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush?.version===192?brush.filter?.kind==='unsharp':hasFilterUnsharp159Scope(brush)
-import{hasFilterSmudge147Scope,type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
+
+const spatialFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='gaussian'||brush.filter?.kind==='unsharp':hasFilterGaussian153Scope(brush)||hasFilterUnsharp159Scope(brush)
+const unsharpFilter=(brush:BrushDescriptor|undefined,validated192=false):boolean=>validated192&&brush&&usesNativeFilterMask(brush)?brush.filter?.kind==='unsharp':hasFilterUnsharp159Scope(brush)
+import{type BrushDescriptor,type BrushFilter}from'@grafetto/shared'
 import type{PaintTarget}from'../buffers/ILayerBuffer'
 import type{WorldRect}from'../buffers/tileMath'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
@@ -72,7 +74,7 @@ export class FilterSmudge147Pass{
  destroy():void{if(this.geometry)this.gl.deleteBuffer(this.geometry);if(this.next)this.gl.deleteProgram(this.next);if(this.copy)this.gl.deleteProgram(this.copy);this.sampler.destroy();this.gaussian?.destroy();this.forget()}
  private draw(program:WebGLProgram,target:AccumulationBuffer,rect:WorldRect):void{const gl=this.gl;gl.useProgram(program);gl.uniform2f(gl.getUniformLocation(program,'u_resolution'),target.width,target.height);gl.uniform4f(gl.getUniformLocation(program,'u_rect'),rect.minX,rect.minY,rect.maxX-rect.minX,rect.maxY-rect.minY);gl.bindBuffer(gl.ARRAY_BUFFER,this.geometry!);const at=gl.getAttribLocation(program,'a_position');gl.enableVertexAttribArray(at);gl.vertexAttribPointer(at,2,gl.FLOAT,false,0,0);try{gl.drawArrays(gl.TRIANGLES,0,6)}finally{gl.disableVertexAttribArray(at)}}
  paint(brush:BrushDescriptor,state:FilterSmudge147State,request:FilterSmudge147Request,tile:PaintTarget,bounds:WorldRect,mask:AccumulationBuffer,opacity:number,validated192=false):void{
-  if(!(validated192&&brush.version===192)&&!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');this.assertPrepared(brush,validated192);request.assertCurrent();if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('Invalid Filter147 opacity')
+  if(!(validated192&&usesNativeFilterMask(brush))&&!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');this.assertPrepared(brush,validated192);request.assertCurrent();if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('Invalid Filter147 opacity')
   if(spatialFilter(brush,validated192)){if(!request.spatial)throw Error('Gaussian153 request plan missing');request.spatial.destinations.push({tile,mask});return}
   const filter=brush.filter as Exclude<BrushFilter,{version:1}>,gl=this.gl,working=request.working.buffer,next=request.next.buffer,previous=request.temporary(tile)
   if(new Set([working.texture,next.texture,previous.texture,tile.buffer.texture,mask.texture]).size!==5)throw Error('Filter147 sampled target alias')

@@ -1,6 +1,7 @@
+import{hasExperimentCurrentPattern158Scope}from'./stationary195Scopes'
 import { mask190RootExecution, mask190Role, type MaskRole190 } from './independentMask190'
 import{assertRecordedPen188Inputs}from './recordedPen188'
-import { hasExperimentCurrentPattern158Scope,hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
+import{hasTimeControl132,isPrimaryClockRead132Marker,isIndependentChildClock132Pair,isIndependentDrawingAnglePair,brushUsesGradient,isBrushSourceContext,copyBrushSourceContext,brushSourceKey,type BrushSourceContext, isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab }from'@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
 export interface BrushExecutionContext {
@@ -11,7 +12,7 @@ export interface BrushExecutionContext {
 export function brushExecutionContext(seeds?: BrushRandomSeeds,source?:BrushSourceContext,maskRole190?:MaskRole190): BrushExecutionContext | undefined {
   if(seeds === undefined && source===undefined && maskRole190===undefined) return undefined
   if(seeds!==undefined && !isBrushRandomSeeds(seeds)) throw Error('Invalid brush execution seeds')
-  return {...(maskRole190?{maskRole190:{...maskRole190}}:{}),...(seeds ? {brushRandom:{...seeds}} : {}),...(source ? {brushSource:copyBrushSourceContext(source)} : {})}
+  return {...(maskRole190?{maskRole190:{...maskRole190,...(maskRole190.stationary195?{stationary195:{...maskRole190.stationary195}}:{})}}:{}),...(seeds ? {brushRandom:{...seeds}} : {}),...(source ? {brushSource:copyBrushSourceContext(source)} : {})}
 }
 
 const requiresContext = new WeakMap<BrushDescriptor, boolean>()
@@ -52,7 +53,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
 }
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {
   const previousRole=previous?.maskRole190,nextRole=incoming?.maskRole190
-  if((previousRole?.version??190)!==(nextRole?.version??190)||previousRole?.rootId!==nextRole?.rootId||previousRole?.childId!==nextRole?.childId||previousRole?.role!==nextRole?.role||previousRole?.needTime!==nextRole?.needTime||previousRole?.needSpeed!==nextRole?.needSpeed||previousRole?.needRandom!==nextRole?.needRandom||previousRole?.needGradient!==nextRole?.needGradient)throw Error('Mask190 execution role changed during a gesture')
+  if((previousRole?.version??190)!==(nextRole?.version??190)||previousRole?.rootId!==nextRole?.rootId||previousRole?.childId!==nextRole?.childId||previousRole?.role!==nextRole?.role||previousRole?.needTime!==nextRole?.needTime||previousRole?.needSpeed!==nextRole?.needSpeed||previousRole?.needRandom!==nextRole?.needRandom||previousRole?.needGradient!==nextRole?.needGradient||previousRole?.stationary195?.family!==nextRole?.stationary195?.family||previousRole?.stationary195?.callback!==nextRole?.stationary195?.callback||previousRole?.stationary195?.variant!==nextRole?.stationary195?.variant)throw Error('Mask190 execution role changed during a gesture')
   const a = previous?.brushRandom, b = incoming?.brushRandom
   if(a && (!b || a.version !== b.version || a.strokeSeed !== b.strokeSeed || a.sequentialSeed !== b.sequentialSeed)) throw Error('Brush execution context changed during a gesture')
   const x=previous?.brushSource,y=incoming?.brushSource

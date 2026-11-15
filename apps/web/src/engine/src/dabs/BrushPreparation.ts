@@ -1,22 +1,27 @@
-import { hasSketchSpray194Scope,hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSprayWash133Scope}from'../presets/stationary195Scopes'
+import{usesNativeSmudgeTexture,usesNativePixelMaterials}from'../presets/nativeBrushFeatures'
+import{hasBristleWash135Scope,hasFilterBitmapMaskScope,hasFilterMask192Scope,hasParticleWash134Scope,hasTangentNormalWash136Scope}from'../presets/stationary195Scopes'
+import{hasStationary195Scope}from'@grafetto/shared'
+import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
+import{ hasSketchSpray194Scope,hasColorSmudge193Scope,hasIndependentMask190Scope,isTextureCombinations191Scope }from'@grafetto/shared'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
-import{hasLegacyColorSmudgeDodgeBurn176Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeArithmetic175Scope}from'@grafetto/shared'
+
+
 import{prepareSketchMask}from'../presets/sketchMask'
 import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
-import{hasLegacyColorSmudgeMinMax172Scope}from'@grafetto/shared'
-import{hasFilterBitmapMaskScope}from'@grafetto/shared'
-import {isBrushPattern,type BrushPattern} from '@grafetto/shared'
+
+
+import{isBrushPattern,type BrushPattern}from'@grafetto/shared'
 import{hasSprayRectangleNoise155Scope}from'@grafetto/shared'
-import{hasLegacyColorSmudgeOverlay154Scope}from'@grafetto/shared'
+
 import {assertBristleSource143Ready} from '../presets/bristleInitialization140'
-import{hasTangentNormalWash136Scope}from'@grafetto/shared'
-import{hasBristleWash135Scope}from'@grafetto/shared'
-import{hasParticleWash134Scope}from'@grafetto/shared'
-import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
+
+
+
+import{isBrushSpray}from'@grafetto/shared'
 import{hasSmudgeTextureErase131Scope}from'@grafetto/shared'
 import{assertIndependentLightness128}from'../presets/independentLightness128'
 import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
@@ -33,7 +38,7 @@ import { proceduralProfileUniforms } from '../raster/brushProcedural'
 import { nativeImageBank, type NativeImageResource } from './NativeImageBank'
 import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import {brushTipColorPlanes,isBrushGradient,type BrushBristle,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId} from '@grafetto/shared'
+import{brushTipColorPlanes,isBrushGradient,type BrushBristle,type BrushDescriptor,type BrushTip,type BrushTextureId,type TipMaskId}from'@grafetto/shared'
 
 export interface BrushPreparationResource { painter: 'stamp' | 'wet';canvasPattern?:true; bristleSaturation?:BrushBristle; gradientMap?:true;gradientLut?:string;gradientSource?:true;gradientPalette?:true;colorPlanes?: readonly [string,string,string]; id: TipMaskId | BrushTextureId; grain: boolean; patternAlpha?:string;patternSize?:{width:number;height:number}; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource; lookup32?: true }
 export interface BrushPreparationOptions { pattern?:BrushPattern;gradient?:string;signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
@@ -109,27 +114,27 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   resources: BrushPreparationResource[]
   capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
-  if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
+  const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+  if((brush.version===195||brush.version===190||usesNativePixelMaterials(brush)||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush))&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
   if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
-  if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(brush.version!==191&&brush.version!==193&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground DodgeBurn176 scope')
-  if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(brush.version!==191&&brush.version!==193&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Arithmetic175 scope')
-  if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(brush.version!==191&&brush.version!==193&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground MinMax172 scope')
-  if(brush.mixer?.colorRateComposite==='overlay'&&(brush.version!==191&&brush.version!==193&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Overlay154 scope')
+  if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(!usesNativePixelMaterials(brush)&&!usesNativeSmudgeFeatures(brush)&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground DodgeBurn176 scope')
+  if((brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')&&(!usesNativePixelMaterials(brush)&&!usesNativeSmudgeFeatures(brush)&&(!hasLegacyColorSmudgeArithmetic175Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Arithmetic175 scope')
+  if((brush.mixer?.colorRateComposite==='darken'||brush.mixer?.colorRateComposite==='lighten')&&(!usesNativePixelMaterials(brush)&&!usesNativeSmudgeFeatures(brush)&&(!hasLegacyColorSmudgeMinMax172Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground MinMax172 scope')
+  if(brush.mixer?.colorRateComposite==='overlay'&&(!usesNativePixelMaterials(brush)&&!usesNativeSmudgeFeatures(brush)&&(!hasLegacyColorSmudgeOverlay154Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground Overlay154 scope')
   if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!hasTangentNormalWash136Scope(brush))throw Error('Invalid Tangent Wash136 scope')
-  if(brush.version!==191&&brush.version!==193&&assertTextureGradientWash180Scope(brush)&&capturedErase)throw Error('Texture Gradient Wash180 erase is outside scope')
+  if(!usesNativePixelMaterials(brush)&&!usesNativeSmudgeFeatures(brush)&&assertTextureGradientWash180Scope(brush)&&capturedErase)throw Error('Texture Gradient Wash180 erase is outside scope')
   const bristleWash=hasBristleWash135Scope(brush)
   if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
   const particleWash=hasParticleWash134Scope(brush)
   if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
-  const sprayWash=hasSprayWash133Scope(brush)||brush.version===194&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'
+  const sprayWash=hasSprayWash133Scope(brush)||usesNativeSketchSpray(brush)&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'
   if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&(!sprayWash||!isBrushSpray(brush.spray)))throw Error('Invalid Spray Wash133 scope')
   if(!mask190&&assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
   // New123 inputs validate before touching the existing descriptor plan cache.
   // A fresh metadata plan avoids stale rows for direct mutable test/API inputs.
   if(assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190))materialPlans.delete(brush.tip)
-  if(brush.version!==192)usesColorSmudgeTexture(brush)
+  if(!usesNativeFilterMask(brush))usesColorSmudgeTexture(brush)
   textureMaterialKind(brush)
   assertTextureLightnessWash171Planes(brush)
   assertTextureGradientWash180Planes(brush)
@@ -137,10 +142,10 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush,mask190)
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
-  if(brush.version===194){capabilities.add('native194');if(brush.spray)capabilities.add('nativeSpray194')}
+  if(usesNativeSketchSpray(brush)){capabilities.add('native194');if(brush.spray)capabilities.add('nativeSpray194')}
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
-  if(bristleWash||brush.version===194&&brush.sketch&&brush.behavior?.rendering?.accumulation==='alphaDarken')capabilities.add('bristleWash')
+  if(bristleWash||usesNativeSketchSpray(brush)&&brush.sketch&&brush.behavior?.rendering?.accumulation==='alphaDarken')capabilities.add('bristleWash')
   if(particleWash)capabilities.add('requestWash')
   else if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.clone)capabilities.add('cloneBrush')
@@ -153,7 +158,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   else if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')
   else if(brush.spray && brush.spray.particle.shape!=='tip')capabilities.add('sprayShapes')
-  if(brush.version===193||brush.version===191&&brush.model==='mixer'&&brush.texture?.application)capabilities.add('colorSmudgeTexture')
+  if(usesNativeSmudgeFeatures(brush)||usesNativePixelMaterials(brush)&&brush.model==='mixer'&&brush.texture?.application)capabilities.add('colorSmudgeTexture')
   else if(brush.mixer?.algorithm)capabilities.add(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)?'colorSmudgeTexture':['grainMerge','grainExtract','negation','erase'].includes(brush.mixer.colorRateComposite ?? '')?'colorSmudgeForeground':'colorSmudge')
   else if(brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')capabilities.add('colorSmudgeLegacyDodgeBurn176')
   else if(brush.mixer?.colorRateComposite==='add'||brush.mixer?.colorRateComposite==='subtract')capabilities.add('colorSmudgeLegacyArithmetic175')
@@ -186,7 +191,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     assertBristleSource143Ready(b)
     if(b.texture?.application&&['colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(b.texture.application.mode)){
       if(b!==brush||b.version<105)throw Error('Texture105 requires a root prepared brush')
-      if(b.version===192&&mask190){/* Native Filter uses the existing scalar alpha texture shader. */}
+      if(usesNativeFilterMask(b)&&mask190){/* Native Filter uses the existing scalar alpha texture shader. */}
       else if(b.model==='mixer')usesColorSmudgeTexture(b)
       else if(b.model!=='stamp'||b.behavior?.dual&&!mask190||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>b[k as keyof BrushDescriptor]!==undefined))throw Error('Texture105 requires root Pixel or modern MASK')
     }
@@ -199,23 +204,23 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     if(usesPixelOriginalRgba(b)){assertPixelOriginalRgba(b,mask190);if(b.tip.animation&&b.tip.color&&'gradient'in b.tip.color)pixelOriginalRgbaFrames(b,mask190)}
     if(!mask190&&b.behavior?.dual&&usesPixelOriginalRgba(b.behavior.dual.brush))throw Error('Pixel original RGBA child is not supported')
     if(painter!=='stamp'&&b.texture?.eraseId){
-      if(b!==brush||(b.version===191||b.version===193?!mask190:!hasSmudgeTextureErase131Scope(b)))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
-      const ids=[...(b.version===193&&b.tip.kind!=='bitmap'?[]:[b.tip.kind==='bitmap'?b.tip.mask:undefined]),b.texture.id,b.texture.eraseId]
+      if(b!==brush||(usesNativePixelMaterials(b)||usesNativeSmudgeTexture(b)||usesNativeSmudgeFeatures(b)?!mask190:!hasSmudgeTextureErase131Scope(b)))throw Error('Texture erase variants require the stamp renderer or closed modern MASK131')
+      const ids=[...(usesNativeSmudgeFeatures(b)&&b.tip.kind!=='bitmap'?[]:[b.tip.kind==='bitmap'?b.tip.mask:undefined]),b.texture.id,b.texture.eraseId]
       const sides=ids.map(id=>id?.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):NaN)
-      if(sides.some(side=>!Number.isInteger(side)||side<2||side>(b.version===191||b.version===193?2048:512)||(side&(side-1))!==0)||sides[sides.length-2]!==sides[sides.length-1])throw Error('Texture erase131 requires bounded paired CAS')
+      if(sides.some(side=>!Number.isInteger(side)||side<2||side>(usesNativePixelMaterials(b)||usesNativeSmudgeTexture(b)||usesNativeSmudgeFeatures(b)?2048:512)||(side&(side-1))!==0)||sides[sides.length-2]!==sides[sides.length-1])throw Error('Texture erase131 requires bounded paired CAS')
     }
     const newMask=(tip:BrushTip)=>tip.profile?.kind==='gaussian2D'||tip.profile?.kind==='curveRectangle'||tip.profile?.kind==='curveRectangleSoftness'
     if(!mask190&&newMask(b.tip)&&(painter!=='stamp'||b.model!=='stamp'||b.tip.autoNoise&&(b.version<98||b.tip.autoShape||b.spray&&!hasSprayRectangleNoise155Scope(b))||b.behavior?.dual))throw Error('New rectangle profiles require an unpaired stamp without noise')
     if(!mask190&&b.behavior?.dual&&newMask(b.behavior.dual.brush.tip))throw Error('New rectangle child profiles are not supported')
     if(!mask190&&b.behavior?.dual?.brush.tip.autoNoise)throw Error('Child Auto-mask noise is not supported')
-    if(b.tip.autoNoise&&painter!=='stamp'&&b.version!==193)throw Error('Auto-mask noise requires the stamp renderer')
+    if(b.tip.autoNoise&&painter!=='stamp'&&!usesNativeSmudgeFeatures(b))throw Error('Auto-mask noise requires the stamp renderer')
     if (b.tip.profile?.kind === 'circleBand') {
       if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')
       capabilities.add('stampCircleBand')
     }
-    if(b.version!==193&&painter==='wet'&&(b.tip.autoShape||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.autoShape))throw Error('Auto spikes require the stamp renderer')
-    if(b.version!==193&&painter==='wet'&&(b.tip.profile?.kind==='radialCurveSoftness'||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.profile?.kind==='radialCurveSoftness'))throw Error('Dynamic radial softness requires the stamp renderer')
-    if(b.version!==193&&b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
+    if(!usesNativeSmudgeFeatures(b)&&painter==='wet'&&(b.tip.autoShape||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.autoShape))throw Error('Auto spikes require the stamp renderer')
+    if(!usesNativeSmudgeFeatures(b)&&painter==='wet'&&(b.tip.profile?.kind==='radialCurveSoftness'||b.behavior?.dual?.sampling!=='independent'&&b.behavior?.dual?.brush.tip.profile?.kind==='radialCurveSoftness'))throw Error('Dynamic radial softness requires the stamp renderer')
+    if(!usesNativeSmudgeFeatures(b)&&b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet' && !b.mixer?.paintThickness) throw Error('Lightness tip material requires a material renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (!covered) {
@@ -229,11 +234,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
           : b.tip.profile?.kind === 'standard' || inline?.tip.profile?.kind === 'standard') capabilities.add(painter)
       }
     }
-    if(b.version===194&&b.sketch){prepareSketchMask(b);add('stamp','cloud',true);add('stamp','grit',true);return}
+    if(usesNativeSketchSpray(b)&&b.sketch){prepareSketchMask(b);add('stamp','cloud',true);add('stamp','grit',true);return}
     const frames=b.tip.animation?.frames ?? (brushTipSamplerId(b.tip) ? [brushTipSamplerId(b.tip)!] : [])
     frames.forEach((id,index)=>{
       const gray=b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray
-      const colorPlanes=(painter==='wet' && b.mixer?.paintThickness || b.version===194&&b.spray)&&gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
+      const colorPlanes=(painter==='wet' && b.mixer?.paintThickness || usesNativeSketchSpray(b)&&b.spray)&&gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
       add(painter,id,false,false,gray,b.tip,colorPlanes)
     })
     if(b.texture?.material){
@@ -257,7 +262,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
     }
   }
   // Filter169 mask is consumed by the existing stamp renderer; no WET duplicate bank.
-  visit(brush, (brush.version===192&&mask190)||hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
+  visit(brush, (usesNativeFilterMask(brush)&&mask190)||hasFilterBitmapMaskScope(brush)?'stamp':brush.model === 'mixer' ? 'wet' : 'stamp',sprayWash||particleWash||bristleWash)
   return { resources: [...resources.values()], capabilities: [...capabilities] }
 }
 

@@ -3,7 +3,7 @@ import{PencilEngine}from'./index'
 const retire=PencilEngine.prototype['_retireStagedBeginScratch']
 it('actual cancellation retires committed but untransferred palette scratch before FIFO cancellation, including queued next author',()=>{
  const a={destroy:vi.fn(),forget:vi.fn()},b={destroy:vi.fn(),forget:vi.fn()},candidate={committed:true,capability:'bristleSoak139',scratch:a},next={committed:false,capability:'bristleSoak139',scratch:b},stop={}
- const host={_gridAuthor:candidate,_gridNextAuthor:next,_strokeId:null,_ribbonStrokeScratch:null,_authorSnapshot:undefined,_authorProducer:undefined,_stopAirbrush:vi.fn(),_authorInput:{pending:true,cancel:()=>{throw stop}},_authorTasks:{reset:vi.fn()},_retireStagedBeginScratch:retire,_cancelGridAuthorStart:vi.fn()}
+ const host={_cancelLiveDabFlush:vi.fn(),_gridAuthor:candidate,_gridNextAuthor:next,_strokeId:null,_ribbonStrokeScratch:null,_authorSnapshot:undefined,_authorProducer:undefined,_stopAirbrush:vi.fn(),_authorInput:{pending:true,cancel:()=>{throw stop}},_authorTasks:{reset:vi.fn()},_retireStagedBeginScratch:retire,_cancelGridAuthorStart:vi.fn()}
  try{Reflect.apply(PencilEngine.prototype['_cancelOwnedAuthor'],host,[false]);throw Error('missing cancellation boundary')}catch(error){expect(error).toBe(stop)}
  expect(a.destroy).toHaveBeenCalledTimes(1);expect(b.destroy).toHaveBeenCalledTimes(1);expect(candidate.scratch).toBeUndefined();expect(next.scratch).toBeUndefined()
 })

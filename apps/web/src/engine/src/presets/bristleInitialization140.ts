@@ -1,5 +1,6 @@
+import{bristleInitializationSourceSide,hasBristleInitializationScope,hasBristleSource143Scope}from'./stationary195Scopes'
 import {importedAssetPixels} from './importedBrushes'
-import {hasBristleInitializationScope,hasBristleSource143Scope,bristleInitializationSourceSide,type BrushDescriptor,type Dab} from '@grafetto/shared'
+import{type BrushDescriptor,type Dab}from'@grafetto/shared'
 export interface BristleInitialization140 {readonly side:number;readonly hairs:[number,number,number][]}
 export function assertBristleInitializationSize140(initialization:BristleInitialization140|undefined,dabs:readonly Dab[]):number {
  let side=initialization?.side
