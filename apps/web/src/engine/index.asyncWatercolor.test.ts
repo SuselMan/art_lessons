@@ -490,8 +490,10 @@ for (const [tool, preset] of [['pencil', 'HB'], ['marker', 'normal'], ['eraser',
     expect(engine['_wcAsyncError']).toBeNull()
     expect(engine['_wcCanonical'].pending).toBe(false)
     expect(engine['_wcAsyncLocalTools'].size).toBe(0)
-    expect(engine['_smudge']['imprints'].has('owner:async-preview')).toBe(false)
-    expect(engine['_smudge']['replayChunks'].has('owner:async-preview')).toBe(false)
+    for (const state of engine['_smudge']['carried'].values()) {
+      expect(state.imprints.has('owner:async-preview')).toBe(false)
+      expect(state.replayChunks.has('owner:async-preview')).toBe(false)
+    }
     expect(local).toHaveBeenCalledTimes(1)
     // No ACK was delivered: optimistic visibility must not wait for the server.
     expect(engine['_log'].entries.find(e => e.op.id === recorded.id)).toMatchObject({ state: 'done', pending: true })

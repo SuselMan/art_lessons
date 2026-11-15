@@ -25,7 +25,7 @@ import { packTilePixels } from '../buffers/pinnedTiles'
 import {packColorSmudge} from './materialCheckpoint'
 import { isEmptySnapshotTile, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
-import { OperationLog, type PixelOperation } from './OperationLog'
+import type { OperationLog, PixelOperation } from './OperationLog'
 import { hasOpenBrushStroke } from './openBrushStroke'
 import type { SnapshotRestoreAudit } from './snapshotAudit'
 import { encodeLayerTiles, type SnapshotTile } from './snapshotCodec'
@@ -308,6 +308,7 @@ export class SnapshotIO {
     // its authoritative replay base without replacing those visible pixels;
     // the engine settles the tail through its ordinary guarded rebuild path.
     const uploads = installOnly ? [] : buf.allResident().length === 0 ? painted : retiled
+    if (!installOnly) buf.clear()
     // (#474) Any error already pending is drained first, so what this reads
     // afterward is this restore's own — the same discipline generatePaperMipmaps
     // uses, and for the same reason: an inherited error would accuse the wrong
@@ -334,6 +335,14 @@ export class SnapshotIO {
       residentAfter: resident.length,
       withContentAfter: resident.filter(t => t.contentRect !== null).length,
     })
+    if (glError !== gl.NO_ERROR) {
+      // The audit survives the throw so Room can report partial application.
+      // Failed uploads must never acquire authoritative coverage/checkpoints
+      // or become a replacement snapshot uploaded on behalf of other readers.
+      ledger.markDirty(layerId)
+      ledger.refusePublishing(layerId)
+      throw new Error(`Snapshot upload failed: GL error 0x${glError.toString(16)}`)
+    }
     if (coveredSeq !== undefined) ledger.setCoverage(layerId, coveredSeq)
     // (#373) These pixels *are* what the server already stores, so the layer
     // is marked changed (it is — the buffer was empty a moment ago) and
@@ -368,13 +377,14 @@ export class SnapshotIO {
   /** See restore's own doc comment for why this exists. Replaces (rather than
    *  adds to) any pinned checkpoint this layer already had — only relevant if
    *  restore is ever called twice for the same layer in one engine lifetime
-   *  (e.g. a reconnect re-restoring a still-mounted engine); the newer restore
-   *  is always a superset, and `CheckpointStore.best`'s "first checkpoint of
+   *  (e.g. a reconnect re-restoring a still-mounted engine). A newer snapshot
+   *  may also remove pixels; `CheckpointStore.best`'s "first checkpoint of
    *  the longest matching length wins" tie-break would otherwise let a stale
    *  one linger and win ties against the newer, more complete one at the same
    *  (empty) opIds length. */
   private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    if (!tiles.length) return
+    // Empty snapshots replace old bitmap checkpoints too: later Undo must
+    // restore the new empty baseline rather than the previous image.
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
     this.ctx.ledger.allowPublishing(layerId)
@@ -410,40 +420,31 @@ export class SnapshotIO {
     this._invalidateSplitBrushSnapshots()
   }
 
-  /** PencilEngineAPI.absorbHistoricalOperations — see its doc comment and
-   *  OperationLog.prependHistorical's own for the full reasoning. Replays
-   *  `ops` through a throwaway scratch log using its normal public
-   *  append/applyUndo/applyRedo/revoke methods — exactly the same
-   *  log-bookkeeping sequence the engine's appendOperation drives for a live
-   *  operation, just without ever touching a buffer — so the resulting
-   *  entries' done/undone/gone states come from the exact same state machine,
-   *  then merges them into the real log in one step. */
+  /** Merge original history with the held journal before resolving controls.
+   * A held undo/redo can address a target arriving in this older page. Return
+   * changed existing entries so the engine can invalidate their rendered state;
+   * newly admitted entries remain history-only and do not paint by themselves. */
   absorbHistorical(pageOps: Operation[]): Operation[] {
     const log = this.ctx.log()
-    // Even an entirely duplicate page can follow a second snapshot restore.
-    // Coverage reconciliation must precede the no-new-IDs early return.
-    this.ctx.checkpoints().markCovered(pageOps)
-    // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
-    // but since #372 the join tail is judged per layer: a layer with no pixel
-    // snapshot of its own gets its whole history in the tail. So a page can
-    // repeat what the log already holds — in room jExxU2EJ all 100 of it, and
-    // again on every reconnect's restore. Prepended twice, a stroke is painted
-    // twice by every later rebuild: undo darkened the layer it rebuilt.
-    const held = new Set(log.entries.map(e => e.op.id))
-    const ops = pageOps.filter(op => !held.has(op.id))
-    if (ops.length === 0) {
-      this._invalidateSplitBrushSnapshots()
-      return []
+    const previous = new Map(log.entries.map(entry => [entry.op.id, { state: entry.state, goneReason: entry.goneReason }]))
+    const ops = log.absorbHistorical(pageOps)
+    // Metadata-only pages can confirm held IDs and complete a missing prefix.
+    // Coverage uses original page seqs even when no journal IDs were admitted.
+    this.ctx.checkpoints().markCovered(pageOps.filter(op => op.seq !== undefined))
+    const changed = log.entries.filter(entry => {
+      const before = previous.get(entry.op.id)
+      return before && (before.state !== entry.state || before.goneReason !== entry.goneReason)
+    }).map(entry => entry.op)
+    // Repair authoritative acceptance even when a later control masks the
+    // target's final state, just as for a late ACK.
+    for (const op of pageOps) {
+      if (op.seq === undefined || previous.get(op.id)?.goneReason !== 'reject') continue
+      const targetId = op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke'
+        ? op.targetOpId : op.id
+      const target = log.entries.find(entry => entry.op.id === targetId)?.op
+      if (target && !changed.some(entry => entry.id === target.id)) changed.push(target)
     }
-    const scratch = new OperationLog()
-    for (const op of ops) {
-      scratch.append(op, op.seq === undefined ? undefined : { serverSeq: op.seq })
-      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
-      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
-    }
-    const changed = log.prependHistorical(scratch.entries, true)
-    this._historicalEntryCount += scratch.entries.length
+    this._historicalEntryCount += ops.length
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
@@ -527,10 +528,34 @@ export class SnapshotIO {
     return this.ctx.log().entries.some(entry => entry.pending && pixels.has(entry.op.id) && !snapshot.covered?.has(entry.op.id))
   }
 
-  invalidateCoveredHistory(layerIds: readonly string[], targetId: string): void {
+  /** Existing legacy entries without server order cannot prove whether a
+   *  replacement bitmap covers them. Keep the bitmap, request an exact prefix. */
+  requireHistory(layerId: string): void {
+    const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    if (snapshot?.coveredSeq === undefined) return
+    this.historyRepairs.set(layerId, snapshot.coveredSeq)
+    this.ctx.ledger.markDirty(layerId)
+    this.ctx.ledger.refusePublishing(layerId)
+  }
+
+  invalidateCoveredHistory(layerIds: readonly string[], targetId: string, mutation?: { serverSeq: number; historical: boolean }): void {
     for (const layerId of layerIds) {
       const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot && cp.covered?.has(targetId))
       if (!snapshot || snapshot.coveredSeq === undefined) continue
+      if (mutation && mutation.serverSeq <= snapshot.coveredSeq) {
+        // The bitmap already includes this accepted control. An unresolved
+        // newer control can still address an unknown sibling, so fail closed.
+        const log = this.ctx.log()
+        const uncertain = mutation.historical && log.entries.some(entry => {
+          const op = entry.op
+          if (entry.goneReason === 'reject'
+            || (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke')
+            || (!entry.pending && entry.serverSeq !== undefined && entry.serverSeq <= snapshot.coveredSeq!)) return false
+          const target = log.entries.find(other => other.op.id === op.targetOpId)?.op
+          return !target || log.gestureLayerIds(target).includes(layerId)
+        })
+        if (!uncertain) continue
+      }
       this.historyRepairs.set(layerId, snapshot.coveredSeq)
       this.ctx.ledger.markDirty(layerId)
       this.ctx.ledger.refusePublishing(layerId)

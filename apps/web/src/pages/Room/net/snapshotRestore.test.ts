@@ -596,3 +596,55 @@ it('restores structural prefix before safe bitmap handover, including a deleted 
   expect(order).toEqual(['base','prefix','safe-bitmap','pixel-reconcile'])
   expect(urls.find(url=>url.includes('beforeSeq=6'))).toContain('S')
 })
+
+it('holds exactly one decoded layer while installation awaits physical UP; abort stops the old next inflate',async()=>{
+ decompressions.count=0
+ const {createTestEngine,paperReady,simulateStrokeStart,simulateStrokeMove,simulateStrokeEnd}=await import('../../../engine/testing/engineTestUtils')
+ const {engine}=createTestEngine({userId:'A',pageWidth:8,pageHeight:8},{width:8,height:8});await paperReady(engine)
+ const state:LayerState={items:{background:ONE_LAYER_STATE.items.background,L2:{kind:'layer',id:'L2',name:'Two',visible:true,opacity:1}},rootOrder:['background','L2'],activeId:'background',selectedIds:[]}
+ engine.setBaseLayers(['background','L2']);engine.setActiveLayer('background');engine.setTool('pencil')
+ simulateStrokeStart(engine,2,4);simulateStrokeMove(engine,4,4)
+ const blob=await compressLayerTiles(encodeLayerTiles([{originX:0,originY:0,width:8,height:8,pixels:new Uint8Array(256)}]))
+ mockRestoreFetch({seq:1,layerState:state,layers:[{layerId:'background',seq:1},{layerId:'L2',seq:1}]},{'background/1':blob,'L2/1':blob})
+ const applied:string[]=[]
+ const sink=(signal:AbortSignal)=>({beginLayers:()=>{},applyLayer:(id:string,tiles:SnapshotTile[],seq:number)=>{applied.push(id);return engine.restoreLayerFromSnapshot(id,tiles,seq,signal)}})
+ const old=new AbortController(),fresh=new AbortController()
+ try{
+  const first=restoreLatestSnapshot('room',sink(old.signal),{signal:old.signal})
+  await vi.waitFor(()=>expect(applied).toEqual(['background']))
+  expect(decompressions.count).toBe(1);expect(engine.takeSnapshotRestoreAudit()).toEqual([])
+  const held=(engine as unknown as {_deferredSnapshotInstalls:Map<string,{tiles:unknown}>})._deferredSnapshotInstalls.get('background')!
+  old.abort()
+  expect(held.tiles).toBeNull()
+  expect(await first).toMatchObject({status:'failed',appliedLayerIds:[]})
+  const second=restoreLatestSnapshot('room',sink(fresh.signal),{signal:fresh.signal})
+  await vi.waitFor(()=>expect(applied).toEqual(['background','background']))
+  expect(decompressions.count).toBe(2)
+  simulateStrokeEnd(engine,6,4)
+  expect(await second).toMatchObject({status:'restored'})
+  expect(decompressions.count).toBe(3)
+  expect(applied).toEqual(['background','background','L2'])
+  expect(engine.takeSnapshotRestoreAudit().map(item=>item.layerId)).toEqual(['background','L2'])
+ }finally{old.abort();fresh.abort();engine.destroy()}
+})
+
+it('fails the whole restore on a real engine upload error after an earlier layer succeeded', async () => {
+  const { createTestEngine } = await import('../../../engine/testing/engineTestUtils')
+  const { engine, canvas } = createTestEngine({ userId: 'A' }, { width: 8, height: 8 })
+  engine.setBaseLayers(['background', 'L2'])
+  const pixels = new Uint8Array(256).fill(200)
+  const blob = await compressLayerTiles(encodeLayerTiles([{ originX: 0, originY: 0, width: 8, height: 8, pixels }]))
+  const state: LayerState = { items: { ...ONE_LAYER_STATE.items, L2: { kind: 'layer', id: 'L2', name: 'Two', visible: true, opacity: 1 } }, rootOrder: ['background', 'L2'], activeId: 'background', selectedIds: [] }
+  mockRestoreFetch({ seq: 100, layerState: state, layers: [{ layerId: 'background', seq: 100 }, { layerId: 'L2', seq: 100 }] }, { 'background/100': blob, 'L2/100': blob })
+  const gl = canvas.getContext('webgl') as unknown as { getError(): number }
+  const original = gl.getError.bind(gl)
+  try {
+    const outcome = await restoreLatestSnapshot('room-1', { beginLayers: () => {}, applyLayer: (id, tiles, seq) => {
+      if (id === 'L2') { let calls = 0; gl.getError = () => ++calls === 2 ? 0x0505 : original() }
+      return engine.restoreLayerFromSnapshot(id, tiles, seq)
+    } })
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'apply', appliedLayerIds: ['background'] })
+    expect(engine.bakeNetworkSnapshot('L2')).toBeNull()
+    expect(engine.takeSnapshotRestoreAudit()).toMatchObject([{ layerId: 'background', glError: 0 }, { layerId: 'L2', glError: 0x0505 }])
+  } finally { gl.getError = original; engine.destroy() }
+})

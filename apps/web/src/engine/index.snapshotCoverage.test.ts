@@ -18,6 +18,7 @@ import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 /** Bakes `layerId` and restores those exact pixels back into a fresh engine's
  *  same-named layer, at `coveredSeq` — the shape a real join has, minus the
  *  network. */
+// Fixtures that restore existing paint carry server seq, just like a real join.
 function tilesOf(engine: ReturnType<typeof createTestEngine>['engine'], layerId: string) {
   const baked = engine.bakeNetworkSnapshot(layerId)
   return baked ? decodeLayerTiles(baked, 0).tiles : []
@@ -113,7 +114,7 @@ describe('a transform a restored snapshot already accounts for', () => {
   it('leaves a covered layer alone', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const before = readLayerPixels(engine, 'A')!.slice()
 
@@ -131,8 +132,8 @@ describe('a transform a restored snapshot already accounts for', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
     engine.initLayer('B')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
-    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'B', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 2 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const coveredBefore = readLayerPixels(engine, 'A')!.slice()
     const uncoveredBefore = readLayerPixels(engine, 'B')!.slice()
@@ -152,7 +153,7 @@ describe('a transform a restored snapshot already accounts for', () => {
   it('applies to a covered layer when the transform is newer than the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(2, 4, { size: 3, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const before = readLayerPixels(engine, 'A')!.slice()
 
@@ -173,7 +174,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('does not paint a stroke twice', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
@@ -193,7 +194,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
     // the operations below its snapshot, so replay must not find them there.
     const source = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     source.engine.initLayer('A')
-    source.engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
+    source.engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })], { seq: 1 }), 'remote')
     const baked = tilesOf(source.engine, 'A')
 
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
@@ -218,7 +219,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('still paints a stroke made after the coverage', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 0.5 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 
@@ -233,7 +234,7 @@ describe('a pure pixel operation the restored pixels already contain', () => {
   it('does not let a covered layer_clear wipe the restored pixels', () => {
     const { engine } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
     engine.initLayer('A')
-    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 1 })]), 'remote')
+    engine.appendOperation(makeStroke('user-a', 'A', [dab(4, 4, { size: 4, pressure: 1, opacity: 1 })], { seq: 1 }), 'remote')
     engine.restoreLayerFromSnapshot('A', tilesOf(engine, 'A'), 100)
     const restored = readLayerPixels(engine, 'A')!.slice()
 

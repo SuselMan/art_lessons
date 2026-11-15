@@ -10,6 +10,8 @@ function fixture(strokeId: string | null = 'open') {
   const wetGestures = new Map([['owner', { charge: .7, secondary }]])
   const previous = { x: 1, y: 2 }
   const replayChunks = new Map([['owner', { strokeId: 'open', lastDab: previous }]])
+  Reflect.set(painter, 'carried', new Map())
+  Reflect.set(painter, 'gl', { isContextLost: () => false })
   Reflect.set(painter, 'imprints', imprints)
   Reflect.set(painter, 'wetGestures', wetGestures)
   Reflect.set(painter, 'replayChunks', replayChunks)
@@ -52,8 +54,8 @@ describe('SmudgePainter confirmed end lifecycle', () => {
 
   it('keeps a continuing canonical chunk reservoir and resampling state', () => {
     const f = fixture()
-    const resume = Reflect.get(f.painter, 'resumeGesture') as (user: string, stroke: string, dabs: unknown[]) => unknown
-    expect(resume.call(f.painter, 'owner', 'open', [{ x: 3, y: 4 }])).toBe(f.previous)
+    const resume = Reflect.get(f.painter, 'resumeGesture') as (target: unknown, user: string, stroke: string, dabs: unknown[], native: boolean) => unknown
+    expect(resume.call(f.painter, {}, 'owner', 'open', [{ x: 3, y: 4 }], true)).toBe(f.previous)
     expect(f.release).not.toHaveBeenCalled()
     expect(f.destroy).not.toHaveBeenCalled()
     expect(f.imprints.get('owner')?.buf).toBe(f.buf)
@@ -73,9 +75,9 @@ describe('SmudgePainter confirmed end lifecycle', () => {
 it('keeps a peer gesture on another target when a layer is replayed',()=>{
  const f=fixture(),other={} as import('../buffers/ILayerBuffer').ILayerBuffer,target={} as import('../buffers/ILayerBuffer').ILayerBuffer
  Reflect.set(f.replayChunks.get('owner')!,'target',other)
- f.painter.dropReplayChunks({userId:'local',strokeId:null},target)
+ f.painter.dropReplayChunks(target,{userId:'local',strokeId:null})
  expect(f.replayChunks.has('owner')).toBe(true)
- f.painter.dropReplayChunks({userId:'local',strokeId:null},other)
+ f.painter.dropReplayChunks(other,{userId:'local',strokeId:null})
  expect(f.replayChunks.has('owner')).toBe(false)
 })
 it('restores live transient maps after a nested historical read throws',()=>{

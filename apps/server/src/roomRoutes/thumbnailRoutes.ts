@@ -5,6 +5,7 @@ import { apiRoute } from '../http/apiRoute.js'
 import { prisma } from '../db/prisma.js'
 import { canSeeResidentBoard } from '../rooms/classroom.js'
 import { getParticipant } from '../rooms/rooms.js'
+import { flushRoomWrites } from '../rooms/roomRegistry.js'
 import { canSeeBoard, lessonOf } from '../rooms/lessons.js'
 
 /** (#176) The two persisted checks below are about *membership*, and
@@ -276,6 +277,9 @@ export function registerThumbnailRoutes(app: FastifyInstance, notify?: Thumbnail
       // type is narrower than Buffer's own (SharedArrayBuffer-compatible)
       // backing type, so a straight pass-through doesn't typecheck.
       const bytes = new Uint8Array(buffer)
+      // create_room publishes live presence before its queued INSERT lands.
+      // Authorizing from RAM is correct, but its FK parent must exist first.
+      await flushRoomWrites(roomId)
       const stored = await prisma.roomThumbnail.upsert({
         where: { roomId },
         create: { roomId, data: bytes, contentType },

@@ -7,6 +7,8 @@ import { prisma } from '../db/prisma.js'
 import { ROOM_WIRE_INCLUDE, toWireRoom } from '../rooms/roomMapper.js'
 import { setRoomClosed } from '../rooms/ownerControls.js'
 import { isLesson } from '../rooms/lessons.js'
+import { cancelRoomLoads } from '../rooms/roomLoader.js'
+import { forgetDeletedLesson } from '../rooms/rooms.js'
 
 /** (#222) Told when a room's closed-for-editing state changes, so whoever is
  *  currently *in* that room hears about it. Injected rather than reached for
@@ -34,7 +36,7 @@ function isBoard(room: { lessonId?: string | null }): boolean {
  *  own. Belt and braces for `/mine`'s participated half: no RoomParticipant
  *  row is ever written for a board (rooms.ts's joinRoom seats people in the
  *  lesson), so it could not match anyway. */
-export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: RoomClosedNotifier): void {
+export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: RoomClosedNotifier, notifyRoomDeleted?: (lessonId: string) => Promise<void>): void {
   apiRoute(app, 'GET /api/rooms/mine', async (request) => {
     // (#209) `include` the thumbnail relation `select`-narrowed to just
     // `updatedAt` — this list can be long, and pulling every room's full PNG
@@ -153,6 +155,9 @@ export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: Room
     // Operation/RoomParticipant rows cascade (onDelete: Cascade in schema),
     // and so do the lesson's boards (#176) with everything under them.
     await prisma.room.delete({ where: { id: room.id } })
+    cancelRoomLoads(room.id)
+    forgetDeletedLesson(room.id)
+    await notifyRoomDeleted?.(room.id)
     return { ok: true } satisfies ApiOk
   })
 

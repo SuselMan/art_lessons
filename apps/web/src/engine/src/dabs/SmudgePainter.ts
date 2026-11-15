@@ -44,7 +44,7 @@ import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from 
 import { brushTextureApplication } from './brushTextureApplication'
 import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
-// of the survey). Both paint through one carried imprint per user: every dab
+// of the survey). Both paint through one carried imprint per target and user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
 // (SMUDGE_PICKUP_FRAG) and lays the imprint back down as a per-pixel lerp
 // (SMUDGE_TRANSFER_FRAG). The mixer is the same machine with a colour loaded
@@ -166,11 +166,9 @@ export interface SmudgeContext {
   readonly paper: PaperSampling
 }
 
-/** The one gesture that must keep its carried state through a rebuild —
- *  see dropReplayChunks. */
-export interface LiveGesture {
-  userId: string
-  strokeId: string | null
+interface CarriedState {
+  imprints: Map<string, { buf: AccumulationBuffer | null; strokeId: string | null }>
+  replayChunks: Map<string, { strokeId: string; lastDab: Dab }>
 }
 
 function clampNum(x: number, lo: number, hi: number): number {
@@ -270,6 +268,25 @@ export class SmudgePainter {
   private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab;target?:ILayerBuffer }>()
+  // A replay/export buffer is a separate canvas even when it contains the
+  // same layer and author. Never let its pickup replace a live tool's ink.
+  // The buffer owner calls releaseTarget on destroy; context loss forgets all.
+  private readonly carried = new Map<SmudgeLayer, CarriedState>()
+
+  private stateFor(target: SmudgeLayer): CarriedState {
+    let state = this.carried.get(target)
+    if (!state) {
+      state = { imprints: new Map(), replayChunks: new Map() }
+      this.carried.set(target, state)
+    }
+    return state
+  }
+
+  releaseTarget(target: SmudgeLayer, lost = false): void {
+    const state = this.carried.get(target)
+    if (!lost) for (const imprint of state?.imprints.values() ?? []) imprint.buf?.destroy()
+    this.carried.delete(target)
+  }
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
@@ -366,6 +383,7 @@ export class SmudgePainter {
     this.wetGestures.clear()
     this.imprints.clear() // same reasoning — pooled GL objects are dead too
     this.replayChunks.clear()
+    this.carried.clear() // all carried GL objects are dead too
   }
 
   destroy(): void {
@@ -413,6 +431,7 @@ export class SmudgePainter {
     this.imageTransfer = undefined
     if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
     this.proceduralTransfer = undefined
+    for (const target of this.carried.keys()) this.releaseTarget(target)
     gl.deleteProgram(this.transferProg)
     gl.deleteProgram(this.pickupProg)
     gl.deleteProgram(this.meanProg)
@@ -429,7 +448,14 @@ export class SmudgePainter {
       this.finishSecondary(userId,lost)
       this.wetGestures.delete(userId)
     }
-    if (this.replayChunks.get(userId)?.strokeId === strokeId) this.replayChunks.delete(userId)
+    for (const state of this.carried?.values() ?? []) {
+      const imprint = state.imprints.get(userId)
+      if (imprint?.strokeId === strokeId) {
+        if (!lost) imprint.buf?.destroy()
+        state.imprints.delete(userId)
+      }
+      if (state.replayChunks.get(userId)?.strokeId === strokeId) state.replayChunks.delete(userId)
+    }
   }
 
   /** Only an explicit final operation or synchronous local pen-up closes a
@@ -438,6 +464,13 @@ export class SmudgePainter {
    * rather than a canonical strokeId. A stale end cannot free a newer owner.
    */
   finishGesture(userId: string, strokeId: string | null): void {
+    for (const state of this.carried?.values() ?? []) {
+      const imprint = state.imprints.get(userId)
+      if (imprint?.strokeId !== strokeId) continue
+      if (imprint.buf) this.releaseScratch(imprint.buf)
+      state.imprints.delete(userId)
+      if (state.replayChunks.get(userId)?.strokeId === strokeId) state.replayChunks.delete(userId)
+    }
     if(strokeId!==null){this.finishDeformIdentity(userId,strokeId);this.finishGridIdentity(userId,strokeId,false)}
     const imprint = this.imprints.get(userId)
     if (!imprint || imprint.strokeId !== strokeId) return
@@ -448,17 +481,14 @@ export class SmudgePainter {
     if (this.replayChunks.get(userId)?.strokeId === strokeId) this.replayChunks.delete(userId)
   }
 
-  /** (#554) The smudge half of the engine's _dropCarriedGestureState: every
-   *  user's replay chunk goes except `live`'s — the local gesture actually
-   *  in progress, still being painted by paint() and not to be reset under
-   *  it by, say, a peer's undo arriving mid-stroke. A target-scoped replay
-   *  leaves continuing peer gestures on other layers intact. */
-  dropReplayChunks(live: LiveGesture,target?:ILayerBuffer): void {
+  /** A new replay of this buffer must start its gestures from the beginning.
+   * Other targets, including a live peer's layer, remain independent. */
+  dropReplayChunks(target: ILayerBuffer, live?: { userId: string; strokeId: string | null }): void {
     for (const [userId, chunk] of this.replayChunks) {
-      if(target && chunk.target && chunk.target!==target)continue
-      const isLive = userId === live.userId && !!live.strokeId && chunk.strokeId === live.strokeId
-      if (!isLive) this.replayChunks.delete(userId)
+      if (chunk.target && chunk.target !== target) continue
+      if (userId !== live?.userId || !live.strokeId || chunk.strokeId !== live.strokeId) this.replayChunks.delete(userId)
     }
+    this.releaseTarget(target, this.gl.isContextLost())
   }
 
   /** See paintOneDab's own doc comment for the algorithm and
@@ -533,7 +563,7 @@ export class SmudgePainter {
     if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
     releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : undefined
     const gihFrames=paint?.brush&&usesNativeSmudgeFeatures(paint.brush)&&usesVariableGih(paint.brush.tip)?this.recordedTexture191Plans.get(paint.brush)?.gihFrames??prepareVariableGih(paint.brush,true):undefined
-    let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs,target)
+    let prev = prevDab ?? this.resumeGesture(target, userId, strokeId, dabs, !!paint?.brush)
     for (const dab of dabs) {
       if (paint?.brush) {
         this.paintBehaviorDab(layer, dab, prev, userId, paint,execution,projection,gihFrames)
@@ -907,10 +937,11 @@ export class SmudgePainter {
    *  stroke, a replay that begins mid-gesture because the earlier chunk is
    *  already inside a restored snapshot) correctly starts clean instead of
    *  smearing from wherever this user's tool last happened to be. */
-  private resumeGesture(userId: string, strokeId: string | undefined, dabs: Dab[],target?:ILayerBuffer): Dab | undefined {
-    const imprint = this.imprintFor(userId)
-    const chunk = strokeId ? this.replayChunks.get(userId) : undefined
-    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId && (!target || !chunk.target || chunk.target===target)
+  private resumeGesture(target: ILayerBuffer, userId: string, strokeId: string | undefined, dabs: Dab[], nativeBrush = false): Dab | undefined {
+    const imprint = nativeBrush ? this.nativeImprintFor(userId) : this.imprintFor(target, userId)
+    const replayChunks = nativeBrush ? this.replayChunks : this.stateFor(target).replayChunks
+    const chunk = strokeId ? replayChunks.get(userId) : undefined
+    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId
     if (!continuing) {
       if (imprint.buf) this.releaseScratch(imprint.buf)
       imprint.buf = null
@@ -918,8 +949,8 @@ export class SmudgePainter {
       this.wetGestures.delete(userId)
     }
     imprint.strokeId = strokeId ?? null
-    if (strokeId) this.replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1],...(target ? {target} : {}) })
-    else this.replayChunks.delete(userId)
+    if (strokeId) replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1], ...(nativeBrush ? { target } : {}) })
+    else replayChunks.delete(userId)
     return continuing ? chunk?.lastDab : undefined
   }
 
@@ -1016,7 +1047,7 @@ export class SmudgePainter {
     const patch = this.acquireScratch(patchSize)
     this.gatherPatch(patch, targets, patchRect, patchSize,patchSpan)
 
-    const imprint = this.imprintFor(userId)
+    const imprint = paint?.brush ? this.nativeImprintFor(userId) : this.imprintFor(target, userId)
     const priming = imprint.buf === null
     const rate = priming ? 1 : clampNum(SMUDGE_PICKUP_RATE * travel, 0, 1)
     // Ping-pong rather than in-place: WebGL1 forbids reading and writing the
@@ -1229,11 +1260,18 @@ export class SmudgePainter {
    *  possibly-null buffer handle, and the buffer goes back to the shared
    *  pool at every gesture boundary (see resumeGesture), so a room
    *  full of people who each smudged once holds nothing but map entries. */
-  private imprintFor(userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
-    let entry = this.imprints.get(userId)
+  private nativeImprintFor(userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
+    let imprint = this.imprints.get(userId)
+    if (!imprint) { imprint = { buf: null, strokeId: null }; this.imprints.set(userId, imprint) }
+    return imprint
+  }
+
+  private imprintFor(target: SmudgeLayer, userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
+    const { imprints } = this.stateFor(target)
+    let entry = imprints.get(userId)
     if (!entry) {
       entry = { buf: null, strokeId: null }
-      this.imprints.set(userId, entry)
+      imprints.set(userId, entry)
     }
     return entry
   }

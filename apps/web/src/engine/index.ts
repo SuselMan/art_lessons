@@ -1,3 +1,4 @@
+import { isEmptySnapshotTile } from './src/buffers/retileSnapshot'
 import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSpraySource146Scope}from'./src/presets/stationary195Scopes'
 import{hasGridWash137Scope}from'./src/presets/stationary195Scopes'
 import{hasBristleInitializationScope,hasBristleNativePointCoverage,hasBristleSoak139Scope,hasCloneHealing152Scope,hasCloneProjection149Scope,hasDeformOldData145Scope,hasExperimentCurrentPattern158Scope,hasFilterSmudge147Scope,hasMyPaintTimer177Scope,hasTangentNormalWash136Scope}from'./src/presets/stationary195Scopes'
@@ -38,6 +39,7 @@ import{ copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradie
 import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
+import { cancelRestoreGeneration } from './restoreGeneration'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -768,7 +770,10 @@ export interface PencilEngineAPI {
   // isCoveredBySnapshot).
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
+  // A held ordinary gesture defers installation until physical UP/end. Await
+  // its completion before reusing tile views or decoding another layer (#467).
+  // Cancellation rejects; coverage and installed audit appear only on install.
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void>
   // (#474) What the restoreLayerFromSnapshot calls since the last drain
   // actually did — one record per call, in call order, emptied by reading.
   //
@@ -795,7 +800,7 @@ export interface PencilEngineAPI {
   absorbHistoricalOperations(ops: Operation[]): void
   /** Inclusive snapshot prefix plus dependency source history; seeds the log
    * before tail meta-ops and rebuilds only live layers not covered by restored pixels. */
-  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void>
+  restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void>
   // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
@@ -1055,10 +1060,9 @@ export interface PencilEngineAPI {
   // screen before awaiting it.
   computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null>
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
-  // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
-  // preview buffer (composited on top in _display(), never written into any
-  // real layer) at their original recorded pacing (Dab.t), queueing if that
-  // peer already has one in flight. Fires onPreviewApplied with the exact
+  // StrokeOperation arrives. Reveals dabs at their recorded pacing (Dab.t),
+  // queueing per peer. Marker/smudge use the real layer as their source and
+  // protect that provisional ink until commit; other tools use an overlay. Fires onPreviewApplied with the exact
   // same op once every dab has played, so the caller can commit it for real.
   // `rate` (#108) scales that pacing — 2 plays the dabs twice as fast, 0.5
   // half as fast; defaults to 1 (real recorded speed, what the live-room
@@ -1236,8 +1240,19 @@ export interface PeerLivePacket {
  *  simply paint the rest. `ended` records that the author's pen came up, so the
  *  entry can be disposed once the operations have caught up to what was painted
  *  rather than at pen-up, when they are still in flight. */
+interface DeferredSnapshotInstall {
+  target: ILayerBuffer
+  tiles: SnapshotTile[] | null
+  coveredSeq?: number
+  signal?: AbortSignal
+  resolve: () => void
+  reject: (error: unknown) => void
+  abort: () => void
+}
+
 interface PeerLiveStroke {
   gridBlocked?:GridWashNotReady
+  tool?: StrokeOperation['tool']
   peerId: string
   strokeId: string
   layerId: string
@@ -1344,7 +1359,7 @@ interface PeerPreviewState {
   // queue — this is walked on every timer tick as the reveal plays out, and
   // unpacking the whole array per tick would turn a cheap read into real work
   // proportional to the stroke's length.
-  queue: Array<{ op: StrokeOperation; rate: number; dabs: Dab[] }>
+  queue: Array<{ op: StrokeOperation; rate: number; dabs: Dab[]; painted?: number; claimed?: boolean; delivered?: boolean }>
   buf: AccumulationBuffer
   // (#138) World point this buffer's own pixel (0,0) represents — see
   // PencilEngine._cameraCenteredOrigin's doc comment for why this has to be
@@ -1602,7 +1617,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _onLiveStrokeDabs?: (packet: PeerLivePacket) => void
   private _onLiveStrokeEnd?: (strokeId: string, cancelled?: boolean) => void
   private _liveDabQueue: Dab[] = []
-  private _liveLastEmitAt = 0
+  private _liveLastEmitAt = -Infinity
   private _livePacketSeq = 0
   private _liveDabFlush?: {timer?:ReturnType<typeof setTimeout>;strokeId:string;layerId:string}
 
@@ -1857,8 +1872,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Live remote-stroke reveal (#37 follow-up v2) — one dedicated preview
   // AccumulationBuffer + FIFO queue of not-yet-committed StrokeOperations per
-  // peer, keyed by userId. Never accumulated into any real layer: the queue
-  // head's dabs are painted progressively at their recorded pacing (Dab.t)
+  // peer, keyed by userId. Source-dependent tools reveal directly in their
+  // layer, protected as unrecorded ink until the accepted operation claims it.
+  // Other tools keep their overlay. Dabs reveal at their recorded pacing (Dab.t)
   // by _stepPeerPreview, and only handed to onPreviewApplied — for the
   // caller to actually commit — once every dab has played. See
   // previewOperation/dropPendingPreview/flushPeerPreview below.
@@ -2214,6 +2230,7 @@ export class PencilEngine implements PencilEngineAPI {
   private readonly _diagLog: DiagLog
 
   // Layer management
+  private _deferredSnapshotInstalls = new Map<string, DeferredSnapshotInstall>()
   private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
   // (#373, #374, #522) Each layer's standing with the room's stored snapshot —
@@ -3002,7 +3019,14 @@ export class PencilEngine implements PencilEngineAPI {
       makeLayerBuffer: id => this._makeLayerBuffer(id),
       createBuffer: id => this._createBuffer(id),
       destroyBuffer: id => this._destroyBuffer(id),
-      replayInto: (buf, id, ops) => this._replayInto(buf, id, ops),
+      replayInto: (buf, id, ops, beforeSeq) => {
+        if (beforeSeq === undefined) { this._replayInto(buf, id, ops); return }
+        const liveLog = this._log
+        this._log = liveLog.historicalPrefix(beforeSeq)
+        this._wetReplayRevision = -1
+        try { this._replayInto(buf, id, ops, false) }
+        finally { this._log = liveLog; this._wetReplayRevision = -1 }
+      },
       compositeTextures: (items, fbo, w, h) => this._compositeTextures(items, fbo, w, h),
       takeCheckpoint: id => this._takeCheckpoint(id),
       invalidateSplitCache: () => this._invalidateSplitCache(),
@@ -3470,7 +3494,7 @@ export class PencilEngine implements PencilEngineAPI {
       const target = op.type === 'operation_revoke' ? this._log.revoke(op.targetOpId)
         : op.type === 'operation_undo' ? this._log.applyUndo(op.targetOpId, op.userId)
         : op.type === 'operation_redo' ? this._log.applyRedo(op.targetOpId, op.userId) : null
-      if (target) this._noteSnapshotHistoryMutation(target)
+      if (target) this._noteSnapshotHistoryMutation(target, op)
       this._noteSnapshotReadDependencies(op)
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
@@ -3754,7 +3778,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       case 'operation_revoke': {
         const target = this._log.revoke(op.targetOpId)
-        if (target) this._applyHistoryChange(target)
+        if (target) this._applyHistoryChange(target, op)
         break
       }
       // #103: broadcastable, addressed by id (not "whichever op is latest")
@@ -3768,12 +3792,15 @@ export class PencilEngine implements PencilEngineAPI {
         // (§17.49) A target this batch never painted has nothing to take out.
         // Only one it actually skipped: on a reconnect the tail can repeat a
         // stroke this engine painted before the drop, and that one must go.
-        if (target && !this._skippedInBatch.has(target.id)) this._applyHistoryChange(target)
+        const paintedSibling = target?.type === 'stroke' && target.strokeId && this._log.entries.some(entry =>
+          entry.op.type === 'stroke' && entry.op.userId === target.userId && entry.op.strokeId === target.strokeId
+          && entry.state === 'undone' && !this._skippedInBatch.has(entry.op.id))
+        if (target && (!this._skippedInBatch.has(target.id) || paintedSibling)) this._applyHistoryChange(target, op)
         break
       }
       case 'operation_redo': {
         const target = this._log.applyRedo(op.targetOpId, op.userId)
-        if (target) this._applyHistoryChange(target)
+        if (target) this._applyHistoryChange(target, op)
         break
       }
       default:
@@ -3789,6 +3816,9 @@ export class PencilEngine implements PencilEngineAPI {
   confirmOperation(opId: string, seq: number): boolean {
     const confirmed = this._log.confirm(opId, seq)
     if (!confirmed) return false
+    for (const op of confirmed.historyChanges ?? []) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
+    }
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
     this._snapshotIO.confirmCoverage(opId, seq)
     this._resolveSnapshotHistoryRepairs()
@@ -3798,23 +3828,23 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   discardOperation(opId: string): boolean {
-    if (!this._log.isPending(opId)) return false
-    const target = this._log.revoke(opId)
+    const before = new Map(this._log.entries.map(entry => [entry.op.id,
+      {state: entry.state, goneReason: entry.goneReason}]))
+    const target = this._log.rejectPending(opId)
     if (!target) return false
-    // An undo or redo put nothing on the canvas of its own — it flipped
-    // another entry, and that flip is what has to come back: the server kept
-    // the target as it was. (A refused revoke is left alone — it leaves its
-    // target `gone`, which the log has no way to walk back.)
-    if (target.type === 'operation_undo' || target.type === 'operation_redo') {
-      const flipped = target.type === 'operation_undo'
-        ? this._log.applyRedo(target.targetOpId, target.userId)
-        : this._log.applyUndo(target.targetOpId, target.userId)
-      if (flipped) this._applyHistoryChange(flipped)
-      return true
+    // Rejection can undo optimistic branching or a revoke as well as the
+    // directly targeted state flip. Repair every material/structural change.
+    const affected = new Map<string, Operation>()
+    for (const entry of this._log.entries) {
+      const previous = before.get(entry.op.id)
+      if (previous && (previous.state !== entry.state || previous.goneReason !== entry.goneReason)) affected.set(entry.op.id, entry.op)
     }
-    // The same re-sync an undo or a teacher's revoke gets: whatever it put on
-    // the canvas has to come off again, by replaying the layer without it.
-    this._applyHistoryChange(target)
+    // Also repair the direct target when a legacy resolved state masks the
+    // transition: the rejected event may already have changed its buffer.
+    const direct = target.type === 'operation_undo' || target.type === 'operation_redo' || target.type === 'operation_revoke'
+      ? this._log.entries.find(entry => entry.op.id === target.targetOpId)?.op : target
+    if (direct) affected.set(direct.id, direct)
+    for (const op of affected.values()) if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
     return true
   }
 
@@ -3876,6 +3906,11 @@ export class PencilEngine implements PencilEngineAPI {
       if (live.layerId !== layerId || live.paintedTotal <= live.committedOffset) continue
       if (!own(live.peerId, live.strokeId)) return true
     }
+    for (const state of this._peerPreviews.values()) {
+      const head = state.queue[0]
+      if (head?.painted && !head.claimed && head.op.layerId === layerId
+        && head.op.id !== op.id && !own(head.op.userId, head.op.strokeId)) return true
+    }
     return false
   }
 
@@ -3890,6 +3925,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it began. Each of those clears on its own (pen-up, the operation
    *  arriving, the wash drying), and each of those moments calls this again. */
   private _settleLayers(): void {
+    this._flushDeferredSnapshots()
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._strokeLayerId) return
@@ -4466,6 +4502,7 @@ export class PencilEngine implements PencilEngineAPI {
   resizeCanvas(width: number, height: number): void {
     const { gl, canvas } = this
     if (canvas.width === width && canvas.height === height) return
+    this._cancelDeferredSnapshots()
     this._clearAsyncPresentations(this._contextLost || gl.isContextLost())
     canvas.width = width
     canvas.height = height
@@ -4501,6 +4538,33 @@ export class PencilEngine implements PencilEngineAPI {
     this._area.clearLayerTransformPreview()
   }
 
+  private _statefulPeerPreview(op: StrokeOperation): boolean {
+    return op.tool === 'marker' || op.tool === 'smudge'
+  }
+
+  private _releaseLegacyPreviewCarrier(op: StrokeOperation): void {
+    if (op.strokeId) return // A later accepted chunk may continue this gesture.
+    const lost = this._contextLost || this.gl.isContextLost()
+    const chunk = this._replayRibbonChunks.get(op.id)
+    if (chunk && chunk.target === this._layers.get(op.layerId)) {
+      if (lost) { chunk.scratch.forget(); this._replayRibbonChunks.delete(op.id) }
+      else this._evictChunk(op.id, false) // Also cancels an in-progress spill.
+    }
+    const parked = this._spilledWashes.get(op.id)
+    if (parked && parked.target === this._layers.get(op.layerId)) {
+      parked.spill.dispose(); this._spilledWashes.delete(op.id)
+    }
+    if (this._lostWashes.get(op.id) === this._layers.get(op.layerId)) this._lostWashes.delete(op.id)
+    this._chunkAuthors.delete(op.id)
+    this._smudge.releaseGesture(op.userId, op.id, lost)
+  }
+
+  private _retirePeerPreviewInk(state: PeerPreviewState): void {
+    for (const head of state.queue) {
+      if (head.painted && !head.claimed) this._unsettledLayers.add(head.op.layerId)
+    }
+  }
+
   /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
@@ -4514,6 +4578,11 @@ export class PencilEngine implements PencilEngineAPI {
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
+      this._onPreviewApplied?.(op)
+      return
+    }
+    if (this._statefulPeerPreview(op) && op.strokeId
+      && this._peerLiveStrokes.has(liveStrokeKey(op.userId, op.strokeId, op.layerId))) {
       this._onPreviewApplied?.(op)
       return
     }
@@ -4549,6 +4618,7 @@ export class PencilEngine implements PencilEngineAPI {
       const idx = state.queue.findIndex(item => item.op.id === opId)
       if (idx === -1) continue
       const [removed] = state.queue.splice(idx, 1)
+      if (removed.painted && !removed.claimed) this._unsettledLayers.add(removed.op.layerId)
       if (idx === 0) {
         // It was the one actually animating — stop it and either move on to
         // whatever's queued behind it or tear this peer down entirely.
@@ -4557,6 +4627,8 @@ export class PencilEngine implements PencilEngineAPI {
         if (state.queue.length) this._startPeerPreviewHead(peerId)
         else { state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
       }
+      this._settleLayers()
+      this._releaseLegacyPreviewCarrier(removed.op)
       return removed.op
     }
     return null
@@ -4567,8 +4639,11 @@ export class PencilEngine implements PencilEngineAPI {
     const state = this._peerPreviews.get(peerId)
     if (!state) return []
     if (state.timer !== null) clearTimeout(state.timer)
+    this._retirePeerPreviewInk(state)
     state.buf.destroy()
     this._peerPreviews.delete(peerId)
+    this._settleLayers()
+    for (const head of state.queue) this._releaseLegacyPreviewCarrier(head.op)
     this._display()
     return state.queue.map(item => item.op)
   }
@@ -4585,6 +4660,15 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
     if (!canonicalExecution && this._wcAsyncFinish && packet.tool !== 'watercolor' && this._wcCanonical.pending && this._queueAsyncPeerLive(peerId, packet)) return
+    const revealing = this._peerPreviews.get(peerId)?.queue[0]
+    if (revealing && this._statefulPeerPreview(revealing.op) && !revealing.claimed && revealing.op.strokeId === packet.strokeId
+      && revealing.op.layerId === packet.layerId) {
+      // A reentrant callback is already handing this accepted operation to
+      // the canonical path. Later packets can fall back to that whole op.
+      if (revealing.delivered) return
+      const confirmed = this.flushPeerPreview(peerId)
+      for (const op of confirmed) this._onPreviewApplied?.(op)
+    }
     const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
@@ -4595,9 +4679,17 @@ export class PencilEngine implements PencilEngineAPI {
       // is not on the layer and the operations would then skip painting it.
       // Better to let this gesture arrive the old way, whole, and stream the
       // next one.
+      // Late packet zero can follow an already accepted fallback operation.
+      // Those dabs are accounted for even when their pixels were later undone.
+      const known = packet.packetSeq === 0 ? this._log.entries.reduce((count, entry) => {
+        const op = entry.op
+        return !entry.pending && entry.goneReason !== 'reject' && op.type === 'stroke'
+          && op.userId === peerId && op.strokeId === packet.strokeId && op.layerId === packet.layerId
+          ? count + strokeDabs(op).length : count
+      }, 0) : 0
       live = {
-        peerId, strokeId: packet.strokeId, layerId: packet.layerId,
-        paintedTotal: 0, liveOffset: 0, committedOffset: 0, nextPacketSeq: 0,
+        peerId, strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
+        paintedTotal: known, liveOffset: 0, committedOffset: known, nextPacketSeq: 0,
         desynced: packet.packetSeq !== 0, ended: false,
       }
       this._peerLiveStrokes.set(key, live)
@@ -4665,7 +4757,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._wetFromForeignStroke(packet.layerId, packet.tool, packet.preset, dabs, null, standing)
     this._snapshots.markDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
-    this._displayIfNotSuspended()
+    if (this._deferredSnapshotInstalls.has(packet.layerId)) this._scheduleDisplay()
+    else this._displayIfNotSuspended()
   }
 
   /** See PencilEngineAPI's doc comment. */
@@ -4728,6 +4821,7 @@ export class PencilEngine implements PencilEngineAPI {
       // painted. Once the operations have caught up, the entry has no job left.
       if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId, live.layerId))
     }
+    this._flushDeferredSnapshots()
     return outstanding
   }
 
@@ -4774,7 +4868,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  isn't involved, which is every stroke in a room where nobody is streaming
    *  — including this client's own, since it never streams to itself. */
   private _claimLivePaintedDabs(op: StrokeOperation, dabCount: number): number {
-    if (!op.strokeId) return 0
+    const preview = this._peerPreviews.get(op.userId)?.queue[0]
+    const revealed = preview?.op.id === op.id ? Math.min(preview.painted ?? 0, dabCount) : 0
+    if (revealed && preview) preview.claimed = true
+    if (!op.strokeId) return revealed
     const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     // Deliberately still claims for a desynced gesture. `desynced` stops
     // *further* live painting, and painting stops at the first missing packet
@@ -4782,7 +4879,7 @@ export class PencilEngine implements PencilEngineAPI {
     // prefix of the gesture. Ignoring it because the stream later broke would
     // repaint that prefix on top of itself and leave the first part of the
     // mark darker than the rest.
-    if (!live) return 0
+    if (!live) return revealed
     // Mirror image of the live path: this operation's dabs sit at
     // [committedOffset, committedOffset + dabCount), and whatever of that is
     // below paintedTotal is already drawn.
@@ -4792,7 +4889,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (live.ended && live.committedOffset >= live.paintedTotal) {
       this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     }
-    return skip
+    return Math.max(skip, revealed)
   }
 
   // Starts (or restarts, for the next queued op) animating peerId's queue
@@ -4815,7 +4912,7 @@ export class PencilEngine implements PencilEngineAPI {
     const state = this._peerPreviews.get(peerId)
     if (!state) return
     if (this._contextLost || this.gl.isContextLost()) {
-      const queued = [...state.queue]
+      const queued = state.queue.filter(head => !head.delivered)
       this._peerPreviews.delete(peerId)
       for (const head of queued) this._onPreviewApplied?.(head.op)
       return
@@ -4832,6 +4929,16 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     const { op, rate, dabs } = head
+    const direct = this._statefulPeerPreview(op)
+    if (direct && !head.delivered && !head.painted && (this._wcCanonical.pending || this._opQueue.length
+      || (state.waitingCanonical && (this._rebuildJobs.size || this._pendingRebuilds.size)))) {
+      state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+      return
+    }
+    if (direct && state.waitingCanonical) {
+      state.buf.clear()
+      state.waitingCanonical = false
+    }
 
     const elapsed = (performance.now() - state.startTime) * rate
     const due: Dab[] = []
@@ -4842,7 +4949,16 @@ export class PencilEngine implements PencilEngineAPI {
     if (due.length) {
       // #138: translated into this peer's buffer's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      if (this._wcAsyncFinish && op.tool === 'watercolor') {
+      if (direct) {
+        const target = this._layers.get(op.layerId)
+        if (target) {
+          this._paintDabs(target, due, op.tool, op.preset, op.color, op.userId,
+            undefined, undefined, op.strokeId ?? op.id)
+          head.painted = (head.painted ?? 0) + due.length
+          this._snapshots.markDirty(op.layerId)
+          if (op.layerId !== this._activeId) this._invalidateSplitCache()
+        }
+      } else if (this._wcAsyncFinish && op.tool === 'watercolor') {
         // Peer reveal is transient: no shared canonical scratch/solver here.
         const waterOnly = watercolorMixFromPreset(op.preset).pigment <= 0
         const marks = due.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
@@ -4854,8 +4970,23 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     if (state.dabIdx >= dabs.length) {
-      this._onPreviewApplied?.(op)
+      if (!head.delivered) {
+        head.delivered = true
+        this._onPreviewApplied?.(op)
+      }
+      if (this._peerPreviews.get(peerId) !== state) return
+      // An accepted callback may have queued its canonical application behind
+      // an async finish. Keep the claim alive until that FIFO has applied it.
+      if (head.painted && !head.claimed && this._opQueue.some(item => item.op.id === op.id)) {
+        state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+        return
+      }
       state.queue.shift()
+      if (head.painted && !head.claimed) {
+        this._unsettledLayers.add(op.layerId)
+        this._settleLayers()
+      }
+      this._releaseLegacyPreviewCarrier(op)
       const hold = this._wcAsyncFinish && (op.tool === 'watercolor' || state.waitingCanonical) && (this._wcCanonical.pending || this._opQueue.length > 0 || this._rebuildJobs.size > 0 || this._pendingRebuilds.size > 0)
       state.waitingCanonical = hold
       if (!hold) state.buf.clear()
@@ -4913,6 +5044,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._authorTasks.destroy()
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()
+    this._cancelLiveDabFlush()
+    this._cancelDeferredSnapshots()
+    cancelRestoreGeneration(this)
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -5020,7 +5154,7 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── History / replay ────────────────────────────────────────────────────────
 
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
-  private _applyHistoryChange(op: Operation): void {
+  private _applyHistoryChange(op: Operation, cause?: Operation, historicalCause = false): void {
     if (this._wcAsyncFinish) {
       this._cancelSettle()
       // These previews already committed their callbacks. History removes
@@ -5033,7 +5167,7 @@ export class PencilEngine implements PencilEngineAPI {
         else { state.buf.destroy(); this._peerPreviews.delete(peerId) }
       }
     }
-    this._noteSnapshotHistoryMutation(op)
+    this._noteSnapshotHistoryMutation(op, cause, historicalCause)
     const roots=op.type==='stroke'&&op.strokeId ? this._log.entries.map(entry=>entry.op).filter(candidate=>candidate.type==='stroke'&&candidate.userId===op.userId&&candidate.strokeId===op.strokeId) : [op]
     const dependent=dependentReadOperations(this._log.entries.filter(entry=>entry.state==='done').map(entry=>entry.op),roots)
     for(const read of dependent)this._invalidateReadHistory(read)
@@ -5048,6 +5182,9 @@ export class PencilEngine implements PencilEngineAPI {
         for (const layerId of this._log.gestureLayerIds(op)) this._rebuildLayerOrDefer(layerId)
         break
       case 'layer_clear':
+      // (#447) Imports paint pixels too: flipping their journal state is
+      // insufficient until the layer is replayed without (or with) the image.
+      case 'image_import':
       // (#446) Single-layer pixel operations, same as the two above: undoing
       // or redoing one means replaying its layer's history without (or with)
       // it. Nothing here can be derived from the operation's own effect —
@@ -5170,6 +5307,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  the tail of its done pixel operations. */
   private _rebuildLayer(layerId: string): void {
     if (this._snapshotIO.historyRepairPending(layerId) || this._snapshotDependentLayers.has(layerId)) return
+    // Unrecorded physical ink has no replayable operation yet. Keep it visible
+    // and settle only after its owning gesture commits or is cancelled.
+    if (this._hasUnrecordedInk(layerId)) { this._unsettledLayers.add(layerId); return }
     const buf = this._layers.get(layerId)
     if (!buf) return
     // (#536, §17.53) A watercolour replay settles every operation: 5 s on the
@@ -5304,7 +5444,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Never under this user's own pen: one watercolour operation replays in
     // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
     if(this._strokeLayerId&&ops.some(op=>this._isCanonicalBeginOperation(op))){job.gridBlocked={kind:'notReady',reason:'prefix',retryKey:'author-active'};return}
-    if (this._strokeLayerId) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
+    if (this._strokeLayerId || this._hasUnrecordedInk(job.layerId)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
     // (§17.72) Nor over somebody else's settle still spreading: the next
     // operation's finish would land it here in one piece (0.5 s on the Surface).
     if (this._settle && !this._jobOwnsSettle(job)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 16); return }
@@ -5536,7 +5676,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._wakeGridResources()
   }
 
-  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
+  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], useCheckpoints = true): void {
     // Starting a fresh replay is not a canonical foreign clear inside that replay.
     this._invalidateCanonicalBeginOwners(buf,'prefix');this._gridTargetEpochs.delete(buf)
     // #144: `buf`'s own tile count while this method is repopulating it is a
@@ -5559,7 +5699,9 @@ export class PencilEngine implements PencilEngineAPI {
     tiled?.suspendEviction()
     try {
       let start = 0
-      const best = this._checkpoints.best(layerId, ops)
+      // Current source checkpoints may contain paint added after this copy.
+      // Only ordinary rebuilds may use them; historical reads replay the prefix.
+      const best = useCheckpoints ? this._checkpoints.best(layerId, ops) : null
       const cp = best?.cp
       if (best && cp) {
         this._smudge.prepareGridDestinationMutation(buf)
@@ -5617,10 +5759,8 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  Ribbon entries are dropped for this buffer only: another layer's replay
    *  (a merge's temp buffer, a full-replay bake) holds its own and is not this
-   *  replay's business. Smudge's are per user with no target to compare, so
-   *  they all go except the local gesture actually in progress — that one is
-   *  still being painted live by SmudgePainter.paint and must not have its imprint
-   *  reset under it by, say, a peer's undo arriving mid-stroke. */
+   *  replay's business. Smudge carriers are scoped to the target buffer too,
+   *  so another layer or temporary replay cannot replace a live imprint. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
     if (!this._historicalSourceDepth && this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
@@ -5628,7 +5768,7 @@ export class PencilEngine implements PencilEngineAPI {
       chunk.scratch.destroy()
       this._replayRibbonChunks.delete(key)
     }
-    this._smudge.dropReplayChunks({ userId: this._userId, strokeId: this._strokeId },buf)
+    this._smudge.dropReplayChunks(buf, { userId: this._userId, strokeId: this._strokeId })
   }
 
   private _openProjectionSource(source:BrushSourceContext,target:ILayerBuffer):ProjectionReadSession {
@@ -5966,6 +6106,7 @@ export class PencilEngine implements PencilEngineAPI {
       this.gl, w, h,
       layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined,
       undefined, downsample,
+      target => this._smudge.releaseTarget(target, this._contextLost || this.gl.isContextLost()),
     )
   }
 
@@ -6070,10 +6211,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelOwnedAuthor(true)
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()
+    this._cancelLiveDabFlush()
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._stopAirbrush()
     this._contextLost = true
+    this._cancelDeferredSnapshots()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
     // buffers and cannot seed a restored context. Drop the whole mid-wash
     // checkpoint: retaining its prefix without open wash state loses the tail.
@@ -6082,7 +6225,7 @@ export class PencilEngine implements PencilEngineAPI {
     // A confirmed preview must not depend on its timer running before restore
     // forgets the old buffers. Detach first: commit callbacks can be reentrant.
     const previews = [...this._peerPreviews.values()]
-    const confirmed = previews.flatMap(state => state.queue.map(head => head.op))
+    const confirmed = previews.flatMap(state => state.queue.filter(head => !head.delivered).map(head => head.op))
     for (const state of previews) if (state.timer !== null) clearTimeout(state.timer)
     this._peerPreviews.clear()
     for (const op of confirmed) this._onPreviewApplied?.(op)
@@ -6235,6 +6378,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._strokeExtraLayerIds.includes(layerId)) return true
     for (const live of this._peerLiveStrokes.values()) {
       if (live.layerId === layerId && live.paintedTotal > live.committedOffset) return true
+    }
+    for (const state of this._peerPreviews.values()) {
+      const head = state.queue[0]
+      if (head?.painted && !head.claimed && head.op.layerId === layerId) return true
     }
     return false
   }
@@ -6516,6 +6663,7 @@ export class PencilEngine implements PencilEngineAPI {
       colorSmudge:packColorSmudge(buffer.readColorSmudgePixels()),
     })
     const opIds = ops.map(o => o.id)
+    const snapshotBase = this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
     if (resident.length === 1 || typeof document === 'undefined') {
       this._checkpoints.add({ layerId, opIds, tiles: resident.map(read) })
       return
@@ -6526,6 +6674,9 @@ export class PencilEngine implements PencilEngineAPI {
     const tiles: ReturnType<typeof read>[] = []
     const last = opIds[opIds.length - 1]
     const step = (): void => {
+      // A replacement can keep the same buffer and journal while retiring
+      // these captured tiles. Never publish a checkpoint from that old base.
+      if (this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot) !== snapshotBase) return
       if (this._destroyed || this._contextLost || this._layers.get(layerId) !== buf) return
       if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
       const now = this._log.layerPixelOps(layerId)
@@ -6554,10 +6705,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return false
     // An idle bootstrap observer can run between native dab chunks. These
     // unrecorded pixels belong to no confirmed watermark yet.
-    if (this._strokeLayerId || this._destroyed || this.gl.isContextLost()) return false
-    // A watcher may already hold live dabs above its confirmed watermark,
-    // before the first stroke operation exists. Never publish that partial ink.
-    if (this._hasUnrecordedInk(layerId)) return false
+    if (this._deferredSnapshotInstalls.has(layerId) || this._strokeLayerId || this._hasUnrecordedInk(layerId) || this._destroyed || this.gl.isContextLost()) return false
     // (§17.58) Not with peers' operations still queued: landing them here was a
     // multi-second hitch at every snapshot boundary; the layer stays dirty and
     // goes with the next one.
@@ -6591,6 +6739,7 @@ export class PencilEngine implements PencilEngineAPI {
    *     any watermark this client can have seen, so a joiner restoring these
    *     pixels would then receive the same operations and paint them twice. */
   private _snapshotSettled(layerId: string): boolean {
+    if (this._deferredSnapshotInstalls.has(layerId)) return false
     if (this._log.hasPendingPaperDry()) return false
     if (this._unsettledLayers.has(layerId)) this._settleLayers()
     if (this._unsettledLayers.has(layerId) || this._pendingRebuilds.has(layerId)) return false
@@ -6602,20 +6751,106 @@ export class PencilEngine implements PencilEngineAPI {
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    // Snapshot downloads can complete after their live/confirmed tail landed.
-    // Preserve the visible buffer until the authoritative base and held tail
-    // can be replayed together; never ask undo/redo to repair a late restore.
+  /** Deferred completion must be awaited before decoding another layer (#467).
+   * Tiles remain immutable caller-owned views; no copy or early coverage/audit. */
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, signal?: AbortSignal): void | Promise<void> {
+    signal?.throwIfAborted()
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) throw new DOMException('Snapshot target unavailable', 'AbortError')
+    this._cancelDeferredSnapshot(layerId)
+    const target = this._layers.get(layerId)
+    if (!target || !this._hasPhysicalOrdinaryInk(layerId)) {
+      this._restoreLayerFromSnapshotNow(layerId, tiles, coveredSeq)
+      return
+    }
+    let item!: DeferredSnapshotInstall
+    const completion = new Promise<void>((resolve, reject) => {
+      item = { target, tiles, coveredSeq, signal, resolve, reject,
+        abort: () => this._cancelDeferredSnapshot(layerId) }
+    })
+    // Existing fire-and-forget callers must not create an unhandled rejection
+    // on teardown; awaiting the original promise still receives cancellation.
+    void completion.catch(() => {})
+    this._deferredSnapshotInstalls.set(layerId, item)
+    signal?.addEventListener('abort', item.abort, { once: true })
+    if (signal?.aborted) item.abort()
+    return completion
+  }
+
+  private _hasPhysicalOrdinaryInk(layerId: string): boolean {
+    if (this._strokeLayerId && this._strokeTool !== 'watercolor'
+      && (this._strokeLayerId === layerId || this._strokeExtraLayerIds.includes(layerId))) return true
+    return [...this._peerLiveStrokes.values()].some(live => live.layerId === layerId && live.tool !== 'watercolor' && !live.ended && live.paintedTotal > 0)
+  }
+
+  private _cancelDeferredSnapshot(layerId: string): void {
+    const item = this._deferredSnapshotInstalls.get(layerId)
+    if (!item) return
+    this._deferredSnapshotInstalls.delete(layerId)
+    item.signal?.removeEventListener('abort', item.abort)
+    item.tiles = null
+    item.reject(new DOMException('Snapshot installation retired', 'AbortError'))
+  }
+
+  private _cancelDeferredSnapshots(): void {
+    for (const id of this._deferredSnapshotInstalls.keys()) this._cancelDeferredSnapshot(id)
+  }
+
+  private _flushDeferredSnapshots(): void {
+    for (const [id, item] of this._deferredSnapshotInstalls) {
+      if (item.signal?.aborted || this._destroyed || this._contextLost || this.gl.isContextLost() || this._layers.get(id) !== item.target) {
+        this._cancelDeferredSnapshot(id); continue
+      }
+      if (this._hasPhysicalOrdinaryInk(id)) continue
+      this._deferredSnapshotInstalls.delete(id)
+      item.signal?.removeEventListener('abort', item.abort)
+      const tiles = item.tiles!
+      item.tiles = null
+      try { this._restoreLayerFromSnapshotNow(id, tiles, item.coveredSeq); item.resolve() }
+      catch (error) { item.reject(error) }
+    }
+  }
+
+  private _restoreLayerFromSnapshotNow(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+    const target=this._layers.get(layerId)
     const pixelIds = coveredSeq === undefined ? undefined : new Set(this._log.layerPixelOps(layerId).map(op => op.id))
     const knownTail = pixelIds && this._log.entries.some(entry => pixelIds.has(entry.op.id)
+      && entry.op.type === 'stroke' && entry.op.tool === 'digitalBrush'
       && (entry.pending || entry.serverSeq !== undefined && entry.serverSeq > coveredSeq!))
     const gridTarget=this._layers.get(layerId)
-    const installOnly = !!knownTail || this._hasUnrecordedInk(layerId) || !!(gridTarget&&this._canonicalBeginOwners(gridTarget).length)
+    const sameBase = coveredSeq !== undefined && this._checkpoints.all().some(cp => cp.layerId === layerId && cp.fromSnapshot && cp.coveredSeq === coveredSeq)
+    const pendingAboveSameBase = sameBase && this._log.entries.some(entry => entry.pending && pixelIds?.has(entry.op.id))
+    const installOnly = !!knownTail || !!pendingAboveSameBase || !!(gridTarget&&this._canonicalBeginOwners(gridTarget).length)
+    if(target && !installOnly){
+      this._sweepReveals(performance.now(), layerId)
+      this._cancelRebuildJob(layerId)
+      this._forgetWashesOf(target) // Authoritative handover, never commit an obsolete wet goal.
+      this._paperWet.forgetLayer(layerId)
+      for(const cp of [...this._checkpoints.all()])if(cp.layerId===layerId && !cp.fromSnapshot)this._checkpoints.remove(cp)
+    }
     this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly)
     this._resolveSnapshotHistoryRepairs()
-    if (installOnly && this._layers.has(layerId)) {
-      this._unsettledLayers.add(layerId)
-      this._settleLayers()
+    if (installOnly && target) { this._unsettledLayers.add(layerId); this._settleLayers() }
+    // Peer END can precede its durable operation; repair overwritten live
+    // dabs once the operation arrives, without waiting for ACK to install.
+    if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
+    if (!target || coveredSeq === undefined) return
+    this._checkpoints.markCovered(this._log.entries
+      .filter(entry => !entry.pending && entry.serverSeq !== undefined)
+      .map(entry => ({ id: entry.op.id, seq: entry.serverSeq })))
+    const covered = this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot)?.covered
+    const tail = this._log.layerPixelOps(layerId).filter(op => !covered?.has(op.id))
+    if (tail.some(op => this._log.entries.some(entry => entry.op.id === op.id && !entry.pending && entry.serverSeq === undefined))) {
+      this._snapshotIO.requireHistory(layerId)
+      this._onSnapshotHistoryRepairNeeded?.()
+      return
+    }
+    // A replacement bitmap must preserve accepted newer and pending local
+    // operations. Local array indices are never proof of server coverage.
+    if (tail.length && !installOnly) {
+      // An unresolved local ACK may name ink already baked into this bitmap.
+      // An empty bitmap proves there is no such ink; otherwise wait for coverage.
+      if (this._snapshotIO.hasAmbiguousPending(layerId) && !tiles.every(isEmptySnapshotTile)) this._unsettledLayers.add(layerId)
+      else this._rebuildLayerOrDefer(layerId)
     }
   }
 
@@ -6656,10 +6891,46 @@ export class PencilEngine implements PencilEngineAPI {
     return [...this._layers.keys()]
   }
 
-  private _noteSnapshotHistoryMutation(op: Operation): void {
-    this._wakeGridResources()
+  /** Positive cause for a state changed by historical union refolding. Never
+   * infer a cause from state alone: identify the last valid addressed event. */
+  private _historicalMutationCause(op: Operation): Operation | undefined {
+    const entries = this._log.entries
+    const byId = new Map(entries.map(entry => [entry.op.id, entry]))
+    const state = byId.get(op.id)
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i], change = entry.op
+      if (entry.goneReason === 'reject') continue
+      if (change.type !== 'operation_undo' && change.type !== 'operation_redo' && change.type !== 'operation_revoke') continue
+      const target = byId.get(change.targetOpId)?.op
+      if (!target || (op.seq ?? 0) >= (change.seq ?? 0)
+        || (change.type !== 'operation_revoke' && target.userId !== change.userId)) continue
+      const same = target.id === op.id || (change.type !== 'operation_revoke' && op.type === 'stroke'
+        && target.type === 'stroke' && !!op.strokeId && target.strokeId === op.strokeId && target.userId === op.userId)
+      if (!same) continue
+      const matches = change.type === 'operation_undo'
+        ? state?.state === 'undone' || (state?.state === 'gone' && state.goneReason === 'branch')
+        : change.type === 'operation_redo' ? state?.state === 'done'
+          : state?.state === 'gone' && state.goneReason === 'revoke'
+      return matches ? change : undefined
+    }
+    return undefined
+  }
 
-    this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(op), op.id)
+  private _noteSnapshotHistoryMutation(op: Operation, cause?: Operation, historicalCause = false): void {
+    this._wakeGridResources()
+    const entries = this._log.entries
+    const targetEntry = entries.find(entry => entry.op.id === op.id)
+    const causeEntry = cause ? entries.find(entry => entry.op.id === cause.id) : undefined
+    const grouped = op.type === 'stroke' && !!op.strokeId && (cause
+      ? cause.type === 'operation_undo' || cause.type === 'operation_redo' : targetEntry?.state !== 'gone')
+    const targets = grouped && op.type === 'stroke' ? entries.filter(entry => entry.op.type === 'stroke'
+      && entry.op.userId === op.userId && entry.op.strokeId === op.strokeId
+      && (entry.op.seq ?? 0) < (causeEntry?.op.seq ?? Infinity)).map(entry => entry.op) : [op]
+    const mutation = causeEntry?.serverSeq !== undefined && !causeEntry.pending
+      ? { serverSeq: causeEntry.serverSeq, historical: historicalCause } : undefined
+    for (const target of targets) {
+      this._snapshotIO.invalidateCoveredHistory(this._log.gestureLayerIds(target), target.id, mutation)
+    }
     this._resolveSnapshotHistoryRepairs()
     if (this.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
       if (!this._destroyed) this._onSnapshotHistoryRepairNeeded?.()
@@ -6759,10 +7030,10 @@ export class PencilEngine implements PencilEngineAPI {
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
       if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
-    const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
-    // A late page can resolve metadata already held by the other page. Use
-    // the ordinary history invalidation/rebuild path for those changed targets.
-    for (const target of historyChanges) this._applyHistoryChange(target)
+    const changed = this._snapshotIO.absorbHistorical(pageOps)
+    for (const op of changed) {
+      if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op, this._historicalMutationCause(op), true)
+    }
     this._resolveSnapshotHistoryRepairs()
     this._settleLayers()
   }
@@ -6772,7 +7043,8 @@ export class PencilEngine implements PencilEngineAPI {
    * The original prefix fold (including boundary undo) precedes tail redo. */
   private _replayRestoredStructure = false
 
-  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
+  async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
       if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
@@ -6787,18 +7059,34 @@ export class PencilEngine implements PencilEngineAPI {
       this._syncBuffersToLog(false)
     }
     await this.preloadImages(ops)
+    signal?.throwIfAborted()
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
     if (replayStructure) return
     // Tail merge/copy reads live source buffers. Deferring these until the
     // eventual resumeDisplay would let that tail copy an empty source. Run
     // the existing rebuild machinery now, preserving its GPU slicing.
-    for (const id of affected) {
-      this._pendingRebuilds.delete(id)
-      this._rebuildLayer(id)
+    const ownedJobs = new Map<string, RebuildJob>()
+    const cancelOwned = () => {
+      for (const [id, job] of ownedJobs) if (this._rebuildJobs.get(id) === job) this._cancelRebuildJob(id)
     }
-    while ([...affected].some(id => this._rebuildJobs.has(id))) {
-      if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
-      await new Promise<void>(resolve => setTimeout(resolve, 16))
+    signal?.addEventListener('abort', cancelOwned, { once: true })
+    try {
+      for (const id of affected) {
+        this._pendingRebuilds.delete(id)
+        const before = this._rebuildJobs.get(id)
+        this._rebuildLayer(id)
+        const job = this._rebuildJobs.get(id)
+        if (job && job !== before) ownedJobs.set(id, job)
+      }
+      while ([...affected].some(id => this._rebuildJobs.has(id))) {
+        if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
+        await new Promise<void>(resolve => setTimeout(resolve, 16))
+        signal?.throwIfAborted()
+      }
+      signal?.throwIfAborted()
+    } finally {
+      signal?.removeEventListener('abort', cancelOwned)
+      if (signal?.aborted) cancelOwned()
     }
     if (this._destroyed || this._contextLost) throw new Error('Historical dependency rebuild interrupted')
   }
@@ -6819,6 +7107,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _destroyBuffer(id: string): void {
     const gridTarget=this._layers.get(id);if(gridTarget){this._invalidateCanonicalBeginOwners(gridTarget,'prefix');this._gridTargetEpochs.delete(gridTarget)}
 
+    this._cancelDeferredSnapshot(id)
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
     this._cancelledPeerLayers.delete(id)
@@ -7394,13 +7683,13 @@ export class PencilEngine implements PencilEngineAPI {
       : nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0, execution:brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource) })
-    // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
+    // (#429) No preceding emit: the first packet goes out immediately. It
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
     // early as the channel allows. Only the packets after it are paced.
     this._cancelLiveDabFlush()
     this._liveDabQueue = []
-    this._liveLastEmitAt = 0
+    this._liveLastEmitAt = -Infinity
     this._livePacketSeq = 0
     // #251: this._strokePreset isn't assigned until the next line — pass the
     // raw incoming preset (snapshot.opts.pencilType) directly so a marker
@@ -8491,6 +8780,12 @@ export class PencilEngine implements PencilEngineAPI {
         originalKeys.set(dabs[i], standing.get(canonical[i])!)
       }
       return originalKeys
+    }
+    // #560: the live marker must build the same CPU bands as its recorded
+    // float32 dabs. At pi/2, rounding can flip which box face supplies support.
+    if (tool === 'marker') {
+      dabs = dabs.map(codecDab)
+      if (prevDab) prevDab = codecDab(prevDab)
     }
     if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample, execution)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
@@ -9896,6 +10191,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const id of [...this._wcAsyncLocalTools.keys()]) this._releaseAsyncLocalTool(id, lost)
     if (this._wcAsyncLocalStroke) {
       const endedStroke = this._strokeId
+      this._cancelLiveDabFlush()
       this._wcAsyncLocalStroke = null
       this._strokeLayerId = null; this._strokeId = null; this._strokeBrushRandom = undefined;this._strokeBrushSource=undefined; this._strokeDabs = []
       // Only the unrecorded tail is discarded. Confirmed chunks remain in

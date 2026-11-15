@@ -25,13 +25,13 @@ vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 const mockSetRoomClosed = vi.hoisted(() => vi.fn())
 vi.mock('../rooms/ownerControls.js', () => ({ setRoomClosed: mockSetRoomClosed }))
 
-function buildApp(userId = 'user-1', notifyRoomClosed?: (roomId: string, closedAt: string | null) => void)
+function buildApp(userId = 'user-1', notifyRoomClosed?: (roomId: string, closedAt: string | null) => void, notifyRoomDeleted?: (roomId: string) => Promise<void>)
 : FastifyInstance {
   const app = Fastify()
   app.addHook('preHandler', async (request) => {
     request.userId = userId
   })
-  registerRoomRoutes(app, notifyRoomClosed)
+  registerRoomRoutes(app, notifyRoomClosed, notifyRoomDeleted)
   return app
 }
 
@@ -347,5 +347,36 @@ describe('GET /api/rooms/search', () => {
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ rooms: [] })
     expect(mockPrisma.room.findMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('DELETE live lesson', () => {
+  it('awaits removal notifications after the durable delete', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue(dbRoom())
+    mockPrisma.room.delete.mockResolvedValue(dbRoom())
+    let finish!: () => void
+    const removed = vi.fn(() => new Promise<void>(resolve => { finish = resolve }))
+    const app = buildApp('user-1', undefined, removed)
+    let responded = false
+    const response = app.inject({ method: 'DELETE', url: '/api/rooms/room-1' }).then(result => { responded = true; return result })
+    await vi.waitFor(() => expect(removed).toHaveBeenCalledWith('room-1'))
+    expect(mockPrisma.room.delete).toHaveBeenCalledWith({ where: { id: 'room-1' } })
+    expect(responded).toBe(false)
+    finish()
+    expect((await response).statusCode).toBe(200)
+    await app.close()
+  })
+
+  it('does not remove live users when deletion is unauthorized or fails', async () => {
+    const removed = vi.fn(async () => {})
+    const app = buildApp('user-1', undefined, removed)
+    mockPrisma.room.findUnique.mockResolvedValue(dbRoom({ ownerId: 'someone-else' }))
+    expect((await app.inject({ method: 'DELETE', url: '/api/rooms/room-1' })).statusCode).toBe(403)
+    expect(mockPrisma.room.delete).not.toHaveBeenCalled()
+    mockPrisma.room.findUnique.mockResolvedValue(dbRoom())
+    mockPrisma.room.delete.mockRejectedValueOnce(new Error('database unavailable'))
+    expect((await app.inject({ method: 'DELETE', url: '/api/rooms/room-1' })).statusCode).toBe(500)
+    expect(removed).not.toHaveBeenCalled()
+    await app.close()
   })
 })

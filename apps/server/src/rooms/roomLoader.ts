@@ -3,7 +3,7 @@ import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { rooms } from './roomRegistry.js'
+import { rooms, type RoomResidencyLease } from './roomRegistry.js'
 import { supportsRoomStorage } from './roomStoragePolicy.js'
 import { persistPalette } from './roomPersistence.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
@@ -42,24 +42,49 @@ async function loadResidentOperations(
   return rows.map(row => row.data as Operation)
 }
 
+interface PendingRoomLoad { roomId: string; lessonId?: string | null; cancelled: boolean }
+const pendingLoads = new Set<PendingRoomLoad>()
+
+/** A completed DELETE must supersede reads started before the cascade. Only
+ * active loads retain tokens; deleted ids do not accumulate as tombstones. */
+export function cancelRoomLoads(lessonId: string): void {
+  for (const load of pendingLoads) if (load.roomId === lessonId || load.lessonId === lessonId || rooms.get(load.roomId)?.lessonId === lessonId) load.cancelled = true
+}
+
+/** Keep DELETE cancellation alive through access/replay awaits and until
+ * the admission seats its socket. A cache load alone ends earlier. */
+export function retainRoomLoadIntent(roomId: string): { isCancelled: () => boolean; release: () => void } {
+  const load: PendingRoomLoad = { roomId, cancelled: false }
+  pendingLoads.add(load)
+  return { isCancelled: () => load.cancelled, release: () => { pendingLoads.delete(load) } }
+}
+
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
  *  already there — called by socketHandlers.ts right before `createRoom`/
  *  `joinRoom` so those can stay synchronous. A no-op (returns immediately,
  *  true) if the room is already live in memory. Reconstructed `participants`
  *  always starts empty: presence is inherently live-only, nobody is
  *  "currently connected" to a room that just got cold-loaded. */
-export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
+export async function ensureRoomLoaded(roomId: string, residency?: Pick<RoomResidencyLease, 'retain'>): Promise<boolean> {
   const resident = rooms.get(roomId)
   if (resident) {
+    if (resident.lessonId) residency?.retain(resident.lessonId)
     // (#176) A board's residency is only worth anything with its lesson
     // beside it — see RoomRecord.lessonId. The lesson can go first (its own
     // eviction is deferred behind its own writes, the board's behind the
     // board's), so "the board is here" has to also mean "so is the lesson"
     // before anything synchronous is allowed to ask a social question of it.
-    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId)
+    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId, residency)
     return true
   }
 
+  const load: PendingRoomLoad = { roomId, cancelled: false }
+  pendingLoads.add(load)
+  try { return await loadRoom(roomId, load, residency) }
+  finally { pendingLoads.delete(load) }
+}
+
+async function loadRoom(roomId: string, load: PendingRoomLoad, residency?: Pick<RoomResidencyLease, 'retain'>): Promise<boolean> {
   const dbRoom = await prisma.room.findUnique({
     where: { id: roomId },
     // (#209) thumbnail narrowed to `updatedAt` only, same reasoning as
@@ -71,15 +96,19 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     // into the heap. See loadResidentOperations.
     include: { thumbnail: { select: { updatedAt: true } } },
   })
-  // Never interpret archived experimental pixels as ordinary Grafetto data.
-  if (!dbRoom || !supportsRoomStorage(dbRoom.rasterVersion)) return false
+  // Reject unsupported archived pixels and cancelled residency loads.
+  if (!dbRoom || load.cancelled || !supportsRoomStorage(dbRoom.rasterVersion)) return false
+  load.lessonId = dbRoom.lessonId
 
   // (#176) Lesson first, always: the board's join gate, freeze and
   // participants are all read off the lesson's record, so a board resident
   // without it is a board nobody can be admitted to. A lesson that has gone
   // from Postgres takes its boards with it (the FK cascades), so `false` here
   // is the same "not found" the board itself would have been.
-  if (dbRoom.lessonId !== null && !(await ensureRoomLoaded(dbRoom.lessonId))) return false
+  if (dbRoom.lessonId !== null) {
+    residency?.retain(dbRoom.lessonId)
+    if (!(await ensureRoomLoaded(dbRoom.lessonId, residency))) return false
+  }
 
   const [storedLayerState, coveredSeqByLayer] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
@@ -109,6 +138,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     ? await prisma.roomPalette.findUnique({ where: { roomId }, select: { colors: true } })
     : null
   const palette = existingPalette?.colors ?? (dbRoom.lessonId === null ? [...DEFAULT_PALETTE_COLORS] : [])
+  if (load.cancelled) return false
   if (!existingPalette && dbRoom.lessonId === null) persistPalette(roomId, palette)
 
   // (#176) The strip, for a lesson. A board's record keeps none: the list is
@@ -146,6 +176,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // replace a record the first has already seated someone in. (#176 made the
   // window wider — a board load awaits its lesson's — but the race predates
   // it.)
+  if (load.cancelled) return false
   if (rooms.has(roomId)) return true
 
   rooms.set(roomId, {

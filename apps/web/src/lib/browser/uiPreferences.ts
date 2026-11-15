@@ -99,3 +99,12 @@ export function floatingPanelVisible(
   if (mode === 'always') return true
   return uiHidden && minimalUiAvailable(deviceType)
 }
+
+/** Preferred dock layout, stored per browser rather than per room (#836). */
+export type Handedness = 'right' | 'left'
+
+export const HANDEDNESS_OPTIONS: readonly Handedness[] = ['right', 'left']
+
+export function isHandedness(value: unknown): value is Handedness {
+  return value === 'right' || value === 'left'
+}

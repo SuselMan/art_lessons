@@ -46,8 +46,8 @@ vi.mock('../health/memory.js', () => ({
 }))
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
-const { registerRoomHandlers } = await import('./socketHandlers.js')
-const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
+const { registerRoomHandlers, removeDeletedLesson, removeUserFromRoom, evacuateBoard } = await import('./socketHandlers.js')
+const { _flushPendingWrites, getParticipant, getRoomSnapshot, isRoomResident, forgetDeletedLesson } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
@@ -662,5 +662,715 @@ describe.each(['timing', 'time', 'childTime'] as const)('author clock source adm
       expect(stored.dabsPacked).toBe(packed)
       expect(strokeEndSample(JSON.parse(JSON.stringify(stored)))?.sourceTime).toBe(valid.sourceTime)
     } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+})
+describe('deleted live lesson', () => {
+  it('removes owner and board viewer from channels, rejecting later operations', async () => {
+    const { lessonId, boardId, teacher, student } = await classroom()
+    await join(student, boardId, 'Alice')
+    const teacherKicked = next(teacher, 'kicked'), studentKicked = next(student, 'kicked')
+    forgetDeletedLesson(lessonId)
+    rows.delete(lessonId); rows.delete(boardId)
+    await removeDeletedLesson(io as never, lessonId)
+    expect(await teacherKicked).toEqual({ roomId: lessonId })
+    expect(await studentKicked).toEqual({ roomId: lessonId })
+    expect(isRoomResident(lessonId)).toBe(false)
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(teacher.connected).toBe(true)
+    expect(student.connected).toBe(true)
+    const result = await new Promise(resolve => student.emit('operation', stroke(fresh('late'), 'student'), resolve))
+    expect(result).toEqual({ ok: false, reason: 'not_joined' })
+    await expect(join(student, boardId, 'Alice')).rejects.toThrow('not_found')
+  })
+
+  it('does not remove a socket that switched lessons during adapter lookup', async () => {
+    let finish!: (value: unknown[]) => void
+    const socket = { data: { roomId: 'old-board', lessonId: 'old' }, emit: vi.fn(), leave: vi.fn() }
+    const adapter = { in: () => ({ fetchSockets: () => new Promise<unknown[]>(resolve => { finish = resolve }) }) }
+    const removal = removeDeletedLesson(adapter as never, 'old')
+    socket.data.roomId = 'new-board'; socket.data.lessonId = 'new'
+    finish([socket]); await removal
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(socket.leave).not.toHaveBeenCalled()
+    expect(socket.data).toEqual({ roomId: 'new-board', lessonId: 'new' })
+  })
+})
+
+// #780: real transports, two overlapping sockets of one identity.
+it.each(['latest', 'old'] as const)('keeps logical presence and cancels only the %s departing socket live tail', async order => {
+  const { lessonId, teacher, student } = await classroom()
+  const newer = client('student')
+  await join(newer, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[student, 'old-held'], [newer, 'new-held']] as const) {
+    const packet = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    expect((await packet).strokeId).toBe(strokeId)
+  }
+  const cancelled: unknown[] = []
+  const left: string[] = []
+  teacher.on('peer_stroke_live_end', event => cancelled.push(event))
+  teacher.on('peer_left', userId => left.push(userId))
+  const gone = order === 'latest' ? newer : student
+  const remaining = order === 'latest' ? student : newer
+  const cancellation = next(teacher, 'peer_stroke_live_end')
+  gone.close()
+  expect(await cancellation).toEqual({ userId: 'student', strokeId: order === 'latest' ? 'new-held' : 'old-held', cancelled: true })
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(cancelled).toHaveLength(1)
+  expect(left).toEqual([])
+  const departed = next(teacher, 'peer_left')
+  remaining.close()
+  expect(await departed).toBe('student')
+})
+
+it('#780 broadcasts the remaining socket board seat after the latest tab leaves', async () => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const firstMove = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await firstMove
+  const newer = client('student')
+  const taken = next(teacher, 'peer_board_changed')
+  await join(newer, lessonId, 'Alice')
+  await taken
+  const moved = next(teacher, 'peer_board_changed')
+  newer.close()
+  expect(await moved).toEqual({ userId: 'student', boardId })
+  await silent(teacher, 'peer_left', 30)
+})
+
+it('#780 bounds tracked live streams, retires ended streams, and ignores refused live packets', async () => {
+  const { teacher, student } = await classroom()
+  const relayed: string[] = []
+  const cancelled: string[] = []
+  teacher.on('peer_stroke_live', event => relayed.push(event.strokeId))
+  teacher.on('peer_stroke_live_end', event => { if (event.cancelled) cancelled.push(event.strokeId) })
+  const packet = (strokeId: string) => student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+  for (let i = 0; i < 129; i++) packet(`bounded-${i}`)
+  // Ordered ack is a barrier for preceding messages on this transport.
+  await new Promise<void>(resolve => student.emit('clock_sync', () => resolve()))
+  student.emit('stroke_live_end', { strokeId: 'bounded-0' })
+  packet('replacement')
+  const frozen = next(student, 'room_frozen_changed')
+  teacher.emit('set_room_frozen', true)
+  await frozen
+  packet('refused')
+  await new Promise<void>(resolve => student.emit('clock_sync', () => resolve()))
+  const left = next(teacher, 'peer_left')
+  student.close()
+  await left
+  expect(relayed).toHaveLength(129)
+  expect(relayed).not.toContain('bounded-128')
+  expect(relayed).toContain('replacement')
+  expect(cancelled).toHaveLength(128)
+  expect(cancelled).not.toContain('bounded-0')
+  expect(cancelled).not.toContain('refused')
+})
+
+it('#780 keeps the old owner socket authorized after its newer tab leaves a frozen room', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const newer = client('teacher')
+  await join(newer, lessonId, 'Teacher')
+  const frozen = next(student, 'room_frozen_changed')
+  teacher.emit('set_room_frozen', true)
+  await frozen
+  const serverSocket = io.sockets.sockets.get(newer.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  newer.close()
+  await disconnected
+  const verdict = await new Promise(resolve => teacher.emit('operation', stroke(fresh('owner-after-close'), 'teacher'), resolve))
+  expect(verdict).toMatchObject({ ok: true })
+  const refused = await new Promise(resolve => student.emit('operation', stroke(fresh('student-still-frozen'), 'student'), resolve))
+  expect(refused).toEqual({ ok: false, reason: 'room_frozen' })
+})
+
+it.each(['board', 'lesson'] as const)('#780 cancels only the moving socket live tail on joining another %s', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[sibling, 'sibling-held'], [student, 'moving-held']] as const) {
+    const relayed = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    await relayed
+  }
+  let destination = boardId
+  if (target === 'lesson') {
+    destination = fresh('second-lesson')
+    rows.set(destination, row(destination))
+    const otherTeacher = client('teacher')
+    await createLesson(otherTeacher, destination)
+  }
+  const cancelled: unknown[] = []
+  teacher.on('peer_stroke_live_end', event => cancelled.push(event))
+  const ended = next(teacher, 'peer_stroke_live_end', 300)
+  await join(student, destination, 'Alice')
+  expect(await ended).toEqual({ userId: 'student', strokeId: 'moving-held', cancelled: true })
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(cancelled).toHaveLength(1)
+})
+
+it('#780 announces the old lesson board fallback when the latest socket moves to another lesson', async () => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const movedToBoard = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await movedToBoard
+  const newer = client('student')
+  const movedToLesson = next(teacher, 'peer_board_changed')
+  await join(newer, lessonId, 'Alice')
+  await movedToLesson
+  const destination = fresh('second-lesson')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  const fallback = next(teacher, 'peer_board_changed', 300)
+  await join(newer, destination, 'Alice')
+  expect(await fallback).toEqual({ userId: 'student', boardId })
+  await silent(teacher, 'peer_left', 20)
+})
+
+it('#780 kicking both same-identity sockets emits one logical departure for observer cleanup', async () => {
+  const { lessonId, teacher, student } = await classroom()
+  const sibling = client('student')
+  await join(sibling, lessonId, 'Alice')
+  for (const [sender, strokeId] of [[student, 'kick-old'], [sibling, 'kick-new']] as const) {
+    const live = next(teacher, 'peer_stroke_live')
+    sender.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 1], packetSeq: 0, dabsPacked: '' })
+    await live
+  }
+  const departures: string[] = []
+  teacher.on('peer_left', userId => departures.push(userId))
+  const oldKicked = next(student, 'kicked')
+  const newKicked = next(sibling, 'kicked')
+  const left = next(teacher, 'peer_left')
+  await removeUserFromRoom(io as never, lessonId, 'student')
+  expect(await oldKicked).toEqual({ roomId: lessonId })
+  expect(await newKicked).toEqual({ roomId: lessonId })
+  expect(await left).toBe('student')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(departures).toEqual(['student'])
+  expect(student.connected).toBe(true)
+  expect(sibling.connected).toBe(true)
+})
+
+it.each(['main', 'child'] as const)('#780 moving the final socket off a child board to another lesson %s removes the old participant', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const move = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await move
+  const destination = fresh('destination')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  let destinationBoard = destination
+  if (target === 'child') {
+    destinationBoard = fresh('destination-child')
+    rows.set(destinationBoard, row(destinationBoard, { lessonId: destination, boardOrder: 1 }))
+    noteBoardCreated(destination, { id: destinationBoard, name: destinationBoard, order: 1 })
+  }
+  const departure = next(teacher, 'peer_left', 300)
+  await join(student, destinationBoard, 'Alice')
+  expect(await departure).toBe('student')
+  expect(getParticipant(lessonId, 'student')).toBeUndefined()
+  await _flushPendingWrites(boardId)
+  expect(isRoomResident(boardId)).toBe(false)
+  const teacherSocket = io.sockets.sockets.get(teacher.id!)!
+  const disconnected = new Promise<void>(resolve => teacherSocket.once('disconnect', () => resolve()))
+  teacher.close()
+  await disconnected
+  await _flushPendingWrites(lessonId)
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(getParticipant(destination, 'student')?.boardId).toBe(destinationBoard)
+})
+
+it.each([
+  ['main', 'older'], ['main', 'newer'], ['child', 'older'], ['child', 'newer'],
+] as const)('#780 child-to-%s cross-lesson preserves a %s sibling and its board seat', async (target, siblingOrder) => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const sibling = client('student')
+  if (siblingOrder === 'older') await join(sibling, lessonId, 'Alice')
+  const move = next(teacher, 'peer_board_changed')
+  await join(student, boardId, 'Alice')
+  await move
+  if (siblingOrder === 'newer') {
+    const restored = next(teacher, 'peer_board_changed')
+    await join(sibling, lessonId, 'Alice')
+    await restored
+  }
+  const destination = fresh('sibling-destination')
+  rows.set(destination, row(destination))
+  await createLesson(client('teacher'), destination)
+  let destinationBoard = destination
+  if (target === 'child') {
+    destinationBoard = fresh('sibling-destination-child')
+    rows.set(destinationBoard, row(destinationBoard, { lessonId: destination, boardOrder: 1 }))
+    noteBoardCreated(destination, { id: destinationBoard, name: destinationBoard, order: 1 })
+  }
+  const events: unknown[] = []
+  teacher.on('peer_board_changed', event => events.push(event))
+  teacher.on('peer_left', userId => events.push(userId))
+  await join(student, destinationBoard, 'Alice')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(lessonId)
+  expect(events).toEqual(siblingOrder === 'older' ? [{ userId: 'student', boardId: lessonId }] : [])
+  await _flushPendingWrites(boardId)
+  expect(isRoomResident(boardId)).toBe(false)
+  const left = next(teacher, 'peer_left')
+  sibling.close()
+  expect(await left).toBe('student')
+  expect(getParticipant(lessonId, 'student')).toBeUndefined()
+})
+
+it('#783 disconnect during replay never seats a ghost socket', async () => {
+  const { lessonId, teacher } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const late = client('late-user')
+  const heard: unknown[] = []
+  teacher.on('peer_joined', participant => heard.push(participant))
+  late.emit('join_room', { roomId: lessonId, name: 'Late' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(late.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  late.close()
+  await disconnected
+  release(null)
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(getParticipant(lessonId, 'late-user')).toBeUndefined()
+  expect(heard).toEqual([])
+})
+
+it('#783 an older delayed join never replaces the latest completed board intent', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const older = new Promise(resolve => student.emit('join_room', { roomId: lessonId, name: 'Alice' }, resolve))
+  await reached
+  await join(student, boardId, 'Alice')
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(boardId)
+})
+
+it.each([false, true])('#783 cold cancelled join cleanup preserves another pending join=%s', async cojoin => {
+  const roomId = fresh('cold-pending')
+  rows.set(roomId, row(roomId))
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  const releases: ((value: null) => void)[] = []
+  let reached!: () => void
+  const entered = new Promise<void>(resolve => { reached = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => {
+    releases.push(resolve)
+    if (releases.length === (cojoin ? 2 : 1)) reached()
+  }))
+  const cancelled = client('cancelled-user')
+  cancelled.emit('join_room', { roomId, name: 'Cancelled' }, () => {})
+  let other: Client | undefined
+  let otherJoin: Promise<void> | undefined
+  if (cojoin) {
+    // Start the second only after the first reached replay, for stable order.
+    await vi.waitFor(() => expect(releases).toHaveLength(1))
+    other = client('other-user')
+    otherJoin = join(other, roomId, 'Other')
+  }
+  await entered
+  const serverSocket = io.sockets.sockets.get(cancelled.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  cancelled.close()
+  await disconnected
+  releases[0](null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'cancelled-user')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(cojoin)
+  if (cojoin) {
+    releases[1](null)
+    await otherJoin
+    expect(getParticipant(roomId, 'other-user')).toBeDefined()
+  }
+})
+
+it('#783 disconnect during create cold load never seats a ghost owner', async () => {
+  const roomId = fresh('create-disconnected')
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('creator')
+  creator.emit('create_room', { room: { id: roomId, name: roomId, paper: 'coarse', infinite: false, canvasWidth: 1240, canvasHeight: 1754 }, name: 'Creator' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(creator.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  creator.close()
+  await disconnected
+  release(null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'creator')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(false)
+})
+
+it('#783 a newer create intent supersedes an older pending join', async () => {
+  const { lessonId } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('new-creator')
+  const older = new Promise(resolve => creator.emit('join_room', { roomId: lessonId, name: 'Creator' }, resolve))
+  await reached
+  const createdId = fresh('new-create-intent')
+  await createLesson(creator, createdId)
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'new-creator')).toBeUndefined()
+  expect(getParticipant(createdId, 'new-creator')?.role).toBe('owner')
+})
+
+it('#783 a newer join intent supersedes an older pending create', async () => {
+  const { lessonId } = await classroom()
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const creator = client('late-creator')
+  const createdId = fresh('obsolete-create')
+  const older = new Promise(resolve => creator.emit('create_room', { room: { id: createdId, name: createdId, paper: 'coarse', infinite: false, canvasWidth: 1240, canvasHeight: 1754 }, name: 'Creator' }, resolve))
+  await reached
+  await join(creator, lessonId, 'Creator')
+  release(null)
+  expect(await older).toEqual({ ok: false, error: 'server_busy' })
+  expect(getParticipant(lessonId, 'late-creator')?.role).toBe('member')
+  expect(getParticipant(createdId, 'late-creator')).toBeUndefined()
+})
+
+it.each(['load', 'access'] as const)('#783 disconnect during %s await stops before seating and cleans unused residency', async stage => {
+  const roomId = stage === 'access' ? (await classroom()).lessonId : fresh('cold-load-disconnect')
+  const stored = row(roomId)
+  if (stage === 'load') rows.set(roomId, stored)
+  let entered!: () => void
+  let release!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  if (stage === 'load') {
+    mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<Row>(resolve => { release = () => resolve(stored) }) })
+  } else {
+    mockPrisma.roomBlock.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = () => resolve(null) }) })
+  }
+  const late = client('early-disconnect')
+  late.emit('join_room', { roomId, name: 'Late' }, () => {})
+  await reached
+  const serverSocket = io.sockets.sockets.get(late.id!)!
+  const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+  late.close()
+  await disconnected
+  release()
+  await new Promise(resolve => setTimeout(resolve, 20))
+  expect(getParticipant(roomId, 'early-disconnect')).toBeUndefined()
+  expect(isRoomResident(roomId)).toBe(stage === 'access')
+  const { getRoomBacklog } = await import('./roomStats.js')
+  expect(getRoomBacklog(roomId)?.participants ?? 0).toBe(stage === 'access' ? 2 : 0)
+})
+
+it('#783 a create whose cold load was cancelled by DELETE cannot recreate the deleted room', async () => {
+  const { cancelRoomLoads } = await import('./roomLoader.js')
+  const roomId = fresh('delete-during-create')
+  const stored = row(roomId)
+  rows.set(roomId, stored)
+  let entered!: () => void
+  let release!: (value: Row) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.room.findUnique.mockImplementationOnce(() => { entered(); return new Promise<Row>(resolve => { release = resolve }) })
+  const creator = client('teacher')
+  const result = new Promise(resolve => creator.emit('create_room', {
+    room: { id: roomId, name: roomId, paper: 'coarse', infinite: false, canvasWidth: 1240, canvasHeight: 1754 }, name: 'Teacher',
+  }, resolve))
+  await reached
+  rows.delete(roomId)
+  cancelRoomLoads(roomId)
+  forgetDeletedLesson(roomId)
+  release(stored)
+  expect(await result).toEqual({ ok: false, error: 'server_busy' })
+  expect(isRoomResident(roomId)).toBe(false)
+  expect(mockPrisma.room.create).not.toHaveBeenCalled()
+})
+
+it.each([
+  ['main', 'owner'], ['child', 'owner'], ['main', 'member'], ['child', 'member'],
+] as const)('#784 pending %s join survives the last %s disconnect', async (target, departingRole) => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(departingRole === 'owner' ? student : teacher)
+  const departing = departingRole === 'owner' ? teacher : student
+  const roomId = target === 'child' ? boardId : lessonId
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const userId = departingRole === 'owner' ? 'newcomer' : 'teacher'
+  const newcomer = client(userId)
+  const verdict = new Promise(resolve => newcomer.emit('join_room', { roomId, name: 'Newcomer' }, resolve))
+  await reached
+  await disconnect(departing)
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(roomId)])
+  release(null)
+  expect(await verdict).toEqual({ ok: true, userId })
+  expect(getParticipant(roomId, userId)).toMatchObject({ boardId: roomId, role: userId === 'teacher' ? 'owner' : 'member' })
+  expect(isRoomResident(lessonId)).toBe(true)
+})
+
+it.each(['main', 'child'] as const)('#784 two pending %s joins survive old owner departure and one cancellation, then release fully', async target => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(student)
+  const roomId = target === 'child' ? boardId : lessonId
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(roomId)
+  const releases: ((value: null) => void)[] = []
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => { releases.push(resolve) }))
+  const cancelled = client('cancelled-newcomer')
+  cancelled.emit('join_room', { roomId, name: 'Cancelled' }, () => {})
+  await vi.waitFor(() => expect(releases).toHaveLength(1))
+  const survivor = client('surviving-newcomer')
+  const verdict = new Promise(resolve => survivor.emit('join_room', { roomId, name: 'Survivor' }, resolve))
+  await vi.waitFor(() => expect(releases).toHaveLength(2))
+  await disconnect(teacher)
+  await disconnect(cancelled)
+  releases[0](null)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  const { evictIdleRooms } = await import('./rooms.js')
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  expect(isRoomResident(roomId)).toBe(true)
+  expect(getParticipant(roomId, 'cancelled-newcomer')).toBeUndefined()
+  releases[1](null)
+  expect(await verdict).toEqual({ ok: true, userId: 'surviving-newcomer' })
+  await disconnect(survivor)
+  await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(roomId)])
+  expect(isRoomResident(roomId)).toBe(false)
+  expect(isRoomResident(lessonId)).toBe(false)
+})
+
+it.each([false, true])('#784 cold child load retains its newly discovered parent; cancelled=%s', async cancelled => {
+  const { lessonId, boardId, teacher, student } = await classroom()
+  const disconnect = async (socket: Client) => {
+    const serverSocket = io.sockets.sockets.get(socket.id!)!
+    const done = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    socket.close()
+    await done
+  }
+  await disconnect(student)
+  expect(isRoomResident(boardId)).toBe(false)
+  let release!: (value: null) => void
+  let entered!: () => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const newcomer = client('cold-child-newcomer')
+  const verdict = new Promise(resolve => newcomer.emit('join_room', { roomId: boardId, name: 'Newcomer' }, resolve))
+  await reached
+  await disconnect(teacher)
+  if (cancelled) await disconnect(newcomer)
+  await _flushPendingWrites(lessonId)
+  const { evictIdleRooms } = await import('./rooms.js')
+  evictIdleRooms()
+  expect(isRoomResident(lessonId)).toBe(true)
+  release(null)
+  if (cancelled) {
+    await vi.waitFor(() => {
+      expect(isRoomResident(boardId)).toBe(false)
+      expect(isRoomResident(lessonId)).toBe(false)
+    })
+  } else {
+    expect(await verdict).toEqual({ ok: true, userId: 'cold-child-newcomer' })
+    expect(getParticipant(boardId, 'cold-child-newcomer')?.boardId).toBe(boardId)
+    await disconnect(newcomer)
+    await Promise.all([_flushPendingWrites(lessonId), _flushPendingWrites(boardId)])
+    expect(isRoomResident(boardId)).toBe(false)
+    expect(isRoomResident(lessonId)).toBe(false)
+  }
+})
+
+it.each(['main', 'child'] as const)('#784 DELETE wins over a pending %s residency lease', async target => {
+  const { lessonId, boardId } = await classroom()
+  const { ensureRoomLoaded, cancelRoomLoads } = await import('./roomLoader.js')
+  const roomId = target === 'main' ? lessonId : boardId
+  await ensureRoomLoaded(roomId)
+  let entered!: () => void
+  let release!: (value: null) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const newcomer = client('deleted-newcomer')
+  const result = new Promise(resolve => newcomer.emit('join_room', { roomId, name: 'Newcomer' }, resolve))
+  await reached
+  rows.delete(lessonId); rows.delete(boardId)
+  cancelRoomLoads(lessonId)
+  forgetDeletedLesson(lessonId)
+  await removeDeletedLesson(io as never, lessonId)
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(roomId)).toBe(false)
+  release(null)
+  expect(await result).toEqual({ ok: false, error: 'server_busy' })
+  expect(isRoomResident(lessonId)).toBe(false)
+  expect(isRoomResident(roomId)).toBe(false)
+})
+
+it.each(['disconnect', 'move'] as const)('#786 rechecks a socket after snapshot await: %s', async action => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('third-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  let entered!: () => void
+  let release!: (value: null) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await reached
+  if (action === 'disconnect') {
+    const serverSocket = io.sockets.sockets.get(student.id!)!
+    const disconnected = new Promise<void>(resolve => serverSocket.once('disconnect', () => resolve()))
+    student.close()
+    await disconnected
+  } else await join(student, thirdId, 'Alice')
+  release(null)
+  await evacuation
+  if (action === 'disconnect') expect(getParticipant(lessonId, 'student')).toBeUndefined()
+  else {
+    const op = { id: fresh('dry-after-move'), type: 'paper_dry' as const, layerId: 'layer-1', userId: 'student', timestamp: 0 }
+    const verdict = await new Promise(resolve => student.emit('operation', op, resolve))
+    expect(verdict).toMatchObject({ ok: true })
+    expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
+    expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
+    expect(getParticipant(lessonId, 'student')?.boardId).toBe(thirdId)
+  }
+})
+
+it('#786 B-C-B still evacuates a socket currently back on the board being deleted', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('aba-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  let entered!: () => void
+  let release!: (value: null) => void
+  const reached = new Promise<void>(resolve => { entered = resolve })
+  mockPrisma.roomLayerState.findUnique.mockImplementationOnce(() => { entered(); return new Promise<null>(resolve => { release = resolve }) })
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await reached
+  await join(student, thirdId, 'Alice')
+  await join(student, boardId, 'Alice updated')
+  release(null)
+  await evacuation
+  expect(getParticipant(lessonId, 'student')).toMatchObject({ boardId: lessonId, name: 'Alice updated' })
+  expect(io.sockets.sockets.get(student.id!)?.data.roomId).toBe(lessonId)
+})
+
+it('#786 evacuation of B lets an independently pending C join finish on C', async () => {
+  const { lessonId, boardId, student } = await classroom()
+  await join(student, boardId, 'Alice')
+  const thirdId = fresh('pending-C-board')
+  rows.set(thirdId, row(thirdId, { lessonId, boardOrder: 2 }))
+  noteBoardCreated(lessonId, { id: thirdId, name: thirdId, order: 2 })
+  const { ensureRoomLoaded } = await import('./roomLoader.js')
+  await ensureRoomLoaded(thirdId)
+  const releases: ((value: null) => void)[] = []
+  mockPrisma.roomLayerState.findUnique.mockImplementation(() => new Promise<null>(resolve => { releases.push(resolve) }))
+  const evacuation = evacuateBoard(io as never, lessonId, boardId)
+  await vi.waitFor(() => expect(releases).toHaveLength(1))
+  const joining = join(student, thirdId, 'Alice')
+  await vi.waitFor(() => expect(releases).toHaveLength(2))
+  releases[0](null)
+  await evacuation
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(lessonId)
+  releases[1](null)
+  await joining
+  expect(getParticipant(lessonId, 'student')?.boardId).toBe(thirdId)
+  const op = { id: fresh('dry-after-pending-C'), type: 'paper_dry' as const, layerId: 'layer-1', userId: 'student', timestamp: 0 }
+  const verdict = await new Promise(resolve => student.emit('operation', op, resolve))
+  expect(verdict).toMatchObject({ ok: true })
+  expect(getRoomSnapshot(thirdId)?.tailOperations.map(operation => operation.id) ?? []).toContain(op.id)
+  expect(getRoomSnapshot(lessonId)?.tailOperations.map(operation => operation.id) ?? []).not.toContain(op.id)
+})
+
+describe('#762 terminal rejection retires only unrecorded live ink', () => {
+  it.each([false, true])('cancels a refused remainder after accepted chunks; ordinary UP=%s', async ended => {
+    const { lessonId, teacher, student } = await classroom()
+    const strokeId = fresh('rejected-live')
+    const accepted = { ...stroke(fresh('accepted-chunk'), 'student'), strokeId }
+    const confirmation = next(teacher, 'operation_confirmed')
+    const send = (op: StrokeOperation) => new Promise(resolve => student.emit('operation', op, resolve))
+    expect(await send(accepted)).toMatchObject({ ok: true })
+    expect((await confirmation).operation.id).toBe(accepted.id)
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    expect((await live).strokeId).toBe(strokeId)
+    if (ended) {
+      const up = next(teacher, 'peer_stroke_live_end')
+      student.emit('stroke_live_end', { strokeId })
+      expect(await up).toEqual({ userId: 'student', strokeId })
+    }
+    const frozen = next(student, 'room_frozen_changed')
+    teacher.emit('set_room_frozen', true)
+    expect((await frozen).frozen).toBe(true)
+    // A timeout is captured as a value to avoid an unhandled rejection if
+    // the baseline has no cancellation while the verdict is being checked.
+    const cancellation = next(teacher, 'peer_stroke_live_end', 300).catch(error => String(error))
+    const refused = { ...stroke(fresh('refused-chunk'), 'student'), strokeId }
+    expect(await send(refused)).toEqual({ ok: false, reason: 'room_frozen' })
+    expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+    const ids = getRoomSnapshot(lessonId)!.tailOperations.map(op => op.id)
+    expect(ids).toContain(accepted.id)
+    expect(ids).not.toContain(refused.id)
+    expect(student.connected).toBe(true)
+    // Retrying the already accepted chunk after freeze is a duplicate ACK,
+    // not another terminal refusal or another cancellation.
+    const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+    expect(await send(accepted)).toMatchObject({ ok: true, duplicate: true })
+    await noCancellation
+  })
+
+  it('cancels a live stroke after a participant freeze', async () => {
+    const { teacher, student } = await classroom()
+    const strokeId = fresh('participant-freeze')
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    await live
+    const frozen = next(student, 'participant_frozen_changed')
+    teacher.emit('set_participant_frozen', { userId: 'student', frozen: true })
+    await frozen
+    const cancellation = next(teacher, 'peer_stroke_live_end', 300).catch(error => String(error))
+    const verdict = await new Promise(resolve => student.emit('operation', { ...stroke(fresh('refused'), 'student'), strokeId }, resolve))
+    expect(verdict).toEqual({ ok: false, reason: 'participant_frozen' })
+    expect(await cancellation).toEqual({ userId: 'student', strokeId, cancelled: true })
+  })
+
+  it('leaves a transient server_error retryable without cancelling live ink', async () => {
+    const { teacher, student } = await classroom()
+    const strokeId = fresh('transient-live')
+    const live = next(teacher, 'peer_stroke_live')
+    student.emit('stroke_live', { strokeId, layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0, 0, 0], packetSeq: 0, dabsPacked: '' })
+    await live
+    const logModule = await import('./operationLog.js')
+    const failure = vi.spyOn(logModule, 'recordOperation').mockImplementationOnce(() => { throw new Error('controlled transient persistence failure') })
+    const op = { ...stroke(fresh('retry'), 'student'), strokeId }
+    try {
+      const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+      expect(await new Promise(resolve => student.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'server_error' })
+      await noCancellation
+    } finally { failure.mockRestore() }
+    const noCancellation = silent(teacher, 'peer_stroke_live_end', 50)
+    expect(await new Promise(resolve => student.emit('operation', op, resolve))).toMatchObject({ ok: true })
+    await noCancellation
   })
 })

@@ -42,38 +42,50 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: null, operations: [...byId.values()], historicalIds: new Set(), watermark }
     }
     const queried = new Set<string>()
-    // Targets may have left resident RAM at snapshot upload/cold load. Resolve
-    // only referenced ids, not the room's heavy covered stroke population.
-    while (true) {
-      const missing = [...byId.values()].filter(op => HISTORY_TYPES.includes(op.type)
-        && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq))))
-        .flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId) && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
-      if (!missing.length) break
-      for (const id of missing) queried.add(id)
-      const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
-      for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
-    }
-    let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
-    if (plan.replayStructure) {
-      const prefix = await prisma.operation.findMany({
-        where: { roomId, type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES] }, seq: { lte: watermark } },
-        orderBy: { seq: 'asc' }, select: { data: true },
-      })
-      for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
-      // Legacy snapshot-only roots have no recoverable original structural
-      // base. Never guess that base from currently alive layers.
-      const created = new Set(IMPLICIT_LAYER_IDS)
-      for (const op of [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq)) if (op.type === 'layer_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate') created.add(op.layerId)
-      else if (op.type === 'folder_add') created.add(op.layerId)
-      if ([...(live ?? []), ...plan.historyLayers].some(id => !created.has(id))) {
-        throw new Error('Snapshot structural base cannot be reconstructed')
+    const queriedGestures = new Set<string>()
+    // Only history controls that can change a candidate need covered strokes.
+    // Normal joins keep their fast path without loading the room's history.
+    const resolveHistoryTargets = async (): Promise<void> => {
+      while (true) {
+        const changes = [...byId.values()].filter(op => HISTORY_TYPES.includes(op.type)
+          && ((op.seq ?? 0) > stored.seq || !candidates.length || (op.seq ?? 0) > Math.min(...candidates.map(s => s.seq))))
+        const missing = changes.flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId)
+          && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
+        if (missing.length) {
+          for (const id of missing) queried.add(id)
+          const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
+          for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+          continue
+        }
+        const gestures: { userId: string; strokeId: string }[] = []
+        for (const change of changes) {
+          if (change.type === 'operation_revoke' || !('targetOpId' in change)) continue
+          let target = byId.get(change.targetOpId)
+          const seen = new Set<string>()
+          while (target && HISTORY_TYPES.includes(target.type) && 'targetOpId' in target && !seen.has(target.id)) {
+            seen.add(target.id)
+            target = byId.get(target.targetOpId)
+          }
+          if (target?.type !== 'stroke' || !target.strokeId) continue
+          const key = JSON.stringify([target.userId, target.strokeId])
+          if (queriedGestures.has(key)) continue
+          queriedGestures.add(key)
+          gestures.push({ userId: target.userId, strokeId: target.strokeId })
+        }
+        if (!gestures.length) break
+        const siblings = await prisma.operation.findMany({
+          where: { roomId, type: 'stroke', seq: { lte: watermark },
+            OR: gestures.map(({ userId, strokeId }) => ({ userId, data: { path: ['strokeId'], equals: strokeId } })) },
+          select: { data: true },
+        })
+        for (const { data } of siblings) { const op = data as Operation; byId.set(op.id, op) }
       }
-      plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     }
-    let structureLoaded=!!plan.replayStructure
+    await resolveHistoryTargets()
+    let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     const loadedLayers = new Set<string>()
-    const historicalIds = new Set<string>(plan.replayStructure
-      ? [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq).map(op => op.id) : [])
+    const historicalIds = new Set<string>()
+    let loadedStructure = false
     while (true) {
       // A layer-prefix read also returns room history mutations. Their targets
       // can belong to a different covered layer and were not visible in the
@@ -83,19 +95,30 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         for(const id of missing)queried.add(id)
         const targets=await prisma.operation.findMany({where:{roomId,id:{in:missing}},select:{data:true}})
         for(const {data} of targets){const op=data as Operation;byId.set(op.id,op);if((op.seq??0)<=stored.seq)historicalIds.add(op.id)}
+        await resolveHistoryTargets()
         plan=planSnapshotReplay(candidates,[...byId.values()],record?.aliveIds,stored.seq)
         continue
       }
-      if(plan.replayStructure&&!structureLoaded){
-        structureLoaded=true
-        const prefix=await prisma.operation.findMany({where:{roomId,type:{in:[...HISTORY_TYPES,...STRUCTURE_TYPES]},seq:{lte:watermark}},orderBy:{seq:'asc'},select:{data:true}})
-        for(const {data} of prefix){const op=data as Operation;byId.set(op.id,op);if((op.seq??0)<=stored.seq)historicalIds.add(op.id)}
-        const created=new Set(IMPLICIT_LAYER_IDS)
-        for(const op of byId.values())if((op.seq??0)<=stored.seq&&(op.type==='layer_add'||op.type==='folder_add'||op.type==='layer_merge'||op.type==='layer_duplicate'))created.add(op.layerId)
-        if([...(live??[]),...plan.historyLayers].some(id=>!created.has(id)))throw Error('Snapshot structural base cannot be reconstructed')
-        plan=planSnapshotReplay(candidates,[...byId.values()],record?.aliveIds,stored.seq)
-        continue
+      if (plan.replayStructure && !loadedStructure) {
+        loadedStructure = true
+        const prefix = await prisma.operation.findMany({
+          where: { roomId, type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES] }, seq: { lte: watermark } },
+          orderBy: { seq: 'asc' }, select: { data: true },
+        })
+        for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
+        await resolveHistoryTargets()
+        // Legacy snapshot-only roots have no recoverable original structural
+        // base. Never guess that base from currently alive layers.
+        const created = new Set(IMPLICIT_LAYER_IDS)
+        for (const op of [...byId.values()].filter(op => (op.seq ?? 0) <= stored.seq)) if (op.type === 'layer_add' || op.type === 'layer_merge' || op.type === 'layer_duplicate') created.add(op.layerId)
+        else if (op.type === 'folder_add') created.add(op.layerId)
+        if ([...(live ?? []), ...plan.historyLayers].some(id => !created.has(id))) {
+          throw new Error('Snapshot structural base cannot be reconstructed')
+        }
+        for (const op of byId.values()) if ((op.seq ?? 0) <= stored.seq) historicalIds.add(op.id)
+        plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
       }
+
       const needed = new Set(plan.historyLayers)
       for (const row of candidates) if (plan.coverage.get(row.layerId) !== Math.max(...candidates.filter(s => s.layerId === row.layerId).map(s => s.seq))) needed.add(row.layerId)
       const next = [...needed].filter(id => !loadedLayers.has(id))
@@ -110,6 +133,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         byId.set(op.id, op)
         if ((op.seq ?? 0) <= (stored?.seq ?? 0)) historicalIds.add(op.id)
       }
+      await resolveHistoryTargets()
       plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     }
     if (plan.unresolvedTargets.size) throw new Error('Unresolved snapshot history dependency')

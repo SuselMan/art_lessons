@@ -142,3 +142,71 @@ describe('image_import: an image that decodes after its operation was applied (#
     }
   })
 })
+
+describe('image_import: undo and redo (#447)', () => {
+  it('does not resurrect an import whose decode completes after Undo', async () => {
+    const restore = installFakeImageDecoder()
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: SIZE, height: SIZE })
+    try {
+      const { add, image } = importedOps()
+      engine.appendOperation(add, 'remote')
+      engine.appendOperation(image, 'remote')
+      expect(engine.undo()?.id).toBe(image.id)
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(columnAlphas(readLayerPixels(engine, 'L')!)).toEqual(Array(SIZE).fill(0))
+      expect(engine.redo()?.id).toBe(image.id)
+      expect(columnAlphas(readLayerPixels(engine, 'L')!)).toEqual(Array(SIZE).fill(255))
+    } finally {
+      engine.destroy()
+      restore()
+    }
+  })
+
+  it('removes the imported pixels and restores them exactly once', async () => {
+    const restore = installFakeImageDecoder()
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: SIZE, height: SIZE })
+    try {
+      const { add, image } = importedOps()
+      await engine.preloadImages([image])
+      engine.appendOperation(add, 'remote')
+      engine.appendOperation(image, 'remote')
+      const original = readLayerPixels(engine, 'L')!
+      expect(columnAlphas(original)).toEqual(Array(SIZE).fill(255))
+
+      expect(engine.undo()?.id).toBe(image.id)
+      expect(columnAlphas(readLayerPixels(engine, 'L')!)).toEqual(Array(SIZE).fill(0))
+      expect(engine.redo()?.id).toBe(image.id)
+      expect(readLayerPixels(engine, 'L')).toEqual(original)
+      expect(engine.getOperations().filter(op => op.type === 'image_import')).toHaveLength(1)
+    } finally {
+      engine.destroy()
+      restore()
+    }
+  })
+
+  it('also removes and restores a peer import through received history controls', async () => {
+    const restore = installFakeImageDecoder()
+    const { engine } = createTestEngine({ userId: 'observer' }, { width: SIZE, height: SIZE })
+    try {
+      const { add, image } = importedOps('author')
+      await engine.preloadImages([image])
+      engine.appendOperation(add, 'remote')
+      engine.appendOperation(image, 'remote')
+      const original = readLayerPixels(engine, 'L')!
+
+      engine.appendOperation({
+        id: 'undo-image', type: 'operation_undo', userId: 'author',
+        timestamp: 3, targetOpId: image.id,
+      }, 'remote')
+      expect(columnAlphas(readLayerPixels(engine, 'L')!)).toEqual(Array(SIZE).fill(0))
+      engine.appendOperation({
+        id: 'redo-image', type: 'operation_redo', userId: 'author',
+        timestamp: 4, targetOpId: image.id,
+      }, 'remote')
+      expect(readLayerPixels(engine, 'L')).toEqual(original)
+    } finally {
+      engine.destroy()
+      restore()
+    }
+  })
+})

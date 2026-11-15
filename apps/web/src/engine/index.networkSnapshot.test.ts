@@ -454,7 +454,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
       return real()
     }
 
-    engine.restoreLayerFromSnapshot('L', [TILE], 100)
+    expect(() => engine.restoreLayerFromSnapshot('L', [TILE], 100)).toThrow('Snapshot upload failed: GL error 0x505')
     gl.getError = real
 
     expect(engine.takeSnapshotRestoreAudit()[0].glError).toBe(0x0505)

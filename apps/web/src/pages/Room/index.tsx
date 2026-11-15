@@ -281,6 +281,7 @@ function RoomEditor() {
   // (#157/#321) Where the floating tool cluster is allowed to appear, and the
   // device it is judged for.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
+  const handedness = useSettingsStore(s => s.handedness)
   const deviceType = useSettingsStore(s => s.deviceType)
 
   // #94's "a resting hand mid-stroke corrupts settings" guard used to be a
@@ -1472,7 +1473,7 @@ function RoomEditor() {
   return (
     <div
       ref={editorRef}
-      className={styles.editor}
+      className={clsx(styles.editor, handedness === 'left' && styles.leftHanded)}
       // #102: on a pen+touch tablet, a hand resting on the screen while
       // slowly dragging a slider/stroke can be read by the OS as "press and
       // hold" and synthesized into a right click — with nothing here

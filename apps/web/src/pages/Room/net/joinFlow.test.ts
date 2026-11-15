@@ -232,3 +232,57 @@ describe('a full resync', () => {
     expect(joins[0].data).toMatchObject({ roomId: 'B2', lastKnownSeq: 31 })
   })
 })
+
+describe('#783 stale board join acknowledgements', () => {
+  it.each([false, true])('ignores an old refusal after a later turn completed=%s', async completed => {
+    const { deps, joins, flow, idle } = setup({ hasJoinedRef: { current: true } })
+    const older = flow.switchBoard('B2')
+    idle()
+    await older
+    const latest = flow.switchBoard('B3')
+    idle()
+    await latest
+    if (completed) {
+      // room_state precedes its ack and publishes the new board.
+      deps.boardIdRef.current = 'B3'
+      deps.socketBoardRef.current = 'B3'
+      deps.wantedBoardRef.current = null
+      joins[1].ack({ ok: true, userId: 'student' })
+    }
+    vi.mocked(deps.setRoomContentReady).mockClear()
+    joins[0].ack({ ok: false, error: 'server_busy' })
+    expect(notices()).toEqual([])
+    expect(deps.hasJoinedRef.current).toBe(true)
+    expect(deps.wantedBoardRef.current).toBe(completed ? null : 'B3')
+    expect(deps.socketBoardRef.current).toBe(completed ? 'B3' : null)
+    expect(deps.setRoomContentReady).not.toHaveBeenCalled()
+  })
+
+  it('still reports a failure of the current board intent', async () => {
+    const { deps, joins, flow, idle } = setup({ hasJoinedRef: { current: true } })
+    const latest = flow.switchBoard('B2')
+    idle()
+    await latest
+    joins[0].ack({ ok: false, error: 'server_busy' })
+    expect(notices()).toEqual(['join.error.serverBusy'])
+    expect(deps.socketBoardRef.current).toBe('L')
+    expect(deps.wantedBoardRef.current).toBeNull()
+    expect(deps.setRoomContentReady).toHaveBeenLastCalledWith(true)
+  })
+})
+
+it('#783 an old B refusal cannot cancel the latest B intent after B-C-B turns', async () => {
+  const { deps, joins, flow, idle } = setup({ hasJoinedRef: { current: true } })
+  for (const board of ['B', 'C', 'B']) {
+    const turn = flow.switchBoard(board)
+    idle()
+    await turn
+  }
+  expect(joins.map(item => item.data.roomId)).toEqual(['B', 'C', 'B'])
+  vi.mocked(deps.setRoomContentReady).mockClear()
+  joins[0].ack({ ok: false, error: 'server_busy' })
+  expect(deps.wantedBoardRef.current).toBe('B')
+  expect(deps.socketBoardRef.current).toBeNull()
+  expect(deps.setRoomContentReady).not.toHaveBeenCalled()
+  expect(notices()).toEqual([])
+})

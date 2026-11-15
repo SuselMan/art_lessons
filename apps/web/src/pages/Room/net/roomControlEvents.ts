@@ -59,7 +59,8 @@ export function createRoomControlEventHandlers({
     // above.
     room_frozen_changed: ({ frozen }) => {
       useRoomStore.getState().setRoomFrozen(frozen)
-      if (frozen) repairAllBlockedLiveInk()
+      // Freeze blocks members; the owner may keep drawing. Closing below blocks everyone.
+      if (frozen) repairBlockedLiveInk(useRoomStore.getState().participants.filter(p => p.role !== 'owner').map(p => p.userId))
     },
 
     // (#548) The owner changed which tools this room offers. Broadcast to
@@ -83,6 +84,7 @@ export function createRoomControlEventHandlers({
     // not just the target themselves.
     participant_frozen_changed: ({ userId, frozen }) => {
       useRoomStore.getState().applyParticipantAction({ type: 'participant_frozen_changed', userId, frozen })
+      // Freeze blocks members; the owner may keep drawing. Closing below blocks everyone.
       if (frozen) repairBlockedLiveInk([userId])
     },
 
