@@ -250,7 +250,7 @@ export function hasValidRecordedPenOperation(value:unknown):boolean {
  if(!value||typeof value!=='object')return false
  const op=value as Record<string,unknown>;if(op.type!=='stroke')return true
  const token=typeof op.preset==='string'?/^brush:[A-Za-z0-9-]+@(\d+)(?::[A-Za-z0-9-]+)*$/.exec(op.preset):null
- const capturedGeometry=!!token&&[190,191,192,193].includes(Number(token[1]))
+ const capturedGeometry=!!token&&[190,191,192,193,194].includes(Number(token[1]))
  const required=!!token&&(Number(token[1])===188||capturedGeometry)
  let decoded:Dab[]|undefined
  const both=(v:unknown):boolean=>{if(!v||typeof v!=='object')return false;const d=v as Record<string,unknown>;return isSourceTwist(d.sourceTwist)&&isSourceTangentialPressure(d.sourceTangentialPressure)&&Math.fround(d.sourceTwist)===d.sourceTwist&&Math.fround(d.sourceTangentialPressure)===d.sourceTangentialPressure}

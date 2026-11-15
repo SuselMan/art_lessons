@@ -1,6 +1,9 @@
+import{BRUSH_BLEND_MODES}from'./brushBehavior.js'
+import type{SketchSprayComposite194}from'./brushSketchSpray194.js'
 /** Spray population is distinct from Pixel scatter: area and particle size are independent. */
 export interface BrushSpray {
   version: 1
+  composite?:SketchSprayComposite194
   diameter: number
   scale: number
   aspect: number
@@ -20,7 +23,8 @@ export function isBrushSpray(value: unknown): value is BrushSpray {
   const v=value as Record<string,unknown>
   const n=(x:unknown,lo:number,hi:number):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=lo&&x<=hi
   const object=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x)
-  if(Object.keys(v).some(k=>!['version','diameter','scale','aspect','angle','count','density','jitter','radial','angular','particle','dynamics','color'].includes(k)))return false
+  if(Object.keys(v).some(k=>!['version','composite','diameter','scale','aspect','angle','count','density','jitter','radial','angular','particle','dynamics','color'].includes(k)))return false
+  if(v.composite!==undefined&&![...BRUSH_BLEND_MODES,'copy','grainMerge','grainExtract','negation'].includes(String(v.composite)))return false
   const cdf=(x:unknown):boolean=>typeof x==='string'&&/^[0-9a-f]{1028}$/.test(x)&&Array.from({length:256},(_,i)=>parseInt(x.slice((i+1)*4,(i+2)*4),16)>=parseInt(x.slice(i*4,(i+1)*4),16)).every(Boolean)
   if(v.version!==1||!n(v.diameter,.01,10000)||!n(v.scale,.01,4)||!n(v.aspect,.01,4)||!n(v.angle,-Math.PI*2,Math.PI*2)||!n(v.count,0,1024)||!Number.isInteger(v.count)||v.density!==undefined&&!n(v.density,0,1)||!n(v.jitter,0,4)||!object(v.radial)||Object.keys(v.radial).some(k=>!['maximum','samples'].includes(k))||!n(v.radial.maximum,.001,10)||!cdf(v.radial.samples)||!cdf(v.angular))return false
   if(!object(v.particle)||(v.particle.image!==undefined&&(v.particle.image!==true||v.particle.shape!=='tip'))||Object.keys(v.particle).some(k=>!['image','shape','width','height','proportional'].includes(k))||!['ellipse','rectangle','pixel','bilinear','tip'].includes(String(v.particle.shape))||!n(v.particle.width,.01,10000)||!n(v.particle.height,.01,10000)||typeof v.particle.proportional!=='boolean')return false

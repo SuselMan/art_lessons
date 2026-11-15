@@ -1,11 +1,13 @@
-import {isBrushBehavior,isNativePressureRateTiming,type BrushDynamic} from './brushBehavior.js'
+import {BRUSH_BLEND_MODES,isBrushBehavior,isNativePressureRateTiming,type BrushDynamic} from './brushBehavior.js'
+import type{SketchSprayComposite194}from'./brushSketchSpray194.js'
 /** Connections between canonical author input points within one gesture. */
 export interface BrushSketch {
  version:1
+ composite?:SketchSprayComposite194
  mode:'simple'|'mask'
  maskSize?:readonly[number,number]
  /** Native IMAGESTAMP is a point selector through raw alpha, never source RGB. */
- maskSignal?:'image-alpha-v1'|'procedural-standard-v1'|'gih-alpha-v1'
+ maskSignal?:'image-alpha-v1'|'procedural-standard-v1'|'gih-alpha-v1'|'native-dab-v1'
  width:number
  offset:number
  probability:number
@@ -23,10 +25,13 @@ export interface BrushSketch {
 export function isBrushSketch(value:unknown):value is BrushSketch{
  if(!value||typeof value!=='object'||Array.isArray(value))return false
  const v=value as Record<string,unknown>,number=(x:unknown,lo:number,hi:number)=>typeof x==='number'&&Number.isFinite(x)&&x>=lo&&x<=hi
- if(Object.keys(v).some(k=>!['version','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy','maskSignal'].includes(k)))return false
+ if(Object.keys(v).some(k=>!['version','composite','mode','width','offset','probability','connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias','dynamics','maskSize','distanceOpacityPolicy','maskSignal'].includes(k)))return false
+ if(v.composite!==undefined&&![...BRUSH_BLEND_MODES,'copy','grainMerge','grainExtract','negation'].includes(String(v.composite)))return false
  if(v.version!==1||(v.mode!=='simple'&&v.mode!=='mask')||!number(v.width,.01,1000)||!number(v.offset,-10,10)||!number(v.probability,0,1)||!['connect','magnetify','randomRGB','randomOpacity','distanceDensity','distanceOpacity','antialias'].every(k=>typeof v[k]==='boolean'))return false
- if(v.mode==='simple'||v.maskSignal==='procedural-standard-v1'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n)) )return false
- if(v.maskSignal!==undefined&&(!['image-alpha-v1','procedural-standard-v1','gih-alpha-v1'].includes(String(v.maskSignal))||v.mode!=='mask'))return false
+ if(v.maskSignal==='native-dab-v1'){
+  if(v.maskSize!==undefined&&(!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,2048)&&Number.isInteger(n))))return false
+ }else if(v.mode==='simple'||v.maskSignal==='procedural-standard-v1'?v.maskSize!==undefined:!Array.isArray(v.maskSize)||v.maskSize.length!==2||!v.maskSize.every(n=>number(n,1,256)&&Number.isInteger(n)) )return false
+ if(v.maskSignal!==undefined&&(!['image-alpha-v1','procedural-standard-v1','gih-alpha-v1','native-dab-v1'].includes(String(v.maskSignal))||v.mode!=='mask'))return false
  if(v.mode==='mask'&&v.distanceOpacity?v.distanceOpacityPolicy!=='generic-clamp-v1':v.distanceOpacityPolicy!==undefined)return false
  if(v.dynamics!==undefined){
   if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false
