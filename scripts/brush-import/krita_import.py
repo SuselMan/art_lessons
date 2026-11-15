@@ -1,3 +1,4 @@
+from sketch_spray194 import COMPONENT194
 from color_smudge193 import COMPONENT193
 from texture_combinations191 import COMPONENT191
 from independent_mask190 import COMPONENT190
@@ -620,6 +621,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if enabled(params.get('HairyInk/enabled'))and enabled(params.get('HairyInk/soak'))and(depth or not _allow_texture_material):raise ValueError('Bristle Soak139 requires genuine root native Bristle origin')
         from krita_bristle import bristle_preset
         return bristle_preset(data,root,params,name,catalog,external,_allow_initialization=depth==0 and _allow_texture_material)
+    if engine in ('sketchbrush','spraybrush') and not COMPONENT194.get() and not any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
+        from native_sketch_spray194 import lower194
+        return lower194(data,root,params,name,catalog,external,resource)
     if engine == 'sketchbrush':
         from krita_sketch import sketch_preset
         return sketch_preset(data,root,params,name,catalog,external,resource,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
@@ -656,15 +660,15 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         ratio = clamp(numeric(generator.get('ratio'),1),0.0625,1)
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
         spikes=numeric(generator.get('spikes'),2)
-        spikes_supported=(engine=='paintbrush'or COMPONENT193.get())and math.isfinite(spikes)and spikes==int(spikes)and 3<=spikes<=20
+        spikes_supported=(engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and math.isfinite(spikes)and spikes==int(spikes)and 3<=spikes<=20
         noise_density=numeric(definition.get('density'),1);noise_randomness=numeric(definition.get('randomness'),0)
-        if (engine=='paintbrush'or COMPONENT193.get())and not all(math.isfinite(v)and 0<=v<=1 for v in(noise_density,noise_randomness)):
+        if (engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and not all(math.isfinite(v)and 0<=v<=1 for v in(noise_density,noise_randomness)):
             raise ValueError('Auto-mask density/randomness outside0..1')
         noise_active=noise_density!=1 or noise_randomness!=0
-        noise_supported=(engine=='paintbrush'or COMPONENT193.get())
+        noise_supported=(engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))
         noise_representable=not noise_active or noise_supported
         gaussian=generator.get('id')=='gauss' and shape=='circle' and(spikes==2 or spikes_supported)
-        gaussian_softness_noop=generator.get('id')=='gauss'and (engine=='paintbrush'or COMPONENT193.get())and enabled(params.get('PressureSoftness'))
+        gaussian_softness_noop=generator.get('id')=='gauss'and (engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and enabled(params.get('PressureSoftness'))
         gaussian_aa=enabled(generator.get('antialiasEdges'))
         try:
             hf=float(generator.get('hfade','0'));vf=float(generator.get('vfade','0'))
@@ -675,7 +679,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         elif native_fade==1: native_fade=1-1e-6
         representable_fade=valid_fade and 1e-6<=native_fade<=1-1e-6
         hard_gaussian=hf==1 and vf==1
-        procedural_gaussian=(gaussian and (engine=='paintbrush'or COMPONENT193.get()) and(ratio==1 or spikes_supported)
+        procedural_gaussian=(gaussian and (engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get())) and(ratio==1 or spikes_supported)
             and (gaussian_aa or representable_fade) and noise_representable)
         if procedural_gaussian:
             # Existing immutable Gaussian program/frame remains the round path.
@@ -689,7 +693,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
         soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
-              and ((FILTER192.get()or COMPONENT193.get())or not enabled(generator.get('antialiasEdges'))) and noise_representable)
+              and ((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or not enabled(generator.get('antialiasEdges'))) and noise_representable)
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
@@ -697,7 +701,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             procedural_soft=((engine=='colorsmudge' or not enabled(params.get('PressureSoftness')))
                              and not enabled(params.get('PressureSharpness')))
             dynamic_soft=False
-            if (engine=='paintbrush'or COMPONENT193.get())and enabled(params.get('PressureSoftness'))and not enabled(params.get('PressureSharpness')):
+            if (engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and enabled(params.get('PressureSoftness'))and not enabled(params.get('PressureSharpness')):
                 softness_value=numeric(params.get('SoftnessValue'),1)
                 if not math.isfinite(softness_value)or not 0<=softness_value<=1:raise ValueError('Native Softness value outside0..1')
                 dynamic_soft=True
@@ -718,7 +722,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
                 authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
                 d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
-                if (FILTER192.get()or COMPONENT193.get()):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
+                if (FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get())):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
                 d['version']=31
                 notes.append(compatibility('radialCurveProfile','Native authored-diameter4x R+2 squared-radius LUT retained as packed UNORM32BE before mask quantization; physical geometry remains independent. GPU precision/subpixel and scalar/SIMD rounding require native comparison.'))
             else:
@@ -734,7 +738,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         constant_softness=(not softness_checked or
             (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
         softness_supported=constant_softness
-        if default_generator and (engine=='paintbrush'or COMPONENT193.get()) and softness_checked:
+        if default_generator and (engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get())) and softness_checked:
             softness_value=numeric(params.get('SoftnessValue'),1)
             if not math.isfinite(softness_value) or not 0<=softness_value<=1:
                 raise ValueError('Native Softness value outside0..1')
@@ -761,10 +765,10 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             mask=Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         rectangle_profile=None
-        new_gaussian=((engine=='paintbrush'or COMPONENT193.get())and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='gauss'and(spikes==2 or spikes_supported)and((FILTER192.get()or COMPONENT193.get())or not noise_active or spikes==2)and valid_fade and(shape=='rect'or ratio!=1 and not spikes_supported))
+        new_gaussian=((engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='gauss'and(spikes==2 or spikes_supported)and((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or not noise_active or spikes==2)and valid_fade and(shape=='rect'or ratio!=1 and not spikes_supported))
         if new_gaussian:
             rectangle_profile={'kind':'gaussian2D','shape':'rectangle'if shape=='rect'else'ellipse','horizontalFade':hf,'verticalFade':vf,'antialias':gaussian_aa}
-        new_curve=((engine=='paintbrush'or COMPONENT193.get())and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='soft'and shape=='rect'and(spikes==2 or spikes_supported)and((FILTER192.get()or COMPONENT193.get())or not noise_active or spikes==2)and not enabled(params.get('PressureSharpness')))
+        new_curve=((engine=='paintbrush'or (COMPONENT193.get()or COMPONENT194.get()))and depth==0 and not enabled(params.get('MaskingBrush/Enabled'))and generator.get('id')=='soft'and shape=='rect'and(spikes==2 or spikes_supported)and((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or not noise_active or spikes==2)and not enabled(params.get('PressureSharpness')))
         if new_curve:
             curve=generator.get('softness_curve','0,0;1,1')
             if not enabled(params.get('PressureSoftness')):
@@ -832,7 +836,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             unequal_lightness_gih124=bool(unequal and len(frames)>=2 and material_gray and application==2 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             unequal_gradient_gih126=bool(unequal and len(frames)>=2 and gradient_gray and application==3 and pipe['mode']in('angular','xtilt','ytilt','dimensions')and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             if unequal:
-                if not COMPONENT193.get()and(engine!='paintbrush' or material_gray and not unequal_lightness_gih124 or gradient_gray and not unequal_gradient_gih126 or (pipe['coloured'] and application!=0 and not stamp_images and not unequal_lightness_gih124 and not unequal_gradient_gih126)):
+                if not (COMPONENT193.get()or COMPONENT194.get())and(engine!='paintbrush' or material_gray and not unequal_lightness_gih124 or gradient_gray and not unequal_gradient_gih126 or (pipe['coloured'] and application!=0 and not stamp_images and not unequal_lightness_gih124 and not unequal_gradient_gih126)):
                     raise ValueError('Unequal GIH material/colour combination is unsupported')
                 if any(max(frame.size)>2048 for frame in frames):raise ValueError('Unequal GIH original dimensions exceed 2048; resizing is forbidden')
 
@@ -844,9 +848,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             original_sensor_rgba121=bool(not unequal and len(frames)>=2 and stamp_images and application==1 and len(stamp_images)==len(frames)and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=2048 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             equal_lightness_gih123=bool(not unequal and len(frames)>=2 and material_gray and application==2 and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=2048 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
             equal_gradient_gih125=bool(not unequal and len(frames)>=2 and gradient_gray and application==3 and all(v.mode=='RGBA'for v in pipe['frames'])and all(max(v.size)<=512 for v in pipe['frames'])and _allow_texture_material and engine=='paintbrush'and not depth and not eraser)
-            if not(FILTER192.get()or COMPONENT193.get())and pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
-            if not(FILTER192.get()or COMPONENT193.get())and pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
-            if not(FILTER192.get()or COMPONENT193.get())and pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
+            if not(FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))and pipe['mode']=='angular' and (not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH angular requires root equal alpha Pixel frames')
+            if not(FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))and pipe['mode']in('xtilt','ytilt')and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH tilt requires root equal alpha Pixel frames')
+            if not(FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))and pipe['mode']=='dimensions'and(not _allow_texture_material or engine!='paintbrush' or depth or((application!=0 or pipe['coloured'])and not(original_sensor_rgba119 or original_sensor_rgba121 or equal_lightness_gih123 or unequal_lightness_gih124 or equal_gradient_gih125 or unequal_gradient_gih126))or not unequal and len({tuple(sorted(bounds.items()))for aid,bounds in assets})!=1):raise ValueError('GIH dimensions require native root equal alpha Pixel frames')
             if len(assets)>1 or pipe['mode']in('angular','dimensions'):
                 d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
                 if pipe['mode']in('pressure','velocity','angular','xtilt','ytilt'):d['tip']['animation']['rank']=pipe['declaredCount']
@@ -898,7 +902,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
             if _bristle_source_capture is not None and kind in('png_brush','gbr_brush') and max(mask.size)<=1024:
                 _bristle_source_capture.update(width=mask.width,height=mask.height,angle=numeric(definition.get('angle'),0))
-            if not COMPONENT193.get()and kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
+            if not (COMPONENT193.get()or COMPONENT194.get())and kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray and not gradient_gray and not stamp_images:
                 sampling=integer_image_sampling(original_sampling_image,application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling:
                     d['tip']['imageSampling']=sampling
@@ -908,7 +912,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         source_metric=mask.size
-        if COMPONENT193.get()and d['tip'].get('kind')=='bitmap'and 'animation'not in d['tip']:
+        if (COMPONENT193.get()or COMPONENT194.get())and d['tip'].get('kind')=='bitmap'and 'animation'not in d['tip']:
             if any(type(v)is not int or not 1<=v<=2048 for v in source_metric):raise ValueError('Smudge193 static source geometry exceeds existing2048 bound')
             d['tip']['sourceGeometry']={'version':1,'width':source_metric[0],'height':source_metric[1]}
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
@@ -925,7 +929,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in gradient_gray]
             if any(bounds!=(variable_gih_bounds[index]if variable_gih_bounds is not None else d['tip']['maskBounds'])for index,(asset,bounds)in enumerate(gray_assets)):raise ValueError('Gradient/alpha plane bounds mismatch')
             d['tip']['color']={'gradient':{'gray':gray_assets[0][0]}}
-            if engine=='paintbrush' and (len(gray_assets)!=1 and not(equal_gradient_gih125 or unequal_gradient_gih126) or any(catalog.assets[asset]['size']>512 for asset,bounds in gray_assets)):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
+            if not COMPONENT194.get()and engine=='paintbrush' and (len(gray_assets)!=1 and not(equal_gradient_gih125 or unequal_gradient_gih126) or any(catalog.assets[asset]['size']>512 for asset,bounds in gray_assets)):raise ValueError('Pixel gradient requires one bitmap frame with side<=512')
             if engine=='paintbrush':d['tip']['color']['gradient']['sampling']='filteredGray-v1'
             if len(gray_assets)>1:d['tip']['color']['gradient']['grayFrames']=[asset for asset,bounds in gray_assets]
             notes.append(compatibility('gradientTip','Independent adjusted gray and alpha are filtered before lookup in the captured 256-sample canvas palette; palette alpha is multiplied once by filtered source alpha. Native QImage filtering kernel, ICC and colour-space rounding may differ.' if engine=='paintbrush' else 'Adjusted gray and alpha retained;256-sample captured canvas palette is packed once per frame into premultiplied RGBA. Native maps the filtered gray dab, whereas Grafetto filters the mapped resource; nonlinear gradients and colour-space rounding may differ.'))

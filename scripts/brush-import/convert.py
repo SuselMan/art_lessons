@@ -568,9 +568,17 @@ def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False):
         if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
-def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False):
+def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False,sketchSpray194=False):
+    if descriptor.get('version')!=194:
+        for family in ('sketch','spray'):
+            config=descriptor.get(family)
+            if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
-    if smudge193:
+    if sketchSpray194:
+        from sketch_spray194 import validate194
+        validate194(descriptor,parent)
+        mask190=True
+    elif smudge193:
         from color_smudge193 import validate_smudge193
         validate_smudge193(descriptor,parent)
         mask190=True
@@ -669,7 +677,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or any(k in behavior for k in ('dual','timing','wetMix','taper')) or(posterize and(behavior.get('erase')is True or any(k in descriptor for k in('clone','mypaint','tangentNormal'))))or not isinstance(rendering,dict)
                 or rendering.get('accumulation')!='directOver' or rendering.get('blendMode')!='normal' or rendering.get('wetEdges')!=0 or rendering.get('burntEdges')!=0):
             raise ValueError('Invalid portable Posterize filter; requires revision117 and ordinary canvas-filter strategy'if posterize else'Invalid portable Desaturate filter; requires revision99 and ordinary canvas-filter strategy'if desaturate else'Invalid portable Invert filter; requires revision95 and ordinary canvas-filter strategy')
-    sketch=descriptor.get('sketch')
+    sketch=None if sketchSpray194 else descriptor.get('sketch')
     if isinstance(sketch,dict):
         active=sketch.get('mode')=='mask'and sketch.get('distanceOpacity')is True
         if(active and(descriptor['version']<114 or sketch.get('distanceOpacityPolicy')!='generic-clamp-v1'))or(not active and 'distanceOpacityPolicy'in sketch):raise ValueError('Invalid portable Sketch114 distance opacity policy')
@@ -688,7 +696,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
     if noise is not None and(not isinstance(noise,dict)or set(noise)!={'version','density','randomness'}or type(noise.get('version'))is not int or noise['version']!=1
             or not all(type(noise.get(k))in(int,float)and math.isfinite(noise[k])and 0<=noise[k]<=1 for k in('density','randomness'))
             or (not smudge193 and descriptor.get('model')!='stamp')or tip.get('kind')!='procedural'or not isinstance(profile,dict)or profile.get('kind')not in('standard','gaussian','radialCurve','radialCurveSoftness','gaussian2D','curveRectangle','curveRectangleSoftness')):raise ValueError('Invalid portable auto mask noise')
-    if noise is not None and 'spray'in descriptor:
+    if not sketchSpray194 and noise is not None and 'spray'in descriptor:
         spray=descriptor['spray']
         if not isinstance(spray,dict) or not isinstance(spray.get('particle'),dict) or not isinstance(spray.get('color'),dict) or not isinstance(behavior,dict):raise ValueError('Invalid portable Spray Auto-mask noise records')
         particle=spray['particle'];color=spray['color']
@@ -720,8 +728,8 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         minimum_version={'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[kind]
         if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
-                or 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
-                or not smudge193 and any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
+                or not sketchSpray194 and 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
+                or not(smudge193 or sketchSpray194)and any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
                 or not mask190 and 'dual'in behavior or 'autoNoise'in tip and descriptor['version']<98):raise ValueError('Invalid portable rectangle profile combination')
         if kind=='gaussian2D':
             if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'} or profile.get('shape')not in('ellipse','rectangle')
@@ -753,7 +761,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
-                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 else profile['antialias']is not False)
+                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 or sketchSpray194 else profile['antialias']is not False)
                 or profile.get('encoding')!='unorm32be'
                 or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000
@@ -812,6 +820,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==194:
+            from sketch_spray194 import validate194_portable
+            validate194_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)
+            return
         if isinstance(d,dict)and d.get('version')==193:
             from color_smudge193 import validate_smudge193_portable
             validate_smudge193_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)

@@ -53,6 +53,8 @@ def validate_spray_source146(d,depth=0):
 
 def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     from krita_import import preset, enabled, numeric, xml, native_transfer
+    from sketch_spray194 import COMPONENT194
+    whole194=COMPONENT194.get()
     def number(key,default,lo,hi):
         n=numeric(params.get(key),default)
         if not lo<=n<=hi:raise ValueError('Spray setting outside supported range: '+key)
@@ -64,7 +66,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     shape_id=int(number('SprayShape/shape',0,0,4))
     image_shape=shape and shape_id==4
     image_size=None
-    if image_shape and (params.get('CompositeOp','normal')!='normal' or enabled(params.get('Krita/erase'))):
+    if not whole194 and image_shape and (params.get('CompositeOp','normal')!='normal' or enabled(params.get('Krita/erase'))):
         raise ValueError('Spray image shape combination is not supported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     base_params=dict(params)
@@ -86,7 +88,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         # The common Auto-mask importer retains the existing functional74 law.
         # Each Spray particle receives its own captured placement identity.
         generator=definition.find('MaskGenerator')
-        if generator is not None and generator.get('id')=='soft' and enabled(generator.get('antialiasEdges')):
+        if not whole194 and generator is not None and generator.get('id')=='soft' and enabled(generator.get('antialiasEdges')):
             source_curve_aa=True;generator.set('antialiasEdges','0')
         base_params['brush_definition']=ET.tostring(definition,encoding='unicode')
     # Common bridge remains BuildUp; native Wash is admitted only after the
@@ -111,7 +113,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     # particle metrics below already include that conversion.
     d['tip']['aspect']=1
     behavior=d['behavior'];behavior.pop('scatter',None);d.pop('scatter',None)
-    if image_shape and (d.get('texture') or d.get('paperInteraction') or behavior.get('erase') or behavior.get('dual') or behavior.get('taper') or behavior.get('edgeBleed') or behavior.get('wetMix') or behavior.get('rendering',{}).get('blendMode')!='normal'):
+    if not whole194 and image_shape and (d.get('texture') or d.get('paperInteraction') or behavior.get('erase') or behavior.get('dual') or behavior.get('taper') or behavior.get('edgeBleed') or behavior.get('wetMix') or behavior.get('rendering',{}).get('blendMode')!='normal'):
         raise ValueError('Spray image shape combination is not supported')
     spacing=number('Spray/spacing',.5,0,4)*.5
     d['spacing']=max(.000001,min(2,spacing));behavior['spacing']={'mode':'diameter','coefficient':spacing,'isotropic':True}
@@ -138,7 +140,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     angular=params.get('Spray/angularDistributionType','uniform')
     if angular not in ('uniform','curveBased'):raise ValueError('Unsupported Spray angular distribution')
     active=enabled(params.get('ShapeDynamics/enabled',params.get('SprayShape/enabled','false')))
-    prefix='ShapeDynamics/' if 'ShapeDynamicsVersion' in params else 'SprayShape/'
+    prefix='ShapeDynamics/' if (params.get('ShapeDynamicsVersion','2.2')!='2.2' if whole194 else 'ShapeDynamicsVersion' in params) else 'SprayShape/'
     flag=lambda key:active and enabled(params.get(prefix+key))
     def angle_value(flag_key,key,default=0):return math.radians(number(prefix+key,default,-360,360)) if flag(flag_key) else 0
     color=enabled(params.get('ColorOption/useRandomHSV'))
@@ -152,9 +154,9 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
     if enabled(params.get('Spray/useDensity')):spray['density']=number('Spray/coverage',.3,0,100)/100
     spray['color'].update(source_flags)
     if source_flags:
-        if spray['particle']['shape']=='tip'and any(k in d['tip']for k in('profile','imageSampling','autoShape','autoNoise')):raise ValueError('Spray sampled source requires a round or bitmap particle tip')
-        if d.get('texture')or d.get('paperInteraction')or behavior.get('erase'):raise ValueError('Spray sampled source combination is not supported')
-    if d['tip'].get('autoNoise') and (image_shape or source_flags or behavior.get('dual')):raise ValueError('Spray Auto-mask noise requires an independent procedural particle')
+        if not whole194 and spray['particle']['shape']=='tip'and any(k in d['tip']for k in('profile','imageSampling','autoShape','autoNoise')):raise ValueError('Spray sampled source requires a round or bitmap particle tip')
+        if not whole194 and (d.get('texture')or d.get('paperInteraction')or behavior.get('erase')):raise ValueError('Spray sampled source combination is not supported')
+    if not whole194 and d['tip'].get('autoNoise') and (image_shape or source_flags or behavior.get('dual')):raise ValueError('Spray Auto-mask noise requires an independent procedural particle')
     d['spray']=spray;d['version']=max(76 if source_flags or image_shape else 43,96 if d['tip'].get('autoNoise') else 0)
     if params.get('PaintOpAction','1')=='2':
         from spray_wash133 import spray_wash133_scope
@@ -166,7 +168,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         previous_version=d['version'];spray['color']['sourcePolicy']='canonical-begin-v1';d['version']=max(146,previous_version)
         if not spray_source146_scope(d):
             spray['color'].pop('sourcePolicy');d['version']=previous_version
-    if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness')and d['tip'].get('autoNoise'):
+    if not whole194 and d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness')and d['tip'].get('autoNoise'):
         # Do not lose common98 source-profile semantics through the legacy96 bridge.
         # Only this complete new consumer combination opts in; old96 remains literal.
         import copy

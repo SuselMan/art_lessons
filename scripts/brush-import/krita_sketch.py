@@ -14,37 +14,39 @@ from brush_contract import finalize_identity,compatibility
 
 def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls,gbr,gih,raster,xml,brush_application
+    from sketch_spray194 import COMPONENT194
+    whole194=COMPONENT194.get()
     simple=enabled(params.get('Sketch/simpleMode'))
     mask_size=None;image_alpha=None;procedural=False;pipe174=False;pipe181=False;pipe182=False
     if not simple:
         definition=xml(params.get('brush_definition',''))
         if definition.get('type')=='auto_brush':
             g=definition.find('MaskGenerator')
-            if g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=numeric(g.get('diameter'),1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1:raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
-            if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
+            if not whole194 and (g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=numeric(g.get('diameter'),1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1):raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
+            if not whole194 and any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
             procedural=True
         elif definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
         if not procedural:
             filename=definition.get('filename','');raw=resource(filename)
             if filename.lower().endswith('.gih'):
                 pipe=gih(raw,preserve_color=True);frames=pipe['frames']
-                if pipe['mode']not in('incremental','pressure','angular')or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0:raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
+                if not whole194 and (pipe['mode']not in('incremental','pressure','angular')or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0):raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
                 if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch174 outside closed root ordinary scope')
-                if enabled(params.get('PressureSize'))and enabled(params.get('SizeUseCurve','true')):
+                if not whole194 and enabled(params.get('PressureSize'))and enabled(params.get('SizeUseCurve','true')):
                     sensor=xml(params.get('SizeSensor','<params id="pressure"/>'));nodes=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
                     if not nodes or any(n.get('id')!='pressure'for n in nodes):raise ValueError('Sketch174 Size supports pressure/off only')
-                image=frames[0];pipe174=pipe['mode']=='incremental';pipe181=pipe['mode']=='pressure';pipe182=pipe['mode']=='angular'
+                image=frames[0];pipe174=not whole194 and pipe['mode']=='incremental';pipe181=not whole194 and pipe['mode']=='pressure';pipe182=not whole194 and pipe['mode']=='angular'
             else:image=gbr(raw,preserve_color=True)if filename.lower().endswith('.gbr')else raster(raw,filename)
             mask_size=list(image.size)
-            if min(mask_size)<1 or max(mask_size)>256:raise ValueError('Sketch101 bitmap size<=256 required')
-            if image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
+            if min(mask_size)<1 or max(mask_size)>(2048 if whole194 else 256):raise ValueError('Sketch101 bitmap size<=256 required')
+            if not whole194 and image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
     timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
     if timer and not timed_input:raise ValueError('Sketch timed input requires explicit closed161 opt-in')
     if timer:
         if not simple or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch161 requires root simple normal static native timer')
         from native_pressure_rate import native_pressure_rate
         timing=native_pressure_rate(params)
-    if params.get('CompositeOp','normal')!='normal':raise ValueError('Sketch supports normal compositing only')
+    if not whole194 and params.get('CompositeOp','normal')!='normal':raise ValueError('Sketch supports normal compositing only')
     def number(key,default,lo,hi):
         value=numeric(params.get(key),default)
         if not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Sketch setting outside bounded range: '+key)
@@ -87,7 +89,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     # New101 reads the already-captured alpha plane with its explicit own law.
     if not simple:d['tip'].pop('imageSampling',None)
     if simple:d['tip']={'kind':'round','hardness':1,'aspect':1,'rotation':'fixed','angle':0}
-    elif not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']and(k!='animation'or not(pipe174 or pipe181 or pipe182))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
+    elif not whole194 and not procedural and (d['tip']['kind']!='bitmap'or d['tip'].get('aspect')!=1 or any(k in d['tip']and(k!='animation'or not(pipe174 or pipe181 or pipe182))for k in('color','animation','material','imageSampling','profile','autoNoise','autoShape'))or catalog.assets[d['tip']['mask']]['size']>256):raise ValueError('Unsupported Sketch101 captured alpha bitmap')
     d.pop('scatter',None);d.pop('texture',None);d.pop('wet',None)
     behavior=d['behavior']
     if simple:behavior.pop('rotation',None)
@@ -134,7 +136,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if not sketch_timer161_scope(d):raise ValueError('Sketch161 outside closed root scope')
         result['compatibility'].append(compatibility('sketchRate164'if d['version']==164 else 'sketchTimer161','Checked native pressure/off Rate and strength use existing81 clock; moving Sketch requests do not update/spend/reset stationary timing, existing point-history/density/opacity solver and recorded replay remain unchanged. Zero factor suspends stationary timing; moving input still paints. No fuzzy/combination/native RNG or line pixel identity.'if d['version']==164 else'Static native simple Sketch timer reuses author F64 clock81: one request per moving input, stationary elapsed requests retain the shared native accumulator. Existing point history, density/opacity/random line laws remain; replay never retimes. Functional qualification, not native RNG/line pixel identity.','supported'))
         result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
-    if procedural:
+    if procedural and not whole194:
         from sketch_procedural173 import sketch_procedural173_scope
         d['version']=173;d['sketch']['maskSignal']='procedural-standard-v1'
         if not sketch_procedural173_scope(d):raise ValueError('Sketch173 outside closed procedural scope')

@@ -1,0 +1,963 @@
+{
+  "library": {
+    "schemaVersion": 1,
+    "brushes": [
+      {
+        "descriptor": {
+          "id": "imported-1bc919783c9f76738e021694",
+          "version": 44,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "round",
+            "hardness": 1,
+            "aspect": 1,
+            "rotation": "fixed",
+            "angle": 0
+          },
+          "paperInteraction": 0,
+          "spacing": 0.1,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "accumulation": "directOver",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply"
+            }
+          },
+          "sketch": {
+            "version": 1,
+            "mode": "simple",
+            "width": 1,
+            "offset": 0.3,
+            "probability": 1.0,
+            "connect": true,
+            "magnetify": true,
+            "randomRGB": false,
+            "randomOpacity": false,
+            "distanceDensity": true,
+            "distanceOpacity": false,
+            "antialias": false
+          }
+        },
+        "name": "Own194",
+        "source": "SketchSimple.kpp",
+        "warnings": [
+          "sketch: Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu."
+        ],
+        "compatibility": [
+          {
+            "feature": "sketch",
+            "status": "approximate",
+            "detail": "Simple-radius connections, original author input knots, magnetify/offset, probability/distance density, binary distance opacity, random RGB/opacity and line controls retained. Retains32768 input points and at most4096 recent neighbours per request. RNG and capsule AA/line byte rounding differ from native DDA/Wu."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 16.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-1f3456c8d75a2b53f4cefde4",
+          "version": 173,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "procedural",
+            "hardness": 1,
+            "aspect": 1.0,
+            "angle": 0.0,
+            "rotation": "fixed",
+            "profile": {
+              "kind": "standard",
+              "shape": "ellipse",
+              "horizontalFade": 1.0,
+              "verticalFade": 1.0,
+              "antialias": false
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.1,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "accumulation": "directOver",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply"
+            }
+          },
+          "sketch": {
+            "version": 1,
+            "mode": "mask",
+            "width": 1,
+            "offset": 0.3,
+            "probability": 1.0,
+            "connect": true,
+            "magnetify": true,
+            "randomRGB": false,
+            "randomOpacity": false,
+            "distanceDensity": true,
+            "distanceOpacity": false,
+            "antialias": false,
+            "maskSignal": "procedural-standard-v1"
+          }
+        },
+        "name": "Own194",
+        "source": "SketchProcedural.kpp",
+        "warnings": [
+          "sketchProcedural173: Static native standard ellipse/rectangle selects historical points through allocated pixel U8 nonzero alpha before existing Sketch probability/line laws. Existing scalar U8 AA/fade and captured Size/Rotation reused; no native SIMD/RNG/line-pixel identity. Procedural physical axes bounded256."
+        ],
+        "compatibility": [
+          {
+            "feature": "sketchProcedural173",
+            "status": "approximate",
+            "detail": "Static native standard ellipse/rectangle selects historical points through allocated pixel U8 nonzero alpha before existing Sketch probability/line laws. Existing scalar U8 AA/fade and captured Size/Rotation reused; no native SIMD/RNG/line-pixel identity. Procedural physical axes bounded256."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 16.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-56b1f30c25de6f55181073ea",
+          "version": 162,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "bitmap",
+            "mask": "asset:617daa0205ae8bae23dce2b559487430229d86ab775665ae6f895d1422ab358e",
+            "hardness": 0.7,
+            "aspect": 1.0,
+            "rotation": "fixed",
+            "angle": 0.0,
+            "maskBounds": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 0.875,
+              "height": 0.875
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.1,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "accumulation": "directOver",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply"
+            }
+          },
+          "sketch": {
+            "version": 1,
+            "mode": "mask",
+            "maskSize": [
+              3,
+              7
+            ],
+            "width": 1,
+            "offset": 0.3,
+            "probability": 1.0,
+            "connect": true,
+            "magnetify": true,
+            "randomRGB": false,
+            "randomOpacity": false,
+            "distanceDensity": true,
+            "distanceOpacity": false,
+            "antialias": false,
+            "maskSignal": "image-alpha-v1"
+          }
+        },
+        "name": "Own194",
+        "source": "SketchImage.kpp",
+        "warnings": [
+          "integerImagePyramid: Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.",
+          "sketch: Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu.",
+          "sketchMask: Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported."
+        ],
+        "compatibility": [
+          {
+            "feature": "integerImagePyramid",
+            "status": "approximate",
+            "detail": "Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison."
+          },
+          {
+            "feature": "sketch",
+            "status": "approximate",
+            "detail": "Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu."
+          },
+          {
+            "feature": "sketchMask",
+            "status": "approximate",
+            "detail": "Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported."
+          },
+          {
+            "feature": "sketchImageAlpha162",
+            "status": "supported",
+            "detail": "Static native IMAGESTAMP contributes original alpha only to nonzero Sketch point selection. Source RGB is not drawn; connections retain the normal Sketch foreground/random-color law. Same alpha CAS/101 geometry and114 distanceOpacity; browser filtering/RNG/U8 line AA remain functionally qualified."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 7.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-54785df10561b00a5e91d7fd",
+          "version": 43,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "procedural",
+            "hardness": 1,
+            "aspect": 1,
+            "angle": -0.0,
+            "rotation": "fixed",
+            "profile": {
+              "kind": "standard",
+              "shape": "ellipse",
+              "horizontalFade": 1.0,
+              "verticalFade": 1.0,
+              "antialias": true
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.25,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply",
+              "accumulation": "directOver"
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.25,
+              "isotropic": true
+            }
+          },
+          "spray": {
+            "version": 1,
+            "diameter": 40.0,
+            "scale": 1.0,
+            "aspect": 1.0,
+            "angle": 0.0,
+            "count": 7,
+            "jitter": 0,
+            "radial": {
+              "maximum": 1,
+              "samples": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff"
+            },
+            "angular": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff",
+            "particle": {
+              "shape": "ellipse",
+              "width": 6.0,
+              "height": 4.0,
+              "proportional": false
+            },
+            "dynamics": {
+              "randomSize": true,
+              "fixedAngle": 0,
+              "randomAngle": 0,
+              "radialAngle": 0,
+              "pathAngle": 0
+            },
+            "color": {
+              "perParticle": true,
+              "hue": 0,
+              "saturation": 0,
+              "value": 0,
+              "randomOpacity": false
+            }
+          }
+        },
+        "name": "Own194",
+        "source": "SprayShape.kpp",
+        "warnings": [
+          "standardMaskProfile: Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison.",
+          "spray: Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+        ],
+        "compatibility": [
+          {
+            "feature": "standardMaskProfile",
+            "status": "approximate",
+            "detail": "Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison."
+          },
+          {
+            "feature": "spray",
+            "status": "approximate",
+            "detail": "Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 40.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-7553f614c56891f151c53830",
+          "version": 133,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "procedural",
+            "hardness": 1,
+            "aspect": 1,
+            "angle": -0.0,
+            "rotation": "fixed",
+            "profile": {
+              "kind": "standard",
+              "shape": "ellipse",
+              "horizontalFade": 1.0,
+              "verticalFade": 1.0,
+              "antialias": true
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.25,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply",
+              "accumulation": "alphaDarken"
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.25,
+              "isotropic": true
+            }
+          },
+          "spray": {
+            "version": 1,
+            "diameter": 40.0,
+            "scale": 1.0,
+            "aspect": 1.0,
+            "angle": 0.0,
+            "count": 7,
+            "jitter": 0,
+            "radial": {
+              "maximum": 1,
+              "samples": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff"
+            },
+            "angular": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff",
+            "particle": {
+              "shape": "ellipse",
+              "width": 6.0,
+              "height": 4.0,
+              "proportional": false
+            },
+            "dynamics": {
+              "randomSize": true,
+              "fixedAngle": 0,
+              "randomAngle": 0,
+              "radialAngle": 0,
+              "pathAngle": 0
+            },
+            "color": {
+              "perParticle": true,
+              "hue": 0,
+              "saturation": 0,
+              "value": 0,
+              "randomOpacity": false
+            }
+          }
+        },
+        "name": "Own194",
+        "source": "SprayWash.kpp",
+        "warnings": [
+          "standardMaskProfile: Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison.",
+          "spray: Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.",
+          "sprayWash: Particles OVER into one logical request image, then creamy alpha-darken into stroke-owned coverage; captured stroke opacity composites once. Bounded tile-region scratch preserves large clouds and image-pipe colours. Native ICC/RNG/U8 identity is not claimed."
+        ],
+        "compatibility": [
+          {
+            "feature": "standardMaskProfile",
+            "status": "approximate",
+            "detail": "Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison."
+          },
+          {
+            "feature": "spray",
+            "status": "approximate",
+            "detail": "Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+          },
+          {
+            "feature": "sprayWash",
+            "status": "approximate",
+            "detail": "Particles OVER into one logical request image, then creamy alpha-darken into stroke-owned coverage; captured stroke opacity composites once. Bounded tile-region scratch preserves large clouds and image-pipe colours. Native ICC/RNG/U8 identity is not claimed."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 40.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-6760da4121ca81cccf10cee0",
+          "version": 146,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "procedural",
+            "hardness": 1,
+            "aspect": 1,
+            "angle": -0.0,
+            "rotation": "fixed",
+            "profile": {
+              "kind": "standard",
+              "shape": "ellipse",
+              "horizontalFade": 1.0,
+              "verticalFade": 1.0,
+              "antialias": true
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.25,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply",
+              "accumulation": "directOver"
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.25,
+              "isotropic": true
+            }
+          },
+          "spray": {
+            "version": 1,
+            "diameter": 40.0,
+            "scale": 1.0,
+            "aspect": 1.0,
+            "angle": 0.0,
+            "count": 7,
+            "jitter": 0,
+            "radial": {
+              "maximum": 1,
+              "samples": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff"
+            },
+            "angular": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff",
+            "particle": {
+              "shape": "ellipse",
+              "width": 6.0,
+              "height": 4.0,
+              "proportional": false
+            },
+            "dynamics": {
+              "randomSize": true,
+              "fixedAngle": 0,
+              "randomAngle": 0,
+              "radialAngle": 0,
+              "pathAngle": 0
+            },
+            "color": {
+              "perParticle": true,
+              "hue": 0,
+              "saturation": 0,
+              "value": 0,
+              "randomOpacity": false,
+              "sampleInput": true,
+              "sourcePolicy": "canonical-begin-v1"
+            }
+          }
+        },
+        "name": "Own194",
+        "source": "SpraySource.kpp",
+        "warnings": [
+          "standardMaskProfile: Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison.",
+          "spray: Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.",
+          "spraySourceTiming: Canvas colour uses the verified canonical stroke-BEGIN layer with fixed source membership; request RNG, particle order and recorded background remain unchanged. Native ICC/concurrent-layer byte identity is not claimed."
+        ],
+        "compatibility": [
+          {
+            "feature": "standardMaskProfile",
+            "status": "approximate",
+            "detail": "Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison."
+          },
+          {
+            "feature": "spray",
+            "status": "approximate",
+            "detail": "Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+          },
+          {
+            "feature": "spraySourceTiming",
+            "status": "approximate",
+            "detail": "Canvas colour uses the verified canonical stroke-BEGIN layer with fixed source membership; request RNG, particle order and recorded background remain unchanged. Native ICC/concurrent-layer byte identity is not claimed."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 40.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      },
+      {
+        "descriptor": {
+          "id": "imported-5ceec4456776da27b3229d7a",
+          "version": 76,
+          "model": "stamp",
+          "category": "paint",
+          "tip": {
+            "kind": "bitmap",
+            "mask": "asset:0a960ed7129d258864ac4b59707b63bb15304fcdd47107b3ecc67a2382a72680",
+            "hardness": 0.7,
+            "aspect": 1,
+            "rotation": "fixed",
+            "angle": -0.0,
+            "maskBounds": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 1.0,
+              "height": 1.0
+            },
+            "color": {
+              "planes": [
+                "asset:a8daa1ae8a4c599418c6a7373f5282b96a629084b41c74063969b50293dfd04b",
+                "asset:2467e4e76990a2ec92a90f9beced224fbdc485c3d963bfb26d4e8ce71bab88b5",
+                "asset:93f2488975c9096642960d6b98ca8a2206aa7966592617905ae4817592ec3647"
+              ]
+            }
+          },
+          "paperInteraction": 0,
+          "spacing": 0.25,
+          "flow": 1,
+          "flowPer": "stamp",
+          "sizeByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "flowByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "opacityByPressure": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "pressureSmoothingPx": 0,
+          "opacity": 1,
+          "behavior": {
+            "version": 2,
+            "speedInput": {
+              "version": 1,
+              "space": "view",
+              "maximum": 30,
+              "estimator": "grafettoEMA30ms"
+            },
+            "rendering": {
+              "opacityCeiling": "uniform",
+              "mode": "buildUp",
+              "blendMode": "normal",
+              "wetEdges": 0,
+              "burntEdges": 0,
+              "burntEdgesMode": "multiply",
+              "accumulation": "directOver"
+            },
+            "spacing": {
+              "mode": "diameter",
+              "coefficient": 0.25,
+              "isotropic": true
+            }
+          },
+          "spray": {
+            "version": 1,
+            "diameter": 40.0,
+            "scale": 1.0,
+            "aspect": 1.0,
+            "angle": 0.0,
+            "count": 7,
+            "jitter": 0,
+            "radial": {
+              "maximum": 1,
+              "samples": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff"
+            },
+            "angular": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff",
+            "particle": {
+              "shape": "tip",
+              "width": 6.0,
+              "height": 4.0,
+              "proportional": false,
+              "image": true
+            },
+            "dynamics": {
+              "randomSize": true,
+              "fixedAngle": 0,
+              "randomAngle": 0,
+              "radialAngle": 0,
+              "pathAngle": 0
+            },
+            "color": {
+              "perParticle": true,
+              "hue": 0,
+              "saturation": 0,
+              "value": 0,
+              "randomOpacity": false
+            }
+          }
+        },
+        "name": "Own194",
+        "source": "SprayImage.kpp",
+        "warnings": [
+          "pixelOriginalRgba: Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native.",
+          "spray: Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita.",
+          "sprayImageParticle: Captured resource RGB/alpha, independent particle dimensions, centred rotation and per-particle HSV/opacity retained. Native Qt initial resize and smooth transformed-image filtering differ from canonical GPU filtering."
+        ],
+        "compatibility": [
+          {
+            "feature": "pixelOriginalRgba",
+            "status": "approximate",
+            "detail": "Original RGB/alpha planes retained; one premultiplied RGBA texture per frame. Bounded source texture filtering differs from native."
+          },
+          {
+            "feature": "spray",
+            "status": "approximate",
+            "detail": "Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+          },
+          {
+            "feature": "sprayImageParticle",
+            "status": "approximate",
+            "detail": "Captured resource RGB/alpha, independent particle dimensions, centred rotation and per-particle HSV/opacity retained. Native Qt initial resize and smooth transformed-image filtering differ from canonical GPU filtering."
+          }
+        ],
+        "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAMAAAAoyzS7AAABgFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAURmmrAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAAKSURBVHjaY2AAAAACAAHlJ978AAAAAElFTkSuQmCC",
+        "sourceDefaults": {
+          "sizePx": 40.0,
+          "opacity": 1,
+          "flow": 1
+        }
+      }
+    ],
+    "assets": [
+      {
+        "id": "asset:617daa0205ae8bae23dce2b559487430229d86ab775665ae6f895d1422ab358e",
+        "size": 8,
+        "file": "617daa0205ae8bae23dce2b559487430229d86ab775665ae6f895d1422ab358e.bin"
+      },
+      {
+        "id": "asset:0a960ed7129d258864ac4b59707b63bb15304fcdd47107b3ecc67a2382a72680",
+        "size": 2,
+        "file": "0a960ed7129d258864ac4b59707b63bb15304fcdd47107b3ecc67a2382a72680.bin"
+      },
+      {
+        "id": "asset:a8daa1ae8a4c599418c6a7373f5282b96a629084b41c74063969b50293dfd04b",
+        "size": 2,
+        "file": "a8daa1ae8a4c599418c6a7373f5282b96a629084b41c74063969b50293dfd04b.bin"
+      },
+      {
+        "id": "asset:2467e4e76990a2ec92a90f9beced224fbdc485c3d963bfb26d4e8ce71bab88b5",
+        "size": 2,
+        "file": "2467e4e76990a2ec92a90f9beced224fbdc485c3d963bfb26d4e8ce71bab88b5.bin"
+      },
+      {
+        "id": "asset:93f2488975c9096642960d6b98ca8a2206aa7966592617905ae4817592ec3647",
+        "size": 2,
+        "file": "93f2488975c9096642960d6b98ca8a2206aa7966592617905ae4817592ec3647.bin"
+      }
+    ],
+    "skipped": []
+  },
+  "assets": {
+    "asset:617daa0205ae8bae23dce2b559487430229d86ab775665ae6f895d1422ab358e": "AAAAQMAAAAAAAP8AQAAAAAAAwP8AAAAAAABAwP8AAAAAAABAwAAAAAAA/wBAAAAAAADA/wAAAAAAAAAAAAAAAA==",
+    "asset:0a960ed7129d258864ac4b59707b63bb15304fcdd47107b3ecc67a2382a72680": "AEDA/w==",
+    "asset:a8daa1ae8a4c599418c6a7373f5282b96a629084b41c74063969b50293dfd04b": "HkZulg==",
+    "asset:2467e4e76990a2ec92a90f9beced224fbdc485c3d963bfb26d4e8ce71bab88b5": "UFBQUA==",
+    "asset:93f2488975c9096642960d6b98ca8a2206aa7966592617905ae4817592ec3647": "lpaWlg=="
+  }
+}

@@ -48,10 +48,11 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
     ref=lambda x:isinstance(x,str)and x in asset_sizes
     allowed={'id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior'}
     if role_validator and d.get('model')=='mixer':allowed.add('mixer')
+    if role_validator and d.get('version')==194:allowed.update(('sketch','spray'))
     if set(d)-allowed or not isinstance(d.get('id'),str)or not d['id'].startswith('imported-')or d.get('category')not in('line','paint','wet','soft','texture','scatter')or not finite(d.get('paperInteraction'),0,1)or not finite(d.get('spacing'),.000001,2)or not finite(d.get('flow'),0,1)or not finite(d.get('opacity'),0,1)or d.get('flowPer')not in('pass','stamp')or not finite(d.get('pressureSmoothingPx'),0,100):raise ValueError('Invalid190 descriptor fields')
     tip=d['tip'];b=d['behavior']
     if any(k in tip and tip[k]is None for k in('profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold')):raise ValueError('Null190 tip metadata')
-    if set(tip)-({'kind','mask','hardness','aspect','angle','rotation','profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold'}|({'sourceGeometry'}if d.get('version')==193 and role_validator else set()))or not finite(tip.get('hardness'),0,1)or not finite(tip.get('aspect'),1,16)or not finite(tip.get('angle'),-2*math.pi,2*math.pi)or tip.get('rotation')not in('fixed','path','travel'):raise ValueError('Invalid190 tip')
+    if set(tip)-({'kind','mask','hardness','aspect','angle','rotation','profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold'}|({'sourceGeometry'}if d.get('version')in(193,194) and role_validator else set()))or not finite(tip.get('hardness'),0,1)or not finite(tip.get('aspect'),1,16)or not finite(tip.get('angle'),-2*math.pi,2*math.pi)or tip.get('rotation')not in('fixed','path','travel'):raise ValueError('Invalid190 tip')
     if set(b)-{'version','clockRead','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'}:raise ValueError('Unknown190 behavior field')
     # Generic leaf/compound validator retains native curve/constant ordering.
     if any(key not in d for key in('sizeByPressure','flowByPressure','opacityByPressure')):raise ValueError('Missing190 pressure curve')
@@ -204,9 +205,10 @@ def validate_descriptor190_primitives(d,asset_sizes,*,texture191=False):
         if tip['kind']!='bitmap'or bounds['x']+bounds['width']>1 or bounds['y']+bounds['height']>1:fail()
     if 'sourceGeometry'in tip:
         from color_smudge193 import scope193
+        from sketch_spray194 import scope194
         from variable_gih import frame_bounds,same_bounds
         g=tip['sourceGeometry']
-        if not scope193(d)or not isinstance(g,dict)or set(g)!={'version','width','height'}or type(g.get('version'))is not int or g['version']!=1 or any(type(g.get(k))is not int or not 1<=g[k]<=2048 for k in('width','height'))or not ref(tip.get('mask')):fail()
+        if not(scope193(d)or scope194(d))or not isinstance(g,dict)or set(g)!={'version','width','height'}or type(g.get('version'))is not int or g['version']!=1 or any(type(g.get(k))is not int or not 1<=g[k]<=2048 for k in('width','height'))or not ref(tip.get('mask')):fail()
         if not same_bounds(tip.get('maskBounds'),frame_bounds(g['width'],g['height'],asset_sizes[tip['mask']])):fail()
     if 'imageSampling'in tip:
         sampling=tip['imageSampling'];obj(sampling,{'kind':lambda x:x=='integer-pyramid','signal':lambda x:x=='inverse-gray','sourceRect':lambda x:isinstance(x,dict)})
