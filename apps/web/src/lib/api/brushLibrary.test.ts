@@ -283,3 +283,74 @@ describe('lazy brush API resources', () => {
   })
 
 })
+
+function multipleResources(count: number) {
+  const original = fixture(), manifest = structuredClone(original.manifest)
+  manifest.brushes = []; manifest.assets = []
+  const bytes = new Map<string, Uint8Array>(), tokens: string[] = []
+  for (let i = 0; i < count; i++) {
+    const pixels = new Uint8Array([i + 1, 50, 150, 255])
+    const hash = createHash('sha256').update(pixels).digest('hex')
+    const brush = structuredClone(original.manifest.brushes[0])
+    brush.descriptor.id = 'imported-' + i.toString(16).padStart(16, '0')
+    if (brush.descriptor.tip.kind !== 'bitmap') throw Error('Bitmap fixture required')
+    brush.descriptor.tip.mask = `asset:${hash}`
+    manifest.brushes.push(brush); manifest.assets.push({ id: `asset:${hash}`, size: 2, file: `${hash}.bin` })
+    bytes.set(`/assets/${hash}`, pixels); tokens.push(`brush:${brush.descriptor.id}@1`)
+  }
+  return { manifest, bytes, tokens }
+}
+
+it('loads a cold history with four bounded downloads and holds admission until every hash is verified', async () => {
+  const f = multipleResources(9); request.mockResolvedValue(f.manifest)
+  const replies: (() => void)[] = []; let active = 0, peak = 0, completed = false
+  const download = vi.fn((url: string) => new Promise<Response>(resolve => {
+    active++; peak = Math.max(peak, active)
+    replies.push(() => { active--; resolve(new Response(new Uint8Array(f.bytes.get(url)!))) })
+  }))
+  vi.stubGlobal('fetch', download)
+  const api = await import('./brushLibrary'); await api.loadBrushLibrary()
+  const work = api.prepareBrushPresets(f.tokens)!.then(() => { completed = true })
+  await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(4))
+  expect(completed).toBe(false)
+  replies.splice(0).forEach(reply => reply())
+  await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(8))
+  expect(completed).toBe(false)
+  replies.splice(0).forEach(reply => reply())
+  await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(9))
+  replies.splice(0).forEach(reply => reply()); await work
+  expect(peak).toBe(4); expect(api.prepareBrushPresets(f.tokens)).toBeNull()
+})
+
+it('stops queuing masks after a failed download and settles active downloads before rejecting admission', async () => {
+  const f = multipleResources(8); request.mockResolvedValue(f.manifest)
+  const replies: (() => void)[] = []; let settled = false
+  const download = vi.fn((url: string) => new Promise<Response>(resolve => {
+    const failure = replies.length === 0
+    replies.push(() => resolve(failure ? new Response('', { status: 404 }) : new Response(new Uint8Array(f.bytes.get(url)!))))
+  }))
+  vi.stubGlobal('fetch', download)
+  const api = await import('./brushLibrary'); await api.loadBrushLibrary()
+  const work = api.prepareBrushPresets(f.tokens)!.then(() => null, e => e as Error).finally(() => { settled = true })
+  await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(4))
+  replies[0](); await new Promise(resolve => setTimeout(resolve, 0))
+  expect(settled).toBe(false); expect(download).toHaveBeenCalledTimes(4)
+  replies.slice(1).forEach(reply => reply())
+  expect((await work)?.message).toContain('download failed'); expect(download).toHaveBeenCalledTimes(4)
+  download.mockImplementation(async url => new Response(new Uint8Array(f.bytes.get(url)!)))
+  await api.prepareBrushPresets(f.tokens); expect(api.prepareBrushPresets(f.tokens)).toBeNull()
+})
+
+it('does not start queued old-room downloads after the room scope retires', async () => {
+  const f = multipleResources(8); request.mockResolvedValue(f.manifest)
+  const replies: (() => void)[] = []
+  const download = vi.fn((url: string) => new Promise<Response>(resolve => replies.push(() => resolve(new Response(new Uint8Array(f.bytes.get(url)!))))))
+  vi.stubGlobal('fetch', download)
+  const api = await import('./brushLibrary'); api.setBrushRoomScope('old'); await api.loadBrushLibrary()
+  const work = api.prepareBrushPresets(f.tokens)
+  await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(4))
+  api.setBrushRoomScope('new'); replies.forEach(reply => reply()); await work
+  expect(download).toHaveBeenCalledTimes(4)
+  const resources = await import('../../engine/brushLibrary')
+  for (const asset of f.manifest.assets) expect(resources.isBrushAssetReady(asset.id)).toBe(false)
+})

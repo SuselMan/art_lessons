@@ -145,13 +145,26 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[],sou
   return prepareBrushPresetsKnown(presets,sourceIds)
 }
 function prepareBrushPresetsKnown(presets: readonly (string | undefined)[],sourceIds:readonly string[]=[]): Promise<void> | null {
+  const scope = roomScope
   const needed = new Set([...presets.flatMap(p => importedBrushAssets(p)),...sourceIds].filter(id => !isBrushAssetReady(id)))
   const native=!mypaintKernelReady()&&presets.some(p=>!!p&&/^(brush:)?imported-/.test(p)&&!!digitalBrushFromPreset(p).mypaint)
   const saturation=presets.flatMap(p=>{const b=p&&/^(brush:)?imported-/.test(p)?digitalBrushFromPreset(p).bristle:undefined;return b?.version===2&&b.ink.useSaturation?[b]:[]})
   const lookupMissing=saturation.some(b=>!bristleSaturationLookupReady(b))
   return needed.size||native||lookupMissing ? (async () => {
     if(native)await prepareMyPaintKernel()
-    for (const id of needed) await fetchAsset(id)
+    // Bound cold history downloads without serialising one network round trip
+    // per mask. The ordered room gate still waits for all verified resources.
+    const ids = [...needed]
+    let cursor = 0, failed = false, firstError: unknown
+    await Promise.all(Array.from({ length: Math.min(4, ids.length) }, async () => {
+      while (!failed && scope === roomScope && cursor < ids.length) {
+        const id = ids[cursor++]
+        try { await fetchAsset(id) }
+        catch (error) { if (!failed) { failed = true; firstError = error } }
+      }
+    }))
+    if (failed) throw firstError
+    if (scope !== roomScope) return
     for(const b of saturation){const work=prepareBristleSaturationLookup(b);if(work)await work}
   })() : null
 }
