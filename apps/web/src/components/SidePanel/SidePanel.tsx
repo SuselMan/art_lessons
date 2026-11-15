@@ -27,6 +27,7 @@ export interface SidePanelTab<Id extends string = string> {
 }
 
 interface SidePanelProps<Id extends string> {
+  side?: 'left' | 'right'
   tabs:     SidePanelTab<Id>[]
   active:   Id | null
   onSelect: (id: Id | null) => void
@@ -39,12 +40,12 @@ interface SidePanelProps<Id extends string> {
 // `tab.title` arrives already translated — it's the caller's own label, the
 // same string this panel shows in its header, so it's interpolated into the
 // tooltips rather than re-looked-up here.
-export function SidePanel<Id extends string>({ tabs, active, onSelect }: SidePanelProps<Id>) {
+export function SidePanel<Id extends string>({ tabs, active, onSelect, side = 'right' }: SidePanelProps<Id>) {
   const t = useT()
   const activeTab = tabs.find(tab => tab.id === active) ?? null
 
   return (
-    <div className={styles.panel}>
+    <div className={clsx(styles.panel, side === 'left' && styles.panelLeft)}>
       <div className={styles.tabStrip}>
         {tabs.map(tab => {
           const action = t(active === tab.id ? 'sidePanel.collapseTab' : 'sidePanel.openTab', { title: tab.title })
@@ -85,7 +86,7 @@ export function SidePanel<Id extends string>({ tabs, active, onSelect }: SidePan
               title={t('sidePanel.collapse')}
               aria-label={t('sidePanel.collapse')}
             >
-              <Icon name="chevron_right" />
+              <Icon name={side === 'left' ? 'chevron_left' : 'chevron_right'} />
             </button>
           </div>
           {activeTab.content}

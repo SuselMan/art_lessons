@@ -1623,3 +1623,37 @@ a.gateSubmit {
   border-left: 1px solid var(--color-border);
   border-right: 3px solid var(--color-accent);
 }
+
+/* (#836) Swap the docks without transforming the canvas or mirroring text.
+   The outer tool column stays at the screen edge; quick settings face inward. */
+.leftHanded .toolbar {
+  left: auto;
+  right: 0;
+}
+
+.leftHanded .quickSettingsBar {
+  left: auto;
+  right: var(--rail-col-w);
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+
+.leftHanded .quickSettingsBarMinimal {
+  right: 0;
+}
+
+.leftHanded .layerPanelWrap {
+  right: auto;
+  left: 0;
+}
+
+.leftHanded .toolRailCompact {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+
+.leftHanded .toolRailCompact .quickSettingsBar {
+  border-left: none;
+}

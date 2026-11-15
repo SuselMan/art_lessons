@@ -7,6 +7,7 @@ import { ColorFlyoutBody, type ColorFlyoutContent } from '../../../components/Co
 import { LayerPanel } from '../../../components/LayerPanel'
 import { SidePanel } from '../../../components/SidePanel'
 import { useT } from '../../../i18n'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { useRoomStore } from '../../../stores/roomStore'
 import type { JoinQueue } from '../net/joinQueue'
 import type { useClassView } from '../useClassView'
@@ -59,6 +60,7 @@ export function RoomSidePanel({
   drawingIds, classView, selectBoard, toggleRoomFrozen, toggleParticipantFrozen, onExpandColor, onShapeFrameChange,
 }: RoomSidePanelProps) {
   const t = useT()
+  const handedness = useSettingsStore(s => s.handedness)
   const layerState = useRoomStore(s => s.layerState)
   const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
   // (#557) The layer solo: private view state like `annotationsHidden`,
@@ -97,6 +99,7 @@ export function RoomSidePanel({
   return (
     <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
       <SidePanel
+        side={handedness === 'left' ? 'left' : 'right'}
         active={active}
         onSelect={onSelect}
         tabs={[

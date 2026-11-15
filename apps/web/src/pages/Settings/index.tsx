@@ -9,6 +9,7 @@ import { WATERCOLOR_ROUND } from '../../engine'
 import { COMPACT_PREFERENCES, DEVICE_TYPES, type CompactPreference, type DeviceType } from '../../lib/browser/deviceType'
 import { checkForUpdateNow } from '../../lib/browser/registerServiceWorker'
 import { THEMES, type Theme } from '../../lib/browser/theme'
+import { HANDEDNESS_OPTIONS } from '../../lib/browser/uiPreferences'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './Settings.module.css'
 
@@ -45,6 +46,8 @@ export function Settings() {
   const setDeviceType = useSettingsStore(s => s.setDeviceType)
   const compactPreference = useSettingsStore(s => s.compactPreference)
   const setCompactPreference = useSettingsStore(s => s.setCompactPreference)
+  const handedness = useSettingsStore(s => s.handedness)
+  const setHandedness = useSettingsStore(s => s.setHandedness)
   const theme = useSettingsStore(s => s.theme)
   const setTheme = useSettingsStore(s => s.setTheme)
 
@@ -124,6 +127,20 @@ export function Settings() {
             ariaLabel={t('settingsPage.compact')}
           />
           <p className={styles.hint}>{t('settingsPage.compactHint')}</p>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.label}>{t('settingsPage.handedness')}</div>
+          <OptionGroup
+            variant="list"
+            options={HANDEDNESS_OPTIONS.map(id => ({
+              id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded'),
+            }))}
+            active={handedness}
+            onSelect={setHandedness}
+            ariaLabel={t('settingsPage.handedness')}
+          />
+          <p className={styles.hint}>{t('settingsPage.handednessHint')}</p>
         </section>
 
         <VersionSection />

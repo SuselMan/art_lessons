@@ -21,7 +21,7 @@ import {
 import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/input/hotkeys'
 import {
   DEFAULT_FLOATING_PANEL_MODE, DEFAULT_MINIMAL_UI_TAP_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
-  isFloatingPanelMode, isMinimalUiTapMode, type FloatingPanelMode, type MinimalUiTapMode,
+  isFloatingPanelMode, isHandedness, isMinimalUiTapMode, type Handedness, type FloatingPanelMode, type MinimalUiTapMode,
 } from '../lib/browser/uiPreferences'
 import { detectTheme, isTheme, type Theme } from '../lib/browser/theme'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/core/locale'
@@ -49,6 +49,7 @@ const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
 const MINIMAL_UI_TAP_STORAGE_KEY = 'al_minimal_ui_tap'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
 const FLOATING_PANEL_LAYOUT_STORAGE_KEY = 'al_floating_panel_layout'
+const HANDEDNESS_STORAGE_KEY = 'al_handedness'
 const THEME_STORAGE_KEY = 'al_theme'
 const PRESSURE_CALIBRATION_STORAGE_KEY = 'al_pressure_calibration'
 
@@ -244,7 +245,15 @@ function initialPressureCalibration(): PressureCalibration {
   }
 }
 
+function initialHandedness(): Handedness {
+  if (typeof window === 'undefined') return 'right'
+  const raw = localStorage.getItem(HANDEDNESS_STORAGE_KEY)
+  return isHandedness(raw) ? raw : 'right'
+}
+
 export interface SettingsStore {
+  handedness: Handedness
+  setHandedness: (handedness: Handedness) => void
   locale: Locale
   setLocale: (locale: Locale) => void
   lastPaperType: PaperType
@@ -302,6 +311,11 @@ export interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>()(set => ({
+  handedness: initialHandedness(),
+  setHandedness: handedness => {
+    localStorage.setItem(HANDEDNESS_STORAGE_KEY, handedness)
+    set({ handedness })
+  },
   locale: initialLocale(),
   setLocale: locale => {
     localStorage.setItem(LOCALE_STORAGE_KEY, locale)

@@ -3,7 +3,7 @@ import type { TranslationKey } from '../../i18n'
 import { OptionGroup } from '../OptionGroup'
 import { PrecisionSlider } from '../PrecisionSlider'
 import {
-  MINIMAL_UI_TAP_MODES, floatingPanelChoices, floatingPanelSelection, minimalUiAvailable,
+  HANDEDNESS_OPTIONS, MINIMAL_UI_TAP_MODES, floatingPanelChoices, floatingPanelSelection, minimalUiAvailable,
   type FloatingPanelMode, type MinimalUiTapMode,
 } from '../../lib/browser/uiPreferences'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -51,6 +51,8 @@ function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
  *  to the drawing it changes. Language and control scheme stay there. */
 export function GeneralTab() {
   const t = useT()
+  const handedness = useSettingsStore(s => s.handedness)
+  const setHandedness = useSettingsStore(s => s.setHandedness)
   const deviceType = useSettingsStore(s => s.deviceType)
   const soundEnabled = useSettingsStore(s => s.soundEnabled)
   const setSoundEnabled = useSettingsStore(s => s.setSoundEnabled)
@@ -99,6 +101,20 @@ export function GeneralTab() {
       )}
 
       <div className={styles.sectionHeading}>{t('editorSettings.interfaceSection')}</div>
+
+      <div className={styles.choiceRow}>
+        <div className={styles.flagLabel}>{t('settingsPage.handedness')}</div>
+        <div className={styles.flagDescription}>{t('settingsPage.handednessHint')}</div>
+        <OptionGroup
+          variant="list"
+          options={HANDEDNESS_OPTIONS.map(id => ({
+            id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded'),
+          }))}
+          active={handedness}
+          onSelect={setHandedness}
+          ariaLabel={t('settingsPage.handedness')}
+        />
+      </div>
 
       {/* Touch-only, and absent rather than disabled on a PC: there is no way
           into the mode there and no way back out of it (see
