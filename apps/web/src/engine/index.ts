@@ -39,6 +39,7 @@ import{ copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradie
 import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
+import { clearReplayStart } from './src/oplog/clearReplayStart'
 import { cancelRestoreGeneration } from './restoreGeneration'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -5411,7 +5412,9 @@ export class PencilEngine implements PencilEngineAPI {
     const fresh = this._makeLayerBuffer(layerId)
     ;(fresh instanceof TiledLayerBuffer ? fresh : null)?.suspendEviction()
     fresh.clear()
-    const best = this._checkpoints.best(layerId, ops)
+    const clearStart = clearReplayStart(this._log.entries, ops)
+    const checkpoint = this._checkpoints.best(layerId, ops)
+    const best = checkpoint && checkpoint.start >= clearStart ? checkpoint : null
     if (best) {
       for (const t of best.cp.tiles) {
         const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
@@ -5423,7 +5426,7 @@ export class PencilEngine implements PencilEngineAPI {
         fresh.restoreTileContent(rect, pixels)
       }
     }
-    const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0, part: null }
+    const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? clearStart, applied: [], timer: 0, part: null }
     if (best) this._seedWashes(best.cp, fresh, job.chunks) // (§17.56)
     this._rebuildJobs.set(layerId, job)
     job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
@@ -5437,7 +5440,8 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
     const ops = this._log.layerPixelOps(job.layerId)
     if(job.gridProgress&&ops[job.start+job.applied.length]?.id!==job.gridProgress.opId){this._startRebuildJob(job.layerId);return}
-    const startNow = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
+    const checkpointStart = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
+    const startNow = checkpointStart < 0 ? checkpointStart : Math.max(checkpointStart, clearReplayStart(this._log.entries, ops))
     let valid = startNow === job.start
     for (let k = 0; valid && k < job.applied.length; k++) valid = ops[job.start + k]?.id === job.applied[k]
     if (!valid) { this._startRebuildJob(job.layerId); return }
