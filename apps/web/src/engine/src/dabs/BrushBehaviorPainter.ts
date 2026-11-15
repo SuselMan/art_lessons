@@ -731,7 +731,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       if(!filterRequest){this.paintFilter147Requests(target,dabs,preset,brush,pressure,color,scratch,finish,endpoint,execution,runtime);return}
     }
     if(brush.bristle?.version===2&&brush.bristle.soak){if(effectiveErase)throw Error('Bristle Soak139 erase override is not supported');this.assertBristleSoakPrepared139(brush);if(firstBristleLine139(dabs,scratch.brushBehavior?.previous)&&!scratch.brushBehavior?.bristle?.soak)throw Error('Bristle Soak source was not prepared')}
-    const gradientWash=usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
+    const gradientWash=brush.version!==194&&usesPixelOriginalRgba(brush)&&!!brush.tip.color&&'gradient'in brush.tip.color&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(gradientWash&&!mask190&&(!hasPixelGradientWash138Scope(brush)||effectiveErase))throw Error('Invalid Pixel Gradient Wash138 scope')
     if(gradientWash&&!brush.texture?.material&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
     const tangentWash=!!brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'
