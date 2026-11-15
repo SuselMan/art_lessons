@@ -27,6 +27,11 @@ describe('whole native Sketch/Spray194 contract',()=>{
   d.behavior!.modulations={flow:[{control:'pressure',minimum:0,jitter:0}]};expect(isBrushLibrary(library(d))).toBe(false)
   delete d.behavior!.modulations;d.behavior!.timing={version:1,rate:20,ignoreDistanceSpacing:false};expect(isBrushLibrary(library(d))).toBe(false)
  })
+ it('rejects native consumers as dual children while retaining the ordinary parent',()=>{
+  const parent=sprayRectangle155();delete parent.spray;parent.version=25;parent.tip={kind:"round",hardness:1,aspect:1,angle:0,rotation:"fixed"};parent.behavior={version:2};
+  expect(isBrushLibrary(library(parent))).toBe(true)
+  for(const child of[sketch(),spray()]){parent.behavior.dual={brush:child,blendMode:'multiply',sampling:'independent'};expect(isBrushLibrary(library(parent))).toBe(false)}
+ })
  it('does not grant historical tokens the new mask/composite contract',()=>{
   const d=sketch();d.version=173;expect(isBrushLibrary(library(d))).toBe(false)
   expect(isBrushLibrary(library(sketch173()))).toBe(true);expect(isBrushLibrary(library(sprayRectangle155()))).toBe(true)

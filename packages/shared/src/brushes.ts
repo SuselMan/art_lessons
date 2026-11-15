@@ -510,7 +510,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     const d = b.descriptor
     const sketch194=hasSketch194Scope(d),spray194=hasSpray194Scope(d),native194=sketch194||spray194
-    if(d.version===194&&!native194)return false
+    if(d.version===194&&(!native194||maskRoot!==undefined))return false
     if(!native194&&(record(d.sketch)&&d.sketch.composite!==undefined||record(d.spray)&&d.spray.composite!==undefined))return false
     const smudge193=hasColorSmudge193Scope(d)
     if(d.version===193&&!smudge193)return false
@@ -778,7 +778,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
         const g=color.gradient
         if(sprayImage||pixelImage&&!pixelGradient||Object.keys(color).length!==1||!record(g)||Object.keys(g).some(k=>!['gray','grayFrames','sampling'].includes(k))||!ref(g.gray)
           ||(d.tip.animation ? !Array.isArray(g.grayFrames)||g.grayFrames.length!==frames.length||!g.grayFrames.every(ref)||g.grayFrames[0]!==g.gray : g.grayFrames!==undefined))return false
-        if(g.sampling!==undefined&&(!pixelGradient||Number(d.version)<100||g.sampling!=='filteredGray-v1'))return false
+        if(g.sampling!==undefined&&(!pixelGradient&&!native194||Number(d.version)<100||g.sampling!=='filteredGray-v1'))return false
         planes=Array.isArray(g.grayFrames)?g.grayFrames:[g.gray]
       }else {
         if(Object.keys(color).some(k=>!['planes','frames','adjustmentPolicy'].includes(k))||!tuple(color.planes)
@@ -861,6 +861,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
       if(!mask190&&d.behavior.rendering?.blendMode==='kritaHardMix'&&(Number(d.version)<104||d.model!=='stamp'||d.behavior.dual!==undefined||d.behavior.wetMix!==undefined||d.behavior.erase===true||['mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)))return false
       if (!mask190&&d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
+      if(secondary?.version===194)return false
       if(secondary&&mask190){
         const probe={schemaVersion:1,assets:value.assets,brushes:[{name:'secondary',source:b.source,warnings:[],descriptor:secondary}],skipped:[]}
         if(!isBrushLibraryWithMaskContext(probe,limits,maskRoot??d))return false
