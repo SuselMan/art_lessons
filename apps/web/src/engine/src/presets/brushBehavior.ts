@@ -1,3 +1,4 @@
+import{tangentConstructorIsPoint195}from'./tangentConstructor195'
 import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'./nativeBrushFeatures'
 import { independentChildFan190Requests, type IndependentChildFan190State } from '../input/independentChildFan190'
 import { mask190Role } from './independentMask190'
@@ -45,6 +46,8 @@ export interface BrushBehaviorState {
   angularPreviousSize?: number
   dabOrdinal?: number
   dabSequence?: number
+  /** Native generic point counter; history/RNG/animation ordinals stay separate. */
+  genericDabSequence195?:number
   washOpacity?: {average:number;maximum:number}
   washColor?: [number,number,number]
   washVaryingPigment?: boolean
@@ -284,7 +287,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
       : d.control === 'speed' ? dab.normalizedSpeed ?? clamp(speed / 2)
         : d.control === 'time' ? d.periodic ? ((dab.sourceTime! % d.period!) / d.period!) : Math.min(dab.sourceTime!,d.period!)/d.period!
         : d.control === 'distance' ? (d.periodic?worldDistanceForDab(dab,state)%d.period!:Math.min(worldDistanceForDab(dab,state),d.period!))/d.period!
-        : d.control === 'dabProgress' ? (d.periodic ? ((state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.dabSequence ?? 0) / d.period!))
+        : d.control === 'dabProgress' ? (d.periodic ? ((state.genericDabSequence195 ?? state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.genericDabSequence195 ?? state.dabSequence ?? 0) / d.period!))
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)
             : d.control === 'initialDirection' ? turn(state.firstAngle) : 1
@@ -432,7 +435,28 @@ export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehavi
   if (brush.tip.animation || brush.behavior?.dual?.brush.tip.animation) state.dabOrdinal = ordinal + 1
   return ordinal
 }
-export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: BrushBehaviorState, color: [
+/** One accepted request advances the native generic counter independently of
+ * the existing callback/history/RNG cursor. Geometry probes own cloned states. */
+export function behaviorStampsForDab(brush:BrushDescriptor,dab:Dab,state:BrushBehaviorState,color:[number,number,number],options:Parameters<typeof behaviorStampsForDabCore>[4]={}):BehaviorStamp[]{
+  if(brush.version!==195||mask190Role(brush,state.execution)!=='primary')return behaviorStampsForDabCore(brush,dab,state,color,options)
+  const role=state.execution!.maskRole190!.stationary195
+  if(!role)throw Error('Missing stationary195 render counter role')
+  const before=state.genericDabSequence195,sequence=before??0,previous=state.previous
+  const moving=!!previous&&(previous.x!==dab.x||previous.y!==dab.y)
+  const line=sequence!==0&&(role.callback==='lineCallback'||role.family==='tangentNormal'&&tangentConstructorIsPoint195(brush,dab.sourceSize!))
+  const register=sequence===0||role.family==='bristle'||!(line||role.callback==='movingBypass'&&moving)
+  state.genericDabSequence195=sequence
+  try{
+    const stamps=behaviorStampsForDabCore(brush,dab,state,color,options)
+    if(register)state.genericDabSequence195=sequence+1
+    return stamps
+  }catch(error){
+    if(before===undefined)delete state.genericDabSequence195
+    else state.genericDabSequence195=before
+    throw error
+  }
+}
+function behaviorStampsForDabCore(brush: BrushDescriptor, dab: Dab, state: BrushBehaviorState, color: [
   number,
   number,
   number
