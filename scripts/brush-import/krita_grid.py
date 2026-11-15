@@ -1,4 +1,5 @@
 """Grid cell geometry and point colour pickup; no stamp-mask fallback."""
+from native_timing195 import clock_enabled
 import io,math
 from pathlib import PurePosixPath
 from PIL import Image
@@ -8,10 +9,10 @@ from brush_contract import descriptor,finalize_identity,compatibility
 def grid_preset(data,root,params,name,catalog,external):
     from krita_import import enabled,numeric,preset_preview
     native_wash=params.get('PaintOpAction','1')=='2'
-    if native_wash and any(enabled(params.get(k))for k in('Krita/erase','PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Grid Wash137 eraser/timed input unsupported')
+    if native_wash and any(clock_enabled(params, k)for k in('Krita/erase','PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Grid Wash137 eraser/timed input unsupported')
     if enabled(params.get('EraserMode')):raise ValueError('Grid eraser composition is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Grid supports normal compositing only')
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Grid timed input is not implemented')
+    if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Grid timed input is not implemented')
     def number(key,default,lo,hi):
         v=numeric(params.get('Grid/'+key),default)
         if not math.isfinite(v)or not lo<=v<=hi:raise ValueError('Grid setting outside bounded range: '+key)

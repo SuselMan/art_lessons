@@ -1,4 +1,5 @@
 """Filter brush imports common mask/sensors and explicit filter settings."""
+from native_timing195 import clock_enabled
 import io,math
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -13,14 +14,14 @@ def _legacy_filter_preset(data,root,params,name,catalog,external):
     if smudge and kind not in('invert','desaturate','posterize','gaussian','unsharp'):raise ValueError('Spatial Filter smudge mode requires persistent halo support and is unsupported')
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','copy')!='copy':raise ValueError('Filter requires COPY compositing')
     airbrush_keys=('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')
-    host_initial=any(enabled(params.get(k))for k in airbrush_keys)
+    host_initial=any(clock_enabled(params, k)for k in airbrush_keys)
     if host_initial:
         if not smudge:raise ValueError('Filter186 host-initial requires smudge mode')
         if any(k in params and str(params[k]).lower()not in('true','false','0','1')for k in airbrush_keys):raise ValueError('Invalid Filter186 airbrush alias')
         if all(k in params for k in airbrush_keys)and enabled(params[airbrush_keys[0]])!=enabled(params[airbrush_keys[1]]):raise ValueError('Contradictory Filter186 airbrush aliases')
         if any(enabled(params.get('Pressure'+k,params.get(k+'UseCurve','false')))for k in('Opacity','Flow')):raise ValueError('Filter186 requires Opacity/Flow pressure OFF before bridge normalization')
         if any(k.startswith('Pressure')and enabled(v)for k,v in params.items()):raise ValueError('Filter186 requires all pressure/sensor options OFF')
-        if any(enabled(params.get(k))for k in('MaskingBrush/Enabled','Texture/Pattern/Enabled','PaintOpSettings/ignoreSpacing','FanCornersEnabled','fanCornersEnabled')):raise ValueError('Filter186 excludes dual/texture/timing/fan input')
+        if any(clock_enabled(params, k)for k in('MaskingBrush/Enabled','Texture/Pattern/Enabled','PaintOpSettings/ignoreSpacing','FanCornersEnabled','fanCornersEnabled')):raise ValueError('Filter186 excludes dual/texture/timing/fan input')
         for key in ('PaintOpSettings/rate','AirbrushOption/rate'):
             if key in params:
                 try:rate=float(params[key])
@@ -103,7 +104,7 @@ def _legacy_filter_preset(data,root,params,name,catalog,external):
 
 def filter_preset(data,root,params,name,catalog,external):
     from krita_import import _native_preset_transaction,enabled
-    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
+    if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
         return _legacy_filter_preset(data,root,params,name,catalog,external)
     # Historical complete imports retain exact descriptors and identities.
     def legacy():

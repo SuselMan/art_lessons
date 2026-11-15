@@ -1,4 +1,5 @@
 """Tangent Normal uses the ordinary mask/sensors with RGB vector encoding."""
+from native_timing195 import clock_enabled
 import io,math
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -18,7 +19,7 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
     native_wash=params.get('PaintOpAction','1')=='2'
     # Private Pixel conversion can retain timing only as a warning, so reject the
     # new closed Wash scope from original native flags before descriptor lowering.
-    if native_wash and any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Tangent Wash136 timed painting unsupported')
+    if native_wash and any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Tangent Wash136 timed painting unsupported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     ignored_flow=False
     if native_wash:

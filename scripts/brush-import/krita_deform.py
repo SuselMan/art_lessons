@@ -1,4 +1,5 @@
 """Current-data deformation through the shared canvas sampling contract."""
+from native_timing195 import clock_enabled
 import io,math
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -11,8 +12,8 @@ def deform_preset(data,root,params,name,catalog,external,*,timed_input=False):
     composite=params.get('CompositeOp','copy')
     if composite not in ('copy','normal'):raise ValueError('Unsupported Deform composition')
     old_data=enabled(params.get('Deform/useOldData'))
-    timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
-    if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
+    timer=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
+    if any(clock_enabled(params, k)for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
         if not timed_input:raise ValueError('Deform timed input requires closed160 opt-in')
         if not timer or not old_data or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Deform160 requires static canonical checked timer and OLD source')
         from native_pressure_rate import native_pressure_rate

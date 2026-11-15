@@ -2,6 +2,7 @@
 
 Soaking is staged behind the canonical-BEGIN139 palette contract. No per-frame or per-tile random selection.
 """
+from native_timing195 import clock_enabled
 import io,math,hashlib
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -13,8 +14,8 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
     if type(_allow_initialization)is not bool:raise ValueError('Private Bristle initialization origin must be boolean')
     ink_enabled=enabled(params.get('HairyInk/enabled'))
     soak=ink_enabled and enabled(params.get('HairyInk/soak'))
-    if soak and(params.get('PaintOpAction','1')!='1'or enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))):raise ValueError('Bristle Soak139 requires normal directOver untimed input')
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Bristle timed input is not implemented')
+    if soak and(params.get('PaintOpAction','1')!='1'or enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))):raise ValueError('Bristle Soak139 requires normal directOver untimed input')
+    if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Bristle timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Bristle supports normal compositing only')
     aa=enabled(params.get('HairyBristle/antialias'));compositing=enabled(params.get('HairyBristle/useCompositing'))
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')

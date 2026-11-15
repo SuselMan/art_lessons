@@ -1,4 +1,5 @@
 """Native-only whole Color Smudge lowering, original bytes own final identity."""
+from native_timing195 import clock_enabled
 import copy,io
 import xml.etree.ElementTree as ET
 from collections import ChainMap
@@ -13,7 +14,7 @@ def lower_smudge193(data,name,catalog,external,impl,options):
     from brush_contract import compatibility,finalize_identity
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info['preset']);params={p.get('name'):p.text or''for p in root.findall('param')}
     if root.get('paintopid')!='colorsmudge':raise ValueError('Smudge193 requires genuine native Color Smudge root')
-    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','MaskingBrush/Enabled')):raise ValueError('Smudge193 excludes new timer families and non-native dual')
+    if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','MaskingBrush/Enabled')):raise ValueError('Smudge193 excludes new timer families and non-native dual')
     if numeric(params.get('SmudgeRateMode'),0)not in(0,1):raise ValueError('Unknown native Color Smudge strategy')
     raw_mode=params.get('CompositeOp','normal');composite=NATIVE_MODES.get(raw_mode)
     if composite is None:raise ValueError('Unknown native Color Smudge composite: '+raw_mode)

@@ -1,4 +1,5 @@
 """Native Filter-only lowering, original KPP remains the identity authority."""
+from native_timing195 import clock_enabled
 import copy
 import xml.etree.ElementTree as ET
 from collections import ChainMap
@@ -12,7 +13,7 @@ def lower_filter192(data,root,params,name,catalog,external):
     from texture_combinations191 import COMPONENT191
     from brush_contract import finalize_identity,compatibility
     if root.get('paintopid')!='filter':raise ValueError('Filter192 requires genuine native Filter origin')
-    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Expanded Filter192 timers are a separate unsupported scope')
+    if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Expanded Filter192 timers are a separate unsupported scope')
     composite='erase'if enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase'else 'copy'if params.get('CompositeOp','copy')=='copy'else MODES.get(params.get('CompositeOp'))
     if composite is None:raise ValueError('Unsupported native Filter destination composite')
     # Reuse the exact existing kernel/config parser with a harmless local shape.

@@ -1,4 +1,5 @@
 """Curve paintop history paths; uses common opacity and sensor import."""
+from native_timing195 import clock_enabled
 import io,math
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -7,10 +8,10 @@ from brush_contract import finalize_identity,compatibility
 
 def curve_preset(data,root,params,name,catalog,external,*,timed_input=False):
     from krita_import import preset,enabled,numeric,size_like_controls
-    timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
-    if timer or enabled(params.get('AirbrushOption/isAirbrushing')):
+    timer=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
+    if timer or clock_enabled(params, 'AirbrushOption/isAirbrushing'):
         if not timer or not timed_input:raise ValueError('Curve timed input requires closed167 opt-in')
-        if any(enabled(params.get(k))for k in('PressureRate','PaintOpSettings/ignoreSpacing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Curve167 unsupported timer combination')
+        if any(clock_enabled(params, k)for k in('PressureRate','PaintOpSettings/ignoreSpacing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Curve167 unsupported timer combination')
         rate=numeric(params.get('PaintOpSettings/rate'),1)
         if not math.isfinite(rate)or not 0<rate<=1000:raise ValueError('Curve167 native rate outside0..1000')
         raw_interval=500/rate

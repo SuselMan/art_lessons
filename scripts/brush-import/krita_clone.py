@@ -1,4 +1,5 @@
 """Clone uses the ordinary mask and records its source in each gesture."""
+from native_timing195 import clock_enabled
 import io
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -9,7 +10,7 @@ def clone_preset(data,root,params,name,catalog,external):
     healing=enabled(params.get('Duplicateop/Healing'))
     ignored_perspective=enabled(params.get('Duplicateop/CorrectPerspective'))
     if enabled(params.get('EraserMode'))or params.get('CompositeOp','normal')!='normal':raise ValueError('Clone requires normal OVER')
-    if any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Clone timers unsupported')
+    if any(clock_enabled(params, k)for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Clone timers unsupported')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     for node in list(transformed):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)

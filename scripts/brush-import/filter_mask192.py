@@ -14,10 +14,10 @@ def image_coverage192(image):
     linear=[decode(i)for i in range(256)]
     def encode(y):return 12.92*y if y<=.0031308 else 1.055*y**(1/2.4)-.055
     return Image.frombytes('L',image.size,bytes(min(255,max(0,round(encode(.2126*linear[r]+.7152*linear[g]+.0722*linear[b])*a)))for r,g,b,a in image.convert('RGBA').get_flattened_data()))
-def scope192(d):
+def scope192(d,*,clock195=False):
     from canonical_effect_scopes import _number
     obj=lambda x:isinstance(x,dict)
-    if not obj(d)or type(d.get('version'))is not int or d['version']!=192 or d.get('model')!='mixer'or d.get('category')!='wet'or type(d.get('paperInteraction'))not in(int,float)or d.get('paperInteraction')!=0:return False
+    if not obj(d)or type(d.get('version'))is not int or d['version']!=(195 if clock195 else 192) or d.get('model')!='mixer'or d.get('category')!='wet'or type(d.get('paperInteraction'))not in(int,float)or d.get('paperInteraction')!=0:return False
     f=d.get('filter');b=d.get('behavior');t=d.get('tip');m=d.get('mixer')
     if not all(obj(x)for x in(f,b,t,m)):return False
     if any(k in d for k in('wet','scatter','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','clone','mypaint','tangentNormal')):return False
@@ -34,7 +34,7 @@ def scope192(d):
         if kind=='unsharp'and(f.get('spatialPolicy')!='unsharp-lab-halo-v1'or f['radiusY']!=f['radiusX']or not _number(f.get('amount'),0,5)or type(f.get('threshold'))is not int or not 0<=f['threshold']<=255 or type(f.get('lightnessOnly'))is not bool):return False
     else:return False
     if t.get('kind')not in('round','procedural','bitmap')or set(t)-{'kind','mask','maskBounds','hardness','aspect','rotation','angle','profile','animation','imageSampling','autoNoise','autoShape','alphaThreshold'}:return False
-    if set(b)-{'version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror'}:return False
+    if set(b)-({'timing'}if clock195 else set())-{'version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror'}:return False
     for key in('dynamics','modulations'):
         if key in b and(not obj(b[key])or set(b[key])-{'size','angle','grainDepth'}):return False
     r=b.get('rendering')

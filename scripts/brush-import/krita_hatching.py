@@ -1,4 +1,5 @@
 """World-anchored hatching mask; common tip/dynamics remain in the stamp path."""
+from native_timing195 import clock_enabled
 import io,math
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
@@ -7,7 +8,7 @@ from brush_contract import finalize_identity,compatibility
 
 def hatching_preset(data,root,params,name,catalog,external):
     from krita_import import preset,enabled,numeric,size_like_controls
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Hatching timed input is not implemented')
+    if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Hatching timed input is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Hatching supports normal compositing only')
     transformed=ET.fromstring(ET.tostring(root));transformed.set('paintopid','paintbrush')
     from native_ignored_options import strip_unused_native_flow,strip_unused_native_rotation

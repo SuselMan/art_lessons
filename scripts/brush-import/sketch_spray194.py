@@ -5,13 +5,13 @@ from color_smudge193 import BLENDS,NATIVE_MODES as SMUDGE_MODES
 COMPONENT194=ContextVar('native_sketch_spray194',default=False)
 COMPOSITES=(*BLENDS,'copy','grainMerge','grainExtract','negation')
 NATIVE_MODES={**SMUDGE_MODES,'copy':'copy'}
-def scope194(d):
+def scope194(d,*,clock195=False):
  obj=lambda v:isinstance(v,dict)
- if not obj(d)or type(d.get('version'))is not int or d['version']!=194 or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
+ if not obj(d)or type(d.get('version'))is not int or d['version']!=(195 if clock195 else 194) or d.get('model')!='stamp'or d.get('paperInteraction')!=0:return False
  if any(k in d for k in('mixer','wet','texture','scatter','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')):return False
  t,b=d.get('tip'),d.get('behavior')
  if not obj(t)or not obj(b)or t.get('kind')not in('round','procedural','bitmap')or'alphaThreshold'in t:return False
- if set(b)-{'version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','erase','falloff','colorAdjustment'}or b.get('version')!=2:return False
+ if set(b)-({'timing'}if clock195 else set())-{'version','rendering','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','erase','falloff','colorAdjustment'}or b.get('version')!=2:return False
  r=b.get('rendering')
  if not obj(r)or r.get('mode')!='buildUp'or r.get('blendMode')!='normal'or r.get('accumulation')not in('directOver','alphaDarken')or r.get('wetEdges',0)!=0 or r.get('burntEdges',0)!=0 or r.get('gammaCorrect')is True or r.get('luminance')is True:return False
  if d.get('flow')!=1 or d.get('flowPer')!='stamp':return False

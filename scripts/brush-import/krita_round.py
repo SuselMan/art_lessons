@@ -19,11 +19,13 @@ def roundmarker_preset(data, root, params, name):
         'SpacingcurveMode', 'autoSpacingCoeff', 'diameter', 'paintop', 'spacing',
         'useAutoSpacing',
     }
+    from native_timing195 import TIMING195
+    if TIMING195.get():allowed.update(('PaintOpSettings/isAirbrushing','PaintOpSettings/rate','PaintOpSettings/ignoreSpacing','AirbrushOption/isAirbrushing','AirbrushOption/rate','PressureRate','RateSensor','RateValue','RateUseCurve'))
     unknown = sorted(set(params) - allowed)
     if unknown:
         raise ValueError('Unsupported round-marker parameters: ' + ', '.join(unknown))
     is_enabled = lambda value: str(value).lower() in ('true', '1')
-    active = sorted(key for key, value in params.items() if key.startswith('Pressure') and is_enabled(value))
+    active = sorted(key for key, value in params.items() if key.startswith('Pressure') and is_enabled(value) and not(TIMING195.get()and key=='PressureRate'))
     if active:
         raise ValueError('Unsupported active round-marker sensors: ' + ', '.join(active))
     if params.get('paintop', 'roundmarker') != 'roundmarker':

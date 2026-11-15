@@ -358,3 +358,7 @@ unrecorded twist remain explicit limitations. Legacy product descriptors retain
 previous rendering. Mirror uses one response threshold>=0.5 for enabled axes;
 unchecked Mirror or two disabled axes never activates stored sensor settings.
 New source formats57/58; existing operation/dab protocol is unchanged.
+
+## Native host timing195
+
+Genuine checked canonical KPP host timers use the [version195 native timing contract](NATIVE_TIMING195.md). The host and engine rates are independent resolved values, including native defaults1/20 and rate0 LONG_TIME. Source settings/resources and older recorded descriptors remain immutable; family callbacks derive from the retained native payload.

@@ -3,6 +3,7 @@
 Reference: pinned KDE sketch option data and paintop. Mask-selected non-simple
 connections and active timed input are rejected rather than treated as a disc.
 """
+from native_timing195 import clock_enabled
 import io
 import struct
 import hashlib
@@ -23,7 +24,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         if definition.get('type')=='auto_brush':
             g=definition.find('MaskGenerator')
             if not whole194 and (g is None or g.get('id','default')!='default'or g.get('type','circle')not in('circle','rect')or numeric(g.get('spikes'),2)!=2 or numeric(definition.get('density'),1)!=1 or numeric(definition.get('randomness'),0)!=0 or not .01<=numeric(g.get('diameter'),1)<=256 or not .0625<=numeric(g.get('ratio'),1)<=1):raise ValueError('Sketch173 mask-selected procedural generator outside closed scope')
-            if not whole194 and any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
+            if not whole194 and any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled','PressureSoftness','PressureSharpness'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch173 outside static root ordinary scope')
             procedural=True
         elif definition.get('type')not in('gbr_brush','png_brush'):raise ValueError('Sketch mask-selected mode requires captured static bitmap alpha')
         if not procedural:
@@ -31,7 +32,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
             if filename.lower().endswith('.gih'):
                 pipe=gih(raw,preserve_color=True);frames=pipe['frames']
                 if not whole194 and (pipe['mode']not in('incremental','pressure','angular')or not 2<=len(frames)<=256 or pipe['declaredCount']!=len(frames)or len({f.size for f in frames})!=1 or any(f.mode!='L'for f in frames)or brush_application(definition,frames)!=0):raise ValueError('Sketch174 requires equal incremental ordinary alpha frames')
-                if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch174 outside closed root ordinary scope')
+                if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','EraserMode','Krita/erase','MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch174 outside closed root ordinary scope')
                 if not whole194 and enabled(params.get('PressureSize'))and enabled(params.get('SizeUseCurve','true')):
                     sensor=xml(params.get('SizeSensor','<params id="pressure"/>'));nodes=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
                     if not nodes or any(n.get('id')!='pressure'for n in nodes):raise ValueError('Sketch174 Size supports pressure/off only')
@@ -40,7 +41,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
             mask_size=list(image.size)
             if min(mask_size)<1 or max(mask_size)>(2048 if whole194 else 256):raise ValueError('Sketch101 bitmap size<=256 required')
             if not whole194 and image.mode in('RGB','RGBA')and brush_application(definition,[image])==1:image_alpha=image.convert('RGBA').getchannel('A')
-    timer=enabled(params.get('PaintOpSettings/isAirbrushing'))
+    timer=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
     if timer and not timed_input:raise ValueError('Sketch timed input requires explicit closed161 opt-in')
     if timer:
         if not simple or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch161 requires root simple normal static native timer')
@@ -62,7 +63,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
         for node in transformed.findall('param'):
             if node.get('name')=='brush_definition':node.text=ET.tostring(definition,encoding='unicode')
     if image_alpha is not None:
-        if enabled(params.get('PaintOpSettings/isAirbrushing'))or enabled(params.get('AirbrushOption/isAirbrushing'))or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch162 requires root static IMAGESTAMP without timer/erase/dual/Wash')
+        if clock_enabled(params, 'PaintOpSettings/isAirbrushing')or clock_enabled(params, 'AirbrushOption/isAirbrushing')or enabled(params.get('EraserMode'))or enabled(params.get('Krita/erase'))or enabled(params.get('MaskingBrush/Enabled'))or params.get('PaintOpAction','1')!='1':raise ValueError('Sketch162 requires root static IMAGESTAMP without timer/erase/dual/Wash')
         alpha=image_alpha.tobytes();filename='__grafetto_sketch_alpha162_'+hashlib.sha256(alpha).hexdigest()+'.gbr';label=b'Captured Sketch IMAGESTAMP alpha\0'
         bridge=struct.pack('>7I',28+len(label),2,image_alpha.width,image_alpha.height,1,0x47494d50,25)+label+alpha
         private_external={filename:bridge}

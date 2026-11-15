@@ -1,4 +1,5 @@
 """Native-only194 lowering, preserving actual KPP identity and mask primitives."""
+from native_timing195 import clock_enabled
 import copy,io,xml.etree.ElementTree as ET
 from collections import ChainMap
 from PIL import Image
@@ -12,10 +13,10 @@ def lower194(data,root,params,name,catalog,external,resource):
  from brush_contract import compatibility,finalize_identity
  engine=root.get('paintopid')
  if engine not in('sketchbrush','spraybrush'):raise ValueError('194 requires genuine native Sketch/Spray origin')
- if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Expanded194 stationary timers are a separate item')
+ if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Expanded194 stationary timers are a separate item')
  raw=params.get('CompositeOp','normal');composite=NATIVE_MODES.get(raw)
  if composite is None:raise ValueError('Unknown native194 composite: '+raw)
- erase=composite=='erase'or any(enabled(params.get(k))for k in('EraserMode','Krita/erase'))
+ erase=composite=='erase'or any(clock_enabled(params, k)for k in('EraserMode','Krita/erase'))
  if erase:composite='normal'
  action=params.get('PaintOpAction','1')
  if action not in('1','2'):raise ValueError('Unknown native194 PaintingMode')
@@ -28,7 +29,7 @@ def lower194(data,root,params,name,catalog,external,resource):
    if enabled(v):ignored.append(k)
    values[k]='false'
  for k in('Texture/Pattern/Enabled','MaskingBrush/Enabled'):
-  if enabled(params.get(k)):ignored.append(k)
+  if clock_enabled(params, k):ignored.append(k)
  node=copy.deepcopy(root);resources=ChainMap({},external);definition=xml(values.get('brush_definition')or'<Brush/>');text_warning=None
  if definition.get('type')=='kis_text_brush':
   definition,text_warning=text_resource(definition,resources);values['brush_definition']=ET.tostring(definition,encoding='unicode')

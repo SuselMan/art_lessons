@@ -1,3 +1,4 @@
+from native_timing195 import clock_enabled, TIMING195
 from sketch_spray194 import COMPONENT194
 from color_smudge193 import COMPONENT193
 from texture_combinations191 import COMPONENT191
@@ -463,6 +464,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if type(_primary_clock_read) is not bool: raise ValueError('Private primary clock read must be boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if _default_input_policy not in(None,DEFAULT_NATIVE_INPUT_POLICY):raise ValueError('Unknown default native input policy')
+    if TIMING195.get():timed_input=True # explicit195 clock-read authority, not an old timer opt-in
     inherited_timed_input=timed_input
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
@@ -483,6 +485,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
     for pen_key,pen_value in params.items():
+        if TIMING195.get()and pen_key=='RateSensor':continue
         if not pen_key.endswith('Sensor')or not enabled(params.get('Pressure'+pen_key[:-6],'false'))or not enabled(params.get(pen_key[:-6]+'UseCurve','true')):continue
         pen_nodes=xml(pen_value);pen_nodes=list(pen_nodes.findall('ChildSensor'))if pen_nodes.get('id')=='sensorslist'else[pen_nodes]
         if not COMPONENT190.get()and any(n.get('id')in('rotation','tangentialpressure')for n in pen_nodes)and(engine!='paintbrush'or depth or pen_key[:-6]not in('Size','Opacity','Rotation')or enabled(params.get('MaskingBrush/Enabled'))):raise ValueError('Recorded pen188 supports root ordinary Pixel Size/Opacity/Rotation only')
@@ -497,7 +500,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # The alias AirbrushOption alone, private PNG bridges and child descriptors
     # cannot activate this policy. Explicit True still retains its old breadth.
     if (_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and engine=='paintbrush'
-            and depth==0 and _allow_texture_material and enabled(params.get('PaintOpSettings/isAirbrushing'))):
+            and depth==0 and _allow_texture_material and clock_enabled(params, 'PaintOpSettings/isAirbrushing')):
         timed_input=True
     eraser=params.get('CompositeOp') in ('erase','destination-out') or enabled(params.get('Krita/erase'))
     if COMPONENT190.get():
@@ -581,8 +584,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine == 'mypaintbrush':
         from mypaint_import import mypaint_preset
         if params.get('CompositeOp','normal') not in ('normal','erase'):raise ValueError('Unsupported MyPaint composite/timing mode')
-        timer177=enabled(params.get('PaintOpSettings/isAirbrushing'))
-        if enabled(params.get('AirbrushOption/isAirbrushing'))and not timer177:raise ValueError('Unsupported MyPaint composite/timing mode')
+        timer177=clock_enabled(params, 'PaintOpSettings/isAirbrushing')
+        if clock_enabled(params, 'AirbrushOption/isAirbrushing')and not timer177:raise ValueError('Unsupported MyPaint composite/timing mode')
         if timer177 and(depth or not _allow_texture_material):raise ValueError('MyPaint177 requires root genuine KPP')
         if 'MyPaint/json'not in params:raise ValueError('MyPaint KPP missing JSON')
         result=mypaint_preset(params['MyPaint/json'].encode('utf-8'),name,catalog,data,enabled(params.get('EraserMode'))or params.get('CompositeOp')=='erase',surface_policy='krita-legacy-v1')
@@ -621,7 +624,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if enabled(params.get('HairyInk/enabled'))and enabled(params.get('HairyInk/soak'))and(depth or not _allow_texture_material):raise ValueError('Bristle Soak139 requires genuine root native Bristle origin')
         from krita_bristle import bristle_preset
         return bristle_preset(data,root,params,name,catalog,external,_allow_initialization=depth==0 and _allow_texture_material)
-    if engine in ('sketchbrush','spraybrush') and not COMPONENT194.get() and not any(enabled(params.get(k))for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
+    if engine in ('sketchbrush','spraybrush') and not COMPONENT194.get() and not any(clock_enabled(params, k)for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
         from native_sketch_spray194 import lower194
         return lower194(data,root,params,name,catalog,external,resource)
     if engine == 'sketchbrush':
@@ -1200,7 +1203,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             behavior['rotation']={'follow':0,'random':'none','composition':composition};behavior['strokeInput']=policy
             rotation_decoded=True;notes.extend(local)
             notes.append(compatibility('RotationAbsolute','Drawing-angle curve, offset and locked initial direction combine with additive/scaling groups. Author cursor history and optional raw-angle fan requests are recorded; replay never reads peer cursor/UI state.'))
-    mirror_axes=[enabled(params.get(key))for key in ('HorizontalMirrorEnabled','VerticalMirrorEnabled')]
+    mirror_axes=[clock_enabled(params, key)for key in ('HorizontalMirrorEnabled','VerticalMirrorEnabled')]
     if enabled(params.get('PressureMirror')) and any(mirror_axes):
         mirror_notes=[]
         controls=size_like_controls(params,'Mirror',mirror_notes,allow_time=timed_input)
@@ -1426,7 +1429,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or (d.get('texture',{}).get('application')or d.get('texture',{}).get('material')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    active=[k for k in params if k.startswith('Pressure') and clock_enabled(params, k) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or (d.get('texture',{}).get('application')or d.get('texture',{}).get('material')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1479,15 +1482,15 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # inherits root timing authority. Sensor parsing above keeps historical paths.
     legacy_refresh129=(engine=='colorsmudge' and depth==0 and _allow_texture_material
                        and (legacy_smudge_timing_core({**d,'behavior':behavior},False,True)if COMPONENT191.get()else legacy_smudge_timing_scope({**d,'behavior':behavior},False))
-                       and not enabled(params.get('PressureRate'))
+                       and not clock_enabled(params, 'PressureRate')
                        and not enabled(params.get('PaintOpSettings/ignoreSpacing')))
     try:legacy_rate129=float(params.get('PaintOpSettings/rate',20))
     except(ValueError,TypeError):legacy_rate129=float('nan')
     if (_default_input_policy==DEFAULT_NATIVE_INPUT_POLICY and legacy_refresh129
             and math.isfinite(legacy_rate129)and 0<=legacy_rate129<=1000
-            and enabled(params.get('PaintOpSettings/isAirbrushing'))):timed_input=True
-    if enabled(params.get('PaintOpSettings/isAirbrushing',params.get('AirbrushOption/isAirbrushing'))):
-        if timed_input and depth==0 and enabled(params.get('PaintOpSettings/isAirbrushing')):
+            and clock_enabled(params, 'PaintOpSettings/isAirbrushing')):timed_input=True
+    if clock_enabled(params, 'PaintOpSettings/isAirbrushing', params.get('AirbrushOption/isAirbrushing')):
+        if timed_input and depth==0 and clock_enabled(params, 'PaintOpSettings/isAirbrushing'):
             try:rate=float(params.get('PaintOpSettings/rate',20))
             except(ValueError,TypeError):rate=float('nan')
             refresh_random=[]
@@ -1501,13 +1504,13 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 sensors=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
                 if any(node.get('id')=='fuzzy'for node in sensors):refresh_random.append(option)
             rate_notes=[]
-            controls=size_like_controls(params,'Rate',rate_notes,allow_time=False) if enabled(params.get('PressureRate')) else []
-            try:value=float(params.get('RateValue',1)) if enabled(params.get('PressureRate')) else 1
+            controls=size_like_controls(params,'Rate',rate_notes,allow_time=False) if clock_enabled(params, 'PressureRate') else []
+            try:value=float(params.get('RateValue',1)) if clock_enabled(params, 'PressureRate') else 1
             except(ValueError,TypeError):value=float('nan')
             if value!=1:controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
             functional_refresh=engine=='paintbrush' or legacy_refresh129
             valid=(not refresh_random or functional_refresh)and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
-            valid=valid and (not enabled(params.get('PressureRate')) or not enabled(params.get('RateUseCurve','true')) or bool(controls))
+            valid=valid and (not clock_enabled(params, 'PressureRate') or not enabled(params.get('RateUseCurve','true')) or bool(controls))
             def refresh_control(c):
                 combine=c.get('combine')
                 return functional_refresh and any(leaf['control']=='random'for leaf in combine['scaling']+combine['additive'])and all(refresh_control(leaf)for leaf in combine['scaling']+combine['additive']) if combine else c['control']in(('pressure','off','random')if functional_refresh else('pressure','off'))and c.get('jitter',0)==0
@@ -1538,7 +1541,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             else:
                 detail='Native random '+', '.join(refresh_random)+' spacing-refresh queries require a canonical non-painting RNG event contract; timed policy not enabled.'if refresh_random else 'Unsupported native Rate value or controls; timed policy not enabled.'
                 notes.append(compatibility('airbrush',detail,'unsupported'))
-        elif timed_input and not enabled(params.get('PaintOpSettings/isAirbrushing')):
+        elif timed_input and not clock_enabled(params, 'PaintOpSettings/isAirbrushing'):
             notes.append(compatibility('airbrush','Legacy alias does not enable timed painting in pinned native settings reader.'))
         else:notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     if engine=='paintbrush':
@@ -1579,7 +1582,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if absolute_combination:
         if depth>0:
             from child_absolute_size187 import child_absolute_size187_control,locked_child_absolute_size189_control
-            if depth!=1 or not(child_absolute_size187_control(d)or locked_child_absolute_size189_control(d))or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Independent child absolute size-like input is outside187 scope')
+            if depth!=1 or not(child_absolute_size187_control(d)or locked_child_absolute_size189_control(d))or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Independent child absolute size-like input is outside187 scope')
         behavior.setdefault('strokeInput',{'version':1,'initialDirection':'cursorHistory'})
     if native_keyed(d): d['version']=32
     # Research readiness only: no CLI/stock default enables this capability.
@@ -1648,20 +1651,20 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             # Generic expression returns a factor normalized by its constant;
             # NEW183 retains that native external constant exactly once.
             if any('combine'in c for c in behavior.get('modulations',{}).get('grainDepth',[])):t['strength']=clamp(numeric(params.get('Texture/Strength/Value'),1))
-            if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_strength_wash183_scope(d)):raise ValueError('Native Texture Strength Wash183 requires deterministic root controls')
+            if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_strength_wash183_scope(d)):raise ValueError('Native Texture Strength Wash183 requires deterministic root controls')
             notes.append(compatibility('textureStrengthWash183','Native fade maps to existing logical dabProgress and distance to captured canonical world path; deterministic pressure/fade/distance scaling combinations retain constant before clamp. Existing Lightness/Gradient varying-pigment Wash applies external opacity once; no native subdivision/U8 identity claim.','supported'))
         texture_wash171=(t['material'].get('kind')=='lightness'and render.get('accumulation')=='alphaDarken')
         if texture_wash171:
             from texture_lightness_wash171 import texture_lightness_wash171_scope
             d['version']=max(d['version'],171)
-            native_timer171=any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
+            native_timer171=any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))
             if not COMPONENT190.get()and (depth or native_timer171 or not texture_lightness_wash171_scope(d)):raise ValueError('Native Texture Lightness Wash171 requires closed root static MASK Pixel')
             notes.append(compatibility('textureLightnessWash171','Native Lightness texture modifies each dab RGB/alpha before existing Wash feedback; varying pigment uses previous Wash coverage, external opacity is applied once. Functional normalized colour law; no ICC/U8 identity claim.','supported'))
         texture_wash180=(t['material'].get('kind')=='gradient'and render.get('accumulation')=='alphaDarken')
         if texture_wash180:
             from texture_gradient_wash180 import texture_gradient_wash180_scope
             d['version']=max(d['version'],180)
-            if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_gradient_wash180_scope(d)):raise ValueError('Native Texture Gradient Wash180 requires closed root static MASK Pixel')
+            if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not texture_gradient_wash180_scope(d)):raise ValueError('Native Texture Gradient Wash180 requires closed root static MASK Pixel')
             notes.append(compatibility('textureGradientWash180','Native Gradient texture maps filtered pattern gray through the captured palette and alpha-aware strength mix before existing varying-pigment Wash feedback. External stroke opacity applies once; existing source/packing/budget and normalized colour law, not ICC/U8 identity.','supported'))
         if not COMPONENT191.get()and (engine!='paintbrush'or d['model']!='stamp'or tip.get('kind')!='bitmap'or any(k in tip for k in('animation','color','material','imageSampling','profile','autoNoise','autoShape'))or any(k in d for k in('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal','wet'))or d.get('paperInteraction')!=0 or behavior.get('dual')or behavior.get('erase')or 'edgeBleed'in behavior or 'grain'in behavior or behavior.get('wetMix')or render.get('blendMode')!='normal'or(render.get('accumulation')!='directOver'and not texture_wash171 and not texture_wash180)or enabled(params.get('Texture/Pattern/AutoInvertOnErase'))):
             raise ValueError('Texture Lightness108 requires root static MASK Pixel, opaque RGB source and directOver normal')
@@ -1688,7 +1691,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if behavior.get('rendering',{}).get('accumulation')=='alphaDarken':
             # New138 is native Pixel-origin only, not a grant to private bridges/children.
             d['version']=max(d['version'],138)
-            if (depth or not _allow_texture_material or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not pixel_gradient_wash138_scope(d)
+            if (depth or not _allow_texture_material or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not pixel_gradient_wash138_scope(d)
                 or any(catalog.assets.get(a,{}).get('size',513)>512 for a in(d['tip']['mask'],d['tip']['color']['gradient']['gray']))):
                 raise ValueError('Pixel Gradient Wash138 requires closed root static filtered-gray normal scope')
             notes.append(compatibility('pixelGradientWash','Filtered adjusted gray indexes the captured palette; palette alpha multiplies mask alpha once, then existing varying-pigment Wash feedback and one final captured stroke opacity. Functional normalized colour, QImage filtering and ICC/U8 identity are not claimed.'))
@@ -1696,21 +1699,21 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if behavior.get('dual')or behavior.get('rendering',{}).get('accumulation')!='directOver'or behavior.get('rendering',{}).get('blendMode')!='normal':raise ValueError('Pixel gradient requires independent directOver normal rendering')
             d['version']=max(d['version'],100)
     if d.get('mixer',{}).get('source')=='projectionCanvas'and d['mixer'].get('colorRateComposite')in('overlay','darken','lighten','add','subtract','dodge','burn'):
-        if depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Merged legacy178 requires ordinary root without timer')
+        if depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Merged legacy178 requires ordinary root without timer')
         d['version']=max(d['version'],178)
         notes.append(compatibility('legacyMergedForeground178','Captured visible-layer order/opacity uses existing projectionCanvas feedback per request, with current target baseline and existing legacy foreground composite. Historical sources retain existing replay-prefix authority; native cached-overlay, ICC/U8 and parallel-author pixel identity are not claimed.'))
     if d.get('mixer',{}).get('colorRateComposite')in('dodge','burn'):
         d['version']=max(d['version'],176)
-        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d)):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_dodge_burn176_scope(d)):raise ValueError('Legacy DodgeBurn176 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundDodgeBurn176','Native SDR Dodge/Burn foreground Color Rate clamps division BEFORE alpha-aware foreground union and existing COPY/OVER. Dodge source1/destination0 remains0; Burn destination1/source0 remains1. Functional normalized colour, not HDR/ICC/native U8 division identity.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('add','subtract'):
         d['version']=max(d['version'],175)
-        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d)):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_arithmetic175_scope(d)):raise ValueError('Legacy Arithmetic175 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundArithmetic175','Native SDR Add/Subtract acts only on foreground Color Rate: channel addition/subtraction is bounded BEFORE alpha-aware foreground union and existing final COPY/OVER. Existing legacy compensation and pressure laws retained; HDR/ICC/native U8 identity not claimed.','supported'))
         if mode=='linear_dodge':notes.append(compatibility('legacyLinearDodgeAlias','Native Linear Dodge selects the SAME addition function as Add; source settings identity is retained, not a second algorithm.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')in('darken','lighten'):
         d['version']=max(d['version'],172)
-        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_minmax172_scope(d)):raise ValueError('Legacy MinMax172 requires closed ordinary local ALPHAMASK smearing scope')
+        if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not legacy_color_smudge_minmax172_scope(d)):raise ValueError('Legacy MinMax172 requires closed ordinary local ALPHAMASK smearing scope')
         notes.append(compatibility('legacyForegroundMinMax172','Native legacy Darken/Lighten acts only on foreground Color Rate using alpha-aware separable min/max; existing smear COPY and final smearAlpha COPY/OVER keep their own opacity laws. Normalized functional colour, not ICC/U8 identity.','supported'))
     if d.get('mixer',{}).get('colorRateComposite')=='overlay':
         d['version']=max(d['version'],154)
@@ -1779,7 +1782,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     child187=behavior.get('dual',{}).get('brush',{})
     if has_absolute_combination(child187):
         from child_absolute_size187 import independent_child_absolute_size187_scope,locked_child_absolute_size189_scope
-        if not COMPONENT190.get()and (depth or any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not(independent_child_absolute_size187_scope(d)or locked_child_absolute_size189_scope(d))or not independent_drawing_angle_pair(d)):raise ValueError('Child absolute Size187 requires static identity DrawingAngle root and child')
+        if not COMPONENT190.get()and (depth or any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))or not(independent_child_absolute_size187_scope(d)or locked_child_absolute_size189_scope(d))or not independent_drawing_angle_pair(d)):raise ValueError('Child absolute Size187 requires static identity DrawingAngle root and child')
         if d['version']==189:
             notes.append(compatibility('masking.absoluteSize189','Independent ordinary ALPHA child locked Size uses its own first nonhover request sourceAngle in separate geometry/render state. Native first-request lock and identity/nonidentity transfer reuse existing source wire; option constant is clamped before external factor once. Other targets, fan, animation, timers and stochastic controls stay outside189. No native spline/pixel/RNG identity claim.','supported'))
         else:
@@ -1867,6 +1870,9 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
     params={n.get('name'):n.text or''for n in root.findall('param')}
     if root.get('paintopid')!='paintbrush'or not enabled(params.get('MaskingBrush/Enabled')):return _preset_impl(data,name,catalog,external,depth,**options)
+    if TIMING195.get():
+        from native_mask190 import lower_pair
+        return lower_pair(data,name,catalog,external,_preset_impl,options)
     class Needs190(ValueError):pass
     def legacy():
         result=_preset_impl(data,name,catalog,external,depth,**options);d=result['descriptor'];child=d.get('behavior',{}).get('dual',{}).get('brush',{});t=child.get('tip',{})
@@ -1897,12 +1903,12 @@ def _preset_without_smudge193(data,name,catalog,external,depth=0,**options):
     return _native_preset_transaction(catalog,lambda:lower_texture191(data,name,catalog,external,_preset_impl,defaults))
 
 
-def preset(data,name,catalog,external,depth=0,**options):
+def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
     if depth or COMPONENT193.get():return _preset_without_smudge193(data,name,catalog,external,depth,**options)
     image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
     if node.get('paintopid')!='colorsmudge':return _preset_without_smudge193(data,name,catalog,external,depth,**options)
     params={n.get('name'):n.text or''for n in node.findall('param')}
-    if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))and(options.get('_allow_texture_material',True)is False or options.get('_default_input_policy')!=DEFAULT_NATIVE_INPUT_POLICY):
+    if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))and(options.get('_allow_texture_material',True)is False or options.get('_default_input_policy')!=DEFAULT_NATIVE_INPUT_POLICY):
         # Explicit private/direct legacy callers keep their old timer-disable
         # contract; this is not public admission to a new193 timer family.
         return _preset_without_smudge193(data,name,catalog,external,depth,**options)
@@ -1921,15 +1927,26 @@ def preset(data,name,catalog,external,depth=0,**options):
         # Future static imports need original dimensions even when the old
         # pigment strategy was accepted. Existing recorded histories are inert.
         # Already working host-timer families retain their closed old contract.
-        if tip.get('kind')=='bitmap'and 'animation'not in tip and 'imageSampling'not in tip and not any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Static native Color Smudge geometry requires193')
+        if tip.get('kind')=='bitmap'and 'animation'not in tip and 'imageSampling'not in tip and not any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise ValueError('Static native Color Smudge geometry requires193')
         if any(n['status']=='unsupported'for n in result['compatibility'])or m.get('paintThickness')and m.get('colorRateComposite')=='erase'or m.get('algorithm')and d.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Whole native Color Smudge193 required')
         return result
     try:return _native_preset_transaction(catalog,legacy)
     except ValueError:
-        if any(enabled(params.get(k))for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise
+        if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):raise
         from native_smudge193 import lower_smudge193
         defaults=dict(sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None);defaults.update(options)
         return _native_preset_transaction(catalog,lambda:lower_smudge193(data,name,catalog,external,_preset_impl,defaults))
+
+
+
+def preset(data,name,catalog,external,depth=0,**options):
+    from native_timing195 import TIMING195,lower_timing195,native_params
+    if not depth and not TIMING195.get() and options.get('_default_input_policy')==DEFAULT_NATIVE_INPUT_POLICY and options.get('_allow_texture_material',True):
+        image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
+        params=native_params(node)
+        if enabled(params.get('PaintOpSettings/isAirbrushing')):
+            return _native_preset_transaction(catalog,lambda:lower_timing195(data,node,params,name,catalog,external,_preset_without_timing195,options))
+    return _preset_without_timing195(data,name,catalog,external,depth,**options)
 
 
 def _native_preset_transaction(catalog, produce):

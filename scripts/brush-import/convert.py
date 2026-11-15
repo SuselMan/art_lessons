@@ -507,7 +507,7 @@ def validate_portable_dynamics(controls):
         else: raise ValueError('Invalid portable dynamic curve')
 
 
-def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False):
+def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False,native195=False):
     if smudge193:
         from color_smudge193 import validate_smudge193
         validate_smudge193(descriptor)
@@ -534,7 +534,7 @@ def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False):
         mode=mixer['colorRateComposite'];version=descriptor.get('version',0)
         modern=mixer.get('algorithm')in('krita-mask','krita-stamp')
         valid=(legacy_color_smudge_dodge_burn176_scope(descriptor)if mode in('dodge','burn')else legacy_color_smudge_arithmetic175_scope(descriptor)if mode in('add','subtract')else legacy_color_smudge_minmax172_scope(descriptor)if mode in('darken','lighten')else legacy_color_smudge_overlay154_scope(descriptor)if mode=='overlay'else version>=88 and descriptor.get('behavior',{}).get('erase')is True and mixer.get('source')in('previousCanvas','projectionCanvas') if mode=='erase' else modern if mode=='hardMixPhotoshop' else modern and version>=82 if mode in('grainMerge','grainExtract','negation') else version>=83 and 'algorithm'not in mixer and (mixer.get('source')=='previousCanvas' or version>=85 and mixer.get('source')=='projectionCanvas') if mode in('multiply','screen') else False)
-        if not(valid or texture191 or smudge193) or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
+        if not(valid or texture191 or smudge193 or native195) or descriptor.get('behavior',{}).get('rendering',{}).get('blendMode')!='normal':raise ValueError('Invalid Color Smudge foreground composition')
     if 'algorithm' in mixer and (mixer['algorithm'] not in ('krita-mask','krita-stamp') or mixer.get('source') not in ('previousCanvas','projectionCanvas')): raise ValueError('Invalid Color Smudge algorithm')
     if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
     if mixer.get('source') in ('previousCanvas','projectionCanvas') and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
@@ -568,13 +568,24 @@ def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False):
         if gradient and 'positionDynamics' in foreground:validate_portable_dynamics(foreground['positionDynamics'])
 
 
-def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False,sketchSpray194=False):
-    if descriptor.get('version')!=194:
+def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False,sketchSpray194=False,native195=False,native195Root=None):
+    if descriptor.get('version')==195 and not native195:raise ValueError('Native195 profile needs actual whole-role authority')
+    if native195:
+        if parent is not None or descriptor.get('version')!=195:raise ValueError('Native195 profile requires literal root195')
+        smudge193=descriptor.get('model')=='mixer' # native195 whole-role authority for shared mask primitives
+        sketchSpray194=any(k in descriptor for k in('sketch','spray'))
+        if 'filter'in descriptor:filter192=descriptor
+    if descriptor.get('version')not in(194,195):
         for family in ('sketch','spray'):
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
-    if sketchSpray194:
+    if native195Root is not None:
+        from independent_mask190 import component190
+        if parent is not native195Root or native195Root.get('version')!=195 or native195Root.get('behavior',{}).get('dual',{}).get('brush')is not descriptor or descriptor.get('version')not in(190,191)or not component190(descriptor,False,descriptor['version']):raise ValueError('Invalid actual195 child component authority')
+        mask190=True
+    elif native195:mask190=True
+    elif sketchSpray194:
         from sketch_spray194 import validate194
         validate194(descriptor,parent)
         mask190=True
@@ -665,7 +676,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         # The complete new147 scope was validated above. Reuse unchanged
         # legacy pointwise config checks after stripping ONLY its two markers.
         filter_config={k:v for k,v in filter_config.items()if k not in('smudgeMode','sourcePolicy','spatialPolicy','maskPolicy')}
-    if isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate','posterize') or filter_config.get('version')==2):
+    if not native195 and isinstance(filter_config,dict) and (filter_config.get('kind')in('invert','desaturate','posterize') or filter_config.get('version')==2):
         mixer=descriptor.get('mixer');rendering=behavior.get('rendering') if isinstance(behavior,dict) else None
         desaturate=filter_config.get('kind')=='desaturate';posterize=filter_config.get('kind')=='posterize'
         shape=(set(filter_config)=={'version','kind','steps'}and type(filter_config.get('steps'))is int and 2<=filter_config['steps']<=128)if posterize else(set(filter_config)=={'version','kind','type'}and type(filter_config.get('type'))is int and 0<=filter_config['type']<=5)if desaturate else(set(filter_config)=={'version','kind'}and filter_config.get('kind')=='invert')
@@ -726,7 +737,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
     if profile.get('kind') in ('gaussian2D','curveRectangle','curveRectangleSoftness'):
         kind=profile['kind']
         minimum_version={'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[kind]
-        if (descriptor.get('model')!='stamp' or tip.get('kind')!='procedural'
+        if (descriptor.get('model')!='stamp'and not native195 or tip.get('kind')!='procedural'
                 or type(descriptor.get('version'))is not int or descriptor['version']<minimum_version
                 or not sketchSpray194 and 'spray'in descriptor and not spray_rectangle_noise155_scope(descriptor)
                 or not(smudge193 or sketchSpray194)and any(k in descriptor for k in ('mixer','grid','hatching','bristle','sketch','deform','clone','filter','experiment','particle','tangentNormal','mypaint'))
@@ -820,6 +831,10 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==195:
+            from stationary195 import validate_portable195
+            validate_portable195(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent,trusted_raw_assets)
+            return
         if isinstance(d,dict)and d.get('version')==194:
             from sketch_spray194 import validate194_portable
             validate194_portable(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent)

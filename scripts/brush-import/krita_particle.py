@@ -1,4 +1,5 @@
 """Fixed-step particle spring population, independent of stamp shapes."""
+from native_timing195 import clock_enabled
 import io,math
 from pathlib import PurePosixPath
 from PIL import Image
@@ -9,9 +10,9 @@ def particle_preset(data,root,params,name,catalog,external,*,timed_input=False):
     from krita_import import enabled,numeric,preset_preview
     if enabled(params.get('EraserMode')):raise ValueError('Particle eraser is not implemented')
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Particle supports normal compositing only')
-    timer=enabled(params.get('PaintOpSettings/isAirbrushing'));rate_controls=[]
-    if (timer or enabled(params.get('AirbrushOption/isAirbrushing')))and not timed_input:raise ValueError('Particle timed input requires explicit closed157 opt-in')
-    if timed_input and (timer or enabled(params.get('AirbrushOption/isAirbrushing'))):
+    timer=clock_enabled(params, 'PaintOpSettings/isAirbrushing');rate_controls=[]
+    if (timer or clock_enabled(params, 'AirbrushOption/isAirbrushing'))and not timed_input:raise ValueError('Particle timed input requires explicit closed157 opt-in')
+    if timed_input and (timer or clock_enabled(params, 'AirbrushOption/isAirbrushing')):
         if not timer or params.get('PaintOpAction','1')not in('1','2')or enabled(params.get('PaintOpSettings/ignoreSpacing'))or enabled(params.get('Krita/erase')):raise ValueError('Particle157 requires root directOver static native timer')
         from native_pressure_rate import native_pressure_rate
         timing=native_pressure_rate(params);rate_controls=timing.get('rateDynamics',[])

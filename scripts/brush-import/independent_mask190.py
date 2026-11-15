@@ -38,7 +38,7 @@ def validate_independent_mask190(d,parent=None):
         if not active or not independent_mask190_scope(whole)or parent is not None and whole['behavior']['dual']['brush']is not d:raise ValueError('Invalid native independent mask190 role')
     return active and independent_mask190_scope(whole)
 
-def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator,parent=None,*,role_validator=None):
+def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator,parent=None,*,role_validator=None,native195=False):
     """Complete190 assembly plus existing primitive profile/curve validators.
     Physical planes/geometry remain actual CAS metadata, never a descriptor proxy.
     """
@@ -49,10 +49,11 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
     allowed={'id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior'}
     if role_validator and d.get('model')=='mixer':allowed.add('mixer')
     if role_validator and d.get('version')==194:allowed.update(('sketch','spray'))
+    if native195:allowed.update(('mixer','filter','sketch','spray','particle','deform','curveTrace','bristle','grid','hatching','experiment','clone','mypaint','tangentNormal'))
     if set(d)-allowed or not isinstance(d.get('id'),str)or not d['id'].startswith('imported-')or d.get('category')not in('line','paint','wet','soft','texture','scatter')or not finite(d.get('paperInteraction'),0,1)or not finite(d.get('spacing'),.000001,2)or not finite(d.get('flow'),0,1)or not finite(d.get('opacity'),0,1)or d.get('flowPer')not in('pass','stamp')or not finite(d.get('pressureSmoothingPx'),0,100):raise ValueError('Invalid190 descriptor fields')
     tip=d['tip'];b=d['behavior']
     if any(k in tip and tip[k]is None for k in('profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold')):raise ValueError('Null190 tip metadata')
-    if set(tip)-({'kind','mask','hardness','aspect','angle','rotation','profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold'}|({'sourceGeometry'}if d.get('version')in(193,194) and role_validator else set()))or not finite(tip.get('hardness'),0,1)or not finite(tip.get('aspect'),1,16)or not finite(tip.get('angle'),-2*math.pi,2*math.pi)or tip.get('rotation')not in('fixed','path','travel'):raise ValueError('Invalid190 tip')
+    if set(tip)-({'kind','mask','hardness','aspect','angle','rotation','profile','maskBounds','animation','imageSampling','material','color','autoShape','autoNoise','alphaThreshold'}|({'sourceGeometry'}if d.get('version')in(193,194,195) and role_validator else set()))or not finite(tip.get('hardness'),0,1)or not finite(tip.get('aspect'),1,16)or not finite(tip.get('angle'),-2*math.pi,2*math.pi)or tip.get('rotation')not in('fixed','path','travel'):raise ValueError('Invalid190 tip')
     if set(b)-{'version','clockRead','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'}:raise ValueError('Unknown190 behavior field')
     # Generic leaf/compound validator retains native curve/constant ordering.
     if any(key not in d for key in('sizeByPressure','flowByPressure','opacityByPressure')):raise ValueError('Missing190 pressure curve')
@@ -71,10 +72,10 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
         elif isinstance(v,list):
             for x in v:controls(x)
     controls(b)
-    validate_behavior190(b,dynamics_validator)
+    validate_behavior190(b,dynamics_validator,native195=native195)
     if role_validator:profile_validator(d,parent=parent,texture191=True)
     else:profile_validator(d,parent=parent)
-    validate_descriptor190_primitives(d,asset_sizes,texture191=role_validator is not None)
+    validate_descriptor190_primitives(d,asset_sizes,texture191=role_validator is not None,native195=native195)
     animation=tip.get('animation');frames=[tip.get('mask')]
     if animation is not None:
         if not isinstance(animation,dict)or set(animation)-{'mode','frames','rank','cursorPolicy','roundingPolicy','randomPolicy','dimensions','geometry'}or animation.get('mode')not in('constant','pressure','velocity','angular','xtilt','ytilt','random','incremental','dimensions'):raise ValueError('Invalid190 animation')
@@ -126,7 +127,7 @@ def validate_mask190_portable(d,asset_sizes,profile_validator,dynamics_validator
         validate_mask190_portable(b['dual']['brush'],asset_sizes,profile_validator,dynamics_validator,d,role_validator=role_validator)
 
 
-def validate_behavior190(b,dynamics_validator):
+def validate_behavior190(b,dynamics_validator,*,native195=False):
     """Primitive schema, independent of versioned execution combinations.
     Curves and compound controls reuse the existing portable validator.
     """
@@ -153,7 +154,10 @@ def validate_behavior190(b,dynamics_validator):
     if 'clockRead'in b:obj(b['clockRead'],{'version':lambda x:type(x)is int and x==1,'source':enum('primary')})
     if 'strokeInput'in b:obj(b['strokeInput'],{'version':lambda x:type(x)is int and x==1,'initialDirection':enum('cursorHistory')},{'fanCorners':lambda v:obj(v,{'stepDegrees':lambda x:integer(x,5,90)})})
     if 'speedInput'in b:obj(b['speedInput'],{'version':lambda x:type(x)is int and x==1,'space':enum('view'),'maximum':lambda x:finite(x,.001,1000),'estimator':enum('grafettoEMA30ms')})
-    if 'timing'in b:
+    if 'timing'in b and native195:
+        from stationary195 import validate_timing195
+        validate_timing195(b['timing'],dynamics_validator)
+    if 'timing'in b and not native195:
         t=b['timing'];obj(t,{'version':lambda x:type(x)is int and x==1,'rate':lambda x:finite(x,0,1000),'ignoreDistanceSpacing':boolean},{'rateDynamics':lambda v:controls(v)and 1<=len(v)<=4})
         for response in t.get('rateDynamics',[]):
             leaves=response['combine']['scaling']+response['combine']['additive']if'combine'in response else[response]
@@ -187,7 +191,7 @@ def validate_behavior190(b,dynamics_validator):
     if 'taper'in b:obj(b['taper'],dict.fromkeys(('start','end','size','opacity'),finite)|{'pressure':boolean})
 
 
-def validate_descriptor190_primitives(d,asset_sizes,*,texture191=False):
+def validate_descriptor190_primitives(d,asset_sizes,*,texture191=False,native195=False):
     def fail():raise ValueError('Invalid190 primitive descriptor')
     def finite(x,a=0,z=1):return type(x)in(int,float)and math.isfinite(x)and a<=x<=z
     def integer(x,a,z):return type(x)is int and a<=x<=z
@@ -208,7 +212,7 @@ def validate_descriptor190_primitives(d,asset_sizes,*,texture191=False):
         from sketch_spray194 import scope194
         from variable_gih import frame_bounds,same_bounds
         g=tip['sourceGeometry']
-        if not(scope193(d)or scope194(d))or not isinstance(g,dict)or set(g)!={'version','width','height'}or type(g.get('version'))is not int or g['version']!=1 or any(type(g.get(k))is not int or not 1<=g[k]<=2048 for k in('width','height'))or not ref(tip.get('mask')):fail()
+        if not(scope193(d)or scope194(d)or native195)or not isinstance(g,dict)or set(g)!={'version','width','height'}or type(g.get('version'))is not int or g['version']!=1 or any(type(g.get(k))is not int or not 1<=g[k]<=2048 for k in('width','height'))or not ref(tip.get('mask')):fail()
         if not same_bounds(tip.get('maskBounds'),frame_bounds(g['width'],g['height'],asset_sizes[tip['mask']])):fail()
     if 'imageSampling'in tip:
         sampling=tip['imageSampling'];obj(sampling,{'kind':lambda x:x=='integer-pyramid','signal':lambda x:x=='inverse-gray','sourceRect':lambda x:isinstance(x,dict)})

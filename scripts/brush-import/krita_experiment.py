@@ -1,4 +1,5 @@
 """Nonincremental closed shape with optional native-inspired deformation."""
+from native_timing195 import clock_enabled
 import io,math
 from pathlib import PurePosixPath
 from PIL import Image
@@ -11,7 +12,7 @@ def experiment_preset(data,root,params,name,catalog,external):
     if params.get('CompositeOp','normal')!='normal':raise ValueError('Experiment supports normal compositing only')
     fill=numeric(params.get('Experiment/fillType'),0)
     if fill not in (0,1):raise ValueError('Unsupported Experiment fill type')
-    if enabled(params.get('PaintOpSettings/isAirbrushing')):raise ValueError('Experiment timed input is not implemented')
+    if clock_enabled(params, 'PaintOpSettings/isAirbrushing'):raise ValueError('Experiment timed input is not implemented')
     def number(key,default,lo,hi):
         v=numeric(params.get('Experiment/'+key),default)
         if not math.isfinite(v)or not lo<=v<=hi:raise ValueError('Experiment setting outside bounded range: '+key)
