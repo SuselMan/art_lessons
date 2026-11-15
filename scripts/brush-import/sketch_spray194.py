@@ -39,6 +39,7 @@ def scope194(d):
   if 'maskSize'in family and(not isinstance(family['maskSize'],list)or len(family['maskSize'])!=2 or any(type(n)is not int or not 1<=n<=2048 for n in family['maskSize'])):return False
   if 'dynamics'in family and(not obj(family['dynamics'])or set(family['dynamics'])-{'width','offset','probability'}or any(not isinstance(v,list)for v in family['dynamics'].values())):return False
   if t.get('kind')!='bitmap':return 'maskSize'not in family and not any(k in t for k in('color','material','animation'))
+  if 'animation'in t and(not obj(t['animation'])or not obj(t['animation'].get('geometry')))and'maskSize'not in family:return False
   if 'animation'not in t:
    if 'maskSize'not in family:return False
    if 'sourceGeometry'in t and family['maskSize']!=[t['sourceGeometry']['width'],t['sourceGeometry']['height']]:return False

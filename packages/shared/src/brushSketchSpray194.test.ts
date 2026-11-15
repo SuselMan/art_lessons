@@ -3,6 +3,7 @@ import{hasSketch194Scope,hasSpray194Scope,isBrushLibrary,type BrushDescriptor,ty
 import{sketch173}from'./sketchProcedural173.testFixture.js'
 import{sprayRectangle155}from'./brushSprayRectangle155.testFixture.js'
 import{hasValidRecordedPenOperation,packDabs}from'./dabCodec.js'
+import{library174}from'./sketchGih174.testFixture.js'
 import{dab173}from'./sketchProcedural173.testFixture.js'
 const library=(d:BrushDescriptor):BrushLibrary=>({schemaVersion:1,brushes:[{name:'Native consumer',source:'own194.kpp',warnings:[],descriptor:d}],assets:[],skipped:[]})
 function sketch():BrushDescriptor{const d=sketch173();d.version=194;d.sketch={...d.sketch!,maskSignal:'native-dab-v1',composite:'copy'};return d}
@@ -31,6 +32,11 @@ describe('whole native Sketch/Spray194 contract',()=>{
   const parent=sprayRectangle155();delete parent.spray;parent.version=25;parent.tip={kind:"round",hardness:1,aspect:1,angle:0,rotation:"fixed"};parent.behavior={version:2};
   expect(isBrushLibrary(library(parent))).toBe(true)
   for(const child of[sketch(),spray()]){parent.behavior.dual={brush:child,blendMode:'multiply',sampling:'independent'};expect(isBrushLibrary(library(parent))).toBe(false)}
+ })
+ it('requires original dimensions for an animated Sketch mask',()=>{
+  const l=library174(),d=l.brushes[0].descriptor;d.version=194;d.sketch!.maskSignal='native-dab-v1';d.sketch!.composite='normal';delete d.sketch!.maskSize
+  expect(isBrushLibrary(l)).toBe(false)
+  d.tip.animation!.geometry={version:1,frames:[0,1].map(()=>({sourceWidth:4,sourceHeight:4,maskBounds:{x:0,y:0,width:1,height:1}}))};expect(isBrushLibrary(l)).toBe(true)
  })
  it('does not grant historical tokens the new mask/composite contract',()=>{
   const d=sketch();d.version=173;expect(isBrushLibrary(library(d))).toBe(false)

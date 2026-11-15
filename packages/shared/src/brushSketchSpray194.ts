@@ -25,7 +25,7 @@ export function hasSketch194Scope(v:unknown):boolean{
  if(s.composite===undefined||b.erase===true&&s.composite!=='normal')return false
  if(s.mode==='simple')return s.maskSignal===undefined&&s.maskSize===undefined&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.angle===0&&t.rotation==='fixed'&&keys(t,['kind','hardness','aspect','angle','rotation'])
  if(s.maskSignal!=='native-dab-v1')return false
- if(t.kind==='bitmap')return t.animation!==undefined||s.maskSize!==undefined||t.sourceGeometry!==undefined
+ if(t.kind==='bitmap')return t.animation!==undefined?obj(t.animation)&&obj(t.animation.geometry)||s.maskSize!==undefined:s.maskSize!==undefined||t.sourceGeometry!==undefined
  return s.maskSize===undefined&&t.color===undefined&&t.material===undefined&&t.animation===undefined
 }
 export function hasSpray194Scope(v:unknown):boolean{

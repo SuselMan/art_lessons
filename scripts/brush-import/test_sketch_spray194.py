@@ -79,6 +79,11 @@ class SketchSpray194Tests(unittest.TestCase):
     bad=copy.deepcopy(d);change(bad)
     with self.assertRaises(ValueError):validate194_portable(bad,{a:v['size']for a,v in c.assets.items()},convert.validate_portable_profile,convert.validate_portable_dynamics)
 
+ def test_animated_sketch_requires_known_original_dimensions(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   c=Catalog(Path(tmp)/'out');r=preset(native194('sketchbrush','<Brush type="kis_text_brush" text="AB" pipe="true" font="DejaVu Sans,12,-1,5,50,0,0,0,0,0" spacing=".1"/>'),'text.kpp',c,{});d=r['descriptor'];self.assertTrue(scope194(d))
+   d['tip']['animation'].pop('geometry',None);d['sketch'].pop('maskSize');self.assertFalse(scope194(d))
+
  def test_unknown_active_pressure_controls_are_not_erased_for_admission(self):
   with tempfile.TemporaryDirectory()as tmp:
    for engine in('sketchbrush','spraybrush'):
