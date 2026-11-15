@@ -153,7 +153,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.deform)capabilities.add('canvasEffect')
   if(brush.grid)capabilities.add('grid')
   if(brush.hatching)capabilities.add('hatching')
-  if(brush.sketch||brush.bristle&&!bristleWash||brush.curveTrace)capabilities.add('sketchLines')
+  if(brush.sketch||brush.bristle&&!bristleWash||brush.curveTrace||brush.version===195&&brush.tangentNormal?.sharpnessChecked)capabilities.add('sketchLines')
   if(sprayWash)capabilities.add('sprayWash')
   else if(brush.spray&&(brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground))capabilities.add('spraySources')
   else if(brush.spray?.particle.image)capabilities.add('sprayImages')

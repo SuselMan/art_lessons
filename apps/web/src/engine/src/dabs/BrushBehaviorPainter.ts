@@ -760,8 +760,10 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(!mask190&&brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
     // Gesture state stays on the same scratch; endpoint/finish belong to the last slice.
-    if((brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>(usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4)){
-      for(let i=0;i<dabs.length;i+=(usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4)){const last=i+(usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4)>=dabs.length;this.paint(target,dabs.slice(i,i+(usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4)),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime,undefined,undefined,maskResourceRoot190)}
+    const tangentLine195=brush.version===195&&!!brush.tangentNormal?.sharpnessChecked
+    const requestBatch=tangentLine195||usesNativeSketchSpray(brush)||brush.particle||brush.clone?1:4
+    if((tangentLine195||brush.clone||brush.filter||brush.spray||brush.sketch||brush.bristle||brush.curveTrace||brush.particle||brush.experiment) && dabs.length>requestBatch){
+      for(let i=0;i<dabs.length;i+=requestBatch){const last=i+requestBatch>=dabs.length;this.paint(target,dabs.slice(i,i+requestBatch),preset,brush,pressure,color,scratch,finish&&last,last?endpoint:undefined,execution,effectiveErase,runtime,undefined,undefined,maskResourceRoot190)}
       return
     }
     if(brush.bristle?.version===2){if(!this.bristleRequests)throw Error('Bristle ink profile is not prepared');if(brush.bristle.soak)this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing,true);else this.bristleRequests.assertInkPrepared(brush.bristle.ink,!brush.bristle.antialias&&!brush.bristle.compositing)}
@@ -953,7 +955,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=usesNativeSketchSpray(brush)?1:clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
         const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
-        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:st.size*placedSizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
+        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:brush.version===195&&brush.tangentNormal&&st.segmentLength!==undefined?.5:st.size*placedSizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
       })
     })
@@ -1324,6 +1326,11 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
+        if(brush.version===195&&brush.tangentNormal&&list[0]?.segmentLength!==undefined){
+          if(!this.sketchBatch)throw Error('Tangent195 line programs were not prepared')
+          this.sketchBatch.paint(list,coverage,ceiling,tile.originX,tile.originY,false)
+          return
+        }
         if(brush.experiment){
           (this.sketchBatch??=new SketchLineBatch(gl,this.sharedLineStaging())).paintPolygon(list,coverage,ceiling,tile.originX,tile.originY,this.polygonBatch??=new PolygonFillBatch(gl),pattern?{pattern,view:canvasPatternView}:undefined)
           return

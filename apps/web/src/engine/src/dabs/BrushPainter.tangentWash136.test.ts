@@ -1,3 +1,6 @@
+import fs from'node:fs'
+import{mask190RootExecution}from'../presets/independentMask190'
+import{SketchLineBatch}from'./SketchLineBatch'
 import{it,expect,vi}from'vitest'
 import{tangent136,dab136,source136}from'../../../../../../packages/shared/src/tangentWash136.testFixture.js'
 import{BrushPainter,type BrushContext}from'./BrushPainter'
@@ -25,3 +28,27 @@ it('captured normalRotation/sourceAngle requiredbefore state and live continuati
 it('whole versus chunks preserves actual Wash history/feedback and old56 mode4 remains a directOver control',()=>{const a=setup(),b=setup();try{const brush=tangent136(),d=[dab136(60,0,1),dab136(-60,10,.5)];a.painter.prepareRecordedStampResources(brush);b.painter.prepareRecordedStampResources(brush);a.paint(brush,d);b.paint(brush,d.slice(0,1));b.paint(brush,d.slice(1));expect(a.s.brushBehavior).toEqual(b.s.brushBehavior);expect(a.coverage.copyRegionInto).toHaveBeenCalledTimes(2);expect(b.coverage.copyRegionInto).toHaveBeenCalledTimes(2);const old=tangent136();old.version=56;old.behavior!.rendering!.accumulation='directOver';const c=setup();try{c.painter.prepareProcedural();const modes=vi.spyOn(c.gl,'uniform1f');c.paint(old,d);expect(c.coverage.copyRegionInto).not.toHaveBeenCalled();expect(modes.mock.calls.some(([loc,v])=>loc.name==='u_washMode'&&v===4)).toBe(true)}finally{c.painter.destroy()}}finally{a.painter.destroy();b.painter.destroy()}})
 
 it('explicit internal effectiveErase override rejects valid136 before scratch, resource lease or draw',()=>{const o=setup();try{const b=tangent136();o.painter.prepareRecordedStampResources(b);const draw=vi.spyOn(o.gl,'drawArrays');expect(()=>o.painter['behavior'].paint(o.target,[dab136()],{sizeMultiplier:1}as PencilPreset,b,{size:true,opacity:true},[.8,.2,.1],o.s,false,undefined,{brushSource:source136()},true)).toThrow('Invalid Tangent Wash136 scope');expect(o.s.brushBehavior).toBeUndefined();expect(o.s.getOrCreate).not.toHaveBeenCalled();expect(o.acquire).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()}finally{o.painter.destroy()}})
+
+it.skipIf(!process.env.NATIVE195_LIBRARY)('195 checked constructor1x1 uses a prewarmed continuous aliased line after its initial stamp, whole/chunks agree',()=>{
+ const library=JSON.parse(fs.readFileSync(process.env.NATIVE195_LIBRARY!,'utf8'))
+ const brush=library.brushes.map((entry:{descriptor:BrushDescriptor})=>entry.descriptor).find((b:BrushDescriptor)=>b.tangentNormal?.sharpnessChecked) as BrushDescriptor
+ expect(brush).toBeDefined()
+ const a=setup(),b=setup(),line=vi.spyOn(SketchLineBatch.prototype,'paint').mockImplementation(()=>{})
+ const d=[{...dab136(0,.5,1),x:.5,y:.5,size:1,sourceSize:1,sourceScale:1,sourceTime:0,sourceTwist:0,sourceTangentialPressure:0},{...dab136(0,4.5,1),x:4.5,y:.5,size:1,sourceSize:1,sourceScale:1,sourceTime:40,sourceTwist:0,sourceTangentialPressure:0}]
+ const execution=mask190RootExecution(brush,{brushSource:source136()})
+ try{
+  a.painter.prepareRecordedStampResources(brush);b.painter.prepareRecordedStampResources(brush)
+  const compile=vi.spyOn(a.gl,'createProgram'),upload=vi.spyOn(a.gl,'texImage2D')
+  a.paint(brush,d,execution)
+  expect(line).toHaveBeenCalledTimes(1)
+  const args=line.mock.calls[0]
+  expect(args[0]).toHaveLength(1)
+  expect(args[0][0]).toMatchObject({x:2.5,y:.5,segmentLength:4,radius:.5,angle:0})
+  expect(args[5]).toBe(false)
+  expect(compile).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled()
+  b.paint(brush,d.slice(0,1),execution);b.paint(brush,d.slice(1),execution)
+  expect(a.s.brushBehavior).toEqual(b.s.brushBehavior)
+  expect(a.s.brushBehavior!.genericDabSequence195).toBe(1)
+  const c=setup();try{c.painter.prepareRecordedStampResources(brush);line.mockClear();c.paint(brush,d.map(x=>({...x,sourceSize:16})),execution);expect(line).not.toHaveBeenCalled()}finally{c.painter.destroy()}
+ }finally{line.mockRestore();a.painter.destroy();b.painter.destroy()}
+})
