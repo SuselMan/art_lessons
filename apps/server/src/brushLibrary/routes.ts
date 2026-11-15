@@ -60,7 +60,13 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   apiRoute(app,'GET /api/brush-library/assets/:hash',async(request,reply)=> {
     const room=typeof request.query.roomId==='string' ? request.query.roomId : undefined
     if(room && !await mayReadBoardContent(room,request.userId)) return reply.code(403).send({error:'forbidden'})
-    const asset=catalog(request.userId,room).assets.find(a=>a.id===`asset:${request.params.hash}`)
+    // Authorize this immutable file from any visible source. Merging every
+    // descriptor in the personal catalog for each mask makes cold history
+    // quadratic in catalog size; the metadata endpoint still does that merge.
+    const id = `asset:${request.params.hash}`
+    const asset = operator.manifest.assets.find(a => a.id === id)
+      ?? (room ? storage.library('rooms', room).assets.find(a => a.id === id) : undefined)
+      ?? storage.library('owners', request.userId).assets.find(a => a.id === id)
     if(!asset) return reply.code(404).send({error:'Brush asset not found'})
     return reply.header('Cache-Control','private, max-age=31536000, immutable').type('application/octet-stream').send(storage.asset(request.params.hash,asset.size))
   })

@@ -120,3 +120,40 @@ it('shutdown terminates active decoder descendants before removing importer work
     const storageRoot=process.env.GRAFETTO_BRUSH_STORAGE_DIR;if(!storageRoot)throw Error('Missing own test storage');const status=await readFile(new BrushStorage(storageRoot).path('jobs',response.json().id),'utf8');expect(JSON.parse(status).job.status).toBe('failed')
   }finally{await server.close();if(p)for(const pid of [p.parent,p.child]){try{process.kill(pid,'SIGKILL')}catch(error){if((error as NodeJS.ErrnoException).code!=='ESRCH')throw error}}}
 })
+
+it('authorizes a pinned room mask without reading an unrelated personal catalog', async () => {
+  vi.mocked(mayReadBoardContent).mockResolvedValue(true)
+  const server = await app(), storage = new BrushStorage(process.env.GRAFETTO_BRUSH_STORAGE_DIR!)
+  const bytes = Buffer.from([5, 6, 7, 8]), hash = createHash('sha256').update(bytes).digest('hex')
+  const manifest = empty(); manifest.assets.push({ id: `asset:${hash}`, size: 2, file: `${hash}.bin` })
+  storage.provision(new Map([[hash, bytes]])); storage.atomic(storage.path('rooms', 'shared'), manifest)
+  // This catalog is irrelevant to an already pinned immutable room resource.
+  await writeFile(storage.path('owners', 'alice'), '{damaged unrelated personal catalog')
+  const read = vi.spyOn(BrushStorage.prototype, 'library')
+  try {
+    const response = await server.inject('/api/brush-library/assets/' + hash + '?roomId=shared')
+    expect(response.statusCode).toBe(200); expect(response.rawPayload).toEqual(bytes)
+    expect(read).toHaveBeenCalledWith('rooms', 'shared')
+    expect(read).not.toHaveBeenCalledWith('owners', 'alice')
+    vi.mocked(mayReadBoardContent).mockResolvedValue(false); read.mockClear()
+    expect((await server.inject('/api/brush-library/assets/' + hash + '?roomId=shared')).statusCode).toBe(403)
+    expect(read).not.toHaveBeenCalled()
+  } finally { read.mockRestore(); await server.close() }
+})
+
+it('keeps personal mask ownership and CAS verification when no public or room reference authorizes it', async () => {
+  const server = await app(), storage = new BrushStorage(process.env.GRAFETTO_BRUSH_STORAGE_DIR!)
+  const own = Buffer.from([9, 10, 11, 12]), foreign = Buffer.from([13, 14, 15, 16])
+  const ownHash = createHash('sha256').update(own).digest('hex'), foreignHash = createHash('sha256').update(foreign).digest('hex')
+  for (const [owner, hash, bytes] of [['alice', ownHash, own], ['bob', foreignHash, foreign]] as const) {
+    const manifest = empty(); manifest.assets.push({ id: `asset:${hash}`, size: 2, file: `${hash}.bin` })
+    storage.install(owner, manifest, new Map([[hash, bytes]]))
+  }
+  try {
+    const response = await server.inject('/api/brush-library/assets/' + ownHash)
+    expect(response.statusCode).toBe(200); expect(response.rawPayload).toEqual(own)
+    expect((await server.inject('/api/brush-library/assets/' + foreignHash)).statusCode).toBe(404)
+    await writeFile(join(storage.root, 'assets', ownHash + '.bin'), Buffer.alloc(4))
+    expect((await server.inject('/api/brush-library/assets/' + ownHash)).statusCode).toBe(500)
+  } finally { await server.close() }
+})
