@@ -2297,7 +2297,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush.bristle?.version===2&&brush.bristle.soak){if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope');return'bristleSoak139'}
     if(brush.deform?.sourcePolicy==='canonical-begin-v1'){if(!hasDeformOldData145Scope(brush))throw Error('Invalid Deform145 scope');return'deformOld145'}
     if(brush.filter&&'smudgeMode'in brush.filter){if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');return'filterSmudge147'}
-    if(brush.spray?.color.sourcePolicy==='canonical-begin-v1'){if(!hasSpraySource146Scope(brush))throw Error('Invalid Spray146 scope');return'spray146'}
+    if(brush.spray?.color.sourcePolicy==='canonical-begin-v1'){if(!(brush.version===194||hasSpraySource146Scope(brush)))throw Error('Invalid Spray146 scope');return'spray146'}
     return undefined
   }
   private _isCanonicalBeginOperation(op:WashOp):boolean{return op.type==='stroke'&&op.tool==='digitalBrush'&&!!op.preset&&this._beginCapability(digitalBrushFromPreset(op.preset))!==undefined}
@@ -2561,8 +2561,8 @@ export class PencilEngine implements PencilEngineAPI {
     sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
     sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
     sampler.initialDirection=snapshot.initialDirection
-    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191||spacingBrush?.version===192||spacingBrush?.version===193)||!!spacingBrush?.tangentNormal
-    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191||spacingBrush.version===192||spacingBrush.version===193)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
+    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191||spacingBrush?.version===192||spacingBrush?.version===193||spacingBrush?.version===194)||!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191||spacingBrush.version===192||spacingBrush.version===193||spacingBrush.version===194)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
     const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush && (spacingBrush.behavior?.sequentialRandom || sampler.recordedPen188) ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     sampler.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
@@ -2625,7 +2625,7 @@ export class PencilEngine implements PencilEngineAPI {
     let prepared:GridWashPrepareResult
     if(canonicalBeginIsStamp(capability)){
       const brush=digitalBrushFromPreset(candidate.snapshot.opts.pencilType),profile=ribbonProfileFor('digitalBrush',candidate.snapshot.opts.pencilType)
-      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
+      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);if(brush.version===194&&brushUsesGradient(brush))this._brush.preparePixelGradient(brush,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource));this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
       if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
       const scratch=candidate.scratch??=new RibbonStrokeScratch(this._ribbonScratchPool,profile.ink,profile.normalizeDeposit)
       try{prepared=capability==='bristleSoak139'?this._brush.prepareBristleSoakGesture(target,line!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='filterSmudge147'?this._brush.prepareFilterBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):(capability==='cloneProjection149'||capability==='cloneHealing152')?this._brush.prepareCloneBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):this._brush.prepareSprayBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch)}catch(error){candidate.scratch=undefined;try{scratch.destroy()}catch{/* Preserve the primary, including undefined. */}throw error}
@@ -3337,7 +3337,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -4082,7 +4082,9 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...(pattern?[()=>this._brush.prepareExperimentPatternPrograms()]:[]),...[...capabilities].map(painter => () => {
-      if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
+      if(painter === 'native194')this._brush.prepareCompositeEffects(true)
+      else if(painter === 'nativeSpray194'){this._brush.prepareSpraySources(false,true);this._brush.prepareSpraySources(true,true)}
+      else if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
       else if(painter === 'cloneBrush')this._brush.prepareClone()
       else if(painter === 'filterBrush')this._brush.prepareFilter()
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
@@ -4495,7 +4497,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -6743,7 +6745,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
-      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
     } }
     const historyChanges = this._snapshotIO.absorbHistorical(pageOps)
     // A late page can resolve metadata already held by the other page. Use
@@ -7080,7 +7082,7 @@ export class PencilEngine implements PencilEngineAPI {
     const sourceZoom=this._sourceInputZoom()
     const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
     const policy=brush?.behavior?.strokeInput
-    if((policy||brush?.version===190||brush?.version===191||brush?.version===192||brush?.version===193) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    if((policy||brush?.version===190||brush?.version===191||brush?.version===192||brush?.version===193||brush?.version===194) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
     const projection=brush&&(brush.mixer?.source==='projectionCanvas'||hasCloneProjection149Scope(brush)||(hasCloneHealing152Scope(brush)&&brush.clone?.source==='projectionCanvas')) ? this._compositeOrder.map(item=>({...item})) : undefined
     const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     if(brush?.clone&&!this._cloneSource)return
@@ -8643,7 +8645,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(canonicalBeginRuntime?.capability==='spray146'){
       const first=dabs.find(isGridRenderableDab137)
-      if(first){if(!profile.brushStamp)throw Error('Spray146 stamp profile missing');this._brush.prepareRecordedStampResources(profile.brushStamp.brush);this._brush.prepareSpraySources();const ready=this._brush.prepareSprayBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+      if(first){if(!profile.brushStamp)throw Error('Spray146 stamp profile missing');this._brush.prepareRecordedStampResources(profile.brushStamp.brush);if(profile.brushStamp.brush.version===194&&brushUsesGradient(profile.brushStamp.brush))this._brush.preparePixelGradient(profile.brushStamp.brush,execution);this._brush.prepareSpraySources();const ready=this._brush.prepareSprayBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
     }
     if(canonicalBeginRuntime?.capability==='cloneProjection149'||canonicalBeginRuntime?.capability==='cloneHealing152'){
       const first=dabs.find(isGridRenderableDab137)
@@ -8761,7 +8763,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Prepare this exact capability before the painter advances gesture state.
     if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
     this._brush.prepareRecordedStampResources(stamp.brush)
-    if(stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
+    if(stamp.brush.version===194?brushUsesGradient(stamp.brush):stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)

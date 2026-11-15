@@ -1,3 +1,5 @@
+import{prepareSketchMask194}from'./sketchMask194'
+import type{BrushExecutionContext}from'./brushExecutionContext'
 import{curveAt}from'./digitalBrushPresets'
 import{proceduralMaskAlpha}from'../raster/brushProcedural'
 import{hasSketchImageAlpha162Scope,hasSketchProcedural173Scope,hasSketchGih174Scope,hasSketchPressureGih181Scope,hasSketchAngularGih182Scope}from'@grafetto/shared'
@@ -6,13 +8,14 @@ import{importedAssetPixels}from'./importedBrushes'
 /** Existing captured alpha CAS only; no generated mask, cache, canvas read or
  * stateful sampler. Views stay local to one paint call, never in cloned state. */
 export interface SketchMaskRequest{readonly left:number;readonly top:number;readonly width:number;readonly height:number;readonly radius:number;readonly generated?:boolean;contains(x:number,y:number):boolean}
-export interface SketchMaskView{forDab(dab:Dab,frameIndex?:number,nativeSizeFactor?:number):SketchMaskRequest}
+export interface SketchMaskView{forDab(dab:Dab,frameIndex?:number,nativeSizeFactor?:number,ordinal?:number):SketchMaskRequest}
 const qRound=(x:number)=>x<0?-Math.floor(-x+.5):Math.floor(x+.5)
 export function assertSketchDistanceOpacityPolicy(brush:BrushDescriptor):void{
  const policy=brush.sketch?.distanceOpacityPolicy
  if(policy!==undefined&&(brush.version<114||brush.sketch?.mode!=='mask'||!brush.sketch.distanceOpacity||policy!=='generic-clamp-v1')||brush.sketch?.mode==='mask'&&brush.sketch.distanceOpacity&&policy!=='generic-clamp-v1')throw Error('Invalid Sketch114 distance opacity policy')
 }
-export function prepareSketchMask(brush:BrushDescriptor):SketchMaskView|undefined{
+export function prepareSketchMask(brush:BrushDescriptor,execution?:BrushExecutionContext):SketchMaskView|undefined{
+ if(brush.version===194&&brush.sketch?.mode==='mask')return prepareSketchMask194(brush,execution)
  assertSketchDistanceOpacityPolicy(brush)
  if(brush.sketch?.maskSignal==='gih-alpha-v1')return prepareSketchGih174(brush)
  if(brush.sketch?.maskSignal==='procedural-standard-v1'){if(!hasSketchProcedural173Scope(brush))throw Error('Invalid Sketch173 procedural scope');return proceduralSketchMask173(brush)}

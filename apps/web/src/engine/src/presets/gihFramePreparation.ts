@@ -7,7 +7,7 @@ export function usesVariableGih(tip:BrushTip):boolean{return tip.animation?.geom
 export function prepareVariableGih(brush:BrushDescriptor,mask190=false):readonly GihFrameMetadata[]{
  const staticGeometry=brush.tip.sourceGeometry
  if(staticGeometry){
-  if(!mask190||brush.version!==193||brush.tip.animation||brush.tip.kind!=='bitmap'||!brush.tip.mask)throw Error('Static source geometry requires whole Color Smudge193')
+  if(!mask190||brush.version!==193&&brush.version!==194||brush.tip.animation||brush.tip.kind!=='bitmap'||!brush.tip.mask)throw Error('Static source geometry requires whole Color Smudge193')
   const side=Math.sqrt(importedAssetPixels(brush.tip.mask).length),bounds=gihFrameMaskBounds({width:staticGeometry.width,height:staticGeometry.height},side)
   if(staticGeometry.version!==1||!brush.tip.maskBounds||(['x','y','width','height']as const).some(k=>!Object.is(brush.tip.maskBounds![k],bounds[k])))throw Error('Static source geometry differs from original padding')
   return Object.freeze([Object.freeze({sourceWidth:staticGeometry.width,sourceHeight:staticGeometry.height,maskBounds:bounds})])
@@ -26,7 +26,7 @@ export function prepareVariableGih(brush:BrushDescriptor,mask190=false):readonly
  return rows
 }
 export function variableGihStamp(brush:BrushDescriptor,frames:readonly GihFrameMetadata[],s:{x:number;y:number;radius:number;aspect:number;angle:number;flipX:number;flipY:number;frameIndex?:number;frameCoordinateFlip?:boolean},subpixel=true){
- const index=brush.version===193&&brush.tip.sourceGeometry?0:s.frameIndex
+ const index=(brush.version===193||brush.version===194)&&brush.tip.sourceGeometry?0:s.frameIndex
  if(index===undefined||!Number.isInteger(index)||index<0||index>=frames.length)throw Error('Missing selected GIH frame index')
  const first=frames[0],frame=frames[index],longest=Math.max(first.sourceWidth,first.sourceHeight)
  return gihFrameSampleTransform({reference:{width:first.sourceWidth,height:first.sourceHeight},selected:{width:frame.sourceWidth,height:frame.sourceHeight},cursor:[s.x,s.y],scale:2*s.radius*s.aspect/longest,ratio:1/s.aspect,rotation:s.angle-brush.tip.angle,brushAngle:brush.tip.angle,horizontalMirror:s.flipX<0,verticalMirror:s.flipY<0,coordinateSystemFlipped:!!s.frameCoordinateFlip,subpixel})

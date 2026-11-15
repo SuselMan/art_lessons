@@ -29,6 +29,9 @@ export function installBrushLibrary(library: BrushLibrary): void {
   }
 }
 
+/** O(1) identity proof for bounded gesture-owned preparation plans. */
+export function isRegisteredBrushDescriptor(brush:BrushDescriptor):boolean{return brushes.get(`${brush.id}@${brush.version}`)?.descriptor===brush}
+
 export function importedBrushes(): readonly ImportedBrush[] { return [...brushes.values()] }
 
 export function importedBrushFromPreset(preset: string | undefined): BrushDescriptor | undefined {

@@ -1,3 +1,10 @@
+import type{SprayMask194}from'../presets/sprayMask194'
+import{variableGihStamp}from'../presets/gihFramePreparation'
+import{proceduralProfileUniforms,proceduralSampleCount}from'../raster/brushProcedural'
+import{gaussianRectangleUniforms,prepareGaussianRectangle}from'../raster/autoRectangle'
+import{prepareAutoMaskNoiseGrid,autoMaskNoiseGridUniforms}from'../raster/autoMaskNoise'
+import{autoMaskNoiseUniforms,autoMaskNoiseCoordinateBytes}from'../raster/autoMaskNoise'
+import{spraySource194Fragment}from'../raster/spraySource194Shader'
 import type{RequestWashBatch}from'./RequestWashBatch'
 import type{BehaviorStamp}from'../presets/brushBehavior'
 import type{AccumulationBuffer}from'../buffers/AccumulationBuffer'
@@ -5,7 +12,7 @@ import type{SpraySourceAtlasView}from'./SpraySourceAtlas'
 import type{PreparedBrushImageView}from'./PreparedBrushImageView'
 import type{SprayParticleColorControl}from'../presets/sprayParticleColor'
 import{createProgram}from'../raster/utils'
-export interface SpraySourceDraw{stamp:Pick<BehaviorStamp,'x'|'y'|'size'|'aspect'|'angle'|'flipX'|'flipY'>;control:SprayParticleColorControl;sourceIndex:number;flow:number}
+export interface SpraySourceDraw{stamp:Pick<BehaviorStamp,'x'|'y'|'size'|'aspect'|'angle'|'flipX'|'flipY'|'frameIndex'|'frameCoordinateFlip'|'autoNoiseKey'>;control:SprayParticleColorControl;sourceIndex:number;flow:number}
 export interface SpraySourceStyle{shape:'ellipse'|'rectangle'|'pixel'|'bilinear'|'tip';sample:boolean;mix:boolean;pressure:number;foreground:readonly[number,number,number,number];background:readonly[number,number,number,number];painterOpacity:number;hardness:number;requestOver?:true}
 const VERT=`attribute vec2 a_position;attribute vec4 a_local;attribute vec2 a_source;attribute vec3 a_hsv;attribute vec4 a_control;uniform vec2 u_resolution;varying vec4 v_local;varying vec2 v_source;varying vec3 v_hsv;varying vec4 v_control;void main(){v_local=a_local;v_source=a_source;v_hsv=a_hsv;v_control=a_control;vec2 p=a_position/u_resolution*2.-1.;gl_Position=vec4(p.x,-p.y,0.,1.);}`
 const HSV=`vec3 adjustHsv(vec3 c,vec3 adj){float v=max(c.r,max(c.g,c.b)),lo=min(c.r,min(c.g,c.b)),ch=v-lo;float vv=clamp(adj.z>=0.?v+adj.z*(1.-v):v*(1.+adj.z),0.,1.);if(ch<=.000000001||v<=.000000001)return vec3(vv);float h=v==c.r?mod((c.g-c.b)/ch,6.):v==c.g?(c.b-c.r)/ch+2.:(c.r-c.g)/ch+4.;h=mod(h+adj.x*3.+12.,6.);float sc=adj.y>0.?1.+adj.y+2.*adj.y*adj.y:1.+adj.y;float cc=min(vv,min(1.,ch*sc)*(1.-abs(adj.z))),xx=cc*(1.-abs(mod(h,2.)-1.));vec3 q=h<1.?vec3(cc,xx,0.):h<2.?vec3(xx,cc,0.):h<3.?vec3(0.,cc,xx):h<4.?vec3(0.,xx,cc):h<5.?vec3(xx,0.,cc):vec3(cc,0.,xx);return q+vec3(vv-cc);}`
@@ -17,25 +24,46 @@ const CORNERS=[[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]]as const
 /** Two samplers only: immutable point-colour atlas and optional prepared mask.
  * Request opacity is absent here; caller transfers the combined request once. */
 export class SpraySourceBatch{
- private program?:WebGLProgram;private buffer?:WebGLBuffer;private transferProgram?:WebGLProgram;private wash?:RequestWashBatch
+ private native194?:WebGLProgram;private program?:WebGLProgram;private buffer?:WebGLBuffer;private transferProgram?:WebGLProgram;private wash?:RequestWashBatch
  private readonly data=new Float32Array(512*6*15)
  private readonly gl:WebGLRenderingContext
  constructor(gl:WebGLRenderingContext){this.gl=gl}
- reset(){this.program=undefined;this.buffer=undefined;this.transferProgram=undefined;this.wash=undefined}
- destroy(){if(this.program)this.gl.deleteProgram(this.program);if(this.transferProgram)this.gl.deleteProgram(this.transferProgram);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
+ reset(){this.native194=undefined;this.program=undefined;this.buffer=undefined;this.transferProgram=undefined;this.wash=undefined}
+ destroy(){if(this.native194)this.gl.deleteProgram(this.native194);if(this.program)this.gl.deleteProgram(this.program);if(this.transferProgram)this.gl.deleteProgram(this.transferProgram);if(this.buffer)this.gl.deleteBuffer(this.buffer);this.reset()}
  private particles(){this.program??=createProgram(this.gl,VERT,FRAG);this.buffer??=this.gl.createBuffer()!}
- prepare(wash=false,kernel?:RequestWashBatch){this.particles();if(wash){if(!kernel)throw Error('Borrowed Request Wash kernel required');kernel.assertPrepared();this.wash=kernel}else{this.transferProgram??=createProgram(this.gl,`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`,`precision highp float;varying vec2 v_uv;uniform sampler2D u_source;uniform float u_opacity;void main(){gl_FragColor=texture2D(u_source,v_uv)*u_opacity;}`);this.buffer??=this.gl.createBuffer()!} }
+ prepare(wash=false,kernel?:RequestWashBatch,native194=false){this.particles();if(native194)this.native194??=createProgram(this.gl,VERT.replace('void main(){','varying vec2 v_localUV;void main(){v_localUV=a_local.xy;'),spraySource194Fragment(FRAG));if(wash){if(!kernel)throw Error('Borrowed Request Wash kernel required');kernel.assertPrepared();this.wash=kernel}else{this.transferProgram??=createProgram(this.gl,`attribute vec2 a_position;varying vec2 v_uv;void main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`,`precision highp float;varying vec2 v_uv;uniform sampler2D u_source;uniform float u_opacity;void main(){gl_FragColor=texture2D(u_source,v_uv)*u_opacity;}`);this.buffer??=this.gl.createBuffer()!} }
  assertWashPrepared(){if(!this.program||!this.buffer||!this.wash)throw Error('Spray Wash program was not prepared');this.wash.assertPrepared()}
 
- paint(list:readonly SpraySourceDraw[],style:SpraySourceStyle,target:AccumulationBuffer,originX:number,originY:number,atlas:SpraySourceAtlasView|undefined,mask:PreparedBrushImageView|undefined,fallback:WebGLTexture):void{
+ paint(list:readonly SpraySourceDraw[],style:SpraySourceStyle,target:AccumulationBuffer,originX:number,originY:number,atlas:SpraySourceAtlasView|undefined,mask:PreparedBrushImageView|undefined,fallback:WebGLTexture,native194?:SprayMask194):void{
   if(list.length>4096||style.sample&&!atlas)throw Error('Spray source draw was not collected')
-  atlas?.assertCurrent();mask?.assertCurrent();if(style.requestOver)this.particles();else this.prepare();const gl=this.gl,p=this.program!,locs:number[]=[];target.beginDraw()
+  atlas?.assertCurrent();mask?.assertCurrent();if(style.requestOver)this.particles();else this.prepare();const gl=this.gl,p=native194?this.native194:this.program,locs:number[]=[];if(!p)throw Error('Spray194 source program not prepared');target.beginDraw()
   try{if(style.shape==='pixel'&&!style.requestOver)gl.disable(gl.BLEND);gl.useProgram(p);gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer!);gl.uniform2f(gl.getUniformLocation(p,'u_resolution'),target.width,target.height)
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlas?.buffer.texture??fallback);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.texture??fallback);gl.uniform1i(gl.getUniformLocation(p,'u_mask'),1);gl.uniform4f(gl.getUniformLocation(p,'u_maskBounds'),mask?mask.crop.x/mask.width:0,mask?mask.crop.y/mask.height:0,mask?mask.crop.width/mask.width:1,mask?mask.crop.height/mask.height:1)
    gl.uniform4f(gl.getUniformLocation(p,'u_color'),style.foreground[0]*style.foreground[3],style.foreground[1]*style.foreground[3],style.foreground[2]*style.foreground[3],style.foreground[3]);gl.uniform4f(gl.getUniformLocation(p,'u_background'),style.background[0]*style.background[3],style.background[1]*style.background[3],style.background[2]*style.background[3],style.background[3]);gl.uniform4f(gl.getUniformLocation(p,'u_style'),style.shape==='ellipse'?0:style.shape==='rectangle'?1:style.shape==='pixel'?2:style.shape==='bilinear'?3:4,style.pressure,style.painterOpacity,style.hardness);gl.uniform4f(gl.getUniformLocation(p,'u_modes'),style.sample?1:0,style.mix?1:0,mask?1:0,0)
    for(const[name,n,offset]of[['a_position',2,0],['a_local',4,2],['a_source',2,6],['a_hsv',3,8],['a_control',4,11]]as const){const loc=gl.getAttribLocation(p,name);locs.push(loc);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,60,offset*4)}
    let vertices=0;const flush=()=>{if(vertices){gl.bufferData(gl.ARRAY_BUFFER,this.data.subarray(0,vertices*15),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices);vertices=0}}
-   for(const item of list){const s=item.stamp,rx=style.shape==='pixel'?.5:style.shape==='bilinear'?1:s.size*s.aspect/2,ry=style.shape==='pixel'?.5:style.shape==='bilinear'?1:s.size/2,x=(style.shape==='pixel'?Math.round(s.x):s.x)-originX,y=(style.shape==='pixel'?Math.round(s.y):s.y)-originY,co=Math.cos(s.angle),si=Math.sin(s.angle),pad=style.shape==='pixel'||style.shape==='bilinear'?0:.5;if(x+rx+ry+1<0||y+rx+ry+1<0||x-rx-ry-1>target.width||y-rx-ry-1>target.height)continue
+   for(const item of list){
+    let selected:ReturnType<typeof variableGihStamp>|undefined
+    const original=item.stamp
+    if(native194&&original.size<=0)continue
+    if(native194?.frames)selected=variableGihStamp(native194.brush,native194.frames,{...original,radius:original.size/2})
+    const s=selected?{...original,x:selected.x+selected.width/2,y:selected.y+selected.height/2,size:selected.height,aspect:selected.width/selected.height,angle:0}:original
+    if(native194){
+     flush()
+     const u=(name:string)=>gl.getUniformLocation(p,name),profile=native194.profile,rx=original.size*original.aspect/2,ry=original.size/2
+     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.texture??fallback);gl.uniform1i(u('u_tip'),1);gl.uniform1f(u('u_tipPacking'),0)
+     const frame=native194.frames?.[original.frameIndex??0],bounds=frame?.maskBounds??native194.brush.tip.maskBounds??{x:0,y:0,width:1,height:1}
+     gl.uniform4f(u('u_tipBounds'),bounds.x,bounds.y,bounds.width,bounds.height)
+     gl.uniform1f(u('u_sourceMaskApplication'),native194.application==='gradient'?2:native194.application==='lightness'?1:0);gl.uniform1f(u('u_sourceLightnessStrength'),native194.brush.tip.material?.strength??1)
+     if(native194.application==='gradient'){const palette=mask?.palette;if(!palette)throw Error('Spray194 captured gradient palette missing');palette.assertCurrent();gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,palette.texture);gl.uniform1i(u('u_sourceGradient'),2)}
+     gl.uniform4f(u('u_tipProcedural'),...proceduralProfileUniforms(profile,native194.lookupSide));gl.uniform4f(u('u_tipProceduralGeometry'),rx,ry,proceduralSampleCount(2*Math.min(rx,ry),!!profile?.antialias),0)
+     gl.uniform2f(u('u_sourceMaskCenter'),original.x-originX,original.y-originY);gl.uniform1f(u('u_sourceMaskAngle'),original.angle);gl.uniform4f(u('u_autoSpikes'),native194.brush.tip.autoShape?.spikes??2,2,0,0)
+     gl.uniform4f(u('u_tipSoftnessBasis'),profile&&'minimum'in profile?profile.minimum:0,profile&&'span'in profile?profile.span:1,0,0)
+     if(profile?.kind==='gaussian2D'&&profile.shape==='rectangle'){const r=gaussianRectangleUniforms(prepareGaussianRectangle(rx,ry,profile.horizontalFade,profile.verticalFade,profile.antialias));gl.uniform4f(u('u_rectangleCoefficients'),...r.coefficients);gl.uniform4f(u('u_rectangleGeometry'),...r.geometry)}
+     for(const[name,values]of[['u_gihFrame',selected?.frame??[0,0,0,1]],['u_gihSampleX',selected?.sampleX??[0,0,0,0]],['u_gihSampleY',selected?.sampleY??[0,0,0,0]]]as const)gl.uniform4f(u(name),values[0],values[1],values[2],values[3])
+     if(native194.noise){if(original.autoNoiseKey===undefined)throw Error('Spray194 noise placement missing');const grid=prepareAutoMaskNoiseGrid(original.x,original.y,rx,ry,!!native194.brush.tip.autoShape,original.flipX as 1|-1,original.flipY as 1|-1),mapping=autoMaskNoiseGridUniforms(grid,originX,originY,target.height);const n=autoMaskNoiseUniforms(native194.noise);gl.uniform4f(u('u_autoNoiseConfig'),n[0],n[1],mapping.stepX,mapping.stepY);gl.uniform4f(u('u_autoNoiseKey'),...autoMaskNoiseCoordinateBytes(original.autoNoiseKey));gl.uniform4f(u('u_autoNoiseGridX'),...mapping.x);gl.uniform4f(u('u_autoNoiseGridY'),...mapping.y)}else gl.uniform4f(u('u_autoNoiseConfig'),65535,0,0,0)
+    }
+    const rx=style.shape==='pixel'?.5:style.shape==='bilinear'?1:s.size*s.aspect/2,ry=style.shape==='pixel'?.5:style.shape==='bilinear'?1:s.size/2,x=(style.shape==='pixel'?Math.round(s.x):s.x)-originX,y=(style.shape==='pixel'?Math.round(s.y):s.y)-originY,co=Math.cos(s.angle),si=Math.sin(s.angle),pad=style.shape==='pixel'||style.shape==='bilinear'?0:.5;if(x+rx+ry+1<0||y+rx+ry+1<0||x-rx-ry-1>target.width||y-rx-ry-1>target.height)continue
     if(vertices===512*6)flush();for(const[a,b]of CORNERS){const at=vertices++*15,d=this.data;d[at]=x+a*(rx+pad)*co-b*(ry+pad)*si;d[at+1]=y+a*(rx+pad)*si+b*(ry+pad)*co;d[at+2]=a*(rx+pad)/rx;d[at+3]=b*(ry+pad)/ry;d[at+4]=rx;d[at+5]=ry;d[at+6]=atlas?(item.sourceIndex%atlas.size+.5)/atlas.size:0;d[at+7]=atlas?1-(Math.floor(item.sourceIndex/atlas.size)+.5)/atlas.size:0;d[at+8]=item.control.hsv[0];d[at+9]=item.control.hsv[1];d[at+10]=item.control.hsv[2];d[at+11]=item.control.randomAlpha??-1;d[at+12]=s.flipX;d[at+13]=s.flipY;d[at+14]=item.flow}
    }flush()
   }finally{for(const loc of locs)gl.disableVertexAttribArray(loc);target.endDraw()}

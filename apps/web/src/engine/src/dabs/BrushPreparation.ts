@@ -1,4 +1,4 @@
-import { hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import { hasSketchSpray194Scope,hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertAnimatedAlphaChild184Ready}from'../presets/animatedAlphaChild184'
 import{hasSketchAngularGih182Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Scope}from'@grafetto/shared'
@@ -107,10 +107,10 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!brush.behavior?.erase): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush')[]
 } {
-  const mask190=brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
-  if((brush.version===190||brush.version===191||brush.version===192||brush.version===193)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
+  const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+  if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||brush.version===194)&&!mask190)throw Error('Invalid whole Mask190 preparation scope')
   if(!mask190)assertAnimatedAlphaChild184Ready(brush,capturedErase)
   if(brush.spray&&brush.version===155&&(!hasSprayRectangleNoise155Scope(brush)||capturedErase))throw Error('Invalid Spray rectangle noise155 scope')
   if((brush.mixer?.colorRateComposite==='dodge'||brush.mixer?.colorRateComposite==='burn')&&(brush.version!==191&&brush.version!==193&&(!hasLegacyColorSmudgeDodgeBurn176Scope(brush)||capturedErase)))throw Error('Invalid legacy foreground DodgeBurn176 scope')
@@ -123,7 +123,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
   const particleWash=hasParticleWash134Scope(brush)
   if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
-  const sprayWash=hasSprayWash133Scope(brush)
+  const sprayWash=hasSprayWash133Scope(brush)||brush.version===194&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'
   if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&(!sprayWash||!isBrushSpray(brush.spray)))throw Error('Invalid Spray Wash133 scope')
   if(!mask190&&assertIndependentLightness128(brush)&&brush.tip.animation)materialPlans.delete(brush.tip)
   // New123 inputs validate before touching the existing descriptor plan cache.
@@ -136,10 +136,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   if(brush.sketch?.maskSignal==='gih-alpha-v1'&&brush.tip.animation?.mode==='angular'&&(!hasSketchAngularGih182Scope(brush)||capturedErase))throw Error('Invalid Sketch182 angular scope')
   if(brush.sketch?.maskSignal==='procedural-standard-v1'||brush.sketch?.maskSignal==='gih-alpha-v1')prepareSketchMask(brush)
   if(usesVariableGih(brush.tip))prepareVariableGih(brush,mask190)
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
+  if(brush.version===194){capabilities.add('native194');if(brush.spray)capabilities.add('nativeSpray194')}
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
-  if(bristleWash)capabilities.add('bristleWash')
+  if(bristleWash||brush.version===194&&brush.sketch&&brush.behavior?.rendering?.accumulation==='alphaDarken')capabilities.add('bristleWash')
   if(particleWash)capabilities.add('requestWash')
   else if(brush.particle){capabilities.add('sketchLines');capabilities.add('sprayShapes')}
   if(brush.clone)capabilities.add('cloneBrush')
@@ -228,10 +229,11 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
           : b.tip.profile?.kind === 'standard' || inline?.tip.profile?.kind === 'standard') capabilities.add(painter)
       }
     }
+    if(b.version===194&&b.sketch){prepareSketchMask(b);add('stamp','cloud',true);add('stamp','grit',true);return}
     const frames=b.tip.animation?.frames ?? (brushTipSamplerId(b.tip) ? [brushTipSamplerId(b.tip)!] : [])
     frames.forEach((id,index)=>{
       const gray=b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray
-      const colorPlanes=painter==='wet' && b.mixer?.paintThickness && gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
+      const colorPlanes=(painter==='wet' && b.mixer?.paintThickness || b.version===194&&b.spray)&&gray ? [gray,gray,gray] as const : brushTipColorPlanes(b.tip,index)
       add(painter,id,false,false,gray,b.tip,colorPlanes)
     })
     if(b.texture?.material){

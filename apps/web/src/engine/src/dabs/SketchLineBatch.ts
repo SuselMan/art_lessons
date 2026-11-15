@@ -28,10 +28,10 @@ export class SketchLineBatch{
  private readonly data:Float32Array
  constructor(gl:WebGLRenderingContext,staging=new Float32Array(2048*6*10)){if(staging.length!==2048*6*10)throw RangeError('Exact line staging required');this.gl=gl;this.data=staging}
  assertPrepared():void{if(!this.program||!this.composite||!this.buffer||!this.quad)throw Error('Line programs are not prepared')}
- paintRequest(stamps:readonly BehaviorPlaced[],request:AccumulationBuffer,originX:number,originY:number):void{
+ paintRequest(stamps:readonly BehaviorPlaced[],request:AccumulationBuffer,originX:number,originY:number,aa=true,additive=true):void{
   this.assertPrepared();if(!stamps.length)return
-  if(stamps.length>4096||stamps.some(s=>s.group!==stamps[0].group))throw Error('Bristle requires one bounded line request')
-  this.paint(stamps,request,request,originX,originY,true,true,true)
+  if(stamps.length>4097||stamps.some(s=>s.group!==stamps[0].group))throw Error('Bristle requires one bounded line request')
+  this.paint(stamps,request,request,originX,originY,aa,additive,true)
  }
  reset():void{this.program=undefined;this.composite=undefined;this.patternComposite=undefined;this.buffer=undefined;this.quad=undefined}
  destroy():void{const gl=this.gl;if(this.program)gl.deleteProgram(this.program);if(this.composite)gl.deleteProgram(this.composite);if(this.patternComposite)gl.deleteProgram(this.patternComposite);if(this.buffer)gl.deleteBuffer(this.buffer);if(this.quad)gl.deleteBuffer(this.quad);this.reset()}

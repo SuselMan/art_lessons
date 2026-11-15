@@ -1,6 +1,6 @@
 import{textureEraseId}from'../presets/brushTextureErase'
 import{textureMaterialVariant}from'../presets/textureLightness'
-import { brushUsesGradient,hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
+import { brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasFilterMask192Scope,hasIndependentMask190Scope,isTextureCombinations191Scope } from '@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -106,7 +106,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const mask190=brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
@@ -120,12 +120,12 @@ export class BrushPainter {
     if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
     const particleWash=hasParticleWash134Scope(brush)
     if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
-    const wash=hasSprayWash133Scope(brush)||particleWash||bristleWash||tangentWash
+    const wash=hasSprayWash133Scope(brush)||brush.version===194&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'||particleWash||bristleWash||tangentWash
     if(wash&&!particleWash&&!bristleWash&&!tangentWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
     if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
     if(textureWash180&&!paletteBound)return undefined
     const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
-    if(gradient){pixelOriginalRgbaFrames(brush,mask190);if(!paletteBound)return undefined}
+    if(gradient){if(brush.version!==194)pixelOriginalRgbaFrames(brush,mask190);if(!paletteBound)return undefined}
     const lightness=assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
@@ -152,6 +152,7 @@ export class BrushPainter {
     const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
     try{
       if(prepare){
+        if(brush?.version===194){this.prepareCompositeEffects(true);if(brush.sketch){this.prepareSketchLines();if(brush.behavior?.rendering?.accumulation==='alphaDarken')this.prepareBristleWash()}if(brush.spray){this.prepareSprayShapes();this.prepareSprayImages();this.prepareSpraySources(false,true);this.prepareSpraySources(true,true)}}
         if(brush?.version===191){
           this.prepareStampEffects(usesFilteredPixelGradient(brush),textureMaterialVariant(brush,true))
           const child=brush.behavior?.dual?.brush;if(child&&usesFilteredPixelGradient(child))this.prepareStampEffects(true)
@@ -324,13 +325,13 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   prepareParticleWash():void{this.behavior.prepareParticleWash()}
   prepareBristleWash():void{this.behavior.prepareBristleWash()}
   prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
-  prepareSpraySources(wash=false):void{this.behavior.prepareSpraySources(wash)}
+  prepareSpraySources(wash=false,native194=false):void{this.behavior.prepareSpraySources(wash,native194)}
   prepareSprayImages():void {this.behavior.prepareSprayImages()}
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
   prepareStampEffects(filteredGradient=false,textureLightness:TextureMaterialVariant=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient,textureLightness)}
-  prepareCompositeEffects():void{this.behavior.prepareCompositeEffects()}
+  prepareCompositeEffects(native194=false):void{this.behavior.prepareCompositeEffects(native194)}
   prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
@@ -391,7 +392,8 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
 
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
-    const mask190=brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    if(brush.version===194){if(!brushUsesGradient(brush))return;assertBrushExecutionContext(brush,execution);const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient),required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Sketch/Spray194 gradient bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
+    const mask190=brush.version===194?hasSketchSpray194Scope(brush):brush.version===193?hasColorSmudge193Scope(brush):brush.version===192?hasFilterMask192Scope(brush):brush.version===191?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190){
       const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
       if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return

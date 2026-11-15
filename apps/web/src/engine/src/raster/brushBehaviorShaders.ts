@@ -448,7 +448,11 @@ void main() {
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
 /** One opt-in composite family; historical shader literals stay byte-identical. */
-export function createBrushCompositeFragment(extendedBlend=false):string {
+export function createBrushCompositeFragment(extendedBlend=false,native194=false):string {
+  if(native194){
+    const bank=createBrushBlendGLSL().replace('vec3 brushBlend(','vec3 nativeBlendBase194(')+`\nvec3 brushBlend(vec3 d,vec3 s,float mode){if(mode<27.5)return nativeBlendBase194(d,s,mode);vec3 du=floor(clamp(d,0.0,1.0)*255.0+0.5),su=floor(clamp(s,0.0,1.0)*255.0+0.5);return mode<28.5?clamp(du+su-127.0,0.0,255.0)/255.0:mode<29.5?clamp(du-su+127.0,0.0,255.0)/255.0:(255.0-abs(255.0-su-du))/255.0;}\n`;
+    return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,bank).replace(' vec3 b=base.rgb/max(base.a,0.00392157);',' if(u_blend>30.5){gl_FragColor=mix(base,vec4(pigment*coverage,coverage),clamp(u_opacity,0.0,1.0));return;}\n vec3 b=base.rgb/max(base.a,0.00392157);');
+  }
   if(!extendedBlend)return BRUSH_COMPOSITE_FRAG
   const extended=createBrushBlendGLSL()
   return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,extended)
