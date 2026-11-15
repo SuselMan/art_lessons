@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import { BRUSH_BLEND_MODES, isBrushBehavior, type BrushBlendMode } from './brushBehavior.js'
 
 export type FilterComposite192 = 'copy' | 'erase' | BrushBlendMode
@@ -30,12 +31,14 @@ export function isFilterMask192Payload(v: unknown): boolean {
  * Its alpha8 dab is baked by the importer: IMAGE uses GrayA * alpha, never RGB
  * paint. Pixel-only Flow/Dual/Scatter/Softness/Sharpness are not inherited.
  * Full library validation still owns every asset/profile/GIH numeric field. */
-export function hasFilterMask192Scope(v: unknown): boolean {
-  if (!obj(v) || v.version !== 192 || v.model !== 'mixer' || v.category !== 'wet' || v.paperInteraction !== 0 || !isFilterMask192Payload(v.filter) || !obj(v.tip) || !obj(v.behavior) || !obj(v.mixer)) return false
+export function hasFilterMask192Scope(v:unknown):boolean { return filterMask192Structure(v) }
+export function filterMask192Structure(v:unknown,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(v,policy)
+  if (!obj(v) || v.version !== (stationary?195:192) || v.model !== 'mixer' || v.category !== 'wet' || v.paperInteraction !== 0 || !isFilterMask192Payload(v.filter) || !obj(v.tip) || !obj(v.behavior) || !obj(v.mixer)) return false
   if (['wet', 'scatter', 'spray', 'sketch', 'bristle', 'curveTrace', 'hatching', 'grid', 'particle', 'experiment', 'deform', 'clone', 'mypaint', 'tangentNormal'].some(k => v[k] !== undefined)) return false
   const t = v.tip, b = v.behavior, m = v.mixer
   if (!['round', 'procedural', 'bitmap'].includes(String(t.kind)) || !keys(t, ['kind', 'mask', 'maskBounds', 'hardness', 'aspect', 'rotation', 'angle', 'profile', 'animation', 'imageSampling', 'autoNoise', 'autoShape', 'alphaThreshold'])) return false
-  if (!isBrushBehavior(b) || !keys(b, ['version', 'rendering', 'spacing', 'rotation', 'strokeInput', 'speedInput', 'sequentialRandom', 'clockRead', 'dynamics', 'modulations', 'mirror'])) return false
+  if (!isBrushBehavior(b) || !keys(b, ['version', ...(stationary?['timing']:[]), 'rendering', 'spacing', 'rotation', 'strokeInput', 'speedInput', 'sequentialRandom', 'clockRead', 'dynamics', 'modulations', 'mirror'])) return false
   for (const field of ['dynamics', 'modulations']) if (b[field] !== undefined && (!obj(b[field]) || !keys(b[field], ['size', 'angle', 'grainDepth']))) return false
   const r = b.rendering
   if (!obj(r) || !keys(r, ['mode', 'accumulation', 'blendMode', 'wetEdges', 'burntEdges', 'burntEdgesMode', 'opacityCeiling']) || r.mode !== 'buildUp' || r.accumulation !== 'directOver' || r.blendMode !== 'normal' || r.wetEdges !== 0 || r.burntEdges !== 0 || r.burntEdgesMode !== 'multiply') return false

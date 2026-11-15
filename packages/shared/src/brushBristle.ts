@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import type {AssetId} from './brushes.js'
 
 /** Compiler-produced LE bytes in the existing square raw CAS plane.
@@ -62,7 +63,8 @@ export function isBristleInk(value:unknown):value is BrushBristleInk {
 
 /** Native no-ink AA additive request, then common Wash. Whole-library validators
  * still validate dynamics, captured source policies and every ordinary field. */
-export function hasBristleWash135Scope(value:unknown):boolean {
+export function hasBristleWash135Scope(value:unknown,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(value,policy)
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  if(!obj(value)||!obj(value.tip)||!obj(value.behavior)||!obj(value.behavior.rendering)||value.behavior.rendering.accumulation!=='alphaDarken'||!isBrushBristle(value.bristle))return false
  const t=value.tip,b=value.behavior,r=b.rendering,h=value.bristle
@@ -71,7 +73,7 @@ export function hasBristleWash135Scope(value:unknown):boolean {
  &&h.version===1&&h.hairs.length<=4096&&h.scale>=0&&h.antialias===true&&h.compositing===false
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&t.kind==='round'&&t.aspect===1&&t.hardness===1&&t.rotation==='fixed'&&t.angle===0&&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))
- &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
  &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
  &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
@@ -98,8 +100,8 @@ function isResizeMask140(h:BrushBristle):boolean {
  }
  return true
 }
-export function hasBristleSoak140Scope(value:unknown):boolean {
- if(!hasBristleSoak139Scope(value))return false
+export function hasBristleSoak140Scope(value:unknown,policy?:BrushStructurePolicy):boolean {
+ if(!hasBristleSoak139Scope(value,policy))return false
  const h=(value as {bristle:BrushBristle}).bristle
  return h.version===2&&h.soak?.resizePolicy==='mask-population-v1'
 }
@@ -119,13 +121,15 @@ function immutableSoakData(value:unknown,seen=new WeakSet<object>()):boolean {
 }
 /** Staged descriptor capability. Canonical source host + palette consumer required.
  * Mutable external descriptors retain full validation on every call. */
-export function hasBristleSoak139Scope(value:unknown):boolean {
- if(value!==null&&typeof value==='object'&&immutableSoakScopes.has(value))return true
- const valid=hasBristleSoak139ScopeUncached(value)
- if(valid&&value!==null&&typeof value==='object'&&immutableSoakData(value))immutableSoakScopes.add(value)
+export function hasBristleSoak139Scope(value:unknown,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(value,policy)
+ if(!stationary&&value!==null&&typeof value==='object'&&immutableSoakScopes.has(value))return true
+ const valid=hasBristleSoak139ScopeUncached(value,policy)
+ if(!stationary&&valid&&value!==null&&typeof value==='object'&&immutableSoakData(value))immutableSoakScopes.add(value)
  return valid
 }
-function hasBristleSoak139ScopeUncached(value:unknown):boolean {
+function hasBristleSoak139ScopeUncached(value:unknown,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(value,policy)
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&typeof p[0]==='number'&&Number.isFinite(p[0])&&p[0]>=0&&p[0]<=1&&p[1]===1)
  if(!obj(value)||!obj(value.bristle)||value.bristle.version!==2||value.bristle.soak===undefined||!isBrushBristle(value.bristle)||value.bristle.version!==2||!obj(value.tip)||!obj(value.behavior))return false
@@ -133,7 +137,7 @@ function hasBristleSoak139ScopeUncached(value:unknown):boolean {
  return Number.isInteger(value.version)&&Number(value.version)>=139&&(h.soak?.resizePolicy===undefined||Number(value.version)>=140&&isResizeMask140(h))&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
- &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
  &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
  &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
@@ -174,26 +178,30 @@ function isBristleInitialization143(value:unknown):boolean {
 const immutableSource143Scopes=new WeakSet<object>()
 const immutableResize141Scopes=new WeakSet<object>()
 /** New ordinary no-ink/directOver initialization; old45/66/135 are not inferred. */
-function ordinaryInitializationScope(value:unknown,source143:boolean):boolean {
+function ordinaryInitializationScope(value:unknown,source143:boolean,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(value,policy)
  const cache=source143?immutableSource143Scopes:immutableResize141Scopes
- if(value!==null&&typeof value==='object'&&cache.has(value))return true
+ if(!stationary&&value!==null&&typeof value==='object'&&cache.has(value))return true
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  if(!obj(value)||!Number.isInteger(value.version)||Number(value.version)<141||!obj(value.bristle)||value.bristle.version!==1||!obj(value.bristle.initialization)||value.bristle.initialization.resizePolicy!==(source143?'source-area143-v1':'mask-population-v1')||source143&&Number(value.version)<143||!isBrushBristle(value.bristle)||!obj(value.behavior)||!obj(value.tip))return false
  const b=value.behavior,t=value.tip,r=b.rendering
  const valid=Number.isInteger(value.version)&&Number(value.version)>=141&&value.model==='stamp'&&value.paperInteraction===0
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
- &&b.version===2&&Object.keys(b).every(k=>['version','rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
  &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
  &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
  &&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))&&r.mode==='buildUp'&&r.accumulation==='directOver'&&r.blendMode==='normal'&&(r.wetEdges===undefined||r.wetEdges===0)&&(r.burntEdges===undefined||r.burntEdges===0)&&(r.burntEdgesMode===undefined||r.burntEdgesMode==='multiply')&&(r.opacityCeiling===undefined||r.opacityCeiling==='uniform')
- if(valid&&immutableSoakData(value))cache.add(value)
+ if(valid&&!stationary&&immutableSoakData(value))cache.add(value)
  return valid
 }
-export function hasBristleResize141Scope(value:unknown):boolean{return ordinaryInitializationScope(value,false)}
-export function hasBristleSource143Scope(value:unknown):boolean{return ordinaryInitializationScope(value,true)}
-export function hasBristleInitializationScope(value:unknown):boolean{return hasBristleResize141Scope(value)||hasBristleSource143Scope(value)||hasBristleSoak140Scope(value)}
+export function hasBristleResize141Scope(value:unknown,policy?:BrushStructurePolicy):boolean{
+ return ordinaryInitializationScope(value,false,policy)}
+export function hasBristleSource143Scope(value:unknown,policy?:BrushStructurePolicy):boolean{
+ return ordinaryInitializationScope(value,true,policy)}
+export function hasBristleInitializationScope(value:unknown,policy?:BrushStructurePolicy):boolean{
+ return hasBristleResize141Scope(value,policy)||hasBristleSource143Scope(value,policy)||hasBristleSoak140Scope(value,policy)}
 export function bristleInitializationSourceSide(brush:import('./brushes.js').BrushDescriptor):number|undefined {
  const h=brush.bristle
  if((hasBristleResize141Scope(brush)||hasBristleSource143Scope(brush))&&h?.version===1)return h.initialization!.sourceSide
@@ -208,4 +216,13 @@ export function hasBristleNativePointCoverage(value:unknown):boolean {
  if((b.version!==142&&b.version!==144)||!h||typeof h!=='object'||Array.isArray(h))return false
  const bristle=h as Record<string,unknown>
  return bristle.version===1&&bristle.antialias===true&&bristle.compositing===true&&(b.version===142?hasBristleResize141Scope(value):hasBristleSource143Scope(value))
+}
+
+/** Shared family structure; only explicit195 mode lifts its timing clause. */
+export function isBristleDescriptor(d:Record<string,unknown>,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(d,policy)
+ const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(d.bristle===undefined)return true
+ if(!record(d.tip))return false
+ return !(!isBrushBristle(d.bristle)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.curveTrace!==undefined||d.scatter!==undefined||d.mixer!==undefined||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||!stationary&&d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||d.behavior.taper!==undefined||d.texture!==undefined||d.wet!==undefined||d.paperInteraction!==0||d.tip.kind!=='round'||d.tip.profile!==undefined||!record(d.behavior.rendering)||(d.behavior.rendering.accumulation!=='directOver'&&!hasBristleWash135Scope(d,policy))||d.behavior.rendering.blendMode!=='normal')
 }

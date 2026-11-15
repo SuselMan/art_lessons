@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import {BRUSH_BLEND_MODES,isBrushBehavior,type BrushBlendMode} from './brushBehavior.js'
 export type ColorSmudgeComposite193 = BrushBlendMode | 'dodge' | 'burn' | 'grainMerge' | 'grainExtract' | 'negation' | 'erase'
 export const COLOR_SMUDGE193_COMPOSITES:readonly ColorSmudgeComposite193[]=[...BRUSH_BLEND_MODES,'dodge','burn','grainMerge','grainExtract','negation','erase']
@@ -7,13 +8,15 @@ const unit=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1
 /** Whole native Smudge role. Numeric/resource primitives remain validated by
  * isBrushLibrary. No foreign engine, independent mask or carried reservoir can
  * acquire this capability merely by choosing a version or composite alias. */
-export function hasColorSmudge193Scope(v:unknown):boolean {
- if(!obj(v)||v.version!==193||v.model!=='mixer'||v.paperInteraction!==0||!obj(v.mixer)||!obj(v.tip)||!obj(v.behavior)||!isBrushBehavior(v.behavior))return false
+export function hasColorSmudge193Scope(v:unknown):boolean { return colorSmudge193Structure(v) }
+export function colorSmudge193Structure(v:unknown,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(v,policy)
+ if(!obj(v)||v.version!==(stationary?195:193)||v.model!=='mixer'||v.paperInteraction!==0||!obj(v.mixer)||!obj(v.tip)||!obj(v.behavior)||!isBrushBehavior(v.behavior))return false
  if(['wet','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>v[k]!==undefined))return false
  const m=v.mixer,t=v.tip,b=v.behavior,r=b.rendering
  if(!keys(m,['load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','colorRateComposite','algorithm','paintThickness'])||m.load!==0||m.initialLoad!==0||m.strength!==1||!unit(m.pickup)||typeof m.smearAlpha!=='boolean'||!['previousCanvas','projectionCanvas'].includes(String(m.source)))return false
  if(typeof m.colorRateComposite!=='string'||!(COLOR_SMUDGE193_COMPOSITES as readonly string[]).includes(m.colorRateComposite))return false
- if(!keys(b,['version','rendering','colorAdjustment','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','erase','falloff'])||!obj(r)||r.mode!=='buildUp'||r.accumulation!=='directOver'||r.blendMode!=='normal'||r.wetEdges!==0||r.burntEdges!==0||r.gammaCorrect===true||r.luminance===true)return false
+ if(!keys(b,['version',...(stationary?['timing']:[]),'rendering','colorAdjustment','spacing','rotation','strokeInput','speedInput','sequentialRandom','clockRead','dynamics','modulations','mirror','scatter','erase','falloff'])||!obj(r)||r.mode!=='buildUp'||r.accumulation!=='directOver'||r.blendMode!=='normal'||r.wetEdges!==0||r.burntEdges!==0||r.gammaCorrect===true||r.luminance===true)return false
  if(v.flow!==1||v.flowPer!=='stamp'||!Array.isArray(v.flowByPressure)||v.flowByPressure.length<2||!v.flowByPressure.every(p=>Array.isArray(p)&&p.length===2&&unit(p[0])&&p[1]===1))return false
  if(!['round','procedural','bitmap'].includes(String(t.kind))||t.alphaThreshold!==undefined)return false
  if(t.sourceGeometry!==undefined){const g=t.sourceGeometry;if(t.kind!=='bitmap'||t.animation!==undefined||t.imageSampling!==undefined||!obj(g)||!keys(g,['version','width','height'])||g.version!==1||!['width','height'].every(k=>typeof g[k]==='number'&&Number.isInteger(g[k])&&Number(g[k])>=1&&Number(g[k])<=2048))return false}

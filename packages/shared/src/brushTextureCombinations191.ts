@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import{legacySmudgeTimingCore}from'./legacySmudgeTiming129.js'
 import{isBrushBehavior}from'./brushBehavior.js'
 import{nativeMaskComponentStructure,INDEPENDENT_MASK190_MODES}from'./independentMask190.js'
@@ -10,8 +11,9 @@ export const TEXTURE191_APPLICATIONS=['multiply','subtract','darken','overlay','
  * Legacy static ordinary tips and modern existing static/equal-frame strategies
  * remain distinct. No new unequal GIH or child/mask smudge engine is introduced.
  * Full library validation still checks every numeric primitive and source plane. */
-export function texture191SmudgeCore(v:unknown):boolean{
- if(!obj(v)||v.version!==191||v.model!=='mixer'||!obj(v.mixer)||!obj(v.tip)||!obj(v.behavior)||v.paperInteraction!==0||v.wet!==undefined)return false
+export function texture191SmudgeCore(v:unknown,policy?:BrushStructurePolicy):boolean{
+ const stationary=isStationary195Structure(v,policy)
+ if(!obj(v)||v.version!==(stationary?195:191)||v.model!=='mixer'||!obj(v.mixer)||!obj(v.tip)||!obj(v.behavior)||v.paperInteraction!==0||v.wet!==undefined)return false
  const m=v.mixer,t=v.tip,b=v.behavior
  if(m.load!==0||m.initialLoad!==0||b.wetMix!==undefined)return false
  if(m.colorRateComposite!==undefined&&(!obj(b.rendering)||b.rendering.blendMode!=='normal'))return false
@@ -21,23 +23,23 @@ export function texture191SmudgeCore(v:unknown):boolean{
  if(!own(m,['load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground','colorRateComposite','algorithm','paintThickness']))return false
  if(!['load','pickup','strength'].every(k=>unit(m[k]))||m.initialLoad!==undefined&&!unit(m.initialLoad)||m.smearAlpha!==undefined&&typeof m.smearAlpha!=='boolean')return false
  if(m.algorithm===undefined){
-  if(t.animation!==undefined||b.timing!==undefined)return legacySmudgeTimingCore(v,b.timing!==undefined,true)
-  if(!['round','procedural','bitmap'].includes(String(t.kind))||typeof t.kind!=='string'||['color','material','imageSampling','animation','autoNoise','autoShape'].some(k=>t[k]!==undefined)||m.paintThickness!==undefined)return false
+  if(!stationary&&(t.animation!==undefined||b.timing!==undefined))return legacySmudgeTimingCore(v,b.timing!==undefined,true)
+  if(!['round','procedural','bitmap'].includes(String(t.kind))||typeof t.kind!=='string'||['color','material',...(!stationary?['imageSampling','animation','autoNoise','autoShape']:[])].some(k=>t[k]!==undefined)||m.paintThickness!==undefined)return false
   if(m.colorRateComposite!==undefined&&(typeof m.colorRateComposite!=='string'||!['multiply','screen','overlay','darken','lighten','add','subtract','dodge','burn','erase'].includes(m.colorRateComposite)))return false
   if(m.colorRateComposite!==undefined&&!['multiply','screen','erase'].includes(String(m.colorRateComposite))&&(m.load!==0||m.initialLoad!==0))return false
   if(m.source==='projectionCanvas'&&m.sampling!==undefined)return false
  }else{
   const seen=new Set<object>()
   const clock=(x:unknown):boolean=>{if(!obj(x)&&!Array.isArray(x)||seen.has(x as object))return false;seen.add(x as object);return obj(x)&&(x.control==='time'||obj(x.randomSource)&&x.randomSource.kind==='grafettoSourceTime-v1')||Object.values(x).some(clock)}
-  if(b.timing!==undefined||clock(b)||clock(m))return false
+  if(!stationary&&(b.timing!==undefined||clock(b)||clock(m)))return false
   if(t.animation!==undefined&&(!obj(t.animation)||!own(t.animation,['mode','frames'])||typeof t.animation.mode!=='string'||!['random','incremental'].includes(t.animation.mode)||!Array.isArray(t.animation.frames)||t.animation.frames.length<2||t.animation.frames.length>256))return false
-  if(typeof m.algorithm!=='string'||!['krita-mask','krita-stamp'].includes(m.algorithm)||t.kind!=='bitmap')return false
+  if(typeof m.algorithm!=='string'||!['krita-mask','krita-stamp'].includes(m.algorithm)||(stationary?!['round','procedural','bitmap'].includes(String(t.kind)):t.kind!=='bitmap'))return false
   if(obj(t.animation)&&t.animation.geometry!==undefined)return false
   if(m.colorRateComposite!==undefined&&(typeof m.colorRateComposite!=='string'||!['hardMixPhotoshop','grainMerge','grainExtract','negation','erase'].includes(m.colorRateComposite)))return false
  }
  return true
 }
-function texture(v:unknown):boolean{
+export function nativeTexture191Structure(v:unknown):boolean{
  if(!obj(v)||!asset(v.id)||!unit(v.strength)||typeof v.periodPx!=='number'||!Number.isFinite(v.periodPx)||v.periodPx<1||v.periodPx>8192||!obj(v.patternSize))return false
  const ps=v.patternSize
  if(!['width','height'].every(k=>Number.isInteger(ps[k])&&Number(ps[k])>=1&&Number(ps[k])<=2048))return false
@@ -49,7 +51,7 @@ function texture(v:unknown):boolean{
 }
 /** Whole root only. Bare191 children cannot acquire an execution capability. */
 export function isTextureCombinations191Scope(v:unknown):boolean{
- if(!obj(v)||v.version!==191||!obj(v.behavior)||!isBrushBehavior(v.behavior)||!texture(v.texture))return false
+ if(!obj(v)||v.version!==191||!obj(v.behavior)||!isBrushBehavior(v.behavior)||!nativeTexture191Structure(v.texture))return false
  if(['spray','bristle','sketch','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>v[k]!==undefined))return false
  if(v.model==='mixer')return !obj(v.texture)||v.texture.material===undefined?texture191SmudgeCore(v):false
  if(v.paperInteraction!==0||v.wet!==undefined||!nativeMaskComponentStructure(v,true,191))return false

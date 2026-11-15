@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 import{isBrushBehavior,type BrushDynamic}from'./brushBehavior.js'
 export interface BrushHatching{
  version:1
@@ -19,4 +20,13 @@ export function isBrushHatching(value:unknown):value is BrushHatching{
  if(v.opaqueBackground!==undefined&&v.opaqueBackground!==true)return false
  if(v.dynamics!==undefined){if(!v.dynamics||typeof v.dynamics!=='object'||Array.isArray(v.dynamics))return false;for(const[k,controls]of Object.entries(v.dynamics))if(!['angle','cross','separation','thickness'].includes(k)||!isBrushBehavior({version:2,modulations:{size:controls}}))return false}
  return true
+}
+
+/** Shared family structure; only explicit195 mode lifts its timing clause. */
+export function isHatchingDescriptor(d:Record<string,unknown>,policy?:BrushStructurePolicy):boolean {
+ const stationary=isStationary195Structure(d,policy)
+ const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
+ if(d.hatching===undefined)return true
+ if(!record(d.tip))return false
+ return !(!isBrushHatching(d.hatching)||d.model!=='stamp'||d.spray!==undefined||d.sketch!==undefined||d.bristle!==undefined||d.curveTrace!==undefined||d.mixer!==undefined||d.scatter!==undefined||d.texture!==undefined||d.paperInteraction!==0||!record(d.behavior)||d.behavior.version!==2||d.behavior.dual!==undefined||!stationary&&d.behavior.timing!==undefined||d.behavior.wetMix!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.accumulation!=='directOver')
 }

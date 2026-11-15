@@ -1,3 +1,4 @@
+import {isStationary195Structure,type BrushStructurePolicy} from './brushStructurePolicy.js'
 export interface BrushGrid{
  version:1
  sourcePolicy?:'canonical-begin-v1'
@@ -25,15 +26,17 @@ export function isBrushGrid(value:unknown):value is BrushGrid{
 
 /** Keep family validation in an independent scope: the catalogue's many
  * optional families must not multiply TypeScript control-flow intersections. */
-export function isGridDescriptor(d:Record<string,unknown>):boolean{
+export function isGridDescriptor(d:Record<string,unknown>,policy?:BrushStructurePolicy):boolean{
+ const stationary=isStationary195Structure(d,policy)
  if(d.grid===undefined)return true
  const g=d.grid,m=d.mixer,b=d.behavior,t=d.tip,record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
- if(record(g)&&(g.sourcePolicy!==undefined||Number(d.version)>=137&&record(b)&&record(b.rendering)&&b.rendering.accumulation==='alphaDarken'))return hasGridWash137Scope(d)
- return isBrushGrid(g)&&d.model==='mixer'&&record(m)&&m.source===(g.sampleInput?'previousCanvas':undefined)&&m.algorithm===undefined&&m.sampling===undefined&&m.foreground===undefined&&m.paintThickness===undefined&&['spray','sketch','bristle','curveTrace','hatching','scatter','texture'].every(k=>d[k]===undefined)&&d.paperInteraction===0&&record(b)&&b.version===2&&b.dual===undefined&&b.timing===undefined&&b.wetMix===undefined&&record(t)&&t.kind==='round'&&t.aspect===1
+ if(record(g)&&(g.sourcePolicy!==undefined||Number(d.version)>=137&&record(b)&&record(b.rendering)&&b.rendering.accumulation==='alphaDarken'))return hasGridWash137Scope(d,policy)
+ return isBrushGrid(g)&&d.model==='mixer'&&record(m)&&m.source===(g.sampleInput?'previousCanvas':undefined)&&m.algorithm===undefined&&m.sampling===undefined&&m.foreground===undefined&&m.paintThickness===undefined&&['spray','sketch','bristle','curveTrace','hatching','scatter','texture'].every(k=>d[k]===undefined)&&d.paperInteraction===0&&record(b)&&b.version===2&&b.dual===undefined&&(stationary||b.timing===undefined)&&b.wetMix===undefined&&record(t)&&t.kind==='round'&&t.aspect===1
 }
 
 /** Staged descriptor capability only. Host canonical-prefix renderer must be ready before admission. */
-export function hasGridWash137Scope(value:unknown):boolean{
+export function hasGridWash137Scope(value:unknown,policy?:BrushStructurePolicy):boolean{
+ const stationary=isStationary195Structure(value,policy)
  const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
  const n=(v:unknown,a:number,b:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b
  const unit=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&n(p[0],0,1)&&p[1]===1)
@@ -45,7 +48,7 @@ export function hasGridWash137Scope(value:unknown):boolean{
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
  &&Object.keys(m).every(k=>['load','initialLoad','pickup','strength','source'].includes(k))&&m.load===0&&m.initialLoad===0&&m.pickup===1&&m.strength===1&&m.source==='previousCanvas'
  &&value.flow===1&&value.opacity===1&&unit(value.sizeByPressure)&&unit(value.flowByPressure)&&unit(value.opacityByPressure)
- &&b.version===2&&Object.keys(b).every(k=>['version','rendering'].includes(k))&&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering'].includes(k))&&obj(r)&&Object.keys(r).every(k=>['mode','blendMode','accumulation','wetEdges','burntEdges','burntEdgesMode','opacityCeiling'].includes(k))
  &&r.mode==='buildUp'&&r.blendMode==='normal'&&r.accumulation==='alphaDarken'&&(r.wetEdges===undefined||r.wetEdges===0)&&(r.burntEdges===undefined||r.burntEdges===0)&&(r.burntEdgesMode===undefined||r.burntEdgesMode==='multiply')&&(r.opacityCeiling===undefined||r.opacityCeiling==='uniform')
 }
 /** Existing captured gesture identifier; deliberately no new wire/random/time field. */

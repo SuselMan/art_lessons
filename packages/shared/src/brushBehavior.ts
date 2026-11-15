@@ -38,8 +38,18 @@ export interface BrushBehavior {
    * Absence preserves the legacy input pipeline. */
   strokeInput?: { version: 1; initialDirection: 'cursorHistory'; fanCorners?: { stepDegrees: number } }
   /** Author distance/time request scheduling. Rate is dabs/second.
-   * Version1 admits deterministic pressure/off rate factors only. */
-  timing?: { version: 1; rate: number; ignoreDistanceSpacing: boolean; rateDynamics?: BrushDynamic[] }
+   * Version1 retains its historical Rate grammar. Version2 keeps the host
+   * scheduler separate from the engine's resolved rate (missing defaults1/20)
+   * and is admitted only by a whole native root195. Callback policy is derived
+   * from the paint family, never serialized as an arbitrary selector. */
+  timing?: { version: 1; rate: number; ignoreDistanceSpacing: boolean; rateDynamics?: BrushDynamic[] } | {
+    version: 2
+    rate: number
+    hostRate: number
+    updateSpacingBetweenDabs: boolean
+    ignoreDistanceSpacing: boolean
+    rateDynamics?: BrushDynamic[]
+  }
   /** View/widget coordinates per millisecond; EMA is Grafetto's approximation
    * of the source input estimator. Captured once before geometry, then logged. */
   speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
@@ -123,11 +133,20 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   }
   const timing=value.timing
   if(timing!==undefined){
-    if(!obj(timing)||!keys(timing,['version','rate','ignoreDistanceSpacing','rateDynamics'])||timing.version!==1||!n(timing.rate,0,1000)||typeof timing.ignoreDistanceSpacing!=='boolean')return false
+    if(!obj(timing)||(timing.version!==1&&timing.version!==2))return false
+    const fields=timing.version===2
+      ? ['version','rate','hostRate','updateSpacingBetweenDabs','ignoreDistanceSpacing','rateDynamics']
+      : ['version','rate','ignoreDistanceSpacing','rateDynamics']
+    if(!keys(timing,fields)||!n(timing.rate,0,1000)||typeof timing.ignoreDistanceSpacing!=='boolean')return false
+    // Native UI caps the positive rate; zero is its disabled/sentinel value.
+    // Nonzero QTimer intervals must remain representable by native signed int.
+    if(timing.version===2&&(!n(timing.hostRate,0,1000)||typeof timing.updateSpacingBetweenDabs!=='boolean'
+      ||timing.hostRate!==0&&Math.floor(500/Number(timing.hostRate))>2147483647
+      ||timing.rate!==0&&Math.floor(1000/Number(timing.rate))>2147483647))return false
     const factors=timing.rateDynamics
     const rateLeaf=(d:unknown):boolean=>obj(d)&&d.jitter===0&&(['pressure','off'].includes(String(d.control))||d.control==='random'&&obj(d.randomSource)&&d.randomSource.kind==='grafettoSourceTime-v1')
     const rateControl=(d:unknown):boolean=>obj(d)&&isBrushBehavior({version:2,dynamics:{size:d}})&&(obj(d.combine)?d.combine.absolute===undefined&&Array.isArray(d.combine.scaling)&&Array.isArray(d.combine.additive)&&[...d.combine.scaling,...d.combine.additive].every(rateLeaf)&&[...d.combine.scaling,...d.combine.additive].some(v=>obj(v)&&v.control==='random'&&obj(v.randomSource)&&v.randomSource.kind==='grafettoSourceTime-v1'):rateLeaf(d))
-    if(factors!==undefined&&(!Array.isArray(factors)||factors.length<1||factors.length>4||!factors.every(rateControl)))return false
+    if(factors!==undefined&&(!Array.isArray(factors)||factors.length<1||factors.length>4||!factors.every(timing.version===2?d=>isBrushBehavior({version:2,dynamics:{size:d}}):rateControl)))return false
   }
   const speed=value.speedInput
   if(speed!==undefined && (!obj(speed)||!keys(speed,['version','space','maximum','estimator'])||speed.version!==1||speed.space!=='view'||!n(speed.maximum,.001,1000)||speed.estimator!=='grafettoEMA30ms'))return false
