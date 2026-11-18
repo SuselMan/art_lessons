@@ -3,10 +3,11 @@ import type { Operation, StrokeOperation } from '@grafetto/shared'
 
 const mocks = vi.hoisted(() => ({
   rooms: new Map(), flush: vi.fn().mockResolvedValue(undefined),
-  state: vi.fn(), snapshots: vi.fn(), operations: vi.fn(),
+  state: vi.fn(), snapshots: vi.fn(), operations: vi.fn(), siblings: vi.fn(),
 }))
 vi.mock('./roomRegistry.js', () => ({ rooms: mocks.rooms, flushRoomWrites: mocks.flush }))
 vi.mock('../db/prisma.js', () => ({ prisma: {
+  $queryRaw: mocks.siblings,
   roomLayerState: { findUnique: mocks.state }, roomLayerSnapshot: { findMany: mocks.snapshots },
   operation: { findMany: mocks.operations },
 } }))
@@ -19,6 +20,7 @@ const original = [stroke('water1', 1), stroke('pigment2', 2), stroke('colour3', 
 
 beforeEach(() => {
   vi.clearAllMocks(); mocks.rooms.clear()
+  mocks.siblings.mockResolvedValue([])
   mocks.rooms.set('room', { nextSeq: 7, operations: [original[3], redo], aliveIds: new Set(['L', 'safe']) })
   mocks.state.mockResolvedValue({ seq: 5, state: { items: { L: { id: 'L' }, safe: { id: 'safe' } } } })
   mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 5, hash: 'undone-picture' }, { layerId: 'safe', seq: 5, hash: 'safe-picture' }])
@@ -108,11 +110,11 @@ it('loads old gesture siblings when Undo targets a tail chunk after the snapshot
  const dry:Operation={id:'dry',type:'paper_dry',userId:'A',timestamp:2,seq:2}
  const control:Operation={id:'undo',type:'operation_undo',targetOpId:'last',userId:'A',timestamp:4,seq:4}
  const original=[first,dry,last,control]
+ mocks.siblings.mockResolvedValue([first,last].map(data=>({data})))
  mocks.rooms.set('room',{nextSeq:5,operations:[last,control],aliveIds:new Set(['L','safe'])})
  mocks.state.mockResolvedValue({seq:2,state:{items:{L:{},safe:{}}}})
  mocks.snapshots.mockResolvedValue([{layerId:'L',seq:2,hash:'bad-first-chunk'},{layerId:'safe',seq:2,hash:'safe'}])
  mocks.operations.mockImplementation(async({where})=>{
-  if(where.type==='stroke')return [first,last].map(data=>({data}))
   if(where.id)return original.filter(op=>where.id.in.includes(op.id)).map(data=>({data}))
   return original.map(data=>({data}))
  })
@@ -121,7 +123,8 @@ it('loads old gesture siblings when Undo targets a tail chunk after the snapshot
  expect(plan.coverage.get('safe')).toBe(2)
  expect(plan.historicalIds.has('first')).toBe(true)
  expect(plan.operations.map(op=>op.id)).toEqual(original.map(op=>op.id))
- expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({type:'stroke',OR:[{userId:'A',data:{path:['strokeId'],equals:'gesture-G'}}]})}))
+ expect(mocks.siblings).toHaveBeenCalledOnce()
+ expect(mocks.siblings.mock.calls[0].slice(1)).toEqual([JSON.stringify([{userId:'A',strokeId:'gesture-G'}]), 'room', 4])
 })
 
 it('does not load gesture siblings for a single-operation revoke', async () => {
@@ -135,6 +138,7 @@ it('does not load gesture siblings for a single-operation revoke', async () => {
   expect(plan.coverage.get('L')).toBe(2)
   expect(plan.operations).not.toContainEqual(first)
   expect(mocks.operations).not.toHaveBeenCalled()
+  expect(mocks.siblings).not.toHaveBeenCalled()
 })
 
 it('loads gesture siblings after resolving a cold chain of control targets', async () => {
@@ -143,18 +147,18 @@ it('loads gesture siblings after resolving a cold chain of control targets', asy
   const undo: Operation = { id: 'undo', type: 'operation_undo', targetOpId: 'last', userId: 'A', timestamp: 4, seq: 4 }
   const redo: Operation = { id: 'redo', type: 'operation_redo', targetOpId: 'undo', userId: 'A', timestamp: 5, seq: 5 }
   const original = [first, last, undo, redo]
+  mocks.siblings.mockResolvedValue([first, last].map(data => ({ data })))
   mocks.rooms.set('room', { nextSeq: 6, operations: [redo], aliveIds: new Set(['L']) })
   mocks.state.mockResolvedValue({ seq: 2, state: { items: { L: {} } } })
   mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 2, hash: 'first' }])
   mocks.operations.mockImplementation(async ({ where }) => {
     if (where.id) return original.filter(op => where.id.in.includes(op.id)).map(data => ({ data }))
-    if (where.type === 'stroke') return [first, last].map(data => ({ data }))
     return original.map(data => ({ data }))
   })
   const plan = await prepareSnapshotReplay('room')
   expect(plan.coverage.has('L')).toBe(false)
   expect(plan.historicalIds.has('first')).toBe(true)
-  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ type: 'stroke', seq: { lte: 5 } }) }))
+  expect(mocks.siblings).toHaveBeenCalledOnce()
 })
 
 describe('structural dependencies discovered after pixel-history expansion', () => {
