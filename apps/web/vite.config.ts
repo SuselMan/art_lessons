@@ -125,6 +125,7 @@ export default defineConfig(({ mode }) => {
         output: { comments: { legal: true } },
         input: {
           main: fileURLToPath(new URL('./index.html', import.meta.url)),
+          brushPreview: fileURLToPath(new URL('./brush-preview.html', import.meta.url)),
           landing: fileURLToPath(new URL('./landing/index.html', import.meta.url)),
         },
       },

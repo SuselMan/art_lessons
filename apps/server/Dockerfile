@@ -36,6 +36,7 @@ COPY apps/web/src/engine/src/presets/brushBristleInk.ts apps/web/src/engine/src/
 # present, hence copying the whole apps/server dir before this rather than
 # just its package.json.
 RUN npm ci
+RUN node scripts/brush-import/fetch-stock.mjs
 RUN node scripts/brush-import/build_bristle_saturation.mjs
 RUN npm run build --workspace=apps/server
 
@@ -48,19 +49,25 @@ ENV NODE_ENV=production
 # prlimit comes from util-linux; SVG uses the same Node and runtime Sharp.
 # Text brush masks resolve an installed face offline; DejaVu is the declared
 # fallback, and the resulting pixels are captured in CAS for every client.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-venv util-linux fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl python3 python3-venv util-linux fontconfig fonts-dejavu-core chromium && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/scripts/brush-import ./scripts/brush-import
+COPY apps/web/dist /app/brush-preview/web
 # Keep importer raster APIs identical to the pinned CLI environment; Debian's
 # python3-pil is older and lacks APIs used by this importer.
 RUN python3 -m venv /opt/brush-python \
     && /opt/brush-python/bin/python -m pip install --no-cache-dir -r /app/scripts/brush-import/requirements.txt \
     && /opt/brush-python/bin/python -c "from PIL import Image; assert hasattr(Image.Image, 'get_flattened_data')"
 ENV GRAFETTO_BRUSH_IMPORT_PYTHON=/opt/brush-python/bin/python
+ENV GRAFETTO_BRUSH_CHROMIUM=/usr/bin/chromium
+ENV GRAFETTO_BRUSH_PREVIEW_URL=http://127.0.0.1
+ENV GRAFETTO_BRUSH_PREVIEW_ASSET_DIR=/app/brush-preview/web
+ENV GRAFETTO_BRUSH_LIBRARY_DIR=/app/apps/server/resources/brush-stock
+ENV GRAFETTO_BRUSH_PREVIEW_SEED_DIR=/app/apps/server/resources/brush-stock/previews
 WORKDIR /app/apps/server
 EXPOSE 4000
 # (#177) `--import` loads the Sentry init before any application module, and

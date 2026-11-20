@@ -44,6 +44,7 @@ services:
     environment:
       DATABASE_URL: postgresql://art_lessons:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/art_lessons
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      GRAFETTO_BRUSH_STORAGE_DIR: /var/lib/grafetto/brushes
       # (#177) Unlike the two above, these are optional and come from the
       # deploy invocation rather than the VPS's .env — the workflow passes
       # them alongside SERVER_IMAGE (see deploy.yml). A DSN is a write-only
@@ -69,6 +70,8 @@ services:
       # not a secret — the list is not what protects the panel, signing in as
       # one of those addresses is. Empty means the panel has no admins.
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+    volumes:
+      - brush_data:/var/lib/grafetto/brushes
     ports:
       # Bound to loopback only — nginx on the host is the sole public entry
       # point (see deploy/nginx.conf), same reasoning as any reverse-proxied
@@ -92,4 +95,5 @@ services:
     memswap_limit: 2g
 
 volumes:
+  brush_data:
   postgres_data:

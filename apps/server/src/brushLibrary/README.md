@@ -19,10 +19,10 @@ copy. Retention uses the shared descriptor asset collector, including radial loo
 tables and secondary brush resources; diagnostic text never creates references. Owner
 installation preflights resource bytes before publishing manifests. No deletion/GC can remove historical assets; snapshots do not release references.
 
-`GRAFETTO_BRUSH_LIBRARY_DIR` remains an explicit operator-only QA deployment option;
-leave unset in production. Without persistent storage imports return 503. The optional
-operator library is visible to that instance's users and must only be used behind its
-private QA access protection.
+`GRAFETTO_BRUSH_LIBRARY_DIR` selects the instance-wide stock catalog. Production
+packages only the pinned redistributable Krita defaults described below; private QA
+catalogs must remain behind QA access protection. Personal uploads are separate and
+owner-scoped. Without persistent storage imports return 503.
 
 One conversion worker, four queued uploads, one pending job per owner, 512 MiB streamed input,
 120 s wall time, 110 s CPU, 1 GiB address space, 512 MiB file size; Linux `prlimit` is
@@ -54,3 +54,18 @@ unknown/external resources, fonts, filters and use/image elements fail closed.
 The private renderer uses --jitless --v8-pool-size=1 --max-old-space-size=96 under
 the same inherited1GiB address-space cap. SVG emits only PNG on stdout; startup
 warnings go to stderr. No extra daemon, resource quota or import concurrency.
+
+## Production stock and previews
+
+Production uses the pinned, public Krita stock distribution recorded in
+`scripts/brush-import/stock-catalog.json`; The Docker build verifies the bundled
+archive SHA-256 before including it in the image. This replaces the QA-only operator
+catalog for this configured deployment. Commercial/private uploaded packs are never
+part of the image. CAS and owner/room references persist in the `brush_data` volume.
+
+The image includes a dedicated static brush-preview entry, Chromium and the bounded
+importer. `GRAFETTO_BRUSH_PREVIEW_ASSET_DIR` enables browser-local interception of
+whitelisted immutable renderer assets: there is no extra HTTP listener and no dependency
+on QA or the public frontend. `GRAFETTO_BRUSH_PREVIEW_SEED_DIR` supplies precomputed stock
+samples; new personal uploads use the same sequential worker. Old recipe keys remain
+readable, while changed recipes regenerate only their own versioned previews.

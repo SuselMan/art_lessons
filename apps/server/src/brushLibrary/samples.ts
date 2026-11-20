@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
+import { previewResource } from './previewFiles.js'
+import { readFile } from './brushLibrary.js'
+import { boundedRead } from './storage.js'
 import { chromium, type Browser } from 'playwright'
 import { BRUSH_SAMPLE_VERSION, NATIVE_BRUSH_SAMPLE_VERSION, brushAssetIds, type BrushLibrary, type ImportedBrush } from '@grafetto/shared'
 import { BrushStorage, empty } from './storage.js'
@@ -17,7 +20,17 @@ export class BrushSamples {
     if (url) { const target = new URL(url); if (!['http:', 'https:'].includes(target.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(target.hostname)) throw Error('Brush preview renderer must be loopback') }
   }
   path(key: string): string { if (!/^[a-f0-9]{64}$/.test(key)) throw Error('Invalid preview key'); return join(this.storage.root, 'previews', key + '.png') }
-  available(key: string): boolean { return existsSync(this.path(key)) }
+  available(key: string): boolean {
+    const target = this.path(key)
+    if (existsSync(target)) return true
+    const seed = process.env.GRAFETTO_BRUSH_PREVIEW_SEED_DIR
+    if (!seed || !existsSync(join(seed, key + '.png'))) return false
+    const bytes = boundedRead(join(seed, key + '.png'), 1024 * 1024)
+    if (!bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw Error('Invalid bundled sample')
+    this.storage.ensureCapacity(bytes.length)
+    writeFileSync(target + '.writing', bytes, { mode: 0o600 }); renameSync(target + '.writing', target)
+    return true
+  }
   enqueue(library: BrushLibrary, priority = false): void {
     if (!this.url || this.closed) return
     for (const brush of library.brushes) {
@@ -40,14 +53,22 @@ export class BrushSamples {
   }
   private async drain(): Promise<void> {
     try {
-      this.browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+      this.browser = await chromium.launch({ headless: true, executablePath: process.env.GRAFETTO_BRUSH_CHROMIUM, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
       while (!this.closed && this.queue.length) {
         const item = this.queue.shift()!
         const context = await this.browser.newContext({ viewport: { width: 640, height: 240 }, deviceScaleFactor: 1 })
         const watchdog = setTimeout(() => { void context.close() }, 45_000)
         try {
+          const assetDir = process.env.GRAFETTO_BRUSH_PREVIEW_ASSET_DIR
+          if (assetDir) await context.route('**/*', async route => {
+            if (route.request().method() !== 'GET' || new URL(route.request().url()).origin !== new URL(this.url!).origin) { await route.abort(); return }
+            const resource = previewResource(assetDir, route.request().url())
+            if (!resource) { await route.fulfill({ status: 404, body: '' }); return }
+            try { await route.fulfill({ status: 200, contentType: resource.contentType, body: await readFile(resource.file, 8 * 1024 * 1024) }) }
+            catch { await route.fulfill({ status: 404, body: '' }) }
+          })
           const page = await context.newPage()
-          await page.goto(new URL('/brush-preview-renderer', this.url!).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+          await page.goto(new URL(assetDir ? '/brush-preview.html' : '/brush-preview-renderer', this.url!).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
           await page.waitForFunction(() => typeof (window as unknown as { renderGrafettoBrushSample?: unknown }).renderGrafettoBrushSample === 'function', undefined, { timeout: 15_000 })
           const assets = Object.fromEntries(item.library.assets.map(a => [a.id, this.storage.asset(a.id.slice(6), a.size).toString('base64')]))
           const png = await page.evaluate(async input => {
