@@ -289,9 +289,9 @@ export async function restoreRoomState(
     }
 
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
-      // (#789, #673) The snapshot head is undoable too; beforeSeq excludes
-      // its argument. Advance only the cursor, preserving the history budget.
-      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq > 0 ? latestSnapshotSeq + 1 : 0)
+      // (#789, #673) The snapshot head is undoable too. Pass its inclusive
+      // boundary; backfillHistory alone advances the exclusive API cursor.
+      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
     }
     // A short room need not ever cross100. Request its first per-layer
     // snapshot at the real current watermark; useSnapshotPublishing retries

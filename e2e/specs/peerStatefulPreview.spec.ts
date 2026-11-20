@@ -37,7 +37,7 @@ async function statefulPreviewCase() {
       ? [80, 96, 112, 128, 144, 160, 176, 192].map((x, i) => ({ ...sample(x, i * 50), size: 24 }))
       : [180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310].map((x, i) => sample(x, i * 35))
     const op: StrokeOperation = { id: 'preview', type: 'stroke', userId: 'peer', timestamp: 2, seq: 2, layerId: 'L', tool: spec.tool, preset: spec.tool === 'marker' ? 'bullet:24' : 'normal', color: [0.7, 0.18, 0.08], dabs,
-      ...(spec.grouped ? { strokeId: 'gesture' } : {}) }
+      ...(spec.grouped ? { strokeId: 'gesture', strokeEnd: true } : {}) }
     if (spec.tool === 'smudge') {
       engine.appendOperation({ ...base, id: 'other-base', layerId: 'other', seq: 3 }, 'remote')
       engine.appendOperation({ ...op, id: 'other-old', layerId: 'other', strokeId: 'old-gesture', seq: 4 }, 'remote')

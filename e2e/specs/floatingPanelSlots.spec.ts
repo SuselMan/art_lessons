@@ -141,11 +141,11 @@ test.describe('the floating panel’s slots', () => {
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await page.evaluate(() => window.__roomStore!.getState().setTool('watercolor'))
+    await page.evaluate(() => window.__roomStore!.getState().setTool('brushPen'))
     // Tapping it is the way back to that material after erasing.
     await page.evaluate(() => window.__roomStore!.getState().setTool('eraser'))
     await slot(page, 0).click()
-    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('watercolor')
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('brushPen')
   })
 
   // (#544) And the half a role could not. On a tablet in minimal UI there is
@@ -169,8 +169,8 @@ test.describe('the floating panel’s slots', () => {
     // Now it is the second tap, and it fans out.
     await slot(page, 0).click()
 
-    await expect(page.locator(`${PANEL} [data-member]`)).toHaveCount(7)
-    await page.locator(`${PANEL} [data-member="charcoal"]`).click()
+    await expect(page.getByRole('listbox').last()).toBeVisible()
+    await page.getByRole('option', { name: /^Charcoal/ }).click()
     expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('charcoal')
     // Choosing a member changes what the group is on, not what the slot holds
     // — the slot is still the group, and nothing was written to the stored

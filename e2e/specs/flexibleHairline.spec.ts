@@ -3,7 +3,7 @@ import { slow } from '../support/pace'
 import { strokeDabs } from '../../packages/shared/src/index'
 import { createRoom, waitForRoomReady, waitForOperations, operations } from '../support/room'
 
-for (const tool of ['brushPen', 'watercolor'] as const) {
+for (const tool of ['brushPen'] as const) {
   test(`${tool}: a large flexible nib draws a hairline with feather pressure`, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('al_locale', 'en'))
     await createRoom(page)

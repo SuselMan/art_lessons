@@ -120,7 +120,7 @@ test('100 snapshot strokes plus six native chunked charcoal/pencil gestures surv
   const authorDiff = await compareImages(page, before, await exportImage(page))
   console.log('QA673 native long rejoin:', JSON.stringify({ role: 'author', chunks, ...authorDiff }))
   expect.soft(authorDiff).toEqual({ pixels: 0, components: 0, maxDelta: 0 })
-  const observer = await browser.newContext({ ignoreHTTPSErrors: true })
+  const observer = await browser.newContext({ ignoreHTTPSErrors: true, storageState: process.env.E2E_STORAGE_STATE })
   try {
     const peer = await observer.newPage(); const peerReady = observe(peer); await joinRoom(peer, roomId, 'Observer'); peerReady()
     await expect.poll(async () => (await operations(peer)).filter(op => op.type === 'stroke').length).toBe(112)

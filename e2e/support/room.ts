@@ -41,7 +41,8 @@ export const PASSWORD_INPUT = 'form input[type="password"]'
 export async function createRoom(
   page: Page, name = 'E2E lesson', opts: { password?: string } = {},
 ): Promise<string> {
-  await page.goto('/create')
+  // Optional existing private stand entry; CI keeps its isolated /create.
+  await page.goto(process.env.E2E_ENTRY_URL || '/create')
   await page.locator(NAME_INPUT).first().fill(name)
   if (opts.password) {
     // (#548) The create form's access settings are now the room's own access

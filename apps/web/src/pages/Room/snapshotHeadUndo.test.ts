@@ -42,7 +42,7 @@ it.each([
         return 'restored'
       },
       backfillHistory: (_board, engine, from) => {
-        backfill = walkHistoryBackward('snapshot-head', from, SNAPSHOT_SEQ_INTERVAL,
+        backfill = walkHistoryBackward('snapshot-head', from + 1, SNAPSHOT_SEQ_INTERVAL,
           page => {
             const before = readLayerPixels(reader, 'L')
             engine.absorbHistoricalOperations(page)
