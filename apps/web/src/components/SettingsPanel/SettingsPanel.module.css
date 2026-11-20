@@ -192,3 +192,6 @@
 .infoButton:hover, .infoButton:focus-visible { color: var(--color-accent); background: var(--color-surface-hover); }
 .infoButton :global(.material-symbols-outlined) { font-size: 18px; }
 .toolsTab { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+
+/* The Tools tab owns its inset; its embedded picker must not add another. */
+.toolsTab .toolsPicker { padding: 0; }

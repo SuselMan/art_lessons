@@ -91,7 +91,7 @@ export function SettingsPanel({
           content: (
             <div className={styles.toolsTab}>
               {toolsContent}
-              <ToolSetPicker utilitiesOnly value={enabledTools} onChange={onEnabledToolsChange} />
+              <ToolSetPicker className={styles.toolsPicker} utilitiesOnly value={enabledTools} onChange={onEnabledToolsChange} />
               {hasAssignments && classVisibility && onClassVisibilityChange && (
                 <ClassVisibilityField value={classVisibility} onChange={onClassVisibilityChange} />
               )}

@@ -140,7 +140,6 @@ export function Settings() {
             onSelect={setHandedness}
             ariaLabel={t('settingsPage.handedness')}
           />
-          <p className={styles.hint}>{t('settingsPage.handednessHint')}</p>
         </section>
 
         <VersionSection />

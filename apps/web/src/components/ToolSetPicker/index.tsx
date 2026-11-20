@@ -1,3 +1,5 @@
+import clsx from 'clsx'
+
 import {
   TOGGLEABLE_TOOLS, TOOLSET_MATERIAL_TOOLS, type ToggleableTool,
 } from '@grafetto/shared'
@@ -10,6 +12,7 @@ import { Icon } from '../Icon'
 import styles from './ToolSetPicker.module.css'
 
 interface ToolSetPickerProps {
+  className?: string
   /** The room's toolset, or `undefined` for the unrestricted room — the same
    *  value `Room.enabledTools` carries, unchanged, so this component has no
    *  encoding of its own to get wrong. */
@@ -49,7 +52,7 @@ const GROUPS = [
  *  is its own setting rather than something to arrive at by unchecking boxes.
  *  The last one standing therefore refuses to switch off, and says why.
  */
-export function ToolSetPicker({ value, onChange, disabled, utilitiesOnly }: ToolSetPickerProps) {
+export function ToolSetPicker({ value, onChange, disabled, utilitiesOnly, className }: ToolSetPickerProps) {
   const t = useT()
   // `undefined` means "everything", and that is the shape stored — never a
   // spelled-out list of all fifteen, or the next tool this app ships would be
@@ -69,7 +72,7 @@ export function ToolSetPicker({ value, onChange, disabled, utilitiesOnly }: Tool
   }
 
   return (
-    <div className={styles.picker}>
+    <div className={clsx(styles.picker, className)}>
       <div className={styles.summaryRow}>
         <span className={styles.summary}>
           {t('toolset.selected', { n: displayed.filter(tool => enabled.has(tool)).length, total: displayed.length })}

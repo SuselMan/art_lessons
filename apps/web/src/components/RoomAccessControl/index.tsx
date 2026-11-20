@@ -99,9 +99,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
             { id: 'invite_only', label: t('access.mode.inviteOnly') },
           ]}
         />
-        <p className={styles.hint}>
-          {t(inviteOnly ? 'access.mode.inviteOnlyHint' : 'access.mode.anyoneWithLinkHint')}
-        </p>
+        {inviteOnly && <p className={styles.hint}>{t('access.mode.inviteOnlyHint')}</p>}
       </section>
 
       {/* A password is a separate gate, not a third mode: it applies in both,
@@ -150,12 +148,10 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
         )}
       </section>
 
-      {/* Shown in both modes on purpose: an allow-list can be prepared before
-          the room is switched over, and losing it from view the moment the
-          mode is flipped back would read as having lost the list itself. */}
-      <section className={styles.section}>
+      {/* The saved allow-list applies only in invitation mode. Hiding it does
+          not remove its entries when the owner opens access by link. */}
+      {inviteOnly && <section className={styles.section}>
         <h3 className={styles.heading}>{t('access.invitesHeading')}</h3>
-        {!inviteOnly && <p className={styles.hint}>{t('access.invitesInactiveHint')}</p>}
         <div className={styles.row}>
           <TextInput
             type="email"
@@ -202,7 +198,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
       {/* Only in invite_only: in the open mode nobody is ever queued, so the
           section would be a permanently empty box explaining its own absence.

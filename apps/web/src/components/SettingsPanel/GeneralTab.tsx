@@ -26,7 +26,7 @@ const MINIMAL_UI_TAP_LABELS: Record<MinimalUiTapMode, TranslationKey> = {
 
 interface ToggleRowProps {
   label: string
-  hint: string
+  hint?: string
   checked: boolean
   onChange: (checked: boolean) => void
 }
@@ -35,7 +35,7 @@ function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
   return (
     <div className={styles.choiceRow}>
       <Switch label={label} checked={checked} onChange={onChange} />
-      <div className={styles.flagDescription}>{hint}</div>
+      {hint && <div className={styles.flagDescription}>{hint}</div>}
     </div>
   )
 }
@@ -72,7 +72,6 @@ export function GeneralTab() {
     <div className={styles.flagList}>
       <ToggleRow
         label={t('editorSettings.soundEnabled')}
-        hint={t('editorSettings.soundEnabledHint')}
         checked={soundEnabled}
         onChange={setSoundEnabled}
       />
@@ -103,7 +102,6 @@ export function GeneralTab() {
 
       <div className={styles.choiceRow}>
         <div className={styles.flagLabel}>{t('settingsPage.handedness')}</div>
-        <div className={styles.flagDescription}>{t('settingsPage.handednessHint')}</div>
         <OptionGroup
           variant="choices"
           options={HANDEDNESS_OPTIONS.map(id => ({
