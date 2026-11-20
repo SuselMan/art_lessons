@@ -79,15 +79,16 @@ export function SettingsPanel({
   const toolsAvailable = accessAvailable && onEnabledToolsChange !== undefined
 
   const tabs = [
-    { id: 'general' as const, label: t('editorSettings.tab.general'), content: <GeneralTab /> },
-    { id: 'stylus' as const, label: t('editorSettings.tab.stylus'), content: <StylusTab onWideChange={onWideChange} /> },
+    { id: 'general' as const, label: t('editorSettings.tab.general'), icon: 'settings' as const, content: <GeneralTab /> },
+    { id: 'stylus' as const, label: t('editorSettings.tab.stylus'), icon: 'stylus' as const, content: <StylusTab onWideChange={onWideChange} /> },
     ...(accessAvailable
-      ? [{ id: 'access' as const, label: t('editorSettings.tab.access'), content: <RoomAccessControl roomId={roomId} /> }]
+      ? [{ id: 'access' as const, label: t('editorSettings.tab.access'), icon: 'lock' as const, content: <RoomAccessControl roomId={roomId} /> }]
       : []),
     ...(toolsAvailable
       ? [{
           id: 'tools' as const,
           label: t('editorSettings.tab.tools'),
+          icon: 'brush' as const,
           content: (
             <div className={styles.toolsTab}>
               {toolsContent}
@@ -103,15 +104,15 @@ export function SettingsPanel({
           ),
         }]
       : []),
-    { id: 'hotkeys' as const, label: t('editorSettings.tab.hotkeys'), content: <HotkeysTab /> },
+    { id: 'hotkeys' as const, label: t('editorSettings.tab.hotkeys'), icon: 'keyboard' as const, content: <HotkeysTab /> },
     ...(debugAvailable
-      ? [{ id: 'debug' as const, label: t('editorSettings.tab.debug'), content: <DebugTab /> }]
+      ? [{ id: 'debug' as const, label: t('editorSettings.tab.debug'), icon: 'tune' as const, content: <DebugTab /> }]
       : []),
   ]
 
   return (
     <Modal title={t('editorSettings.title')} size={wide ? 'lg' : 'md'} onClose={onClose}>
-      <div className={styles.scrollArea}>
+      <div className={`${styles.scrollArea} ${styles.settingsTabs}`}>
         <OptionGroup
           options={tabs}
           active={activeTab}
