@@ -57,3 +57,31 @@ describe('openParkedRoomState (#493)', () => {
     expect(d.setRoomContentReady).not.toHaveBeenCalled()
   })
 })
+
+describe('afterBoardPaint (#850)', () => {
+  it('cancels a replaced board before GPU setup and retires only the started board', async () => {
+    vi.useFakeTimers()
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.push(callback); return frames.length })
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    try {
+      const { afterBoardPaint } = await import('./engineWiring')
+      const oldStart = vi.fn(() => vi.fn())
+      const cancelOld = afterBoardPaint(oldStart)
+      frames[0](0) // A paint happened, but its deferred GPU setup has not run.
+      cancelOld()
+      const retire = vi.fn()
+      const start = vi.fn(() => retire)
+      const cancelCurrent = afterBoardPaint(start)
+      expect(start).not.toHaveBeenCalled()
+      frames[1](0)
+      expect(start).not.toHaveBeenCalled()
+      vi.runAllTimers()
+      expect(oldStart).not.toHaveBeenCalled()
+      expect(start).toHaveBeenCalledTimes(1)
+      cancelCurrent()
+      cancelCurrent()
+      expect(retire).toHaveBeenCalledTimes(1)
+    } finally { vi.useRealTimers(); vi.unstubAllGlobals() }
+  })
+})

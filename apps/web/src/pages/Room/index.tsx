@@ -115,7 +115,7 @@ import { createSnapshotGate } from './net/snapshotGate'
 import type { RoomStatePayload } from './restoreRoomState'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
-import { initEngineFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
+import { afterBoardPaint, initEngineFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { isHandActive } from '../../stores/slices/viewportSlice'
@@ -968,81 +968,84 @@ function RoomEditor() {
     // (#176) No board, no engine: a joiner has nothing to build for until the
     // first `room_state` says which board they are on.
     if (enginePaper === undefined || boardId === null || !canvasRef.current) return
-    // Per mount, not per board — see enterBoard's doc comment on why these two
-    // are reset here rather than there.
-    replayIncompleteRef.current = false
-    snapshotGateRef.current = createSnapshotGate(reportInvariant)
-    const engine = new PencilEngine(canvasRef.current, {
-      asyncFinish: false,
-      joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
-      bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
-      joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
-      materialPresentation: false,
-      diagLog,
-      infinite: engineInfinite,
-      // (#470) The sheet, in world units. The canvas is the viewport now, so
-      // the engine can no longer read this off it the way it used to.
-      pageWidth: engineInfinite ? undefined : enginePageW,
-      pageHeight: engineInfinite ? undefined : enginePageH,
-      paper: enginePaper,
-      gradientFibres: true,
-      paperColor: enginePaperColor ? hexToRgb(enginePaperColor) : undefined,
-      pencilType: initialToolRef.current.pencil,
-      size: initialToolRef.current.size,
-      opacity: initialToolRef.current.opacity,
-      userId: useRoomStore.getState().userId,
-      // (#493) Local operations out, peer reveals committed, the live stroke
-      // channel — see engineNetwork.ts.
-      ...createEngineNetworkCallbacks({
-        engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-        applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
-        sendLive: data => { socketRef.current?.emit('stroke_live', data) },
-        sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
-      }),
-      onSnapshotHistoryRepairNeeded: repairSnapshotHistory,
-      // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
-      onInvariant: reportInvariant,
-      // (#493) The developer switches — see useEngineDevOptions.
-      ...engineDevOptions,
+    return afterBoardPaint(() => {
+      if (!canvasRef.current) return () => {}
+      // Per mount, not per board — see enterBoard's doc comment on why these two
+      // are reset here rather than there.
+      replayIncompleteRef.current = false
+      snapshotGateRef.current = createSnapshotGate(reportInvariant)
+      const engine: PencilEngine = new PencilEngine(canvasRef.current, {
+        asyncFinish: false,
+        joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
+        bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
+        joinedFinishDeferred: joinedFinishDeferredQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_FINISH_DEFERRED, window.location.search),
+        materialPresentation: false,
+        diagLog,
+        infinite: engineInfinite,
+        // (#470) The sheet, in world units. The canvas is the viewport now, so
+        // the engine can no longer read this off it the way it used to.
+        pageWidth: engineInfinite ? undefined : enginePageW,
+        pageHeight: engineInfinite ? undefined : enginePageH,
+        paper: enginePaper,
+        gradientFibres: true,
+        paperColor: enginePaperColor ? hexToRgb(enginePaperColor) : undefined,
+        pencilType: initialToolRef.current.pencil,
+        size: initialToolRef.current.size,
+        opacity: initialToolRef.current.opacity,
+        userId: useRoomStore.getState().userId,
+        // (#493) Local operations out, peer reveals committed, the live stroke
+        // channel — see engineNetwork.ts.
+        ...createEngineNetworkCallbacks({
+          engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
+          applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
+          sendLive: data => { socketRef.current?.emit('stroke_live', data) },
+          sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
+        }),
+        onSnapshotHistoryRepairNeeded: () => repairSnapshotHistory(engine, boardId),
+        // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
+        onInvariant: reportInvariant,
+        // (#493) The developer switches — see useEngineDevOptions.
+        ...engineDevOptions,
+      })
+      engineRef.current = engine
+      exposeEngineForDev(engine)
+      // Tells every engine-sync effect below that there is now an engine to sync
+      // to — see engineEpoch's own comment for what silently did not happen
+      // before this existed.
+      setEngineEpoch(n => n + 1)
+      // (#475) The pen calibration this device already has, handed over at
+      // birth: useToolSync pushes later changes only when the *setting* changes,
+      // so a freshly built engine (a paper change, every room mount) would draw
+      // uncalibrated until the person touched it again. Read off the store, not
+      // through a dependency: a calibration in this list would rebuild the WebGL
+      // context every time the curve is dragged.
+      engine.setPressureMap(pressureMapOf(useSettingsStore.getState().pressureCalibration))
+
+      // (#493) What happens around this person's own strokes, and the layer
+      // structure the store already holds — see engineWiring.
+      wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
+      initEngineFromStore(engine, boardId)
+
+      // (#493) The `room_state` parked for this engine, or the paper wait for a
+      // room with none — see openParkedRoomState.
+      void openParkedRoomState(engine, {
+        pendingSnapshotRef, isCreator, openTimerRef, latestKnownSeqRef, awaitPaper, setRoomContentReady, finishOpenTimer,
+        restore: pending => restoreRoom(engine, pending, { mode: 'join', alreadyHadSeq: 0 }, {
+          boardId, finishOpenTimer, getSnapshotUploader: () => snapshotUploader,
+        }),
+      })
+
+      const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
+      return () => {
+        engineRef.current = null
+        // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
+        retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
+      }
     })
-    engineRef.current = engine
-    exposeEngineForDev(engine)
-    // Tells every engine-sync effect below that there is now an engine to sync
-    // to — see engineEpoch's own comment for what silently did not happen
-    // before this existed.
-    setEngineEpoch(n => n + 1)
-    // (#475) The pen calibration this device already has, handed over at
-    // birth: useToolSync pushes later changes only when the *setting* changes,
-    // so a freshly built engine (a paper change, every room mount) would draw
-    // uncalibrated until the person touched it again. Read off the store, not
-    // through a dependency: a calibration in this list would rebuild the WebGL
-    // context every time the curve is dragged.
-    engine.setPressureMap(pressureMapOf(useSettingsStore.getState().pressureCalibration))
-
-    // (#493) What happens around this person's own strokes, and the layer
-    // structure the store already holds — see engineWiring.
-    wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
-    initEngineFromStore(engine, boardId)
-
-    // (#493) The `room_state` parked for this engine, or the paper wait for a
-    // room with none — see openParkedRoomState.
-    void openParkedRoomState(engine, {
-      pendingSnapshotRef, isCreator, openTimerRef, latestKnownSeqRef, awaitPaper, setRoomContentReady, finishOpenTimer,
-      restore: pending => restoreRoom(engine, pending, { mode: 'join', alreadyHadSeq: 0 }, {
-        boardId, finishOpenTimer, getSnapshotUploader: () => snapshotUploader,
-      }),
-    })
-
-    const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
-    return () => {
-      engineRef.current = null
-      // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
-      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
-    }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
-    isCreator, snapshotUploader, outbox,
+    isCreator, snapshotUploader, outbox, repairSnapshotHistory,
     awaitPaper,
     // (#493) The ref *object* — stable for the component's life, so naming it
     // costs nothing. Never `.current`: that would rebuild the engine every

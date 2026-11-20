@@ -24,7 +24,7 @@ import { createTestEngine, dab, makeStroke } from '../../engine/testing/engineTe
 import { createBrushRandomStrokeId } from '@grafetto/shared'
 
 describe('Room repair hook render identity', () => {
-  it('keeps restore/backfill callbacks stable while calling the latest failure handler', async () => {
+  it('keeps repair/restore/backfill callbacks stable across board changes and calls the latest failure handler', async () => {
     hooks.slots = []; hooks.cursor = 0
     const engine = { pendingSnapshotHistoryRepairs: () => [{ layerId: 'L', beforeSeq: 3 }], absorbHistoricalOperations: vi.fn() } as unknown as PencilEngineAPI
     const firstFailure = vi.fn(), latestFailure = vi.fn(), noop = vi.fn()
@@ -35,7 +35,7 @@ describe('Room repair hook render identity', () => {
     } as RemoteOperationsDeps
     const first = useRemoteOperations(deps)
     hooks.cursor = 0
-    const next = useRemoteOperations({ ...deps, onHistoryRepairFailure: latestFailure })
+    const next = useRemoteOperations({ ...deps, boardId: 'next-room', onHistoryRepairFailure: latestFailure })
     expect(next.repairSnapshotHistory).toBe(first.repairSnapshotHistory)
     expect(next.backfillHistory).toBe(first.backfillHistory)
     expect(next.restoreFromSnapshot).toBe(first.restoreFromSnapshot)
@@ -193,4 +193,29 @@ it('retires partial old audit synchronously before new pixels can append their a
  release();expect((await old as Error).name).toBe('AbortError')
  expect(reports).toEqual([['10'],['20']])
  generation.finishRestoreGeneration(engine,newOwner)
+})
+
+it('retires repair on a board change before engine replacement and rejects its stale owner callback (#850)', async () => {
+  hooks.slots = []; hooks.cursor = 0; vi.mocked(walkHistoryBackward).mockReset()
+  let deliver!: () => void
+  const gate = new Promise<void>(resolve => { deliver = resolve })
+  const absorb = vi.fn(), failure = vi.fn(), sync = vi.fn(), noop = vi.fn()
+  const engine = { pendingSnapshotHistoryRepairs: () => [{ layerId: 'L', beforeSeq: 10 }], absorbHistoricalOperations: absorb } as unknown as PencilEngineAPI
+  vi.mocked(walkHistoryBackward).mockImplementationOnce(async (_room, _from, _depth, consume) => { await gate; consume([]) })
+  const deps = { engineRef: { current: engine }, boardId: 'old', onHistoryRepairFailure: failure,
+    appliedOpIdsRef: { current: new Set<string>() }, deferredOpsQueueRef: { current: [] }, restoredLayerStateRef: { current: null },
+    markActive: noop, resolveTransformCommit: noop, confirmOwnOperation: noop, noteOperationSeq: noop, syncFromLog: sync, checkSnapshotBoundary: noop,
+  } as RemoteOperationsDeps
+  const old = useRemoteOperations(deps)
+  old.repairSnapshotHistory()
+  await vi.waitFor(() => expect(walkHistoryBackward).toHaveBeenCalledOnce())
+  hooks.cursor = 0
+  const next = useRemoteOperations({ ...deps, boardId: 'new' })
+  deliver()
+  for (let i = 0; i < 12; i++) await Promise.resolve()
+  expect(absorb).not.toHaveBeenCalled(); expect(failure).not.toHaveBeenCalled(); expect(sync).not.toHaveBeenCalled()
+  // The retiring engine's callback carries its original board explicitly.
+  next.repairSnapshotHistory(engine, 'old')
+  for (let i = 0; i < 4; i++) await Promise.resolve()
+  expect(walkHistoryBackward).toHaveBeenCalledOnce()
 })
