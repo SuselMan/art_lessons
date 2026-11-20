@@ -1,13 +1,15 @@
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
+import { chromium } from 'playwright'
+import { BrushSamples } from './samples.js'
 import type { ImportedBrush } from '@grafetto/shared'
 import { BrushStorage, empty } from './storage.js'
 import { BrushGallery } from './gallery.js'
 import { brushContentHash, brushReference } from './contentAddressing.js'
 const dirs: string[] = []
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { vi.restoreAllMocks(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
 const brush = (name: string, id: string): ImportedBrush => ({ name, source: name + '.kpp', warnings: [], descriptor: {
   id: 'imported-' + id.repeat(16), version: 1, model: 'stamp', category: 'paint',
   tip: { kind: 'round', hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
@@ -69,4 +71,13 @@ it('shares current private choices across boards without pinning unused brushes 
   restarted.bindSelectionScope('fresh-board','lesson')
   expect(() => restarted.pin('fresh-board','bob',[ref])).toThrow('unavailable')
   expect(restarted.library('sets','lesson').brushes).toEqual([])
+})
+
+it('does not start a rendering browser when every preview is already cached', async () => {
+  const { storage } = fixture(), launch = vi.spyOn(chromium,'launch').mockRejectedValue(Error('No browser should start'))
+  const samples = new BrushSamples(storage,'http://127.0.0.1:5386',() => {})
+  vi.spyOn(samples,'available').mockReturnValue(true)
+  samples.enqueue(empty())
+  await samples.close()
+  expect(launch).not.toHaveBeenCalled()
 })

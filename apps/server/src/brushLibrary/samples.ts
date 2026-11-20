@@ -36,7 +36,7 @@ export class BrushSamples {
     const preferred = new Set(priority ? library.brushes.map(brushReference) : [])
     const weight = (reference: string) => preferred.has(reference) ? 0 : reference.startsWith('brush:') ? 2 : 1
     this.queue.sort((a, b) => weight(a.reference) - weight(b.reference))
-    if (!this.task) this.task = this.drain().finally(() => { this.task = undefined })
+    if (!this.task && this.queue.length) this.task = this.drain().finally(() => { this.task = undefined })
   }
   private async drain(): Promise<void> {
     try {
