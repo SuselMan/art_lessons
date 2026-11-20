@@ -587,8 +587,8 @@ confirmed which migration it was taken at.
 
 ## Brush catalog and personal uploads
 
-CI fetches the checksum-pinned `brush-stock-20261120` release asset with
-`scripts/brush-import/fetch-stock.mjs` before building the server image. It contains
+The server Docker build unpacks the bundled `brush-stock-20261120` archive with
+`scripts/brush-import/fetch-stock.mjs`, verifying its pinned SHA-256. It contains
 only the stock Krita catalog/resources and Grafetto-generated sample PNGs. The image
 packages that catalog, the dedicated static preview renderer, system Chromium and
 the Python importer. Neither QA bindings nor user libraries enter this artifact.
@@ -598,8 +598,8 @@ alongside PostgreSQL in backups; never run compose down with `--volumes` on prod
 The renderer reads packaged assets inside an isolated browser context; it opens no
 additional public service/port and does not depend on the QA frontend.
 
-For a manual image build, first run `node scripts/brush-import/fetch-stock.mjs` and
-build `apps/web`; the production Docker context requires both verified artifacts.
+For a manual image build, first build `apps/web`; the production Docker context
+requires that static artifact. The stock archive is verified inside Docker.
 
 Brush backups: each verified database dump has a same-timestamp `.brushes.tar.gz`
 archive of the persistent CAS and owner/room metadata. Restore both together into
