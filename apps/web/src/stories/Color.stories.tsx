@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ColorWell } from '../components/ColorWell'
 import { ColorPicker } from '../components/ColorPicker'
@@ -33,6 +33,10 @@ export const Wells: StoryObj = {
     </div>
   ),
 }
+function InteractivePicker({ mode, ...props }: ComponentProps<typeof ColorPicker>) {
+  const [selectedMode, setSelectedMode] = useState(mode)
+  return <ColorPicker {...props} mode={selectedMode} onModeChange={setSelectedMode} />
+}
 export const Pickers: StoryObj = {
   render: function Example() {
     const [value, setValue] = useState<[number, number, number]>([85, 85, 170])
@@ -41,7 +45,7 @@ export const Pickers: StoryObj = {
         {(['bar', 'ring', 'triangle'] as const).map((mode) => (
           <section key={mode} style={{ width: 260 }}>
             <h3>{mode}</h3>
-            <ColorPicker value={value} onChange={setValue} mode={mode} />
+            <InteractivePicker value={value} onChange={setValue} mode={mode} />
           </section>
         ))}
       </div>

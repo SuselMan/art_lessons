@@ -10,7 +10,7 @@ export interface OptionDef<Id extends string = string> {
   id: Id
   label: string
   /** Material Symbols name, or a custom glyph from `assets/icons` (see Icon).
-   *  The `segmented` variant shows this instead of the label. */
+   *  With `iconOnly`, segmented controls show this instead of the label. */
   icon?: IconName
   /** Rendered below the strip while this option is active. Only the `tab`
    *  selection mode has a panel — a group that merely picks a value has
@@ -22,7 +22,7 @@ export interface OptionDef<Id extends string = string> {
  *  the same shape serves both jobs: the color picker's mode switch is a
  *  segmented control that behaves like tabs, and a segmented control picking a
  *  preference is a radio group. */
-export type OptionGroupVariant = 'tabs' | 'list' | 'segmented' | 'choices'
+export type OptionGroupVariant = 'tabs' | 'list' | 'segmented'
 
 /** How the group behaves for a screen reader. `tab` = a strip that swaps the
  *  content below it; `radio` = a set of mutually exclusive values. These are
@@ -37,6 +37,8 @@ interface OptionGroupProps<Id extends string> {
   onSelect: (id: Id) => void
   /** Default `tabs`. */
   variant?: OptionGroupVariant
+  /** Hide labels for compact icon segments; each icon keeps its accessible label. */
+  iconOnly?: boolean
   /** Defaults to `tab` for the `tabs` variant and `radio` for the others —
    *  the common pairing. Pass it explicitly to break that pairing. */
   selection?: OptionGroupSelection
@@ -47,7 +49,7 @@ interface OptionGroupProps<Id extends string> {
 
 /** One controlled group of mutually exclusive options, in the three shapes the
  *  app uses: modal tabs (`tabs`), a column of full-width preference rows
- *  (`list`), and a compact icon strip (`segmented`).
+ *  (`list`), and a segmented control with text or icons (`segmented`).
  *
  *  It exists because these were separate hand-written copies of the same
  *  keyboard-and-ARIA logic — two of them inline in `pages/Settings` — and the
@@ -67,6 +69,7 @@ export function OptionGroup<Id extends string>({
   allowEmpty = false,
   onSelect,
   variant = 'tabs',
+  iconOnly = false,
   selection = variant === 'tabs' ? 'tab' : 'radio',
   ariaLabel,
 }: OptionGroupProps<Id>) {
@@ -88,7 +91,7 @@ export function OptionGroup<Id extends string>({
   }
 
   return (
-    <div className={clsx(styles.group, styles[variant])}>
+    <div className={clsx(styles.group, styles[variant], variant === 'segmented' && iconOnly && styles.iconOnly)}>
       <div
         className={styles.strip}
         role={isTabs ? 'tablist' : 'radiogroup'}
@@ -97,7 +100,7 @@ export function OptionGroup<Id extends string>({
       >
         {options.map((option, i) => {
           const selected = option.id === activeOption?.id
-          const iconOnly = variant === 'segmented' && option.icon !== undefined
+          const hideLabel = variant === 'segmented' && iconOnly && option.icon !== undefined
           return (
             <button
               key={option.id}
@@ -110,14 +113,14 @@ export function OptionGroup<Id extends string>({
               aria-selected={isTabs ? selected : undefined}
               aria-checked={isTabs ? undefined : selected}
               aria-controls={showPanel ? `${uid}-panel` : undefined}
-              aria-label={iconOnly ? option.label : undefined}
-              title={iconOnly ? option.label : undefined}
+              aria-label={hideLabel ? option.label : undefined}
+              title={hideLabel ? option.label : undefined}
               tabIndex={selected || (activeIndex < 0 && i === 0) ? 0 : -1}
               className={clsx(styles.option, selected && styles.optionSelected)}
               onClick={() => onSelect(option.id)}
             >
               {option.icon !== undefined && <Icon name={option.icon} />}
-              {!iconOnly && <span className={styles.label}>{option.label}</span>}
+              {!hideLabel && <span className={styles.label}>{option.label}</span>}
               {variant === 'list' && selected && <Icon name="check" />}
             </button>
           )

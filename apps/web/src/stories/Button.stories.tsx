@@ -1,9 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import {
-  Button,
-  ResetDefaultsButton,
-  ResetDefaultsFooter,
-} from '../components/Button'
+import { Button } from '../components/Button'
 import { Icon } from '../components/Icon'
 
 const meta = {
@@ -13,7 +9,7 @@ const meta = {
   argTypes: {
     type: {
       control: 'select',
-      options: ['primary', 'secondary', 'ghost', 'danger'],
+      options: ['primary', 'secondary', 'ghost', 'subtle', 'danger'],
     },
     size: { control: 'select', options: ['sm', 'md', 'lg'] },
     onClick: { action: 'click' },
@@ -29,7 +25,7 @@ export const AllVariants: StoryObj<typeof meta> = {
           <h3>{size}</h3>
           <div className="workshop-row">
             {(
-              ['primary', 'secondary', 'ghost', 'danger'] as const
+              ['primary', 'secondary', 'ghost', 'subtle', 'danger'] as const
             ).map((type) => (
               <Button key={type} type={type} size={size}>
                 {type}
@@ -38,7 +34,7 @@ export const AllVariants: StoryObj<typeof meta> = {
           </div>
           <div className="workshop-row">
             {(
-              ['primary', 'secondary', 'ghost', 'danger'] as const
+              ['primary', 'secondary', 'ghost', 'subtle', 'danger'] as const
             ).map((type) => (
               <Button key={type} type={type} size={size} disabled>
                 {type}
@@ -60,11 +56,6 @@ export const WithIcon: StoryObj<typeof meta> = {
     ),
   },
 }
-export const ResetDefaults: StoryObj<typeof meta> = {
-  render: () => (
-    <div className="workshop-column">
-      <ResetDefaultsButton>Reset to defaults</ResetDefaultsButton>
-      <ResetDefaultsFooter>Reset to defaults</ResetDefaultsFooter>
-    </div>
-  ),
+export const Subtle: StoryObj<typeof meta> = {
+  args: { type: 'subtle', children: 'Reset to defaults' },
 }

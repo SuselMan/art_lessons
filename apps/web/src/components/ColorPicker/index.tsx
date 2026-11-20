@@ -91,6 +91,7 @@ export const ColorPicker = memo(function ColorPicker({
       {showModes && (
         <OptionGroup
           variant="segmented"
+          iconOnly
           options={COLOR_PICKER_MODES.map(id => ({
             id,
             label: t(COLOR_PICKER_MODE_META[id].label),

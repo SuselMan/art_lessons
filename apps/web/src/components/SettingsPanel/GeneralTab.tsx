@@ -71,7 +71,7 @@ export function GeneralTab() {
         <div className={general.row}>
           <span className={general.label}>{t('settingsPage.handedness')}</span>
           <div className={general.control}>
-            <OptionGroup variant="choices"
+            <OptionGroup variant="segmented"
               options={HANDEDNESS_OPTIONS.map(id => ({ id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded') }))}
               active={handedness} onSelect={setHandedness} ariaLabel={t('settingsPage.handedness')} />
           </div>
@@ -84,7 +84,7 @@ export function GeneralTab() {
               <div className={general.row}>
                 <span className={general.label}>{t('editorSettings.minimalUiTap')}</span>
                 <div className={general.control}>
-                  <OptionGroup variant="choices"
+                  <OptionGroup variant="segmented"
                     options={MINIMAL_UI_TAP_MODES.map(mode => ({ id: mode, label: t(MINIMAL_UI_TAP_LABELS[mode]) }))}
                     active={minimalUiTapMode} onSelect={setMinimalUiTapMode} ariaLabel={t('editorSettings.minimalUiTap')} />
                 </div>
@@ -101,7 +101,7 @@ export function GeneralTab() {
             </Tooltip>
           </div>
           <div className={general.control}>
-            <OptionGroup variant="choices"
+            <OptionGroup variant="segmented"
               options={floatingPanelChoices(deviceType).map(mode => ({ id: mode, label: t(FLOATING_PANEL_LABELS[mode]) }))}
               active={floatingPanelSelection(floatingPanel, deviceType)} onSelect={setFloatingPanel} ariaLabel={t('editorSettings.floatingPanel')} />
           </div>

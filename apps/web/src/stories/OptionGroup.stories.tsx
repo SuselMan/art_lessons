@@ -15,12 +15,13 @@ const meta = {
     onSelect: fn(),
     options,
     active: 'pencil',
+    iconOnly: false,
     ariaLabel: 'Drawing tool',
   },
   argTypes: {
     variant: {
       control: 'select',
-      options: ['tabs', 'choices', 'segmented', 'list'],
+      options: ['tabs', 'segmented', 'list'],
     },
     onSelect: { action: 'select' },
   },
@@ -44,15 +45,21 @@ function Variants() {
   const [active, setActive] = useState('pencil')
   return (
     <div className="workshop-column">
-      {(['tabs', 'choices', 'segmented', 'list'] as const).map((variant) => (
-        <section key={variant}>
-          <h3>{{ tabs: 'Tabs', choices: 'Segmented · text', segmented: 'Segmented · icons', list: 'List' }[variant]}</h3>
+      {([
+        { variant: 'tabs', title: 'Tabs' },
+        { variant: 'segmented', title: 'Segmented · text' },
+        { variant: 'segmented', iconOnly: true, title: 'Segmented · icons' },
+        { variant: 'list', title: 'List' },
+      ] as const).map(({ variant, title, ...presentation }) => (
+        <section key={title}>
+          <h3>{title}</h3>
           <OptionGroup
             options={options}
             active={active}
             onSelect={setActive}
             variant={variant}
-            ariaLabel={`${variant} tool`}
+            {...presentation}
+            ariaLabel={`${title} tool`}
           />
         </section>
       ))}
@@ -63,16 +70,16 @@ export const AllVariants: StoryObj<typeof meta> = {
   render: () => <Variants />,
 }
 export const CustomValue: StoryObj<typeof meta> = {
-  args: { variant: 'choices', active: 'custom', allowEmpty: true },
+  args: { variant: 'segmented', active: 'custom', allowEmpty: true },
 }
 
 export const TextSegments: StoryObj<typeof meta> = {
   name: 'Segmented · text',
   ...Playground,
-  args: { variant: 'choices' },
+  args: { variant: 'segmented' },
 }
 export const IconSegments: StoryObj<typeof meta> = {
   name: 'Segmented · icons',
   ...Playground,
-  args: { variant: 'segmented' },
+  args: { variant: 'segmented', iconOnly: true },
 }

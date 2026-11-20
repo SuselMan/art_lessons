@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Button } from '../components/Button'
 import { SettingsPanel } from '../components/SettingsPanel'
 const meta = {
-  title: 'Overlays/Settings',
+  title: 'Examples/Settings',
   parameters: { controls: { disable: true } },
 } satisfies Meta
 export default meta

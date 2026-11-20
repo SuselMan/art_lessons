@@ -103,7 +103,7 @@ export function StylusTab({ onWideChange }: StylusTabProps) {
 
       <div className={styles.response}>
         <h3 className={styles.title}>{t('pressure.curveSection')}</h3>
-        <OptionGroup variant="choices" allowEmpty active={activePreset ?? 'custom'}
+        <OptionGroup variant="segmented" allowEmpty active={activePreset ?? 'custom'}
           options={PRESSURE_CURVE_PRESETS.map(preset => ({ id: preset, label: t(PRESET_LABELS[preset]) }))}
           onSelect={preset => { if (preset !== 'custom') setPoints(PRESSURE_CURVE_PRESET_POINTS[preset]) }}
           ariaLabel={t('pressure.curveSection')} />

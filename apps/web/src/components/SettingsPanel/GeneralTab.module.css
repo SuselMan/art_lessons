@@ -8,8 +8,6 @@
 .row { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, auto); align-items: center; gap: 12px; min-height: 44px; }
 .heading { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .control { min-width: 0; }
-.control [role="radiogroup"] { flex-wrap: nowrap; gap: 2px; padding: 3px; }
-.control [role="radio"] { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 6px 8px; font-size: 11px; overflow-wrap: anywhere; }
 @media (max-width: 420px) {
   .row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .control { width: 100%; }

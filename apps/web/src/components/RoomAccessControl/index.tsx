@@ -92,7 +92,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
       <section className={styles.section}>
         <h3 className={styles.heading}>{t('access.modeHeading')}</h3>
         <OptionGroup
-          variant="choices"
+          variant="segmented"
           selection="radio"
           ariaLabel={t('access.modeHeading')}
           active={access.accessMode}

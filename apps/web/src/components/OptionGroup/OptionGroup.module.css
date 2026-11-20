@@ -20,6 +20,8 @@
   font-size: 18px;
 }
 
+.label { min-width: 0; overflow-wrap: anywhere; }
+
 .option:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -97,50 +99,49 @@
 
 .list .label + :global(.material-symbols-outlined) { margin-left: auto; }
 
-/* ── segmented: a compact icon strip, for a narrow panel ───────────────── */
-
+/* Text and icon segments share geometry, colors and interaction states. */
 .segmented .strip {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+
+  gap: 4px;
+  padding: 4px;
   background: var(--color-surface-2);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
 }
 
 .segmented .option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--touch-target-sm);
-  padding: 0 8px;
-  background: none;
-  border: none;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
   border-radius: var(--radius-sm);
-  color: var(--color-text-dim);
+  font: inherit;
   font-size: 12px;
-  font-weight: 600;
+  color: var(--color-text-dim);
+  background: transparent;
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition: color var(--duration-fast), background var(--duration-fast);
 }
 
-.segmented .option:not(.optionSelected):hover { color: var(--color-text-bright); }
+.segmented .option:not(.optionSelected):hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
 
 .segmented .optionSelected {
-  background: var(--color-surface);
-  color: var(--color-accent-hover);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface-2));
+  box-shadow: var(--shadow-sm);
+  font-weight: 500;
 }
 
-/* :global() — a bare "material-symbols-outlined" would get hashed by CSS
-   Modules and never match the class Icon actually renders. */
-.segmented .option :global(.material-symbols-outlined) { font-size: 18px; }
+.segmented.iconOnly .option {
+  flex: 1 1 0;
+  min-width: 44px;
+  padding: 8px;
+}
 
 .tabs .strip { overflow-x: auto; scrollbar-width: none; min-height: 44px; }
 .tabs .option { flex-shrink: 0; }
-
-/* Text segments for settings; wrap as a whole control on narrow screens. */
-.choices .strip { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
-.choices .option { flex: 1 1 80px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); font: inherit; font-size: 12px; color: var(--color-text-dim); background: transparent; cursor: pointer; transition: color var(--duration-fast), background var(--duration-fast); }
-.choices .option:not(.optionSelected):hover { color: var(--color-text); background: var(--color-surface-hover); }
-.choices .optionSelected { color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface-2)); box-shadow: 0 1px 4px #0002; font-weight: 500; }
