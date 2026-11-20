@@ -83,8 +83,8 @@ jobs:
   # once, on top of the already-live postgres+server containers. The `deploy`
   # job below now only ever pulls/rsyncs already-built output — no
   # compilation on the VPS at all.
+  # Build speculatively while tests run; only deploy waits for both gates.
   build:
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -208,7 +208,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     steps:
       # (#621) Only the files the box runs from, not the sources: since 28.09
