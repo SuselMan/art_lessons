@@ -1,3 +1,4 @@
+export { nativePaperPreset } from './src/presets/nativePaper'
 import { isEmptySnapshotTile } from './src/buffers/retileSnapshot'
 import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSpraySource146Scope}from'./src/presets/stationary195Scopes'
 import{hasGridWash137Scope}from'./src/presets/stationary195Scopes'

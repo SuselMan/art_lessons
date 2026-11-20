@@ -6,6 +6,7 @@
 // engine at all, which is what keeps the outline and the mark agreeing.
 
 import type { BrushDefinition, ToolType } from '@grafetto/shared'
+import { hasNativeFinePaper } from './nativePaper'
 import { brushDefinitionForTool } from './brushDefinitions'
 import { charcoalNibFromPreset, type CharcoalPreset } from './charcoalPresets'
 import { digitalBrushScallops } from './digitalBrushPresets'
@@ -15,7 +16,8 @@ import { watercolorNibFromPreset } from './watercolorPresets'
 /** Material parameters come from the same serialized definition as geometry.
  * The tool/preset pair is retained only as the existing UI/log entry point. */
 export function presetForTool(tool: ToolType, presetName: string): PencilPreset {
-  return presetForBrushDefinition(brushDefinitionForTool(tool, presetName))
+  const preset = presetForBrushDefinition(brushDefinitionForTool(tool, presetName))
+  return tool !== 'digitalBrush' && hasNativeFinePaper(presetName) ? { ...preset, nativeFinePaper: true } : preset
 }
 
 export function presetForBrushDefinition(definition: BrushDefinition): PencilPreset {

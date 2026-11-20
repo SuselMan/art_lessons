@@ -1,5 +1,6 @@
 import { BRUSH_DEFINITION_FORMAT, type BrushDefinition, type ToolType } from '@grafetto/shared'
 
+import { baseNativePreset } from './nativePaper'
 import { BRUSH_PEN_PRESET } from './brushPenPresets'
 import { charcoalPresetFor } from './charcoalPresets'
 import { digitalBrushFromPreset, digitalBrushPressureFromPreset } from './digitalBrushPresets'
@@ -16,6 +17,7 @@ const cached = new Map<string, BrushDefinition>()
  * built-ins and imports. Keep historical tools/tokens readable, including
  * watercolor, even while a model is not offered for new drawing. */
 export function brushDefinitionForTool(tool: ToolType, preset = ''): BrushDefinition {
+  if (tool !== 'digitalBrush') preset = baseNativePreset(preset)
   const key = JSON.stringify([tool, preset]), previous = cached.get(key)
   // Imported definitions can be installed after an earlier fallback lookup.
   // Their descriptor identity, rather than a UI revision, invalidates the cache.

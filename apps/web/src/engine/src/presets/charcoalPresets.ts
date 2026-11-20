@@ -1,3 +1,4 @@
+import { baseNativePreset } from './nativePaper'
 import type { PencilPreset } from './pencilPresets'
 
 // Charcoal (#304, ADR 005) — a loose carbon stick, deliberately NOT modeled as
@@ -115,7 +116,7 @@ export function charcoalPresetFor(presetName: string): CharcoalPreset {
   // the type is field 0 rather than the whole of it. A stroke recorded before
   // that has no colon and field 0 is the entire string, which is why this reads
   // the same value out of both spellings instead of needing a version flag.
-  const type = presetName.split(':')[0] ?? ''
+  const type = baseNativePreset(presetName).split(':')[0] ?? ''
   return isCharcoalType(type) ? CHARCOAL_PRESETS[type] : CHARCOAL_PRESETS[DEFAULT_CHARCOAL_TYPE]
 }
 
@@ -177,6 +178,6 @@ export function charcoalPresetString(
  *  stroke recorded before #501, which is why they replay as the round stick
  *  they were actually drawn with. */
 export function charcoalNibFromPreset(presetName: string | undefined): CharcoalNib {
-  const token = presetName?.split(':')[1]
+  const token = presetName === undefined ? undefined : baseNativePreset(presetName).split(':')[1]
   return token !== undefined && isCharcoalNib(token) ? token : DEFAULT_CHARCOAL_NIB
 }

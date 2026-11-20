@@ -39,6 +39,8 @@ export interface PaperSheet {
  *  dev sliders, so a pass must read it at draw time. */
 export interface PaperSampling {
   readonly texture: WebGLTexture
+  /** Native graphite can keep tooth on a visually flat sheet (#857). */
+  readonly nativeTexture?: WebGLTexture
   readonly scale: number
   readonly fillThreshold: number
   readonly fillCap: number
@@ -109,6 +111,7 @@ export class PaperState implements PaperRead {
   // _ready lets a caller (tests, Room.tsx's history-replay sites) await that
   // swap deterministically instead of guessing tick counts.
   private _texture!: WebGLTexture
+  private _nativeTexture?: WebGLTexture
   private _ready: Promise<void> = Promise.resolve()
   // True once the real (non-placeholder) paper texture has loaded at least
   // once — false right after construction and right after a context-restore
@@ -154,6 +157,7 @@ export class PaperState implements PaperRead {
   }
 
   get texture(): WebGLTexture { return this._texture }
+  get nativeTexture(): WebGLTexture | undefined { return this._nativeTexture }
   /** See the _loaded field comment. */
   get loaded(): boolean { return this._loaded }
   get type(): PaperType { return this._type }
@@ -172,6 +176,7 @@ export class PaperState implements PaperRead {
    *  cache (paperLoader caches by PaperType, not by gl context, so this never
    *  re-fetches over the network — see getPaperBytes). */
   init(): void {
+    this._nativeTexture = undefined
     this._texture = createPlaceholderPaperTexture(this.gl)
     this._mipsReady = generatePaperMipmaps(this.gl, this._texture)
     this._loaded = false
@@ -199,6 +204,8 @@ export class PaperState implements PaperRead {
 
   destroy(): void {
     this._destroyed = true
+    if (this._nativeTexture) this.gl.deleteTexture(this._nativeTexture)
+    this._nativeTexture = undefined
   }
 
   /** The one place `_ready` is assigned. Keeps a no-op handler attached
@@ -223,11 +230,18 @@ export class PaperState implements PaperRead {
   // this same path and end up with the exact same 2048px REPEAT texture —
   // see worldSize()'s own comment for why unifying them is safe.
   private async load(type: PaperType): Promise<void> {
-    const bytes = await getPaperBytes(type)
-    if (this._destroyed) return
+    const [bytes, nativeBytes] = await Promise.all([
+      getPaperBytes(type), type === 'flat' ? getPaperBytes('fine') : Promise.resolve(null),
+    ])
+    if (this._destroyed || type !== this._type) return
     const gl = this.gl
     const newTex = uploadPaperTexture(gl, bytes)
     const mipsReady = generatePaperMipmaps(gl, newTex)
+    // The native texture is never composited into the sheet or used by imported brushes.
+    // Deposit uses the existing baked Fine bytes and linear sampling, without GPU synthesis.
+    const nativeTexture = nativeBytes ? uploadPaperTexture(gl, nativeBytes) : undefined
+    if (this._nativeTexture) gl.deleteTexture(this._nativeTexture)
+    this._nativeTexture = nativeTexture
     const old = this._texture
     this._texture = newTex
     this._mipsReady = mipsReady

@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, type RefObject } from 'react'
 
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import {
-  charcoalPresetString, DEFAULT_CHARCOAL_TYPE, DEFAULT_NIB_ANCHOR, DEFAULT_TILT_RESPONSE, digitalBrushFromPreset,
+  nativePaperPreset, charcoalPresetString, DEFAULT_CHARCOAL_TYPE, DEFAULT_NIB_ANCHOR, DEFAULT_TILT_RESPONSE, digitalBrushFromPreset,
   digitalBrushPreset, isCharcoalNib, isCharcoalType, isNibAnchor, isPressureResponse, isTiltResponse,
   isWatercolorNib, watercolorPresetString,
   type PencilEngineAPI, type PencilGradeName,
@@ -35,6 +35,7 @@ export interface ToolSyncDeps {
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
 export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: ToolSyncDeps) {
+  const paperType = useRoomStore(s => s.room?.paper)
   const selectedPattern=useRoomStore(s=>s.canvasPatternSelection)
   const boardId=useRoomStore(s=>s.boardId)
   const toolSettings = useRoomStore(s => s.toolSettings)
@@ -252,7 +253,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: T
     // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
     if (drawingTool === 'digitalBrush' && digitalBrushPresetName === undefined) return
-    engine?.setPencil(
+    engine?.setPencil(nativePaperPreset(drawingTool, paperType,
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalPreset
@@ -260,8 +261,8 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,activeColor }: T
         : drawingTool === 'watercolor' ? watercolorPreset
         : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
         : pencilGrade,
-    )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef])
+    ))
+  }, [paperType, drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with

@@ -6,7 +6,7 @@ export const PENCIL_GRADES = [
 
 export type PencilGradeName = (typeof PENCIL_GRADES)[number]
 
-export interface PencilPreset { opacity: number; hardness: number; sizeMultiplier: number }
+export interface PencilPreset { nativeFinePaper?: boolean; opacity: number; hardness: number; sizeMultiplier: number }
 
 const GRADE_SET = new Set<string>(PENCIL_GRADES)
 
@@ -47,7 +47,7 @@ const ANCHOR_H_X  = -1
 const ANCHOR_HB_X = 0
 const ANCHOR_2B_X = 2
 
-const BOUNDS: Record<keyof PencilPreset, readonly [number, number]> = {
+const BOUNDS: Record<Exclude<keyof PencilPreset, 'nativeFinePaper'>, readonly [number, number]> = {
   opacity:        [0.08, 0.95],
   hardness:       [0.05, 0.95],
   sizeMultiplier: [0.5, 1.6],
@@ -57,7 +57,7 @@ function clamp(v: number, [lo, hi]: readonly [number, number]): number {
   return Math.min(hi, Math.max(lo, v))
 }
 
-function interpolate(x: number, key: keyof PencilPreset): number {
+function interpolate(x: number, key: Exclude<keyof PencilPreset, 'nativeFinePaper'>): number {
   const h  = ANCHOR_H[key]
   const hb = ANCHOR_HB[key]
   const b2 = ANCHOR_2B[key]
