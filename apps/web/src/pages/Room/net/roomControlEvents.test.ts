@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 import type { TFunction } from '../../../i18n'
@@ -194,5 +194,39 @@ describe('room freeze preserves the owner’s permitted live gesture', () => {
     on.room_closed_changed({closedAt: '2026-10-17T00:00:00Z'})
     expect(endPeerLiveStroke.mock.calls).toEqual([['owner'], ['student']])
     expect(deps.requestFullResync).toHaveBeenCalledOnce()
+  })
+})
+
+
+describe('freeze event notices', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => {
+    clearNotices()
+    vi.useRealTimers()
+  })
+
+  it.each([true, false])('auto-dismisses frozen=%s after four seconds', frozen => {
+    useRoomStore.getState().setRoomFrozen(!frozen)
+    const { on } = setup()
+    on.room_frozen_changed({ frozen })
+    expect(useNoticeStore.getState().notices.map(n => n.message))
+      .toEqual([frozen ? 'room.freezeToast.on' : 'room.freezeToast.off'])
+    vi.advanceTimersByTime(3999)
+    expect(useNoticeStore.getState().notices).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(useNoticeStore.getState().notices).toHaveLength(0)
+  })
+
+  it('replaces the toast and restarts its lifetime when the state changes again', () => {
+    const { on } = setup()
+    on.room_frozen_changed({ frozen: true })
+    vi.advanceTimersByTime(3000)
+    on.room_frozen_changed({ frozen: false })
+    expect(useNoticeStore.getState().notices.map(n => n.message))
+      .toEqual(['room.freezeToast.off'])
+    vi.advanceTimersByTime(1000)
+    expect(useNoticeStore.getState().notices).toHaveLength(1)
+    vi.advanceTimersByTime(3000)
+    expect(useNoticeStore.getState().notices).toHaveLength(0)
   })
 })

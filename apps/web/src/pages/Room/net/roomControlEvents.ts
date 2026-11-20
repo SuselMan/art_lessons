@@ -61,7 +61,12 @@ export function createRoomControlEventHandlers({
     room_frozen_changed: ({ frozen }) => {
       const changed = useRoomStore.getState().roomFrozen !== frozen
       useRoomStore.getState().setRoomFrozen(frozen)
-      if (changed) pushNotice({ variant: 'neutral', key: 'room-freeze', message: tRef.current(frozen ? 'room.freezeToast.on' : 'room.freezeToast.off') })
+      if (changed) pushNotice({
+        variant: 'neutral',
+        key: 'room-freeze',
+        durationMs: 4000,
+        message: tRef.current(frozen ? 'room.freezeToast.on' : 'room.freezeToast.off'),
+      })
       // Freeze blocks members; the owner may keep drawing. Closing below blocks everyone.
       if (frozen) repairBlockedLiveInk(useRoomStore.getState().participants.filter(p => p.role !== 'owner').map(p => p.userId))
     },
