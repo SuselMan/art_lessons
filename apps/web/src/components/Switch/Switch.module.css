@@ -106,7 +106,7 @@
   width: var(--switch-thumb);
   height: var(--switch-thumb);
   border-radius: 50%;
-  background: var(--color-knob-off);
+  background: var(--color-switch-knob);
   border: 1px solid var(--color-knob-border);
   transition: transform var(--duration-normal), background var(--duration-fast);
 }
@@ -126,7 +126,7 @@
 }
 
 .on .thumb {
-  background: var(--color-knob);
+  background: var(--color-switch-knob);
 }
 
 .on {
@@ -151,17 +151,15 @@
   .switch:hover .track {
     border-color: var(--color-accent-hover);
   }
-  /* The off knob brightens to the on knob's colour under a pointer. In the
-     light theme both are already white, so the hover feedback there is the
-     track's border going accent (just above) rather than the knob. */
+  /* Keep the capsule colour steady; the track carries hover feedback. */
   .switch:hover .thumb {
-    background: var(--color-knob);
+    background: var(--color-switch-knob);
   }
   .switch.on:hover .track {
     background: var(--color-accent-hover);
   }
   .switch.on:hover .thumb {
-    background: var(--color-knob);
+    background: var(--color-switch-knob);
   }
 }
 

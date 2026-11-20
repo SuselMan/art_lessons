@@ -105,6 +105,8 @@
      --color-knob-off is the same object with the switch turned off, kept as a
      separate value only so the dark theme's grey-knob/bright-knob distinction
      survives untouched. */
+  /* Switch capsules match the slider in dark mode. */
+  --color-switch-knob: var(--color-surface);
   --color-knob: #eeeeee;
   --color-knob-off: #666666;
   --color-knob-border: transparent;
@@ -294,6 +296,7 @@
      travelled would read as two different objects. The outline is what
      separates it from the track underneath, which here is light in both
      states (grey when off, accent when on). */
+  --color-switch-knob: var(--color-knob);
   --color-knob: #ffffff;
   --color-knob-off: #ffffff;
   --color-knob-border: var(--color-border-strong);

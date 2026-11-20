@@ -10,3 +10,8 @@ type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & {
 export function Button({ type = 'primary', size = 'md', className, ...props }: Props) {
   return <button {...props} type="button" className={clsx(styles.button, styles[type], styles[size], className)} />
 }
+
+/** Shared appearance for every settings tab; reset behaviour belongs to each tab. */
+export function ResetDefaultsButton(props: Omit<Props, 'type' | 'size' | 'className'>) {
+  return <Button {...props} type="ghost" className={styles.resetDefaults} />
+}

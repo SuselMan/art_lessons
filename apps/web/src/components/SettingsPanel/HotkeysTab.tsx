@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { ResetDefaultsButton } from '../Button'
 import { useT } from '../../i18n'
 import {
   HOTKEY_ACTIONS, captureHotkeyBinding, findHotkeyConflict, formatHotkeyLabel,
@@ -72,17 +73,15 @@ export function HotkeysTab() {
           )}
         </div>
       ))}
-      <button
-        type="button"
-        className={styles.hotkeyResetBtn}
+      <ResetDefaultsButton
         onClick={() => {
           setHotkeys(Object.fromEntries(HOTKEY_ACTIONS.map(a => [a.id, a.default])))
           setRecordingActionId(null)
           setHotkeyError(null)
         }}
       >
-        {t('editorSettings.resetHotkeys')}
-      </button>
+        {t('common.resetDefaults')}
+      </ResetDefaultsButton>
     </div>
   )
 }

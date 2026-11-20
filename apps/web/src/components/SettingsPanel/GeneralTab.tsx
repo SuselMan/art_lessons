@@ -1,3 +1,4 @@
+import { ResetDefaultsButton } from '../Button'
 import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
@@ -69,8 +70,6 @@ export function GeneralTab() {
 
   return (
     <div className={styles.flagList}>
-      <div className={styles.sectionHeading}>{t('editorSettings.soundSection')}</div>
-
       <ToggleRow
         label={t('editorSettings.soundEnabled')}
         hint={t('editorSettings.soundEnabledHint')}
@@ -168,12 +167,12 @@ export function GeneralTab() {
         />
       </div>
 
-      <button type="button" className={styles.resetButton} onClick={() => {
+      <ResetDefaultsButton onClick={() => {
         const settings = useSettingsStore.getState()
         settings.setSoundEnabled(false); settings.setSoundVolume(0.7)
         settings.setMinimalUi(true); settings.setMinimalUiTapMode('double')
         settings.setFloatingPanel('minimal'); settings.setHandedness('right')
-      }}>{t('common.resetDefaults')}</button>
+      }}>{t('common.resetDefaults')}</ResetDefaultsButton>
 
     </div>
   )

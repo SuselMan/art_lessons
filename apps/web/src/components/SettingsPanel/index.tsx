@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { ClassVisibility, ToggleableTool } from '@grafetto/shared'
 
 import { useRoomStore } from '../../stores/roomStore'
+import { ResetDefaultsButton } from '../Button'
 import { useT } from '../../i18n'
 import { isDebugToolsEnabled } from '../../lib/observability/debugTools'
 import { Modal } from '../Modal'
@@ -94,10 +95,10 @@ export function SettingsPanel({
               {hasAssignments && classVisibility && onClassVisibilityChange && (
                 <ClassVisibilityField value={classVisibility} onChange={onClassVisibilityChange} />
               )}
-              <button type="button" className={styles.resetButton} onClick={() => {
+              <ResetDefaultsButton onClick={() => {
                 onEnabledToolsChange?.(undefined)
                 if (hasAssignments) onClassVisibilityChange?.('teacher_only')
-              }}>{t('common.resetDefaults')}</button>
+              }}>{t('common.resetDefaults')}</ResetDefaultsButton>
             </div>
           ),
         }]

@@ -10,3 +10,6 @@
 .danger { background: var(--color-error-fill); color: var(--color-on-accent); }
 .button:disabled { cursor: not-allowed; opacity: .45; }
 .button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.button.resetDefaults { align-self: flex-start; min-height: var(--touch-target-sm); padding: 0 12px; margin-top: 12px; border: 0; font-size: 13px; font-weight: 600; color: var(--color-text-bright); background: var(--color-surface-2); }
+.button.resetDefaults:not(:disabled):hover { color: var(--color-text-bright); background: var(--color-surface-hover); }

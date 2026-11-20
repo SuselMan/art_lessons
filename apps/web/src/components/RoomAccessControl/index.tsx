@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { fetchMe } from '../../lib/api/api'
+import { ResetDefaultsButton } from '../Button'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'
@@ -323,10 +324,10 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
           )}
         </section>
       )}
-      <button type="button" className={styles.textButton} disabled={source.busy} onClick={async () => {
+      <ResetDefaultsButton disabled={source.busy} onClick={async () => {
         if (!resetAsked) { setResetAsked(true); return }
         if (await source.setPassword(null)) { source.setMode('anyone_with_link'); setResetAsked(false) }
-      }}>{t(resetAsked ? 'access.resetConfirm' : 'common.resetDefaults')}</button>
+      }}>{t(resetAsked ? 'access.resetConfirm' : 'common.resetDefaults')}</ResetDefaultsButton>
 
     </div>
   )
