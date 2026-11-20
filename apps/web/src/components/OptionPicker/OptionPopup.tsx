@@ -85,7 +85,8 @@ export function OptionPopup({
         else if (e.key === 'ArrowUp') { moveFocus(index, -1); e.preventDefault() }
         else if (e.key === 'Home') { itemRefs.current[0]?.focus(); e.preventDefault() }
         else if (e.key === 'End') { itemRefs.current[options.length - 1]?.focus(); e.preventDefault() }
-        else if (e.key === 'Escape') { onDismiss(); e.preventDefault() }
+        else if (e.key === 'Escape') { onDismiss(); e.preventDefault(); e.stopPropagation() }
+        else if (e.key === 'Tab') { onDismiss(); e.stopPropagation() }
       }}
     >
       {grouped

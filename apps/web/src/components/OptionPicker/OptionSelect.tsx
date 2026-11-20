@@ -15,6 +15,8 @@ interface OptionSelectProps {
    *  under that label in the settings panel, and reuses it as its accessible
    *  name rather than inventing a second one. */
   label: string
+  /** Include the field name inside compact standalone filters. */
+  showLabel?: boolean
 }
 
 /** The full settings panel's tool-type control (#335): a `<select>`-shaped
@@ -25,7 +27,7 @@ interface OptionSelectProps {
  *  every option was a bare notation ("HB", "2B") in a fixed order, but it
  *  never showed *what the choice does* — and for pencil grade, charcoal type
  *  and marker nib that's the whole decision. */
-export function OptionSelect({ options, value, onChange, label }: OptionSelectProps) {
+export function OptionSelect({ options, value, onChange, label, showLabel = false }: OptionSelectProps) {
   const [open, setOpen] = useState(false)
   const { triggerRef, popupRef, style } = usePopupAnchor<HTMLButtonElement, HTMLDivElement>(
     open, () => setOpen(false), { align: 'left', matchTriggerWidth: true, remeasureKey: options.length },
@@ -43,6 +45,7 @@ export function OptionSelect({ options, value, onChange, label }: OptionSelectPr
         aria-label={label}
         onClick={() => setOpen(o => !o)}
       >
+        {showLabel && <span className={styles.fieldLabel}>{label}</span>}
         {selected && <OptionPreview option={selected} shape="strip" />}
         <span className={styles.selectLabel}>{selected?.label ?? value}</span>
         <Icon name="expand_more" />
@@ -52,7 +55,7 @@ export function OptionSelect({ options, value, onChange, label }: OptionSelectPr
           options={options}
           value={value}
           onSelect={onChange}
-          onDismiss={() => setOpen(false)}
+          onDismiss={() => { setOpen(false); triggerRef.current?.focus() }}
           label={label}
           popupRef={popupRef}
           style={style}

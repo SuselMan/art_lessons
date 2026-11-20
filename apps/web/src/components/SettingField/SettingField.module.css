@@ -125,6 +125,3 @@
   padding: 8px 0;
 }
 .importDescription summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
-
-.toolbarNumber { width: 50px; min-height: 40px; height: 40px; padding: 0 3px; background: transparent; border-color: transparent; }
-.toolbarNumber:focus-within { border-color: var(--color-accent); }

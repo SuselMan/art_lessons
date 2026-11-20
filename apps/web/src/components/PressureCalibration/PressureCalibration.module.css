@@ -172,6 +172,9 @@
 /* ── The curve graph ──────────────────────────────────────────────────────── */
 
 .curveBox {
+  width: 100%;
+  max-width: 280px;
+  align-self: center;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -183,7 +186,7 @@
      axes — the graph is read as a shape, and a stretched one misreports how
      far from the diagonal the response actually is. */
   width: 100%;
-  max-width: 240px;
+  max-width: 280px;
   aspect-ratio: 1;
   align-self: center;
   touch-action: none;
@@ -221,7 +224,7 @@
 
 .curveKnob,
 .curveKnobActive {
-  fill: var(--color-knob);
+  fill: var(--color-accent-hover);
   stroke: var(--color-accent);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
@@ -237,7 +240,7 @@
   display: flex;
   justify-content: space-between;
   width: 100%;
-  max-width: 240px;
+  max-width: 280px;
   align-self: center;
   color: var(--color-text-dim);
   font-size: 11px;

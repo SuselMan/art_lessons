@@ -15,3 +15,7 @@ export function Button({ type = 'primary', size = 'md', className, ...props }: P
 export function ResetDefaultsButton(props: Omit<Props, 'type' | 'size' | 'className'>) {
   return <Button {...props} type="ghost" className={styles.resetDefaults} />
 }
+
+export function ResetDefaultsFooter(props: Omit<Props, 'type' | 'size' | 'className'>) {
+  return <div className={styles.resetFooter}><ResetDefaultsButton {...props} /></div>
+}

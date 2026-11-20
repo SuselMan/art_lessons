@@ -210,6 +210,7 @@
      component (toolbars, docked panels, their popovers) stay in that
      component's own CSS, where the neighbours they order against live. */
   --z-modal: 500;
+  --z-popup: 550;
   /* (#343) Above --z-modal on purpose: a request can fail while a dialog is
      open, and the report of that failure has to be readable without closing
      the thing that caused it. */

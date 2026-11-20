@@ -14,7 +14,7 @@
    z-index has to beat the editor's own panels, which the menu overhangs. */
 .menu {
   position: fixed;
-  z-index: 100;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
   min-width: 180px;

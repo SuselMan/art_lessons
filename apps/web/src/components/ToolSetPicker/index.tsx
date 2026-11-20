@@ -118,7 +118,6 @@ export function ToolSetPicker({ value, onChange, disabled, utilitiesOnly, classN
         </section>
       ))}
 
-      <p className={styles.hint}>{t('toolset.hint')}</p>
     </div>
   )
 }

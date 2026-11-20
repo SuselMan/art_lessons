@@ -16,6 +16,8 @@ import styles from './NumberField.module.css'
 const DRAG_RANGE_PX = 400
 
 interface NumberFieldProps {
+  /** Readout keeps the narrow toolbar's original typography and spacing. */
+  variant?: 'field' | 'readout'
   value: number
   min: number
   max: number
@@ -49,7 +51,7 @@ interface NumberFieldProps {
  *  ("1" on the way to "120", or an empty field mid-edit) must not reach the
  *  engine, and Escape has to be able to put the original value back. */
 export function NumberField({
-  value, min, max, step, onChange, format, parse, label, title, className,
+  value, min, max, step, onChange, format, parse, label, title, className, variant = 'field',
 }: NumberFieldProps) {
   const skipBlur = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -103,7 +105,7 @@ export function NumberField({
 
   return (
     <div
-      className={clsx(styles.field, className)}
+      className={clsx(styles.field, variant === 'readout' && styles.readout, className)}
       // The drag lives on the wrapper rather than the <input> so a plain click
       // still lands in the input and focuses it — useDragToAdjust only takes
       // over once the pointer has actually moved past its threshold, and

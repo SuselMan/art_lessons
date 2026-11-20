@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { CalibrationWizard } from '../PressureCalibration/CalibrationWizard'
 import { PressureCurveEditor } from '../PressureCalibration/PressureCurveEditor'
-import { ResetDefaultsButton } from '../Button'
+import { ResetDefaultsFooter } from '../Button'
 import { useT } from '../../i18n'
 import {
   IDENTITY_PRESSURE_CALIBRATION, PRESSURE_CURVE_PRESETS, PRESSURE_CURVE_PRESET_POINTS,
@@ -10,7 +10,8 @@ import {
 } from '../../lib/input/pressureCalibration'
 import type { TranslationKey } from '../../i18n'
 import { useSettingsStore } from '../../stores/settingsStore'
-import styles from './SettingsPanel.module.css'
+import { OptionGroup } from '../OptionGroup'
+import styles from './StylusTab.module.css'
 
 const PRESET_LABELS: Record<PressureCurvePreset, TranslationKey> = {
   softer: 'pressure.preset.softer',
@@ -87,62 +88,29 @@ export function StylusTab({ onWideChange }: StylusTabProps) {
   }
 
   return (
-    <div className={styles.flagList}>
-      <div className={styles.sectionHeading}>{t('pressure.rangeSection')}</div>
-
-      <div className={styles.choiceRow}>
-        <div className={styles.flagLabel}>
-          {rangeMeasured
-            ? t('pressure.rangeValue', {
-              min: calibration.inMin.toFixed(2),
-              max: calibration.inMax.toFixed(2),
-            })
-            : t('pressure.notCalibrated')}
+    <div className={styles.panel}>
+      <div className={styles.calibration}>
+        <div className={styles.summary}>
+          <h3 className={styles.title}>{t('pressure.rangeSection')}</h3>
+          <div className={styles.status}>{rangeMeasured
+            ? t('pressure.rangeValue', { min: calibration.inMin.toFixed(2), max: calibration.inMax.toFixed(2) })
+            : t('pressure.notCalibrated')}</div>
         </div>
-        <div className={styles.flagDescription}>{t('pressure.rangeHint')}</div>
-        <div className={styles.buttonRow}>
-          <button
-            type="button"
-            ref={calibrateRef}
-            className={styles.hotkeyBtn}
-            onClick={() => { setCalibrating(true) }}
-          >
-            {rangeMeasured ? t('pressure.recalibrate') : t('pressure.calibrate')}
-          </button>
-          {rangeMeasured && (
-            <button
-              type="button"
-              className={styles.hotkeyBtn}
-              onClick={() => { setCalibration({ ...IDENTITY_PRESSURE_CALIBRATION, points: calibration.points }) }}
-            >
-              {t('pressure.resetRange')}
-            </button>
-          )}
-        </div>
+        <button type="button" ref={calibrateRef} className={styles.calibrate} onClick={() => setCalibrating(true)}>
+          {rangeMeasured ? t('pressure.recalibrate') : t('pressure.calibrate')}
+        </button>
       </div>
 
-      <div className={styles.sectionHeading}>{t('pressure.curveSection')}</div>
-
-      <div className={styles.choiceRow}>
-        <div className={styles.flagDescription}>{t('pressure.curveHint')}</div>
-        <div className={styles.buttonRow}>
-          {PRESSURE_CURVE_PRESETS.map(preset => (
-            <button
-              key={preset}
-              type="button"
-              className={preset === activePreset ? styles.presetBtnActive : styles.hotkeyBtn}
-              aria-pressed={preset === activePreset}
-              onClick={() => { setPoints(PRESSURE_CURVE_PRESET_POINTS[preset]) }}
-            >
-              {t(PRESET_LABELS[preset])}
-            </button>
-          ))}
-        </div>
+      <div className={styles.response}>
+        <h3 className={styles.title}>{t('pressure.curveSection')}</h3>
+        <OptionGroup variant="choices" allowEmpty active={activePreset ?? 'custom'}
+          options={PRESSURE_CURVE_PRESETS.map(preset => ({ id: preset, label: t(PRESET_LABELS[preset]) }))}
+          onSelect={preset => { if (preset !== 'custom') setPoints(PRESSURE_CURVE_PRESET_POINTS[preset]) }}
+          ariaLabel={t('pressure.curveSection')} />
         <PressureCurveEditor points={calibration.points} onChange={setPoints} />
-        <div className={styles.flagDescription}>{t('pressure.curveEditHint')}</div>
+        <p className={styles.hint} title={t('pressure.curveEditHint')}>{t('pressure.curveEditShort')}</p>
       </div>
-      <ResetDefaultsButton onClick={() => setCalibration(IDENTITY_PRESSURE_CALIBRATION)}>{t('common.resetDefaults')}</ResetDefaultsButton>
-
+      <ResetDefaultsFooter onClick={() => setCalibration(IDENTITY_PRESSURE_CALIBRATION)}>{t('common.resetDefaults')}</ResetDefaultsFooter>
     </div>
   )
 }

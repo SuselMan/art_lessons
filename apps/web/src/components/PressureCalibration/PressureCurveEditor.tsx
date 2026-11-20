@@ -114,7 +114,7 @@ export function PressureCurveEditor({ points, onChange }: PressureCurveEditorPro
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <rect x="0" y="0" width="100" height="100" className={styles.curveField} />
+        <rect x="0" y="0" width="100" height="100" rx="3" className={styles.curveField} />
         {[25, 50, 75].map(v => (
           <g key={v}>
             <line x1={v} y1="0" x2={v} y2="100" className={styles.curveGrid} />

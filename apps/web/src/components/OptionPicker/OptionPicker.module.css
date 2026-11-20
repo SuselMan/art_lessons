@@ -167,7 +167,7 @@
    is the same kind of object, one level up in the same stack. */
 .popup {
   position: fixed;
-  z-index: 100;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -310,3 +310,5 @@
 .brushItem .previewPhoto { object-fit: contain; object-position: left center; box-sizing: border-box; padding-block: 8px; transform: scale(1.6); transform-origin: left center; clip-path: inset(0 37.5% 0 0); }
 .brushItem .photoTipImage { object-fit: contain; object-position: left center; }
 @media (max-width: 550px) { .brushItem .itemLabel { flex-basis: 94px; width: 94px; } .brushItem .preview { width: 40px; height: 40px; flex-basis: 40px; } }
+
+.fieldLabel { color: var(--color-text-dim); font-size: 12px; }

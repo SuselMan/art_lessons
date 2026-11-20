@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { ResetDefaultsButton } from '../Button'
+import { ResetDefaultsFooter } from '../Button'
 import { useT } from '../../i18n'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag, envDefault,
@@ -126,10 +126,10 @@ export function DebugTab() {
       {/* Sticky rather than a sibling of the scroll area (its shape before
           #321): the save bar belongs to this tab alone now, and the other
           three have nothing to save. */}
-      <ResetDefaultsButton onClick={() => {
+      <ResetDefaultsFooter onClick={() => {
         setPendingFlags(Object.fromEntries(FEATURE_FLAGS.map(flag => [flag.key, envDefault(flag)])))
         setGrainVariantState('off'); setCharcoalGrainVariantState('off')
-      }}>{t('common.resetDefaults')}</ResetDefaultsButton>
+      }}>{t('common.resetDefaults')}</ResetDefaultsFooter>
       <div className={styles.saveBar}>
         <span className={styles.hint}>
           {t(dirty ? 'editorSettings.unsaved' : 'editorSettings.applyAfterSave')}

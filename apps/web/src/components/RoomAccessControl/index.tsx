@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { roomShareUrl, shareOrCopy } from '../../lib/api/shareRoom'
+import { notifyError, notifySuccess } from '../../stores/noticeStore'
 import { fetchMe } from '../../lib/api/api'
-import { ResetDefaultsButton } from '../Button'
+import { ResetDefaultsFooter } from '../Button'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'
@@ -49,6 +51,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
   const [resetAsked, setResetAsked] = useState(false)
   const [inviteDraft, setInviteDraft] = useState('')
   const [passwordDraft, setPasswordDraft] = useState('')
+  const [passwordExpanded, setPasswordExpanded] = useState(false)
   // Which participant's "revoke" is waiting for a second click. Inline rather
   // than a ConfirmDialog: only one modal can be open at a time (see
   // components/Modal's modalSlot), so a dialog raised from inside this panel
@@ -75,7 +78,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
   // vanishing and leaving the notice talking about nothing.
   async function submitPassword() {
     if (!passwordDraft) return
-    if (await source.setPassword(passwordDraft)) setPasswordDraft('')
+    if (await source.setPassword(passwordDraft)) { setPasswordDraft(''); setPasswordExpanded(false) }
   }
 
   async function submitInvite() {
@@ -102,48 +105,35 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
         {inviteOnly && <p className={styles.hint}>{t('access.mode.inviteOnlyHint')}</p>}
       </section>
 
-      {/* A password is a separate gate, not a third mode: it applies in both,
-          and the panel says so by keeping it its own row rather than a fourth
-          radio option (see schema.prisma's accessMode comment). */}
+      {source.live && roomId && (
+        <div className={styles.row}>
+          <span className={styles.rowLabel}>{t('access.projectLink')}</span>
+          <button type="button" className={styles.textButton} onClick={() => {
+            void shareOrCopy({ url: roomShareUrl(roomId, window.location.origin), title: 'Grafetto', deviceType: 'desktop' }).then(result => {
+              if (result === 'copied') notifySuccess(t('share.copied'))
+              else notifyError(t('share.failed'))
+            })
+          }}>{t('access.copyLink')} <Icon name="content_copy" /></button>
+        </div>
+      )}
+
       <section className={styles.section}>
-        <h3 className={styles.heading}>{t('access.passwordHeading')}</h3>
-        {access.hasPassword ? (
-          <div className={styles.row}>
-            <span className={styles.rowLabel}>
-              <Icon name="lock" />
-              {t('access.passwordSet')}
-            </span>
-            <button
-              type="button"
-              className={styles.textButton}
-              disabled={source.busy}
-              onClick={() => void source.setPassword(null)}
-            >
-              {t('access.passwordRemove')}
+        <div className={styles.row}>
+          <h3 className={styles.fieldLabel}>{t('access.passwordHeading')}</h3>
+          {access.hasPassword ? (
+            <button type="button" className={styles.textButton} disabled={source.busy} onClick={() => void source.setPassword(null)}>
+              <Icon name="lock" /> {t('access.passwordRemove')}
             </button>
-          </div>
-        ) : (
-          // Not a <form>: this panel is itself rendered inside the creation
-          // page's form (#548), and a nested form is invalid HTML — the inner
-          // one is dropped by the parser and Enter here would submit the room.
+          ) : source.live && !passwordExpanded ? (
+            <button type="button" className={styles.textButton} onClick={() => setPasswordExpanded(true)}>{t('access.addPassword')}</button>
+          ) : null}
+        </div>
+        {!access.hasPassword && (!source.live || passwordExpanded) && (
           <div className={styles.row}>
-            <TextInput
-              icon="lock_open"
-              type="password"
-              autoComplete="new-password"
-              value={passwordDraft}
-              placeholder={t('access.passwordPlaceholder')}
-              onChange={e => setPasswordDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitPassword() } }}
-            />
-            <button
-              type="button"
-              className={styles.textButton}
-              disabled={!passwordDraft || source.busy}
-              onClick={() => void submitPassword()}
-            >
-              {t('access.passwordSave')}
-            </button>
+            <TextInput icon="lock_open" type="password" autoComplete="new-password" value={passwordDraft}
+              placeholder={t('access.passwordPlaceholder')} onChange={e => setPasswordDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitPassword() } }} />
+            <button type="button" className={styles.textButton} disabled={!passwordDraft || source.busy} onClick={() => void submitPassword()}>{t('access.passwordSave')}</button>
           </div>
         )}
       </section>
@@ -249,7 +239,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
 
       {source.live && (
         <section className={styles.section}>
-          <h3 className={styles.heading}>{t('access.participantsHeading')}</h3>
+          <h3 className={styles.peopleHeading}>{t('access.participantsHeading')}</h3>
           {access.participants.length === 0 ? (
             <p className={styles.empty}>{t('access.participantsEmpty')}</p>
           ) : (
@@ -263,13 +253,14 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
                 const confirming = confirmingRevoke === participant.userId
                 return (
                   <li key={participant.userId} className={styles.listRow}>
+                    <span className={styles.avatar} aria-hidden="true">{(participant.name ?? '?').slice(0, 2).toUpperCase()}</span>
                     <span className={styles.person}>
                       <span className={styles.personName}>
                         {participant.name ?? t('access.unnamedParticipant')}
                       </span>
                       {(participant.blocked || isSelf) && (
                         <span className={styles.personSub}>
-                          {t(isSelf ? 'access.you' : 'access.revoked')}
+                          {isSelf ? `${t('access.you')} · ${t('access.ownerRole')}` : t('access.revoked')}
                         </span>
                       )}
                     </span>
@@ -320,10 +311,10 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
           )}
         </section>
       )}
-      <ResetDefaultsButton disabled={source.busy} onClick={async () => {
+      <ResetDefaultsFooter disabled={source.busy} onClick={async () => {
         if (!resetAsked) { setResetAsked(true); return }
-        if (await source.setPassword(null)) { source.setMode('anyone_with_link'); setResetAsked(false) }
-      }}>{t(resetAsked ? 'access.resetConfirm' : 'common.resetDefaults')}</ResetDefaultsButton>
+        if (await source.setPassword(null)) { source.setMode('anyone_with_link'); setResetAsked(false); setPasswordDraft(''); setPasswordExpanded(false) }
+      }}>{t(resetAsked ? 'access.resetConfirm' : 'common.resetDefaults')}</ResetDefaultsFooter>
 
     </div>
   )

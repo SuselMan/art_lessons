@@ -1,4 +1,4 @@
-import { ResetDefaultsButton } from '../Button'
+import { ResetDefaultsFooter } from '../Button'
 import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
@@ -12,6 +12,7 @@ import {
 } from '../../lib/browser/uiPreferences'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
+import general from './GeneralTab.module.css'
 
 const FLOATING_PANEL_LABELS: Record<FloatingPanelMode, TranslationKey> = {
   always: 'editorSettings.floatingPanel.always',
@@ -22,22 +23,6 @@ const FLOATING_PANEL_LABELS: Record<FloatingPanelMode, TranslationKey> = {
 const MINIMAL_UI_TAP_LABELS: Record<MinimalUiTapMode, TranslationKey> = {
   single: 'editorSettings.minimalUiTap.single',
   double: 'editorSettings.minimalUiTap.double',
-}
-
-interface ToggleRowProps {
-  label: string
-  hint?: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}
-
-function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
-  return (
-    <div className={styles.choiceRow}>
-      <Switch label={label} checked={checked} onChange={onChange} />
-      {hint && <div className={styles.flagDescription}>{hint}</div>}
-    </div>
-  )
 }
 
 /** (#321) The settings a teacher actually opens this panel for. Everything
@@ -69,109 +54,66 @@ export function GeneralTab() {
   const volumePercent = Math.round(soundVolume * 100)
 
   return (
-    <div className={styles.flagList}>
-      <ToggleRow
-        label={t('editorSettings.soundEnabled')}
-        checked={soundEnabled}
-        onChange={setSoundEnabled}
-      />
-
-      {/* Only while there is something to set the volume of — a disabled
-          slider under an off switch is a control that answers a question
-          nobody asked yet. */}
+    <div className={general.panel}>
+      <Switch label={t('editorSettings.soundEnabled')} checked={soundEnabled} onChange={setSoundEnabled} />
       {soundEnabled && (
-        <div className={styles.sliderRow}>
-          <div className={styles.sliderHead}>
-            <span className={styles.flagLabel}>{t('editorSettings.soundVolume')}</span>
-            <span className={styles.sliderValue}>{volumePercent}%</span>
+        <div className={general.volume}>
+          <span className={general.label}>{t('editorSettings.soundVolume')}</span>
+          <div className={general.volumeControl}>
+            <PrecisionSlider orientation="horizontal" value={volumePercent} min={0} max={100} step={1}
+              onChange={v => setSoundVolume(v / 100)} formatValue={v => `${v}%`} title={t('editorSettings.soundVolume')} />
+            <span className={general.value}>{volumePercent}%</span>
           </div>
-          <PrecisionSlider
-            orientation="horizontal"
-            value={volumePercent}
-            min={0}
-            max={100}
-            step={1}
-            onChange={v => setSoundVolume(v / 100)}
-            formatValue={v => `${v}%`}
-            title={t('editorSettings.soundVolume')}
-          />
         </div>
       )}
 
-      <div className={styles.sectionHeading}>{t('editorSettings.interfaceSection')}</div>
-
-      <div className={styles.choiceRow}>
-        <div className={styles.flagLabel}>{t('settingsPage.handedness')}</div>
-        <OptionGroup
-          variant="choices"
-          options={HANDEDNESS_OPTIONS.map(id => ({
-            id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded'),
-          }))}
-          active={handedness}
-          onSelect={setHandedness}
-          ariaLabel={t('settingsPage.handedness')}
-        />
-      </div>
-
-      {/* Touch-only, and absent rather than disabled on a PC: there is no way
-          into the mode there and no way back out of it (see
-          `minimalUiAvailable`, and #384 for what a desktop answer might be). */}
-      {minimalUiAvailable(deviceType) && (
-        <>
-          <ToggleRow
-            label={t('editorSettings.minimalUi')}
-            hint={t('editorSettings.minimalUiHint')}
-            checked={minimalUi}
-            onChange={setMinimalUi}
-          />
-
-          {/* Same rule as the volume slider above: only while there is a mode
-              for it to describe. */}
-          {minimalUi && (
-            <div className={styles.choiceRow}>
-              <div className={styles.flagLabel}>{t('editorSettings.minimalUiTap')}</div>
-              <div className={styles.flagDescription}>{t('editorSettings.minimalUiTapHint')}</div>
-              <OptionGroup
-                variant="choices"
-                options={MINIMAL_UI_TAP_MODES.map(mode => ({
-                  id: mode,
-                  label: t(MINIMAL_UI_TAP_LABELS[mode]),
-                }))}
-                active={minimalUiTapMode}
-                onSelect={setMinimalUiTapMode}
-                ariaLabel={t('editorSettings.minimalUiTap')}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      <div className={styles.choiceRow}>
-        <div className={styles.choiceHeading}>
-          <span className={styles.flagLabel}>{t('editorSettings.floatingPanel')}</span>
-          <Tooltip content={t('editorSettings.floatingPanelHint')}>
-            <button type="button" className={styles.infoButton} aria-label={t('common.moreInfo')}><Icon name="info" /></button>
-          </Tooltip>
+      <div className={general.interface}>
+        <div className={general.row}>
+          <span className={general.label}>{t('settingsPage.handedness')}</span>
+          <div className={general.control}>
+            <OptionGroup variant="choices"
+              options={HANDEDNESS_OPTIONS.map(id => ({ id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded') }))}
+              active={handedness} onSelect={setHandedness} ariaLabel={t('settingsPage.handedness')} />
+          </div>
         </div>
-        <OptionGroup
-          variant="choices"
-          options={floatingPanelChoices(deviceType).map(mode => ({
-            id: mode,
-            label: t(FLOATING_PANEL_LABELS[mode]),
-          }))}
-          active={floatingPanelSelection(floatingPanel, deviceType)}
-          onSelect={setFloatingPanel}
-          ariaLabel={t('editorSettings.floatingPanel')}
-        />
+
+        {minimalUiAvailable(deviceType) && (
+          <>
+            <Switch label={t('editorSettings.minimalUi')} checked={minimalUi} onChange={setMinimalUi} />
+            {minimalUi && (
+              <div className={general.row}>
+                <span className={general.label}>{t('editorSettings.minimalUiTap')}</span>
+                <div className={general.control}>
+                  <OptionGroup variant="choices"
+                    options={MINIMAL_UI_TAP_MODES.map(mode => ({ id: mode, label: t(MINIMAL_UI_TAP_LABELS[mode]) }))}
+                    active={minimalUiTapMode} onSelect={setMinimalUiTapMode} ariaLabel={t('editorSettings.minimalUiTap')} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className={general.row}>
+          <div className={general.heading}>
+            <span className={general.label}>{t('editorSettings.floatingPanel')}</span>
+            <Tooltip content={t('editorSettings.floatingPanelHint')}>
+              <button type="button" className={styles.infoButton} aria-label={t('common.moreInfo')}><Icon name="info" /></button>
+            </Tooltip>
+          </div>
+          <div className={general.control}>
+            <OptionGroup variant="choices"
+              options={floatingPanelChoices(deviceType).map(mode => ({ id: mode, label: t(FLOATING_PANEL_LABELS[mode]) }))}
+              active={floatingPanelSelection(floatingPanel, deviceType)} onSelect={setFloatingPanel} ariaLabel={t('editorSettings.floatingPanel')} />
+          </div>
+        </div>
       </div>
 
-      <ResetDefaultsButton onClick={() => {
-        const settings = useSettingsStore.getState()
-        settings.setSoundEnabled(false); settings.setSoundVolume(0.7)
-        settings.setMinimalUi(true); settings.setMinimalUiTapMode('double')
-        settings.setFloatingPanel('minimal'); settings.setHandedness('right')
-      }}>{t('common.resetDefaults')}</ResetDefaultsButton>
-
+        <ResetDefaultsFooter onClick={() => {
+          const settings = useSettingsStore.getState()
+          settings.setSoundEnabled(false); settings.setSoundVolume(0.7)
+          settings.setMinimalUi(true); settings.setMinimalUiTapMode('double')
+          settings.setFloatingPanel('minimal'); settings.setHandedness('right')
+        }}>{t('common.resetDefaults')}</ResetDefaultsFooter>
     </div>
   )
 }

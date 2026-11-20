@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, type KeyboardEvent, type ReactNo
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { useT } from '../../i18n'
+import { isDismissLayerOpen } from '../../lib/input/useDismissOnOutside'
 import { Icon } from '../Icon'
 import { claimModalSlot, releaseModalSlot, type ModalSlotEntry } from './modalSlot'
 import styles from './Modal.module.css'
@@ -84,6 +85,9 @@ export function Modal({ onClose, children, title, ariaLabel, size = 'md', classN
   // backdrop, which the focus handling above and the trap below maintain.
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
+      // A portaled picker may still have its trigger focused on this frame.
+      // Let its document listener dismiss the picker before closing the modal.
+      if (isDismissLayerOpen()) return
       e.stopPropagation()
       onCloseRef.current()
       return

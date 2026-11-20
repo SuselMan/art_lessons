@@ -97,7 +97,7 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
               "Прессованный". */}
           <span className={styles.toolbarLabel}>{label}</span>
           <NumberField
-            className={styles.toolbarNumber}
+            variant="readout"
             value={numValue}
             min={valueType.min} max={valueType.max} step={valueType.step}
             onChange={onChange} format={valueType.format} parse={valueType.parse} label={label}

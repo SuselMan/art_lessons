@@ -25,11 +25,9 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 /* Pending count next to its heading — a number the owner is meant to act on,
@@ -197,3 +195,9 @@
   flex: none;
   font-size: 18px;
 }
+
+.fieldLabel { margin: 0; font-size: 12px; font-weight: 400; color: var(--color-text); }
+.row { justify-content: space-between; }
+.textButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--color-border-strong); background: var(--color-surface-2); font-size: 12px; font-weight: 500; }
+.peopleHeading { margin: 0; padding-top: 16px; border-top: 1px solid var(--color-border); color: var(--color-text-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.avatar { display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-surface-2); color: var(--color-accent-hover); font-size: 11px; }

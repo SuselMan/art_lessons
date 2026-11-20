@@ -71,7 +71,11 @@ function modifierState(e: KeyboardEvent, mac: boolean): { mod: boolean; foreign:
     : { mod: e.ctrlKey, foreign: e.metaKey }
 }
 
+export const HOTKEY_CATEGORIES = ['history', 'tools', 'brush', 'canvas'] as const
+export type HotkeyCategory = typeof HOTKEY_CATEGORIES[number]
+
 export interface HotkeyActionDef {
+  category: HotkeyCategory
   id: string
   /** Translation key for the action's name (#208) — this registry is data
    *  shared by the keydown handler, the tooltips and the rebind UI, so it
@@ -81,9 +85,9 @@ export interface HotkeyActionDef {
 }
 
 export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
-  { id: 'undo', labelKey: 'hotkey.undo', default: { code: 'KeyZ', mod: true, shift: false } },
-  { id: 'redo', labelKey: 'hotkey.redo', default: { code: 'KeyZ', mod: true, shift: true } },
-  { id: 'toggleEraser', labelKey: 'hotkey.toggleEraser', default: { code: 'KeyE', mod: false, shift: false } },
+  { id: 'undo', category: 'history', labelKey: 'hotkey.undo', default: { code: 'KeyZ', mod: true, shift: false } },
+  { id: 'redo', category: 'history', labelKey: 'hotkey.redo', default: { code: 'KeyZ', mod: true, shift: true } },
+  { id: 'toggleEraser', category: 'tools', labelKey: 'hotkey.toggleEraser', default: { code: 'KeyE', mod: false, shift: false } },
   // (#520) Shift+E rather than a letter of its own: this is the eraser wearing
   // a different mode, and Shift over that tool's own key says so without
   // spending one of the letters still free (D/F/J/K/N/O/P/Q/V/X/Y) on a
@@ -96,24 +100,24 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // half that #520 deliberately left for later — a modifier was the original
   // ask, and could not be the *only* way in, because the tablet the app is
   // drawn on has nothing to hold down.
-  { id: 'eraseThroughLayers', labelKey: 'hotkey.eraseThroughLayers', default: { code: 'KeyE', mod: false, shift: true } },
-  { id: 'toggleSmudge', labelKey: 'hotkey.toggleSmudge', default: { code: 'KeyS', mod: false, shift: false } },
-  { id: 'toggleCharcoal', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
-  { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
-  { id: 'toggleMarker', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
+  { id: 'eraseThroughLayers', category: 'tools', labelKey: 'hotkey.eraseThroughLayers', default: { code: 'KeyE', mod: false, shift: true } },
+  { id: 'toggleSmudge', category: 'tools', labelKey: 'hotkey.toggleSmudge', default: { code: 'KeyS', mod: false, shift: false } },
+  { id: 'toggleCharcoal', category: 'tools', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
+  { id: 'toggleLiner', category: 'tools', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
+  { id: 'toggleMarker', category: 'tools', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
   // B for brush — the letter the tool is named after, and free (see the list
   // above: A/C/E/G/H/I/L/M/R/S/T/U/Z were taken, B was not).
-  { id: 'toggleBrushPen', labelKey: 'hotkey.toggleBrushPen', default: { code: 'KeyB', mod: false, shift: false } },
+  { id: 'toggleBrushPen', category: 'tools', labelKey: 'hotkey.toggleBrushPen', default: { code: 'KeyB', mod: false, shift: false } },
   // #468 — W for watercolor. B was already spent on the brush pen, and of what
   // is still free (D/F/J/K/N/O/P/Q/V/W/X/Y) it is the only letter the tool is
   // actually named after in either language the app ships.
-  { id: 'toggleWatercolor', labelKey: 'hotkey.toggleWatercolor', default: { code: 'KeyW', mod: false, shift: false } },
+  { id: 'toggleWatercolor', category: 'tools', labelKey: 'hotkey.toggleWatercolor', default: { code: 'KeyW', mod: false, shift: false } },
   // #547 — D for the digital brush. B is the brush pen's and the obvious letter
   // is therefore gone; D is the initial of the half of the name that
   // distinguishes it ("digital"/"цифровая") in both languages the app ships,
   // and it was free (of D/F/J/K/N/O/P/Q/V/X/Y, nothing else is named after a
   // letter here at all).
-  { id: 'toggleDigitalBrush', labelKey: 'hotkey.toggleDigitalBrush', default: { code: 'KeyD', mod: false, shift: false } },
+  { id: 'toggleDigitalBrush', category: 'tools', labelKey: 'hotkey.toggleDigitalBrush', default: { code: 'KeyD', mod: false, shift: false } },
   // (#405) The four tools that used to be modes laid over a drawing tool are
   // ordinary members of the selection now, so they belong in this registry
   // like every other tool rather than in a branch of their own — that is what
@@ -125,23 +129,23 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // isn't (see toggleHand below): they are the platform's own cancel and
   // confirm, every layer of the UI already answers to them, and a rebind UI
   // able to move them could leave an open transform session with no way out.
-  { id: 'toggleEyedropper', labelKey: 'hotkey.toggleEyedropper', default: { code: 'KeyI', mod: false, shift: false } },
-  { id: 'toggleRuler', labelKey: 'hotkey.toggleRuler', default: { code: 'KeyU', mod: false, shift: false } },
-  { id: 'toggleTransform', labelKey: 'hotkey.toggleTransform', default: { code: 'KeyT', mod: false, shift: false } },
+  { id: 'toggleEyedropper', category: 'tools', labelKey: 'hotkey.toggleEyedropper', default: { code: 'KeyI', mod: false, shift: false } },
+  { id: 'toggleRuler', category: 'tools', labelKey: 'hotkey.toggleRuler', default: { code: 'KeyU', mod: false, shift: false } },
+  { id: 'toggleTransform', category: 'tools', labelKey: 'hotkey.toggleTransform', default: { code: 'KeyT', mod: false, shift: false } },
   // (#446) 'A' for area — 'M' (the marquee key everywhere else) is the marker
   // here, and the marker is a tool someone reaches for far more often.
-  { id: 'toggleSelection', labelKey: 'hotkey.toggleSelection', default: { code: 'KeyA', mod: false, shift: false } },
-  { id: 'toggleGrid', labelKey: 'hotkey.toggleGrid', default: { code: 'KeyG', mod: false, shift: false } },
-  { id: 'resetRotation', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
+  { id: 'toggleSelection', category: 'tools', labelKey: 'hotkey.toggleSelection', default: { code: 'KeyA', mod: false, shift: false } },
+  { id: 'toggleGrid', category: 'canvas', labelKey: 'hotkey.toggleGrid', default: { code: 'KeyG', mod: false, shift: false } },
+  { id: 'resetRotation', category: 'canvas', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
   // Only the *toggle* is an action and therefore rebindable. Hold-to-pan
   // (Space) isn't in this registry at all: it has no keyup half here, and a
   // registry entry for it would be a binding the rebind UI could break into
   // a state the person can never leave (see Room's own Space effect, #319).
-  { id: 'toggleHand', labelKey: 'hotkey.toggleHand', default: { code: 'KeyH', mod: false, shift: false } },
-  { id: 'decreaseSize', labelKey: 'hotkey.decreaseSize', default: { code: 'BracketLeft', mod: false, shift: false } },
-  { id: 'increaseSize', labelKey: 'hotkey.increaseSize', default: { code: 'BracketRight', mod: false, shift: false } },
-  { id: 'rotateCCW', labelKey: 'hotkey.rotateCCW', default: { code: 'BracketLeft', mod: false, shift: true } },
-  { id: 'rotateCW', labelKey: 'hotkey.rotateCW', default: { code: 'BracketRight', mod: false, shift: true } },
+  { id: 'toggleHand', category: 'canvas', labelKey: 'hotkey.toggleHand', default: { code: 'KeyH', mod: false, shift: false } },
+  { id: 'decreaseSize', category: 'brush', labelKey: 'hotkey.decreaseSize', default: { code: 'BracketLeft', mod: false, shift: false } },
+  { id: 'increaseSize', category: 'brush', labelKey: 'hotkey.increaseSize', default: { code: 'BracketRight', mod: false, shift: false } },
+  { id: 'rotateCCW', category: 'canvas', labelKey: 'hotkey.rotateCCW', default: { code: 'BracketLeft', mod: false, shift: true } },
+  { id: 'rotateCW', category: 'canvas', labelKey: 'hotkey.rotateCW', default: { code: 'BracketRight', mod: false, shift: true } },
   // Grade steps along the full 6H..6B ladder, one notch per press — replacing
   // five digit keys that jumped to five hand-picked grades (1..5 → H, HB, 2B,
   // 4B, 6B). Nine of the fourteen grades had no key at all, and which five did
@@ -151,8 +155,8 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // ','/'.' rather than something mnemonic: '['/']' are taken by size, and
   // these two sit right next to them with the same left=less/right=more
   // reading — the same pair Photoshop and Krita step brushes with.
-  { id: 'gradeHarder', labelKey: 'hotkey.gradeHarder', default: { code: 'Comma', mod: false, shift: false } },
-  { id: 'gradeSofter', labelKey: 'hotkey.gradeSofter', default: { code: 'Period', mod: false, shift: false } },
+  { id: 'gradeHarder', category: 'brush', labelKey: 'hotkey.gradeHarder', default: { code: 'Comma', mod: false, shift: false } },
+  { id: 'gradeSofter', category: 'brush', labelKey: 'hotkey.gradeSofter', default: { code: 'Period', mod: false, shift: false } },
   // Zoom, taken off the browser (#440). The two step keys are bound to the
   // browser's own zoom combo on purpose: the point is that Ctrl/Cmd +/- moves
   // *our* camera instead of scaling the page. See browserZoomIntent for the
@@ -163,9 +167,9 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // browser zoom that already drifted (from a menu, or a Ctrl+wheel on
   // another page), we cannot reset that from script, and taking the key would
   // leave someone stuck at 150% with no way out.
-  { id: 'zoomIn', labelKey: 'hotkey.zoomIn', default: { code: 'Equal', mod: true, shift: false } },
-  { id: 'zoomOut', labelKey: 'hotkey.zoomOut', default: { code: 'Minus', mod: true, shift: false } },
-  { id: 'zoomReset', labelKey: 'hotkey.zoomReset', default: { code: 'Digit0', mod: false, shift: false } },
+  { id: 'zoomIn', category: 'canvas', labelKey: 'hotkey.zoomIn', default: { code: 'Equal', mod: true, shift: false } },
+  { id: 'zoomOut', category: 'canvas', labelKey: 'hotkey.zoomOut', default: { code: 'Minus', mod: true, shift: false } },
+  { id: 'zoomReset', category: 'canvas', labelKey: 'hotkey.zoomReset', default: { code: 'Digit0', mod: false, shift: false } },
 ]
 
 // roomStorage.ts's key format is `al_room_settings:<roomId>` — reusing it

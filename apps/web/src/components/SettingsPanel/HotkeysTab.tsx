@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
 
-import { ResetDefaultsButton } from '../Button'
+import { ResetDefaultsFooter } from '../Button'
 import { useT } from '../../i18n'
 import {
-  HOTKEY_ACTIONS, captureHotkeyBinding, findHotkeyConflict, formatHotkeyLabel,
+  HOTKEY_CATEGORIES, HOTKEY_ACTIONS, captureHotkeyBinding, findHotkeyConflict, formatHotkeyLabel,
   isReservedCombo,
 } from '../../lib/input/hotkeys'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
+import hotkeyStyles from './HotkeysTab.module.css'
+import type { HotkeyCategory } from '../../lib/input/hotkeys'
+import type { TranslationKey } from '../../i18n'
+
+const GROUP_LABELS: Record<HotkeyCategory, TranslationKey> = { history: 'hotkey.group.history', tools: 'hotkey.group.tools', brush: 'hotkey.group.brush', canvas: 'hotkey.group.canvas' }
 
 /** (#174) Rebinding, against the registry in `lib/input/hotkeys` — which is the
  *  single source of truth for this list, the editor's own keydown handler and
@@ -55,11 +60,13 @@ export function HotkeysTab() {
   }, [recordingActionId, hotkeys, setHotkeys, t])
 
   return (
-    <div className={styles.flagList}>
-      {HOTKEY_ACTIONS.map(action => (
-        <div key={action.id} className={styles.flagRow} style={{ cursor: 'default' }}>
+    <div className={hotkeyStyles.panel}>
+      {HOTKEY_CATEGORIES.map(category => <section key={category} className={hotkeyStyles.group}>
+        <h3 className={hotkeyStyles.heading}>{t(GROUP_LABELS[category])}</h3>
+        {HOTKEY_ACTIONS.filter(action => action.category === category).map(action => (
+        <div key={action.id} className={hotkeyStyles.item}>
           <div className={styles.hotkeyRow}>
-            <span className={styles.flagLabel}>{t(action.labelKey)}</span>
+            <span className={hotkeyStyles.label}>{t(action.labelKey)}</span>
             <button
               type="button"
               className={styles.hotkeyBtn}
@@ -72,8 +79,9 @@ export function HotkeysTab() {
             <div className={styles.hotkeyError}>{hotkeyError}</div>
           )}
         </div>
-      ))}
-      <ResetDefaultsButton
+        ))}
+      </section>)}
+      <ResetDefaultsFooter
         onClick={() => {
           setHotkeys(Object.fromEntries(HOTKEY_ACTIONS.map(a => [a.id, a.default])))
           setRecordingActionId(null)
@@ -81,7 +89,7 @@ export function HotkeysTab() {
         }}
       >
         {t('common.resetDefaults')}
-      </ResetDefaultsButton>
+      </ResetDefaultsFooter>
     </div>
   )
 }

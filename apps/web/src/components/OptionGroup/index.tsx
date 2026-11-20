@@ -32,6 +32,8 @@ export type OptionGroupSelection = 'tab' | 'radio'
 interface OptionGroupProps<Id extends string> {
   options: OptionDef<Id>[]
   active: Id
+  /** A custom value may sit between presets, leaving every preset unselected. */
+  allowEmpty?: boolean
   onSelect: (id: Id) => void
   /** Default `tabs`. */
   variant?: OptionGroupVariant
@@ -62,6 +64,7 @@ interface OptionGroupProps<Id extends string> {
 export function OptionGroup<Id extends string>({
   options,
   active,
+  allowEmpty = false,
   onSelect,
   variant = 'tabs',
   selection = variant === 'tabs' ? 'tab' : 'radio',
@@ -70,10 +73,8 @@ export function OptionGroup<Id extends string>({
   const uid = useId()
   const buttonsRef = useRef<(HTMLButtonElement | null)[]>([])
 
-  const activeIndex = Math.max(
-    0,
-    options.findIndex(o => o.id === active),
-  )
+  const match = options.findIndex(o => o.id === active)
+  const activeIndex = allowEmpty ? match : Math.max(0, match)
   const activeOption = options[activeIndex]
   const isTabs = selection === 'tab'
   const showPanel = isTabs && options.some(o => o.content !== undefined)
@@ -111,7 +112,7 @@ export function OptionGroup<Id extends string>({
               aria-controls={showPanel ? `${uid}-panel` : undefined}
               aria-label={iconOnly ? option.label : undefined}
               title={iconOnly ? option.label : undefined}
-              tabIndex={selected ? 0 : -1}
+              tabIndex={selected || (activeIndex < 0 && i === 0) ? 0 : -1}
               className={clsx(styles.option, selected && styles.optionSelected)}
               onClick={() => onSelect(option.id)}
             >
