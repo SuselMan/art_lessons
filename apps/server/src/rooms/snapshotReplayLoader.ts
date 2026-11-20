@@ -73,11 +73,21 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
           gestures.push({ userId: target.userId, strokeId: target.strokeId })
         }
         if (!gestures.length) break
-        const siblings = await prisma.operation.findMany({
-          where: { roomId, type: 'stroke', seq: { lte: watermark },
-            OR: gestures.map(({ userId, strokeId }) => ({ userId, data: { path: ['strokeId'], equals: strokeId } })) },
-          select: { data: true },
-        })
+        // One indexed lookup per gesture: a large OR over JSON fields makes
+        // Postgres repeatedly decompress every stroke and can time out joins.
+        // OFFSET 0 preserves the lateral lookup instead of flattening it into
+        // a scan over all strokes for every gesture.
+        const siblings = await prisma.$queryRaw<{ data: unknown }[]>`
+          SELECT sibling.data
+          FROM jsonb_to_recordset(${JSON.stringify(gestures)}::jsonb) AS gesture("userId" text, "strokeId" text)
+          CROSS JOIN LATERAL (
+            SELECT data FROM "Operation"
+            WHERE "roomId" = ${roomId} AND type = 'stroke' AND seq <= ${watermark}
+              AND "userId" = gesture."userId"
+              AND data #> '{strokeId}' = to_jsonb(gesture."strokeId")
+            OFFSET 0
+          ) AS sibling
+        `
         for (const { data } of siblings) { const op = data as Operation; byId.set(op.id, op) }
       }
     }
