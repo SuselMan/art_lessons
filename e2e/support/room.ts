@@ -204,10 +204,9 @@ export interface Rect { x: number; y: number; width: number; height: number }
  *
  *  So the spacing, not the count, is what is held roughly constant — about six
  *  world pixels, comfortably inside any stroke this harness draws. Capped
- *  because each sample is its own `readPixels`, and each of those is a
- *  round trip that stalls the GPU pipeline: 64 is ~4000 reads, which is a
- *  second or so, and past that an assertion starts costing more than the test
- *  it belongs to. */
+ *  at 64 (~4000 probes). The public sampler still resolves every point;
+ *  its framebuffer reads are batched below to avoid thousands of GPU stalls
+ *  without changing sample density or the darkness threshold. */
 function stepsFor(rect: Rect): number {
   const target = Math.ceil(Math.max(rect.width, rect.height) / 6)
   return Math.min(64, Math.max(9, target))
@@ -237,10 +236,35 @@ export async function maxDarknessOverRect(page: Page, rect: Rect, steps = stepsF
       ])
     }
   }
-  const colors = await page.evaluate(
-    points => points.map(([x, y]) => window.__engine!.pickColor(x, y)),
-    samples,
-  )
+  const colors = await page.evaluate(points => {
+    const engine = window.__engine!, canvas = document.querySelector('canvas')!
+    const gl = canvas.getContext('webgl')!
+    // Flush the pending display through the public sampler. Offscreen samples
+    // return null before flushing, so find the first actual framebuffer point.
+    let reference: { point: [number, number]; color: [number, number, number] } | undefined
+    for (const point of points) {
+      const color = engine.pickColor(...point)
+      if (color) { reference = { point, color }; break }
+    }
+    if (!reference) return points.map(() => null)
+    const pixels = new Uint8Array(canvas.width * canvas.height * 4)
+    const original = gl.readPixels
+    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    // All probes run synchronously against one frame. Keep pickColor's exact
+    // camera/bounds logic, but serve its 1px reads from the batched framebuffer.
+    // Thousands of separate GPU stalls can freeze a software-rendered peer.
+    gl.readPixels = (...args: Parameters<typeof gl.readPixels>) => {
+      const [x, y, width, height, format, type, target] = args
+      if (width === 1 && height === 1 && format === gl.RGBA && type === gl.UNSIGNED_BYTE && target instanceof Uint8Array) {
+        target.set(pixels.subarray((y * canvas.width + x) * 4, (y * canvas.width + x) * 4 + 4))
+      } else original.apply(gl, args)
+    }
+    try {
+      const repeated = engine.pickColor(...reference.point)
+      if (!repeated || repeated.some((value, index) => value !== reference.color[index])) throw new Error('Batched pixel probe disagrees with native readPixels')
+      return points.map(([x, y]) => engine.pickColor(x, y))
+    } finally { gl.readPixels = original }
+  }, samples)
   return Math.max(0, ...colors.map(darkness))
 }
 
