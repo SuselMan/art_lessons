@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import clsx from 'clsx'
 import { useT } from '../../i18n'
 import { Modal } from '../Modal'
+import { Button } from '../Button'
 import {
   ConfirmDialogContext,
   type AlertRequest, type ConfirmDialogApi, type ConfirmRequest,
@@ -88,23 +88,21 @@ function ConfirmDialogView({ pending, onSettle }: {
       <div className={styles.message}>{pending.request.message}</div>
       <div className={styles.actions}>
         {pending.kind === 'confirm' && (
-          <button
-            type="button"
-            className={clsx(styles.button, styles.cancel)}
+          <Button
+            type="secondary"
             autoFocus={danger}
             onClick={() => onSettle(false)}
           >
             {pending.request.cancelLabel ?? t('common.cancel')}
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          className={clsx(styles.button, danger ? styles.danger : styles.confirm)}
+        <Button
+          type={danger ? 'danger' : 'primary'}
           autoFocus={!danger}
           onClick={() => onSettle(true)}
         >
           {acceptLabel}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

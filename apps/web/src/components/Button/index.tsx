@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import styles from './Button.module.css'
 
 type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & {
-  type?: 'primary' | 'secondary' | 'ghost' | 'active' | 'danger'
+  type?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
 }
 /** Grafetto's shared button: appearance only, actions belong to the caller. */

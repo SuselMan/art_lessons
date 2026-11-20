@@ -8,6 +8,18 @@
   min-height: 0;
 }
 
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.option > :global(.material-symbols-outlined) {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
 .option:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -60,7 +72,7 @@
 .list .option {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   min-height: var(--touch-target);
   padding: 0 16px;
@@ -82,6 +94,8 @@
 }
 
 .list .label { font-weight: 600; }
+
+.list .label + :global(.material-symbols-outlined) { margin-left: auto; }
 
 /* ── segmented: a compact icon strip, for a narrow panel ───────────────── */
 

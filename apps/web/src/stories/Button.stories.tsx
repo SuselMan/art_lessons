@@ -13,7 +13,7 @@ const meta = {
   argTypes: {
     type: {
       control: 'select',
-      options: ['primary', 'secondary', 'ghost', 'active', 'danger'],
+      options: ['primary', 'secondary', 'ghost', 'danger'],
     },
     size: { control: 'select', options: ['sm', 'md', 'lg'] },
     onClick: { action: 'click' },
@@ -29,7 +29,7 @@ export const AllVariants: StoryObj<typeof meta> = {
           <h3>{size}</h3>
           <div className="workshop-row">
             {(
-              ['primary', 'secondary', 'ghost', 'active', 'danger'] as const
+              ['primary', 'secondary', 'ghost', 'danger'] as const
             ).map((type) => (
               <Button key={type} type={type} size={size}>
                 {type}
@@ -38,7 +38,7 @@ export const AllVariants: StoryObj<typeof meta> = {
           </div>
           <div className="workshop-row">
             {(
-              ['primary', 'secondary', 'ghost', 'active', 'danger'] as const
+              ['primary', 'secondary', 'ghost', 'danger'] as const
             ).map((type) => (
               <Button key={type} type={type} size={size} disabled>
                 {type}
