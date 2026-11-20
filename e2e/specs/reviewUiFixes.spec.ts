@@ -61,7 +61,7 @@ test('settings use switches and segments, tooltip dismisses without closing sett
   // A tablet keeps :hover after a tap. Selecting must remain accented before blur.
   const expectedSelected = await segment.evaluate(el => {
     const probe = document.createElement('span')
-    probe.style.cssText = 'color: var(--color-on-accent); background: var(--color-accent)'
+    probe.style.cssText = 'color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface-2))'
     el.append(probe)
     const style = getComputedStyle(probe)
     const expected = { color: style.color, background: style.backgroundColor }

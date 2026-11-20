@@ -129,4 +129,4 @@
 .choices .strip { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
 .choices .option { flex: 1 1 80px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); font: inherit; font-size: 12px; color: var(--color-text-dim); background: transparent; cursor: pointer; transition: color var(--duration-fast), background var(--duration-fast); }
 .choices .option:not(.optionSelected):hover { color: var(--color-text); background: var(--color-surface-hover); }
-.choices .optionSelected { color: var(--color-on-accent); background: var(--color-accent); box-shadow: 0 1px 4px #0002; font-weight: 600; }
+.choices .optionSelected { color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface-2)); box-shadow: 0 1px 4px #0002; font-weight: 500; }
