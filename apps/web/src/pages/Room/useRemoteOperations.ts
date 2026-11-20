@@ -102,31 +102,32 @@ export function useRemoteOperations({
     }
   }, [deferredOpsQueueRef, appliedOpIdsRef, applyRemoteOp, syncFromLog, checkSnapshotBoundary])
 
-  const repairSnapshotHistory = useCallback((): void => {
-    const engine = engineRef.current
-    if (!engine || !boardId || repairs.current.has(engine)) return
+  // Stable across page turns: callers carry the owner, asynchronous work keeps it.
+  const repairSnapshotHistory = useCallback((engine = engineRef.current, roomId = currentBoard.current): void => {
+    const current = () => engineRef.current === engine && currentBoard.current === roomId
+    if (!engine || !roomId || !current() || repairs.current.has(engine)) return
     let succeeded = false
     const work = (async () => {
-      const complete = await continueSnapshotHistoryRepair(boardId, engine, {
-        ordinary: ordinaryBackfills.current.get(engine), current: () => engineRef.current === engine,
+      const complete = await continueSnapshotHistoryRepair(roomId, engine, {
+        ordinary: ordinaryBackfills.current.get(engine), current,
         onPage: page => {
           for (const op of page) appliedOpIdsRef.current.add(op.id)
           drainDeferredQueue()
         },
       })
       if (!complete) return
-      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary(); succeeded = true }
-    })().catch(() => { if (engineRef.current === engine) repairFailure.current() })
+      if (current()) { syncFromLog(); checkSnapshotBoundary(); succeeded = true }
+    })().catch(() => { if (current()) repairFailure.current() })
       .finally(() => {
         repairs.current.delete(engine)
         // Success proved no pending range. A range appearing before this
         // completion edge is new work; failures never retry their old range.
-        if (succeeded && engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
-          if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+        if (succeeded && current() && engine.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
+          if (current() && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory(engine, roomId)
         })
       })
     repairs.current.set(engine, work)
-  }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, drainDeferredQueue])
+  }, [engineRef, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, drainDeferredQueue])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
   // `engine` and sets restoredLayerStateRef so syncFromLog starts deriving
@@ -267,7 +268,7 @@ export function useRemoteOperations({
     ordinaryBackfills.current.set(engine, work)
     try { await work } finally {
       ordinaryBackfills.current.delete(engine)
-      if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+      if (engineRef.current === engine && currentBoard.current === roomId && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory(engine, roomId)
     }
   }, [engineRef, appliedOpIdsRef, drainDeferredQueue, repairSnapshotHistory])
 

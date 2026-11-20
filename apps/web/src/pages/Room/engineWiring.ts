@@ -223,3 +223,21 @@ export function openParkedRoomState<Engine>(engine: Engine, {
     if (await awaitPaper(engine)) { setRoomContentReady(true); finishOpenTimer(engine) }
   })()
 }
+
+/** Let the target-board loading view paint before synchronous GPU setup (#850).
+ * Cancellation owns both the scheduled start and the eventual engine cleanup. */
+export function afterBoardPaint(start: () => () => void): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let cleanup: (() => void) | undefined
+  let cancelled = false
+  const frame = requestAnimationFrame(() => {
+    timer = setTimeout(() => { if (!cancelled) cleanup = start() }, 0)
+  })
+  return () => {
+    cancelled = true
+    cancelAnimationFrame(frame)
+    clearTimeout(timer)
+    cleanup?.()
+    cleanup = undefined
+  }
+}
