@@ -46,7 +46,7 @@ function Variants() {
     <div className="workshop-column">
       {(['tabs', 'choices', 'segmented', 'list'] as const).map((variant) => (
         <section key={variant}>
-          <h3>{variant}</h3>
+          <h3>{{ tabs: 'Tabs', choices: 'Segmented · text', segmented: 'Segmented · icons', list: 'List' }[variant]}</h3>
           <OptionGroup
             options={options}
             active={active}
@@ -64,4 +64,15 @@ export const AllVariants: StoryObj<typeof meta> = {
 }
 export const CustomValue: StoryObj<typeof meta> = {
   args: { variant: 'choices', active: 'custom', allowEmpty: true },
+}
+
+export const TextSegments: StoryObj<typeof meta> = {
+  name: 'Segmented · text',
+  ...Playground,
+  args: { variant: 'choices' },
+}
+export const IconSegments: StoryObj<typeof meta> = {
+  name: 'Segmented · icons',
+  ...Playground,
+  args: { variant: 'segmented' },
 }

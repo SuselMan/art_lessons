@@ -83,7 +83,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  background: var(--color-surface-2);
+  background: var(--color-border-strong);
   border: 1px solid var(--color-border-strong);
   border-radius: 999px;
   transition: background var(--duration-fast), border-color var(--duration-fast);
@@ -145,17 +145,17 @@
    Hover only where a pointer can actually leave: on a tablet :hover latches on
    after a tap and the control stays lit as if focused (#326). */
 @media (hover: hover) {
-  .switch:hover {
+  .switch:not(:disabled):hover {
     color: var(--color-text);
   }
   /* Keep the capsule colour steady; only an enabled track changes its fill. */
-  .switch:hover .thumb {
+  .switch:not(:disabled):hover .thumb {
     background: var(--color-switch-knob);
   }
-  .switch.on:hover .track {
+  .switch.on:not(:disabled):hover .track {
     background: var(--color-accent-hover);
   }
-  .switch.on:hover .thumb {
+  .switch.on:not(:disabled):hover .thumb {
     background: var(--color-switch-knob);
   }
 }
