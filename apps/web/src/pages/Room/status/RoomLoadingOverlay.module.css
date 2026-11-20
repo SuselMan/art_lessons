@@ -92,24 +92,3 @@
   z-index: 100;
   pointer-events: auto;
 }
-
-/* An overview of the selected board, never an editable canvas or replay input. */
-.preview {
-  position: absolute;
-  inset: 24px;
-  width: calc(100% - 48px);
-  height: calc(100% - 48px);
-  object-fit: contain;
-  visibility: hidden;
-}
-
-.withPreview .preview { visibility: visible; }
-.withPreview .spinner,
-.withPreview .message,
-.withPreview .progressTrack,
-.withPreview .progressLabel {
-  position: relative;
-  z-index: 1;
-  background: var(--color-bg);
-  box-shadow: 0 0 0 8px var(--color-bg);
-}

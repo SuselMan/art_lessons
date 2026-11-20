@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 
-import { apiPath } from '../../../lib/api/api'
-import { useRoomStore } from '../../../stores/roomStore'
 import type { PaperLoadProgress } from '../../../engine'
 import { useT, type TranslationKey } from '../../../i18n'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -45,10 +43,9 @@ const MESSAGE_INTERVAL_MS = 1800
 const MIB = 1024 * 1024
 
 /** Covers the whole viewport while `roomContentReady` is false (see
- *  Room/index.tsx). A saved overview of the target board (#850) is only a
- *  loading illustration; drawing stays gated by roomContentReady. Rendered as a direct child of
- *  `.viewport`, not `.canvasWrap`, so it never pans/zooms/rotates with the
- *  canvas underneath it.
+ *  Room/index.tsx). Drawing stays gated by roomContentReady. Rendered as the
+ *  last child of `.editor`, above its header and panels as well as the canvas.
+ *  It never pans, zooms or rotates with the canvas underneath.
  *
  *  (#345) `paper` turns the one honestly-measurable part of the wait into a
  *  real bar. Room loading has two phases and only the first has a denominator:
@@ -63,12 +60,6 @@ const MIB = 1024 * 1024
  *  ever emitted and the overlay looks exactly as it did before this change. */
 export function RoomLoadingOverlay({ paper, copying = false, fullscreen = false }: { paper?: PaperLoadProgress | null; copying?: boolean; fullscreen?: boolean }): React.JSX.Element {
   const t = useT()
-  const board = useRoomStore(s => s.boards.find(item => item.id === s.boardId))
-  const preview = !copying && !fullscreen && board?.thumbnailUpdatedAt
-    ? apiPath('GET /api/rooms/:roomId/thumbnail', { params: { roomId: board.id }, query: { v: board.thumbnailUpdatedAt } })
-    : null
-  const [loadedPreview, setLoadedPreview] = useState<string | null>(null)
-  const showingPreview = preview !== null && loadedPreview === preview
   const messages = copying ? COPY_MESSAGE_KEYS : MESSAGE_KEYS
   const [index, setIndex] = useState(0)
   useEffect(() => {
@@ -83,9 +74,7 @@ export function RoomLoadingOverlay({ paper, copying = false, fullscreen = false 
   const percent = downloading ? Math.min(100, Math.round((paper.loaded / paper.total) * 100)) : 0
 
   return (
-    <div className={clsx(styles.overlay, fullscreen && styles.fullscreen, showingPreview && styles.withPreview)}>
-      {preview && <img key={preview} className={styles.preview} src={preview} alt="" draggable={false}
-        onLoad={() => setLoadedPreview(preview)} onError={() => setLoadedPreview(null)} />}
+    <div className={clsx(styles.overlay, fullscreen && styles.fullscreen)}>
       <div className={styles.spinner} />
       {downloading ? (
         <>
