@@ -1,5 +1,8 @@
 import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
+import { Icon } from '../Icon'
+import { Switch } from '../Switch'
+import { Tooltip } from '../Tooltip'
 import { OptionGroup } from '../OptionGroup'
 import { PrecisionSlider } from '../PrecisionSlider'
 import {
@@ -29,13 +32,10 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, hint, checked, onChange }: ToggleRowProps) {
   return (
-    <label className={styles.flagRow}>
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-      <div>
-        <div className={styles.flagLabel}>{label}</div>
-        <div className={styles.flagDescription}>{hint}</div>
-      </div>
-    </label>
+    <div className={styles.choiceRow}>
+      <Switch label={label} checked={checked} onChange={onChange} />
+      <div className={styles.flagDescription}>{hint}</div>
+    </div>
   )
 }
 
@@ -106,7 +106,7 @@ export function GeneralTab() {
         <div className={styles.flagLabel}>{t('settingsPage.handedness')}</div>
         <div className={styles.flagDescription}>{t('settingsPage.handednessHint')}</div>
         <OptionGroup
-          variant="list"
+          variant="choices"
           options={HANDEDNESS_OPTIONS.map(id => ({
             id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded'),
           }))}
@@ -135,7 +135,7 @@ export function GeneralTab() {
               <div className={styles.flagLabel}>{t('editorSettings.minimalUiTap')}</div>
               <div className={styles.flagDescription}>{t('editorSettings.minimalUiTapHint')}</div>
               <OptionGroup
-                variant="list"
+                variant="choices"
                 options={MINIMAL_UI_TAP_MODES.map(mode => ({
                   id: mode,
                   label: t(MINIMAL_UI_TAP_LABELS[mode]),
@@ -150,10 +150,14 @@ export function GeneralTab() {
       )}
 
       <div className={styles.choiceRow}>
-        <div className={styles.flagLabel}>{t('editorSettings.floatingPanel')}</div>
-        <div className={styles.flagDescription}>{t('editorSettings.floatingPanelHint')}</div>
+        <div className={styles.choiceHeading}>
+          <span className={styles.flagLabel}>{t('editorSettings.floatingPanel')}</span>
+          <Tooltip content={t('editorSettings.floatingPanelHint')}>
+            <button type="button" className={styles.infoButton} aria-label={t('common.moreInfo')}><Icon name="info" /></button>
+          </Tooltip>
+        </div>
         <OptionGroup
-          variant="list"
+          variant="choices"
           options={floatingPanelChoices(deviceType).map(mode => ({
             id: mode,
             label: t(FLOATING_PANEL_LABELS[mode]),
@@ -163,6 +167,13 @@ export function GeneralTab() {
           ariaLabel={t('editorSettings.floatingPanel')}
         />
       </div>
+
+      <button type="button" className={styles.resetButton} onClick={() => {
+        const settings = useSettingsStore.getState()
+        settings.setSoundEnabled(false); settings.setSoundVolume(0.7)
+        settings.setMinimalUi(true); settings.setMinimalUiTapMode('double')
+        settings.setFloatingPanel('minimal'); settings.setHandedness('right')
+      }}>{t('common.resetDefaults')}</button>
 
     </div>
   )

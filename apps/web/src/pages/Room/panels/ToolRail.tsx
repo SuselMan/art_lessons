@@ -33,7 +33,7 @@ export interface ToolRailProps {
   well: ColorWellState
   wellLabel: string
   colorExpanded: boolean
-  openRailColorSurface: () => void
+  openRailColorSurface: (side?: 'stroke' | 'fill') => void
   /** The drawing group's button (#544) — shared with the floating panel,
    *  so Room computes it once for both. */
   drawingGroupTool: PrimaryDrawingTool

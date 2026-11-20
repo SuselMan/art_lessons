@@ -64,7 +64,7 @@ export function Settings() {
               landed in a language they can't read still recognizes their
               own by its own name. */}
           <OptionGroup
-            variant="list"
+            variant="choices"
             options={LOCALES.map(option => ({ id: option, label: LOCALE_NAMES[option] }))}
             active={locale}
             onSelect={setLocale}
@@ -83,7 +83,7 @@ export function Settings() {
               contrast of the two — this setting exists for people who need
               that, and they should not have to try both to find out. */}
           <OptionGroup
-            variant="list"
+            variant="choices"
             options={THEMES.map(option => ({ id: option, label: t(THEME_LABELS[option]) }))}
             active={theme}
             onSelect={setTheme}
@@ -102,7 +102,7 @@ export function Settings() {
               Surface with the keyboard detached — this is the escape hatch
               for the rest, and it needs to read as a plain either/or. */}
           <OptionGroup
-            variant="list"
+            variant="choices"
             options={DEVICE_TYPES.map(option => ({ id: option, label: t(DEVICE_TYPE_LABELS[option]) }))}
             active={deviceType}
             onSelect={setDeviceType}
@@ -120,7 +120,7 @@ export function Settings() {
               following the screen" — rather than being a third state that looks
               like one of the other two. */}
           <OptionGroup
-            variant="list"
+            variant="choices"
             options={COMPACT_PREFERENCES.map(option => ({ id: option, label: t(COMPACT_LABELS[option]) }))}
             active={compactPreference}
             onSelect={setCompactPreference}
@@ -132,7 +132,7 @@ export function Settings() {
         <section className={styles.section}>
           <div className={styles.label}>{t('settingsPage.handedness')}</div>
           <OptionGroup
-            variant="list"
+            variant="choices"
             options={HANDEDNESS_OPTIONS.map(id => ({
               id, label: t(id === 'left' ? 'settingsPage.leftHanded' : 'settingsPage.rightHanded'),
             }))}

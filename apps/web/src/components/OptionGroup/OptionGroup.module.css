@@ -124,3 +124,9 @@
 
 .tabs .strip { overflow-x: auto; scrollbar-width: none; min-height: 44px; }
 .tabs .option { flex-shrink: 0; }
+
+/* Text segments for settings; wrap as a whole control on narrow screens. */
+.choices .strip { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-2); }
+.choices .option { flex: 1 1 80px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); font: inherit; font-size: 12px; color: var(--color-text-dim); background: transparent; cursor: pointer; transition: color var(--duration-fast), background var(--duration-fast); }
+.choices .option:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.choices .optionSelected { color: var(--color-accent-hover); background: var(--color-surface-raised); box-shadow: 0 1px 4px #0002; font-weight: 600; }

@@ -61,6 +61,9 @@ export const en = {
 
   // ── shared vocabulary ──────────────────────────────────────────────────
   'brush.cloneSource': 'Set clone source: tap the canvas',
+  'common.resetDefaults': 'Reset to defaults',
+  'common.moreInfo': 'More information',
+  'access.resetConfirm': 'Confirm reset: anyone with the link, without a password',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.save': 'Save',
@@ -83,6 +86,7 @@ export const en = {
   'brushLibrary.unsupported': 'Unavailable',
   'brushLibrary.tooLarge': 'Choose a file smaller than 512 MB.',
   'brushLibrary.importFailed': 'Could not import this file. Check the format, size and connection, then try again.',
+  'brushLibrary.preparingSelected': 'Preparing brush…',
   'brushLibrary.error': 'Could not load the brush resources. Check your connection and try again.',
   'common.retry': 'Retry',
   // (#48) The service worker found a newer deploy. Deliberately an offer and
@@ -321,7 +325,8 @@ export const en = {
   // they read the same either way.
   'share.action': 'Share',
   'room.reviewImage': 'Drawing for review',
-  'share.preparingReview': 'Preparing review link…',
+  'share.preparingReview': 'Preparing review preview…',
+  'share.reviewBackgroundFailed': 'The link works, but its preview could not be prepared. Try Share for review again.',
   'share.reviewFailed': 'Could not prepare the review image',
   'share.reviewReadyMessage': 'The drawing is ready to send for review.',
   'share.reviewReady': 'Review link ready',
@@ -438,9 +443,13 @@ export const en = {
   'room.minimalUi': 'Minimal UI',
   'room.fullscreen': 'Fullscreen',
   'room.exitFullscreen': 'Exit fullscreen',
-  'room.freeze': "Freeze project — pause everyone's drawing",
+  'room.freezeState.on': 'Frozen',
+  'room.freezeState.off': 'Not frozen',
+  'room.freezeToast.on': 'Drawing frozen for students. The teacher can continue drawing.',
+  'room.freezeToast.off': 'Drawing unfrozen for students.',
+  'room.freeze': "Freeze project — pause students' drawing",
   'room.freezeShort': 'Freeze project',
-  'room.unfreeze': 'Unfreeze project — let everyone draw again',
+  'room.unfreeze': 'Unfreeze project — let students draw again',
   'room.unfreezeShort': 'Unfreeze project',
   'room.zoom': 'Zoom — drag up/down to adjust, click to reset to 100%',
   'room.rotation': 'Rotation — drag up/down to turn the canvas, click for a quarter turn  ({hotkey} to reset)',
@@ -453,6 +462,7 @@ export const en = {
   // (#362) The button on minimal UI's zoom/rotation strip. Says "view" rather
   // than naming both values: it sits next to them, and "Reset zoom and
   // rotation" would be wider than the two numbers it follows.
+  'room.viewportFit': 'Fit',
   'room.viewportReset': 'Reset view',
   'room.undo': 'Undo',
   'room.undoTitle': 'Undo  {hotkey}',

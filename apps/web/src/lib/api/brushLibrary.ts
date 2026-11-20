@@ -120,7 +120,7 @@ async function fetchAsset(id: string): Promise<void> {
 export function prepareBrushPresets(presets: readonly (string | undefined)[],sources:readonly (BrushSourceContext|undefined)[]=[]): Promise<void> | null {
   const imported = presets.filter((p): p is string => !!p && (p.startsWith('brush:imported-') || p.startsWith('imported-')))
   const sourceIds=[...new Set(sources.flatMap(brushSourcePatternAssetIds))]
-  try { for(const p of presets)importedBrushAssets(p);if(sourceIds.some(id=>!library?.assets.some(a=>a.id===id)))throw Error('Unknown source resource') }
+  try { if ((imported.length || sourceIds.length) && !library) throw Error('Destination brush metadata pending'); for(const p of presets)importedBrushAssets(p);if(sourceIds.some(id=>!library?.assets.some(a=>a.id===id)))throw Error('Unknown source resource') }
   catch {
     if (!imported.length&&!sourceIds.length) throw new Error('Invalid brush preset')
     const scope = roomScope

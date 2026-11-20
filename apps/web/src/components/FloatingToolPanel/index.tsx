@@ -135,7 +135,7 @@ interface Props {
   /** Tapping the flyout's picker button: show full UI + open the Color tab,
    *  same escape hatch as before this fan existed, for anything beyond the
    *  capped flyout (the rest of the palette, the full HSV picker, etc). */
-  onOpenColorPicker: () => void
+  onOpenColorPicker: (side?: 'stroke' | 'fill') => void
   /** Which fan is out, if any. Controlled from Room rather than kept local
    *  because the fans' rings share the exact annulus around this panel that
    *  ChiselAngleDial's ring lives in — Room hides that dial while this is
@@ -570,7 +570,10 @@ export function FloatingToolPanel({
           stroke={wellStroke}
           highlight={wellHighlight}
           size={44}
-          onClick={togglePalette}
+          onClick={side => {
+            if (side) { onFlyoutChange(null); onOpenColorPicker(side) }
+            else togglePalette()
+          }}
           title={wellLabel}
           label={t(flyout?.kind === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
           expanded={flyout?.kind === 'palette'}

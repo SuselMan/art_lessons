@@ -12,6 +12,7 @@ interface ViewportToastProps {
    *  "-15°" here and "345°" one tap later in the header. */
   angleDeg: number
   onReset: () => void
+  onFit: () => void
 }
 
 /** #362: the zoom/rotation readout for minimal UI, where the header carrying
@@ -28,7 +29,7 @@ interface ViewportToastProps {
  *  the whole point of #343, and the geometry a floating strip over the canvas
  *  needs (pointer-events off except where there's a button, shadow, surface
  *  treatment) is already solved there and had already drifted four ways once. */
-export function ViewportToast({ zoomPercent, angleDeg, onReset }: ViewportToastProps): React.JSX.Element {
+export function ViewportToast({ zoomPercent, angleDeg, onReset, onFit }: ViewportToastProps): React.JSX.Element {
   const t = useT()
 
   return (
@@ -46,7 +47,7 @@ export function ViewportToast({ zoomPercent, angleDeg, onReset }: ViewportToastP
           <span className={styles.value}>{angleDeg}°</span>
         </span>
       }
-      action={{ label: t('room.viewportReset'), onClick: onReset }}
+      actions={[{ label: t('room.viewportReset'), onClick: onReset }, { label: t('room.viewportFit'), onClick: onFit }]}
     />
   )
 }

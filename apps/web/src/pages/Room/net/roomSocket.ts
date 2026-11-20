@@ -176,11 +176,16 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     socket.disconnect()
   })
   let brushes = createBrushGate()
+  let brushBoardScope = id
   const ordered = <Args extends unknown[]>(
     apply: (...args: Args) => void | Promise<void>,
     presets: (...args: Args) => (string | undefined)[] = () => [],
     sources:(...args:Args)=>readonly (BrushSourceContext|undefined)[]=()=>[],
-  ) => (...args: Args): void => { brushes.dispatch(presets(...args), () => apply(...args),sources(...args)) }
+  ) => (...args: Args): void => {
+    // Resolving room_state may replace the board gate. Read dispatch afterwards.
+    const required = presets(...args)
+    brushes.dispatch(required, () => apply(...args), sources(...args))
+  }
   const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
 
   socket.on('lesson_state',               ordered(board.lesson_state))
@@ -194,6 +199,11 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
   socket.on('room_state',                 ordered(handleRoomState, state => {
+    if (brushBoardScope !== state.room.id) {
+      brushes.cancel()
+      brushes = createBrushGate()
+      brushBoardScope = state.room.id
+    }
     setBrushRoomScope(state.room.id)
     void loadBrushLibrary().catch(error => console.warn('Room brush metadata unavailable', error))
     return state.tailOperations.map(presetFor)

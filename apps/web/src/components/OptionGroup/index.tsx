@@ -22,7 +22,7 @@ export interface OptionDef<Id extends string = string> {
  *  the same shape serves both jobs: the color picker's mode switch is a
  *  segmented control that behaves like tabs, and a segmented control picking a
  *  preference is a radio group. */
-export type OptionGroupVariant = 'tabs' | 'list' | 'segmented'
+export type OptionGroupVariant = 'tabs' | 'list' | 'segmented' | 'choices'
 
 /** How the group behaves for a screen reader. `tab` = a strip that swaps the
  *  content below it; `radio` = a set of mutually exclusive values. These are

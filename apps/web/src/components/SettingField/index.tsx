@@ -96,9 +96,12 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
               what the value readout below already does for words like
               "Прессованный". */}
           <span className={styles.toolbarLabel}>{label}</span>
-          <span className={styles.toolbarValue}>
-            {valueType.format ? valueType.format(numValue) : numValue}
-          </span>
+          <NumberField
+            className={styles.toolbarNumber}
+            value={numValue}
+            min={valueType.min} max={valueType.max} step={valueType.step}
+            onChange={onChange} format={valueType.format} parse={valueType.parse} label={label}
+          />
           <div className={styles.toolbarTrack}>
             <PrecisionSlider
               value={numValue}
@@ -112,11 +115,6 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
         </div>
       )
     }
-    // (#335) The panel's read-only value readout became an editable field:
-    // the slider stays for "roughly this much", the field is for the times a
-    // number is actually known ("28px", "60%"). The toolbar keeps its plain
-    // readout above — there's no room for a text field in a 40px column, and
-    // no keyboard on the device it's designed for.
     return (
       <div className={styles.panelRow}>
         <div className={styles.panelRowHead}>

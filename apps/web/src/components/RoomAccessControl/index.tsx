@@ -45,6 +45,7 @@ interface RoomAccessControlProps {
  */
 export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
   const t = useT()
+  const [resetAsked, setResetAsked] = useState(false)
   const [inviteDraft, setInviteDraft] = useState('')
   const [passwordDraft, setPasswordDraft] = useState('')
   // Which participant's "revoke" is waiting for a second click. Inline rather
@@ -87,7 +88,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
       <section className={styles.section}>
         <h3 className={styles.heading}>{t('access.modeHeading')}</h3>
         <OptionGroup
-          variant="list"
+          variant="choices"
           selection="radio"
           ariaLabel={t('access.modeHeading')}
           active={access.accessMode}
@@ -322,6 +323,11 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
           )}
         </section>
       )}
+      <button type="button" className={styles.textButton} disabled={source.busy} onClick={async () => {
+        if (!resetAsked) { setResetAsked(true); return }
+        if (await source.setPassword(null)) { source.setMode('anyone_with_link'); setResetAsked(false) }
+      }}>{t(resetAsked ? 'access.resetConfirm' : 'common.resetDefaults')}</button>
+
     </div>
   )
 }

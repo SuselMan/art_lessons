@@ -20,11 +20,8 @@ import styles from './ColorWell.module.css'
 // the ring collapses to the plain 1px border every swatch in this app already
 // had, which is why nothing about the single-colour case changes visually.
 //
-// **The ring is an indicator, not a target.** It is 7-8px wide at the sizes
-// used here, which is not something a finger picks out, and the floating panel
-// is a touch-first surface. So the whole glyph is one button: pressing it
-// opens the surface where stroke and fill can be told apart at full size.
-// Nothing here is ever hit by aiming at a band.
+// Clicking the band edits the stroke; clicking the core edits the fill (#844).
+// Keyboard activation keeps the currently selected colour.
 
 interface ColorWellProps {
   /** The core's colour, i.e. the only colour of an ordinary tool or a shape's
@@ -46,7 +43,7 @@ interface ColorWellProps {
   label: string
   title?: string
   className?: string
-  onClick?: () => void
+  onClick?: (side?: 'stroke' | 'fill') => void
   /** Marks the glyph as controlling an open surface, for the trigger case. */
   expanded?: boolean
 }
@@ -81,7 +78,13 @@ export const ColorWell = forwardRef<HTMLButtonElement, ColorWellProps>(function 
       title={title ?? label}
       aria-label={label}
       aria-expanded={expanded}
-      onClick={onClick}
+      onClick={event => {
+        if (!twoColour || event.detail === 0) { onClick?.(); return }
+        const rect = event.currentTarget.getBoundingClientRect()
+        const x = (event.clientX - rect.left) / rect.width - 0.5
+        const y = (event.clientY - rect.top) / rect.height - 0.5
+        onClick?.(Math.hypot(x, y) < 0.5 - ring / size ? 'fill' : 'stroke')
+      }}
     >
       {/* Drawn before the core and covered by it, so what survives is two
           diagonal segments inside the band — a struck-through ring rather than

@@ -199,3 +199,11 @@
   background: var(--color-accent);
   border-color: var(--color-accent-border);
 }
+
+.choiceHeading { display: flex; align-items: center; gap: 4px; }
+.infoButton { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--color-text-dim); border-radius: var(--radius-sm); cursor: pointer; }
+.infoButton:hover, .infoButton:focus-visible { color: var(--color-accent); background: var(--color-surface-hover); }
+.infoButton :global(.material-symbols-outlined) { font-size: 18px; }
+.resetButton { align-self: flex-start; margin: 12px 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); color: var(--color-text); background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.resetButton:hover { background: var(--color-surface-hover); }
+.toolsTab { display: flex; flex-direction: column; gap: 16px; padding: 16px; }

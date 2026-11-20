@@ -104,7 +104,7 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
 
 const STORAGE_PREFIX = 'featureFlag:'
 
-function envDefault(def: FeatureFlagDef): boolean {
+export function envDefault(def: FeatureFlagDef): boolean {
   return !!def.envVar && import.meta.env[def.envVar] === 'true'
 }
 

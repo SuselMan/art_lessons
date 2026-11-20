@@ -140,6 +140,8 @@ export function StylusTab({ onWideChange }: StylusTabProps) {
         <PressureCurveEditor points={calibration.points} onChange={setPoints} />
         <div className={styles.flagDescription}>{t('pressure.curveEditHint')}</div>
       </div>
+      <button type="button" className={styles.resetButton} onClick={() => setCalibration(IDENTITY_PRESSURE_CALIBRATION)}>{t('common.resetDefaults')}</button>
+
     </div>
   )
 }

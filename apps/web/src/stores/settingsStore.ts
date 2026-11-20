@@ -185,7 +185,8 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
  *  then never removed. */
 function initialSoundVolume(): number {
   if (typeof window === 'undefined') return DEFAULT_SOUND_VOLUME
-  const raw = Number(localStorage.getItem(SOUND_VOLUME_STORAGE_KEY))
+  const stored = localStorage.getItem(SOUND_VOLUME_STORAGE_KEY)
+  const raw = stored === null ? DEFAULT_SOUND_VOLUME : Number(stored)
   return Number.isFinite(raw) ? clampSoundVolume(raw) : DEFAULT_SOUND_VOLUME
 }
 

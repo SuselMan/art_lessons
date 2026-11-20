@@ -191,9 +191,10 @@ export function useToolColor({ engineRef, engineEpoch, socketRef }: ToolColorDep
    *  the well means "the colour, here, now", and answering it by scrolling a
    *  panel into view somewhere else would be a different answer to a different
    *  question (Ilya, 10.09). */
-  const openRailColorSurface = useCallback(() => {
-    setColorFlyoutAt(at => (at === 'rail' ? null : 'rail'))
-  }, [])
+  const openRailColorSurface = useCallback((side?: 'stroke' | 'fill') => {
+    if (side) setShapeSwatch(side)
+    setColorFlyoutAt(at => side ? 'rail' : (at === 'rail' ? null : 'rail'))
+  }, [setShapeSwatch])
   // A colour swatch in the full settings tab opens the *rail's* surface, not
   // one chasing the swatch that was pressed: that tab is only ever on screen
   // beside the rail, and one surface in one fixed place beats a popover that
@@ -208,7 +209,10 @@ export function useToolColor({ engineRef, engineEpoch, socketRef }: ToolColorDep
   }, [setShapeSwatch, openRailColorSurface])
 
   // The floating panel's well opens the same flyout, hung off itself.
-  const openPanelColorSurface = useCallback(() => setColorFlyoutAt('panel'), [])
+  const openPanelColorSurface = useCallback((side?: 'stroke' | 'fill') => {
+    if (side) setShapeSwatch(side)
+    setColorFlyoutAt('panel')
+  }, [setShapeSwatch])
 
   return {
     activeColor,applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,

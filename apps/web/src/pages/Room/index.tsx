@@ -1,3 +1,4 @@
+import { Icon } from '../../components/Icon'
 import { Button } from '../../components/Button'
 import { RoomBrushGallery } from '../../components/BrushGallery/RoomBrushGallery'
 import { loadBrushPreferences, saveBrushPreferences } from '../../lib/tools/brushPreferences'
@@ -322,12 +323,13 @@ function RoomEditor() {
   // `room_state` and is patched by `room_tools_changed`, and a second copy
   // would only be a second thing to keep in step.
   const enabledTools = useRoomStore(s => s.room?.enabledTools)
+  const engineRef = useRef<PencilEngineAPI | null>(null)
   // (#493) The toolset gate, every way a tool gets into a hand, and the two
   // groups the rail and the floating panel show — see useToolChoice.
   const {
     toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool, drawingGroupValue, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue,
     galleryOpen, openGallery, closeGallery, drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
-  } = useToolChoice(id)
+  } = useToolChoice(id, engineRef)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
   // there is no second "mode" axis over it any more.
@@ -615,7 +617,6 @@ function RoomEditor() {
   // component) — Room only needs to hand it the socket and participants.
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
-  const engineRef     = useRef<PencilEngineAPI | null>(null)
   // Bumped once per engine construction, and depended on by every effect that
   // pushes a setting into the engine.
   //
@@ -1517,7 +1518,7 @@ function RoomEditor() {
           onClose={() => setSettingsOpen(false)}
           roomId={lessonId}
           isOwner={isOwner}
-          toolsContent={<Button size="md" type="secondary" onClick={openGallery}><span className="material-symbols-outlined" aria-hidden="true">add</span>{t('gallery.more')}</Button>}
+          toolsContent={<Button size="md" type="secondary" onClick={openGallery}><Icon name="add" />{t('gallery.more')}</Button>}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
           classVisibility={classVisibility}
@@ -1677,7 +1678,7 @@ function RoomEditor() {
           isOwner={isOwner} isBlockedByFreeze={isBlockedByFreeze} classView={classView} selectBoard={selectBoard}
           closed={{ busy: closedBusy, onReopen: reopenRoom, onTakeCopy: takeRoomCopy }}
           lostWork={lostWork} onUndoLostWork={undoLostWorkRecovery} onDismissLostWork={() => setLostWork(null)}
-          toast={uiHidden && viewportToastVisible ? { zoomPercent, angleDeg, onReset: resetZoomAndRotation } : null}
+          toast={uiHidden && viewportToastVisible ? { zoomPercent, angleDeg, onReset: resetZoomAndRotation, onFit: fitCanvas } : null}
           connection={{ connected, everConnected, pending: outboxState.pending, stalled: outboxState.stalled }}
         />
 

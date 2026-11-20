@@ -253,8 +253,12 @@
 /* ── Room-wide actions in the panel header ────────────────────────────────── */
 /* Sized to match SidePanel's own collapse button so the header row stays even. */
 .headerBtn {
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  width: auto;
+  height: 36px;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,9 +272,10 @@
 .headerBtn :global(.material-symbols-outlined) { font-size: 16px; }
 
 .headerBtnActive {
-  color: var(--color-warning);
-  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
 }
+.headerBtnActive:hover { color: var(--color-on-accent); background: var(--color-accent-hover); }
 
 /* (#595) The row's own icon buttons — a raised hand, the way to a student's
    work — the same footprint as the "⋮" beside them. */

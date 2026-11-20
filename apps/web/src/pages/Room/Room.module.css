@@ -485,7 +485,8 @@
   transition:
     opacity var(--duration-normal) ease,
     top var(--duration-normal) ease,
-    left var(--duration-normal) ease;
+    left var(--duration-normal) ease,
+    right var(--duration-normal) ease;
 }
 
 /* (#471) The one piece of chrome minimal UI does *not* hide. Everything else

@@ -4,6 +4,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
+import { resetRoomStore, useRoomStore } from '../../../stores/roomStore'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { noteBanned } from '../../../lib/api/banned'
 import { createPendingPreviews } from './pendingPreviews'
@@ -156,6 +157,37 @@ describe('connectRoomSocket (#493)', () => {
       expect(end).toHaveBeenCalledTimes(1)
       expect(fake.connect).toHaveBeenCalledTimes(1)
     } finally { close(); errorLog.mockRestore() }
+  })
+
+  it('ignores a retiring board preparation failure after a new board state arrives (#849)', async () => {
+    resetRoomStore()
+    useRoomStore.getState().setBoardId('L')
+    const { deps, listeners, fake } = setup()
+    let rejectOld!: (error: Error) => void
+    const old = new Promise<void>((_resolve, reject) => { rejectOld = reject })
+    let readyNext!: () => void
+    const next = new Promise<void>(resolve => { readyNext = resolve })
+    vi.mocked(prepareBrushPresets).mockReturnValueOnce(old).mockReturnValueOnce(next)
+    const close = connectRoomSocket(deps)
+    const errorsBefore = vi.mocked(notifyError).mock.calls.length
+    try {
+      const live = listeners.get('peer_stroke_live') as ServerToClientEvents['peer_stroke_live']
+      live({ preset: 'imported-a@1' } as Parameters<ServerToClientEvents['peer_stroke_live']>[0])
+      const state = listeners.get('room_state') as ServerToClientEvents['room_state']
+      state({ room: { id: 'B2', name: 'Second', paper: 'flat', infinite: false, canvasWidth: 256, canvasHeight: 256 }, tailOperations: [], participants: [], palette: [], frozen: false, latestSnapshotSeq: null,
+        lesson: { id: 'L', boards: [{ id: 'L', name: 'First', order: 0 }, { id: 'B2', name: 'Second', order: 1 }], activeBoardId: null, assignments: [], activeAssignmentId: null, spotlightBoardId: null, classVisibility: 'teacher_only', handsRaised: [] } } as Parameters<ServerToClientEvents['room_state']>[0])
+      rejectOld(new DOMException('Old board abandoned', 'AbortError'))
+      await old.catch(() => {})
+      await Promise.resolve()
+      expect(prepareBrushPresets).toHaveBeenCalledTimes(2)
+      expect(deps.enterBoard).not.toHaveBeenCalled()
+      readyNext()
+      await next
+      await Promise.resolve()
+      await vi.waitFor(() => expect(deps.enterBoard).toHaveBeenCalledWith('B2', expect.any(Object)))
+      expect(fake.disconnect).not.toHaveBeenCalled()
+      expect(vi.mocked(notifyError).mock.calls.length).toBe(errorsBefore)
+    } finally { close() }
   })
 
   it('answers every event the page handles, and not peer_cursor (#152)', () => {

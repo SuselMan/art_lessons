@@ -68,3 +68,21 @@ describe('placePopup right (#542, the rail case)', () => {
     expect(placed.left).toBe(8)
   })
 })
+
+
+describe('tooltip placement (#845)', () => {
+  const viewport = { width: 400, height: 300 }
+  const popup = { width: 100, height: 60 }
+  it('flips an above tooltip below a trigger against the top edge', () => {
+    expect(placePopup(rect(180, 8, 40, 40), popup, viewport, { ...OPTS, placement: 'above', align: 'center' }))
+      .toEqual({ left: 150, top: 52 })
+  })
+  it('flips a left tooltip to the right at the left edge', () => {
+    expect(placePopup(rect(8, 100, 40, 40), popup, viewport, { ...OPTS, placement: 'left', align: 'center' }))
+      .toEqual({ left: 52, top: 90 })
+  })
+  it('automatically selects space below at the top and stays within a narrow viewport', () => {
+    const result = placePopup(rect(8, 8, 40, 40), popup, viewport, { ...OPTS, placement: 'auto', align: 'center' })
+    expect(result).toEqual({ left: 8, top: 52 })
+  })
+})

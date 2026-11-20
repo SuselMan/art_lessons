@@ -51,6 +51,7 @@ interface NumberFieldProps {
 export function NumberField({
   value, min, max, step, onChange, format, parse, label, title, className,
 }: NumberFieldProps) {
+  const skipBlur = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
   // Non-null only while someone is typing: the field shows the live value the
   // rest of the time, so a drag or an arrow key is reflected immediately.
@@ -85,6 +86,7 @@ export function NumberField({
   }, [onPointerDown])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation()
     const big = e.shiftKey || e.key === 'PageUp' || e.key === 'PageDown'
     if (e.key === 'ArrowUp' || e.key === 'PageUp') {
       // Stepping abandons whatever half-typed draft is in the box — it steps
@@ -93,9 +95,9 @@ export function NumberField({
     } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
       setDraft(null); nudge(-1, big); e.preventDefault()
     } else if (e.key === 'Enter') {
-      commit(e.currentTarget.value); e.currentTarget.blur()
+      skipBlur.current = true; commit(e.currentTarget.value); e.currentTarget.blur()
     } else if (e.key === 'Escape') {
-      setDraft(null); e.currentTarget.blur()
+      skipBlur.current = true; setDraft(null); e.preventDefault(); e.currentTarget.blur()
     }
   }, [nudge, commit])
 
@@ -121,7 +123,7 @@ export function NumberField({
         value={draft ?? display}
         onChange={e => setDraft(e.target.value)}
         onFocus={e => e.currentTarget.select()}
-        onBlur={e => commit(e.target.value)}
+        onBlur={e => { if (skipBlur.current) skipBlur.current = false; else commit(e.target.value) }}
         onKeyDown={onKeyDown}
       />
       {/* Hover/focus-only on purpose: on a tablet there's no hover, and the

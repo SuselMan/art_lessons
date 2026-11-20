@@ -1,18 +1,20 @@
 import { useBrushPreviewRefresh } from './useBrushPreviewRefresh'
+import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
+import { digitalBrushFromPreset, digitalBrushPreset, type PencilEngineAPI } from '../../engine'
 import { currentBrushSelection, currentNativeBrushPreviews } from '../../lib/api/brushLibrary'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
-import { isToolEnabledInRoom, SHAPE_KINDS } from '@grafetto/shared'
+import { hasExperimentCurrentPattern158Scope, makeBrushGradient, isToolEnabledInRoom, SHAPE_KINDS } from '@grafetto/shared'
 
 import { isFloatingPanelTool, TOOL_DISPLAY } from '../../components/FloatingToolPanel/tools'
 import type { PanelGroups, SlotGroup } from '../../components/FloatingToolPanel/slots'
 import type { PickerOption } from '../../components/OptionPicker/types'
-import { shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../lib/tools/toolSchemas'
+import { getToolColor, shapeKindOf, SHAPE_KIND_ICONS, SHAPE_KIND_LABEL_KEYS } from '../../lib/tools/toolSchemas'
 import { pickerImportedBrushes } from '../../lib/tools/brushCatalog'
 import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { useT } from '../../i18n'
 import { useRoomStore } from '../../stores/roomStore'
-import { notifyWarning } from '../../stores/noticeStore'
+import { notifyWarning, notifyError, pushNotice, dismissNotice } from '../../stores/noticeStore'
 import {
   isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS, type EditorTool, type PrimaryDrawingTool,
 } from '../../stores/slices/toolSlice'
@@ -31,7 +33,10 @@ import { useRememberedTool } from './useRememberedTool'
  *  does not render those buttons at all; this is the backstop for the paths
  *  with no button to hide — a hotkey, a floating-panel slot assigned before the
  *  tool was switched off. */
-export function useToolChoice(roomId: string | undefined) {
+export function useToolChoice(roomId: string | undefined, engineRef: RefObject<PencilEngineAPI | null>) {
+  const choiceAbort = useRef<AbortController | null>(null)
+  const activeBoard = useRoomStore(s => s.boardId)
+  useEffect(() => () => { choiceAbort.current?.abort() }, [activeBoard])
   // (#682) First, before the reads below: a remembered tool has to be in the
   // store by the time this render — and Room's, which builds the engine from
   // it — reads `tool`.
@@ -54,6 +59,7 @@ export function useToolChoice(roomId: string | undefined) {
   const brushRevision = useRoomStore(s => s.brushLibraryRevision)
   useBrushPreviewRefresh(roomId, brushRevision)
   const brushSelection = currentBrushSelection()
+  useEffect(() => () => { choiceAbort.current?.abort() }, [enabledTools, brushSelection])
   const nativeOffered = useCallback((id: string) => !brushSelection || brushSelection.includes(`native:${id}`), [brushSelection])
   const brushes = useMemo(() => ({ revision: brushRevision, selection: brushSelection, drawing: pickerImportedBrushes(), eraser: pickerImportedBrushes('eraser'), smudge: pickerImportedBrushes('smudge') }), [brushRevision, brushSelection])
 
@@ -110,6 +116,7 @@ export function useToolChoice(roomId: string | undefined) {
   // pencil for charcoal, liner and marker, so the same gesture landed
   // somewhere different depending on which button you pressed.
   const selectTool = useCallback((next: EditorTool) => {
+    choiceAbort.current?.abort()
     if (!toolOffered(next)) return
     if (next === 'eraser' || next === 'smudge') {
       const chosen = toolSettings[next].brush
@@ -123,7 +130,7 @@ export function useToolChoice(roomId: string | undefined) {
   // *is* a tool, while a shape is a setting on a tool that then has to be
   // taken as well. Routed through `selectTool` like every other path into a
   // hand, so the toolset gate applies here too.
-  const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
+  const commitGroupMember = useCallback((group: SlotGroup, value: string) => {
     if (group === 'shape') { setToolSetting('shape', 'kind', value); selectTool('shape'); return }
     if (group === 'eraser' || group === 'smudge') {
       setToolSetting(group, 'brush', value === group ? 'native' : value)
@@ -135,6 +142,43 @@ export function useToolChoice(roomId: string | undefined) {
       selectTool('digitalBrush')
     } else selectTool(value as EditorTool)
   }, [selectTool, setToolSetting])
+
+  // Keep the previous tool usable until both resources and its GPU plan are ready.
+  const selectGroupMember = useCallback(async (group: SlotGroup, value: string) => {
+    choiceAbort.current?.abort()
+    const importedId = value.startsWith('digital:') ? value.slice(8) : value
+    if (!importedId.startsWith('imported-')) { commitGroupMember(group, value); return }
+    const controller = new AbortController()
+    choiceAbort.current = controller
+    const state = useRoomStore.getState(), board = state.boardId, engine = engineRef.current
+    if (!board || !engine) return
+    const notice = pushNotice({ key: 'selected-brush-preparation', variant: 'neutral', message: t('brushLibrary.preparingSelected'), durationMs: null })
+    try {
+      const descriptor = digitalBrushFromPreset(importedId)
+      const cfg = state.toolSettings.digitalBrush
+      const preset = digitalBrushPreset(descriptor.id, descriptor.version, {
+        size: group === 'eraser' || group === 'smudge' ? true : cfg.sizeFromPressure as boolean,
+        opacity: group === 'eraser' || group === 'smudge' ? true : cfg.opacityFromPressure as boolean,
+      })
+      const pattern = hasExperimentCurrentPattern158Scope(descriptor)
+        ? state.canvasPatternSelection.room === board ? state.canvasPatternSelection.pattern : { version: 1 as const, kind: 'none' as const }
+        : undefined
+      const resources = prepareBrushPresets([preset], pattern ? [{ version: 1, pattern }] : [])
+      if (resources) await resources
+      if (controller.signal.aborted) return
+      await publishBrushPresets(board, [preset])
+      if (controller.signal.aborted) return
+      const color = getToolColor(state.toolSettings, 'digitalBrush')
+      const result = await engine.prepareBrush(preset, {
+        signal: controller.signal, pattern,
+        ...(value.startsWith('digital:') ? { gradient: makeBrushGradient([...color, 1], [1, 1, 1, 1]) } : {}),
+      })
+      if (controller.signal.aborted || result.status === 'cancelled' || useRoomStore.getState().boardId !== board) return
+      commitGroupMember(group, value)
+    } catch (error) {
+      if (!controller.signal.aborted) { console.error('Brush selection preparation failed', error); notifyError(t('brushLibrary.error')) }
+    } finally { dismissNotice(notice) }
+  }, [commitGroupMember, engineRef, t])
 
   useEffect(() => {
     if (brushSelection || isToolEnabledInRoom(enabledTools, 'digitalBrush')) return
@@ -149,6 +193,7 @@ export function useToolChoice(roomId: string | undefined) {
   // claiming otherwise. Both halves route through here so a second press
   // always lands on the tool you were drawing with, whichever key it was.
   const toggleTool = useCallback((next: EditorTool) => {
+    choiceAbort.current?.abort()
     if (!toolOffered(next)) return
     setTool(prev => { const chosen = toggledTool(prev, next, drawingTool, enabledTools); return toolOffered(chosen) ? chosen : fallbackTool })
   }, [setTool, drawingTool, enabledTools, toolOffered, fallbackTool])

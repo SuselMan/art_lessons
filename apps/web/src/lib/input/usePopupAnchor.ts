@@ -13,7 +13,7 @@ interface PopupAnchorOptions<T extends HTMLElement> {
   /** Which of the trigger's edges the popup lines up with. Only the preferred
    *  alignment — the clamp below overrides it when the popup wouldn't fit
    *  either way. */
-  align?: 'left' | 'right'
+  align?: 'left' | 'right' | 'center'
   /** (#542) Hang the popup off an element the caller already holds, instead of
    *  the ref this hook would hand back. The colour flyout is one surface with
    *  two triggers — the well pinned in the tool rail and the one in the middle
@@ -27,7 +27,7 @@ interface PopupAnchorOptions<T extends HTMLElement> {
    *  covers the rest of the rail, so the colour flyout would hide the tool it
    *  is setting the colour for. Flips to the trigger's other side when the
    *  preferred one has no room, exactly as `below` flips above. */
-  placement?: 'below' | 'right'
+  placement?: 'below' | 'above' | 'right' | 'left' | 'auto'
   /** Give the popup at least the trigger's own width. What a `<select>`-style
    *  dropdown wants (the list reads as an extension of the closed field) and
    *  what an icon-button's menu does not. */

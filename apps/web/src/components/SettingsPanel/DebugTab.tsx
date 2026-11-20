@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { useT } from '../../i18n'
 import {
-  FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
+  FEATURE_FLAGS, getFeatureFlag, setFeatureFlag, envDefault,
   getGraphiteGrainVariant, setGraphiteGrainVariant,
   getCharcoalGrainVariant, setCharcoalGrainVariant,
   type GrainVariant, GRAPHITE_GRAIN_LABELS,
@@ -125,6 +125,10 @@ export function DebugTab() {
       {/* Sticky rather than a sibling of the scroll area (its shape before
           #321): the save bar belongs to this tab alone now, and the other
           three have nothing to save. */}
+      <button type="button" className={styles.resetButton} onClick={() => {
+        setPendingFlags(Object.fromEntries(FEATURE_FLAGS.map(flag => [flag.key, envDefault(flag)])))
+        setGrainVariantState('off'); setCharcoalGrainVariantState('off')
+      }}>{t('common.resetDefaults')}</button>
       <div className={styles.saveBar}>
         <span className={styles.hint}>
           {t(dirty ? 'editorSettings.unsaved' : 'editorSettings.applyAfterSave')}

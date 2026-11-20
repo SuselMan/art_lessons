@@ -366,3 +366,27 @@ it('refreshes a committed selection after an older metadata response already in 
   expect(request).toHaveBeenCalledTimes(2)
   expect(api.currentBrushSelection()).toEqual(['native:marker'])
 })
+
+it('waits for the destination manifest even when a retiring board still owns the same brush (#849)', async () => {
+  const f = fixture()
+  request.mockResolvedValueOnce(f.manifest)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+  const api = await import('./brushLibrary')
+  const resources = await import('../../engine/brushLibrary')
+  api.setBrushRoomScope('retiring')
+  await api.loadBrushLibrary()
+  const release = api.retainBrushRoomResources('retiring')
+  await api.prepareBrushPresets([f.token])
+  let finish!: (manifest: BrushLibrary) => void
+  request.mockImplementationOnce(() => new Promise<BrushLibrary>(resolve => { finish = resolve }))
+  api.setBrushRoomScope('destination')
+  const metadata = api.loadBrushLibrary()
+  const ready = api.prepareBrushPresets([f.token])
+  expect(ready).not.toBeNull()
+  finish(f.manifest)
+  await metadata
+  await ready
+  release()
+  expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(true)
+  expect(api.prepareBrushPresets([f.token])).toBeNull()
+})

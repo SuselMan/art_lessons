@@ -30,9 +30,9 @@ export interface PopupViewport {
 export interface PlacePopupOptions {
   /** Which side of the trigger the popup prefers. `below` is what a dropdown
    *  does; `right` is for a trigger in a vertical rail against a screen edge. */
-  placement?: 'below' | 'right'
+  placement?: 'below' | 'above' | 'right' | 'left' | 'auto'
   /** Which of the trigger's edges a `below` popup lines up with. */
-  align?: 'left' | 'right'
+  align?: 'left' | 'right' | 'center'
   /** Distance kept between the popup and the viewport edges when clamping. */
   margin: number
   /** Gap between the trigger and the popup hanging off it. */
@@ -49,21 +49,33 @@ export interface PlacePopupOptions {
 export function placePopup(
   trigger: PopupRect, popup: PopupSize, viewport: PopupViewport, options: PlacePopupOptions,
 ): { top: number; left: number } {
-  const { placement = 'below', align = 'right', margin: m, gap } = options
+  const { align = 'right', margin: m, gap } = options
+  let placement = options.placement ?? 'below'
+  if (placement === 'auto') {
+    const space = { above: (trigger.top - m - gap) / popup.height, below: (viewport.height - trigger.bottom - m - gap) / popup.height, left: (trigger.left - m - gap) / popup.width, right: (viewport.width - trigger.right - m - gap) / popup.width }
+    const sides = ['above', 'below', 'right', 'left'] as const
+    placement = sides.find(side => space[side] >= 1) ?? sides.reduce((best, side) => space[side] > space[best] ? side : best)
+  }
   let top: number
   let left: number
 
-  if (placement === 'right') {
-    left = trigger.right + gap
-    if (left + popup.width > viewport.width - m) left = trigger.left - popup.width - gap
+  if (placement === 'right' || placement === 'left') {
+    if (placement === 'left') {
+      left = trigger.left - popup.width - gap
+      if (left < m) left = trigger.right + gap
+    } else {
+      left = trigger.right + gap
+      if (left + popup.width > viewport.width - m) left = trigger.left - popup.width - gap
+    }
     // Top-aligned with the trigger rather than centred on it: this popup is
     // usually far taller than the button it belongs to, and centring would push
     // it off the top of a rail whose trigger sits just under the header.
-    top = trigger.top
+    top = align === 'center' ? trigger.top + (trigger.height - popup.height) / 2 : trigger.top
   } else {
-    top = trigger.bottom + gap
-    if (top + popup.height > viewport.height - m) top = trigger.top - popup.height - gap
-    left = align === 'left' ? trigger.left : trigger.right - popup.width
+    top = placement === 'above' ? trigger.top - popup.height - gap : trigger.bottom + gap
+    if (placement === 'above' && top < m) top = trigger.bottom + gap
+    else if (placement === 'below' && top + popup.height > viewport.height - m) top = trigger.top - popup.height - gap
+    left = align === 'center' ? trigger.left + (trigger.width - popup.width) / 2 : align === 'left' ? trigger.left : trigger.right - popup.width
   }
 
   return {

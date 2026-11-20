@@ -285,6 +285,7 @@ export function ParticipantsRoomActions({ isOwner, roomFrozen, onToggleRoomFroze
       aria-pressed={roomFrozen}
     >
       <Icon name="ac_unit" />
+      <span>{t(roomFrozen ? 'room.freezeState.on' : 'room.freezeState.off')}</span>
     </button>
   )
 }

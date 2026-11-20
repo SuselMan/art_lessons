@@ -24,6 +24,7 @@ interface NoticeProps {
   message: React.ReactNode
   icon?: IconName
   action?: NoticeAction
+  actions?: readonly NoticeAction[]
   onDismiss?: () => void
   /** `status` is announced politely and is right for a state being reported;
    *  `alert` interrupts and is for a failure the user has to know about now.
@@ -56,6 +57,7 @@ export function Notice({
   message,
   icon,
   action,
+  actions = [],
   onDismiss,
   role,
   className,
@@ -66,7 +68,7 @@ export function Notice({
   // over the canvas, so a purely informational strip that swallowed input
   // would break pan/zoom through the area it covers. Derived rather than
   // configured — "has a button" and "needs clicks" are the same fact.
-  const interactive = action !== undefined || onDismiss !== undefined
+  const interactive = action !== undefined || actions.length > 0 || onDismiss !== undefined
 
   return (
     <div
@@ -78,16 +80,17 @@ export function Notice({
     >
       <Icon name={icon ?? VARIANT_ICONS[variant]} />
       <span className={styles.message}>{message}</span>
-      {action && (
+      {[...(action ? [action] : []), ...actions].map((item, index) => (
         <button
+          key={index}
           type="button"
           className={styles.action}
-          onClick={action.onClick}
-          disabled={action.disabled}
+          onClick={item.onClick}
+          disabled={item.disabled}
         >
-          {action.label}
+          {item.label}
         </button>
-      )}
+      ))}
       {onDismiss && (
         <button
           type="button"

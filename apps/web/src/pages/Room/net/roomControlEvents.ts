@@ -1,3 +1,4 @@
+import { pushNotice } from '../../../stores/noticeStore'
 import type { RefObject } from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 
@@ -58,7 +59,9 @@ export function createRoomControlEventHandlers({
     // so this fires for the owner's own toggle too, same as palette_updated
     // above.
     room_frozen_changed: ({ frozen }) => {
+      const changed = useRoomStore.getState().roomFrozen !== frozen
       useRoomStore.getState().setRoomFrozen(frozen)
+      if (changed) pushNotice({ variant: 'neutral', key: 'room-freeze', message: tRef.current(frozen ? 'room.freezeToast.on' : 'room.freezeToast.off') })
       // Freeze blocks members; the owner may keep drawing. Closing below blocks everyone.
       if (frozen) repairBlockedLiveInk(useRoomStore.getState().participants.filter(p => p.role !== 'owner').map(p => p.userId))
     },

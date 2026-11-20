@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ClassVisibility, ToggleableTool } from '@grafetto/shared'
 
+import { useRoomStore } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { isDebugToolsEnabled } from '../../lib/observability/debugTools'
 import { Modal } from '../Modal'
@@ -56,6 +57,7 @@ export function SettingsPanel({
   onClose, roomId, isOwner, enabledTools, onEnabledToolsChange, classVisibility, onClassVisibilityChange,
 }: SettingsPanelProps) {
   const t = useT()
+  const hasAssignments = useRoomStore(s => s.assignments.length > 0)
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   // Read once per open, not subscribed: the key is set by a URL parameter at
   // startup (see lib/observability/debugTools), so it cannot change while this is mounted.
@@ -86,13 +88,17 @@ export function SettingsPanel({
           id: 'tools' as const,
           label: t('editorSettings.tab.tools'),
           content: (
-            <>
+            <div className={styles.toolsTab}>
               {toolsContent}
               <ToolSetPicker utilitiesOnly value={enabledTools} onChange={onEnabledToolsChange} />
-              {classVisibility && onClassVisibilityChange && (
+              {hasAssignments && classVisibility && onClassVisibilityChange && (
                 <ClassVisibilityField value={classVisibility} onChange={onClassVisibilityChange} />
               )}
-            </>
+              <button type="button" className={styles.resetButton} onClick={() => {
+                onEnabledToolsChange?.(undefined)
+                if (hasAssignments) onClassVisibilityChange?.('teacher_only')
+              }}>{t('common.resetDefaults')}</button>
+            </div>
           ),
         }]
       : []),
