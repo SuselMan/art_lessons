@@ -9,6 +9,7 @@ import { useRoomStore } from '../../stores/roomStore'
  *  pixels into the restoring engine and therefore cannot poison its layers,
  *  checkpoint uploader, undo history or thumbnail publishing. */
 export function useReviewImage(engineRef: RefObject<PencilEngineAPI | null>, roomContentReady: boolean, connected: boolean, vpEl: HTMLDivElement | null, setVp: Dispatch<SetStateAction<Viewport>>) {
+  const generation = new URLSearchParams(window.location.search).get('reviewToken') ?? undefined
   const boardId = useRoomStore(s => s.boardId)
   const reviewBoardId = useRoomStore(s => s.reviewBoardId)
   const annotationMode = useRoomStore(s => s.annotationMode)
@@ -18,7 +19,7 @@ export function useReviewImage(engineRef: RefObject<PencilEngineAPI | null>, roo
     setImage(null)
     const abort = new AbortController()
     let ownedUrl: string | null = null
-    void fetchReviewImage(boardId, abort.signal).then(result => {
+    void fetchReviewImage(boardId, abort.signal, generation).then(result => {
       if (abort.signal.aborted) { URL.revokeObjectURL(result.url); return }
       ownedUrl = result.url
       if (useRoomStore.getState().room?.infinite) {
@@ -32,7 +33,7 @@ export function useReviewImage(engineRef: RefObject<PencilEngineAPI | null>, roo
       // all fall back to the normal room load rather than a blank review.
     })
     return () => { abort.abort(); if (ownedUrl) URL.revokeObjectURL(ownedUrl) }
-  }, [boardId, reviewBoardId, connected, roomContentReady, vpEl, setVp])
+  }, [boardId, reviewBoardId, connected, roomContentReady, vpEl, setVp, generation])
 
   useEffect(() => {
     if (!roomContentReady || useRoomStore.getState().reviewAnnotationHistory === null) return

@@ -29,8 +29,8 @@ export interface ShareNavigator {
  *  the lesson list links to. `origin` is passed in rather than read here so
  *  this stays a pure function; `window.location.origin` never carries a
  *  trailing slash. */
-export function roomShareUrl(roomId: string, origin: string, forReview = false): string {
-  return `${origin}/room/${roomId}${forReview ? '?preview' : ''}`
+export function roomShareUrl(roomId: string, origin: string, forReview = false, generation?: string): string {
+  return `${origin}/room/${roomId}${forReview ? '?preview' + (generation ? '&reviewToken=' + encodeURIComponent(generation) : '') : ''}`
 }
 
 /** Whether to open the OS share sheet instead of copying.

@@ -450,6 +450,7 @@ model RoomPalette {
 // meant to be displayed directly.
 // One latest full export per board, independent of small live thumbnails.
 model RoomReviewImage {
+  generation String?
   roomId    String   @id
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   data      Bytes

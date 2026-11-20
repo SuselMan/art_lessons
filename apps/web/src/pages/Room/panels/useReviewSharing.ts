@@ -1,22 +1,16 @@
 import { useCallback, useRef, useState, useEffect, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../../engine'
-import { useConfirmDialog } from '../../../components/ConfirmDialog/useConfirmDialog'
 import { useShareRoom } from '../../../components/RoomAccessControl/useShareRoom'
 import { uploadReviewImage } from '../../../lib/api/reviewImage'
-import { canShareNatively } from '../../../lib/api/shareRoom'
 import { useT } from '../../../i18n'
 import { notifyError, pushNotice, dismissNotice } from '../../../stores/noticeStore'
 import { useRoomStore } from '../../../stores/roomStore'
-import { useSettingsStore } from '../../../stores/settingsStore'
 
-/** Prepare the export before handing out the link. A native share must be
- *  called from a fresh click after the upload, not from its async continuation. */
+/** Share immediately; prepare a generation-matched early preview in the background. */
 export function useReviewSharing(engineRef: RefObject<PencilEngineAPI | null>) {
   const t = useT()
   const shareRoom = useShareRoom()
-  const deviceType = useSettingsStore(s => s.deviceType)
-  const { confirm } = useConfirmDialog()
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const mounted = useRef(true)
@@ -28,22 +22,22 @@ export function useReviewSharing(engineRef: RefObject<PencilEngineAPI | null>) {
     busyRef.current = true
     setBusy(true)
     const noticeId = pushNotice({ variant: 'neutral', message: t('share.preparingReview'), key: 'prepare-review', durationMs: null })
+    const generation = crypto.randomUUID()
+    shareRoom({ ...room, id: boardId }, true, generation)
+    // Let the link/share UI paint before the synchronous GPU readback begins.
+    await new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)))
     try {
+      if (!mounted.current) return
       const image = await engine.exportReviewImage()
       if (!image) throw new Error('Review export unavailable')
-      await uploadReviewImage(boardId, image)
-      if (!mounted.current) return
-      if (canShareNatively(deviceType, navigator) && !await confirm({
-        title: t('share.reviewReady'), message: t('share.reviewReadyMessage'), confirmLabel: t('share.action'),
-      })) return
-      if (mounted.current) shareRoom({ ...room, id: boardId }, true)
+      await uploadReviewImage(boardId, image, generation)
     } catch {
-      if (mounted.current) notifyError(t('share.reviewFailed'), { key: 'prepare-review-error' })
+      if (mounted.current) notifyError(t('share.reviewBackgroundFailed'), { key: 'prepare-review-error' })
     } finally {
       dismissNotice(noticeId)
       busyRef.current = false
       if (mounted.current) setBusy(false)
     }
-  }, [confirm, deviceType, engineRef, shareRoom, t])
+  }, [engineRef, shareRoom, t])
   return { shareForReview, busy }
 }

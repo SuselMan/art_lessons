@@ -30,6 +30,9 @@ for (const [exitEarly, infinite] of [[false, false], [true, false], [false, true
     await waitForOperations(page, 'stroke', 1)
     const reviewUrl = await shareReview(page)
     expect(reviewUrl).toContain(`/room/${roomId}?preview`)
+    const generation = new URL(reviewUrl).searchParams.get('reviewToken')
+    // This scenario exercises the ready-picture path; optimistic opening is checked separately.
+    await expect.poll(async () => (await page.request.get(`/api/rooms/${roomId}/review?generation=${generation}`)).status()).toBe(200)
 
     const receiver = await browser.newContext({ viewport: { width: 1400, height: 900 } })
     let releasePaper!: () => void
@@ -87,13 +90,13 @@ for (const [exitEarly, infinite] of [[false, false], [true, false], [false, true
       if (exitEarly) {
         await review.getByRole('button', { name: 'Annotations', exact: true }).click()
         await expect(image).toHaveCount(0)
-        await expect(review.locator('[class*="spinner"]')).toBeVisible()
+        await expect(review.locator('div[class*="spinner"]')).toBeVisible()
         expect(await review.evaluate(() => getComputedStyle(document.querySelector('canvas')!).pointerEvents)).toBe('none')
       }
       releasePaper()
       await waitForRoomReady(review)
       await expect(image).toHaveCount(0)
-      await expect(review.locator('[class*="spinner"]')).toHaveCount(0)
+      await expect(review.locator('div[class*="spinner"]')).toHaveCount(0)
       expect(await review.evaluate(() => window.__roomStore!.getState().viewport)).toEqual(viewport)
       expect(await review.evaluate(() => Object.values(window.__roomStore!.getState().annotations.items).filter(a => a.kind === 'text').map(a => a.text))).toEqual(['Check this edge'])
       expect((await operations(review)).filter(op => op.type === 'annotation_add')).toHaveLength(1)
@@ -110,7 +113,7 @@ for (const [exitEarly, infinite] of [[false, false], [true, false], [false, true
   })
 }
 
-test('an export upload failure does not send a link to a missing image', async ({ page }) => {
+test('an upload failure keeps the shared link usable and reports the missing preview', async ({ page }) => {
   await createRoom(page)
   await waitForRoomReady(page)
   await page.route('**/api/rooms/*/review', route => route.request().method() === 'POST'
@@ -120,11 +123,11 @@ test('an export upload failure does not send a link to a missing image', async (
   })
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
-  await expect(page.getByText('Could not prepare the review image', { exact: true })).toBeVisible()
-  expect(await page.evaluate(() => sessionStorage.getItem('unexpected-share'))).toBeNull()
+  await expect(page.getByText('The link works, but its preview could not be prepared. Try Share for review again.', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('unexpected-share'))).toBe('true')
 })
 
-test('native sharing gets a fresh user gesture after export and upload', async ({ page }) => {
+test('native sharing retains the original user gesture before background export', async ({ page }) => {
   await page.addInitScript(() => { localStorage.setItem('al_device_type', 'tablet') })
   await createRoom(page)
   await waitForRoomReady(page)
@@ -135,10 +138,6 @@ test('native sharing gets a fresh user gesture after export and upload', async (
   })
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Share for review', exact: true }).click()
-  const ready = page.getByRole('dialog')
-  await expect(ready).toContainText('Review link ready')
-  expect(await page.evaluate(() => sessionStorage.getItem('native-review'))).toBeNull()
-  await ready.getByRole('button', { name: 'Share', exact: true }).click()
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('native-review'))).not.toBeNull()
   const shared = await page.evaluate(() => JSON.parse(sessionStorage.getItem('native-review')!))
   expect(shared.active).toBe(true)

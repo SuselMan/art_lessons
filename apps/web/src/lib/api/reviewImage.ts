@@ -4,7 +4,7 @@ import { api, apiResponse } from './api'
 
 type ReviewBounds = RouteBody<'POST /api/rooms/:roomId/review'>['bounds']
 
-export async function uploadReviewImage(boardId: string, image: { blob: Blob; bounds: ReviewBounds }): Promise<void> {
+export async function uploadReviewImage(boardId: string, image: { blob: Blob; bounds: ReviewBounds }, generation?: string): Promise<void> {
   const data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -14,12 +14,12 @@ export async function uploadReviewImage(boardId: string, image: { blob: Blob; bo
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(image.blob)
   })
-  await api('POST /api/rooms/:roomId/review', { params: { roomId: boardId }, body: { data, bounds: image.bounds } })
+  await api('POST /api/rooms/:roomId/review', { params: { roomId: boardId }, body: { data, bounds: image.bounds, ...(generation ? { generation } : {}) } })
 }
 
 /** Object URL owned by the caller, ready to display. */
-export async function fetchReviewImage(boardId: string, signal: AbortSignal): Promise<{ url: string; bounds: ReviewBounds }> {
-  const response = await apiResponse('GET /api/rooms/:roomId/review', { params: { roomId: boardId } }, { signal })
+export async function fetchReviewImage(boardId: string, signal: AbortSignal, generation?: string): Promise<{ url: string; bounds: ReviewBounds }> {
+  const response = await apiResponse('GET /api/rooms/:roomId/review', { params: { roomId: boardId }, query: { generation } }, { signal })
   const values = ['X', 'Y', 'Width', 'Height'].map(key => {
     const value = response.headers.get(`X-Review-${key}`)
     return value === null ? NaN : Number(value)
