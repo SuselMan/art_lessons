@@ -1,12 +1,12 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {webcrypto} from 'node:crypto'
-import {resetBoardState,resetRoomStore,useRoomStore} from '../../stores/roomStore'
-import {en} from '../../i18n/core/en'
-import {ru} from '../../i18n/core/ru'
+import {resetBoardState,resetRoomStore,useRoomStore} from '../../../stores/roomStore'
+import {en} from '../../../i18n/core/en'
+import {ru} from '../../../i18n/core/ru'
 import {CanvasPatternError,clearCanvasBrushPattern,selectCanvasBrushPattern} from './canvasBrushPattern'
 
 const api=vi.hoisted(()=>({publish:vi.fn(),load:vi.fn(),prepare:vi.fn(),room:'A'}))
-vi.mock('./brushLibrary',()=>({currentBrushRoom:()=>api.room,publishBrushPresets:api.publish,loadBrushLibrary:api.load,prepareBrushPresets:api.prepare}))
+vi.mock('../../../lib/api/brushLibrary',()=>({currentBrushRoom:()=>api.room,publishBrushPresets:api.publish,loadBrushLibrary:api.load,prepareBrushPresets:api.prepare}))
 function png():File{
  const bytes=new Uint8Array(24),header=new DataView(bytes.buffer)
  header.setUint32(0,0x89504e47);header.setUint32(4,0x0d0a1a0a);header.setUint32(12,0x49484452);header.setUint32(16,1);header.setUint32(20,1)

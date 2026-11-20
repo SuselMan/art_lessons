@@ -20,6 +20,7 @@ interface ToolSetPickerProps {
    *  fact about the room every participant may reasonably want to see, and a
    *  picker that lies about being editable is the one thing to avoid if that
    *  day comes. */
+  utilitiesOnly?: boolean
   disabled?: boolean
 }
 
@@ -48,12 +49,14 @@ const GROUPS = [
  *  is its own setting rather than something to arrive at by unchecking boxes.
  *  The last one standing therefore refuses to switch off, and says why.
  */
-export function ToolSetPicker({ value, onChange, disabled }: ToolSetPickerProps) {
+export function ToolSetPicker({ value, onChange, disabled, utilitiesOnly }: ToolSetPickerProps) {
   const t = useT()
   // `undefined` means "everything", and that is the shape stored — never a
   // spelled-out list of all fifteen, or the next tool this app ships would be
   // excluded by every toolset ever saved (see sanitizeEnabledTools).
   const enabled = new Set<ToggleableTool>(value ?? TOGGLEABLE_TOOLS)
+  const visibleTool = (tool: string) => !utilitiesOnly || !['pencil','liner','marker','charcoal','brushPen','eraser','smudge','digitalBrush','watercolor'].includes(tool)
+  const displayed = TOGGLEABLE_TOOLS.filter(visibleTool)
   const materialsLeft = TOOLSET_MATERIAL_TOOLS.filter(tool => enabled.has(tool))
   const allOn = enabled.size === TOGGLEABLE_TOOLS.length
 
@@ -69,7 +72,7 @@ export function ToolSetPicker({ value, onChange, disabled }: ToolSetPickerProps)
     <div className={styles.picker}>
       <div className={styles.summaryRow}>
         <span className={styles.summary}>
-          {t('toolset.selected', { n: enabled.size, total: TOGGLEABLE_TOOLS.length })}
+          {t('toolset.selected', { n: displayed.filter(tool => enabled.has(tool)).length, total: displayed.length })}
         </span>
         <button
           type="button"
@@ -81,11 +84,11 @@ export function ToolSetPicker({ value, onChange, disabled }: ToolSetPickerProps)
         </button>
       </div>
 
-      {GROUPS.map(group => (
+      {GROUPS.filter(group => group.tools.some(visibleTool)).map(group => (
         <section key={group.key} className={styles.group}>
           <h4 className={styles.groupLabel}>{t(group.labelKey)}</h4>
           <div className={styles.grid}>
-            {group.tools.map(tool => {
+            {group.tools.filter(visibleTool).map(tool => {
               const on = enabled.has(tool)
               // The room has to keep one material. Locking the last one on is
               // better than letting it off and silently refusing the result

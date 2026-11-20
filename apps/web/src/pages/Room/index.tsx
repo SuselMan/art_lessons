@@ -1,3 +1,5 @@
+import UiButton from '../../../../../packages/UiKit/components/Button/Button'
+import { RoomBrushGallery } from '../../components/BrushGallery/RoomBrushGallery'
 import { loadBrushPreferences, saveBrushPreferences } from '../../lib/tools/brushPreferences'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
@@ -324,7 +326,7 @@ function RoomEditor() {
   // groups the rail and the floating panel show — see useToolChoice.
   const {
     toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool, drawingGroupValue, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue,
-    drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
+    galleryOpen, openGallery, closeGallery, drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
   } = useToolChoice(id)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
@@ -1515,6 +1517,7 @@ function RoomEditor() {
           onClose={() => setSettingsOpen(false)}
           roomId={lessonId}
           isOwner={isOwner}
+          toolsContent={<UiButton size="md" type="secondary" onClick={openGallery}>{t('gallery.more')}</UiButton>}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
           classVisibility={classVisibility}
@@ -1828,6 +1831,7 @@ function RoomEditor() {
         strokeStats={strokeStats} hapticStats={hapticStats} tapDebug={tapDebug}
         engineRef={engineRef} pencilSoundRef={pencilSoundRef} tool={tool} drawingTool={drawingTool}
       />
+      {galleryOpen && <RoomBrushGallery onClose={closeGallery} />}
     </div>
   )
 }

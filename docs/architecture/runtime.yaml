@@ -251,6 +251,7 @@ links:
       - { dir: '←', name: peer_left, type: 'userId' }
       - { dir: '←', name: palette_updated, type: 'palette' }
       - { dir: '←', name: room_frozen_changed, type: 'frozen' }
+      - { dir: '←', name: room_brush_selection_changed, type: 'void', note: 'обновить набор кистей урока без перезагрузки' }
       - { dir: '←', name: room_tools_changed, type: 'ToggleableTool[]' }
       - { dir: '←', name: participant_frozen_changed, type: 'userId, frozen' }
       - { dir: '←', name: room_closed_changed, type: 'closedAt' }
@@ -294,6 +295,13 @@ links:
       именами полей из таблицы, но значениями unknown, и проверяет сам.
     messages:
       - { dir: '→', name: 'GET /api/me', type: 'Me' }
+      - { dir: '→', name: 'GET /api/brush-gallery', type: 'BrushGalleryPage', note: 'поиск и страницы публичной/личной библиотеки' }
+      - { dir: '→', name: 'POST /api/brush-gallery/resolve', type: 'BrushLibrary', note: 'только выбранные доступные описания' }
+      - { dir: '→', name: 'PATCH /api/brush-gallery/favorites', type: 'ok', note: 'личное избранное' }
+      - { dir: '→', name: 'DELETE /api/brush-gallery/uploads', type: 'ok', note: 'удалить личную ссылку, сохранить историю' }
+      - { dir: '→', name: 'GET /api/brush-gallery/previews/:key', type: 'PNG', note: 'образец по хэшу, ACL библиотеки или доски' }
+      - { dir: '→', name: 'GET /api/rooms/:id/brush-selection', type: 'references + canEdit', note: 'набор урока общий для досок' }
+      - { dir: '→', name: 'PATCH /api/rooms/:id/brush-selection', type: 'ok', note: 'владелец меняет набор; исторические ресурсы сохраняются' }
       - { dir: '→', name: 'GET /api/brush-library', type: 'BrushLibrary', note: 'личная библиотека и версии, доступные участнику доски' }
       - { dir: '→', name: 'GET /api/brush-library/assets/:hash', type: 'raw grayscale bytes', note: 'неизменяемый ресурс по SHA256, загрузка по требованию' }
       - { dir: '→', name: 'POST /api/brush-library/imports', type: 'BrushImportJob', note: 'потоковая загрузка до512МиБ, ограниченная очередь конвертации' }

@@ -299,3 +299,8 @@
 .previewPhotoDot .photoTipImage {
   object-fit: cover;
 }
+
+.strokeSample { width: 148px; height: 46px; object-fit: contain; flex-shrink: 0; background: var(--color-paper-tint); border-radius: var(--radius-sm); }
+@media (max-width: 550px) { .strokeSample { width: 108px; } }
+.popup { max-width: calc(100vw - 16px); box-sizing: border-box; }
+.itemLabel { min-width: 0; white-space: normal; overflow-wrap: anywhere; }

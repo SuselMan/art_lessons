@@ -113,6 +113,8 @@ export interface SlotGroupMember {
   icon: IconName
   label: string
   photo?: string
+  action?: () => void
+  image?: string
   thumbnail?: string
   group?: string
 }

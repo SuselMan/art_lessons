@@ -1,3 +1,7 @@
+---
+layer: platform
+summary: иллюстрации кистей Krita
+---
 # Krita preset tool photographs
 
 Generated physical-tool representations for the flat Grafetto tool chooser.

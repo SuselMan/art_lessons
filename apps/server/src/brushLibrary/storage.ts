@@ -1,3 +1,4 @@
+import { brushContent, brushContentHash, canonicalBrushJson, type StoredBrushLibrary } from './contentAddressing.js'
 import {isBrushPattern,brushPatternAssetIds,hasExperimentCurrentPattern158Scope,type BrushPattern,type BrushAsset} from '@grafetto/shared'
 import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
@@ -46,12 +47,59 @@ export class BrushStorage {
     this.root = resolve(directory); mkdirSync(this.root, { recursive: true, mode: 0o700 })
     let cursor = parse(this.root).root
     for (const part of this.root.slice(cursor.length).split('/').filter(Boolean)) { cursor = join(cursor, part); if (!lstatSync(cursor).isDirectory() || lstatSync(cursor).isSymbolicLink()) throw Error('Unsafe storage directory') }
-    for (const name of ['owners', 'rooms', 'assets', 'jobs', 'tmp']) { const path=join(this.root,name); mkdirSync(path,{mode:0o700,recursive:true}); if (lstatSync(path).isSymbolicLink()) throw Error('Unsafe storage directory') }
+    for (const name of ['owners', 'rooms', 'assets', 'jobs', 'tmp', 'contents', 'preferences', 'selections', 'uploads', 'previews', 'sources', 'artworks', 'sets', 'scopes']) { const path=join(this.root,name); mkdirSync(path,{mode:0o700,recursive:true}); if (lstatSync(path).isSymbolicLink()) throw Error('Unsafe storage directory') }
   }
-  path(kind: 'owners'|'rooms'|'jobs', id: string): string { return join(this.root,kind,key(id)+'.json') }
-  library(kind: 'owners'|'rooms', id: string): BrushLibrary {
-    try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), 4*1024*1024).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
+  path(kind: 'owners'|'rooms'|'jobs'|'preferences'|'selections'|'uploads'|'sources'|'sets'|'scopes', id: string): string { return join(this.root,kind,key(id)+'.json') }
+  library(kind: 'owners'|'rooms'|'sets', id: string): BrushLibrary {
+    try { const stored: unknown=JSON.parse(boundedRead(this.path(kind,id), 4*1024*1024).toString()); const value = this.expandLibrary(stored); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
+  }
+  private expandLibrary(value: unknown): unknown {
+    if (!value || typeof value !== 'object' || !('storageVersion' in value) || value.storageVersion !== 2) return value
+    const stored = value as StoredBrushLibrary
+    if (!Array.isArray(stored.brushes) || stored.brushes.length > 1024) throw Error('Invalid brush references')
+    return { schemaVersion: 1, ...(stored.selection ? { selection: stored.selection } : {}), assets: stored.assets, skipped: stored.skipped, brushes: stored.brushes.map(ref => {
+      if (!/^[a-f0-9]{64}$/.test(ref.contentHash)) throw Error('Invalid content hash')
+      const content = JSON.parse(boundedRead(join(this.root, 'contents', ref.contentHash + '.json'), 1024 * 1024).toString())
+      if (key(canonicalBrushJson(content)) !== ref.contentHash) throw Error('Corrupt brush content')
+      const { contentHash: _hash, descriptorId, previewHash, ...metadata } = ref
+      let preview: string | undefined
+      if (previewHash !== undefined) {
+        if (!/^[a-f0-9]{64}$/.test(previewHash)) throw Error('Invalid artwork hash')
+        preview = boundedRead(join(this.root, 'artworks', previewHash + '.txt'), 90022).toString()
+        if (key(preview) !== previewHash) throw Error('Corrupt artwork')
+      }
+      return { ...metadata, ...(preview ? { preview } : {}), ...content, descriptor: { ...content.descriptor, id: descriptorId } }
+    }) }
+  }
+  /** Write immutable rendering contents once; ownership/display data stay in
+   * small reference manifests. Existing v1 manifests remain readable. */
+  private saveLibrary(kind: 'owners' | 'rooms' | 'sets', id: string, library: BrushLibrary): void {
+    const stored: StoredBrushLibrary = { storageVersion: 2, ...(library.selection ? { selection: library.selection } : {}), assets: library.assets, skipped: library.skipped, brushes: library.brushes.map(brush => {
+      const contentHash = brushContentHash(brush), content = brushContent(brush)
+      const path = join(this.root, 'contents', contentHash + '.json')
+      try {
+        if (canonicalBrushJson(JSON.parse(boundedRead(path, 1024 * 1024).toString())) !== canonicalBrushJson(content)) throw Error('Immutable content conflict')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        this.ensureCapacity(Buffer.byteLength(canonicalBrushJson(content)))
+        this.atomic(path, content)
+      }
+      const { descriptor, sourceDefaults: _defaults, preview, strokePreview: _sample, ...metadata } = brush
+      let previewHash: string | undefined
+      if (preview) {
+        previewHash = key(preview)
+        const artwork = join(this.root, 'artworks', previewHash + '.txt')
+        try { if (boundedRead(artwork, 90022).toString() !== preview) throw Error('Immutable artwork conflict') }
+        catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+          this.ensureCapacity(Buffer.byteLength(preview))
+          writeFileSync(artwork, preview, { flag: 'wx', mode: 0o600 })
+        }
+      }
+      return { ...metadata, contentHash, descriptorId: descriptor.id, ...(previewHash ? { previewHash } : {}) }
+    }) }
+    this.atomic(this.path(kind, id), stored)
   }
   atomic(path: string, value: unknown): void {
     const temp=path+'.'+randomUUID();
@@ -148,8 +196,44 @@ export class BrushStorage {
         } else this.asset(hash, asset.size)
       }
       this.provisionAssets(assets)
-      this.atomic(this.path('owners', owner), next)
+      this.saveLibrary('owners', owner, next)
       return next
+    })
+  }
+  bindSelectionScope(room: string, scope: string): void {
+    if (this.selectionScope(room) === scope) return
+    this.mutate(() => this.atomic(this.path('scopes',room), scope))
+  }
+  selectionScope(room: string): string {
+    try {
+      const scope: unknown = JSON.parse(boundedRead(this.path('scopes',room),1024).toString())
+      if (typeof scope !== 'string' || scope.length > 200) throw Error('Invalid brush selection scope')
+      return scope
+    } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return room; throw error }
+  }
+  replaceSelection(room: string, owner: string, references: string[], operator: BrushLibrary): void {
+    this.mutate(() => {
+      const available = merge(operator, this.library('owners',owner), this.library('sets',room), this.library('rooms',room)), selected = empty()
+      selected.selection = [...new Set(references)]
+      selected.brushes = references.filter(ref => ref.startsWith('brush:')).map(ref => {
+        const brush = available.brushes.find(b => `brush:${b.descriptor.id}@${b.descriptor.version}` === ref)
+        if (!brush) throw Error('Brush unavailable')
+        return brush
+      })
+      const ids = new Set(selected.brushes.flatMap(b => brushAssetIds(b.descriptor)))
+      selected.assets = available.assets.filter(a => ids.has(a.id))
+      if (!isBrushLibrary(selected)) throw Error('Invalid selection library')
+      for (const asset of selected.assets) this.asset(asset.id.slice(6),asset.size)
+      this.saveLibrary('sets',room,selected)
+    })
+  }
+  removePersonalBrush(owner: string, reference: string): void {
+    this.mutate(() => {
+      const library = this.library('owners', owner)
+      library.brushes = library.brushes.filter(b => `brush:${b.descriptor.id}@${b.descriptor.version}` !== reference)
+      const used = new Set(library.brushes.flatMap(b => brushAssetIds(b.descriptor)))
+      library.assets = library.assets.filter(a => used.has(a.id))
+      this.saveLibrary('owners', owner, library)
     })
   }
   acceptsExecutionInputs(room: string, owner: string, op: Operation, operator=empty()): boolean {
@@ -158,7 +242,7 @@ export class BrushStorage {
     const token = /^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(op.preset)
     const find = (library: BrushLibrary) => library.brushes.find(b => token ? b.descriptor.id === token[1] && b.descriptor.version === Number(token[2]) : b.descriptor.id === op.preset)
     // A durable room pin is authoritative and avoids merging the whole catalog per live packet.
-    const brush = find(this.library('rooms', room)) ?? find(this.library('owners', owner)) ?? find(operator)
+    const brush = find(this.library('rooms', room)) ?? find(this.library('sets', this.selectionScope(room))) ?? find(this.library('owners', owner)) ?? find(operator)
     if (!brush) throw Error('Brush unavailable')
     if (brushRequiresRandomContext(brush.descriptor) && (op.brushRandom === undefined || !hasValidBrushRandomContext(op))) return false
     if(!hasValidBrushSourceContext(op) || brush.descriptor.mixer?.source==='projectionCanvas' && op.brushSource?.projection===undefined)return false
@@ -183,7 +267,7 @@ export class BrushStorage {
       const current=this.library('rooms',room)
       const has=(preset:string)=>current.brushes.some(b=>preset===b.descriptor.id || new RegExp('^brush:'+b.descriptor.id+'@'+b.descriptor.version+'(?::[a-z0-9-]+)*$').test(preset))
       if(presets.every(has)&&!source)return
-      const available=merge(current,this.library('owners',owner),operator), selected=empty()
+      const available=merge(current,this.library('sets',this.selectionScope(room)),this.library('owners',owner),operator), selected=empty()
       for (const preset of [...new Set(presets)]) {
         const match=/^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(preset)
         const brush=available.brushes.find(b=>match ? b.descriptor.id===match[1] && b.descriptor.version===Number(match[2]) : b.descriptor.id===preset)
@@ -222,13 +306,19 @@ export class BrushStorage {
       }
       const next=merge(current,selected)
       if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')
-      this.atomic(this.path('rooms',room),next)
+      this.saveLibrary('rooms', room, next)
     })
   }
   copy(source: string, target: string): void { this.mutate(()=>{
     const library=this.library('rooms',source)
     if(!isBrushLibrary(library)) throw Error('Invalid source room brush library')
-    this.atomic(this.path('rooms',target),library)
+    this.saveLibrary('rooms', target, library)
+    const scope = this.selectionScope(source), set = this.library('sets',scope)
+    if (set.selection) this.saveLibrary('sets',target,set)
+    else {
+      try { this.atomic(this.path('selections',target), JSON.parse(boundedRead(this.path('selections',scope),256*1024).toString())) }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+    }
   }) }
 }
 function keyBytes(bytes: Buffer): string { return createHash('sha256').update(bytes).digest('hex') }

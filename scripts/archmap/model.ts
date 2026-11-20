@@ -24,7 +24,7 @@ export const REPO_ROOT = process.cwd().split(sep).join('/');
 
 /** Roots we consider "the project". Everything else is tooling noise. */
 const SCAN_ROOTS = ['apps', 'packages', 'scripts', 'e2e'];
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.tmp', 'test-results', 'build']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.tmp', 'test-results', 'build', 'UiKit']);
 const CODE_EXT = /\.(tsx?|mts|cts|m?js|cjs|css|prisma|glsl|frag|vert)$/;
 const TEST_FILE = /\.(test|spec)\.(tsx?|mts)$/;
 const README = 'README.md';

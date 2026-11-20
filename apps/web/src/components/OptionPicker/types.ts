@@ -4,6 +4,8 @@ import type { IconName } from '../../icons/iconNames'
  *  `enumOptions` plus its `optionPreviews`/`optionIcons`, so this component
  *  family never imports the schema itself. */
 export interface PickerOption {
+  /** Optional trailing command supplied by the product. */
+  action?: () => void
   value: string
   /** Already translated — the schema stores a TranslationKey, the caller
    *  resolves it (see SettingField). */

@@ -50,10 +50,11 @@ export function OptionPopup({
       data-value={option.value}
       aria-selected={option.value === value}
       className={clsx(styles.item, tile && styles.itemTile, option.value === value && styles.itemSelected)}
-      onClick={() => { onSelect(option.value); onDismiss() }}
+      onClick={() => { if (option.action) option.action(); else onSelect(option.value); onDismiss() }}
     >
       <OptionPreview option={option} shape="strip" />
       <span className={styles.itemLabel}>{option.label}</span>
+      {option.image && (option.photo || option.thumbnail) && <img className={styles.strokeSample} src={option.image} alt="" loading="lazy" decoding="async" />}
       {option.value === value && <Icon name="check" />}
     </button>
   )

@@ -140,7 +140,7 @@ registerRoomHandlers(io, app.log)
 // с момента, когда кто-то впервые пришёл спросить.
 startEventLoopMonitor()
 registerHealthRoutes(app)
-await registerBrushLibraryRoutes(app)
+await registerBrushLibraryRoutes(app, undefined, id => io.to(lessonChannel(id)).emit('room_brush_selection_changed'))
 registerAuthRoutes(app)
 // (#176) Closing is a fact about the lesson, so the lesson channel: it has to
 // reach people on every board, and the route only ever accepts a lesson id.

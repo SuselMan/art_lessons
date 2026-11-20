@@ -1,7 +1,7 @@
 import {copyBrushPattern,type BrushAsset} from '@grafetto/shared'
-import {currentBrushRoom,publishBrushPresets,loadBrushLibrary,prepareBrushPresets} from './brushLibrary'
-import {useRoomStore} from '../../stores/roomStore'
-import type {TranslationKey} from '../../i18n/core/en'
+import {currentBrushRoom,publishBrushPresets,loadBrushLibrary,prepareBrushPresets} from '../../../lib/api/brushLibrary'
+import {useRoomStore} from '../../../stores/roomStore'
+import type {TranslationKey} from '../../../i18n/core/en'
 let ticket=0
 export class CanvasPatternError extends Error {
  readonly translationKey: TranslationKey

@@ -65,3 +65,5 @@ export {isExperimentDescriptor} from './brushExperiment.js'
 export {isCloneDescriptor} from './brushClone.js'
 export {isTangentNormalDescriptor} from './brushTangentNormal.js'
 export {texture191SmudgeCore} from './brushTextureCombinations191.js'
+
+export * from './brushGallery.js'

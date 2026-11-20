@@ -1,3 +1,5 @@
+import { setCurrentBrushSelection } from '../browser/brushSelection'
+export { currentBrushSelection } from '../browser/brushSelection'
 import {brushSourcePatternAssetIds,type BrushSourceContext,type BrushPattern,type BrushAsset} from '@grafetto/shared'
 import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { bristleSaturationLookupReady,prepareBristleSaturationLookup,mypaintKernelReady,prepareMyPaintKernel,digitalBrushFromPreset,installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
@@ -39,6 +41,7 @@ export function setBrushRoomScope(roomId: string | undefined): void {
   if (roomScope === roomId) return
   roomScope = roomId
   library = scopedLibraries.get(roomId) ?? null
+  setCurrentBrushSelection(library?.selection)
   pruneResources()
 }
 
@@ -74,6 +77,7 @@ async function loadMetadata(scope: string | undefined): Promise<void> {
   try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch { /* quota/private mode */ }
   installBrushLibrary(data)
   library = data
+  setCurrentBrushSelection(data.selection)
   scopedLibraries.set(scope, data)
   pruneResources()
   for (const listener of listeners) listener()
@@ -222,3 +226,14 @@ export async function importBrushFile(file: File, progress: (value: number) => v
 }
 
 export const currentBrushRoom=():string|undefined=>roomScope
+
+
+export const currentNativeBrushPreviews = (): Readonly<Record<string, string>> => library?.nativePreviews ?? {}
+
+/** A change notification may race an older metadata request. Finish that
+ * response first, then request the committed selection rather than reusing it. */
+export async function refreshBrushLibrary(): Promise<void> {
+  const scope = roomScope, existing = metadataWork.get(scope)
+  if (existing) { try { await existing } catch { /* retry the latest state */ } }
+  if (scope === roomScope) await loadBrushLibrary()
+}

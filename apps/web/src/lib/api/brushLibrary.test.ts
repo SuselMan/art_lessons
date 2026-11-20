@@ -354,3 +354,15 @@ it('does not start queued old-room downloads after the room scope retires', asyn
   const resources = await import('../../engine/brushLibrary')
   for (const asset of f.manifest.assets) expect(resources.isBrushAssetReady(asset.id)).toBe(false)
 })
+it('refreshes a committed selection after an older metadata response already in flight', async () => {
+  let release!: (value: BrushLibrary) => void
+  request.mockImplementationOnce(() => new Promise<BrushLibrary>(resolve => { release = resolve }))
+    .mockResolvedValueOnce({ schemaVersion: 1, brushes: [], assets: [], skipped: [], selection: ['native:marker'] })
+  const api = await import('./brushLibrary')
+  api.setBrushRoomScope('selection-race')
+  const older = api.loadBrushLibrary(), refresh = api.refreshBrushLibrary()
+  release({ schemaVersion: 1, brushes: [], assets: [], skipped: [], selection: ['native:pencil'] })
+  await Promise.all([older, refresh])
+  expect(request).toHaveBeenCalledTimes(2)
+  expect(api.currentBrushSelection()).toEqual(['native:marker'])
+})

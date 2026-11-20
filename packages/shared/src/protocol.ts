@@ -336,6 +336,7 @@ export type ServerToClientEvents = {
   // the toolset is a teaching control ("today we work in pencil"), and a
   // control that lands only after everyone reloads is one nobody will reach
   // for mid-lesson. `undefined` is the unrestricted room, same as on `Room`.
+  room_brush_selection_changed: () => void
   room_tools_changed: (data: { enabledTools?: ToggleableTool[] }) => void
   // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
   // is accepted — every participant needs this, not just the target, so

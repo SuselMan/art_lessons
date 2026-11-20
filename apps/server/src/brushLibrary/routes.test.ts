@@ -8,13 +8,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { registerBrushLibraryRoutes } from './routes.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
 vi.mock('../rooms/boardContentAccess.js',()=>({mayReadBoardContent:vi.fn()}))
+vi.mock('../db/prisma.js', () => ({ prisma: { room: { findUnique: vi.fn(async () => null) } } }))
 const directories:string[]=[]
 afterEach(async()=>{vi.unstubAllEnvs();vi.resetAllMocks();await Promise.all(directories.splice(0).map(d=>rm(d,{force:true,recursive:true})))})
-async function app() {
+async function app(user = 'alice') {
   const directory=await mkdtemp(join(tmpdir(),'brush-routes-'));directories.push(directory)
   vi.stubEnv('GRAFETTO_BRUSH_STORAGE_DIR',directory)
   const instance=Fastify()
-  instance.addHook('onRequest',async req=>{req.userId='alice'})
+  instance.addHook('onRequest',async req=>{req.userId=user})
   await registerBrushLibraryRoutes(instance,'')
   return instance
 }
@@ -155,5 +156,26 @@ it('keeps personal mask ownership and CAS verification when no public or room re
     expect((await server.inject('/api/brush-library/assets/' + foreignHash)).statusCode).toBe(404)
     await writeFile(join(storage.root, 'assets', ownHash + '.bin'), Buffer.alloc(4))
     expect((await server.inject('/api/brush-library/assets/' + ownHash)).statusCode).toBe(500)
+  } finally { await server.close() }
+})
+it('authorizes selected private masks before the first stroke and retains accepted history after removal', async () => {
+  const server = await app('bob')
+  vi.mocked(mayReadBoardContent).mockResolvedValue(true)
+  try {
+    const storage = new BrushStorage(process.env.GRAFETTO_BRUSH_STORAGE_DIR!), pixels = Buffer.from([1,2,3,4]), hash = createHash('sha256').update(pixels).digest('hex'), library = empty()
+    library.assets.push({ id: `asset:${hash}`, size: 2, file: hash + '.bin' })
+    library.brushes.push({ name:'Private mask',source:'private.kpp',warnings:[],descriptor:{ id:'imported-'+'f'.repeat(16),version:1,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:`asset:${hash}`,hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]] } })
+    const ref = `brush:${library.brushes[0].descriptor.id}@1`
+    storage.install('alice',library,new Map([[hash,pixels]]))
+    storage.replaceSelection('lesson','alice',['native:pencil',ref],empty())
+    storage.bindSelectionScope('board','lesson')
+    expect((await server.inject('/api/brush-library/assets/'+hash)).statusCode).toBe(404)
+    expect((await server.inject('/api/brush-library/assets/'+hash+'?roomId=board')).rawPayload).toEqual(pixels)
+    expect(storage.library('rooms','board').brushes).toEqual([])
+    storage.pin('board','bob',[ref])
+    storage.replaceSelection('lesson','alice',['native:pencil'],empty())
+    expect((await server.inject('/api/brush-library/assets/'+hash+'?roomId=board')).statusCode).toBe(200)
+    vi.mocked(mayReadBoardContent).mockResolvedValue(false)
+    expect((await server.inject('/api/brush-library/assets/'+hash+'?roomId=board')).statusCode).toBe(403)
   } finally { await server.close() }
 })

@@ -6,7 +6,7 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 
 import type { PencilEngineAPI } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
-import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
+import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary, refreshBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
 import { createConfirmedStreamHandler, type ConfirmedStreamDeps } from './confirmedStream'
@@ -205,6 +205,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('peer_stroke_live_end',       ordered(peer.peer_stroke_live_end))
   socket.on('palette_updated',            ordered(control.palette_updated))
   socket.on('room_frozen_changed',        ordered(control.room_frozen_changed))
+  socket.on('room_brush_selection_changed', () => { void refreshBrushLibrary().catch(error => console.warn('Brush selection refresh failed', error)) })
   socket.on('room_tools_changed',         ordered(control.room_tools_changed))
   socket.on('room_closed_changed',        ordered(control.room_closed_changed))
   socket.on('participant_frozen_changed', ordered(control.participant_frozen_changed))

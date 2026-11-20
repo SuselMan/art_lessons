@@ -1,0 +1,3 @@
+[submodule "packages/UiKit"]
+	path = packages/UiKit
+	url = https://github.com/SuselMan/UiKit.git

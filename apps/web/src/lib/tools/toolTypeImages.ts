@@ -60,10 +60,5 @@ export const CHARCOAL_TYPE_IMAGES = imagesFor('charcoal')
  *  `assets/tool-types/marker/` and are what the icons were drawn from. */
 export const MARKER_NIB_ICONS = { bullet: 'bullet-tip', chisel: 'chisel-tip' } as const
 
-/** One generated physical tool per imported preset; original KPP artwork stays separate. */
-const kritaToolFiles = import.meta.glob('../../assets/tools/krita/*.png', {
-  eager: true, query: '?url', import: 'default',
-}) as Record<string, string>
-export const KRITA_TOOL_PHOTOS: Record<string, string> = Object.fromEntries(
-  Object.entries(kritaToolFiles).map(([path, url]) => [path.split('/').pop()!.slice(0, -4), url]),
-)
+// Krita pickers use the original artwork returned by the gallery. Older
+// generated illustrations stay in source history without entering the bundle.

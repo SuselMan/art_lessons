@@ -280,6 +280,14 @@ topics:
     why: map:check, границы dependency-cruiser, бюджеты файлов — что именно они ловят.
     modules: [scripts/archmap]
 
+  - id: brush-library-access
+    level: 2
+    parent: server
+    title: Общие кисти, личный доступ и история комнаты
+    issue: 839
+    why: Неизменяемое содержимое по хэшу отдельно от личных ссылок, выбора комнаты и ресурсов истории.
+    modules: [apps/server/src/brushLibrary]
+
   # ------------------------------------------------------------------ 3 · детали
 
   - id: layer-model

@@ -446,6 +446,8 @@ export interface BrushDescriptor {
 }
 
 export interface ImportedBrush {
+  /** Server-generated sample, independent of original author artwork. */
+  strokePreview?: string
   descriptor: BrushDescriptor
   name: string
   source: string
@@ -460,6 +462,9 @@ export interface ImportedBrush {
 }
 export interface BrushAsset { id: AssetId; size: number; file: string }
 export interface BrushLibrary {
+  nativePreviews?: Record<string, string>
+  /** Picker membership only; resources may include older history versions. */
+  selection?: string[]
   schemaVersion: 1
   brushes: ImportedBrush[]
   assets: BrushAsset[]
@@ -486,6 +491,7 @@ function isBrushPreview(value: unknown): boolean {
   } catch { return false }
 }
 
+function isBrushSampleUrl(value: unknown): boolean { return typeof value === 'string' && /^\/api\/brush-gallery\/previews\/[a-f0-9]{64}(?:\?roomId=[A-Za-z0-9_%.~-]+)?$/.test(value) }
 export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxBrushes?: number; maxAssets?: number } = {}): value is BrushLibrary {
  return isBrushLibraryWithMaskContext(value,limits)
 }
@@ -493,6 +499,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
 function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;maxBrushes?:number;maxAssets?:number}={},maskRoot?:unknown):value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
     || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
+  if (value.selection !== undefined && (!Array.isArray(value.selection) || value.selection.length > 512 || !value.selection.every(v => typeof v === 'string' && /^(?:native:[A-Za-z]+|brush:imported-[a-f0-9]+@\d+)$/.test(v)))) return false
+  if (value.nativePreviews !== undefined && (!record(value.nativePreviews) || Object.keys(value.nativePreviews).length > 20 || !Object.values(value.nativePreviews).every(isBrushSampleUrl))) return false
   const ids = new Set<string>()
   const assetSizes = new Map<string, number>()
   let bytes = 0
@@ -515,6 +523,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
       || !numberIn(b.sourceDefaults.sizePx, 0.01, 10000)
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
+    if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
     const stationaryRole=maskRoot===undefined?resolveStationary195Role(d):null
     const stationary195=stationaryRole!==null

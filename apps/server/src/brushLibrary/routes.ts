@@ -1,14 +1,17 @@
+import { BrushSamples, sampleKey } from './samples.js'
+import { BrushGallery } from './gallery.js'
+import { brushSelectionRoom, registerBrushGalleryRoutes } from './galleryRoutes.js'
 import { startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
 import { mkdir, mkdtemp, rm, readdir, stat, writeFile, lstat } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { join, basename, extname } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { Readable, Transform } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
-import {isBrushPattern,isBrushLibrary,type BrushPattern,type BrushAsset,type BrushImportJob} from '@grafetto/shared'
+import {DEFAULT_BRUSH_SELECTION,brushAssetIds,isBrushPattern,isBrushLibrary,type BrushPattern,type BrushAsset,type BrushImportJob} from '@grafetto/shared'
 import { apiRoute } from '../http/apiRoute.js'
 import { mayReadBoardContent,mayPublishBoardBrushResource } from '../rooms/boardContentAccess.js'
 import { loadBrushLibrary } from './brushLibrary.js'
@@ -16,7 +19,7 @@ import { BrushStorage, boundedRead, empty, merge, setBrushStorage } from './stor
 
 const stringRecord=(value:unknown):value is Record<string,string>=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.values(value).every(item=>typeof item==='string')
 const MAX_UPLOAD=512*1024*1024
-export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR): Promise<void> {
+export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR, notify: (id: string) => void = () => {}): Promise<void> {
   // A configured legacy directory is an explicit operator-provisioned QA library.
   const operator=await loadBrushLibrary(directory)
   const root=process.env.GRAFETTO_BRUSH_STORAGE_DIR
@@ -36,6 +39,10 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   if (operator.assets.size) storage.provision(operator.assets)
   operator.assets.clear()
   setBrushStorage(storage,operator.manifest)
+  const samples = new BrushSamples(storage, process.env.GRAFETTO_BRUSH_PREVIEW_URL, error => app.log.warn({ err: error }, 'Brush sample generation failed'))
+  await registerBrushGalleryRoutes(app, storage, operator.manifest, samples, notify)
+  app.addHook('onClose', async () => { await samples.close() })
+  samples.enqueue(operator.manifest)
   let closing=false
   let activeChild: BrushImportProcess | undefined
   let drainTask: Promise<void> = Promise.resolve()
@@ -51,11 +58,31 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     if (running) return; running=true
     try { while(queue.length) {try {await queue.shift()!()} catch(error) {app.log.error({err:error},'Brush import job persistence failed')}} } finally { running=false }
   }
-  const catalog=(owner:string,room?:string)=>merge(operator.manifest,storage.library('owners',owner),room ? storage.library('rooms',room) : empty())
+  const gallery = new BrushGallery(storage, operator.manifest)
+  const catalog=async(owner:string,room?:string)=> {
+    if (!room) return merge(operator.manifest, storage.library('owners',owner))
+    const scope = await brushSelectionRoom(room)
+    const selection = gallery.selection(scope) ?? [...DEFAULT_BRUSH_SELECTION, ...operator.manifest.brushes.filter(b => b.source === 'b)_Basic-5_Size.kpp' && !b.archived).slice(-1).map(b => `brush:${b.descriptor.id}@${b.descriptor.version}`)]
+    storage.bindSelectionScope(room,scope)
+    const historical = storage.library('rooms',room), shared = gallery.selectedLibrary(scope)
+    const historyRefs = new Set([...historical.brushes, ...shared.brushes].map(b => `brush:${b.descriptor.id}@${b.descriptor.version}`))
+    const stock = empty()
+    stock.brushes = operator.manifest.brushes.filter(b => (selection.includes(`brush:${b.descriptor.id}@${b.descriptor.version}`) || historyRefs.has(`brush:${b.descriptor.id}@${b.descriptor.version}`)))
+    const used = new Set(stock.brushes.flatMap(b => brushAssetIds(b.descriptor)))
+    stock.assets = operator.manifest.assets.filter(a => used.has(a.id))
+    const available = merge(stock, shared)
+    return { ...merge(available, historical), selection }
+  }
   apiRoute(app,'GET /api/brush-library',async(request,reply)=> {
     const room=typeof request.query.roomId==='string' ? request.query.roomId : undefined
     if(room && !await mayReadBoardContent(room,request.userId)) return reply.code(403).send({error:'forbidden'})
-    return reply.header('Cache-Control','private, no-cache').send(catalog(request.userId,room))
+    const library = await catalog(request.userId,room)
+    samples.enqueue(library)
+    const url = (key: string) => `/api/brush-gallery/previews/${key}${room ? '?roomId=' + encodeURIComponent(room) : ''}`
+    library.brushes = library.brushes.map(b => ({ ...b, strokePreview: samples.available(sampleKey(b)) ? url(sampleKey(b)) : undefined }))
+    const nativePreviews = Object.fromEntries(['pencil', 'liner', 'marker', 'charcoal', 'brushPen', 'eraser', 'smudge'].filter(v => samples.available(sampleKey(v))).map(v => [v, url(sampleKey(v))]))
+    if (Object.keys(nativePreviews).length) library.nativePreviews = nativePreviews
+    return reply.header('Cache-Control','private, no-cache').send(library)
   })
   apiRoute(app,'GET /api/brush-library/assets/:hash',async(request,reply)=> {
     const room=typeof request.query.roomId==='string' ? request.query.roomId : undefined
@@ -65,7 +92,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     // quadratic in catalog size; the metadata endpoint still does that merge.
     const id = `asset:${request.params.hash}`
     const asset = operator.manifest.assets.find(a => a.id === id)
-      ?? (room ? storage.library('rooms', room).assets.find(a => a.id === id) : undefined)
+      ?? (room ? storage.library('rooms', room).assets.find(a => a.id === id) ?? storage.library('sets', storage.selectionScope(room)).assets.find(a => a.id === id) : undefined)
       ?? storage.library('owners', request.userId).assets.find(a => a.id === id)
     if(!asset) return reply.code(404).send({error:'Brush asset not found'})
     return reply.header('Cache-Control','private, max-age=31536000, immutable').type('application/octet-stream').send(storage.asset(request.params.hash,asset.size))
@@ -100,17 +127,29 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     const input=join(work,filename), output=join(work,'output')
     jobs.set(id,{owner,job})
     let received=0
-    const bound=new Transform({transform(chunk:Buffer,_encoding,done) { received+=chunk.length; done(received>MAX_UPLOAD ? Error('Brush upload too large') : null,chunk) }})
+    const sourceDigest = createHash('sha256')
+    const bound=new Transform({transform(chunk:Buffer,_encoding,done) { received+=chunk.length; sourceDigest.update(chunk); done(received>MAX_UPLOAD ? Error('Brush upload too large') : null,chunk) }})
     try {
       await pipeline(request.body,bound,createWriteStream(input,{flags:'wx',mode:0o600}))
       if(!received) throw Error('Empty upload')
     } catch { jobs.delete(id);await rm(work,{recursive:true,force:true});return reply.code(413).send({error:'Empty or oversized brush upload'}) }
+    const sourceHash = createHash('sha256').update('20261120-v1:' + sourceDigest.digest('hex')).digest('hex')
     storage.atomic(storage.path('jobs',id),{owner,job})
     queue.push(async()=> {
       job.status='running'
       try {
         storage.atomic(storage.path('jobs',id),{owner,job})
         if(closing) throw Error('Import interrupted')
+        let cached: unknown
+        try { cached = JSON.parse(boundedRead(storage.path('sources', sourceHash), 4 * 1024 * 1024).toString()) }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+        if (cached !== undefined) {
+          if (!isBrushLibrary(cached)) throw Error('Invalid cached import')
+          storage.install(owner, cached, new Map())
+          samples.enqueue(cached, true)
+          job.status = 'complete'; job.library = cached
+          return
+        }
         await mkdir(output,{mode:0o700})
         const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
         const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
@@ -120,6 +159,8 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
         finally { if(activeChild===child) activeChild=undefined }
         const converted=await loadBrushLibrary(output)
         storage.install(owner,converted.manifest,converted.assets)
+        samples.enqueue(converted.manifest, true)
+        storage.atomic(storage.path('sources', sourceHash), converted.manifest)
         job.status='complete'; job.library=converted.manifest
       } catch { job.status='failed';job.error='Import failed: unsupported, damaged, oversized, or incompatible brush file' }
       finally {

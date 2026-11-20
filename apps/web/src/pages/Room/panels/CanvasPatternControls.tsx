@@ -2,7 +2,7 @@ import {useState} from 'react'
 import {hasExperimentCurrentPattern158Scope} from '@grafetto/shared'
 import {digitalBrushFromPreset} from '../../../engine'
 import {useT, type TranslationKey} from '../../../i18n'
-import {CanvasPatternError,selectCanvasBrushPattern,clearCanvasBrushPattern} from '../../../lib/api/canvasBrushPattern'
+import {CanvasPatternError,selectCanvasBrushPattern,clearCanvasBrushPattern} from './canvasBrushPattern'
 import {useRoomStore} from '../../../stores/roomStore'
 import styles from './CanvasPatternControls.module.css'
 
