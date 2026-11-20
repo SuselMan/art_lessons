@@ -14,7 +14,7 @@ it('common blocked catch reports whole-call accepted input prefix rather than th
  expect(r).toEqual({...outcome,acceptedDabs:2});expect(job).toMatchObject({gridProgress:{opId:'op',acceptedDabs:2}})
 })
 it('live END retains any canonical source until durable tail acceptance including152',()=>{
- const source={capability:'cloneHealing152'},scratch={canonicalSource:source},finish=vi.fn(),host={_smudge:{finishSecondary:vi.fn()},_wcAsyncPeerStreams:new Map(),_peerLiveStrokes:new Map([['live',{peerId:'u',strokeId:'A',layerId:'L',paintedTotal:2,committedOffset:0}]]),_replayRibbonChunks:new Map([['A',{scratch}]]),_brush:{finish}}
+ const source={capability:'cloneHealing152'},scratch={canonicalSource:source},finish=vi.fn(),host={_flushDeferredSnapshots:vi.fn(),_smudge:{finishSecondary:vi.fn()},_wcAsyncPeerStreams:new Map(),_peerLiveStrokes:new Map([['live',{peerId:'u',strokeId:'A',layerId:'L',paintedTotal:2,committedOffset:0}]]),_replayRibbonChunks:new Map([['A',{scratch}]]),_brush:{finish}}
  Reflect.apply(PencilEngine.prototype.endPeerLiveStroke,host,['u','A']);expect(finish).not.toHaveBeenCalled();expect(scratch.canonicalSource).toBe(source)
 })
 for(const merged of [false,true])it(`author152 captures ${merged?'frozen ordered projection':'local BEGIN without projection'} before queued input`,async()=>{

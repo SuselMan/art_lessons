@@ -1,3 +1,4 @@
+// Compiler fingerprints refreshed after shared procedural/texture shader integration.
 import { createHash } from 'node:crypto'
 import { expect, it } from 'vitest'
 import { WET_TRANSFER_FRAG } from './wetMixShaders'
@@ -12,5 +13,5 @@ it('keeps the unsupported-material wet program identical to source23',()=>{
 })
 it('pins the opt-in Gaussian stamp source independently of the unchanged wet source',()=>{
   // New source legitimately adds Gaussian dispatch; GPU equivalence is a separate gate.
-  expect(hash(BRUSH_STAMP_FRAG)).toBe('7198de91c12dd2cae12ea0fde48c395bbce3673843719a602c4fd01ba39e3c63')
+  expect(hash(BRUSH_STAMP_FRAG)).toBe('95bef55d54ff18597f4e2951e46d5473094afcb28335fccb4ddd8005445baa8e')
 })

@@ -17,7 +17,7 @@ function fixture(tool: 'marker' | 'smudge', grouped = true, commit = true) {
   const base = makeStroke('local', 'L', [dab(8, 8, { size: 10 })], { id: 'base', seq: 1 })
   engine.appendOperation(base, 'remote')
   const op = makeStroke('peer', 'L', [dab(6, 8, { size: 6, t: 0 }), dab(11, 8, { size: 6, t: 500 })], {
-    id: 'preview', seq: 2, tool, preset: tool === 'marker' ? 'bullet:6' : 'normal', ...(grouped ? { strokeId: 'gesture' } : {}),
+    id: 'preview', seq: 2, tool, preset: tool === 'marker' ? 'bullet:6' : 'normal', ...(grouped ? { strokeId: 'gesture', strokeEnd: true } : {}),
   })
   return { engine, op, applied }
 }

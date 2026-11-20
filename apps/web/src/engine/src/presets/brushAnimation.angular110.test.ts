@@ -18,8 +18,10 @@ describe('angular110 logical attempts',()=>{
   expect(s.angularCursor).toEqual({x:.75,y:0});expect(s.dabOrdinal).toBe(4);expect(s.dabSequence).toBe(4);expect(s.previous).toEqual(painted)
   expect(behaviorStampsForDab(b,{...d,x:1.25,sourceAngle:Math.PI/2},s,color).map(x=>x.mask)).toEqual([frames[5],frames[5]])
   expect(s.dabOrdinal).toBe(5)
-  Object.defineProperty(b,'scatter',{get:()=>{throw Error('rejected request touched geometry')}})
+  const beforeRejected=structuredClone(s)
   expect(behaviorStampsForDab(b,{...d,x:1.25},s,color)).toEqual([])
+  expect(s.previous).toEqual(beforeRejected.previous)
+  expect(s.axes).toEqual(beforeRejected.axes)
  })
  it('rejects missing captured angle before mutation and survives wire/chunk/clone continuation',()=>{
   const b=brush(),s=beginBrushBehavior(d),before=structuredClone(s);expect(()=>behaviorStampsForDab(b,{...d,sourceAngle:undefined},s,color)).toThrow();expect(s).toEqual(before)

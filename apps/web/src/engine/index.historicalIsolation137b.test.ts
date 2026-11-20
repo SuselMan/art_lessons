@@ -17,6 +17,8 @@ function setup(){
  const cache=new RibbonReplayCache({ribbonScratchPool:()=>e['_ribbonScratchPool'],destroyed:()=>false,contextLost:()=>false,inJobStep:()=>e['_historicalSourceDepth']>0,preserveOpenChunks:()=>e['_historicalSourceDepth']>0, gpuBudget:()=>Infinity,settlingScratch:()=>e['_historicalSourceDepth']?undefined:e['_settle']?.scratch,completeSettle:()=>e['_completeSettle'](),finishedChunk:()=>undefined,rebuildLostWash:t=>{if(!e['_historicalSourceDepth'])rebuild(t)},scheduleBudgetCheck:()=>{if(!e['_historicalSourceDepth'])budget()},washGpuBytes:()=>0})
  const smudge=Object.create(SmudgePainter.prototype)as SmudgePainter
  for(const key of['imprints','wetGestures','replayChunks'])Reflect.set(smudge,key,new Map())
+ Reflect.set(smudge,'gl',gl)
+ Reflect.set(smudge,'carried',new WeakMap())
  Reflect.set(smudge,'releaseScratch',vi.fn())
  const temporary=()=>({clear:vi.fn(),allResident:()=>[],destroy:vi.fn(),dryColorSmudge:vi.fn()})as unknown as ILayerBuffer
  Object.assign(e,{gl,_ribbonCache:cache,_smudge:smudge,_historicalSourceDepth:0,_fieldCache:[],_layers:new Map(),_rebuildJobs:new Map(),_gpuBudget:Infinity,_projectionReadScope:undefined,_settleQueue:{complete},_paperWet:{deposit:wet},_dabPool:new Map(),_resolvePreset:()=>({sizeMultiplier:1}),_scheduleDryingRepaint:ui,_displayIfNotSuspended:ui,_scheduleFieldRelease:fieldRelease,_scheduleBudgetCheck:budget,_rebuildLostWash:rebuild,_checkpoints:{best:()=>null},_log:{layerPixelOps:()=>[]},_makeLayerBuffer:temporary})

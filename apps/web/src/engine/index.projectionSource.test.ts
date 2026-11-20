@@ -36,12 +36,12 @@ it('rebuilds external read pixels at the operation prefix rather than the curren
   engine['_rebuildLayer']('R')
   expect(observed.length).toBeGreaterThan(before)
   expect(observed.slice(before).every(n=>n===first)).toBe(true)
-  // A checkpoint with the same R operation ids must not hide a changed
-  // external read when A undoes the earlier source paint.
+  // A later undo must not rewrite the source as it existed at the reader
+  // operation prefix, even when a checkpoint already covers R.
   engine['_takeCheckpoint']('R')
-  const beforeUndo=observed.length;engine.undo()
+  const beforeUndo=observed.length;expect(engine.undo()?.id).toBe(paint.id)
   expect(observed.length).toBeGreaterThan(beforeUndo)
-  expect(observed.slice(beforeUndo).every(n=>n===0)).toBe(true)
+  expect(observed.slice(beforeUndo).every(n=>n===first)).toBe(true)
  }finally{engine.destroy()}
 })
 

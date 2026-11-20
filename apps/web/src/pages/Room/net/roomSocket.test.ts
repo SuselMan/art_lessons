@@ -11,7 +11,7 @@ import { connectRoomSocket, type RoomSocket, type RoomSocketDeps } from './roomS
 
 vi.mock('../../../lib/api/banned', () => ({ BANNED_ERROR_CODE: 'banned', noteBanned: vi.fn() }))
 
-vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null), setBrushRoomScope: vi.fn(), loadBrushLibrary: vi.fn(async () => {}) }))
+vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null), setBrushRoomScope: vi.fn(), loadBrushLibrary: vi.fn(async () => {}), refreshBrushLibrary: vi.fn(async () => {}) }))
 vi.mock('../../../stores/noticeStore', () => ({ notifyError: vi.fn(() => 'brush-notice'), dismissNotice: vi.fn() }))
 beforeEach(() => { vi.mocked(prepareBrushPresets).mockReset().mockReturnValue(null) })
 
@@ -166,7 +166,7 @@ describe('connectRoomSocket (#493)', () => {
       'boards_reordered', 'connect', 'connect_error', 'disconnect', 'join_request_created', 'join_request_resolved',
       'kicked', 'lesson_state', 'operation_confirmed', 'palette_updated', 'participant_frozen_changed',
       'participant_hand_changed', 'peer_board_changed', 'peer_joined', 'peer_left', 'peer_stroke_live',
-      'peer_stroke_live_end', 'room_closed_changed', 'room_frozen_changed', 'room_state', 'room_tools_changed',
+      'peer_stroke_live_end', 'room_brush_selection_changed', 'room_closed_changed', 'room_frozen_changed', 'room_state', 'room_tools_changed',
     ])
   })
 

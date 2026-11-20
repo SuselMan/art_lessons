@@ -6,7 +6,7 @@ import{MyPaintStrokePainter}from'./MyPaintStrokePainter'
 import type{BehaviorScratch}from'./BrushBehaviorPainter'
 import type{ILayerBuffer}from'../buffers/ILayerBuffer'
 const pixels=256
-beforeAll(async()=>{const bytes=readFileSync('/home/suselman/projects/pencil-agents/brush-import/apps/web/public/brush-kernels/mypaint-1.6.1.wasm'),old=globalThis.fetch;globalThis.fetch=vi.fn(async()=>new Response(bytes));try{await prepareMyPaintKernel()}finally{globalThis.fetch=old}})
+beforeAll(async()=>{const bytes=readFileSync(new URL('../../../../public/brush-kernels/mypaint-1.6.1.wasm',import.meta.url)),old=globalThis.fetch;globalThis.fetch=vi.fn(async()=>new Response(bytes));try{await prepareMyPaintKernel()}finally{globalThis.fetch=old}})
 import{mypaint177}from'../../../../../../packages/shared/src/mypaintTimer177.testFixture'
 function paint(chunks:number,seed=123,opacity=1,foreign=false,stats?:{reads:number},legacy=false,invalidTime=false){
  const data=new Uint8Array(pixels*pixels*4),buffer={contentRevision:0,width:pixels,height:pixels,readPixelsRegion(x:number,y:number,w:number,h:number){if(stats)stats.reads++;const out=new Uint8Array(w*h*4);for(let row=0;row<h;row++)out.set(data.subarray(((y+row)*pixels+x)*4,((y+row)*pixels+x+w)*4),row*w*4);return out},writePixelsRegion(x:number,y:number,w:number,h:number,v:Uint8Array){this.contentRevision++;for(let row=0;row<h;row++)data.set(v.subarray(row*w*4,(row+1)*w*4),((y+row)*pixels+x)*4)}},target={resolveForPaint:()=>[{buffer,originX:0,originY:0}],resolveExistingForPaint:()=>[{buffer,originX:0,originY:0}],markContentPainted:()=>{}}as unknown as ILayerBuffer

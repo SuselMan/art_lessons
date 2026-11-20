@@ -7,7 +7,7 @@ import type { Dab, StrokeOperation } from './stroke.js'
 const dab:Dab={x:20,y:30,pressure:1,tiltX:0,tiltY:0,size:24,aspectRatio:1,angle:Math.PI/2,opacity:1,t:0}
 const bytes=(packed:string)=>Uint8Array.from(atob(packed.split(':')[1]),c=>c.charCodeAt(0))
 const packed=(raw:Uint8Array)=>'4:'+btoa(String.fromCharCode(...raw))
-const brush={behavior:{version:2,strokeInput:{version:1,initialDirection:'cursorHistory'}}} as BrushDescriptor
+const brush={tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},behavior:{version:2,strokeInput:{version:1,initialDirection:'cursorHistory'}}} as BrushDescriptor
 
 describe('exact source direction wire channel',()=>{
  it('round-trips mixed optional angles as F64 while retaining legacy F32 angle',()=>{
