@@ -1,3 +1,4 @@
+import { createBrushRandomStrokeId } from '@grafetto/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { packDabs, type StrokeLiveData, type StrokeOperation } from '@grafetto/shared'
@@ -155,4 +156,16 @@ it('forwards explicit cancelled live end without treating a normal end as cancel
   on.peer_stroke_live_end({ userId: 'peer', strokeId: 'tail', cancelled: true })
   expect(fake.endPeerLiveStroke).toHaveBeenCalledWith('peer', 'tail', true)
   expect(deps.requestFullResync).not.toHaveBeenCalled()
+})
+
+it('retains random context and resyncs on malformed metadata or engine gesture mismatch', () => {
+ const {deps,on,fake}=setup()
+ const seeds={version:1 as const,sequentialSeed:0,strokeSeed:0xffffffff}
+ on.peer_stroke_live({...packet(createBrushRandomStrokeId('nonce00000',seeds)),tool:'digitalBrush',brushRandom:seeds})
+ expect(fake.appendPeerLiveDabs).toHaveBeenCalledWith('peer',expect.objectContaining({brushRandom:seeds}))
+ on.peer_stroke_live({...packet('bad'),tool:'digitalBrush',brushRandom:{...seeds,strokeSeed:-1}})
+ expect(deps.requestFullResync).toHaveBeenCalledTimes(1)
+ vi.mocked(fake.appendPeerLiveDabs).mockImplementation(()=>{throw new Error('Inconsistent brush random context')})
+ on.peer_stroke_live({...packet(createBrushRandomStrokeId('nonce00000',seeds)),tool:'digitalBrush',brushRandom:seeds})
+ expect(deps.requestFullResync).toHaveBeenCalledTimes(2)
 })

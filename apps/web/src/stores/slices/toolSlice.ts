@@ -1,8 +1,9 @@
 import type { StateCreator } from 'zustand'
 
 import type { ShapeFrame } from '@grafetto/shared'
+import { importedBrushes } from '../../engine/brushLibrary'
 
-import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../lib/tools/toolSchemas'
+import { clampToolSize140, defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../lib/tools/toolSchemas'
 
 // ── one selected tool (#405) ────────────────────────────────────────────────
 //
@@ -185,6 +186,8 @@ export interface ToolSlice {
   // setAllToolSettings (the store itself has no concept of "room id" to
   // load from automatically).
   toolSettings: ToolSettingsMap
+  /** Preserve each chosen preset's size/strength during this room session. */
+  brushPreferences: Record<string, { size: number; opacity: number }>
   setToolSetting: (
     toolId: UiToolId,
     key: string,
@@ -232,16 +235,22 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     }
   }),
   toolSettings: defaultToolSettings(),
-  setToolSetting: (toolId, key, value) => set(state => ({
-    toolSettings: {
+  brushPreferences: {},
+  setToolSetting: (toolId, key, value) => set(state => {
+    const next = typeof value === 'function'
+      ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
+      : value
+    const brushChange = ['digitalBrush', 'eraser', 'smudge'].includes(toolId) && key === 'brush' && next !== state.toolSettings[toolId].brush
+    const cfg = state.toolSettings[toolId]
+    const memory = brushChange ? { ...state.brushPreferences,
+      [`${toolId}:${cfg.brush}`]: { size: cfg.size as number, opacity: cfg.opacity as number },
+    } : state.brushPreferences
+    const source = brushChange ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults : undefined
+    const preference = brushChange ? memory[`${toolId}:${next}`] ?? (next === 'native' ? { size: defaultToolSettings()[toolId].size as number, opacity: defaultToolSettings()[toolId].opacity as number } : source ? { size: source.sizePx, opacity: toolId === 'digitalBrush' ? cfg.opacity as number : 1 } : toolId !== 'digitalBrush' && next !== 'native' ? { size: cfg.size as number, opacity: 1 } : undefined) : undefined
+    return { brushPreferences: memory, toolSettings: {
       ...state.toolSettings,
-      [toolId]: {
-        ...state.toolSettings[toolId],
-        [key]: typeof value === 'function'
-          ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
-          : value,
-      },
-    },
-  })),
-  setAllToolSettings: settings => set({ toolSettings: settings }),
+      [toolId]: clampToolSize140(toolId,{ ...cfg, [key]: next, ...preference }),
+    } }
+  }),
+  setAllToolSettings: settings => set({ toolSettings: Object.fromEntries(Object.entries(settings).map(([id,values])=>[id,clampToolSize140(id as UiToolId,values)]))as ToolSettingsMap, brushPreferences: {} }),
 })

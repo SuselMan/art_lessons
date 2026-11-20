@@ -1,417 +1,516 @@
-// (#494) The digital brush on its stamp model, out of PencilEngine (seam С18
-// of the survey): #573's stamp + composite passes, #579/#581's digital
-// watercolor (the wet edge, blooms, granulation — all inside the composite),
-// and the bitmap tips and canvas-anchored textures they sample.
-//
-// The engine's _ribbonStrokeWork hands a batch over with paint() once it
-// has seen `profile.brushStamp`: the brush keeps that machinery's per-stroke
-// scratch (the frozen layer, the stroke's coverage) and nothing else of it —
-// no wash, no ink film, no settle. The scratch arrives as an argument and is
-// seen through BrushScratch below; the ribbon owns it.
-//
-// What this needs from the outside is BrushContext: the GL context, the dab
-// quad, the paper, and the segment length the marker also measures travel
-// with.
-//
-// Both programs and every texture die with the GL context. initGL (the
-// engine's _initGL runs it at construction and on a restore) rebuilds the
-// programs and starts both texture caches empty — the old handles are dead
-// and are dropped without touching the driver; each texture is uploaded again
-// on its first use after that, exactly as it was the first time.
+import{mask190RootExecution}from'../presets/independentMask190'
+import{usesNativePixelMaterials}from'../presets/nativeBrushFeatures'
+import{hasBristleInitializationScope,hasBristleSoak139Scope,hasBristleSource143Scope,hasBristleWash135Scope,hasExperimentCurrentPattern158Scope,hasFilterBitmapMaskScope,hasFilterMask192Scope,hasParticleWash134Scope,hasTangentNormalWash136Scope}from'../presets/stationary195Scopes'
+import{hasStationary195Scope}from'@grafetto/shared'
+import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
+import{textureEraseId}from'../presets/brushTextureErase'
+import{textureMaterialVariant}from'../presets/textureLightness'
+import{ brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasIndependentMask190Scope,isTextureCombinations191Scope }from'@grafetto/shared'
+import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
+import{hasTextureGradientWash180Scope}from'@grafetto/shared'
+import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
+import{hasTextureLightnessWash171Scope}from'@grafetto/shared'
+import{assertTextureLightnessWash171Planes}from'../presets/textureLightnessWash171'
 
+import{assertPixelAlphaDual168Scope,assertPixelAlphaDual170Scope}from'@grafetto/shared'
+import{isBrushPattern,type BrushPattern}from'@grafetto/shared'
+import{assertPixelOriginalDual151Resources}from'../presets/pixelOriginalRgba'
+import{CanonicalBeginSource,type CanonicalBeginLayeredView}from'./CanonicalBeginSource'
+
+import {BristleSoakGather139} from '../raster/BristleSoakGather139'
+import {bristleSoakPoints139} from '../presets/bristleSoak139'
+import {buildBristleInitialization140,assertBristleInitializationSize140,assertBristleSource143Ready} from '../presets/bristleInitialization140'
+import {createBristleInkState} from '../presets/brushBristleInk'
+import {beginBrushBehavior} from '../presets/brushBehavior'
+import {canonicalBeginBindingKey,firstBristleLine139,isBristleAnchor139,type BristleFirstLine139,type CanonicalBeginNotReady,type CanonicalBeginBinding,type CanonicalBeginRuntime,type CanonicalBeginResult,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginCapability} from './CanonicalBeginRuntime'
+import type{BorrowedGridWash}from'./GridWashRuntime'
+
+
+
+import{hasSprayWash133Scope,isBrushSpray}from'@grafetto/shared'
+import{assertUnequalLightnessGih124}from'../presets/gihUnequalLightness124'
+import{assertEqualLightnessGih123}from'../presets/gihEqualLightness123'
+import{isIndependentDrawingAnglePair}from'@grafetto/shared'
+import {usesTextureLightness,usesTextureGradient,textureMaterialKind,textureLightnessPixels,type TextureMaterialVariant} from '../presets/textureLightness'
+import {pixelGradientSourcePixels,pixelGradientPalettePixels} from '../presets/pixelFilteredGradient'
+import {BristleSaturationResource} from './BristleSaturationResource'
+import {usesPixelOriginalRgba,usesFilteredPixelGradient,pixelOriginalRgbaFrames} from '../presets/pixelOriginalRgba'
+import type{SprayScratchLease}from'./SprayRequestPainter'
+import{colorSmudgeTipPixels,colorSmudgeGradientTipPixels}from'../presets/colorSmudgeTip'
+import type {BristleInkSettings} from '../presets/brushBristleInk'
+import {assertSameBrushExecutionContext,assertBrushSourceInputs,assertBrushExecutionContext,type  BrushExecutionContext } from '../presets/brushExecutionContext'
+import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
+import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
+import { BrushMipCache } from './BrushMipCache'
+import { lightnessMaterialMips } from '../presets/lightnessMaterial'
+import { importedAssetPixels } from '../presets/importedBrushes'
+import {bindBrushPattern, bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+/** One digital-stamp renderer for built-in, imported and historical presets.
+ * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
-import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
+import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import type { PaperSampling } from '../paper/PaperState'
-import {
-  brushStampsForDab, digitalBrushCeiling, type BrushDescriptor, type BrushPressureSettings,
-} from '../presets/digitalBrushPresets'
+import type { BrushDescriptor, BrushPressureSettings } from '../presets/digitalBrushPresets'
+import { normalizeBrush } from '../presets/brushNormalization'
 import type { PencilPreset } from '../presets/pencilPresets'
-import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
-import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, DAB_VERT } from '../raster/shaders'
-import { createProgram, getUniforms } from '../raster/utils'
+import { brushTextureMips, brushTexturePixels, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
+import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
-/** #579 — the digital watercolor's wet rim, as a fraction of the brush's size,
- *  clamped so a thin line still has one and a huge wash does not read its rim
- *  from half a tile away (each ring sample is one texture read either way). */
-const WET_EDGE_OF_SIZE = 0.06
-const WET_EDGE_MIN_PX = 1.5
-const WET_EDGE_MAX_PX = 14
-
-/** #579 — world size of one tile of the bloom and granulation textures. Large
- *  for the blooms, which are meant to be bigger than the brush; small for the
- *  grain, which is meant to be finer than anything the brush draws. */
-const WET_CLOUD_PERIOD_PX = 640
-const WET_GRAIN_PERIOD_PX = 224
-
-function clampNum(x: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, x))
-}
-
-/** What BrushPainter may ask of the engine. A function for the quad buffer,
- *  which the engine's _initGL rebuilds on a context restore. The paper is the
- *  engine's one PaperState, held by reference: its texture changes inside it
- *  and is read at draw time. */
 export interface BrushContext {
+  canonicalResourcesReleased?():void
+  reserveCanonicalBeginSource?(binding:CanonicalBeginBinding,bytes:number):(()=>void)|CanonicalBeginNotReady
+  openLayeredCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,projection:NonNullable<NonNullable<BrushExecutionContext['brushSource']>['projection']>,capability?:'cloneProjection149'|'cloneHealing152'):{kind:'ready';view:CanonicalBeginLayeredView}|CanonicalBeginNotReady
+  openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:CanonicalBeginCapability):CanonicalBeginResult
   readonly gl: WebGLRenderingContext
-  /** DAB_VERT's -0.5..0.5 dab quad. */
+  acquireSprayScratch?(width:number,height:number):SprayScratchLease
+  readonly brushMipCache?: BrushMipCache
   quadBuf(): WebGLBuffer
   readonly paper: PaperSampling
-  /** How far the hand travelled from `prev` to `dab` — the engine's
-   *  _markerSegmentLength, shared with the marker. */
   segmentLength(dab: Dab, prev: Dab | undefined, radius: number): number
 }
-
-/** The part of the ribbon's per-stroke scratch (RibbonStrokeScratch) a brush
- *  stroke uses: per tile, the frozen layer and the stroke's own coverage; and
- *  the wet edge's reach, fixed by the gesture's first dab. */
 export interface BrushScratch {
-  getOrCreate(tile: AccumulationBuffer): { original: AccumulationBuffer; coverage: AccumulationBuffer }
-  noteBrushEdgePx(px: number): number
+  getOrCreate(tile: AccumulationBuffer): {original:AccumulationBuffer;coverage:AccumulationBuffer}
+  noteBrushEdgePx(px:number):number
 }
 
-type Uniforms = Record<string, WebGLUniformLocation | null>
-
 export class BrushPainter {
+  private readonly ctx:BrushContext
+  private readonly behavior: BrushBehaviorPainter
   private readonly gl: WebGLRenderingContext
-  private readonly ctx: BrushContext
-
-  // #573 — the digital brush's stamp model (BRUSH_STAMP_FRAG / BRUSH_COMPOSITE_FRAG).
-  private stampProg!: WebGLProgram
-  private stampUni!: Uniforms
-  private stampPosLoc!: number
-  private compositeProg!: WebGLProgram
-  private compositeUni!: Uniforms
-  private compositePosLoc!: number
-  /** #573 — the opacity ceiling lives in the coverage buffer's alpha under a
-   *  MAX blend. Universally supported in practice; without it the ceiling
-   *  degrades to "off" (flow alone), never to a wrong picture. */
-  private blendMinMax: { MAX_EXT: number } | null = null
-  /** #573 — the bitmap tips, uploaded on first use (tipMasks.ts generates them
-   *  on the CPU, deterministically, with their full mip chain). */
-  private tipTextures = new Map<TipMaskId, WebGLTexture>()
-  /** #573 — the brushes' canvas-anchored textures, tiled with REPEAT. */
-  private brushTextures = new Map<BrushTextureId, WebGLTexture>()
-
+  private readonly materialMips: BrushMipCache
+  private readonly ownsMipCache: boolean
+  private maximumImageSide: number | undefined
+  private colorEpoch={}
+  private soakGather?:BristleSoakGather139
+  private readonly saturationResources:BristleSaturationResource
+  private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
-    this.gl = ctx.gl
-    this.ctx = ctx
+    this.ctx=ctx
+    this.gl=ctx.gl
+    this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
+    this.ownsMipCache = !ctx.brushMipCache
+    this.textures=new BrushTextureCache(ctx.gl)
+    this.saturationResources=new BristleSaturationResource(ctx.gl,this.textures)
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),(brush,effectiveErase,gradientLut,pattern) => {
+      const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version!==195 && !usesNativeFilterMask(brush) && !usesNativeSmudgeFeatures(brush) ? { ...brush, model: 'stamp' } : brush,effectiveErase)
+      const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
+      const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
+      if(required)return this.acquireRecordedStampResources(required,false)
+      if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+      const plan=brushTextureLeasePlan(resources,'stamp'),release=pattern!==undefined||usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+      if(pattern!==undefined){try{if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Canvas pattern resource was not prepared');return release}catch(error){try{release()}catch{/* Preserve preparation error. */}throw error}}
+      if(textureMaterialKind(brush)){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Texture Lightness108 resource was not prepared');return release}catch(error){release();throw error}}
+      if(!usesPixelOriginalRgba(brush)&&!(brush.spray&&(brush.spray.particle.image||brush.spray.color.sampleInput||brush.spray.color.mixBackground||brush.spray.color.fillBackground)))return release
+      if(gradientLut){try{if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Pixel gradient resource was not prepared');return release}catch(error){release();throw error}}
+      // Peer/cold use the same admitted cache/lease; selection is not readiness.
+      try{for(const resource of resources)if(resource.painter==='stamp')this.prepareTexture(resources,resource);return release}
+      catch(error){try{release()}catch{/* Preserve the original preparation failure. */}throw error}
+    },(id,planes,bounds,gradientLut,sampling)=>this.preparedImage(id,planes,bounds,gradientLut,sampling),(id,bounds)=>this.preparedSprayMask(id,bounds),bristle=>this.saturationResources.acquire(bristle),(brush,lut,effectiveErase)=>this.preparedTextureLightness(brush,lut,effectiveErase))
   }
-
-  /** Builds both programs and looks up the extension — from the engine's
-   *  _initGL, at construction and on a context restore. */
-  initGL(): void {
-    const { gl } = this
-    this.stampProg     = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
-    this.compositeProg = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.stampUni = getUniforms(gl, this.stampProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
-      'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure',
-      'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin',
-    ])
-    this.compositeUni = getUniforms(gl, this.compositeProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_original', 'u_strokeCoverage', 'u_color', 'u_opacity', 'u_useCeiling',
-      'u_screentone', 'u_screenOrigin',
-      'u_wetEdge', 'u_wetEdgePx', 'u_mottle', 'u_granulation', 'u_glaze',
-      'u_cloudTex', 'u_grainTex', 'u_cloudPeriod', 'u_cloudOrigin', 'u_grainPeriod', 'u_grainOrigin',
-      'u_wetModel', 'u_bloom', 'u_feather',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-    ])
-    this.stampPosLoc     = gl.getAttribLocation(this.stampProg, 'a_position')
-    this.compositePosLoc = gl.getAttribLocation(this.compositeProg, 'a_position')
-    this.blendMinMax = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
-    // Built fresh on context restore like every other GL object here: the
-    // previous handles died with the old context.
-    this.tipTextures = new Map()
-    this.brushTextures = new Map()
-  }
-
-  destroy(): void {
-    const { gl } = this
-    gl.deleteProgram(this.stampProg)
-    gl.deleteProgram(this.compositeProg)
-    for (const tex of this.tipTextures.values()) gl.deleteTexture(tex)
-    for (const tex of this.brushTextures.values()) gl.deleteTexture(tex)
-    this.tipTextures.clear()
-    this.brushTextures.clear()
-  }
-
-  /** #573, ADR 013 §11 — a digital brush stroke on the `stamp` model.
-   *
-   *  Same three-step shape as every stroke-scoped tool in the engine — freeze
-   *  the layer, accumulate the stroke's own coverage, recompute the finished
-   *  pixel — with the brush's own programs in both halves:
-   *
-   *  1. every dab expands into its stamps (brushStampsForDab: scatter, size,
-   *     angle and flow jitter, all seeded by the dab itself);
-   *  2. BRUSH_STAMP_FRAG draws them into the coverage buffer — flow into rgb
-   *     as "over", the pressure ceiling into alpha as MAX;
-   *  3. BRUSH_COMPOSITE_FRAG recomputes every pixel this batch could have
-   *     changed from the frozen original and the coverage.
-   *
-   *  Pure in the dabs, the descriptor and the recorded switches — nothing is
-   *  carried between batches but the buffers — so a live stroke, a one-shot
-   *  replay and a chunked one come out the same. */
-  paint(
-    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
-    stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
-    color: [number, number, number], scratch: BrushScratch, prevDab: Dab | undefined,
-  ): void {
-    const { gl, ctx } = this
-    const { paper } = ctx
-    const { brush, pressure } = stamp
-    interface Placed { x: number; y: number; radius: number; angle: number; aspect: number; flow: number; ceiling: number; pressure: number }
-    const placed: Placed[] = []
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    let prev = prevDab
-    for (const dab of dabs) {
-      const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
-      // Per-pass flow → per-stamp flow against the distance actually travelled
-      // (see BrushDescriptor.flow): after crossing one span, a pixel has been
-      // under enough stamps to hold exactly `flow`, whatever the spacing and
-      // however fast the hand moved.
-      let flow = brush.flow
-      if (brush.flowPer === 'pass' && flow < 1) {
-        const span = diameter * (brush.flowSpan ?? 1)
-        // (#581) Wet model 2 gives the stroke's first dab one ordinary step of
-        // travel, not the half radius every other tool's first dab gets: that
-        // extra flow made a dense disc at the start, and the wet edge drew its
-        // outline as a ring inside the stroke. Model 2 only — every brush
-        // already shipped keeps drawing its first dab as it always has.
-        const travel = !prev && brush.wet?.model === 2
-          ? diameter * brush.spacing
-          : ctx.segmentLength(dab, prev, diameter * 0.5)
-        flow = 1 - Math.pow(1 - flow, Math.min(travel / span, 1))
-      }
-      const ceiling = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
-      for (const st of brushStampsForDab(brush, dab)) {
-        const radius = st.size * 0.5 * preset.sizeMultiplier
-        if (radius < 0.25) continue
-        const reach = radius * Math.max(st.aspect, 1) + 1
-        minX = Math.min(minX, st.x - reach); maxX = Math.max(maxX, st.x + reach)
-        minY = Math.min(minY, st.y - reach); maxY = Math.max(maxY, st.y + reach)
-        placed.push({
-          x: st.x, y: st.y, radius, angle: st.angle, aspect: st.aspect,
-          flow: flow * st.flowScale, ceiling, pressure: dab.pressure,
-        })
-      }
-      prev = dab
+  /** One capability owner for selected readiness, recorded dispatch and paint. */
+  private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
+    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
+    const textureWash180=assertTextureGradientWash180Planes(brush)
+    const textureWash171=assertTextureLightnessWash171Planes(brush)
+    const bitmapFilter=!!brush.filter&&'maskPolicy'in brush.filter
+    if(bitmapFilter&&!(usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):hasFilterBitmapMaskScope(brush)))throw Error('Invalid Filter169 bitmap scope')
+    const alphaDual=mask190||assertPixelAlphaDual168Scope(brush)||assertPixelAlphaDual170Scope(brush)
+    const originalDual=assertPixelOriginalDual151Resources(brush)
+    const tangentWash=hasTangentNormalWash136Scope(brush)
+    if(brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!tangentWash)throw Error('Invalid Tangent Wash136 scope')
+    const bristleWash=hasBristleWash135Scope(brush)
+    if(brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!bristleWash)throw Error('Invalid Bristle Wash135 scope')
+    const particleWash=hasParticleWash134Scope(brush)
+    if(brush.particle&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!particleWash)throw Error('Invalid Particle Wash134 scope')
+    const wash=hasSprayWash133Scope(brush)||usesNativeSketchSpray(brush)&&!!brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'||particleWash||bristleWash||tangentWash
+    if(wash&&!particleWash&&!bristleWash&&!tangentWash&&!isBrushSpray(brush.spray))throw Error('Invalid Spray Wash133 population metadata')
+    if(brush.spray&&brush.behavior?.rendering?.accumulation==='alphaDarken'&&!wash)throw Error('Invalid Spray Wash133 scope')
+    if(textureWash180&&!paletteBound)return undefined
+    const gradient=!!brush.tip.animation&&!!brush.tip.color&&'gradient'in brush.tip.color
+    if(gradient){if(!usesNativeSketchSpray(brush))pixelOriginalRgbaFrames(brush,mask190);if(!paletteBound)return undefined}
+    const lightness=assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190)
+    if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
+    if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
+    const resources=existing??brushPreparationResources(bitmapFilter&&brush.version!==195&&!usesNativeFilterMask(brush)?{...brush,model:'stamp'}:brush)
+    if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
+    // Borrowed source metadata only: no derivative or upload before admission.
+    for(const resource of resources){
+      const image=resource.nativeImage
+      if(!image)continue
+      const side=Math.sqrt(importedAssetPixels(resource.id).length),rect=image.rect
+      if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('DrawingAngle image source plane is not canonical')
+      if(!Number.isInteger(rect.x)||!Number.isInteger(rect.y)||!Number.isInteger(rect.width)||!Number.isInteger(rect.height)||rect.x<0||rect.y<0||rect.width<1||rect.height<1||rect.x+rect.width>side||rect.y+rect.height>side)throw Error('DrawingAngle image source rectangle exceeds its asset')
     }
-    if (!placed.length) return
-    const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
-    const targets = target.resolveForPaint(bounds)
-    if (!targets.length) return
-    // (#579) The wet edge reads coverage up to edgePx away, so a pixel's
-    // finished value depends on stamps that far off: the composite has to
-    // reach that much further than the stamps, or a later batch changes a
-    // pixel no composite ever revisits, and the stroke comes out different
-    // live and on replay.
-    const edgePx = brush.wet && brush.wet.edge > 0
-      ? scratch.noteBrushEdgePx(clampNum(dabs[0].size * preset.sizeMultiplier * WET_EDGE_OF_SIZE, WET_EDGE_MIN_PX, WET_EDGE_MAX_PX))
-      : 0
-    const pad = edgePx > 0 ? Math.ceil(edgePx) + 1 : 0
-    const compositeBounds = pad > 0
-      ? { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad }
-      : bounds
-
-    const tipTex = brush.tip.kind === 'bitmap' && brush.tip.mask ? this.tipTexture(brush.tip.mask) : null
-    const grain = brush.texture ? { ...brush.texture, tex: this.brushTexture(brush.texture.id) } : null
-    const minmax = this.blendMinMax
-    const useCeiling = pressure.opacity && !!minmax
-
-    for (const tile of targets) {
-      const { original, coverage } = scratch.getOrCreate(tile.buffer)
-
-      coverage.beginDraw()
-      if (minmax) {
-        gl.blendEquationSeparate(gl.FUNC_ADD, minmax.MAX_EXT)
-        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ONE, gl.ONE)
-      } else {
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR)
-      }
-      gl.useProgram(this.stampProg)
-      const u = this.stampUni
-      gl.uniform2f(u.u_resolution, coverage.width, coverage.height)
-      const { w: paperTexW, h: paperTexH } = paper.worldSize()
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-      gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
-      gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, paper.texture)
-      gl.uniform1i(u.u_paperHeightMap, 0)
-      // Bound even for a round tip: WebGL validates every sampler a linked
-      // program declares, and the paper is guaranteed not to be the target.
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, tipTex ?? paper.texture)
-      gl.uniform1i(u.u_tip, 1)
-      gl.uniform1f(u.u_tipKind, tipTex ? 1 : 0)
-      gl.uniform1f(u.u_hardness, brush.tip.hardness)
-      gl.uniform1f(u.u_aaPx, 1)
-      gl.uniform1f(u.u_paper, brush.paperInteraction)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, grain?.tex ?? paper.texture)
-      gl.uniform1i(u.u_texture, 2)
-      gl.uniform1f(u.u_texStrength, grain?.strength ?? 0)
-      const period = grain?.periodPx ?? 1
-      gl.uniform1f(u.u_texPeriod, period)
-      // Reduced here, exactly, so the shader only ever adds small numbers.
-      const wrap = (v: number): number => ((v % period) + period) % period
-      gl.uniform2f(u.u_texOrigin, wrap(tile.originX), wrap(tile.originY))
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, ctx.quadBuf())
-      gl.enableVertexAttribArray(this.stampPosLoc)
-      gl.vertexAttribPointer(this.stampPosLoc, 2, gl.FLOAT, false, 0, 0)
-
-      const tx0 = tile.originX, ty0 = tile.originY
-      const tx1 = tx0 + tile.buffer.width, ty1 = ty0 + tile.buffer.height
-      for (const p of placed) {
-        const reach = p.radius * Math.max(p.aspect, 1) + 1
-        if (p.x + reach <= tx0 || p.x - reach >= tx1 || p.y + reach <= ty0 || p.y - reach >= ty1) continue
-        gl.uniform2f(u.u_dabCenter, p.x - tx0, p.y - ty0)
-        gl.uniform1f(u.u_dabRadius, p.radius)
-        gl.uniform1f(u.u_angle, p.angle)
-        gl.uniform1f(u.u_aspectRatio, p.aspect)
-        gl.uniform1f(u.u_opacity, p.flow)
-        gl.uniform1f(u.u_ceiling, p.ceiling)
-        gl.uniform1f(u.u_paperPressure, p.pressure)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-      }
-      // Every other blend in the engine assumes FUNC_ADD and sets only the
-      // factors — leave the equation as it found it.
-      if (minmax) gl.blendEquation(gl.FUNC_ADD)
-      coverage.endDraw()
-
-      this.drawComposite(tile, compositeBounds, brush, original, coverage, color, dabs[0].opacity, useCeiling, edgePx)
+    const limit=this.imageDimensionLimit()
+    assertNativeImageAdmission(resources,limit)
+    if(wash){if(!Number.isFinite(limit)||resources.some(r=>!r.grain&&r.id.startsWith('asset:')&&Math.sqrt(importedAssetPixels(r.id).length)>limit))throw Error('Spray Wash mask exceeds GPU dimensions');if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Spray Wash bank exceeds the brush texture budget')}
+    if(textureWash180||textureWash171||bitmapFilter||lightness||originalDual||alphaDual){
+      if(!Number.isFinite(limit)||resources.some(r=>r.materialGroup&&r.materialGroup.size>limit))throw Error('Lightness123 bank exceeds GPU dimensions')
+      if(brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Lightness123 bank exceeds the brush texture budget')
     }
-    target.markContentPainted(compositeBounds)
+    return resources
   }
-
-  /** #573 — BRUSH_COMPOSITE_FRAG over `bounds` in one tile: the finished pixel
-   *  from the frozen original and the stroke's coverage. A replace draw, since
-   *  the result is the answer rather than a contribution to it (see
-   *  AccumulationBuffer.beginReplaceDraw). */
-  private drawComposite(
-    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
-    brush: BrushDescriptor, original: AccumulationBuffer, coverage: AccumulationBuffer,
-    color: [number, number, number], opacity: number, useCeiling: boolean, edgePx: number,
-  ): void {
-    const { gl, ctx } = this
-    const { paper } = ctx
-    const { buffer } = tile
-    buffer.beginReplaceDraw()
-    gl.useProgram(this.compositeProg)
-    const u = this.compositeUni
-    // (#579) Digital watercolor. Zeros for every other brush — uniforms outlive
-    // the draw that set them, and this program is shared by the whole set.
-    const wet = brush.wet
-    gl.uniform1f(u.u_wetEdge, wet && edgePx > 0 ? wet.edge : 0)
-    gl.uniform1f(u.u_wetEdgePx, edgePx)
-    gl.uniform1f(u.u_mottle, wet?.mottle ?? 0)
-    gl.uniform1f(u.u_granulation, wet?.granulation ?? 0)
-    gl.uniform1f(u.u_glaze, wet?.glaze ? 1 : 0)
-    // (#581) Model 2 and its two extra terms; a wet brush without a model is
-    // #579's, which is what every stroke recorded with those brushes says.
-    gl.uniform1f(u.u_wetModel, wet ? (wet.model ?? 1) : 0)
-    gl.uniform1f(u.u_bloom, wet?.bloom ?? 0)
-    gl.uniform1f(u.u_feather, wet?.feather ?? 0)
-    // The paper, for granulation — the same world-space sampling every dab
-    // shader in the engine uses (#141).
-    const { w: paperTexW, h: paperTexH } = paper.worldSize()
-    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
-    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-    gl.activeTexture(gl.TEXTURE4)
-    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
-    gl.uniform1i(u.u_paperHeightMap, 4)
-    // Bound whether read or not: WebGL validates every declared sampler.
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this.brushTexture('cloud'))
-    gl.uniform1i(u.u_cloudTex, 2)
-    gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, this.brushTexture('grit'))
-    gl.uniform1i(u.u_grainTex, 3)
-    const wrapBy = (period: number) => (v: number): number => ((v % period) + period) % period
-    const cloudWrap = wrapBy(WET_CLOUD_PERIOD_PX)
-    const grainWrap = wrapBy(WET_GRAIN_PERIOD_PX)
-    gl.uniform1f(u.u_cloudPeriod, WET_CLOUD_PERIOD_PX)
-    gl.uniform2f(u.u_cloudOrigin, cloudWrap(tile.originX), cloudWrap(tile.originY))
-    gl.uniform1f(u.u_grainPeriod, WET_GRAIN_PERIOD_PX)
-    gl.uniform2f(u.u_grainOrigin, grainWrap(tile.originX), grainWrap(tile.originY))
-    gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, original.texture)
-    gl.uniform1i(u.u_original, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
-    gl.uniform1i(u.u_strokeCoverage, 1)
-    gl.uniform3fv(u.u_color, color)
-    gl.uniform1f(u.u_opacity, opacity)
-    gl.uniform1f(u.u_useCeiling, useCeiling ? 1 : 0)
-    const pitch = brush.screentonePx ?? 0
-    gl.uniform1f(u.u_screentone, pitch)
-    // The screen repeats every 2 * pitch along both world axes (see the
-    // shader), so the tile's origin is reduced by exactly that here, in
-    // integers, and the GPU only ever sees numbers smaller than the period.
-    const period = pitch * 2
-    const wrap = (v: number): number => period > 0 ? ((v % period) + period) % period : 0
-    gl.uniform2f(u.u_screenOrigin, wrap(tile.originX), wrap(tile.originY))
-
-    // The rect is covered by a circumscribing dab quad, the same trick the
-    // ribbon composite uses (the engine's _drawRibbonCompositeRect).
-    const cx = (bounds.minX + bounds.maxX) * 0.5
-    const cy = (bounds.minY + bounds.maxY) * 0.5
-    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) + 1
-    gl.bindBuffer(gl.ARRAY_BUFFER, ctx.quadBuf())
-    gl.enableVertexAttribArray(this.compositePosLoc)
-    gl.vertexAttribPointer(this.compositePosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.uniform2f(u.u_dabCenter, cx - tile.originX, cy - tile.originY)
-    gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, 0)
-    gl.uniform1f(u.u_aspectRatio, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    buffer.endDraw()
+  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor,filteredGradient=false):()=>void {
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    try{
+      if(prepare){
+        if(brush?.version===195&&brush.tangentNormal?.sharpnessChecked)this.prepareSketchLines()
+        if(brush&&usesNativeSketchSpray(brush)){this.prepareCompositeEffects(true);if(brush.sketch){this.prepareSketchLines();if(brush.behavior?.rendering?.accumulation==='alphaDarken')this.prepareBristleWash()}if(brush.spray){this.prepareSprayShapes();this.prepareSprayImages();this.prepareSpraySources(false,true);this.prepareSpraySources(true,true)}}
+        if(brush&&usesNativePixelMaterials(brush)){
+          this.prepareStampEffects(usesFilteredPixelGradient(brush),textureMaterialVariant(brush,true))
+          const child=brush.behavior?.dual?.brush;if(child&&usesFilteredPixelGradient(child))this.prepareStampEffects(true)
+        }
+        else if(brush&&hasTextureGradientWash180Scope(brush))this.prepareStampEffects(false,'gradient')
+        else if(brush&&hasTextureLightnessWash171Scope(brush))this.prepareStampEffects(false,true)
+        else if(filteredGradient)this.prepareStampEffects(true)
+        else if(brush&&brushUsesStampEffects(brush))this.prepareStampEffects()
+        if(resources.some(resource=>resource.nativeImage))this.prepareIntegerImages()
+        if(brush&&!hasSprayWash133Scope(brush)&&(brush.tip.kind==='procedural'||brush.behavior?.dual?.brush.tip.kind==='procedural'))this.prepareProcedural()
+        for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
+      }
+      if(resources.some(resource=>resource.painter==='stamp'&&!this.hasPreparedTexture(resource)))throw Error('Recorded stamp bank is not prepared')
+      return release
+    }catch(error){try{release()}catch{/* Preserve primary, including undefined. */}throw error}
   }
-
-  /** A brush texture (#573), tiled across the canvas — REPEAT rather than
-   *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
-  private brushTexture(id: BrushTextureId): WebGLTexture {
-    const cached = this.brushTextures.get(id)
-    if (cached) return cached
-    const tex = this.uploadMips(brushTextureMips(id), this.gl.REPEAT)
-    this.brushTextures.set(id, tex)
-    return tex
+  /** Existing recorded dispatch calls this BEFORE any gesture/target mutation.
+   * Ordinary brushes remain no-op; selected RAF preparation is unchanged. */
+  prepareRecordedStampResources(brush:BrushDescriptor):void {
+    const resources=this.recordedStampResources(brush)
+    if(!resources)return
+    this.acquireRecordedStampResources(resources,true,brush)()
   }
-
-  /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
-   *
-   *  Every mip level comes from tipMaskMips on the CPU rather than from
-   *  gl.generateMipmap — see that function on why the driver's filter is not
-   *  trusted with a value every participant has to agree on. */
-  private tipTexture(id: TipMaskId): WebGLTexture {
-    const cached = this.tipTextures.get(id)
-    if (cached) return cached
-    const tex = this.uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
-    this.tipTextures.set(id, tex)
-    return tex
+  initGL():void {this.soakGather?.reset();this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
+  destroy():void {
+    this.colorEpoch={}
+    let failed=false,primary:unknown
+    const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;primary=error}}}
+    cleanup(()=>this.soakGather?.reset())
+    cleanup(()=>this.behavior.destroy())
+    cleanup(()=>this.textures.clear());this.saturationResources.reset()
+    if(this.ownsMipCache)cleanup(()=>this.materialMips.clear())
+    if(failed)throw primary
   }
-
-  private uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
-    const { gl } = this
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    let size = Math.round(Math.sqrt(levels[0].length))
-    for (let level = 0; level < levels.length; level++) {
-      gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
-      size = Math.max(1, size >> 1)
+  finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
+  paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext,runtime?:CanonicalBeginRuntime):void|CanonicalBeginPaintResult {
+    const brush=stamp.brush
+    assertRecordedPen188Inputs(brush,dabs)
+    if(brush.bristle?.version===1&&brush.bristle.initialization){
+      if(!hasBristleInitializationScope(brush))throw Error('Invalid Bristle initialization scope')
+      if(dabs.length){
+        assertBrushSourceInputs(brush,dabs)
+        const previous=scratch.brushBehavior?.previous
+        assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
+        if(!scratch.brushBehavior?.bristle?.initialization&&hasBristleSource143Scope(brush))assertBristleSource143Ready(brush)
+      }
     }
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
-    return tex
+    if(brush.bristle?.version===2&&brush.bristle.soak){
+      if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope')
+      if(brush.bristle.soak.resizePolicy==='mask-population-v1'&&dabs.length){
+        assertBrushSourceInputs(brush,dabs)
+        const previous=scratch.brushBehavior?.previous
+        assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previous?[previous,...dabs]:dabs)
+      }
+      if(brush.version===195&&dabs.length&&!scratch.brushBehavior?.bristle?.soak){
+        if(!runtime)throw Error('Bristle195 requires canonical BEGIN runtime')
+        const initial=this.prepareBristleInitial195(target,dabs.find(isBristleAnchor139)??dabs[0],runtime.binding.userId,runtime.binding.strokeId,stamp,execution,runtime,scratch)
+        if(initial.kind==='notReady')return{...initial,acceptedDabs:0}
+      }
+      const valid=brush.version===195?dabs:dabs.filter(d=>Number.isFinite(d.size)&&d.size>0),state=scratch.brushBehavior,oldAnchor=state?.bristle?.previous
+      const previous=oldAnchor?{...(state?.previous??valid[0]??_previous!),...oldAnchor}:_previous
+      const line=firstBristleLine139(valid,previous)
+      if(line){
+        if(!runtime)throw Error('Bristle Soak requires canonical BEGIN runtime')
+        const ready=this.prepareBristleSoakGesture(target,line,runtime.binding.userId,runtime.binding.strokeId,stamp,execution,runtime,scratch)
+        if(ready.kind==='notReady')return{...ready,acceptedDabs:0}
+      }
+      if(state?.bristle?.soak&&(!runtime||canonicalBeginBindingKey(state.bristle.soak.binding)!==canonicalBeginBindingKey(runtime.binding)))return{kind:'notReady',reason:'prefix',retryKey:(runtime?.binding.prefixKey??'missing')+':bristle-soak',acceptedDabs:0}
+      if(valid.length)this.behavior.paint(target,valid,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution)
+      return{kind:'painted',acceptedDabs:dabs.length}
+    }
+    this.behavior.paint(target,dabs,preset,normalizeBrush(brush),stamp.pressure,color,scratch,false,undefined,execution,!!brush.behavior?.erase,runtime)
+  }
+prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{
+ return this.behavior.prepareCloneBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)
+}
+cloneBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.cloneBeginBinding(scratch)}
+invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateCloneBegin(scratch)}
+
+  prepareBristleSoak(brush:BrushDescriptor):void {
+    if(brush.version===195&&!hasStationary195Scope(brush))throw Error('Invalid whole stationary195 preparation scope')
+    if(!hasBristleSoak139Scope(brush)||brush.bristle?.version!==2)throw Error('Invalid Bristle Soak139 scope')
+    this.prepareBristleInk(brush.bristle.ink,brush.bristle.antialias,brush.bristle.compositing,brush)
+    ;(this.soakGather??=new BristleSoakGather139(this.ctx.gl)).prepare()
+  }
+  prepareFilterSmudge147(brush?:BrushDescriptor):void{if(brush?.version===195&&!hasStationary195Scope(brush))throw Error('Invalid whole stationary195 preparation scope');if(brush?.filter&&'maskPolicy'in brush.filter)this.prepareRecordedStampResources(brush);this.behavior.prepareFilterSmudge147(brush)}
+  prepareFilterBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{if(paint.brush.filter&&'maskPolicy'in paint.brush.filter){const resources=this.recordedStampResources(paint.brush)!;if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Filter169 mask bank is not prepared')}return this.behavior.prepareFilterBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
+  filterBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.filterBeginBinding(scratch)}
+  invalidateFilterBegin(scratch:BehaviorScratch):void{this.behavior.invalidateFilterBegin(scratch)}
+  prepareSprayBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult{return this.behavior.prepareSprayBeginGesture(target,first,userId,strokeId,paint,execution,runtime,scratch)}
+  sprayBeginBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return this.behavior.sprayBeginBinding(scratch)}
+  invalidateSprayBegin(scratch:BehaviorScratch):void{this.behavior.invalidateSprayBegin(scratch)}
+  bristleSoakBinding(scratch:BehaviorScratch):CanonicalBeginBinding|undefined{return scratch.brushBehavior?.bristle?.soak?.binding}
+  invalidateBristleSoak(scratch:BehaviorScratch):void {if(this.bristleSoakBinding(scratch))scratch.brushBehavior=undefined}
+  prepareBristleSoakGesture(target:ILayerBuffer,line:BristleFirstLine139,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    if(!firstBristleLine139([line.previous,line.current]))throw Error('Bristle Soak requires an actual positive pair')
+    return this.prepareBristleSoakPalette139(target,line.previous,line.current,userId,strokeId,paint,execution,runtime,scratch)
+  }
+  prepareBristleInitial195(target:ILayerBuffer,anchor:Dab,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    execution=mask190RootExecution(paint.brush,execution)
+    if(paint.brush.version!==195||!hasBristleSoak139Scope(paint.brush)||runtime.capability!=='bristleSoak139'||runtime.binding.userId!==userId||runtime.binding.strokeId!==strokeId)throw Error('Invalid Bristle195 initial BEGIN')
+    assertBrushSourceInputs(paint.brush,[anchor]);assertBrushExecutionContext(paint.brush,execution)
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    if(scratch.brushBehavior?.bristle?.soak||scratch.canonicalSource&&!isBristleAnchor139(anchor)){const binding=scratch.brushBehavior?.bristle?.soak?.binding??scratch.canonicalSource!.binding;if(canonicalBeginBindingKey(binding)!==canonicalBeginBindingKey(runtime.binding))throw Error('Bristle195 BEGIN changed');return{kind:'ready'}}
+    if(isBristleAnchor139(anchor))return this.prepareBristleSoakPalette139(target,anchor,undefined,userId,strokeId,paint,execution,runtime,scratch)
+    if(!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch||!this.ctx.reserveCanonicalBeginSource)throw Error('Bristle195 source owner unavailable')
+    const initialization=paint.brush.bristle?.version===2&&paint.brush.bristle.soak?.resizePolicy==='mask-population-v1'?buildBristleInitialization140(paint.brush,assertBristleInitializationSize140(undefined,[anchor])):undefined
+    const opened=this.ctx.openCanonicalBegin(target,runtime.binding,'bristleSoak139');if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,runtime.binding,opened.view,(w,h)=>this.ctx.acquireSprayScratch!(w,h),bytes=>this.ctx.reserveCanonicalBeginSource!(runtime.binding,bytes),()=>this.ctx.canonicalResourcesReleased?.(),'bristleSoak139')
+    if(captured.kind==='notReady')return captured
+    const state=scratch.brushBehavior??beginBrushBehavior(anchor,execution)
+    if(initialization)state.bristle={...(state.bristle??{ordinal:0,oldPressure:1,ends:[]}),initialization,ink:initialization.hairs.length?createBristleInkState(initialization.hairs.length):undefined}
+    scratch.brushBehavior=state;scratch.canonicalSource=captured.owner;return{kind:'ready'}
+  }
+  private prepareBristleSoakPalette139(target:ILayerBuffer,anchor:Dab,current:Dab|undefined,userId:string,strokeId:string,paint:{brush:BrushDescriptor;pressure:BrushPressureSettings},execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime,scratch:BehaviorScratch):CanonicalBeginPrepareResult {
+    const brush=paint.brush,binding=runtime.binding
+    execution=mask190RootExecution(brush,execution)
+    if(!hasBristleSoak139Scope(brush)||runtime.capability!=='bristleSoak139'||userId!==binding.userId||strokeId!==binding.strokeId||!isBristleAnchor139(anchor))throw Error('Invalid Bristle Soak BEGIN identity')
+    assertBrushSourceInputs(brush,current?[anchor,current]:[anchor]);assertBrushExecutionContext(brush,execution)
+    this.behavior.assertBristleSoakPrepared139(brush);this.soakGather?.assertPrepared()
+    if(!this.soakGather||!this.ctx.openCanonicalBegin||!this.ctx.acquireSprayScratch)throw Error('Bristle Soak source/gather owner is unavailable')
+    if(scratch.brushBehavior)assertSameBrushExecutionContext(scratch.brushBehavior.execution,execution)
+    const existing=scratch.brushBehavior?.bristle?.soak
+    const resize=brush.bristle?.version===2&&brush.bristle.soak?.resizePolicy==='mask-population-v1'
+    const previousAnchor=scratch.brushBehavior?.previous
+    const sourceSize=resize?assertBristleInitializationSize140(scratch.brushBehavior?.bristle?.initialization,previousAnchor?[previousAnchor,anchor,...(current?[current]:[])]:[anchor,...(current?[current]:[])]):undefined
+    if(existing)return canonicalBeginBindingKey(existing.binding)===canonicalBeginBindingKey(binding)?{kind:'ready'}:{kind:'notReady',reason:'prefix',retryKey:binding.prefixKey+':bristle-soak'}
+    const prior=scratch.brushBehavior
+    if(prior?.bristle?.ordinal&&!scratch.canonicalSource)throw Error('Bristle Soak capture after accepted line is forbidden')
+    const initialization=resize?buildBristleInitialization140(brush,sourceSize!):undefined
+    const points=bristleSoakPoints139(brush,anchor,initialization),frozen=scratch.canonicalSource
+    if(frozen&&(frozen.capability!=='bristleSoak139'||frozen.target!==target||canonicalBeginBindingKey(frozen.binding)!==canonicalBeginBindingKey(binding)))throw Error('Bristle195 frozen source identity changed')
+    const opened=frozen?{kind:'ready' as const,view:{binding:frozen.binding,tiles:frozen.tiles,assertCurrent:()=>frozen.assertCurrent(),release:()=>{if(scratch.canonicalSource===frozen)scratch.canonicalSource=undefined;frozen.release()}}}:this.ctx.openCanonicalBegin(target,binding,'bristleSoak139')
+    if(opened.kind==='notReady')return opened
+    let failed=false,primary:unknown,rgba:Uint8Array|undefined
+    try{
+      if(canonicalBeginBindingKey(opened.view.binding)!==canonicalBeginBindingKey(binding))throw Error('Bristle Soak source authority mismatch')
+      rgba=points.length?this.soakGather.gather(opened.view,points,()=>this.ctx.acquireSprayScratch!(64,64)):new Uint8Array(0)
+      if(resize&&rgba.length!==points.length*4)throw Error('Bristle resized palette population mismatch')
+      opened.view.assertCurrent()
+    }catch(error){failed=true;primary=error}
+    finally{try{opened.view.release()}catch(error){if(!failed){failed=true;primary=error}}}
+    if(failed)throw primary
+    if(scratch.brushBehavior!==prior)throw Error('Bristle Soak owner changed during capture')
+    // Publish only after successful gather, authority checks AND source release.
+    const state=prior??beginBrushBehavior(anchor,execution)
+    const bristle=state.bristle??{ordinal:0,oldPressure:1,ends:[]}
+    state.bristle={...bristle,...(initialization?{initialization,ink:initialization.hairs.length?createBristleInkState(initialization.hairs.length):undefined}:{}),soak:{binding:structuredClone(binding),rgba:rgba!}}
+    scratch.brushBehavior=state
+    return{kind:'ready'}
+  }
+  paintMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:BehaviorScratch,sizeMultiplier:number,execution?:BrushExecutionContext):void {
+    this.behavior.paint(target,dabs,{opacity:1,hardness:1,sizeMultiplier},normalizeBrush(brush),{size:true,opacity:pressure},[1,1,1],scratch,false,undefined,execution)
+  }
+
+  hasPreparedTexture(resource: BrushPreparationResource): boolean {
+    return resource.bristleSaturation?this.saturationResources.ready(resource.bristleSaturation):this.textures.get(brushTextureResourceKey(resource)) !== undefined
+  }
+
+  prepareFilter():void{this.behavior.prepareFilter()}
+  preparePolygon():void{this.behavior.preparePolygon()}
+  prepareExperimentPatternPrograms():void{this.behavior.prepareExperimentPattern()}
+  prepareExperimentPattern(brush:BrushDescriptor,pattern:BrushPattern|undefined):void{
+    if(!hasExperimentCurrentPattern158Scope(brush)||!isBrushPattern(pattern))throw Error('Experiment158 requires a captured pattern or none')
+    const resources=bindBrushPattern(brushPreparationResources(brush),pattern)
+    assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    let failed=false
+    try{this.behavior.prepareExperimentPattern();for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+  }
+  prepareHatching():void{this.behavior.prepareHatching()}
+  prepareCloneHealing152():void{this.behavior.prepareCloneHealing152()}
+  prepareClone():void{this.behavior.prepareClone()}
+  prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean,brush?:BrushDescriptor):void{
+    if(settings.useSaturation){
+      if(brush?.bristle?.version!==2||brush.bristle.ink!==settings)throw Error('Compiled Bristle saturation descriptor is required')
+      const resources=brushPreparationResources(brush)
+      assertNativeImageAdmission(resources,this.imageDimensionLimit())
+      this.saturationResources.prepare(brush.bristle,resources.map(brushTextureResourceKey))
+    }
+    this.behavior.prepareBristleInk(settings,antialias,compositing,brush?.bristle)
+  }
+  prepareBristleRequests():void{this.behavior.prepareBristleRequests()}
+  prepareBristleNativeAA142():void{this.behavior.prepareBristleNativeAA142()}
+  prepareSketchLines():void{this.behavior.prepareSketchLines()}
+  prepareGridWash():void{
+    const resources:BrushPreparationResource[]=[{id:'cloud',grain:true,painter:'stamp'},{id:'grit',grain:true,painter:'stamp'}]
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    let failed=false
+    try{this.behavior.prepareGridWash();for(const resource of resources)if(!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{try{release()}catch(error){if(!failed)throw error}}
+  }
+  assertGridWashPrepared():void{this.behavior.assertGridWashPrepared()}
+  borrowRequestWash():BorrowedGridWash{
+    const resources:BrushPreparationResource[]=[{id:'cloud',grain:true,painter:'stamp'},{id:'grit',grain:true,painter:'stamp'}]
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+    try{if(resources.some(resource=>!this.hasPreparedTexture(resource)))throw Error('Grid Wash composite resources were not prepared');return{...this.behavior.borrowGridWash(),release}}
+    catch(error){try{release()}catch{/* Preserve primary. */}throw error}
+  }
+  prepareParticleWash():void{this.behavior.prepareParticleWash()}
+  prepareBristleWash():void{this.behavior.prepareBristleWash()}
+  prepareSprayShapes():void { this.behavior.prepareSprayShapes() }
+  prepareSpraySources(wash=false,native194=false):void{this.behavior.prepareSpraySources(wash,native194)}
+  prepareSprayImages():void {this.behavior.prepareSprayImages()}
+  prepareCircleBand(): void { this.behavior.prepareCircleBand() }
+  prepareProcedural(): void { this.behavior.prepareProcedural() }
+  private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
+  prepareStampEffects(filteredGradient=false,textureLightness:TextureMaterialVariant=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient,textureLightness)}
+  prepareCompositeEffects(native194=false):void{this.behavior.prepareCompositeEffects(native194)}
+  prepareAutoNoise():void{this.prepareStampEffects()}
+  prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
+  prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
+  prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
+    if(group.some(r=>r.canvasPattern||r.gradientSource||r.gradientPalette||r.patternAlpha)){
+      const release=this.textures.leaseRequired(brushTextureLeasePlan(group,'stamp'))
+      let failed=false
+      try{this.prepareTextureOwned(group,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve primary, including undefined. */}}else release()}
+    }else this.prepareTextureOwned(group,resource)
+  }
+  private prepareTextureOwned(group:readonly BrushPreparationResource[],resource:BrushPreparationResource):void{
+    this.textures.protect(group.map(brushTextureResourceKey))
+    if(resource.patternAlpha){
+      const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
+      const size=resource.patternSize;if(!size)throw Error('Lightness pattern dimensions missing')
+      const pixels=textureLightnessPixels(importedAssetPixels(resource.id),importedAssetPixels(resource.patternAlpha),size.width,size.height),side=Math.sqrt(pixels.length/4)
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,{width:side,height:side,nearest:true,straight:true})
+      try{this.textures.put(key,entry.texture,entry.bytes)}catch(error){this.gl.deleteTexture(entry.texture);throw error}return
+    }
+    if(resource.gradientPalette){
+      if(!resource.gradientLut)throw Error('Filtered gradient palette is not captured')
+      const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
+      const pixels=pixelGradientPalettePixels(resource.gradientLut),entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:256,height:1,nearest:true,straight:true})
+      try{this.textures.put(key,entry.texture,entry.bytes)}catch(error){this.gl.deleteTexture(entry.texture);throw error}return
+    }
+    if(resource.bristleSaturation){this.saturationResources.prepare(resource.bristleSaturation,group.map(brushTextureResourceKey));return}
+    if(resource.colorPlanes){
+      if(resource.gradientMap&&!resource.gradientLut)throw Error('Gradient image requires a captured palette')
+      const key=brushTextureResourceKey(resource);if(this.textures.get(key))return
+      const alpha=importedAssetPixels(resource.id),side=Math.sqrt(alpha.length)
+      if(resource.gradientMap&&side>512)throw Error('Pixel gradient side exceeds512')
+      const pixels=resource.gradientSource ? pixelGradientSourcePixels(alpha,importedAssetPixels(resource.colorPlanes[0])) : resource.gradientMap ? colorSmudgeGradientTipPixels(alpha,importedAssetPixels(resource.colorPlanes[0]),resource.gradientLut!) : colorSmudgeTipPixels(alpha,resource.colorPlanes.map(importedAssetPixels))
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side,...(resource.gradientSource?{straight:true as const}:{})})
+      if(resource.gradientSource){try{this.textures.put(key,entry.texture,entry.bytes)}catch(error){this.gl.deleteTexture(entry.texture);throw error}}else this.textures.put(key,entry.texture,entry.bytes)
+    }else if(resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
+    else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage,resource.lookup32)
+  }
+
+  /** Texture material preflight owns no persistent lease; paint acquires its exact required union. */
+  prepareTextureLightness(brush:BrushDescriptor):void{
+    if(!usesTextureLightness(brush))return
+    const resources=brushPreparationResources(brush);assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
+    try{this.prepareStampEffects(usesFilteredPixelGradient(brush),true);for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+  }
+
+  /** Recorded texture palette is bound before any request/state mutation. */
+  prepareTextureGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
+    if(!usesTextureGradient(brush))return
+    assertTextureGradientWash180Planes(brush)
+    assertBrushExecutionContext(brush,execution)
+    const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+    if(hasTextureGradientWash180Scope(brush)){const required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Texture Gradient Wash180 bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
+    assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'));let failed=false
+    try{this.prepareStampEffects(usesFilteredPixelGradient(brush),'gradient');for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
+  }
+
+  /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
+  preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
+    if(brush&&usesNativeSketchSpray(brush)){if(!brushUsesGradient(brush))return;assertBrushExecutionContext(brush,execution);const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient),required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Sketch/Spray194 gradient bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
+    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    if(mask190){
+      const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
+      if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return
+      assertBrushExecutionContext(brush,execution)
+      for(const component of components)if(usesPixelOriginalRgba(component))pixelOriginalRgbaFrames(component,true)
+      const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+      const required=this.recordedStampResources(brush,resources,true)
+      if(!required)throw Error('Mask190 gradient resource bank is missing')
+      this.acquireRecordedStampResources(required,true,brush,true)()
+      return
+    }
+    if(!usesPixelOriginalRgba(brush)||!brush.tip.color||!('gradient'in brush.tip.color))return
+    const sensor=!!brush.tip.animation
+    if(sensor){pixelOriginalRgbaFrames(brush,mask190);assertBrushExecutionContext(brush,execution)}
+    const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient)
+    if(sensor){
+      const required=this.recordedStampResources(brush,resources,true)
+      if(!required)throw Error('Bound Gradient125 resource owner is missing')
+      this.acquireRecordedStampResources(required,true,brush,true)()
+      return
+    }
+    if(usesFilteredPixelGradient(brush))assertNativeImageAdmission(resources,this.imageDimensionLimit())
+    const plan=brushTextureLeasePlan(resources,'stamp'),release=usesFilteredPixelGradient(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
+    let failed=false
+    try{if(usesFilteredPixelGradient(brush))this.prepareStampEffects(true,textureMaterialVariant(brush,usesNativePixelMaterials(brush)));for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed&&usesFilteredPixelGradient(brush)){try{release()}catch{/* Preserve primary. */}}else release()}
+  }
+  private preparedTextureLightness(brush:BrushDescriptor,lut?:string,effectiveErase=false){
+    if(!textureMaterialKind(brush))throw Error('Texture material is missing')
+    const resource=brushPreparationResources(brush).find(r=>r.patternAlpha&&r.id===textureEraseId(brush.texture,effectiveErase)),epoch=this.colorEpoch
+    if(!resource)throw Error('Texture Lightness108 resource is missing')
+    const key=brushTextureResourceKey(resource),texture=this.textures.get(key),side=Math.sqrt(importedAssetPixels(resource.id).length)
+    if(!texture)throw Error('Texture Lightness108 resource was not prepared')
+    const paletteKey=usesTextureGradient(brush)?brushTextureResourceKey(bindBrushGradient([{painter:'stamp',id:brush.texture!.id,grain:false,gradientPalette:true}],lut)[0]):undefined,paletteTexture=paletteKey?this.textures.get(paletteKey):undefined
+    if(paletteKey&&!paletteTexture)throw Error('Texture gradient palette was not prepared')
+    const assertPalette=()=>{if(epoch!==this.colorEpoch||!paletteKey||this.textures.get(paletteKey)!==paletteTexture)throw Error('Texture gradient palette owner was retired')}
+    const palette=paletteTexture?{texture:paletteTexture,assertCurrent:assertPalette}:undefined
+    return{texture,...(palette?{palette}:{}),width:side,height:side,crop:{x:0,y:0,width:side,height:side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Texture Lightness108 owner was retired');palette?.assertCurrent()}}
+  }
+  private preparedSprayMask(id:TipMaskId,bounds?:BrushDescriptor["tip"]["maskBounds"]){
+    const key=brushTextureResourceKey({id,grain:false}),texture=this.textures.get(key),epoch=this.colorEpoch
+    if(!texture)throw Error('Spray mask was not prepared')
+    const side=Math.sqrt(importedAssetPixels(id).length)
+    return{texture,width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray mask owner was retired')}}
+  }
+  private preparedImage(id:TipMaskId,planes:readonly[string,string,string],bounds?:BrushDescriptor["tip"]["maskBounds"],gradientLut?:string,sampling?:'filteredGray-v1'){
+    const key=brushTextureResourceKey({id,grain:false,colorPlanes:planes,...(sampling?{gradientSource:true as const}:gradientLut?{gradientMap:true as const,gradientLut}:{})}),texture=this.textures.get(key),epoch=this.colorEpoch
+    if(!texture)throw Error('Spray RGBA image was not prepared')
+    const paletteKey=sampling?brushTextureResourceKey({id,grain:false,gradientPalette:true,gradientLut}):undefined,paletteTexture=paletteKey?this.textures.get(paletteKey):undefined
+    if(sampling&&!paletteTexture)throw Error('Filtered gradient palette was not prepared')
+    const assertPalette=()=>{if(epoch!==this.colorEpoch||!paletteKey||this.textures.get(paletteKey)!==paletteTexture)throw Error('Filtered gradient palette owner was retired')}
+    const palette=paletteTexture?Object.freeze({texture:paletteTexture,assertCurrent:assertPalette}):undefined
+    const side=Math.sqrt(importedAssetPixels(id).length)
+    return{texture,...(palette?{palette}:{}),width:side,height:side,crop:{x:(bounds?.x??0)*side,y:(bounds?.y??0)*side,width:(bounds?.width??1)*side,height:(bounds?.height??1)*side},assertCurrent:()=>{if(epoch!==this.colorEpoch||this.textures.get(key)!==texture)throw Error('Spray RGBA image owner was retired');if(sampling)assertPalette()}}
+  }
+
+  private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
+    const key=brushTextureResourceKey({id,grain:true,discrete:discrete?true:undefined}), cached=this.textures.get(key)
+    if(cached)return cached
+    const entry=uploadBrushTexture(this.gl,discrete ? [brushTexturePixels(id)] : brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete)
+    this.textures.put(key,entry.texture,entry.bytes)
+    return entry.texture
+  }
+
+  private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup, nativeImage?: NativeImageResource, lookup32?: true): WebGLTexture {
+    const key=brushTextureResourceKey({id,grain:false,gray,materialGroup,nativeImage,lookup32}), cached=this.textures.get(key)
+    if(cached)return cached
+    if (lookup32) {
+      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
+      this.textures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
+    if (nativeImage) {
+      const pixels = this.materialMips.get(key, () => [nativeImagePixels(nativeImage, importedAssetPixels(id))])[0]
+      const entry = uploadBrushTexture(this.gl, [pixels], this.gl.LUMINANCE, this.gl.CLAMP_TO_EDGE, false, nativeImage)
+      this.textures.put(key, entry.texture, entry.bytes)
+      return entry.texture
+    }
+    const levels=materialGroup ? this.materialMips.get(key,()=>materialGroupMips(materialGroup,importedAssetPixels) )
+      : gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id)
+    const format=materialGroup?.format==='rgba' ? this.gl.RGBA : gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE
+    const entry=uploadBrushTexture(this.gl,levels,format,this.gl.CLAMP_TO_EDGE)
+    this.textures.put(key,entry.texture,entry.bytes)
+    return entry.texture
   }
 }

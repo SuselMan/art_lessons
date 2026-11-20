@@ -4,12 +4,16 @@ import type { IconName } from '../../icons/iconNames'
  *  `enumOptions` plus its `optionPreviews`/`optionIcons`, so this component
  *  family never imports the schema itself. */
 export interface PickerOption {
+  /** Optional trailing command supplied by the product. */
+  action?: () => void
   value: string
   /** Already translated — the schema stores a TranslationKey, the caller
    *  resolves it (see SettingField). */
   label: string
   /** URL of a sample-stroke image (`assets/tool-types/…`). */
   image?: string
+  /** Author artwork shown whole, independently from rendered stroke samples. */
+  thumbnail?: string
   /** (#544) URL of a photograph of the *tool itself* (`assets/tools/…`) —
    *  what the drawing-tool chooser shows, where the options are materials
    *  rather than settings of one material.
@@ -21,6 +25,8 @@ export interface PickerOption {
    *  of a pencil. Folding both into one field would mean a boolean beside it
    *  saying which — which is the same fork with a worse name. */
   photo?: string
+  /** Enlarge a full-length tool photograph and crop around its working tip. */
+  photoTipScale?: number
   /** Icon name for `<Icon>`, for options a photo of a stroke doesn't suit —
    *  the marker's two nibs, which differ in tip shape, not in tone. */
   icon?: IconName

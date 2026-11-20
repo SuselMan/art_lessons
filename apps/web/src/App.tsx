@@ -15,6 +15,7 @@ import { useBanned } from './lib/api/banned'
 // Route-level code splitting (#130): Room alone pulls in the WebGL pencil
 // engine, @dnd-kit, and socket.io-client — none of which /login, /create, or
 // /my-lessons need. Each page ships as its own chunk, fetched on navigation.
+const BrushPreviewRenderer = lazy(() => import('./pages/BrushPreviewRenderer').then(m => ({ default: m.BrushPreviewRenderer })))
 const CreateRoom = lazy(() => import('./pages/CreateRoom').then(m => ({ default: m.CreateRoom })))
 // Through `importRoomPage` rather than an inline `import()` so the pages that
 // preload this chunk share one specifier with it — see lib/api/roomChunk.ts.
@@ -57,7 +58,7 @@ function usePaperPrefetch(): void {
   useEffect(() => {
     // Read imperatively, not as a subscription: this must fire once, and
     // subscribing would restart it every time a room recorded a paper type.
-    prefetchPaper(useSettingsStore.getState().lastPaperType)
+    if (window.location.pathname !== '/brush-preview-renderer') prefetchPaper(useSettingsStore.getState().lastPaperType)
   }, [])
 }
 
@@ -94,6 +95,7 @@ export function App() {
           <AppErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
               {banned ? <Banned /> : <Routes>
+              <Route path="/brush-preview-renderer" element={<BrushPreviewRenderer />} />
                 <Route path="/" element={<Navigate to="/create" replace />} />
                 <Route path="/create" element={<CreateRoom />} />
                 <Route path="/room/:id" element={<Room />} />

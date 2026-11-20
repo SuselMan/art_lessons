@@ -22,6 +22,12 @@ beforeEach(() => {
 })
 
 describe('HTTP board access independent of socket presence', () => {
+  it('does not expose archived experimental pixels even to their owner', async () => {
+    mocks.room.findUnique.mockResolvedValueOnce({...board, rasterVersion: 'straight-rgba8-v1'})
+    expect(await mayReadBoardContent('board', 'teacher')).toBe(false)
+    expect(mocks.room.findUnique).toHaveBeenCalledTimes(1)
+    expect(mocks.roomParticipant.findUnique).not.toHaveBeenCalled()
+  })
   it('allows an admitted user even with no resident room or live participant', async () => {
     expect(await mayReadBoardContent('board', 'student')).toBe(true)
     expect(mocks.roomParticipant.findUnique).toHaveBeenCalledWith(expect.objectContaining({

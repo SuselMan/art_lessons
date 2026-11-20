@@ -871,7 +871,7 @@ it('retires cancelled-layer repair provenance on clear, completed replay and lay
     engine.appendOperation({ id: 'clear-cancelled', type: 'layer_clear', userId: 'peer', layerId: 'L', timestamp: Date.now() }, 'remote')
     expect(engine['_cancelledPeerLayers'].has('L')).toBe(false)
     engine['_cancelledPeerLayers'].add('L')
-    engine['_noteReplayedOrder']('L')
+    engine['_noteReplayedOrder']('L', [])
     expect(engine['_cancelledPeerLayers'].has('L')).toBe(false)
     engine['_cancelledPeerLayers'].add('L')
     engine['_destroyBuffer']('L'); engine.initLayer('L')

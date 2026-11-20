@@ -15,6 +15,7 @@ import { StylusTab } from './StylusTab'
 import styles from './SettingsPanel.module.css'
 
 interface SettingsPanelProps {
+  toolsContent?: React.ReactNode
   onClose: () => void
   /** The room this panel was opened from. Absent means it isn't one — the
    *  Access tab is the only thing that needs it. */
@@ -51,6 +52,7 @@ type SettingsTabId = 'general' | 'stylus' | 'access' | 'tools' | 'hotkeys' | 'de
  *  read-only mode). Those are still fixed at creation — #321 keeps that part
  *  open. */
 export function SettingsPanel({
+  toolsContent,
   onClose, roomId, isOwner, enabledTools, onEnabledToolsChange, classVisibility, onClassVisibilityChange,
 }: SettingsPanelProps) {
   const t = useT()
@@ -85,7 +87,8 @@ export function SettingsPanel({
           label: t('editorSettings.tab.tools'),
           content: (
             <>
-              <ToolSetPicker value={enabledTools} onChange={onEnabledToolsChange} />
+              {toolsContent}
+              <ToolSetPicker utilitiesOnly value={enabledTools} onChange={onEnabledToolsChange} />
               {classVisibility && onClassVisibilityChange && (
                 <ClassVisibilityField value={classVisibility} onChange={onClassVisibilityChange} />
               )}

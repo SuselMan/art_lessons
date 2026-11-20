@@ -270,7 +270,9 @@ export class Exporter {
     const height = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
     const bounds = { x: raw.x, y: raw.y, width, height }
 
-    const buffer = new AccumulationBuffer(this.gl, width, height)
+    // This returned composite is sampled texel-for-texel by the finishing
+    // transparent/paper pass. Preview reduction owns separate linear buffers.
+    const buffer = new AccumulationBuffer(this.gl, width, height, 'nearest')
     buffer.clear()
 
     const frame = exactFrame(bounds)

@@ -1,0 +1,2 @@
+// Compiler fingerprints refreshed after shared procedural/texture shader integration.
+export const pre175Shaders={"old83":"e3b0f8d50cad806a0d53950a2e0cab275c96789de485e64bbf91112d1222b645","old154":"03ac18a5f554942f41ce5d28f80fe293a150b0f46459793cb74870c4d47f8fd9","old172":"27cc15b9b7b9d64be5144f6816a42bb697538e10c0ff64dcd953d7077a93bc7d"}as const

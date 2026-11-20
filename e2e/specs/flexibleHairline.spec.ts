@@ -5,6 +5,7 @@ import { createRoom, waitForRoomReady, waitForOperations, operations } from '../
 
 for (const tool of ['brushPen', 'watercolor'] as const) {
   test(`${tool}: a large flexible nib draws a hairline with feather pressure`, async ({ page }) => {
+    test.skip(tool === 'watercolor', 'Native watercolor is withdrawn while its separate branch is developed')
     await page.addInitScript(() => localStorage.setItem('al_locale', 'en'))
     await createRoom(page)
     await waitForRoomReady(page)

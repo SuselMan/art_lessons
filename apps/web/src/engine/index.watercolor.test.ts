@@ -119,7 +119,7 @@ describe('watercolor tool (#468, ADR 011)', () => {
     try {
       work.next()
       expect(oldReads).toBe(0)
-      expect(keptReads).toBe(2)
+      expect(keptReads).toBe(1)
       expect((scratch.foreignSources as import('./src/watercolor/foreignWater').WaterSource[] | null)?.map(s => s.gesture)).toEqual(['kept'])
       expect((scratch.foreignSources as import('./src/watercolor/foreignWater').WaterSource[] | null)?.[0].footprints).toEqual(keptDabs.map(d => ({ x: d.x, y: d.y, radius: d.size * 0.5, aspect: Math.max(1, d.aspectRatio), angle: d.angle })))
     } finally { work.return(undefined); simulateStrokeEnd(engine, 48, 32) }

@@ -220,7 +220,7 @@ export function handleEditorKey(e: KeyboardEvent, ctx: EditorKeyContext): void {
     // included) — step through the ladder instead of subtracting 1.
     if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
     else {
-      const range = toolSizeRange(drawingTool)
+      const range = toolSizeRange(drawingTool,useRoomStore.getState().toolSettings[drawingTool])
       if (range) setToolSetting(drawingTool, 'size', prev => Math.max(range.min, (prev as number) - 1))
     }
     return
@@ -228,7 +228,7 @@ export function handleEditorKey(e: KeyboardEvent, ctx: EditorKeyContext): void {
   if (is('increaseSize')) {
     if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
     else {
-      const range = toolSizeRange(drawingTool)
+      const range = toolSizeRange(drawingTool,useRoomStore.getState().toolSettings[drawingTool])
       if (range) setToolSetting(drawingTool, 'size', prev => Math.min(range.max, (prev as number) + 1))
     }
     return

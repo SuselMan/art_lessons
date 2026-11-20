@@ -117,6 +117,9 @@ model LoginCode {
 }
 
 model Room {
+  // Historical storage metadata, not a brush/model selector. New rooms use
+  // Grafetto's common storage; archived experimental formats stay protected.
+  rasterVersion      String              @default("legacy-pm8-v1")
   id                 String              @id
   name               String
   paper              String

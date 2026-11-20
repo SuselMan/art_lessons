@@ -59,11 +59,11 @@ describe('digital brush, stamp model (#573)', () => {
     expect(markerPassDraw(engine, 8)).toBeUndefined()
   })
 
-  it('still sends an @1 stroke through the renderer it was drawn with', () => {
+  it('normalizes an @1 stroke into the same common stamp renderer', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', line(), { tool: 'digitalBrush', preset: 'brush:medium-round@1' }))
-    expect(markerPassDraw(engine, 10)).toBeDefined()
-    expect(stamps(engine)).toHaveLength(0)
+    expect(markerPassDraw(engine, 10)).toBeUndefined()
+    expect(stamps(engine).length).toBeGreaterThan(0)
   })
 
   it('hands each stamp a pressure ceiling when the opacity switch is on, and 1 when it is off', () => {
@@ -80,7 +80,7 @@ describe('digital brush, stamp model (#573)', () => {
     expect(ceilingAt(off, 0.95)).toBe(1)
   })
 
-  it('keeps flow and the ceiling apart: flow does not follow pressure', () => {
+  it('retains the independent authored pressure curve for flow', () => {
     // The ceiling is where pressure acts. If flow followed it too, a light
     // stroke would be doubly light and the switch would not mean what it says.
     const flowAt = (pressure: number): number => {
@@ -88,7 +88,7 @@ describe('digital brush, stamp model (#573)', () => {
       engine.appendOperation(makeStroke('user-a', 'L', line(pressure), { tool: 'digitalBrush', preset: current('soft-round') }))
       return stamps(engine)[2].get('u_opacity') as number
     }
-    expect(flowAt(0.15)).toBeCloseTo(flowAt(0.95), 6)
+    expect(flowAt(0.15)).toBeLessThan(flowAt(0.95))
   })
 
   it('lets pressure drive the size only while the size switch is on', async () => {
@@ -195,12 +195,14 @@ describe('digital watercolor (#579)', () => {
     return brushDraws(engine).find(d => d.kind === 'composite')!.uniforms
   }
 
-  it('hands the composite its wet edge, blooms, grain and glaze', () => {
+  it('keeps optical blooms and glaze separate from stamp-edge softening', () => {
     const u = composite('wet-wash')
-    expect(u.get('u_wetEdge') as number).toBeGreaterThan(0)
-    expect(u.get('u_wetEdgePx') as number).toBeGreaterThan(0)
-    expect(u.get('u_mottle') as number).toBeGreaterThan(0)
-    expect(u.get('u_glaze')).toBe(1)
+    const engine=setupLayer()
+    engine.appendOperation(makeStroke('user-a','L',line(.8,40),{tool:'digitalBrush',preset:current('wet-wash')}))
+    expect(stamps(engine)[0].get('u_edgeBleed') as number).toBeGreaterThan(0)
+    expect(u.get('u_edgePx')).toBe(0)
+    expect((u.get('u_surface') as number[])[1]).toBeGreaterThan(0)
+    expect(u.get('u_blend')).toBe(1)
   })
 
   it('switches all of it off for a brush that is not wet — the program is shared', () => {
@@ -210,30 +212,25 @@ describe('digital watercolor (#579)', () => {
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('wet-wash') }))
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('hard-round') }))
     const last = brushDraws(engine).filter(d => d.kind === 'composite').at(-1)!.uniforms
-    expect(last.get('u_wetEdge')).toBe(0)
-    expect(last.get('u_mottle')).toBe(0)
-    expect(last.get('u_granulation')).toBe(0)
-    expect(last.get('u_glaze')).toBe(0)
-    expect(last.get('u_wetModel')).toBe(0)
-    expect(last.get('u_bloom')).toBe(0)
-    expect(last.get('u_feather')).toBe(0)
+    expect(stamps(engine).at(-1)!.get('u_edgeBleed')).toBe(0)
+    expect(last.get('u_surface')).toEqual([0,0,0,0])
+    expect(last.get('u_blend')).toBe(0)
   })
 
-  it('replays a stroke recorded with the #579 wet brushes through the model it was drawn with (#581)', () => {
+  it('retains old wet preset parameters in the common compositor', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: 'brush:wet-wash@1' }))
-    expect(brushDraws(engine).find(d => d.kind === 'composite')!.uniforms.get('u_wetModel')).toBe(1)
+    expect(stamps(engine)[0].get('u_edgeBleed') as number).toBeGreaterThan(0)
   })
 
-  it('draws every new wet stroke with model 2, blooms and feathering included (#581)', () => {
-    expect(composite('wet-wash').get('u_wetModel')).toBe(2)
-    expect(composite('wet-wash').get('u_bloom') as number).toBeGreaterThan(0)
-    expect(composite('wet-on-wet').get('u_feather') as number).toBeGreaterThan(0)
-    expect(composite('wet-on-wet').get('u_wetEdge')).toBe(0)
+  it('retains blooms and feathering in the common optical parameters', () => {
+    expect((composite('wet-wash').get('u_surface') as number[])[2]).toBeGreaterThan(0)
+    expect((composite('wet-on-wet').get('u_surface') as number[])[3]).toBeGreaterThan(0)
+    expect(composite('wet-on-wet').get('u_burntEdge')).toBe(0)
   })
 
   it('covers rather than glazes with gouache', () => {
-    expect(composite('gouache').get('u_glaze')).toBe(0)
+    expect(composite('gouache').get('u_blend')).toBe(0)
   })
 
   it('reaches the composite past the stamps by the wet edge, so a later batch cannot strand a pixel', () => {
@@ -247,7 +244,7 @@ describe('digital watercolor (#579)', () => {
     const engine = setupLayer(256, 64)
     const dabs = [dab(20, 32, { size: 40, pressure: 0.8 }), dab(40, 32, { size: 10, pressure: 0.8 }), dab(60, 32, { size: 60, pressure: 0.8 })]
     engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'digitalBrush', preset: current('wet-edge') }))
-    const widths = new Set(brushDraws(engine).filter(d => d.kind === 'composite').map(d => d.uniforms.get('u_wetEdgePx')))
+    const widths = new Set(brushDraws(engine).filter(d => d.kind === 'composite').map(d => d.uniforms.get('u_edgePx')))
     expect(widths.size).toBe(1)
   })
 })

@@ -1,7 +1,8 @@
 import { prisma } from '../db/prisma.js'
-import { canSeeBoard, lessonOf } from './lessons.js'
+import { canSeeBoard, canDrawOnBoard, lessonOf } from './lessons.js'
 import { passwordGrant } from './roomPersistence.js'
 import { flushRoomWrites } from './roomRegistry.js'
+import { supportsRoomStorage } from './roomStoragePolicy.js'
 
 /** A cookie identifies the caller; a successful join grants content access.
  * Read current policy from storage, including when the last socket and resident
@@ -10,9 +11,9 @@ export async function mayReadBoardContent(roomId: string, userId: string): Promi
   await flushRoomWrites(roomId)
   const board = await prisma.room.findUnique({
     where: { id: roomId },
-    select: { id: true, lessonId: true, boardOwnerId: true },
+    select: { id: true, lessonId: true, boardOwnerId: true, rasterVersion: true },
   })
-  if (!board) return false
+  if (!board || !supportsRoomStorage(board.rasterVersion)) return false
   const lessonId = lessonOf(board)
   // Successful seating queues membership before announcing the snapshot.
   // Await that write rather than racing it on the first HTTP request.
@@ -29,4 +30,13 @@ export async function mayReadBoardContent(roomId: string, userId: string): Promi
   ])
   return !blocked && membership !== null
     && (!lesson.passwordHash || membership.passwordGrant === passwordGrant(lesson.passwordHash))
+}
+
+/** Raw resource publication is a write capability, unlike manifest reads. */
+export async function mayPublishBoardBrushResource(roomId:string,userId:string):Promise<boolean>{
+ if(!await mayReadBoardContent(roomId,userId))return false
+ const board=await prisma.room.findUnique({where:{id:roomId},select:{id:true,lessonId:true,boardOwnerId:true}})
+ if(!board)return false
+ const lesson=await prisma.room.findUnique({where:{id:lessonOf(board)},select:{ownerId:true,closedAt:true}})
+ return !!lesson&&lesson.closedAt===null&&canDrawOnBoard(userId,board,lesson.ownerId)
 }

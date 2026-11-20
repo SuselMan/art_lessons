@@ -92,3 +92,43 @@ describe('ScratchFreeList', () => {
     expect(list.idleCount()).toBe(0)
   })
 })
+
+
+describe('ScratchFreeList idle byte budget', () => {
+  it('evicts oldest idle buffers while preserving active ones and exact-size reuse', () => {
+    const list = new ScratchFreeList((w, h) => new FakeBuf(w, h), 1024)
+    const active = list.acquire(8, 8)
+    const first = list.acquire(8, 8), second = list.acquire(8, 8), latest = list.acquire(12, 12)
+    list.release(first); list.release(second); list.release(latest)
+    expect(first.destroyed).toBe(true)
+    expect(active.destroyed || second.destroyed || latest.destroyed).toBe(false)
+    expect(list.idleBytes()).toBe(832)
+    expect(list.acquire(8, 8)).toBe(second)
+    expect(list.idleBytes()).toBe(576)
+    const oversized = list.acquire(100, 100)
+    list.release(oversized)
+    expect(oversized.destroyed).toBe(true)
+    expect(list.idleBytes()).toBe(576)
+  })
+
+  it('bounds all 64 patch sizes across repeated pressure sweeps', () => {
+    const limit = 16 * 1024 * 1024
+    const list = new ScratchFreeList((w, h) => new FakeBuf(w, h), limit)
+    for (let pass = 0; pass < 3; pass++) for (let size = 8; size <= 512; size += 8) {
+      const buffers = Array.from({ length: 3 }, () => list.acquire(size, size))
+      for (const buffer of buffers) list.release(buffer)
+      expect(list.idleBytes()).toBeLessThanOrEqual(limit)
+    }
+    list.destroy()
+    expect(list.idleBytes()).toBe(0)
+  })
+
+  it('forgets accounting without deleting invalid handles on context loss', () => {
+    const list = new ScratchFreeList((w, h) => new FakeBuf(w, h), 1024)
+    const old = list.acquire(8, 8)
+    list.release(old); list.forget()
+    expect(old.destroyed).toBe(false)
+    expect(list.idleBytes()).toBe(0)
+    expect(list.acquire(8, 8)).not.toBe(old)
+  })
+})

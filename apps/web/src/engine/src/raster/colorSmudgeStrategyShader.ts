@@ -1,0 +1,74 @@
+/** Private opt-in Color Smudge programs. Historical compiler inputs unchanged. */
+export function colorSmudgeCompositeCode(value:unknown):0|1|2|3|4|5|6|7|8|9|10|11|12|13 {
+  switch(value){case'grainMerge':return 1;case'grainExtract':return 2;case'negation':return 3;case'multiply':return 4;case'screen':return 5;case'erase':return 6;case'overlay':return 7;case'darken':return 8;case'lighten':return 9;case'add':return 10;case'subtract':return 11;case'dodge':return 12;case'burn':return 13;default:return 0}
+}
+function replace(source:string,before:string,after:string):string {
+  if(source.split(before).length!==2)throw new Error('Color Smudge strategy shader anchor changed')
+  return source.replace(before,after)
+}
+const COMPOSITE_GLSL=`
+ uniform float u_colorSmudgeComposite;
+ vec3 colorSmudgeChannel(vec3 destination,vec3 source) {
+   vec3 d=floor(clamp(destination,0.0,1.0)*255.0+0.5),s=floor(clamp(source,0.0,1.0)*255.0+0.5);
+   if(u_colorSmudgeComposite<1.5)return clamp(d+s-127.0,0.0,255.0)/255.0;
+   if(u_colorSmudgeComposite<2.5)return clamp(d-s+127.0,0.0,255.0)/255.0;
+   if(u_colorSmudgeComposite<3.5)return (255.0-abs(255.0-s-d))/255.0;
+   if(u_colorSmudgeComposite<4.5)return destination*source;
+   return destination+source-destination*source;
+ }
+`
+export function colorSmudgeForegroundFragment(source:string):string {
+  source=replace(source,' vec4 colorSmudgePaint(vec4 destination,vec4 pigment) {',COMPOSITE_GLSL+' vec4 colorSmudgePaint(vec4 destination,vec4 pigment) {\n   if(u_colorSmudgeComposite>5.5)return destination*(1.0-pigment.a);')
+  // Both ordinary OVER shortcut and fused dulling must yield to the new op.
+  source=source.replaceAll('u_colorSmudgePhotoshop<0.5','u_colorSmudgeComposite<0.5 && u_colorSmudgePhotoshop<0.5')
+  return replace(source,'vec3 blended=u_colorSmudgePhotoshop>0.5','vec3 blended=u_colorSmudgeComposite>0.5 ? colorSmudgeChannel(dst,src) : u_colorSmudgePhotoshop>0.5')
+}
+export function colorSmudgeLegacyFragment(source:string,overlay154=false,minmax172=false,arithmetic175=false):string {
+  if(Number(!!overlay154)+Number(!!minmax172)+Number(!!arithmetic175)>1)throw Error('Ambiguous legacy Color Smudge variant')
+  if(arithmetic175){
+    const extended=COMPOSITE_GLSL.replace('   vec3 d=floor','   if(u_colorSmudgeComposite>10.5)return max(destination-source,vec3(0.0));\n   if(u_colorSmudgeComposite>9.5)return min(destination+source,vec3(1.0));\n   vec3 d=floor')
+    source=replace(source,' void main() {',extended+' void main() {')
+    return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));`)
+  }
+  if(minmax172){
+    const extended=COMPOSITE_GLSL.replace('   vec3 d=floor','   if(u_colorSmudgeComposite>8.5)return max(destination,source);\n   if(u_colorSmudgeComposite>7.5)return min(destination,source);\n   vec3 d=floor')
+    source=replace(source,' void main() {',extended+' void main() {')
+    return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));`)
+  }
+  if(overlay154){
+    const extended=COMPOSITE_GLSL.replace('   vec3 d=floor','   if(u_colorSmudgeComposite>6.5)return mix(2.0*destination*source,vec3(1.0)-2.0*(vec3(1.0)-destination)*(vec3(1.0)-source),step(vec3(0.5),destination));\n   vec3 d=floor')
+    source=replace(source,' void main() {',extended+' void main() {')
+    return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`if(u_colorSmudgeComposite>5.5&&u_colorSmudgeComposite<6.5){source*=1.0-b;}else{vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));}`)
+  }
+  source=replace(source,' void main() {',COMPOSITE_GLSL+' void main() {')
+  return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`if(u_colorSmudgeComposite>5.5){source*=1.0-b;}else{vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));}`)
+}
+
+/** SDR foreground-only176; separate source leaves all historical variants byteexact. */
+export function colorSmudgeDodgeBurn176Fragment(source:string):string {
+  const scalar=`
+ float colorSmudgeDodgeBurnChannel(float destination,float source) {
+   source=clamp(source,0.0,1.0);destination=clamp(destination,0.0,1.0);
+   if(u_colorSmudgeComposite>12.5){
+     if(destination>=1.0)return 1.0;
+     if(source<=0.0)return 0.0;
+     return 1.0-min(1.0,(1.0-destination)/source);
+   }
+   if(source>=1.0)return destination<=0.0?0.0:1.0;
+   return min(1.0,destination/(1.0-source));
+ }
+`
+  const extended=COMPOSITE_GLSL.replace(' vec3 colorSmudgeChannel',scalar+' vec3 colorSmudgeChannel').replace('   vec3 d=floor','   if(u_colorSmudgeComposite>11.5)return vec3(colorSmudgeDodgeBurnChannel(destination.r,source.r),colorSmudgeDodgeBurnChannel(destination.g,source.g),colorSmudgeDodgeBurnChannel(destination.b,source.b));\n   vec3 d=floor')
+  source=replace(source,' void main() {',extended+' void main() {')
+  return replace(source,'source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);',`vec3 destination=source.rgb/max(source.a,0.000001);
+        vec3 blended=colorSmudgeChannel(destination,u_previousCanvasForeground.rgb);
+        source=vec4(source.rgb*(1.0-b)+u_previousCanvasForeground.rgb*b*(1.0-source.a)+blended*source.a*b,b+source.a*(1.0-b));`)
+}

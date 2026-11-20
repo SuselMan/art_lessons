@@ -1,0 +1,4 @@
+import{it,expect,vi}from'vitest'
+import{BrushBehaviorPainter}from'./BrushBehaviorPainter'
+import{curve167,dab167}from'../../../../../../packages/shared/src/curveHostTimer167.testFixture'
+it('missingtime,wrongscope and effectiveErase reject before target/state/resource access',()=>{const p=Object.create(BrushBehaviorPainter.prototype)as BrushBehaviorPainter;for(const mode of['time','scope','erase']){const b=curve167(),d=dab167(),touched=vi.fn(),target=new Proxy({},{get(){touched();throw Error('touched')}});if(mode==='time')Reflect.deleteProperty(d,'sourceTime');if(mode==='scope')b.behavior!.timing!.ignoreDistanceSpacing=false;expect(()=>p.paint(target as any,[d],{sizeMultiplier:1}as any,b,{size:true,opacity:true},[1,0,0],target as any,false,undefined,undefined,mode==='erase')).toThrow();expect(touched).not.toHaveBeenCalled()}})

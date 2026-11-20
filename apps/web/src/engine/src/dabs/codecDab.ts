@@ -1,3 +1,4 @@
+import{canonicalPenInput}from '@grafetto/shared'
 import type { Dab } from '@grafetto/shared'
 
 // The operation codec stores these ten fields as float32. Match that input
@@ -8,6 +9,12 @@ export function codecDab(dab: Dab): Dab {
     tiltX: Math.fround(dab.tiltX), tiltY: Math.fround(dab.tiltY), size: Math.fround(dab.size),
     aspectRatio: Math.fround(dab.aspectRatio), angle: Math.fround(dab.angle),
     opacity: Math.fround(dab.opacity), t: Math.fround(dab.t),
+    ...canonicalPenInput(dab),
+    ...(dab.sourceTime===undefined?{}:{sourceTime:dab.sourceTime}),
+    ...(dab.sourceAngle===undefined?{}:{sourceAngle:dab.sourceAngle}),
+    ...(dab.sourceScale===undefined?{}:{sourceScale:Math.fround(dab.sourceScale)}),
+    ...(dab.sourceSize===undefined?{}:{sourceSize:Math.fround(dab.sourceSize)}),
+    ...(dab.normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(dab.normalizedSpeed)}),
   }
   return Object.keys(copy).every(key => copy[key as keyof Dab] === dab[key as keyof Dab]) ? dab : copy
 }

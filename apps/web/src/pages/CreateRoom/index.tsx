@@ -1,9 +1,10 @@
+import { BrushSetPicker } from '../../components/BrushGallery/BrushSetPicker'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
-  DEFAULT_PAPER_COLORS, PAPER_COARSENESS, TOGGLEABLE_TOOLS,
+  DEFAULT_BRUSH_SELECTION, DEFAULT_PAPER_COLORS, PAPER_COARSENESS,
   type ClassVisibility, type PaperCoarseness, type PaperType, type ToggleableTool,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/browser/color'
@@ -153,6 +154,7 @@ export function CreateRoom() {
   const navigate = useNavigate()
   const location = useLocation()
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
+  const [brushReferences, setBrushReferences] = useState<string[]>([...DEFAULT_BRUSH_SELECTION])
   const [roomName,    setRoomName]    = useState('')
   // (#426) `fine` rather than `coarse`. Keep this in step with
   // DEFAULT_LAST_PAPER in stores/settingsStore.ts — that constant exists only
@@ -262,7 +264,7 @@ export function CreateRoom() {
       navigate(`/room/${id}`, {
         state: {
           room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true, enabledTools, classVisibility },
-          password: pw, folderId, ...accessPayload,
+          password: pw, folderId, brushReferences, ...accessPayload,
         },
       })
       return
@@ -293,6 +295,7 @@ export function CreateRoom() {
           canvasWidth: width, canvasHeight: height, enabledTools, classVisibility,
         },
         password: pw,
+        brushReferences,
         folderId,
         ...accessPayload,
       },
@@ -310,9 +313,7 @@ export function CreateRoom() {
       : []),
   ].join(' · ')
 
-  const toolsSummary = enabledTools
-    ? t('create.summary.tools', { n: enabledTools.length, total: TOGGLEABLE_TOOLS.length })
-    : t('create.summary.toolsAll')
+  const toolsSummary = t('gallery.count', { n: brushReferences.length })
 
   // (#548) The first tab: what the picture itself is. Held in a variable
   // rather than inline, because OptionGroup takes each tab's content as a
@@ -523,7 +524,8 @@ export function CreateRoom() {
               label: t('create.tab.tools'),
               content: (
                 <div className={clsx(styles.tabBody, styles.panelTab)}>
-                  <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />
+                  <BrushSetPicker value={brushReferences} onChange={setBrushReferences} />
+                  <ToolSetPicker utilitiesOnly value={enabledTools} onChange={setEnabledTools} />
                   <ClassVisibilityField value={classVisibility} onChange={setClassVisibility} />
                 </div>
               ),

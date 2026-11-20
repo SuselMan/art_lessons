@@ -117,3 +117,11 @@
   transition: transform var(--duration-fast);
 }
 .panelSwatch:hover { transform: scale(1.08); }
+
+.importDescription {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  padding: 8px 0;
+}
+.importDescription summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }

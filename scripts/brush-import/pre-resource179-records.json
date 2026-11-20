@@ -1,0 +1,114 @@
+{
+  "record": {
+    "descriptor": {
+      "id": "imported-625f7f0934b0528303851bcf",
+      "version": 179,
+      "model": "mixer",
+      "category": "wet",
+      "tip": {
+        "kind": "bitmap",
+        "mask": "asset:7a1f02b270f54789b4cd3daf7ea0494b537845a5b8e8e49ee8107304ff446c3a",
+        "hardness": 0.7,
+        "aspect": 1.0,
+        "rotation": "fixed",
+        "angle": 0.0,
+        "maskBounds": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1.0,
+          "height": 1.0
+        }
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "speedInput": {
+          "version": 1,
+          "space": "view",
+          "maximum": 30,
+          "estimator": "grafettoEMA30ms"
+        },
+        "rendering": {
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "accumulation": "directOver",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply"
+        },
+        "spacing": {
+          "mode": "diameter",
+          "coefficient": 0.1
+        }
+      },
+      "mixer": {
+        "load": 0,
+        "initialLoad": 0,
+        "pickup": 1,
+        "strength": 1,
+        "source": "previousCanvas"
+      },
+      "filter": {
+        "version": 2,
+        "kind": "posterize",
+        "steps": 7,
+        "smudgeMode": true,
+        "sourcePolicy": "canonical-begin-v1",
+        "maskPolicy": "bitmap-alpha-v1"
+      }
+    },
+    "name": "QA Krita",
+    "source": "Own.kpp",
+    "warnings": [
+      "filterSmudge: Static ordinary bitmap ALPHAMASK179 reuses existing Desaturate/Posterize/Gaussian/Unsharp carried temporary, canonical BEGIN, spatial halos where required, and final COPY coverage. Existing CAS/budget/owner and filter mathematics are unchanged; native ICC/quantization/concurrency remain functionally qualified, not pixel identity."
+    ],
+    "compatibility": [
+      {
+        "feature": "filterSmudge",
+        "status": "approximate",
+        "detail": "Static ordinary bitmap ALPHAMASK179 reuses existing Desaturate/Posterize/Gaussian/Unsharp carried temporary, canonical BEGIN, spatial halos where required, and final COPY coverage. Existing CAS/budget/owner and filter mathematics are unchanged; native ICC/quantization/concurrency remain functionally qualified, not pixel identity."
+      }
+    ],
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "sourceDefaults": {
+      "sizePx": 2.0,
+      "opacity": 1,
+      "flow": 1
+    }
+  }
+}

@@ -115,6 +115,39 @@ topics:
     modules: [apps/web/src/engine/src/input, apps/web/src/engine/src/dabs, apps/web/src/engine/src/presets]
     flows: [stroke]
 
+  - id: unified-brush-models
+    level: 2
+    parent: engine
+    title: Общий движок и модели кистей
+    issue: 810
+    why: >-
+      Конфигурация хранит параметры и версию формул. Модель кисти исполняется
+      внутри общего ввода, слоёв, тайлов, истории и онлайна Grafetto.
+    modules: [apps/web/src/engine/src/presets, shared-contract]
+    adr: [018-unified-brush-engine]
+
+  - id: brush-read-dependencies
+    level: 2
+    parent: engine
+    title: Историческое чтение других слоёв кистью
+    issue: 812
+    why: >-
+      Штрих хранит порядок и непрозрачность источников. Повтор читает их
+      содержимое перед операцией; отмена источника затрагивает зависимые
+      штрихи, а сетевой снимок не подменяет необходимую историю источника.
+    modules: [shared-contract, apps/web/src/engine/src/oplog, apps/server/src/rooms]
+
+  - id: brush-material-state
+    level: 2
+    parent: engine
+    title: Цвет и высота рельефной краски между штрихами
+    issue: 811
+    why: >-
+      Видимый RGBA — проекция; продолжение LIGHTNESSMAP читает отдельный цвет
+      и накапливает высоту. Все поля принадлежат тайлу и сохраняются вместе
+      в истории и снимках, с общим учётом памяти.
+    modules: [apps/web/src/engine/src/buffers, apps/web/src/engine/src/oplog]
+
   - id: layers-and-tiles
     level: 2
     parent: engine
@@ -246,6 +279,14 @@ topics:
     title: Проверки архитектуры
     why: map:check, границы dependency-cruiser, бюджеты файлов — что именно они ловят.
     modules: [scripts/archmap]
+
+  - id: brush-library-access
+    level: 2
+    parent: server
+    title: Общие кисти, личный доступ и история комнаты
+    issue: 839
+    why: Неизменяемое содержимое по хэшу отдельно от личных ссылок, выбора комнаты и ресурсов истории.
+    modules: [apps/server/src/brushLibrary]
 
   # ------------------------------------------------------------------ 3 · детали
 

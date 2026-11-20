@@ -5,7 +5,7 @@ import type { ClientToServerEvents, JoinDenial, Room as RoomEntity, RoomAccessMo
 import type { PencilEngineAPI } from '../../../engine'
 import { followTarget } from '../../../lib/boards/boards'
 import { isTeacherIn, ownBoardIn } from '../../../lib/boards/classMode'
-import { addRoomInvite, moveRoomToFolder } from '../../../lib/api/api'
+import { api, addRoomInvite, moveRoomToFolder } from '../../../lib/api/api'
 import type { TFunction } from '../../../i18n'
 import { notifyError } from '../../../stores/noticeStore'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -23,6 +23,7 @@ export const BOARD_SWITCH_DRAIN_MS = 4000
  *  the creator, opening my own room" apart from "I opened someone else's
  *  room link" (no state at all, e.g. a second device). */
 export interface CreatorNavState {
+  brushReferences?: string[]
   room: Pick<RoomEntity,
     'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'
     | 'classVisibility'>
@@ -155,6 +156,11 @@ export function createJoinFlow({
           },
           result => {
             if (result.ok) {
+              if (creatorDraft.brushReferences) {
+                void api('PATCH /api/rooms/:id/brush-selection', { params: { id }, body: { references: creatorDraft.brushReferences } })
+                  .then(async () => { const { refreshBrushLibrary } = await import('../../../lib/api/brushLibrary'); await refreshBrushLibrary() })
+                  .catch(() => notifyError(tRef.current('gallery.actionFailed')))
+              }
               hasJoinedRef.current = true
               applyIdentity(result.userId)
               void outboxRef.current.resendAll()

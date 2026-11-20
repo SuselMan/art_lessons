@@ -1,0 +1,30 @@
+{
+  "qualification": "Official option strings; authored PNG derivative, not original source identity",
+  "originalSHA": "ea86576b38ec56f3b28eb7979ef22d438e356ad6021b48211153c306ec3dc0a1",
+  "params": {
+    "AirbrushOption/isAirbrushing": "false",
+    "AirbrushOption/rate": "5",
+    "CompositeOp": "normal",
+    "EraserMode": "false",
+    "PaintOpAction": "2",
+    "PaintOpSettings/ignoreSpacing": "false",
+    "PaintOpSettings/isAirbrushing": "false",
+    "PaintOpSettings/rate": "20",
+    "Particle/count": "65",
+    "Particle/gravity": "0.906",
+    "Particle/iterations": "15",
+    "Particle/scaleX": "1",
+    "Particle/scaleY": "1",
+    "Particle/weight": "0.06",
+    "PressureRate": "false",
+    "RateSensor": "<!DOCTYPE params> <params id=\"pressure\"/> ",
+    "RateUseCurve": "true",
+    "RateUseSameCurve": "true",
+    "RateValue": "1",
+    "RatecurveMode": "0",
+    "paintop": "particlebrush",
+    "runtimeCanvasMirroredX": "false",
+    "runtimeCanvasMirroredY": "false",
+    "runtimeCanvasRotation": "0"
+  }
+}

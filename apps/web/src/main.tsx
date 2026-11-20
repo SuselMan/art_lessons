@@ -7,6 +7,8 @@ import * as Sentry from '@sentry/react'
 import './styles/global.css'
 import type { Me } from '@grafetto/shared'
 
+import { subscribeBrushLibrary } from './lib/api/brushLibrary'
+import { useRoomStore } from './stores/roomStore'
 import { fetchMe } from './lib/api/api'
 import { reportEnvironment } from './lib/api/environment'
 import { ME_QUERY_KEY } from './lib/api/authState'
@@ -33,6 +35,7 @@ import { App } from './App'
 // broken device is which build it is running, and an exception during boot is
 // exactly when that answer is hardest to get and most worth having.
 exposeAppVersion()
+subscribeBrushLibrary(() => useRoomStore.setState(s => ({ brushLibraryRevision: s.brushLibraryRevision + 1 })))
 
 // (#536) Dev builds only: remote eval + console for devices we cannot attach
 // a debugger to (an iPad without a Mac). See src/dev/devBridge.ts. A dynamic
@@ -136,6 +139,10 @@ registerServiceWorker(apply => {
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
   .finally(() => {
+    // The room socket loads its authorized brush catalog after room_state.
+    // Loading the personal catalog here blocked even mounting the app, then
+    // downloaded the catalog again with room scope. Selection and replay
+    // already wait for their resources in useToolSync and the ordered gate.
     // (#589) Only once the identity (and device) cookies exist — the report
     // is stored against them. A failed or refused warm-up (e.g. a ban) sends
     // nothing.

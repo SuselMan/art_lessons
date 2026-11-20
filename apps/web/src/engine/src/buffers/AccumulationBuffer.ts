@@ -9,12 +9,66 @@ function isPowerOfTwo(n: number): boolean {
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 
 export class AccumulationBuffer {
+  private _contentRevision=0
+  /** Conservative write serial for transient CPU readers. */
+  get contentRevision():number{return this._contentRevision}
   readonly gl: WebGLRenderingContext
   readonly width: number
   readonly height: number
   // Prefixed _ but not private — internal methods use _fbo directly; public getter `fbo` is used externally.
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
+  private _colorSmudge?: {color:AccumulationBuffer;height:AccumulationBuffer}
+  /** Owning tiled buffer accounts extra base-level planes without scanning
+   * its resident map on every input event. */
+  onMaterialStorageChange?: (planeDelta:number)=>void
+
+  get colorSmudge(): Readonly<{color:AccumulationBuffer;height:AccumulationBuffer}> | undefined { return this._colorSmudge }
+
+  /** Allocate only when a material brush first touches this tile. The visible
+   * projection remains the dry baseline until the caller changes the fields. */
+  ensureColorSmudge(): Readonly<{color:AccumulationBuffer;height:AccumulationBuffer}> {
+    if(this._colorSmudge)return this._colorSmudge
+    const color=new AccumulationBuffer(this.gl,this.width,this.height)
+    let height:AccumulationBuffer|undefined
+    try {
+      height=new AccumulationBuffer(this.gl,this.width,this.height)
+      height.clear()
+      this.copyTo(color)
+      this._colorSmudge={color,height}
+      this.onMaterialStorageChange?.(2)
+      return this._colorSmudge
+    } catch(error) {color.destroy();height?.destroy();throw error}
+  }
+
+  dryColorSmudge():void {
+    if(!this._colorSmudge)return
+    this._colorSmudge?.color.destroy()
+    this._colorSmudge?.height.destroy()
+    this._colorSmudge=undefined
+    this.onMaterialStorageChange?.(-2)
+  }
+
+  /** Base-level storage, including optional material; mip storage is accounted
+   * separately by the existing display machinery. */
+  get baseBytes():number {return this.width*this.height*4*(this._colorSmudge ? 3 : 1)}
+
+  readColorSmudgePixels(w=this.width,h=this.height):{color:Uint8Array;height:Uint8Array}|undefined {
+    const material=this._colorSmudge
+    if(!material)return undefined
+    const read=(b:AccumulationBuffer)=>w===this.width&&h===this.height ? b.readPixels() : b.readPixelsRegion(0,this.height-h,w,h)
+    return {color:read(material.color),height:read(material.height)}
+  }
+
+  restoreColorSmudgePixels(w:number,h:number,planes?:{color:Uint8Array;height:Uint8Array}):void {
+    if(planes&&(!Number.isInteger(w)||!Number.isInteger(h)||w<0||h<0||w>this.width||h>this.height||planes.color.length!==w*h*4||planes.height.length!==w*h*4)) throw new Error('Incomplete material restore')
+    this.dryColorSmudge()
+    if(!planes)return
+    const material=this.ensureColorSmudge()
+    material.color.clear();material.height.clear()
+    material.color.restorePixelsRect(w,h,planes.color)
+    material.height.restorePixelsRect(w,h,planes.height)
+  }
 
   // Smudge's scratch "picked up patch" buffers requested 'nearest' until #416
   // (they are LINEAR since — see SmudgePainter's scratchPool; the ribbon's
@@ -34,7 +88,14 @@ export class AccumulationBuffer {
     this.height = height
     this._baseFilter = filter
     this._texture = this._makeTexture(filter)
-    this._fbo     = this._makeFBO(this._texture)
+    try {
+      this._fbo = this._makeFBO(this._texture)
+    } catch (error) {
+      // The constructor did not publish an owner. Retire its texture even if
+      // framebuffer creation/attachment/status failed, preserving the cause.
+      try { gl.deleteTexture(this._texture) } catch { /* Preserve primary. */ }
+      throw error
+    }
     // Computed here rather than as a field initializer: those run before the
     // constructor body assigns width/height, so an initializer would have
     // silently read undefined and disabled mipmaps everywhere.
@@ -44,35 +105,41 @@ export class AccumulationBuffer {
   private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
     const { gl, width, height } = this
     const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    return tex
+    const tex = gl.createTexture()
+    if (!tex) throw new Error('Accumulation texture allocation failed')
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      return tex
+    } catch (error) {
+      try { gl.deleteTexture(tex) } catch { /* Preserve primary. */ }
+      throw error
+    }
   }
 
   private _makeFBO(texture: WebGLTexture): WebGLFramebuffer {
     const { gl } = this
-    const fbo = gl.createFramebuffer()!
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-    // (#536, ADR 011 §17.49) Once per context, not per buffer: the status
-    // query is a pipeline sync - the CPU waits for every draw queued so far -
-    // and the watercolour now makes buffers mid-stroke (the settle field is
-    // sized to each settle), where a sync per texture was a dropped frame.
-    // The attachment is always this same RGBA/UNSIGNED_BYTE texture, which
-    // WebGL1 guarantees renderable; the first check still catches a context
-    // that breaks the promise.
-    if (!checkedContexts.has(gl)) {
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+    const fbo = gl.createFramebuffer()
+    if (!fbo) throw new Error('Accumulation framebuffer allocation failed')
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+      // Once per context, never a per-draw getError/status synchronization.
+      const unchecked = !checkedContexts.has(gl)
+      if (unchecked && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
         throw new Error('Framebuffer incomplete')
-      checkedContexts.add(gl)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      if (unchecked) checkedContexts.add(gl)
+      return fbo
+    } catch (error) {
+      try { gl.bindFramebuffer(gl.FRAMEBUFFER, null) } catch { /* Preserve primary. */ }
+      try { gl.deleteFramebuffer(fbo) } catch { /* Preserve primary. */ }
+      throw error
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    return fbo
   }
 
   get texture(): WebGLTexture { return this._texture }
@@ -109,6 +176,7 @@ export class AccumulationBuffer {
    *  frame behind the stroke drawing it. Two texParameteri calls per write
    *  batch is nothing next to the draws around them. */
   private _invalidateMips(): void {
+    this._contentRevision++
     if (!this._mipCapable || !this._mipsValid) return
     const { gl } = this
     this._mipsValid = false
@@ -309,6 +377,7 @@ export class AccumulationBuffer {
   }
 
   clear(): void {
+    this.dryColorSmudge()
     this._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -357,6 +426,11 @@ export class AccumulationBuffer {
    *  brought back from main memory uploads dozens of these at once, and on
    *  the iPad reallocating each one next to the storage still being freed was
    *  the spike the tab did not survive. */
+  writePixelsRegion(x:number,y:number,width:number,height:number,pixels:Uint8Array):void {
+    this._invalidateMips()
+    const gl=this.gl;gl.bindTexture(gl.TEXTURE_2D,this._texture);gl.texSubImage2D(gl.TEXTURE_2D,0,x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels)
+  }
+
   writePixels(pixels: Uint8Array): void {
     this._invalidateMips()
     const { gl, width, height } = this
@@ -454,6 +528,7 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
+    this.dryColorSmudge()
     this.gl.deleteTexture(this._texture)
     this.gl.deleteFramebuffer(this._fbo)
   }

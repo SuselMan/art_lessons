@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import type { SlotGroup } from '../../../components/FloatingToolPanel/slots'
 import clsx from 'clsx'
 
 import type { ShapeKind } from '@grafetto/shared'
@@ -37,6 +38,12 @@ export interface ToolRailProps {
    *  so Room computes it once for both. */
   drawingGroupTool: PrimaryDrawingTool
   drawingGroupOptions: PickerOption[]
+  drawingGroupValue: string
+  eraserGroupOptions: PickerOption[]
+  smudgeGroupOptions: PickerOption[]
+  eraserGroupValue: string
+  smudgeGroupValue: string
+  selectGroupMember: (group: SlotGroup, value: string) => void
   drawingGroupActive: boolean
   gradeHotkeyLabels: string
   /** The shape group's button — the same, for the shape tool's `kind`. */
@@ -59,7 +66,7 @@ export interface ToolRailProps {
 export function ToolRail({
   uiHidden, annotationRail, compact, toolOffered, selectTool,
   railWellRef, well, wellLabel, colorExpanded, openRailColorSurface,
-  drawingGroupTool, drawingGroupOptions, drawingGroupActive, gradeHotkeyLabels,
+  drawingGroupTool, drawingGroupOptions, drawingGroupValue, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue, selectGroupMember, drawingGroupActive, gradeHotkeyLabels,
   shapeKind, shapeKindOptions, hasTransformTargets, clearAllAnnotations,
 }: ToolRailProps): React.JSX.Element {
   const t = useT()
@@ -144,26 +151,22 @@ export function ToolRail({
         )}
         label={t('tool.drawing')}
         options={drawingGroupOptions}
-        value={drawingGroupTool}
-        onSelect={value => selectTool(value as EditorTool)}
+        value={drawingGroupValue}
+        onSelect={value => selectGroupMember('drawing', value)}
         onActivate={() => selectTool(drawingGroupTool)}
       />
 
       {toolOffered('eraser') && (
-        <button
-          className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
+        <ToolGroupButton className={styles.toolIconBtn} activeClassName={styles.toolIconBtnActive}
+          active={tool === 'eraser'} icon="ink_eraser" options={eraserGroupOptions} value={eraserGroupValue}
           title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-          aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-          onClick={() => selectTool('eraser')}
-        ><Icon name="ink_eraser" /></button>
+          label={t('tool.eraser')} onSelect={value => selectGroupMember('eraser', value)} onActivate={() => selectTool('eraser')} />
       )}
       {toolOffered('smudge') && (
-        <button
-          className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
+        <ToolGroupButton className={styles.toolIconBtn} activeClassName={styles.toolIconBtnActive}
+          active={tool === 'smudge'} icon="smudge" options={smudgeGroupOptions} value={smudgeGroupValue}
           title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
-          aria-label={t('tool.smudge')}
-          onClick={() => selectTool('smudge')}
-        ><Icon name="smudge" /></button>
+          label={t('tool.smudge')} onSelect={value => selectGroupMember('smudge', value)} onActivate={() => selectTool('smudge')} />
       )}
 
       <div className={styles.toolDivider} />

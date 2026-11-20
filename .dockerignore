@@ -3,9 +3,16 @@ node_modules
 **/node_modules
 **/dist
 **/*.tsbuildinfo
-apps/web/src
 apps/web/public
 apps/web/index.html
 apps/web/vite.config.ts
 temp
 *.md
+
+# Only CI-built static renderer and canonical ink compiler sources are packaged.
+!apps/web/dist/
+!apps/web/dist/**
+**/sourceRefreshEvents*
+**/sourceDefaultAutoVectorShader*
+
+apps/server/resources/brush-stock

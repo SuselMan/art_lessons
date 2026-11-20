@@ -96,3 +96,9 @@ understands it" are tracked separately. Before an architectural decision, check 
 Operational rules for Claude — coding conventions, quality gates, Git workflow, and issue tracking — live in `.claude/rules.md`.
 
 **Release track:** issue #825 is the single active list of functional work required for the first release. It includes full Krita brush support and excludes the experimental Grafetto watercolor model. A separate polishing stage will be planned after this track is closed and completed before release; closing #825 does not authorize a deploy. Before starting non-trivial work, check it against #825 and name the item it unblocks. If it maps to nothing there, discuss whether it belongs before starting. Issue #314 is archived and redirects to #825. Full rule in `.claude/rules.md` → "Release track".
+
+## Общие UI-компоненты Grafetto · решение Ильи 20.11.2026
+
+Grafetto исключён из правила внешнего SuselMan/UiKit. Общие кнопки, вкладки,
+модалки и прочие UI-примитивы развиваются внутри apps/web/src/components.
+Переиспользовать их между экранами Grafetto; внешний UiKit не подключать.

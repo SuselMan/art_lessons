@@ -42,7 +42,7 @@ test.describe('the drawing-tool group (#544)', () => {
     // where they were.
     await expect(page.locator('aside button[aria-label="Charcoal"]')).toHaveCount(0)
     await expect(page.locator('aside button[aria-label="Marker"]')).toHaveCount(0)
-    await expect(page.locator('aside button[aria-label="Eraser  E"]')).toHaveCount(1)
+    await expect(page.locator('aside button[aria-label="Eraser"]')).toHaveCount(1)
     await expect(page.locator('aside button[aria-label="Smudge"]')).toHaveCount(1)
 
     await expect(page.locator(GROUP)).toHaveAttribute('aria-pressed', 'true')

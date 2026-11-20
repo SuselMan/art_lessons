@@ -5,65 +5,23 @@
 // previewDabShape (the brush cursor) asks the same functions without an
 // engine at all, which is what keeps the outline and the mark agreeing.
 
-import type { ToolType } from '@grafetto/shared'
-import { BRUSH_PEN_PRESET } from './brushPenPresets'
-import { charcoalNibFromPreset, charcoalPresetFor, type CharcoalPreset } from './charcoalPresets'
-import { digitalBrushPresetFor, digitalBrushScallops } from './digitalBrushPresets'
-import { LINER_PRESET } from './linerPresets'
-import { markerNibFromPreset } from './markerPresets'
-import { GRAPHITE_GRAIN_DEFAULT, PENCIL_PRESETS, isPencilGrade, type PencilPreset } from './pencilPresets'
-import { WATERCOLOR_PRESET, watercolorNibFromPreset } from './watercolorPresets'
+import type { BrushDefinition, ToolType } from '@grafetto/shared'
+import { brushDefinitionForTool } from './brushDefinitions'
+import { charcoalNibFromPreset, type CharcoalPreset } from './charcoalPresets'
+import { digitalBrushScallops } from './digitalBrushPresets'
+import { GRAPHITE_GRAIN_DEFAULT, type PencilPreset } from './pencilPresets'
+import { watercolorNibFromPreset } from './watercolorPresets'
 
-// Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
-// marker has no hardness *scale* the way graphite's grades do (same
-// reasoning LINER_PRESET's own comment gives: one physical material, not a
-// per-grade spread), but bullet and chisel are still two different
-// physical tips, not just two dab shapes — a chisel's own wider contact
-// area means the same opacity number would read as darker per pass than
-// bullet's, purely from covering more area per dab, not from actually
-// being "more marker." Still uncalibrated first-pass numbers (same "verify
-// by eye and retune" status every other first-pass constant in this
-// codebase carries):
-//  - opacity: moderate for both, well under liner's near-saturated 0.95 —
-//    ADR 004 §5 deliberately relies on the composite's own asymptotic
-//    darkening ("2-3 passes darkens toward a limit") rather than a single
-//    stroke reaching full coverage the way a fineliner's first pass does.
-//    Chisel's is lower than bullet's — same "wider contact, lower local
-//    dose" reasoning as MARKER_CHISEL_ASPECT_RATIO's own effect on area.
-//  - hardness: inert since #330. The marker's edge is geometry now, resolved
-//    over a fixed canvas-pixel ramp (MARKER_EDGE_AA_PX), so no branch it
-//    reaches ever reads this; PencilPreset simply requires the field.
-//  - sizeMultiplier: 1 for both — no calibrated size step to derive this
-//    from yet, same "no fudge factor" reasoning as LINER_PRESET's own.
-const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
-const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
-
-/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
- *
- *  A free function rather than an engine method (#547) because two callers need
- *  it and only one of them is the engine: `previewDabShape` is a pure query the
- *  brush cursor uses without a GL context, and it has to answer with the same
- *  numbers the renderer will use, or the outline and the mark disagree. */
+/** Material parameters come from the same serialized definition as geometry.
+ * The tool/preset pair is retained only as the existing UI/log entry point. */
 export function presetForTool(tool: ToolType, presetName: string): PencilPreset {
-  if (tool === 'liner') return LINER_PRESET
-  if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-  // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-  // — its presetName slot carries the pressure response, not a nib or a
-  // grade, so there is nothing here to branch on (brushPenPresets.ts).
-  if (tool === 'brushPen') return BRUSH_PEN_PRESET
-  // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-  // ladder and no hardness grade, so `presetName` carries the pressure
-  // response instead and there is nothing here to branch on
-  // (watercolorPresets.ts).
-  if (tool === 'watercolor') return WATERCOLOR_PRESET
-  // #547, ADR 013 — unlike every branch above, this one genuinely varies with
-  // the preset string: it *is* the brush. hardness comes out of the frozen
-  // descriptor and is read twice downstream — by the stamp shader and by the
-  // spacing rule — which is why it is resolved here once rather than parsed
-  // again at either site.
-  if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
-  if (tool === 'charcoal') return charcoalPresetFor(presetName)
-  return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+  return presetForBrushDefinition(brushDefinitionForTool(tool, presetName))
+}
+
+export function presetForBrushDefinition(definition: BrushDefinition): PencilPreset {
+  if (definition.model !== 'digital') return definition.parameters.deposit
+  const brush = definition.parameters.brush
+  return {opacity: brush.opacity, hardness: brush.tip.hardness, sizeMultiplier: 1 / Math.max(brush.tip.aspect, 1)}
 }
 
 /** The multiplier between `Dab.size` and the mark this tool actually leaves.

@@ -1,0 +1,946 @@
+[
+  {
+    "id": "imported-5077a48efb5f3dc592c7ca67",
+    "name": "a)_Eraser_Circle",
+    "purpose": "eraser",
+    "file": "imported-5077a48efb5f3dc592c7ca67.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-5077a48efb5f3dc592c7ca67.png",
+    "sha256": "18fb343251f0249d930fc419d80bb89000b5f22f68ba7bfbf9611d57977ae6db"
+  },
+  {
+    "id": "imported-ee9ba7a57f9d123930495a8e",
+    "name": "a)_Eraser_Small",
+    "purpose": "eraser",
+    "file": "imported-ee9ba7a57f9d123930495a8e.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-ee9ba7a57f9d123930495a8e.png",
+    "sha256": "0e52704b7a1fde7f161cbba9e13e86a1708afb7835ef74f63baa29dcc875903e"
+  },
+  {
+    "id": "imported-70f0ec4a1e8428c480ddc577",
+    "name": "b)_Airbrush_Soft",
+    "purpose": "drawing",
+    "file": "imported-70f0ec4a1e8428c480ddc577.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-70f0ec4a1e8428c480ddc577.png",
+    "sha256": "449be75710e4978a85db8a6361182a3a5732eedec01d7efc8f309d7d9b62133b"
+  },
+  {
+    "id": "imported-22be77dda81c32b315564d9a",
+    "name": "a)_Eraser_Soft",
+    "purpose": "eraser",
+    "file": "imported-22be77dda81c32b315564d9a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-22be77dda81c32b315564d9a.png",
+    "sha256": "9bd4bdb645cd92994e9345d1e278f525ac9b832858241bed4cfcf0b726435f8a"
+  },
+  {
+    "id": "imported-443861e0a45ee65ad2cec1c4",
+    "name": "b)_Basic-1",
+    "purpose": "drawing",
+    "file": "imported-443861e0a45ee65ad2cec1c4.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-443861e0a45ee65ad2cec1c4.png",
+    "sha256": "d7427a5136fa37ac014513c68ce844c6b1f8dbf4f0d6f3a0c681ad3ca367afaf"
+  },
+  {
+    "id": "imported-0d253ba4300fdab41519ff0b",
+    "name": "b)_Basic-2_Opacity",
+    "purpose": "drawing",
+    "file": "imported-0d253ba4300fdab41519ff0b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0d253ba4300fdab41519ff0b.png",
+    "sha256": "7267eee3f8f0a982c463ab8f857d5b094b782592579f1aff851801f924416134"
+  },
+  {
+    "id": "imported-632f8b830239338f835f9da7",
+    "name": "b)_Basic-3_Flow",
+    "purpose": "drawing",
+    "file": "imported-632f8b830239338f835f9da7.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-632f8b830239338f835f9da7.png",
+    "sha256": "150cbd2668f0a2251f402f28db7c861b95ba82c59119904cdd7619e176b4bd5a"
+  },
+  {
+    "id": "imported-b3d990c8a86868f5203b83cf",
+    "name": "b)_Basic-4_Flow_Opacity",
+    "purpose": "drawing",
+    "file": "imported-b3d990c8a86868f5203b83cf.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-b3d990c8a86868f5203b83cf.png",
+    "sha256": "1e7255f6d904b5a5b7cdc097bcab804821c3cd1a23000ff8bec167db0057b4f6"
+  },
+  {
+    "id": "imported-088e842029b46af16e618d23",
+    "name": "b)_Basic-5_Size_Opacity",
+    "purpose": "drawing",
+    "file": "imported-088e842029b46af16e618d23.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-088e842029b46af16e618d23.png",
+    "sha256": "688523679dc2eb4b4cb89ac4a3b026389fe12cee11f8d5b09fcb480000c345ce"
+  },
+  {
+    "id": "imported-d5dba892885a9f2f3c03c9f1",
+    "name": "b)_Basic-5_Size",
+    "purpose": "drawing",
+    "file": "imported-d5dba892885a9f2f3c03c9f1.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d5dba892885a9f2f3c03c9f1.png",
+    "sha256": "fd9b36126147014069e6620bf4eb24547eea4dae9c3bf3a22a394a07acadc172"
+  },
+  {
+    "id": "imported-beabe8664b9baec2367ea00f",
+    "name": "b)_Basic-6_Details",
+    "purpose": "drawing",
+    "file": "imported-beabe8664b9baec2367ea00f.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-beabe8664b9baec2367ea00f.png",
+    "sha256": "c025c8546640fdf090b9cd4ae093afe75e932ad83e6a6b48053c7e5fca32c4e2"
+  },
+  {
+    "id": "imported-92a012ca92eaaf3e8decae43",
+    "name": "c)_Pencil-1_Hard",
+    "purpose": "drawing",
+    "file": "imported-92a012ca92eaaf3e8decae43.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-92a012ca92eaaf3e8decae43.png",
+    "sha256": "1da2cd2013737fc5b995cd87e1dad3530b89556f4fde75bf8184d92a1e5feb5a"
+  },
+  {
+    "id": "imported-a133f9a8b2e4f39fa56912e0",
+    "name": "c)_Pencil-2",
+    "purpose": "drawing",
+    "file": "imported-a133f9a8b2e4f39fa56912e0.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-a133f9a8b2e4f39fa56912e0.png",
+    "sha256": "a422373a763a1cd53e40959d51ce8249384e67f300736af5bfeb7d03a56ec8e1"
+  },
+  {
+    "id": "imported-6f6fd9bda8c9ccf1da48232b",
+    "name": "c)_Pencil-4_Soft",
+    "purpose": "drawing",
+    "file": "imported-6f6fd9bda8c9ccf1da48232b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-6f6fd9bda8c9ccf1da48232b.png",
+    "sha256": "b2f1b84d909a36582cbcbef3ad1cd70585c973eb14b5612727e534bf4a02bf68"
+  },
+  {
+    "id": "imported-9dcd2824a57510e274877f3f",
+    "name": "c)_Pencil-3_Large_4B",
+    "purpose": "drawing",
+    "file": "imported-9dcd2824a57510e274877f3f.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-9dcd2824a57510e274877f3f.png",
+    "sha256": "0b28321ba83ebe6581997bffe95a7f2aaa86dea40ce9e0e795520b992e9ec682"
+  },
+  {
+    "id": "imported-1ded8606955489931b625ce3",
+    "name": "c)_Pencil-5_Tilted",
+    "purpose": "drawing",
+    "file": "imported-1ded8606955489931b625ce3.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-1ded8606955489931b625ce3.png",
+    "sha256": "684c722cfecb793a889c1da978d5e84dcdf5ad98cff17081b1d4d96ceede3481"
+  },
+  {
+    "id": "imported-397b635fe59d99b5befa98b4",
+    "name": "c)_Pencil-6_Quick_Shade",
+    "purpose": "drawing",
+    "file": "imported-397b635fe59d99b5befa98b4.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-397b635fe59d99b5befa98b4.png",
+    "sha256": "5cbfba8a2e9385abdf9e51e9e9b2486eca6aec657008cda7948570f867a8660d"
+  },
+  {
+    "id": "imported-3783f486b36750df9fd25378",
+    "name": "d)_Ink-1_Precision",
+    "purpose": "drawing",
+    "file": "imported-3783f486b36750df9fd25378.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-3783f486b36750df9fd25378.png",
+    "sha256": "2a90efc5631b0893c4e9a079c9e6be08cb4656a4e1cfe51a6cbfab3d3a24f32b"
+  },
+  {
+    "id": "imported-cb195f40dbc8efa54ec7a756",
+    "name": "d)_Ink-2_Fineliner",
+    "purpose": "drawing",
+    "file": "imported-cb195f40dbc8efa54ec7a756.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-cb195f40dbc8efa54ec7a756.png",
+    "sha256": "2b8912be7b4c02ef3f7cad8eda47f02714533c85d646d783f93611ac2eabf442"
+  },
+  {
+    "id": "imported-9a1cf4d8245f2932fdeb7b2a",
+    "name": "d)_Ink-3_Gpen",
+    "purpose": "drawing",
+    "file": "imported-9a1cf4d8245f2932fdeb7b2a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-9a1cf4d8245f2932fdeb7b2a.png",
+    "sha256": "ed171ebd5bc3f33143970e5269ef5ccaf2f6477b373f56b4e40e2b07e5af0f61"
+  },
+  {
+    "id": "imported-935d42733dcbd8f2d72e40f0",
+    "name": "d)_Ink-4_Pen_Rough",
+    "purpose": "drawing",
+    "file": "imported-935d42733dcbd8f2d72e40f0.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-935d42733dcbd8f2d72e40f0.png",
+    "sha256": "6feea6e928428392af752eff358f88ed7f34ce9bbaca317a47c9c239428f4507"
+  },
+  {
+    "id": "imported-f8b09cda5a64ce6912c20527",
+    "name": "d)_Ink-7_Brush_Rough",
+    "purpose": "drawing",
+    "file": "imported-f8b09cda5a64ce6912c20527.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-f8b09cda5a64ce6912c20527.png",
+    "sha256": "5ef087e6b1f2df05737f429337689c3d0f1c42559b845d7d8da93198c2823538"
+  },
+  {
+    "id": "imported-e981d1dcb0be56d150055a27",
+    "name": "e)_Marker_Chisel_Smooth",
+    "purpose": "drawing",
+    "file": "imported-e981d1dcb0be56d150055a27.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-e981d1dcb0be56d150055a27.png",
+    "sha256": "b4e28b8f15bc370058042bcfb33f9ea201f56cb5a5fab0e9c2c5235752faaa7b"
+  },
+  {
+    "id": "imported-f5f2eacf031e9f931f77df51",
+    "name": "e)_Marker_Details",
+    "purpose": "drawing",
+    "file": "imported-f5f2eacf031e9f931f77df51.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-f5f2eacf031e9f931f77df51.png",
+    "sha256": "acd7fa9bdaec2a6472e83de4b18a816ed69ccf084dd176af7fa6179cffdb8b64"
+  },
+  {
+    "id": "imported-a9ff1d4160ba15e827b82b9e",
+    "name": "e)_Marker_Dry",
+    "purpose": "drawing",
+    "file": "imported-a9ff1d4160ba15e827b82b9e.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-a9ff1d4160ba15e827b82b9e.png",
+    "sha256": "f92a05d184be060beadcd2fc5b642c551bfeb891f8bbd0a3406e7ae836485ec6"
+  },
+  {
+    "id": "imported-869e6964a3c5b229614f12f1",
+    "name": "f)_Bristles-1_Details",
+    "purpose": "drawing",
+    "file": "imported-869e6964a3c5b229614f12f1.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-869e6964a3c5b229614f12f1.png",
+    "sha256": "2d782fc6b94ae5939970ac302078fb757503861cdeb4b01b6ac1ae6bf588da55"
+  },
+  {
+    "id": "imported-d62bedcadaa3da8764d2f8cd",
+    "name": "f)_Bristles-2_Flat_Rough",
+    "purpose": "drawing",
+    "file": "imported-d62bedcadaa3da8764d2f8cd.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d62bedcadaa3da8764d2f8cd.png",
+    "sha256": "fc8c9620648b1e793b5eeeebf9cd433715c9f78aa418c325dee0754e562e4e09"
+  },
+  {
+    "id": "imported-17d1548a8120db890b66c552",
+    "name": "f)_Bristles-3_Large_Smooth",
+    "purpose": "drawing",
+    "file": "imported-17d1548a8120db890b66c552.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-17d1548a8120db890b66c552.png",
+    "sha256": "6a7a71d6e1b3d02198cf1ac328d91ab88a213579cbc599a28c960afe43692b92"
+  },
+  {
+    "id": "imported-982177a1a1f445dc3f773b5f",
+    "name": "f)_Bristles-4_Glaze",
+    "purpose": "drawing",
+    "file": "imported-982177a1a1f445dc3f773b5f.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-982177a1a1f445dc3f773b5f.png",
+    "sha256": "411357e992ab89323b1fc75bf9e47d3fa2feeaf37dbc00a679570ee6cc9a0d4e"
+  },
+  {
+    "id": "imported-c569db9f2f293aaca56f6047",
+    "name": "f)_Bristles-5_Flat",
+    "purpose": "drawing",
+    "file": "imported-c569db9f2f293aaca56f6047.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-c569db9f2f293aaca56f6047.png",
+    "sha256": "c90856990817f19a5f1da97ab66e51a9ad3b0a59ac098359b81a3d6343db1ddd"
+  },
+  {
+    "id": "imported-95c663cb31c082f4a8c034e1",
+    "name": "f)_Charcoal_Rock_Soft",
+    "purpose": "drawing",
+    "file": "imported-95c663cb31c082f4a8c034e1.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-95c663cb31c082f4a8c034e1.png",
+    "sha256": "fcc8f1fd2190ad87d5532d6ea0dc58b2a97011e7f43b28f4798c5ac0d287879c"
+  },
+  {
+    "id": "imported-3f429b55a4ffd008571aefa9",
+    "name": "f)_Dry_Roller",
+    "purpose": "drawing",
+    "file": "imported-3f429b55a4ffd008571aefa9.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-3f429b55a4ffd008571aefa9.png",
+    "sha256": "30d02e2b30376ab09e42b452de2fbcf519bec05318e13d9937af5bc8fadab02f"
+  },
+  {
+    "id": "imported-c0d4a6f8faf66ac8f2781597",
+    "name": "g)_Dry_Bristles",
+    "purpose": "drawing",
+    "file": "imported-c0d4a6f8faf66ac8f2781597.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-c0d4a6f8faf66ac8f2781597.png",
+    "sha256": "f9c5d13cb39df23ff9d39188b59a0f0bf5efeede66e90baa3af44e5487a64e7e"
+  },
+  {
+    "id": "imported-af29a1911a631c6e9ad94c4f",
+    "name": "g)_Dry_Bristles_Eroded",
+    "purpose": "drawing",
+    "file": "imported-af29a1911a631c6e9ad94c4f.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-af29a1911a631c6e9ad94c4f.png",
+    "sha256": "cae348982c6f5bccff5a0f98122884ef747598670a48bd95680f24f8cb03be10"
+  },
+  {
+    "id": "imported-bcb3ae42fbb4a17cd754c176",
+    "name": "g)_Dry_Brushing",
+    "purpose": "drawing",
+    "file": "imported-bcb3ae42fbb4a17cd754c176.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-bcb3ae42fbb4a17cd754c176.png",
+    "sha256": "255f0b83e2c7e55a99449d7ffe339bd51e2fbef7d5319f612b53c644589c8c10"
+  },
+  {
+    "id": "imported-24fbd17a8fc8c3ecad2cbc60",
+    "name": "g)_Dry_Textured_Creases",
+    "purpose": "drawing",
+    "file": "imported-24fbd17a8fc8c3ecad2cbc60.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-24fbd17a8fc8c3ecad2cbc60.png",
+    "sha256": "3c05f137f26c4c7cfc542168a4e6bc9a1cf22d38ed475b620f7f149a05b674ff"
+  },
+  {
+    "id": "imported-68d5133f28b1734b5a837fff",
+    "name": "h)_Chalk_Details",
+    "purpose": "drawing",
+    "file": "imported-68d5133f28b1734b5a837fff.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-68d5133f28b1734b5a837fff.png",
+    "sha256": "f0ea6fd4f4fe3a8f988970211e77407e9db52565c2816c949abd7936fa3c619b"
+  },
+  {
+    "id": "imported-596c3dea29a0e3f5a4531da2",
+    "name": "h)_Chalk_Grainy",
+    "purpose": "drawing",
+    "file": "imported-596c3dea29a0e3f5a4531da2.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-596c3dea29a0e3f5a4531da2.png",
+    "sha256": "283dfd3a21a117c79f790920ff3257035ac1e08396892cc9ae4a0d5663aa26b4"
+  },
+  {
+    "id": "imported-444c4c3e231fefc083656100",
+    "name": "h)_Chalk_Soft",
+    "purpose": "drawing",
+    "file": "imported-444c4c3e231fefc083656100.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-444c4c3e231fefc083656100.png",
+    "sha256": "33983d71faf1cca47879298269093f605efaf5e58351caf36b1f63bb49aaa464"
+  },
+  {
+    "id": "imported-1b650ce50dd1d08cc4cd8747",
+    "name": "h)_Charcoal_Pencil_Thin",
+    "purpose": "drawing",
+    "file": "imported-1b650ce50dd1d08cc4cd8747.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-1b650ce50dd1d08cc4cd8747.png",
+    "sha256": "b92e9980fdff776cdd4a20572a7687d18729ff793e3038285bce243edc5b80fc"
+  },
+  {
+    "id": "imported-498add77f7ee4307d846244f",
+    "name": "h)_Charcoal_Pencil_Medium",
+    "purpose": "drawing",
+    "file": "imported-498add77f7ee4307d846244f.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-498add77f7ee4307d846244f.png",
+    "sha256": "c1ba45a5b9dbae81bdca0b9821dc22fcf48f7bfc149e4d26556cdc3f820e3c0b"
+  },
+  {
+    "id": "imported-253266389a111cc6e7f494dc",
+    "name": "h)_Charcoal_pencil_large",
+    "purpose": "drawing",
+    "file": "imported-253266389a111cc6e7f494dc.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-253266389a111cc6e7f494dc.png",
+    "sha256": "c2601ffc2fef69a74ecc0a8e440eaf2a9a309a477ab26619a45aacfe37f68bdf"
+  },
+  {
+    "id": "imported-cd707b36e4644b5e7592f2c0",
+    "name": "i)_Wet_Bristles",
+    "purpose": "smudge",
+    "file": "imported-cd707b36e4644b5e7592f2c0.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-cd707b36e4644b5e7592f2c0.png",
+    "sha256": "e2019ff53dac9a7ede7763a40afff98954b3f08d8662748b05f133cc2262e6f0"
+  },
+  {
+    "id": "imported-21f2e3205dce58deef7e60f3",
+    "name": "i)_Wet_Bristles_Rough",
+    "purpose": "smudge",
+    "file": "imported-21f2e3205dce58deef7e60f3.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-21f2e3205dce58deef7e60f3.png",
+    "sha256": "fccdaa84a912b96e379bfbe08e5dd46a752a53b8553a2a19885e137c04966088"
+  },
+  {
+    "id": "imported-eaa0d53d9ec9d44a9d492e47",
+    "name": "i)_Wet_Circle",
+    "purpose": "smudge",
+    "file": "imported-eaa0d53d9ec9d44a9d492e47.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-eaa0d53d9ec9d44a9d492e47.png",
+    "sha256": "1f21381effc46620e3e690433d6ae16e440932c0109dfb4a5e4cda81bb897195"
+  },
+  {
+    "id": "imported-942b4223048418d6d9a05e7a",
+    "name": "i)_Wet_Knife",
+    "purpose": "smudge",
+    "file": "imported-942b4223048418d6d9a05e7a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-942b4223048418d6d9a05e7a.png",
+    "sha256": "6c9943340c7afb64f82d1b5cf7491bc64d2104ea2f02f1b66680fa13b68aa6f7"
+  },
+  {
+    "id": "imported-b9a4227511a97e6b3a6aebfa",
+    "name": "i)_Wet_Paint",
+    "purpose": "smudge",
+    "file": "imported-b9a4227511a97e6b3a6aebfa.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-b9a4227511a97e6b3a6aebfa.png",
+    "sha256": "e62ae332805fcf6489dfc8c652be007a1a755acc4cfab02c910eab973428e1da"
+  },
+  {
+    "id": "imported-b0e91d0bbf4ebf58f981c2dd",
+    "name": "i)_Wet_Paint_Details",
+    "purpose": "smudge",
+    "file": "imported-b0e91d0bbf4ebf58f981c2dd.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-b0e91d0bbf4ebf58f981c2dd.png",
+    "sha256": "8c3cd3ab9e2802ec1b479e685314259af3accacf39f7929abc67acb3e4b18f6a"
+  },
+  {
+    "id": "imported-b28d35dcea21ae0e33977444",
+    "name": "i)_Wet_Smear",
+    "purpose": "smudge",
+    "file": "imported-b28d35dcea21ae0e33977444.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-b28d35dcea21ae0e33977444.png",
+    "sha256": "2ee1c6d84a0f8fbb8c8b3d0f6273c4ebbc563e31a0dfb6e4c319c8dfff82531b"
+  },
+  {
+    "id": "imported-80dfba48e04e01cc2dcb2ae3",
+    "name": "i)_Wet_Textured_Soft",
+    "purpose": "smudge",
+    "file": "imported-80dfba48e04e01cc2dcb2ae3.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-80dfba48e04e01cc2dcb2ae3.png",
+    "sha256": "13f1ae377cd0f45cdaec1acd72c13345451eb778dd0282d7be5675c10f5d32e2"
+  },
+  {
+    "id": "imported-7b23fd6d1bbbfa3795500ac7",
+    "name": "j)_Watercolor_Fringe",
+    "purpose": "smudge",
+    "file": "imported-7b23fd6d1bbbfa3795500ac7.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-7b23fd6d1bbbfa3795500ac7.png",
+    "sha256": "23ead925a1e282162819c3765b0d0be514ea338c2e9abb5fb433c4963334cf58"
+  },
+  {
+    "id": "imported-3ed2078aa3f951a3170e9952",
+    "name": "j)_Watercolor_Texture",
+    "purpose": "drawing",
+    "file": "imported-3ed2078aa3f951a3170e9952.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-3ed2078aa3f951a3170e9952.png",
+    "sha256": "173e3f82bfbe18c4b445797fe7dcf89bc55ab0d9902bc59ca52756eb6fd44849"
+  },
+  {
+    "id": "imported-ba5d0733c97d1cc4f848878d",
+    "name": "j)_Waterpaint_Hard_Edges",
+    "purpose": "drawing",
+    "file": "imported-ba5d0733c97d1cc4f848878d.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-ba5d0733c97d1cc4f848878d.png",
+    "sha256": "dff3c9c51c48a0825654162c45716378a66b5206c37137c83cdf68480334938c"
+  },
+  {
+    "id": "imported-7e0b08017ba7438159a1582e",
+    "name": "j)_Waterpaint_Soft_Edges",
+    "purpose": "drawing",
+    "file": "imported-7e0b08017ba7438159a1582e.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-7e0b08017ba7438159a1582e.png",
+    "sha256": "b02a439d4570683af414e65f2a8b6da1ee45504dda734608e20fbce6819fd7cc"
+  },
+  {
+    "id": "imported-d7566d4e903a1028c8b5e8d6",
+    "name": "k)_Blender_Basic",
+    "purpose": "smudge",
+    "file": "imported-d7566d4e903a1028c8b5e8d6.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d7566d4e903a1028c8b5e8d6.png",
+    "sha256": "55f52b22500a238f722a67d5ecfb73a0a2c94ef7349f67d5cd96f65b7dd6c146"
+  },
+  {
+    "id": "imported-8fe104217f3b52db2eb17ebf",
+    "name": "k)_Blender_Blur",
+    "purpose": "smudge",
+    "file": "imported-8fe104217f3b52db2eb17ebf.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-8fe104217f3b52db2eb17ebf.png",
+    "sha256": "ab38e9817d5fedafad094f50f6aba2bd0a0601fc0acaca4b38b2df8884a54b04"
+  },
+  {
+    "id": "imported-4fd76b334ab30f3e2fa3b409",
+    "name": "k)_Blender_Knife_Edge",
+    "purpose": "smudge",
+    "file": "imported-4fd76b334ab30f3e2fa3b409.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-4fd76b334ab30f3e2fa3b409.png",
+    "sha256": "1520ae407b966b866bf8639bd8a148fc82129a387b168d825f5c4538058155ce"
+  },
+  {
+    "id": "imported-e3c4f4ad36ad4eb8ba23d672",
+    "name": "k)_Blender_Rake",
+    "purpose": "smudge",
+    "file": "imported-e3c4f4ad36ad4eb8ba23d672.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-e3c4f4ad36ad4eb8ba23d672.png",
+    "sha256": "fef00b95742cfea873fd0dd62209b597acf9514afeab646ddd29a34a2337834f"
+  },
+  {
+    "id": "imported-1accc2c2128210688b77fd53",
+    "name": "k)_Blender_Smear",
+    "purpose": "smudge",
+    "file": "imported-1accc2c2128210688b77fd53.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-1accc2c2128210688b77fd53.png",
+    "sha256": "f2fe7150d3278e21921d2cea936138db2ebdf68fe6e9148b83cc5d729e6dbdef"
+  },
+  {
+    "id": "imported-5320fb3ae5671f9a76ae8a68",
+    "name": "k)_Blender_Textured_Soft",
+    "purpose": "smudge",
+    "file": "imported-5320fb3ae5671f9a76ae8a68.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-5320fb3ae5671f9a76ae8a68.png",
+    "sha256": "80580c75e20eceefefbfb59b0abfe67c77533a9cc4ed35ff077571130fde8fd8"
+  },
+  {
+    "id": "imported-395a94c591b61b8b4afa1b4c",
+    "name": "l)_Adjust_Color",
+    "purpose": "drawing",
+    "file": "imported-395a94c591b61b8b4afa1b4c.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-395a94c591b61b8b4afa1b4c.png",
+    "sha256": "7a4bbd30eecddca8a7ba366c4762e944a8e5467bdf9c76aed97476540ca2ab2e"
+  },
+  {
+    "id": "imported-9cd9b0f9d3c65d9ec0432db7",
+    "name": "l)_Adjust_Dodge",
+    "purpose": "drawing",
+    "file": "imported-9cd9b0f9d3c65d9ec0432db7.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-9cd9b0f9d3c65d9ec0432db7.png",
+    "sha256": "180af4fabf0736dc1373dee8089a5a1bf992272b7264329070eb994876aa8ea9"
+  },
+  {
+    "id": "imported-468c2fb6d05306ae516a256d",
+    "name": "l)_Adjust_Lighten",
+    "purpose": "drawing",
+    "file": "imported-468c2fb6d05306ae516a256d.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-468c2fb6d05306ae516a256d.png",
+    "sha256": "36e2c8d465b10a811b6da887fec7b208af1ba8aa8910dc90643feb8a73981770"
+  },
+  {
+    "id": "imported-a6d3eac86e3b44b0ff06a680",
+    "name": "l)_Adjust_Multiply",
+    "purpose": "drawing",
+    "file": "imported-a6d3eac86e3b44b0ff06a680.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-a6d3eac86e3b44b0ff06a680.png",
+    "sha256": "45c33d613e8f5548738bce791db86df63b64f7d47e44f69a626e34f33bbc287c"
+  },
+  {
+    "id": "imported-8e3176375d9ddee24e511491",
+    "name": "l)_Adjust_Overlay_Burn",
+    "purpose": "drawing",
+    "file": "imported-8e3176375d9ddee24e511491.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-8e3176375d9ddee24e511491.png",
+    "sha256": "fb0205b56095e26d241ea87d078ca966d4602570ffc5b43efb5a4b2585847df2"
+  },
+  {
+    "id": "imported-d335483ac214b0ebdf115b88",
+    "name": "t)_Shapes_Mecha",
+    "purpose": "drawing",
+    "file": "imported-d335483ac214b0ebdf115b88.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d335483ac214b0ebdf115b88.png",
+    "sha256": "83b9a87f8cafbcefda557e48179968d0ecdb41892c8f1826b3206fe021200f48"
+  },
+  {
+    "id": "imported-39ae472c3b91314a22144c91",
+    "name": "t)_Shapes_Rounded",
+    "purpose": "drawing",
+    "file": "imported-39ae472c3b91314a22144c91.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-39ae472c3b91314a22144c91.png",
+    "sha256": "3e2c67826822215e88bc33f1df0b3706f7081dd76a255da50c2bf5efcc881daa"
+  },
+  {
+    "id": "imported-ccc292d1602fc38042956c41",
+    "name": "t)_Shapes_Spikes",
+    "purpose": "drawing",
+    "file": "imported-ccc292d1602fc38042956c41.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-ccc292d1602fc38042956c41.png",
+    "sha256": "2b5ce707694ec2774d3f8339122ebbf04e8d4c0a6a99968769e5ad46b6a725d5"
+  },
+  {
+    "id": "imported-3f316c8c36e20a822600a264",
+    "name": "t)_Shapes_Square",
+    "purpose": "drawing",
+    "file": "imported-3f316c8c36e20a822600a264.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-3f316c8c36e20a822600a264.png",
+    "sha256": "85f3f14cc9ce2203a507a03b6ad78f45935a131795dc9f942d240ce0f504d907"
+  },
+  {
+    "id": "imported-c47304c0733a0b2fc3b8b0fd",
+    "name": "u)_Pixel_Art",
+    "purpose": "drawing",
+    "file": "imported-c47304c0733a0b2fc3b8b0fd.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-c47304c0733a0b2fc3b8b0fd.png",
+    "sha256": "c55004bbb0c863006bcf909a744fc2833a3af0620041b1d249372612f838899d"
+  },
+  {
+    "id": "imported-0ef385bca1329f02c171c1e1",
+    "name": "u)_Pixel_Art_Dithering",
+    "purpose": "drawing",
+    "file": "imported-0ef385bca1329f02c171c1e1.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0ef385bca1329f02c171c1e1.png",
+    "sha256": "14101f25893919e9894ca2349775cff48a65701987c08f9144edaa7109da4355"
+  },
+  {
+    "id": "imported-de64974d5510749b333583ba",
+    "name": "u)_Pixel_Art_Fill",
+    "purpose": "drawing",
+    "file": "imported-de64974d5510749b333583ba.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-de64974d5510749b333583ba.png",
+    "sha256": "a5b5f3a489d6256c227448dd15d8f0cf7fbc8a8be9f2688ab890dfb66aaa3b95"
+  },
+  {
+    "id": "imported-23ff343f613f86aa038d4357",
+    "name": "v)_Texture_Impressionism",
+    "purpose": "drawing",
+    "file": "imported-23ff343f613f86aa038d4357.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-23ff343f613f86aa038d4357.png",
+    "sha256": "d2839d3d5b173cc9c92ccbe0f9fbec89d4b3a132435ae418b9e0d346cd133cd0"
+  },
+  {
+    "id": "imported-2393a5a2b9916f8eb7d4308a",
+    "name": "y)_Screentone_Pressure",
+    "purpose": "drawing",
+    "file": "imported-2393a5a2b9916f8eb7d4308a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-2393a5a2b9916f8eb7d4308a.png",
+    "sha256": "10f1dcb51e983d2896a4b6fd06b0a2f8dab770c6b8ddfbcf889a8d133e7ddb05"
+  },
+  {
+    "id": "imported-892e2121fbe780577db35cb9",
+    "name": "y)_Screentones_Regular",
+    "purpose": "drawing",
+    "file": "imported-892e2121fbe780577db35cb9.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-892e2121fbe780577db35cb9.png",
+    "sha256": "85f3f17a9fbe0dccf05ab5c949ddadf3faa26d762e6009ea9a83b47d2df81e0e"
+  },
+  {
+    "id": "imported-acb7e0af6c17d6b3a8428930",
+    "name": "y)_Texture_Big",
+    "purpose": "drawing",
+    "file": "imported-acb7e0af6c17d6b3a8428930.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-acb7e0af6c17d6b3a8428930.png",
+    "sha256": "9df19b9d8ba40e4f78b97c032e35810f0f60298e233bf7026c05de172c122a64"
+  },
+  {
+    "id": "imported-ab0c45bb1b7fa015557014d8",
+    "name": "y)_Texture_Crackles",
+    "purpose": "drawing",
+    "file": "imported-ab0c45bb1b7fa015557014d8.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-ab0c45bb1b7fa015557014d8.png",
+    "sha256": "aceb58d137fe36863bcb261fa2754cbd3be70ae3d6ae12e34db93414aa752e9e"
+  },
+  {
+    "id": "imported-84af27e30ba167137e0e5e02",
+    "name": "y)_Texture_Hair",
+    "purpose": "drawing",
+    "file": "imported-84af27e30ba167137e0e5e02.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-84af27e30ba167137e0e5e02.png",
+    "sha256": "a188fe73365998bf651cd063237bf10c7b1be4d6f948ef082a36788c89a7d7d0"
+  },
+  {
+    "id": "imported-720c64cb2c357e40619944f1",
+    "name": "y)_Texture_Large_Splat",
+    "purpose": "drawing",
+    "file": "imported-720c64cb2c357e40619944f1.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-720c64cb2c357e40619944f1.png",
+    "sha256": "9d219bbc650ed39c15f6be9859a105c1cf4ce180e23fab20436ad7a42f2f7178"
+  },
+  {
+    "id": "imported-fc367ac598ae4ae7cb44a243",
+    "name": "y)_Texture_Noise",
+    "purpose": "drawing",
+    "file": "imported-fc367ac598ae4ae7cb44a243.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-fc367ac598ae4ae7cb44a243.png",
+    "sha256": "2c59e0a166c0ce1ac452ae4b4bbf3516b9c32d23efbb4f0e436d98c312d919d0"
+  },
+  {
+    "id": "imported-633d491e036d3a06dfe1787e",
+    "name": "y)_Texture_Random_Particles",
+    "purpose": "drawing",
+    "file": "imported-633d491e036d3a06dfe1787e.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-633d491e036d3a06dfe1787e.png",
+    "sha256": "ba58afb76d96ffeebd83571a04a4db1930e3a77babdbaa43ecfac1575a780db8"
+  },
+  {
+    "id": "imported-f4b30aee64e8b2c6372dcee0",
+    "name": "y)_Texture_Reptile",
+    "purpose": "drawing",
+    "file": "imported-f4b30aee64e8b2c6372dcee0.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-f4b30aee64e8b2c6372dcee0.png",
+    "sha256": "1ab00a70b0a10c19f6cf6c476760d5329c7cad50951c2fc444f7bd600b4505a0"
+  },
+  {
+    "id": "imported-33498fea6c271cb5676babde",
+    "name": "y)_Texture_Snow_Pile",
+    "purpose": "drawing",
+    "file": "imported-33498fea6c271cb5676babde.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-33498fea6c271cb5676babde.png",
+    "sha256": "a9c6bbe4e1699a02319778e0bcc0b4bc9c012abf02170b8ea8a2ea95df2fe304"
+  },
+  {
+    "id": "imported-34bb2fca604cec28f30a7a4b",
+    "name": "y)_Texture_Spines",
+    "purpose": "drawing",
+    "file": "imported-34bb2fca604cec28f30a7a4b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-34bb2fca604cec28f30a7a4b.png",
+    "sha256": "6114f6593fc16499fa460e6df18640c4d2459b05d370697b0ae224d1914914d7"
+  },
+  {
+    "id": "imported-0b7420288716cc762a75e508",
+    "name": "y)_Texture_Spray",
+    "purpose": "drawing",
+    "file": "imported-0b7420288716cc762a75e508.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0b7420288716cc762a75e508.png",
+    "sha256": "935c020920b9009878d789ed08a63af8b78810931e5170419200e63de192d39b"
+  },
+  {
+    "id": "imported-c134e9a11e0205de88abdcd8",
+    "name": "y)_Texture_Splat",
+    "purpose": "drawing",
+    "file": "imported-c134e9a11e0205de88abdcd8.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-c134e9a11e0205de88abdcd8.png",
+    "sha256": "ef250140d21e15b66b41663e04d9b5de8889a04c51aa708683c1ea5a4540542e"
+  },
+  {
+    "id": "imported-14ab6411d7efe4bb382b18ca",
+    "name": "y)_Texture_Wood_Fiber",
+    "purpose": "drawing",
+    "file": "imported-14ab6411d7efe4bb382b18ca.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-14ab6411d7efe4bb382b18ca.png",
+    "sha256": "a349bb7c6970372f7a3506edb534c1b9639b39dea256f302cbe52d086782d078"
+  },
+  {
+    "id": "imported-e5f5c004f03fb3d798bd6f6d",
+    "name": "z)_Stamp_Bokeh",
+    "purpose": "drawing",
+    "file": "imported-e5f5c004f03fb3d798bd6f6d.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-e5f5c004f03fb3d798bd6f6d.png",
+    "sha256": "010d206ba4c16e09ed813a7328e3a4cd9d0668d1ba5bbea822e14fe7c7ca7244"
+  },
+  {
+    "id": "imported-95d6b4ab0089eb0a6ec6cde2",
+    "name": "z)_Stamp_Floor",
+    "purpose": "drawing",
+    "file": "imported-95d6b4ab0089eb0a6ec6cde2.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-95d6b4ab0089eb0a6ec6cde2.png",
+    "sha256": "ddfe684f9fa02beb1b55ed13526f2b8d17793188afce2eac9fa8cc01eb9a2359"
+  },
+  {
+    "id": "imported-6334404c22052148bcddd084",
+    "name": "z)_Stamp_Grass",
+    "purpose": "drawing",
+    "file": "imported-6334404c22052148bcddd084.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-6334404c22052148bcddd084.png",
+    "sha256": "f44f180e5cb65689920863950892b48d92c126258414ca5b4dd5727a226f1320"
+  },
+  {
+    "id": "imported-0632fea3c6a8a4b322ff840b",
+    "name": "z)_Stamp_Grass_Patch",
+    "purpose": "drawing",
+    "file": "imported-0632fea3c6a8a4b322ff840b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0632fea3c6a8a4b322ff840b.png",
+    "sha256": "bf87b5792e51545b82a0173e56cb92b863aa9cb8e6a24a1175df97aaf4f4286c"
+  },
+  {
+    "id": "imported-cefc3ff6efdc36965116b275",
+    "name": "z)_Stamp_Herbals",
+    "purpose": "drawing",
+    "file": "imported-cefc3ff6efdc36965116b275.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-cefc3ff6efdc36965116b275.png",
+    "sha256": "ed53834065fda12354e947eef35dfbd9b001cb57f000bb9353f2529ee4c2746b"
+  },
+  {
+    "id": "imported-18a020ed123cd5ed33619c97",
+    "name": "z)_Stamp_Leaves",
+    "purpose": "drawing",
+    "file": "imported-18a020ed123cd5ed33619c97.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-18a020ed123cd5ed33619c97.png",
+    "sha256": "33cf053ae5105f6fa9f9dbac5dec12ed02d2b738e1803aaa88e3de7973d34430"
+  },
+  {
+    "id": "imported-e44da6af42450f3b4eb1237a",
+    "name": "z)_Stamp_Mountains_Distant",
+    "purpose": "drawing",
+    "file": "imported-e44da6af42450f3b4eb1237a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-e44da6af42450f3b4eb1237a.png",
+    "sha256": "023b3a2d301845786b8a0922e429c84742f4fe70c258ce573bdc207cf8a315c1"
+  },
+  {
+    "id": "imported-34dc1ebb9775e6a5ae9bdc05",
+    "name": "z)_Stamp_Stylised_Tree",
+    "purpose": "drawing",
+    "file": "imported-34dc1ebb9775e6a5ae9bdc05.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-34dc1ebb9775e6a5ae9bdc05.png",
+    "sha256": "855736124eadfaeb5405911aeec6c6f221fd77b286da3811ac3c1348bda683dc"
+  },
+  {
+    "id": "imported-f725a9b54f5de8c103effa88",
+    "name": "z)_Stamp_Sparkles",
+    "purpose": "drawing",
+    "file": "imported-f725a9b54f5de8c103effa88.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-f725a9b54f5de8c103effa88.png",
+    "sha256": "0ca51333a010bd74ebc700010830f625a75c198238e861eefd144537286bfc8a"
+  },
+  {
+    "id": "imported-dc4926451c213b44cd47a848",
+    "name": "z)_Stamp_Vegetal",
+    "purpose": "drawing",
+    "file": "imported-dc4926451c213b44cd47a848.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-dc4926451c213b44cd47a848.png",
+    "sha256": "2969e7ef0ef301e4865543d76ef29b201826db0fc4bd067914e710610610cf56"
+  },
+  {
+    "id": "imported-935f407b6b16aaf0c98e82a5",
+    "name": "z)_Stamp_Water",
+    "purpose": "drawing",
+    "file": "imported-935f407b6b16aaf0c98e82a5.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-935f407b6b16aaf0c98e82a5.png",
+    "sha256": "79226ec9ffb477115f76d6f21f10de96e323fce7fff8881e983ae5545d28a454"
+  },
+  {
+    "id": "imported-544da792f59caec600bcc06b",
+    "name": "m)_RGBA_02_Thickpaint",
+    "purpose": "drawing",
+    "file": "imported-544da792f59caec600bcc06b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-544da792f59caec600bcc06b.png",
+    "sha256": "4c00b2a5d4d3c2021020ed04bea557f96e98a0e85ead85e3b1d70f0352540c94"
+  },
+  {
+    "id": "imported-1609999c679dc9db2bef064a",
+    "name": "m)_RGBA_01_Thick-dry",
+    "purpose": "drawing",
+    "file": "imported-1609999c679dc9db2bef064a.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-1609999c679dc9db2bef064a.png",
+    "sha256": "e4b04e2e7b655c0f66e8d4cf80374850254adf193417bd1090eb9301ba6b5790"
+  },
+  {
+    "id": "imported-84bbbf1a5609b7b646fba403",
+    "name": "m)_RGBA_03_Rake",
+    "purpose": "drawing",
+    "file": "imported-84bbbf1a5609b7b646fba403.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-84bbbf1a5609b7b646fba403.png",
+    "sha256": "5011f46278fffe0242bb338712a709aebfb33bb4f50bbfb53f7cd28af9dcac89"
+  },
+  {
+    "id": "imported-1720157aa49a6968f0387cfa",
+    "name": "m)_RGBA_05_Impasto-details",
+    "purpose": "drawing",
+    "file": "imported-1720157aa49a6968f0387cfa.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-1720157aa49a6968f0387cfa.png",
+    "sha256": "92b4c43ad159109e4435ab0c01b29cf8990e6b9e33c64c3f05cd806331090d34"
+  },
+  {
+    "id": "imported-9d036d365aca52f70b787459",
+    "name": "m)_RGBA_04_Impasto",
+    "purpose": "drawing",
+    "file": "imported-9d036d365aca52f70b787459.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-9d036d365aca52f70b787459.png",
+    "sha256": "f994aec68e1df8e84ee5e4be7d3662e74b63146225537f468b038f753ef86ff1"
+  },
+  {
+    "id": "imported-130daf8be2a54b720eae0c58",
+    "name": "m)_RGBA_06_Rock",
+    "purpose": "drawing",
+    "file": "imported-130daf8be2a54b720eae0c58.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-130daf8be2a54b720eae0c58.png",
+    "sha256": "c0aecbfc276c513dbfe68d8fa254bf62881e3067d40df2a3e8b5b60927eb8280"
+  },
+  {
+    "id": "imported-33c882a7e5429edf569af6cf",
+    "name": "j)_WaterC_Basic_Lines-Dry",
+    "purpose": "drawing",
+    "file": "imported-33c882a7e5429edf569af6cf.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-33c882a7e5429edf569af6cf.png",
+    "sha256": "9261233e5f77ba38a401038cdf46f796b62eda28385ef4ba5067b51bdf7fe694"
+  },
+  {
+    "id": "imported-d66b032cd724a09469f84ccc",
+    "name": "j)_WaterC_Basic_Lines-Wet-Pattern",
+    "purpose": "drawing",
+    "file": "imported-d66b032cd724a09469f84ccc.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d66b032cd724a09469f84ccc.png",
+    "sha256": "a11db8fc0933f270e00fc9f3ad0069add9bd199eb78b10370beda3bc3226334f"
+  },
+  {
+    "id": "imported-ac02e9c8af5dbbef77abcf23",
+    "name": "j)_WaterC_Basic_Lines-Wet",
+    "purpose": "drawing",
+    "file": "imported-ac02e9c8af5dbbef77abcf23.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-ac02e9c8af5dbbef77abcf23.png",
+    "sha256": "3dac4b2c9401c3a9798c66800b458cd743da09b6ba32a9f5d3768059857f9dd8"
+  },
+  {
+    "id": "imported-73bf85f0bba1ae2ddb05c2e9",
+    "name": "j)_WaterC_Basic_Round-Fringe_02",
+    "purpose": "drawing",
+    "file": "imported-73bf85f0bba1ae2ddb05c2e9.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-73bf85f0bba1ae2ddb05c2e9.png",
+    "sha256": "14bc8d52192eccfebc50e1a2ecc7df15aacc170d1b040cf16e176be0fba2e01e"
+  },
+  {
+    "id": "imported-812c8dd7ed67f066e62273f3",
+    "name": "j)_WaterC_Basic_Round-Grain",
+    "purpose": "drawing",
+    "file": "imported-812c8dd7ed67f066e62273f3.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-812c8dd7ed67f066e62273f3.png",
+    "sha256": "80e27f2620fb37ddc0c6c06fdb64f05e4d71c40a6b3a2143e6eed7fc63660fea"
+  },
+  {
+    "id": "imported-0afc86a2e1d038f43c0ac0fd",
+    "name": "j)_WaterC_Flat_Big-Grain_Tilt",
+    "purpose": "drawing",
+    "file": "imported-0afc86a2e1d038f43c0ac0fd.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0afc86a2e1d038f43c0ac0fd.png",
+    "sha256": "8ea0fff43071931c2e6398323452887f649799a616026312338df51f39e3c0cf"
+  },
+  {
+    "id": "imported-50a2c9a5821315e5c26a51cb",
+    "name": "j)_WaterC_Basic_Round-Grunge",
+    "purpose": "drawing",
+    "file": "imported-50a2c9a5821315e5c26a51cb.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-50a2c9a5821315e5c26a51cb.png",
+    "sha256": "7b540ea458df04e593dbcebdc07a21dd06da11a34c941d0d6a0a4fc1d67c3ef9"
+  },
+  {
+    "id": "imported-03267ab4d74a3bff70d40867",
+    "name": "j)_WaterC_Flat_Decay_Tilt",
+    "purpose": "drawing",
+    "file": "imported-03267ab4d74a3bff70d40867.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-03267ab4d74a3bff70d40867.png",
+    "sha256": "0fdd7897ab8a3c35c305fce67a957755e5dbb4396562525ef74c9b2783e19898"
+  },
+  {
+    "id": "imported-0173af48070c1b546b5ed613",
+    "name": "j)_WaterC_Special_Blobs",
+    "purpose": "drawing",
+    "file": "imported-0173af48070c1b546b5ed613.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-0173af48070c1b546b5ed613.png",
+    "sha256": "c6b7ef7386658eda1641885c65f447d9631cfef2f314491ddbd137c729638ac8"
+  },
+  {
+    "id": "imported-d5f30e40c869bccb47c297a9",
+    "name": "j)_WaterC_Special_Splats",
+    "purpose": "drawing",
+    "file": "imported-d5f30e40c869bccb47c297a9.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-d5f30e40c869bccb47c297a9.png",
+    "sha256": "da2151f2b542329d7fc22525ea59bd435206a2d7b73cbccbba829c9ea3f11bef"
+  },
+  {
+    "id": "imported-e1cabc9cea94b57ff1732468",
+    "name": "j)_WaterC_Spread-Pattern",
+    "purpose": "drawing",
+    "file": "imported-e1cabc9cea94b57ff1732468.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-e1cabc9cea94b57ff1732468.png",
+    "sha256": "5ea0ad188c737268cf39d6fd38868b1328fc3f0aafb7cd6e0ec085481216db14"
+  },
+  {
+    "id": "imported-75c985706ac3044a98a272b6",
+    "name": "j)_WaterC_Spread",
+    "purpose": "drawing",
+    "file": "imported-75c985706ac3044a98a272b6.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-75c985706ac3044a98a272b6.png",
+    "sha256": "c83a4255334abd72002663ce7f9714e0164186c3cffaa73bfa0e8e78c934f223"
+  },
+  {
+    "id": "imported-624a82754e05f0e4e5eec7e9",
+    "name": "j)_WaterC_Water-Pattern",
+    "purpose": "smudge",
+    "file": "imported-624a82754e05f0e4e5eec7e9.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-624a82754e05f0e4e5eec7e9.png",
+    "sha256": "2d272219706af8c5f4274f2116789174f1afcfacd11485db48e27f95a0402e31"
+  },
+  {
+    "id": "imported-8aa2b7215a0f3080c4d9c13b",
+    "name": "j)_WaterC_Spread_WideArea",
+    "purpose": "drawing",
+    "file": "imported-8aa2b7215a0f3080c4d9c13b.png",
+    "originalPreview": "../../../../../../docs/brush-reference/krita-default-previews/imported-8aa2b7215a0f3080c4d9c13b.png",
+    "sha256": "31019f763d50ca3afd4af0cc2b4c1fac8570777546b2d0227750bad65c43d846"
+  }
+]

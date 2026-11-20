@@ -1,4 +1,4 @@
-import type { Operation } from '@grafetto/shared'
+import {dependentReadOperations,operationReadLayerIds,type Operation} from '@grafetto/shared'
 
 /** Stored pixels are immutable, but their usability changes when later history
  * mutations alter an operation baked into them. This is a per-join selection;
@@ -75,6 +75,9 @@ export function planSnapshotReplay(
       ? operations.filter(op => op.type === 'stroke' && op.userId === target.userId
         && op.strokeId === target.strokeId && (op.seq ?? 0) < (change.seq ?? Infinity))
       : [target]
+    for(const read of dependentReadOperations(operations,targets))for(const layerId of pixelLayers(read)){
+      if(candidates.some(s=>s.layerId===layerId&&(read.seq??0)<=s.seq&&s.seq<(change.seq??0)))before(layerId,read.seq??0)
+    }
     for (const materialTarget of targets) for (const layerId of pixelLayers(materialTarget)) {
       // Controls already represented in the candidate do not invalidate it.
       if (candidates.some(s => s.layerId === layerId
@@ -100,10 +103,10 @@ export function planSnapshotReplay(
     changed = false
     const coverage = new Map(select().map(s => [s.layerId, s.seq]))
     for (const op of operations) {
-      if (op.type !== 'layer_merge' && op.type !== 'layer_duplicate') continue
+      if (op.type !== 'layer_merge' && op.type !== 'layer_duplicate' && !(op.type==='stroke' && op.brushSource?.projection)) continue
       if (liveLayers && !liveLayers.has(op.layerId) && !historyLayers.has(op.layerId)) continue
       if ((op.seq ?? 0) <= (coverage.get(op.layerId) ?? 0)) continue
-      const sources = op.type === 'layer_merge' ? op.sources.map(s => s.id) : [op.sourceId]
+      const sources = operationReadLayerIds(op)
       for (const id of sources) if (!historyLayers.has(id)) {
         historyLayers.add(id)
         changed = true

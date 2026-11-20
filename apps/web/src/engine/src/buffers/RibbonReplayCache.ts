@@ -19,6 +19,8 @@ export interface RibbonReplayCacheContext {
   readonly destroyed: () => boolean
   readonly contextLost: () => boolean
   readonly inJobStep: () => boolean
+  /** Synchronous historical readers must retain continuing nonspillable state. */
+  readonly preserveOpenChunks?: () => boolean
   readonly gpuBudget: () => number
   readonly settlingScratch: () => RibbonStrokeScratch | undefined
   completeSettle(): void
@@ -189,6 +191,10 @@ export class RibbonReplayCache {
    *  out an open one, whose next stroke then started over in a fresh scratch
    *  on this client only. */
   trimChunkCache(): void {
+    // A historical frame cannot schedule canonical rebuild recovery after a
+    // nonspillable continuation is dropped. Retain it until frame cleanup;
+    // strict total byte admission is a separate prerequisite, not a slot cap.
+    if (this.ctx.preserveOpenChunks?.()) return
     // #702: park resting washes in slices. The cache may temporarily
     // exceed its slot count while copies are queued.
     if (this.chunks.size > REPLAY_RIBBON_CHUNK_SLOTS && !this.ctx.inJobStep() && typeof setTimeout === 'function') {

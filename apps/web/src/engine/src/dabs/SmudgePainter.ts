@@ -1,3 +1,48 @@
+import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope}from'../presets/stationary195Scopes'
+import{usesNativeSmudgeTexture}from'../presets/nativeBrushFeatures'
+import{hasGridWash137Scope}from'../presets/stationary195Scopes'
+import{hasDeformOldData145Scope}from'../presets/stationary195Scopes'
+import{hasStationary195Scope}from'@grafetto/shared'
+import{usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
+import {COLOR_SMUDGE193_UNIFORMS,colorSmudge193Fragment,colorSmudge193CompositeCode} from '../raster/colorSmudge193Shader'
+import {prepareVariableGih,usesVariableGih,variableGihStamp} from '../presets/gihFramePreparation'
+import {autoSpikeAllocation} from '../raster/autoSpikes'
+import {prepareGaussianRectangle,gaussianRectangleUniforms} from '../raster/autoRectangle'
+import {prepareAutoMaskNoise,autoMaskNoiseUniforms,autoMaskNoiseCoordinateBytes,prepareAutoMaskNoiseGrid,autoMaskNoiseGridUniforms} from '../raster/autoMaskNoise'
+import{hasColorSmudge193Scope,isTextureCombinations191Scope}from'@grafetto/shared'
+import{mask190RootExecution}from'../presets/independentMask190'
+type LegacyColorSmudgeFamily='base83'|'overlay154'|'minmax172'|'arithmetic175'|'dodgeBurn176'
+
+
+
+
+import{CanonicalBeginSource}from'./CanonicalBeginSource'
+import{canonicalBeginBindingKey,type CanonicalBeginRuntime,type CanonicalBeginBinding,type CanonicalBeginOwnerInfo,type CanonicalBeginPrepareResult,type CanonicalBeginPaintResult,type CanonicalBeginResult}from'./CanonicalBeginRuntime'
+
+import{TiledLayerBuffer}from'../buffers/TiledLayerBuffer'
+import{hasGridBeginIdentity137}from'@grafetto/shared'
+import{GridWashOwner,GridWashBudget,gridGestureKey137,isGridRenderableDab137,gridGeometryNotReady,gridNotReady,gridCapacity,gridDestinationPlan,type GridBounds,type GridWashRuntime,type GridWashNotReady,type GridWashBinding,type GridBeginResult,type GridDestinationPinsResult,type GridWashPrepareResult,type GridWashPaintResult,type GridWashOwnerInfo,type BorrowedGridWash}from'./GridWashRuntime'
+import{sprayWashRegions}from'../presets/sprayWash133'
+import {textureEraseId} from '../presets/brushTextureErase'
+import {usesColorSmudgeTexture} from '../presets/colorSmudgeTexture'
+import{CanvasEffectBatch}from'./CanvasEffectBatch'
+import{deformRequest}from'../presets/brushDeform'
+import{GridCellBatch}from'./GridCellBatch'
+import{gridCells,gridBackgroundRect}from'../presets/brushGrid'
+import {CanvasProjectionSampler,type ProjectionReadSession,type ProjectionSampleLayer} from '../raster/CanvasProjectionSampler'
+import {COLOR_SMUDGE_MATERIAL_FRAG} from '../raster/colorSmudgeMaterialShader'
+import { COLOR_SMUDGE_MEAN_FRAG } from '../raster/colorSmudgeMeanShader'
+import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
+import { brushTipSoftnessBasisUniforms, brushTipSamplerId, brushTipProfileUniforms } from './BrushPreparation'
+import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
+import { smearPlacement, smearSourceShift, type SmearPlacement } from './SmearPlacement'
+import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
+import { BrushMipCache } from './BrushMipCache'
+import { importedAssetPixels } from '../presets/importedBrushes'
+import { proceduralSampleCount } from '../raster/brushProcedural'
+import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
+import { brushTextureApplication } from './brushTextureApplication'
+import { bindBrushGradient,assertNativeImageAdmission,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per target and user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -17,16 +62,32 @@
 // restore as objects; forget() drops what they hold, because every GL name
 // in them is dead.
 
-import type { Dab } from '@grafetto/shared'
+import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { brushFootprintBounds } from './brushFootprint'
+import{ brushForegroundRate,sampleBrushGradient,brushSamplesCanvas, BRUSH_BLEND_MODES, type Dab }from'@grafetto/shared'
+import type { BrushDescriptor } from '@grafetto/shared'
+import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { ScratchFreeList } from '../buffers/scratchPools'
 import type { WorldRect } from '../buffers/tileMath'
 import type { PaperSampling } from '../paper/PaperState'
-import { curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
+import { brushDabRandom, brushDabSeed, curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
 import { smudgeGrainRelief } from '../presets/smudgeGrain'
-import { DAB_VERT, DISPLAY_VERT, SMUDGE_PICKUP_FRAG, SMUDGE_TRANSFER_FRAG } from '../raster/shaders'
+import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
+
+import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, withColorSmudgeTextureAlpha, colorSmudgeTextureFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
+import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
+import { colorSmudgeGradientTipPixels,colorSmudgeTipPixels } from '../presets/colorSmudgeTip'
+import { colorSmudgeRates, resolveColorSmudgeRate } from '../presets/colorSmudge'
+import {colorSmudgeCompositeCode,colorSmudgeForegroundFragment,colorSmudgeDodgeBurn176Fragment,colorSmudgeLegacyFragment} from '../raster/colorSmudgeStrategyShader'
+import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
+import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
+
+interface WetGesture extends WetMixState { deformSource?:CanonicalBeginSource; gridWash?:GridWashOwner; behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
+type SmudgeLayer=Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'> & {resolveVisible?:ILayerBuffer['resolveVisible'];resolveForRead?(rect:WorldRect):PaintTarget[];materialOwner?(color:AccumulationBuffer):PaintTarget|undefined}
+interface WetStamp { meanRect?:WorldRect; gih?:ReturnType<typeof variableGihStamp>; maskBounds?:BrushDescriptor['tip']['maskBounds']; sourceRadius?:number; sourceAspect?:number;sourceAngle?:number;sourceCenter?:{x:number;y:number}; gradientLut?:string;foregroundAlpha?:number; projection?:readonly ProjectionSampleLayer[]; coverageBuffer?:AccumulationBuffer; thickness?:number; maskScale?: number; maskSourceDab?: Dab; smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -53,6 +114,9 @@ const SMUDGE_PATCH_GRANULARITY = 8
 // large a brush size requests — bounds a single dab's worst-case GPU
 // texture allocation.
 const SMUDGE_MAX_PATCH_SIZE = 512
+// 64 exact patch sizes otherwise retain about 65 MiB after pressure sweeps.
+// Limit idle storage only; the active pickup/patch/imprint are never evicted.
+const SMUDGE_IDLE_SCRATCH_BYTES = 16 * 1024 * 1024
 // How much of the carried imprint one dab refreshes from the canvas under
 // it, per brush radius travelled (see `travel` in paintOneDab — both
 // rates are scaled that way so what a stroke leaves behind depends on how
@@ -81,6 +145,17 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  openCanonicalBegin?(target:ILayerBuffer,binding:CanonicalBeginBinding,capability:'deformOld145'):CanonicalBeginResult
+  openGridBegin?(target:ILayerBuffer,binding:GridWashBinding):GridBeginResult
+  pinGridDestinations?(target:ILayerBuffer,binding:GridWashBinding,tiles:readonly PaintTarget[]):GridDestinationPinsResult
+  assertGridWashPrepared?():void
+  borrowRequestWash?():BorrowedGridWash
+  gridResourcesReleased?():void
+  openProjection?(source:NonNullable<BrushExecutionContext['brushSource']>,target:ILayerBuffer):ProjectionReadSession
+
+  readonly brushMipCache?: BrushMipCache
+  createBrushScratch(): RibbonStrokeScratch
+  paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number,execution?:BrushExecutionContext):void
   readonly gl: WebGLRenderingContext
   /** DAB_VERT's -0.5..0.5 dab quad. */
   quadBuf(): WebGLBuffer
@@ -102,7 +177,26 @@ function clampNum(x: number, lo: number, hi: number): number {
 
 type Uniforms = Record<string, WebGLUniformLocation | null>
 
+const TRANSFER_UNIFORMS = [
+  'u_textureApplication', 'u_textureMapping', 'u_dualTextureApplication', 'u_dualTextureMapping', 'u_dualGrain',
+  'u_dualGrainStrength', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
+  'u_resolution', 'u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds',
+  'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_hardness',
+  'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
+  'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap', 'u_previousCanvasForeground',
+  'u_previousCanvas', 'u_colorSmudge', 'u_colorSmudgeTip', 'u_edgeBleed', 'u_wetEnabled', 'u_tipKind', 'u_tip',
+  'u_wetGrain', 'u_grainStrength', 'u_grainPeriod', 'u_grainTransform', 'u_grainTone',
+  'u_wetRoundPhase', 'u_wetWorldOrigin', 'u_flip', 'u_grainBlend', 'u_dual',
+  'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_wetOriginal', 'u_wetRender',
+  'u_wetBlend', 'u_burntBlend', 'u_wetGamma', 'u_secondaryCoverage', 'u_secondaryEnabled',
+]
+
 export class SmudgePainter {
+  private effectBatch?:CanvasEffectBatch
+  prepareCanvasEffect():void{(this.effectBatch??=new CanvasEffectBatch(this.gl)).prepare()}
+  private readonly gridBudget=new GridWashBudget()
+  private gridBatch?:GridCellBatch
+  prepareGrid():void{(this.gridBatch??=new GridCellBatch(this.gl)).prepare()}
   private readonly gl: WebGLRenderingContext
   private readonly ctx: SmudgeContext
 
@@ -116,14 +210,70 @@ export class SmudgePainter {
   // imprint is resampled through SMUDGE_PICKUP_FRAG's normalized uv when the
   // brush size changes — so the two pools now differ only in who owns them;
   // merging them is a separate change, not part of moving this code.
+  private sprayLeaseEpoch={live:true,lost:false}
   private readonly scratchPool: ScratchFreeList<AccumulationBuffer>
 
+  // Smudge's own carried imprint (#14; a raster texture per user since
+  // #416 — see SMUDGE_TRANSFER_FRAG's own file comment for what replaced the
+  // single carried scalar and why), keyed by userId — "the tool belongs to
+  // whoever's holding it": two users smudging at the same time in the same
+  // room must never share one imprint (an earlier, single-scalar version of
+  // this field could get clobbered mid-stroke by a remote peer's own smudge
+  // operation arriving through the same paint path).
+  //
+  // `buf` is the imprint itself: premultiplied RGBA covering the dab's own
+  // patch square, always the same side length as the patch this stroke
+  // copies (so it is pooled through acquireScratch alongside the
+  // patches themselves, and a stroke that changes brush size resamples it
+  // through SMUDGE_PICKUP_FRAG's own normalized uv rather than needing a
+  // separate resize path). Null means "not primed yet" — the next dab
+  // copies the canvas under it wholesale instead of blending toward it, so
+  // a stroke never starts by laying a faded ghost of nothing over the
+  // canvas.
+  //
+  // `strokeId` is which gesture that imprint belongs to. A stump does not
+  // carry an imprint between gestures the way the old scalar carried a
+  // level: an imprint is *positional*, so re-using one across a pen-up
+  // would stamp a ghost of the previous stroke's content wherever the next
+  // one happens to start. Resetting at every gesture is also what makes a
+  // recorded operation self-sufficient again — replay reproduces a smudge
+  // stroke from its own dabs alone, with no cross-operation state to carry,
+  // which is why StrokeOperation.smudgeLoadAtStart/End stopped being
+  // written (see that field's own comment in packages/shared).
+  private readonly imprints = new Map<string, { buf: AccumulationBuffer | null; strokeId: string | null }>()
+  // The dab a replayed chunk should treat as its predecessor, per user: a
+  // gesture long enough to be split across several operations (see
+  // the engine's _flushStrokeChunk) must not restart its imprint at every chunk
+  // boundary, and the later chunks arrive with no prevDab of their own.
+  // Keyed by user (unlike marker's single _replayRibbonChunk slot) because
+  // smudge state is per-user by construction — two peers' chunked strokes
+  // interleaving in the log would otherwise each reset the other.
+  private readonly wetGestures = new Map<string, WetGesture>()
+  private readonly projectionSampler:CanvasProjectionSampler
+  private readonly wetTextures: BrushTextureCache
+  private readonly imageMips: BrushMipCache
+  private readonly ownsMipCache: boolean
+  private maximumImageSide?: number
+  private materialProjection?: {program:WebGLProgram;uniforms:Uniforms;position:number}
+  private colorSmudgeTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private recordedTexture191Plans=new WeakMap<BrushDescriptor,{resources:readonly BrushPreparationResource[];gihFrames?:ReturnType<typeof prepareVariableGih>}>()
+  private texture191Transfers=new Map<string,{program:WebGLProgram;uniforms:Uniforms;position:number}>()
+  private colorSmudgeTextureTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeForegroundTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyOverlayTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyMinMaxTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyArithmeticTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private colorSmudgeLegacyDodgeBurnTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private curveTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
+  private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab;target?:ILayerBuffer }>()
   // A replay/export buffer is a separate canvas even when it contains the
   // same layer and author. Never let its pickup replace a live tool's ink.
   // The buffer owner calls releaseTarget on destroy; context loss forgets all.
-  private readonly carried = new Map<ILayerBuffer, CarriedState>()
+  private readonly carried = new Map<SmudgeLayer, CarriedState>()
 
-  private stateFor(target: ILayerBuffer): CarriedState {
+  private stateFor(target: SmudgeLayer): CarriedState {
     let state = this.carried.get(target)
     if (!state) {
       state = { imprints: new Map(), replayChunks: new Map() }
@@ -132,7 +282,7 @@ export class SmudgePainter {
     return state
   }
 
-  releaseTarget(target: ILayerBuffer, lost = false): void {
+  releaseTarget(target: SmudgeLayer, lost = false): void {
     const state = this.carried.get(target)
     if (!lost) for (const imprint of state?.imprints.values() ?? []) imprint.buf?.destroy()
     this.carried.delete(target)
@@ -140,11 +290,16 @@ export class SmudgePainter {
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
+  private proceduralTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private transferProg!: WebGLProgram
   // The imprint-refresh pass (#416) — paired with DISPLAY_VERT (a plain
   // full-screen quad over the imprint texture; it needs no dab-quad
   // geometry, only the patch's own normalized square) rather than DAB_VERT.
   private pickupProg!: WebGLProgram
+  private colorMean?: {program:WebGLProgram;uniforms:Uniforms;position:number}
+  private meanProg!: WebGLProgram
+  private meanUni: Uniforms = {}
+  private meanPosLoc = -1
   private transferUni: Uniforms = {}
   private pickupUni: Uniforms = {}
   // Attribute locations are per-*program*, not per-shader-source — even
@@ -157,24 +312,46 @@ export class SmudgePainter {
   constructor(ctx: SmudgeContext) {
     this.ctx = ctx
     this.gl = ctx.gl
+    this.projectionSampler=new CanvasProjectionSampler(ctx.gl,()=>ctx.screenBuf())
+    this.wetTextures = new BrushTextureCache(ctx.gl)
+    this.imageMips = ctx.brushMipCache ?? new BrushMipCache()
+    this.ownsMipCache = !ctx.brushMipCache
     const { gl } = ctx
-    this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'))
+    this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'), SMUDGE_IDLE_SCRATCH_BYTES)
   }
 
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.sprayLeaseEpoch.live=false;this.sprayLeaseEpoch.lost=true;this.sprayLeaseEpoch={live:true,lost:false}
+    this.effectBatch?.reset()
+    this.gridBatch?.reset()
+    this.projectionSampler.forget()
+    this.maximumImageSide = undefined
+    this.wetTextures.clear(true)
+    this.proceduralTransfer = undefined
+    this.colorMean = undefined
+    this.colorSmudgeTransfer = undefined
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
+    this.colorSmudgeTextureTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
+    this.colorSmudgeLegacyOverlayTransfer = undefined
+    this.colorSmudgeLegacyMinMaxTransfer = undefined
+    this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
+    this.materialProjection = undefined
+    this.curveTransfer = undefined
+    this.imageTransfer = undefined
     const { gl } = this
-    this.transferProg = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
-    this.pickupProg   = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
-    this.transferUni = getUniforms(gl, this.transferProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
-      'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-    ])
+    this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
+    this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
+    this.meanProg = createProgram(gl, DISPLAY_VERT, CANVAS_MEAN_FRAG)
+    this.meanUni = getUniforms(gl,this.meanProg,['u_source','u_geometry','u_mask','u_maskMapping'])
+    this.meanPosLoc = gl.getAttribLocation(this.meanProg,'a_position')
+    this.transferUni = getUniforms(gl, this.transferProg, TRANSFER_UNIFORMS)
     this.pickupUni = getUniforms(gl, this.pickupProg, [
-      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup',
+      'u_gatherEnabled','u_gatherRect','u_gatherTile','u_gatherScale','u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
     ])
     this.transferPosLoc = gl.getAttribLocation(this.transferProg, 'a_position')
     this.pickupPosLoc   = gl.getAttribLocation(this.pickupProg, 'a_position')
@@ -182,21 +359,96 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.sprayLeaseEpoch.live=false;this.sprayLeaseEpoch.lost=true
+    this.effectBatch?.reset()
+    this.gridBatch?.reset()
+    this.projectionSampler.forget()
+    this.proceduralTransfer = undefined
+    this.colorMean = undefined
+    this.colorSmudgeTransfer = undefined
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
+    this.colorSmudgeTextureTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
+    this.colorSmudgeLegacyOverlayTransfer = undefined
+    this.colorSmudgeLegacyMinMaxTransfer = undefined
+    this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
+    this.materialProjection = undefined
+    this.curveTransfer = undefined
+    this.imageTransfer = undefined
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
+    this.wetTextures.clear(true)
+    for(const state of this.wetGestures.values()){this.retireGridState(state,true);state.secondary?.forget()}
+    this.wetGestures.clear()
+    this.imprints.clear() // same reasoning — pooled GL objects are dead too
+    this.replayChunks.clear()
     this.carried.clear() // all carried GL objects are dead too
   }
 
   destroy(): void {
+    this.sprayLeaseEpoch.live=false
+    this.effectBatch?.destroy()
+    this.gridBatch?.destroy()
+    this.projectionSampler.destroy()
     const { gl } = this
     this.scratchPool.destroy()
+    // A live imprint's buffer was spliced *out* of the scratch pool drained
+    // above and is held only here, so it needs destroying on its own.
+    for (const imprint of this.imprints.values()) imprint.buf?.destroy()
+    this.imprints.clear()
+    this.replayChunks.clear()
+    this.wetTextures.clear()
+    if (this.ownsMipCache) this.imageMips.clear()
+    for(const state of this.wetGestures.values()){this.retireGridState(state);state.secondary?.destroy()}
+    this.wetGestures.clear()
+    if(this.colorMean)gl.deleteProgram(this.colorMean.program)
+    for(const binding of this.texture191Transfers.values())gl.deleteProgram(binding.program)
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
+    if(this.colorSmudgeTextureTransfer)gl.deleteProgram(this.colorSmudgeTextureTransfer.program)
+    if (this.colorSmudgeTransfer) gl.deleteProgram(this.colorSmudgeTransfer.program)
+    if(this.colorSmudgeForegroundTransfer)gl.deleteProgram(this.colorSmudgeForegroundTransfer.program)
+    if(this.colorSmudgeLegacyTransfer)gl.deleteProgram(this.colorSmudgeLegacyTransfer.program)
+    if(this.colorSmudgeLegacyOverlayTransfer)gl.deleteProgram(this.colorSmudgeLegacyOverlayTransfer.program)
+    if(this.colorSmudgeLegacyMinMaxTransfer)gl.deleteProgram(this.colorSmudgeLegacyMinMaxTransfer.program)
+    if(this.colorSmudgeLegacyArithmeticTransfer)gl.deleteProgram(this.colorSmudgeLegacyArithmeticTransfer.program)
+    if(this.colorSmudgeLegacyDodgeBurnTransfer)gl.deleteProgram(this.colorSmudgeLegacyDodgeBurnTransfer.program)
+    if(this.materialProjection)gl.deleteProgram(this.materialProjection.program)
+    if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
+    if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
+    this.colorMean = undefined
+    this.colorSmudgeTransfer = undefined
+    this.texture191Transfers.clear();this.recordedTexture191Plans=new WeakMap()
+    this.colorSmudgeTextureTransfer = undefined
+    this.colorSmudgeForegroundTransfer = undefined
+    this.colorSmudgeLegacyTransfer = undefined
+    this.colorSmudgeLegacyOverlayTransfer = undefined
+    this.colorSmudgeLegacyMinMaxTransfer = undefined
+    this.colorSmudgeLegacyArithmeticTransfer = undefined
+    this.colorSmudgeLegacyDodgeBurnTransfer = undefined
+    this.materialProjection = undefined
+    this.curveTransfer = undefined
+    this.imageTransfer = undefined
+    if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
+    this.proceduralTransfer = undefined
     for (const target of this.carried.keys()) this.releaseTarget(target)
     gl.deleteProgram(this.transferProg)
     gl.deleteProgram(this.pickupProg)
+    gl.deleteProgram(this.meanProg)
   }
 
   /** Release a presentation-only owner without touching a newer gesture. */
   releaseGesture(userId: string, strokeId: string, lost: boolean): void {
-    for (const state of this.carried.values()) {
+    this.finishDeformIdentity(userId,strokeId)
+    this.finishGridIdentity(userId,strokeId,lost)
+    const imprint = this.imprints.get(userId)
+    if (imprint?.strokeId === strokeId) {
+      if (!lost) imprint.buf?.destroy()
+      this.imprints.delete(userId)
+      this.finishSecondary(userId,lost)
+      this.wetGestures.delete(userId)
+    }
+    for (const state of this.carried?.values() ?? []) {
       const imprint = state.imprints.get(userId)
       if (imprint?.strokeId === strokeId) {
         if (!lost) imprint.buf?.destroy()
@@ -206,9 +458,36 @@ export class SmudgePainter {
     }
   }
 
+  /** Only an explicit final operation or synchronous local pen-up closes a
+   * reservoir. Never called for peer_left, chunk flush or an idle timeout.
+   * null identifies the synchronous local path, which paints with prevDab
+   * rather than a canonical strokeId. A stale end cannot free a newer owner.
+   */
+  finishGesture(userId: string, strokeId: string | null): void {
+    for (const state of this.carried?.values() ?? []) {
+      const imprint = state.imprints.get(userId)
+      if (imprint?.strokeId !== strokeId) continue
+      if (imprint.buf) this.releaseScratch(imprint.buf)
+      state.imprints.delete(userId)
+      if (state.replayChunks.get(userId)?.strokeId === strokeId) state.replayChunks.delete(userId)
+    }
+    if(strokeId!==null){this.finishDeformIdentity(userId,strokeId);this.finishGridIdentity(userId,strokeId,false)}
+    const imprint = this.imprints.get(userId)
+    if (!imprint || imprint.strokeId !== strokeId) return
+    this.finishSecondary(userId)
+    if (imprint.buf) this.releaseScratch(imprint.buf)
+    this.imprints.delete(userId)
+    this.wetGestures.delete(userId)
+    if (this.replayChunks.get(userId)?.strokeId === strokeId) this.replayChunks.delete(userId)
+  }
+
   /** A new replay of this buffer must start its gestures from the beginning.
    * Other targets, including a live peer's layer, remain independent. */
-  dropReplayChunks(target: ILayerBuffer): void {
+  dropReplayChunks(target: ILayerBuffer, live?: { userId: string; strokeId: string | null }): void {
+    for (const [userId, chunk] of this.replayChunks) {
+      if (chunk.target && chunk.target !== target) continue
+      if (userId !== live?.userId || !live.strokeId || chunk.strokeId !== live.strokeId) this.replayChunks.delete(userId)
+    }
     this.releaseTarget(target, this.gl.isContextLost())
   }
 
@@ -227,7 +506,32 @@ export class SmudgePainter {
     /** (#573) Set for the digital brush's mixer: the colour the brush is
      *  loaded with and how it lays it down. Absent for the smudge tool. */
     paint?: MixerPaint,
-  ): void {
+    execution?: BrushExecutionContext,
+    gridRuntime?:CanonicalBeginRuntime,
+  ): GridWashPaintResult|void {
+    if(paint?.brush&&(usesNativeSmudgeTexture(paint.brush)||paint.brush.version===195||usesNativeSmudgeFeatures(paint.brush))){execution=mask190RootExecution(paint.brush,execution);assertBrushExecutionContext(paint.brush,execution)}
+    if(paint?.brush?.behavior?.dual?.blendMode==='hardMixPhotoshopAlpha')throw Error('Pixel alpha dual170 requires ordinary BrushPainter path')
+    if(paint?.brush?.behavior?.dual?.blendMode==='hardMixSofterPhotoshop')throw Error('Pixel alpha dual168 requires ordinary BrushPainter path')
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='dodge'||paint?.brush?.mixer?.colorRateComposite==='burn'){if(!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='add'||paint?.brush?.mixer?.colorRateComposite==='subtract'){if(!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='darken'||paint?.brush?.mixer?.colorRateComposite==='lighten'){if(!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}}
+    if(!usesNativeSmudgeTexture(paint?.brush)&&!usesNativeSmudgeFeatures(paint?.brush)){if(paint?.brush?.mixer?.colorRateComposite==='overlay'){if(!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}}
+    if(paint?.brush?.deform?.sourcePolicy!==undefined){
+      if(!hasDeformOldData145Scope(paint.brush))throw Error('Invalid Deform145 scope')
+      assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
+      if(target instanceof AccumulationBuffer)throw Error('Deform145 requires its ordinary layer')
+      if(!gridRuntime||gridRuntime.capability!=='deformOld145')return{...gridNotReady({prefixKey:'missing-host'}as GridWashBinding,'prefix'),acceptedDabs:0}
+      if(strokeId!==undefined&&strokeId!==gridRuntime.binding.strokeId)throw Error('Deform145 stroke identity mismatch')
+      return this.paintDeformOld(target,dabs,userId,paint,execution,gridRuntime)
+    }
+    if(paint?.brush?.grid&&(paint.brush.grid.sourcePolicy!==undefined||(paint.brush.version>=137&&paint.brush.behavior?.rendering?.accumulation==='alphaDarken'))){
+      if(!hasGridWash137Scope(paint.brush))throw Error('Invalid Grid Wash137 scope')
+      assertBrushExecutionContext(paint.brush,execution);assertBrushSourceInputs(paint.brush,dabs)
+      if(target instanceof AccumulationBuffer)throw Error('Grid Wash requires its ordinary layer target')
+      if(!gridRuntime)return{...gridNotReady({prefixKey:'missing-host'}as GridWashBinding,'prefix'),acceptedDabs:0}
+      if(strokeId!==undefined&&strokeId!==gridRuntime.binding.strokeId)throw Error('Grid stroke identity mismatch')
+      return this.paintGridWash(target,dabs,userId,paint,execution,gridRuntime)
+    }
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) are a single un-tiled buffer, freshly cleared before
     // every refresh — nothing meaningful to pick up, and reading it back
@@ -235,19 +539,387 @@ export class SmudgePainter {
     // read+write WebGL1 forbids. A harmless no-op: the real dabs below
     // always paint straight into the real layer regardless (see
     // the engine's _paintDabs doc comment on this parameter).
+    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs,undefined,execution); if((usesNativeSmudgeFeatures(paint.brush)||usesNativeSmudgeTexture(paint.brush)&&paint.brush.texture?.application)&&!this.texture191Transfers.has(this.texture191Family(paint.brush)))throw Error('Texture191 transfer was not prepared');if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&usesColorSmudgeTexture(paint.brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared') }
     if (target instanceof AccumulationBuffer) return
+    const projectionRead=paint?.brush?.mixer?.source==='projectionCanvas' ? this.ctx.openProjection?.(execution!.brushSource!,target) : undefined
+    let releaseTextures:(()=>void)|undefined,failed=false
+    try {
+    const projection=projectionRead?.layers
+    if(paint?.brush?.mixer?.source==='projectionCanvas' && !projection)throw Error('Projection source reader unavailable')
+    const materialOwners=new WeakMap<AccumulationBuffer,PaintTarget>()
+    const material=!!paint?.brush?.mixer?.paintThickness
+    const layer:SmudgeLayer=material ? {
+      resolveForPaint:rect=>target.resolveForPaint(rect).map(tile=>{
+        const color=tile.buffer.ensureColorSmudge().color;materialOwners.set(color,tile)
+        return {...tile,buffer:color}
+      }),
+      resolveForRead:rect=>target.resolveVisible(rect).map(tile=>({...tile,buffer:tile.buffer.colorSmudge?.color ?? tile.buffer})),
+      materialOwner:color=>materialOwners.get(color),
+      markContentPainted:rect=>target.markContentPainted(rect),
+    } : target
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
-    let prev = prevDab ?? this.resumeGesture(target, userId, strokeId, dabs)
+    const resources = paint?.brush ? bindBrushGradient((usesNativeSmudgeFeatures(paint.brush)||usesNativeSmudgeTexture(paint.brush)?this.recordedTexture191Plans.get(paint.brush)?.resources:undefined)??brushPreparationResources(paint.brush),execution?.brushSource?.gradient) : undefined
+    if (resources?.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+    releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : undefined
+    const gihFrames=paint?.brush&&usesNativeSmudgeFeatures(paint.brush)&&usesVariableGih(paint.brush.tip)?this.recordedTexture191Plans.get(paint.brush)?.gihFrames??prepareVariableGih(paint.brush,true):undefined
+    let prev = prevDab ?? this.resumeGesture(target, userId, strokeId, dabs, !!paint?.brush)
     for (const dab of dabs) {
+      if (paint?.brush) {
+        this.paintBehaviorDab(layer, dab, prev, userId, paint,execution,projection,gihFrames)
+        prev = dab
+        continue
+      }
       // No predecessor: this is the gesture's first dab, so there is no
       // travel to smear along yet — it only primes the imprint with what
       // sits under it (see applyDab's `priming` branch), which is
       // also why a one-dab smudge stroke leaves the canvas untouched.
-      if (prev) this.paintOneDab(target, prev, dab, userId, paint)
-      else this.applyDab(target, dab, 0, userId, paint)
+      if (prev) this.paintOneDab(layer, prev, dab, userId, paint)
+      else this.applyDab(layer, dab, 0, userId, paint)
       prev = dab
     }
+    } catch(error) { failed=true;throw error }
+    finally {
+      // Both acquisitions belong to this call. A failed preparation owns only
+      // the read session; a failed paint keeps its exact original thrown value.
+      let cleanupFailed=false,cleanupError:unknown
+      try { releaseTextures?.() } catch(error) { cleanupFailed=true;cleanupError=error }
+      try { projectionRead?.release() } catch(error) { if(!cleanupFailed){cleanupFailed=true;cleanupError=error} }
+      if(!failed&&cleanupFailed)throw cleanupError
+    }
+  }
+
+  /** A historical read must not consume another participant's live gesture.
+   * Only transient solver maps are isolated; programs, textures and bounded
+   * scratch pools remain shared. The callback is synchronous. */
+  withIsolatedGestures<T>(work:()=>T):T {
+    const imprints=[...this.imprints],gestures=[...this.wetGestures],chunks=[...this.replayChunks]
+    this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
+    let failed=false
+    try{return work()}catch(error){failed=true;throw error}finally{
+      let cleanupFailed=false,first:unknown
+      const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
+      try{
+        for(const value of this.imprints.values())if(value.buf)attempt(()=>this.releaseScratch(value.buf!))
+        for(const value of this.wetGestures.values()){if(value.gridWash||value.deformSource)attempt(()=>this.retireGridState(value));if(value.secondary)attempt(()=>value.secondary!.destroy())}
+      }finally{
+        this.imprints.clear();this.wetGestures.clear();this.replayChunks.clear()
+        for(const [key,value]of imprints)this.imprints.set(key,value)
+        for(const [key,value]of gestures)this.wetGestures.set(key,value)
+        for(const [key,value]of chunks)this.replayChunks.set(key,value)
+      }
+      // eslint-disable-next-line no-unsafe-finally -- Cleanup may fail after success; never replace the primary exception.
+      if(!failed&&cleanupFailed)throw first
+    }
+  }
+
+  prepareProjectionSource():void {this.projectionSampler.prepare()}
+
+  /** Each logical dab advances dynamics exactly once, independent of live batches.
+   * The imprint survives only the same user's same gesture/chunks. */
+  private paintBehaviorDab(target: SmudgeLayer, dab: Dab, prev: Dab | undefined, userId: string, paint: MixerPaint,execution?:BrushExecutionContext,projection?:readonly ProjectionSampleLayer[],gihFrames?:ReturnType<typeof prepareVariableGih>): void {
+    const brush = paint.brush!
+    let state = this.wetGestures.get(userId)
+    if (!state || !prev) {
+      if(state)this.retireGridState(state)
+      state?.secondary?.destroy()
+      state = { charge: 1, behavior: beginBrushBehavior(dab,execution) }
+      this.wetGestures.set(userId,state)
+    }
+    assertSameBrushExecutionContext(state.behavior.execution,execution)
+    if(brush.deform){this.paintDeformDab(target,dab,paint,state.behavior);return}
+    if(brush.grid){
+      this.paintGridDab(target,dab,paint,state.behavior)
+      state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1
+      return
+    }
+    const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
+    if (!brush.behavior?.strokeInput && prev && travel < 1e-6 && !brushSamplesCanvas(brush)) { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
+    const dual=brush.behavior?.dual
+    let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
+    if(dual?.sampling==='independent') {
+      state.secondary ??= this.ctx.createBrushScratch()
+      secondary=state.secondary.brushSecondary()
+      const owned=secondary
+      const maskTarget:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>={resolveForPaint:bounds=>target.resolveForPaint(bounds).map(tile=>({...tile,buffer:owned.tile(tile.buffer)})),markContentPainted:()=>{}}
+      this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling,true,undefined,execution),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier,execution)
+    }
+    const wet = brush.behavior?.wetMix
+    if(brush.behavior?.strokeInput && !prev)state.behavior.firstAngle=dab.sourceAngle!
+    const directionalDab = {...dab,angle:brush.behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}
+    const pickupFactor = (brush.mixer?.pickupDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(brushDabSeed(dab.x,dab.y,dab.pressure),0x60000+index)),1)
+    // Evaluate source controls before behaviorStampsForDab advances distance,
+    // direction and animation. Hash namespaces do not perturb old jitter streams.
+    const sourceSeed=brushDabSeed(dab.x,dab.y,dab.pressure)
+    const samplingRadius=brush.mixer?.sampling ? clampNum(brush.mixer.sampling.radius*(brush.mixer.sampling.radiusDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x70000+index)),1),0,3) : undefined
+    const foreground=brushForegroundRate(brush.mixer?.foreground)
+    const foregroundRate=foreground ? resolveColorSmudgeRate(foreground.rate,foreground.dynamics,(control,index)=>brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index))) : undefined
+    const gradient=brush.mixer?.foreground && 'gradient' in brush.mixer.foreground ? brush.mixer.foreground.gradient : undefined
+    const gradientColor=gradient ? sampleBrushGradient(state.behavior.execution!.brushSource!,gradient.value*(gradient.positionDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0xa0000+index)),1)) : undefined
+    const thicknessOption=brush.mixer?.paintThickness
+    const thickness=thicknessOption ? clampNum(thicknessOption.value*(thicknessOption.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x90000+index)),1),0,1) : undefined
+    const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
+      // The descriptor's zero load means a pure blender. The legacy mixer's
+      // fixed .85 prime would inject foreground paint even with load=0.
+      load: !prev ? brush.mixer?.initialLoad ?? MIXER_PRIME_LOAD : clampNum(paint.load * travel,0,1),
+      pickup: brushSamplesCanvas(brush) ? paint.pickup : !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
+    }
+    step.pickup = clampNum(step.pickup*pickupFactor,0,1)
+    for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,gradientColor?.color ?? paint.color)) {
+      let shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
+      const wetStamp: WetStamp = {gradientLut:brush.tip.color&&'gradient' in brush.tip.color ? state.behavior.execution!.brushSource!.gradient : undefined,foregroundAlpha:gradientColor?.alpha,projection,thickness,samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
+      if(usesNativeSmudgeFeatures(brush)){
+        const radius=this.radiusOf(shaped,paint)
+        wetStamp.sourceRadius=radius;wetStamp.sourceAspect=stamp.aspect;wetStamp.sourceAngle=stamp.angle
+        if(gihFrames){
+          const gih=variableGihStamp(brush,gihFrames,{...stamp,radius},!!brush.mixer?.sampling)
+          wetStamp.gih=gih;wetStamp.meanRect={minX:gih.x,minY:gih.y,maxX:gih.x+gih.width,maxY:gih.y+gih.height};wetStamp.maskBounds=gihFrames[brush.tip.sourceGeometry?0:stamp.frameIndex!].maskBounds
+          shaped={...shaped,x:gih.x+gih.width/2,y:gih.y+gih.height/2,size:gih.height/paint.sizeMultiplier,angle:0}
+          wetStamp.stamp={...stamp,x:shaped.x,y:shaped.y,angle:0,aspect:gih.width/gih.height}
+        }else if(brush.tip.autoShape){
+          const allocation=autoSpikeAllocation(radius,stamp.aspect,brush.tip.autoShape.spikes)
+          const extent=allocation.radius*(Math.abs(Math.cos(stamp.angle))+Math.abs(Math.sin(stamp.angle)))
+          shaped={...shaped,size:2*extent/paint.sizeMultiplier,angle:0}
+          wetStamp.stamp={...stamp,angle:0,aspect:1}
+        }
+      }
+      if (brushSamplesCanvas(brush)) {
+        if (brush&&usesNativeSmudgeFeatures(brush)?!(this.radiusOf(shaped,paint)>0):this.radiusOf(shaped,paint)<0.5) continue
+        const mean=brush.mixer.sampling
+        const previousPlaced = mean ? state.previousMeanPlaced : state.previousPlaced
+        // Own gesture state, independent of frame selection/RNG. The first
+        // placed contact establishes the source centre without painting.
+        if(mean){
+          const placed=brush&&usesNativeSmudgeFeatures(brush)?wetStamp.stamp:stamp
+          const bounds=brushFootprintBounds(shaped.x,shaped.y,this.radiusOf(shaped,paint),placed.aspect,placed.angle)!
+          state.previousMeanPlaced=canvasMeanPlacedCenter(wetStamp.meanRect??canvasMeanDabRect(shaped.x,shaped.y,bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))
+        }else {
+          const radius=this.radiusOf(shaped,paint)
+          const placement=wetStamp.gih?{rect:{minX:wetStamp.gih.x,minY:wetStamp.gih.y,maxX:wetStamp.gih.x+wetStamp.gih.width,maxY:wetStamp.gih.y+wetStamp.gih.height},maskCenter:{x:shaped.x,y:shaped.y},placedCenter:{x:shaped.x,y:shaped.y}}:smearPlacement(brush.tip,shaped.x,shaped.y,radius*wetStamp.stamp.aspect,radius,wetStamp.stamp.angle)
+          wetStamp.smearPlacement=placement
+          state.previousPlaced=placement.placedCenter
+          shaped={...shaped,...placement.maskCenter}
+          wetStamp.stamp={...wetStamp.stamp,...placement.maskCenter}
+        }
+        if(usesNativeSmudgeFeatures(brush))wetStamp.sourceCenter={x:shaped.x,y:shaped.y}
+        if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
+      } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
+    }
+  }
+
+  /** One bounded source image before the first cell write; never GPU readback.
+   * Source dependencies/replay ordering are the common canvas mixer contract. */
+  private paintDeformDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState,frozen?:CanonicalBeginSource):void{
+    const brush=paint.brush!,g=brush.deform!,motion=state.deform??={counter:1}
+    for(const stamp of behaviorStampsForDab(brush,dab,state,paint.color)){
+      const request=deformRequest(g,dab,stamp,paint.sizeMultiplier,motion,state.seed)
+      if(!request)continue
+      const size=Math.min(512,request.span),source=this.acquireScratch(size)
+      try{
+        frozen?.assertCurrent();this.gatherPatch(source,frozen?[...frozen.resolveForRead(request.source)]:target.resolveForRead?.(request.source)??target.resolveVisible?.(request.source)??target.resolveForPaint(request.source),request.source,size,request.span)
+        const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity*stamp.opacityScale,0,1)
+        const batch=this.effectBatch??=new CanvasEffectBatch(this.gl)
+        for(const tile of target.resolveForPaint(request.bounds))batch.paint(request,tile.buffer,tile.originX,tile.originY,source,opacity,!!brush.mixer?.smearAlpha)
+        target.markContentPainted(request.bounds)
+      }finally{this.releaseScratch(source)}
+    }
+  }
+
+  /** Shared with Grid/Spray; admission happens before any source pool call. */
+  reserveCanonicalBeginSource(binding:CanonicalBeginBinding,bytes:number):(()=>void)|GridWashNotReady{return this.gridBudget.reserve(bytes)??gridCapacity(binding,this.gridBudget,bytes)}
+  private deformKey(binding:CanonicalBeginBinding):string{return'deform145:'+gridGestureKey137(binding)}
+  activeDeformOwners(target?:ILayerBuffer):readonly CanonicalBeginOwnerInfo[]{return[...this.wetGestures.values()].flatMap(s=>s.deformSource&&(!target||s.deformSource.target===target)?[{target:s.deformSource.target,binding:s.deformSource.binding,capability:'deformOld145' as const}]:[])}
+  hasDeformBinding(target:ILayerBuffer,binding:CanonicalBeginBinding):boolean{const source=this.wetGestures.get(this.deformKey(binding))?.deformSource;return!!source&&source.target===target&&canonicalBeginBindingKey(source.binding)===canonicalBeginBindingKey(binding)}
+  invalidateDeformOwners(target:ILayerBuffer,_reason:string):void{let failed=false,first:unknown;for(const[key,s]of this.wetGestures){if(s.deformSource?.target!==target)continue;this.wetGestures.delete(key);try{this.retireGridState(s)}catch(e){if(!failed){failed=true;first=e}}}if(failed)throw first}
+  private finishDeformIdentity(userId:string,strokeId:string):void{let failed=false,first:unknown;for(const[key,s]of this.wetGestures){const b=s.deformSource?.binding;if(!b||b.userId!==userId||b.strokeId!==strokeId)continue;this.wetGestures.delete(key);try{this.retireGridState(s)}catch(e){if(!failed){failed=true;first=e}}}if(failed)throw first}
+  prepareDeformGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):CanonicalBeginPrepareResult{
+    if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
+    const brush=paint.brush,binding=runtime.binding
+    if(brush)execution=mask190RootExecution(brush,execution)
+    if(!brush||!hasDeformOldData145Scope(brush)||runtime.capability!=='deformOld145'||binding.userId!==userId||!binding.layerId||!binding.strokeId||!binding.prefixKey)throw Error('Invalid Deform145 BEGIN')
+    assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,[firstDab])
+    const key=this.deformKey(binding),prior=this.wetGestures.get(key)
+    if(prior?.deformSource){if(!this.hasDeformBinding(target,binding))return gridNotReady(binding,'prefix');assertSameBrushExecutionContext(prior.behavior.execution,execution);prior.deformSource.assertCurrent();return{kind:'ready'}}
+    if(!this.effectBatch)throw Error('Deform145 effect was not prepared');this.effectBatch.assertPrepared()
+    if(!this.ctx.openCanonicalBegin)return gridNotReady(binding,'context')
+    const opened=this.ctx.openCanonicalBegin(target,binding,'deformOld145');if(opened.kind==='notReady')return opened
+    const captured=CanonicalBeginSource.capture(target,binding,opened.view,(w,h)=>this.leaseSprayScratch(w,h),bytes=>this.reserveCanonicalBeginSource(binding,bytes+512*512*4),()=>this.ctx.gridResourcesReleased?.(),'deformOld145')
+    if(captured.kind==='notReady')return captured
+    try{this.wetGestures.set(key,{charge:1,behavior:beginBrushBehavior(firstDab,execution),deformSource:captured.owner});return{kind:'ready'}}catch(error){try{captured.owner.release()}catch{/* preserve primary, including undefined */}throw error}
+  }
+  private paintDeformOld(target:ILayerBuffer,dabs:readonly Dab[],userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:CanonicalBeginRuntime):CanonicalBeginPaintResult{
+    const first=dabs.find(isGridRenderableDab137);if(!first)return{kind:'painted',acceptedDabs:dabs.length}
+    const ready=this.prepareDeformGesture(target,first,userId,paint,execution,runtime);if(ready.kind==='notReady')return{...ready,acceptedDabs:0}
+    const state=this.wetGestures.get(this.deformKey(runtime.binding))!,source=state.deformSource!;source.assertCurrent()
+    for(const dab of dabs){if(!isGridRenderableDab137(dab))continue;this.paintDeformDab(target,dab,paint,state.behavior,source);state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1}
+    return{kind:'painted',acceptedDabs:dabs.length}
+  }
+
+  /** Same map across chunks; the budget counter remains shared during isolated-map swaps. */
+  activeGridOwners(target?:ILayerBuffer):readonly GridWashOwnerInfo[]{return[...this.wetGestures.values()].flatMap(state=>state.gridWash&&(!target||state.gridWash.target===target)?[state.gridWash.info()]:[])}
+  hasGridBinding(target:ILayerBuffer,binding:GridWashBinding):boolean{return!!this.wetGestures.get(gridGestureKey137(binding))?.gridWash?.matches(target,binding)}
+  invalidateGridOwners(target:ILayerBuffer,_reason:string):void{
+    let failed=false,first:unknown
+    for(const[user,state]of this.wetGestures){if(state.gridWash?.target!==target)continue
+      try{this.retireGridState(state)}catch(error){if(!failed){failed=true;first=error}}
+      this.wetGestures.delete(user)
+    }
+    if(failed)throw first
+  }
+  private finishGridIdentity(userId:string,strokeId:string,lost:boolean):void{
+    let failed=false,first:unknown
+    for(const[key,state]of this.wetGestures){const binding=state.gridWash?.binding
+      if(!binding||binding.userId!==userId||binding.strokeId!==strokeId)continue
+      try{this.retireGridState(state,lost)}catch(error){if(!failed){failed=true;first=error}}finally{this.wetGestures.delete(key)}
+    }
+    if(failed)throw first
+  }
+  private retireGridState(state:WetGesture,lost=false):void{
+    const deform=state.deformSource,owner=state.gridWash;state.deformSource=undefined;state.gridWash=undefined
+    let failed=false,first:unknown
+    try{deform?.release()}catch(error){failed=true;first=error}
+    if(owner){try{owner.retire(lost)}catch(error){if(!failed){failed=true;first=error}}
+    try{this.ctx.gridResourcesReleased?.()}catch(error){if(!failed){failed=true;first=error}}}
+    if(failed)throw first
+  }
+  prepareGridDestinationMutation(target:ILayerBuffer):void{
+    let failed=false,first:unknown
+    for(const state of this.wetGestures.values()){if(state.gridWash?.target!==target)continue
+      try{state.gridWash.resetDestinations()}catch(error){if(!failed){failed=true;first=error}}
+    }
+    if(failed)throw first
+  }
+  markGridDestinationBoundary(target:ILayerBuffer,except?:{userId:string;strokeId:string}):void{
+    for(const state of this.wetGestures.values()){const owner=state.gridWash;if(!owner||owner.target!==target)continue
+      if(except&&owner.binding.userId===except.userId&&owner.binding.strokeId===except.strokeId)continue
+      owner.markDestinationBoundary()
+    }
+  }
+  private gridRequest(brush:BrushDescriptor,dab:Dab,seed:number):{cells:ReturnType<typeof gridCells>;bounds:GridBounds}|undefined{
+    if(![dab.x,dab.y,dab.size,dab.opacity,dab.pressure].every(Number.isFinite)||dab.size<=0)throw Error('Invalid Grid request geometry')
+    const cells=gridCells(brush.grid!,dab,seed)
+    if(!cells.length)return undefined
+    const bounds=cells.reduce((b,c)=>({minX:Math.min(b.minX,c.x-c.width/2-1),minY:Math.min(b.minY,c.y-c.height/2-1),maxX:Math.max(b.maxX,c.x+c.width/2+1),maxY:Math.max(b.maxY,c.y+c.height/2+1)}),{minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity})
+    return{cells,bounds}
+  }
+  /** Owned capture BEFORE host author fields/operation publication. No dab is consumed. */
+  prepareGridGesture(target:ILayerBuffer,firstDab:Dab,userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:GridWashRuntime):GridWashPrepareResult{
+    const brush=paint.brush,binding=runtime.binding
+    if(brush)execution=mask190RootExecution(brush,execution)
+    if(!isGridRenderableDab137(firstDab))return{kind:'ready'}
+    if(!brush||!hasGridWash137Scope(brush)||!hasGridBeginIdentity137({type:'stroke',strokeId:binding.strokeId})||binding.userId!==userId||!binding.layerId||!binding.prefixKey||!Number.isSafeInteger(binding.targetGeneration)||binding.targetGeneration<0)throw Error('Invalid Grid Wash137 binding/scope')
+    if(!(target instanceof TiledLayerBuffer))throw Error('Grid Wash requires its tiled layer target')
+    if(paint.strength!==1||paint.sizeMultiplier!==1)throw Error('Grid Wash137 requires its native unit request')
+    assertBrushExecutionContext(brush,execution);assertBrushSourceInputs(brush,[firstDab])
+    if(!this.gridBatch)throw Error('Grid cells were not prepared');this.gridBatch.assertPrepared()
+    if(!this.ctx.assertGridWashPrepared||!this.ctx.borrowRequestWash||!this.ctx.openGridBegin||!this.ctx.pinGridDestinations)return gridNotReady(binding,'context')
+    this.ctx.assertGridWashPrepared() // CHECKONLY: no strict texture lease across recovery.
+    const ownerKey=gridGestureKey137(binding),current=this.wetGestures.get(ownerKey)
+    if(current?.gridWash?.matches(target,binding)){assertSameBrushExecutionContext(current.behavior.execution,execution);current.gridWash.assertCurrent();return{kind:'ready'}}
+    const state=beginBrushBehavior(firstDab,execution),request=this.gridRequest(brush,firstDab,state.seed)
+    if(!request)return gridGeometryNotReady(binding)
+    const plan=gridDestinationPlan(request.bounds,target.coarseWorldSize(1));if(!plan)return gridGeometryNotReady(binding)
+    const opened=this.ctx.openGridBegin(target,binding);if(opened.kind==='notReady')return opened
+    let owner:GridWashOwner|undefined,viewFailed=false
+    try{
+      const required=GridWashOwner.requiredBytes(opened.view.tiles,plan)
+      owner=GridWashOwner.capture(target,binding,opened.view,Math.max(0,Math.min(1,firstDab.opacity)),this.gridBudget,()=>this.ctx.createBrushScratch(),plan)
+      if(!owner)return gridCapacity(binding,this.gridBudget,required)
+    }catch(error){viewFailed=true;throw error}finally{try{opened.view.release()}catch(error){if(!viewFailed){try{owner?.retire()}catch{/* Preserve primary. */}throw error}}}
+    if(!owner)throw Error('Grid capture did not produce an owner')
+    let published=false,failed=false,borrowed:BorrowedGridWash|undefined
+    try{
+      // Complete verified view released; ordinary recovery precedes the outer strict lease.
+      const tiles=target.resolveForPaint(request.bounds),admitted=owner.admitDestinations(tiles,fresh=>this.ctx.pinGridDestinations!(target,binding,fresh))
+      if(admitted.kind==='notReady')return admitted
+      borrowed=this.ctx.borrowRequestWash();borrowed.kernel.assertPrepared()
+      if(current){this.retireGridState(current);current.secondary?.destroy()}
+      this.wetGestures.set(ownerKey,{charge:1,behavior:state,gridWash:owner});published=true;return{kind:'ready'}
+    }catch(error){failed=true;throw error}finally{
+      let cleanupFailed=false,first:unknown
+      const attempt=(fn:()=>void)=>{try{fn()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}}
+      if(borrowed)attempt(()=>borrowed!.release());if(!published)attempt(()=>owner!.retire())
+      if(!failed&&cleanupFailed)throw first
+    }
+  }
+  private paintGridWash(target:ILayerBuffer,dabs:readonly Dab[],userId:string,paint:MixerPaint,execution:BrushExecutionContext|undefined,runtime:GridWashRuntime):GridWashPaintResult{
+    const firstDab=dabs.find(isGridRenderableDab137)
+    if(!firstDab)return{kind:'painted',acceptedDabs:dabs.length}
+    const prepared=this.prepareGridGesture(target,firstDab,userId,paint,execution,runtime)
+    if(prepared.kind==='notReady')return{...prepared,acceptedDabs:dabs.indexOf(firstDab)}
+    const state=this.wetGestures.get(gridGestureKey137(runtime.binding))!,owner=state.gridWash!,brush=paint.brush!,batch=this.gridBatch!
+    let acceptedDabs=0
+      for(const dab of dabs){
+        if(!isGridRenderableDab137(dab)){acceptedDabs++;continue}
+        owner.assertCurrent();assertSameBrushExecutionContext(state.behavior.execution,execution)
+        const request=this.gridRequest(brush,dab,state.behavior.seed)
+        if(!request)return{...gridGeometryNotReady(runtime.binding),acceptedDabs}
+        const plan=gridDestinationPlan(request.bounds,(target as TiledLayerBuffer).coarseWorldSize(1))
+        if(!plan)return{...gridGeometryNotReady(runtime.binding),acceptedDabs}
+        const capacity=owner.planDestinations(plan)
+        if(capacity.kind==='notReady')return{...capacity,acceptedDabs}
+        const tiles=target.resolveForPaint(request.bounds)
+        if(!owner.matches(target,runtime.binding))return{...gridNotReady(runtime.binding,'prefix'),acceptedDabs}
+        const admitted=owner.admitDestinations(tiles,fresh=>this.ctx.pinGridDestinations!(target,runtime.binding,fresh))
+        if(admitted.kind==='notReady')return{...admitted,acceptedDabs}
+        let source:AccumulationBuffer|undefined,patch:AccumulationBuffer|undefined,borrowed:BorrowedGridWash|undefined,requestFailed=false
+        try{
+          borrowed=this.ctx.borrowRequestWash!();const current=borrowed.kernel.captureCurrent();current();batch.assertPrepared();source=this.acquireScratch(512);patch=this.acquireScratch(512)
+          const first=request.cells[0],rect={minX:Math.floor(first.sampleX),minY:Math.floor(first.sampleY)}
+          owner.sampleTexel(first.sampleX,first.sampleY,source)
+          for(const tile of tiles)owner.destinationEntry(tile)
+          // All finite admission/pins/source/program/temporary resources precede acceptance.
+          state.behavior.previous={...dab};state.behavior.dabSequence=(state.behavior.dabSequence??0)+1;owner.acceptedDabs++;acceptedDabs++
+          for(const tile of tiles){const entry=owner.entry(tile);for(const region of sprayWashRegions(request.bounds,tile,512,512)){
+            current();owner.assertCurrent();owner.sampleTexel(first.sampleX,first.sampleY,source);patch.clear();batch.paintRequest(request.cells,patch,region.originX,region.originY,source,rect,512)
+            const bottom=tile.buffer.height-region.y-region.height;source.clear();entry.coverage.copyRegionInto(source,region.x,bottom,0,source.height-region.height,region.width,region.height)
+            borrowed.kernel.transfer(patch,source,entry.coverage,region,1,1,undefined,true)
+          }borrowed.present(tile,request.bounds,entry,brush,owner.opacity)}
+          target.markContentPainted(request.bounds)
+        }catch(error){requestFailed=true;throw error}finally{
+          let cleanupFailed=false,first:unknown;for(const buffer of[patch,source])if(buffer)try{this.releaseScratch(buffer)}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}
+          if(borrowed)try{borrowed.release()}catch(error){if(!cleanupFailed){cleanupFailed=true;first=error}}
+          if(!requestFailed&&cleanupFailed)throw first
+        }
+      }
+      return{kind:'painted',acceptedDabs}
+  }
+
+  private paintGridDab(target:SmudgeLayer,dab:Dab,paint:MixerPaint,state:BrushBehaviorState):void{
+    const g=paint.brush!.grid!,cells=gridCells(g,dab,state.seed^Math.imul((state.dabSequence??0)+1,0x9e3779b9))
+    if(!cells.length)return
+    const pad=g.shape===4?6:1,bounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity}
+    for(const c of cells){bounds.minX=Math.min(bounds.minX,c.x-c.width/2-pad);bounds.maxX=Math.max(bounds.maxX,c.x+c.width/2+pad);bounds.minY=Math.min(bounds.minY,c.y-c.height/2-pad);bounds.maxY=Math.max(bounds.maxY,c.y+c.height/2+pad)}
+    const background=g.fillBackground||g.mixBackground?state.execution?.brushSource?.background:undefined
+    if((g.fillBackground||g.mixBackground)&&!background)throw Error('Grid requires a captured background')
+    const bg=background?.map(v=>v/255),bgRect=g.fillBackground?gridBackgroundRect(g,dab):undefined
+    if(bgRect){bounds.minX=Math.min(bounds.minX,bgRect.minX);bounds.minY=Math.min(bounds.minY,bgRect.minY);bounds.maxX=Math.max(bounds.maxX,bgRect.maxX);bounds.maxY=Math.max(bounds.maxY,bgRect.maxY)}
+    const span=Math.max(8,Math.ceil(Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))+2),rect={minX:Math.floor(bounds.minX)-1,minY:Math.floor(bounds.minY)-1,maxX:0,maxY:0};rect.maxX=rect.minX+span;rect.maxY=rect.minY+span
+    const size=g.sampleInput?Math.min(512,span):8,source=this.acquireScratch(size)
+    try{
+      if(g.sampleInput)this.gatherPatch(source,target.resolveForRead?.(rect)??target.resolveForPaint(rect),rect,size,span)
+      const opacity=clampNum(paint.strength*(paint.pressure?curveAt(paint.curve,dab.pressure):1)*dab.opacity,0,1)
+      const batch=this.gridBatch??=new GridCellBatch(this.gl)
+      for(const tile of target.resolveForPaint(bounds)){
+        if(!g.fillBackground&&!g.mixBackground&&!g.hsv){batch.paint(cells,tile.buffer,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,opacity);continue}
+        const request=this.acquireScratch(tile.buffer.width,tile.buffer.height)
+        try{
+          request.clear()
+          if(bgRect){const cell={x:(bgRect.minX+bgRect.maxX)/2,y:(bgRect.minY+bgRect.maxY)/2,width:bgRect.maxX-bgRect.minX,height:bgRect.maxY-bgRect.minY,sampleX:0,sampleY:0,alpha:1};batch.paint([cell],request,tile.originX,tile.originY,source,rect,span,bg!,1,false,false,1)}
+          batch.paint(cells,request,tile.originX,tile.originY,source,rect,span,paint.color,g.shape,g.sampleInput,g.randomOpacity,1,bg,g.mixBackground?Math.max(0,Math.min(1,dab.pressure)):-1,g.shape===1)
+          batch.transfer(request,tile.buffer,opacity)
+        }finally{this.releaseScratch(request)}
+      }
+      target.markContentPainted(bounds)
+    }finally{this.releaseScratch(source)}
+  }
+
+  /** Optical mask belongs to one gesture, not the user's carried reservoir. */
+  finishSecondary(userId:string,lost=false,strokeId?:string):void {
+    if(strokeId && this.imprints.get(userId)?.strokeId!==strokeId)return
+    const state=this.wetGestures.get(userId)
+    if(state)this.retireGridState(state,lost)
+    if(state?.secondary){if(lost)state.secondary.forget();else state.secondary.destroy();state.secondary=undefined}
   }
 
   /** Resolves what the first dab of this call should treat as its
@@ -265,17 +937,19 @@ export class SmudgePainter {
    *  stroke, a replay that begins mid-gesture because the earlier chunk is
    *  already inside a restored snapshot) correctly starts clean instead of
    *  smearing from wherever this user's tool last happened to be. */
-  private resumeGesture(target: ILayerBuffer, userId: string, strokeId: string | undefined, dabs: Dab[]): Dab | undefined {
-    const imprint = this.imprintFor(target, userId)
-    const { replayChunks } = this.stateFor(target)
+  private resumeGesture(target: ILayerBuffer, userId: string, strokeId: string | undefined, dabs: Dab[], nativeBrush = false): Dab | undefined {
+    const imprint = nativeBrush ? this.nativeImprintFor(userId) : this.imprintFor(target, userId)
+    const replayChunks = nativeBrush ? this.replayChunks : this.stateFor(target).replayChunks
     const chunk = strokeId ? replayChunks.get(userId) : undefined
     const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId
     if (!continuing) {
       if (imprint.buf) this.releaseScratch(imprint.buf)
       imprint.buf = null
+      this.finishSecondary(userId)
+      this.wetGestures.delete(userId)
     }
     imprint.strokeId = strokeId ?? null
-    if (strokeId) replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1] })
+    if (strokeId) replayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1], ...(nativeBrush ? { target } : {}) })
     else replayChunks.delete(userId)
     return continuing ? chunk?.lastDab : undefined
   }
@@ -299,7 +973,7 @@ export class SmudgePainter {
    *  many samples arrived along the way — see SMUDGE_PICKUP_RATE. It also
    *  makes standing still a true no-op rather than something that slowly
    *  eats the drawing. */
-  private paintOneDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string, paint?: MixerPaint): void {
+  private paintOneDab(target: SmudgeLayer, prev: Dab, dab: Dab, userId: string, paint?: MixerPaint): void {
     const radius = this.radiusOf(dab, paint)
     if (radius < 0.5) return
 
@@ -340,13 +1014,17 @@ export class SmudgePainter {
    *  either way; only which tile's pixel space each piece of it is expressed
    *  in changes, which is exactly how pencil and eraser have always crossed
    *  a seam. */
-  private applyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint): void {
+  private applyDab(target: SmudgeLayer, dab: Dab, travel: number, userId: string, paint?: MixerPaint, wet?: WetStamp, previousCanvas?: { x: number; y: number }): void {
     const radius = this.radiusOf(dab, paint)
-    if (radius < 0.5) return
-    const patchWorld = Math.ceil(radius * 2)
-    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
+    if (usesNativeSmudgeFeatures(paint?.brush)?!(radius>0):radius<0.5) return
+    const footprint=brushFootprintBounds(dab.x,dab.y,radius,wet?.stamp.aspect ?? 1,wet?.stamp.angle ?? 0,1)
+    if(!footprint)return
+    const reach = Math.max(footprint.maxX-dab.x,footprint.maxY-dab.y)
+    const patchWorld = Math.ceil(reach * 2)
+    const patchSpan = Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY
+    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE,patchSpan)
     if (patchSize < 1) return
-    const half = patchSize / 2
+    const half = patchSpan / 2
 
     // Whole world texels, not the dab's own fractional center: the imprint
     // and the canvas have to agree to the texel, or the lerp mixes a shifted
@@ -357,15 +1035,19 @@ export class SmudgePainter {
     // the two halves of a seam-straddling patch line up with each other.
     const patchX = Math.round(dab.x - half)
     const patchY = Math.round(dab.y - half)
-    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSize, maxY: patchY + patchSize }
+    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSpan, maxY: patchY + patchSpan }
 
+    if (previousCanvas && wet && paint) {
+      this.paintPreviousCanvas(target,dab,radius,footprint,patchRect,patchSize,patchSpan,previousCanvas,paint,wet)
+      return
+    }
     const targets = target.resolveForPaint(patchRect)
     if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
 
     const patch = this.acquireScratch(patchSize)
-    this.gatherPatch(patch, targets, patchRect, patchSize)
+    this.gatherPatch(patch, targets, patchRect, patchSize,patchSpan)
 
-    const imprint = this.imprintFor(target, userId)
+    const imprint = paint?.brush ? this.nativeImprintFor(userId) : this.imprintFor(target, userId)
     const priming = imprint.buf === null
     const rate = priming ? 1 : clampNum(SMUDGE_PICKUP_RATE * travel, 0, 1)
     // Ping-pong rather than in-place: WebGL1 forbids reading and writing the
@@ -377,15 +1059,14 @@ export class SmudgePainter {
     // (#573) The mixer folds its own colour back into what it carries, per
     // radius travelled — and nearly in full on the first dab, because a brush
     // arrives on the canvas loaded with paint, not with whatever is under it.
-    const paintLoad = !paint ? 0 : priming ? MIXER_PRIME_LOAD : clampNum(paint.load * travel, 0, 1)
+    const paintLoad = wet ? wet.step.load : !paint ? 0 : priming ? MIXER_PRIME_LOAD : clampNum(paint.load * travel, 0, 1)
     // The mixer picks up at its own rate — slower than the stump's, which is
     // what lets it drag a colour a couple of brush widths rather than one.
-    const pickRate = paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
-    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, paint?.color ?? null, paintLoad)
-    this.releaseScratch(patch)
+    const pickRate = wet ? wet.step.pickup : paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
+    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, wet?.step.retention ?? 1, paint?.brush?.mixer?.smearAlpha ?? false)
     if (imprint.buf) this.releaseScratch(imprint.buf)
     imprint.buf = next
-    if (priming) return
+    if (priming && !wet) { this.releaseScratch(patch); return }
 
     // dab.opacity is the UI's "Strength" slider for this tool (see
     // bakeDabOpacity's own smudge branch); pressure and travel are the two
@@ -393,17 +1074,18 @@ export class SmudgePainter {
     // The mixer lays paint down at its own rate, and pressure acts through the
     // brush's opacity curve when that switch is on — the same meaning pressure
     // has for every other digital brush.
-    const strength = paint
+    let strength = paint
       ? paint.strength * travel * (paint.pressure ? curveAt(paint.curve, dab.pressure) : 1) * dab.opacity
       : SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
-    if (strength <= 0) return
+    if (wet) strength *= wet.step.strength * wet.stamp.flowScale * wet.stamp.opacityScale * (paint?.brush?.flow ?? 1)
+    if (strength <= 0) { this.releaseScratch(patch); return }
     for (const tile of targets) {
       // The brush's own circle, not the patch square: patchSize is rounded up
       // to SMUDGE_PATCH_GRANULARITY, so a patch can reach into a tile the
       // stump itself never touches, where both draws below would discard
       // every fragment for nothing.
-      if (dab.x + radius <= tile.originX || dab.x - radius >= tile.originX + tile.buffer.width
-        || dab.y + radius <= tile.originY || dab.y - radius >= tile.originY + tile.buffer.height) continue
+      if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX + tile.buffer.width
+        || footprint.maxY <= tile.originY || footprint.minY >= tile.originY + tile.buffer.height) continue
       // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
       // (bottom-up) — the same flip every other app-space/GL boundary in this
       // file applies (DAB_VERT's clip.y flip, pickColor). The patch's own
@@ -414,12 +1096,104 @@ export class SmudgePainter {
       // as-is — every fragment it actually shades still lands inside the
       // patch, since the dab quad is contained in it by construction.
       const originX = patchX - tile.originX
-      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
-      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
-      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength)
+      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSpan
+      if (!wet) this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSpan, 'clear', strength)
+      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSpan, 'lay', strength, wet, patch)
     }
 
-    target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
+    this.releaseScratch(patch)
+    target.markContentPainted(footprint)
+  }
+
+  /** Spatial canvas feedback, not a carried reservoir. Both snapshots are
+   * complete before any destination write; changing size uses current bounds
+   * at the previous placed centre, never rescales an old imprint. */
+  private paintPreviousCanvas(target: SmudgeLayer, dab: Dab, radius: number, footprint: WorldRect, rect: WorldRect, patchSize: number, span: number, previous: {x:number;y:number}, paint: MixerPaint, wet: WetStamp): void {
+    let source:AccumulationBuffer|undefined
+    let original: AccumulationBuffer | undefined
+    let actual:AccumulationBuffer|undefined
+    try {
+      original = this.acquireScratch(patchSize)
+      const shift=wet.smearPlacement ? smearSourceShift(previous,wet.smearPlacement) : undefined
+      const x = shift ? rect.minX+shift.x : Math.round(previous.x-span/2)
+      const y = shift ? rect.minY+shift.y : Math.round(previous.y-span/2)
+      const sourceRect = {minX:x,minY:y,maxX:x+span,maxY:y+span}
+      // Resolve/gather source first: allocating distant destination tiles can
+      // evict source tiles, whereas the already gathered snapshot is stable.
+      if(paint.brush?.mixer?.sampling){
+        // Sampling geometry excludes transfer padding/granularity. Its own
+        // square gather retains original texel centres up to512 world pixels.
+        const native=brushFootprintBounds(dab.x,dab.y,radius,wet.stamp.aspect,wet.stamp.angle)!
+        const current=wet.meanRect??canvasMeanDabRect(dab.x,dab.y,native.maxX-native.minX,native.maxY-native.minY)
+        const sampleRect=canvasMeanSourceRect(previous,current,Math.min(paint.brush.mixer.sampling.mode==='maskMean' ? 1 : 3,wet.samplingRadius ?? paint.brush.mixer.sampling.radius))
+        let mask: AccumulationBuffer | undefined
+        try {
+          if(paint.brush.mixer.sampling.mode==='maskMean') {
+            mask=this.acquireScratch(patchSize)
+            mask.clear()
+            // The mask shares the same bounded world square as transfer.
+            // Scale geometry only for the existing >512px gather budget.
+            const scale=patchSize/span
+            const maskDab={...dab,x:rect.minX+(dab.x-rect.minX)*scale,y:rect.minY+(dab.y-rect.minY)*scale}
+            const maskWet={...wet,maskScale:scale,maskSourceDab:dab,secondary:undefined,smearPlacement:undefined,stamp:{...wet.stamp,x:maskDab.x,y:maskDab.y,size:wet.stamp.size*scale}}
+            this.drawTransferDab({buffer:mask,originX:rect.minX,originY:rect.minY,contentRect:null},maskDab,radius*scale,original,0,0,patchSize,'mask',1,maskWet)
+          }
+          const sourceBase=canvasMeanSourceRect(previous,current,1)
+          source=this.meanPreviousCanvas(target,mask?sourceBase:sampleRect,mask ? {buffer:mask,x:(current.minX-rect.minX)/span,y:(current.minY-rect.minY)/span,inverseSpan:1/span,radius:Math.min(1,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)} : paint.brush.mixer.sampling.mode==='adaptiveMean' ? {x:0,y:0,inverseSpan:0,radius:1} : undefined,wet.projection)
+        } finally { if(mask)this.releaseScratch(mask) }
+      }else {source=this.acquireScratch(patchSize);if(wet.projection)this.projectionSampler.gather(source,sourceRect,wet.projection);else this.gatherPatch(source,(target.resolveForRead?.(sourceRect) ?? target.resolveForPaint(sourceRect)),sourceRect,patchSize,span)}
+      const projectedBlend=wet.projection && !!paint.brush?.mixer?.algorithm
+      if(projectedBlend)this.projectionSampler.gather(original,rect,wet.projection!)
+      const targets = target.resolveForPaint(rect)
+      if (!targets.length) return
+      if(projectedBlend){
+        actual=this.acquireScratch(patchSize);this.gatherPatch(actual,targets,rect,patchSize,span)
+      }else this.gatherPatch(original,targets,rect,patchSize,span)
+      const strength = (paint.brush?.mixer?.algorithm ? 1 : wet.step.pickup) * paint.strength * (paint.pressure ? curveAt(paint.curve,dab.pressure) : 1) * dab.opacity * wet.stamp.opacityScale
+      if (strength <= 0) return
+      for (const tile of targets) {
+        if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX+tile.buffer.width || footprint.maxY <= tile.originY || footprint.minY >= tile.originY+tile.buffer.height) continue
+        this.drawTransferDab(tile,dab,radius,source,rect.minX-tile.originX,tile.buffer.height-(rect.minY-tile.originY)-span,span,'lay',strength,wet,original,actual)
+        const owner=target.materialOwner?.(tile.buffer)
+        if(owner) {
+          const height=owner.buffer.colorSmudge!.height
+          this.drawTransferDab({...owner,buffer:height},dab,radius,source,0,0,span,'height',1,{...wet,coverageBuffer:tile.buffer})
+          this.projectMaterial(owner,footprint)
+        }
+      }
+      target.markContentPainted(footprint)
+    } finally { if(source)this.releaseScratch(source); if (original) this.releaseScratch(original);if(actual)this.releaseScratch(actual) }
+  }
+
+  /** Fixed64 nearest-centre samples, no CPU readback or persistent reservoir.
+   * Samples larger than512px use the bounded gather's existing downsampling;
+   * importer reports both this and native adaptive-count approximation. */
+  private meanPreviousCanvas(target:SmudgeLayer,rect:WorldRect,mask?:{buffer?:AccumulationBuffer;x:number;y:number;inverseSpan:number;radius:number},projection?:readonly ProjectionSampleLayer[]):AccumulationBuffer {
+    if(mask)this.prepareColorSmudgeMean()
+    const width=rect.maxX-rect.minX,height=rect.maxY-rect.minY,span=Math.max(width,height)
+    const size=Math.min(SMUDGE_MAX_PATCH_SIZE,span),sample=this.acquireScratch(size)
+    let mean:AccumulationBuffer|undefined
+    try {
+      const square={...rect,maxX:rect.minX+span,maxY:rect.minY+span}
+      if(projection)this.projectionSampler.gather(sample,square,projection)
+      else this.gatherPatch(sample,(target.resolveForRead?.(square) ?? target.resolveForPaint(square)),square,size,span)
+      mean=this.acquireScratch(1)
+      const {gl}=this,binding=mask?this.colorMean:undefined,u=binding?.uniforms ?? this.meanUni
+      mean.beginReplaceDraw()
+      try {
+      gl.useProgram(binding?.program ?? this.meanProg)
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sample.texture)
+      gl.uniform1i(u.u_source,0)
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mask?.buffer?.texture ?? sample.texture);gl.uniform1i(u.u_mask,1)
+      if(mask)gl.uniform3f(u.u_radius,mask.radius,Math.trunc((rect.minX+rect.maxX-1)/2)-rect.minX,Math.trunc((rect.minY+rect.maxY-1)/2)-rect.minY)
+      gl.uniform4f(u.u_maskMapping,mask?.x ?? 0,mask?.y ?? 0,mask?.inverseSpan ?? 0,mask?.buffer?1:0)
+      gl.uniform4f(u.u_geometry,width,height,span,Math.min(64,width*height))
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(binding?.position ?? this.meanPosLoc)
+      gl.vertexAttribPointer(binding?.position ?? this.meanPosLoc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)
+      }finally{mean.endDraw()}
+      return mean
+    }catch(error){if(mean)this.releaseScratch(mean);throw error}
+    finally{this.releaseScratch(sample)}
   }
 
   /** Assembles the canvas patch under one dab out of every tile it overlaps
@@ -437,9 +1211,10 @@ export class SmudgePainter {
    *  a bounded room, whose grid stops at the sheet's own last tile, and cheap
    *  next to the two full-quad passes each dab already runs. */
   private gatherPatch(
-    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number,
+    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number, patchSpan=patchSize,
   ): void {
     patch.clear()
+    if(patchSpan>patchSize){this.gatherScaledPatch(patch,targets,patchRect,patchSpan);return}
     for (const { buffer, originX, originY } of targets) {
       // The overlap between this tile and the patch, in world space.
       const x0 = Math.max(patchRect.minX, originX)
@@ -459,12 +1234,39 @@ export class SmudgePainter {
     }
   }
 
+  /** Keep the whole world footprint while bounding the carried texture to
+   * 512². Large tips trade imprint resolution, never clamp canvas edge colours. */
+  private gatherScaledPatch(patch:AccumulationBuffer,targets:PaintTarget[],rect:WorldRect,span:number):void {
+    const {gl}=this,u=this.pickupUni
+    patch.beginReplaceDraw();gl.useProgram(this.pickupProg)
+    gl.uniform1f(u.u_gatherEnabled,1)
+    gl.uniform2f(u.u_gatherRect,rect.minX,rect.maxY)
+    gl.uniform1f(u.u_gatherScale,span/patch.width)
+    // Both active samplers must reference input, even in the gather branch.
+    gl.uniform1i(u.u_carried,0)
+    gl.uniform1i(u.u_patch,0);gl.activeTexture(gl.TEXTURE0)
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf())
+    gl.enableVertexAttribArray(this.pickupPosLoc);gl.vertexAttribPointer(this.pickupPosLoc,2,gl.FLOAT,false,0,0)
+    for(const {buffer,originX,originY} of targets){
+      gl.bindTexture(gl.TEXTURE_2D,buffer.texture)
+      gl.uniform4f(u.u_gatherTile,originX,originY,buffer.width,buffer.height)
+      gl.drawArrays(gl.TRIANGLES,0,6)
+    }
+    patch.endDraw()
+  }
+
   /** `userId`'s own imprint slot, created empty (never primed) on first use.
    *  Never removed once created — the entry itself is two fields and a
    *  possibly-null buffer handle, and the buffer goes back to the shared
    *  pool at every gesture boundary (see resumeGesture), so a room
    *  full of people who each smudged once holds nothing but map entries. */
-  private imprintFor(target: ILayerBuffer, userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
+  private nativeImprintFor(userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
+    let imprint = this.imprints.get(userId)
+    if (!imprint) { imprint = { buf: null, strokeId: null }; this.imprints.set(userId, imprint) }
+    return imprint
+  }
+
+  private imprintFor(target: SmudgeLayer, userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
     const { imprints } = this.stateFor(target)
     let entry = imprints.get(userId)
     if (!entry) {
@@ -480,7 +1282,7 @@ export class SmudgePainter {
    *  buffer happened to hold before. */
   private runPickup(
     patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
-    paintColor: [number, number, number] | null = null, paintLoad = 0,
+    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, retention = 1, smearAlpha = false,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
@@ -494,14 +1296,18 @@ export class SmudgePainter {
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)
     gl.uniform1i(u.u_carried, 1)
+    gl.uniform1f(u.u_gatherEnabled,0)
     gl.uniform1f(u.u_rate, rate)
+    gl.uniform1f(u.u_wetBlur, blur)
+    gl.uniform1f(u.u_wetRetention,retention)
+    gl.uniform2f(u.u_wetTexel,1/target.width,1/target.height)
     // Opaque and premultiplied: the colour is its own premultiplied value at
     // alpha 1. Set on every pickup, smudge's included (load 0), because a
     // program's uniforms outlive the draw that set them.
     const [pr, pg, pb] = paintColor ?? [0, 0, 0]
     gl.uniform4f(u.u_paint, pr, pg, pb, 1)
     gl.uniform1f(u.u_paintLoad, paintLoad)
-    gl.uniform1f(u.u_alphaPickup, paintColor ? 1 : 0)
+    gl.uniform1f(u.u_alphaPickup, paintColor && !smearAlpha ? 1 : 0)
 
     // screenBuf, not quadBuf: this pass runs DISPLAY_VERT, whose "quad"
     // convention is the -1..1 fullscreen one, while quadBuf is DAB_VERT's
@@ -512,11 +1318,207 @@ export class SmudgePainter {
     // onto the canvas — the square blocks a wide smudge stroke used to
     // stamp out (see index.smudge.test.ts's own square-block test).
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    gl.enableVertexAttribArray(this.pickupPosLoc)
-    gl.vertexAttribPointer(this.pickupPosLoc, 2, gl.FLOAT, false, 0, 0)
+    const position=this.pickupPosLoc
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  private imageDimensionLimit(): number {
+    return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
+  }
+
+  prepareColorSmudgeMean(): void {
+    this.imageDimensionLimit()
+    if(!this.colorMean){
+      const gl=this.gl,program=createProgram(gl,DISPLAY_VERT,COLOR_SMUDGE_MEAN_FRAG)
+      this.colorMean={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,['u_source','u_mask','u_geometry','u_maskMapping','u_radius'])}
+    }
+  }
+
+  prepareColorSmudge(): void {
+    this.prepareColorSmudgeMean()
+    this.prepareMaterialProjection()
+    if(this.colorSmudgeTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true,true,true))
+    this.colorSmudgeTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  /** Recorded/live/replay entry, before target or gesture mutation. Registry
+   * descriptors are deep-frozen; only their unbound metadata plan is retained.
+   * Current gradient bindings and residency are checked anew for every batch. */
+  prepareRecordedTexture191(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
+    if((!usesNativeSmudgeTexture(brush)&&!usesNativeSmudgeFeatures(brush))||brush.model!=='mixer')return
+    let plan=this.recordedTexture191Plans.get(brush)
+    if(!plan){
+      if(!(brush.version===195?hasStationary195Scope(brush):brush&&usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush)))throw Error('Invalid whole recorded Texture191 scope')
+      const resources=brushPreparationResources(brush)
+      plan={resources,...(usesNativeSmudgeFeatures(brush)&&usesVariableGih(brush.tip)?{gihFrames:prepareVariableGih(brush,true)}:{})}
+      const bytes=brushPreparationBytes(resources,id=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256)
+      if(bytes+brushPreparationTransientBytes(resources)>BRUSH_PREPARATION_BYTES)throw Error('Recorded Texture191 bank exceeds texture budget')
+      if(resources.some(r=>r.nativeImage||r.lookup32))assertNativeImageAdmission(resources,this.imageDimensionLimit())
+      if(Object.isFrozen(brush))this.recordedTexture191Plans.set(brush,plan)
+    }
+    const resources=bindBrushGradient(plan.resources,execution?.brushSource?.gradient)
+    const release=this.wetTextures.leaseRequired(brushTextureLeasePlan(resources,'wet'))
+    try{
+      if(!this.texture191Transfers.has(this.texture191Family(brush)))this.prepareColorSmudgeTexture(brush)
+      for(const resource of resources)if(resource.painter==='wet'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)
+      if(resources.some(resource=>resource.painter==='wet'&&!this.hasPreparedTexture(resource)))throw Error('Recorded Texture191 bank lost residency')
+    }finally{release()}
+  }
+
+  private texture191Family(brush:BrushDescriptor):string{
+    if(usesNativeSmudgeFeatures(brush))return brush.mixer?.algorithm?'193:modern':'193:legacy'
+    const c=brush.mixer?.colorRateComposite
+    if(brush.mixer?.algorithm)return colorSmudgeCompositeCode(c)>0?'modernForeground':'modern'
+    return c==='overlay'?'overlay154':c==='darken'||c==='lighten'?'minmax172':c==='add'||c==='subtract'?'arithmetic175':c==='dodge'||c==='burn'?'dodgeBurn176':'base83'
+  }
+  private prepareTexture191(brush:BrushDescriptor):void{
+    if(!(brush.version===195?hasStationary195Scope(brush):brush&&usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):isTextureCombinations191Scope(brush))||brush.model!=='mixer'||!usesNativeSmudgeFeatures(brush)&&!brush.texture?.application)throw Error('Invalid whole Texture191 transfer scope')
+    const key=this.texture191Family(brush);if(this.texture191Transfers.has(key))return
+    this.prepareColorSmudgeMean();this.prepareMaterialProjection()
+    let source=brush&&usesNativeSmudgeFeatures(brush)?colorSmudge193Fragment(!!brush.mixer?.algorithm):wetTransferFragment(true,true,true,!!brush.mixer?.algorithm)
+    if(usesNativeSmudgeFeatures(brush)){/* Whole foreground bank is already composed. */}
+    else if(key==='modernForeground')source=colorSmudgeForegroundFragment(source)
+    else if(key==='dodgeBurn176')source=colorSmudgeDodgeBurn176Fragment(source)
+    else if(key!=='modern')source=colorSmudgeLegacyFragment(source,key==='overlay154',key==='minmax172',key==='arithmetic175')
+    if(!usesNativeSmudgeFeatures(brush))source=withColorSmudgeTextureAlpha(source)
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,source)
+    this.texture191Transfers.set(key,{program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,...(brush&&usesNativeSmudgeFeatures(brush)?COLOR_SMUDGE193_UNIFORMS:[]),'u_colorSmudgeComposite','u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap','u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])})
+  }
+
+  prepareColorSmudgeTexture(brush?:BrushDescriptor): void {
+    if(brush&&(usesNativeSmudgeTexture(brush)||usesNativeSmudgeFeatures(brush))){this.prepareTexture191(brush);return}
+    this.prepareColorSmudgeMean()
+    this.prepareMaterialProjection()
+    if(this.colorSmudgeTextureTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeTextureFragment())
+    this.colorSmudgeTextureTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  prepareColorSmudgeForeground():void {
+    this.prepareColorSmudgeMean()
+    this.prepareMaterialProjection()
+    if(this.colorSmudgeForegroundTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeForegroundFragment(wetTransferFragment(true,true,true,true)))
+    this.colorSmudgeForegroundTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_colorSmudgePhotoshop','u_projectionCanvas','u_colorSmudgeHeight','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  prepareColorSmudgeLegacy(overlay154=false,minmax172=false,arithmetic175=false):void {
+    if(Number(!!overlay154)+Number(!!minmax172)+Number(!!arithmetic175)>1)throw Error('Ambiguous legacy Color Smudge variant')
+    this.prepareLegacyColorSmudgeFamily(arithmetic175?'arithmetic175':minmax172?'minmax172':overlay154?'overlay154':'base83')
+  }
+  prepareColorSmudgeLegacyFamily(family:LegacyColorSmudgeFamily):void {
+    if(!['base83','overlay154','minmax172','arithmetic175','dodgeBurn176'].includes(family))throw Error('Invalid legacy Color Smudge family')
+    this.prepareLegacyColorSmudgeFamily(family)
+  }
+  private prepareLegacyColorSmudgeFamily(family:LegacyColorSmudgeFamily):void {
+    if(family==='dodgeBurn176'){
+      if(this.colorSmudgeLegacyDodgeBurnTransfer)return
+      const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeDodgeBurn176Fragment(wetTransferFragment(true,true,true)))
+      this.colorSmudgeLegacyDodgeBurnTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+      return
+    }
+    if(family==='arithmetic175'){
+      if(this.colorSmudgeLegacyArithmeticTransfer)return
+      const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),false,false,true))
+      this.colorSmudgeLegacyArithmeticTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+      return
+    }
+    if(family==='minmax172'){
+      if(this.colorSmudgeLegacyMinMaxTransfer)return
+      const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),false,true))
+      this.colorSmudgeLegacyMinMaxTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+      return
+    }
+    if(family==='overlay154'){
+      if(this.colorSmudgeLegacyOverlayTransfer)return
+      const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true),true))
+      this.colorSmudgeLegacyOverlayTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+      return
+    }
+    if(this.colorSmudgeLegacyTransfer)return
+    const gl=this.gl,program=createProgram(gl,DAB_VERT,colorSmudgeLegacyFragment(wetTransferFragment(true,true,true)))
+    this.colorSmudgeLegacyTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_colorSmudgeComposite','u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  private prepareMaterialProjection():void {
+    if(this.materialProjection)return
+    const gl=this.gl,program=createProgram(gl,DISPLAY_VERT,COLOR_SMUDGE_MATERIAL_FRAG)
+    this.materialProjection={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,['u_color','u_height','u_resolution'])}
+  }
+
+  private projectMaterial(tile:PaintTarget,rect:WorldRect):void {
+    const {gl}=this,buffer=tile.buffer,material=buffer.colorSmudge
+    if(!material)return
+    this.prepareMaterialProjection()
+    const binding=this.materialProjection!
+    const x=Math.max(0,Math.floor(rect.minX-tile.originX)),right=Math.min(buffer.width,Math.ceil(rect.maxX-tile.originX))
+    const y=Math.max(0,Math.floor(buffer.height-(rect.maxY-tile.originY))),top=Math.min(buffer.height,Math.ceil(buffer.height-(rect.minY-tile.originY)))
+    if(right<=x||top<=y)return
+    buffer.beginReplaceDraw()
+    try {
+      gl.viewport(x,y,right-x,top-y);gl.useProgram(binding.program)
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,material.color.texture);gl.uniform1i(binding.uniforms.u_color,0)
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,material.height.texture);gl.uniform1i(binding.uniforms.u_height,1)
+      gl.uniform2f(binding.uniforms.u_resolution,buffer.width,buffer.height)
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(binding.position);gl.vertexAttribPointer(binding.position,2,gl.FLOAT,false,0,0)
+      gl.drawArrays(gl.TRIANGLES,0,6)
+    } finally {buffer.endDraw()}
+  }
+
+  prepareRadialCurves(): void {
+    this.imageDimensionLimit()
+    if (this.curveTransfer) return
+    const gl=this.gl, program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true,true))
+    this.curveTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  prepareIntegerImages(): void {
+    this.imageDimensionLimit()
+    if (this.imageTransfer) return
+    const gl=this.gl, program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true))
+    this.imageTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
+  /** Compile once outside pointer input; initGL/forget invalidate this capability. */
+  prepareProcedural(): void {
+    const gl = this.gl
+    if (!this.proceduralTransfer) {
+      const program = createProgram(gl, DAB_VERT, wetTransferFragment(true))
+      this.proceduralTransfer = {
+        program,
+        uniforms: getUniforms(gl, program, [
+          ...TRANSFER_UNIFORMS, 'u_tipProcedural', 'u_dualProcedural',
+          'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
+          'u_wickPx', 'u_wickCap',
+        ]),
+        position: gl.getAttribLocation(program, 'a_position'),
+      }
+    }
   }
 
   /** One half of a smudge dab's transfer — `clear` is `dst *= (1-a)` under
@@ -530,16 +1532,141 @@ export class SmudgePainter {
    *  itself in the imprint. */
   private drawTransferDab(
     tile: PaintTarget, dab: Dab, radius: number, carried: AccumulationBuffer,
-    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay', strength: number,
+    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay' | 'mask' | 'height', strength: number, wet?: WetStamp, original?: AccumulationBuffer, actual?:AccumulationBuffer,
   ): void {
     const { gl } = this
     const { buffer } = tile
     const paper = this.ctx.paper
-    if (mode === 'lay') buffer.beginAdditiveDraw()
+    const brush=wet?.paint.brush,dual=brush?.behavior?.dual,texture191=usesNativeSmudgeFeatures(brush)||!!brush&&usesNativeSmudgeTexture(brush)&&!!brush.texture?.application
+    const texture191Binding=texture191?this.texture191Transfers.get(this.texture191Family(brush!)):undefined
+    if(texture191&&!texture191Binding)throw Error('Texture191 transfer was not prepared')
+    const overlay154=wet?.paint.brush?.mixer?.colorRateComposite==='overlay'
+    const minmax172=wet?.paint.brush?.mixer?.colorRateComposite==='darken'||wet?.paint.brush?.mixer?.colorRateComposite==='lighten'
+    const dodgeBurn176=wet?.paint.brush?.mixer?.colorRateComposite==='dodge'||wet?.paint.brush?.mixer?.colorRateComposite==='burn'
+    if(dodgeBurn176&&!texture191){if(!hasLegacyColorSmudgeDodgeBurn176Scope(wet?.paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');if(!this.colorSmudgeLegacyDodgeBurnTransfer)throw Error('Legacy foreground DodgeBurn176 was not prepared')}
+    const arithmetic175=wet?.paint.brush?.mixer?.colorRateComposite==='add'||wet?.paint.brush?.mixer?.colorRateComposite==='subtract'
+    if(arithmetic175&&!texture191){if(!hasLegacyColorSmudgeArithmetic175Scope(wet?.paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');if(!this.colorSmudgeLegacyArithmeticTransfer)throw Error('Legacy foreground Arithmetic175 was not prepared')}
+    if(minmax172&&!texture191){if(!hasLegacyColorSmudgeMinMax172Scope(wet?.paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');if(!this.colorSmudgeLegacyMinMaxTransfer)throw Error('Legacy foreground MinMax172 was not prepared')}
+    if(overlay154&&!texture191){if(!hasLegacyColorSmudgeOverlay154Scope(wet?.paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');if(!this.colorSmudgeLegacyOverlayTransfer)throw Error('Legacy foreground Overlay154 was not prepared')}
+    // A cold secondary tile clears its own framebuffer. Resolve it before
+    // beginning the destination pass so allocation cannot redirect this dab.
+    const secondaryTexture = wet?.secondary?.tile(wet.coverageBuffer ?? buffer).texture ?? paper.texture
+    if(brush&&!texture191&&usesColorSmudgeTexture(brush)&&!this.colorSmudgeTextureTransfer)throw Error('Modern texture103 was not prepared')
+    const composite=brush&&usesNativeSmudgeFeatures(brush)?colorSmudge193CompositeCode(brush.mixer?.colorRateComposite):colorSmudgeCompositeCode(brush?.mixer?.colorRateComposite)
+    const legacyComposite=composite===4||composite===5||(composite===6||composite===7||composite===8||composite===9||composite===10||composite===11||composite===12||composite===13)&&!brush?.mixer?.algorithm
+    if(!texture191&&composite===6&&(!brush||brush.version<88||brush.model!=='mixer'||brush.behavior?.erase!==true||!brushSamplesCanvas(brush)))throw Error('Foreground erase requires Color Smudge88')
+    if(!usesNativeSmudgeFeatures(brush)&&legacyComposite && (!brush||brush.mixer?.algorithm || !brushSamplesCanvas(brush) || brush.mixer.source==='projectionCanvas' && brush.version<85))throw new Error('Legacy Color Smudge requires its own canvas strategy')
+    const tip=wet?.stamp.mask ?? brushTipSamplerId(brush?.tip)
+    const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? brushTipSamplerId(dual?.brush.tip)
+    const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
+    const mainImage = !wet?.gih && tip && brush?.tip.imageSampling ? nativeImageResource(tip,brush.tip,2*radius*(wet?.stamp.aspect ?? 1)) : undefined
+    const imageRatio = dual && brush ? Math.max(.01,curveAt(dual.brush.sizeByPressure,dab.pressure)/Math.max(.01,curveAt(brush.sizeByPressure,dab.pressure))*(dual.brush.scatter?.scale ?? 1)) : 1
+    const imageChildRx = Math.fround(Math.fround(Math.fround(radius)*Math.fround(wet?.stamp.aspect ?? 1))*imageRatio/(1+(wet?.stamp.edgeSoftness ?? 0)*.15))
+    const childImage = dualTip && dual?.brush.tip.imageSampling ? nativeImageResource(dualTip,dual.brush.tip,2*imageChildRx) : undefined
+    const lookup32=brush&&usesNativeSmudgeFeatures(brush)?!!brush.tip.profile&&['radialCurve','radialCurveSoftness','curveRectangle','curveRectangleSoftness'].includes(brush.tip.profile.kind):brush?.tip.profile?.kind==='radialCurve'
+    const grainId=textureEraseId(brush?.texture,!!brush?.behavior?.erase)
+    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,colorPlanes:wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] : undefined),nativeImage:mainImage,lookup32:lookup32?true:undefined,gradientMap:wet?.gradientLut?true:undefined,gradientLut:wet?.gradientLut})] : []),...(brush?.texture ? [brushTextureResourceKey({id:grainId!,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage,lookup32:dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
+    const colorPlanes=wet?.stamp.colorPlanes ?? (brush?.mixer?.paintThickness && wet?.stamp.gray ? [wet.stamp.gray,wet.stamp.gray,wet.stamp.gray] as const : undefined)
+    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage,lookup32?true:undefined,colorPlanes,wet?.gradientLut) : paper.texture
+    const grainTexture=brush?.texture ? this.wetTexture(grainId!,true,!!brush.texture.application) : paper.texture
+    const dualTexture=dualTip ? this.wetTexture(dualTip,false,false,childImage,dual?.brush.tip.profile?.kind==='radialCurve'?true:undefined) : paper.texture
+    const dualGrainTexture=dualGrain ? this.wetTexture(dualGrain.id,true,true) : paper.texture
+    if(mode==='height')buffer.beginAdditiveDraw()
+    else if (wet) buffer.beginReplaceDraw()
+    else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
-    gl.useProgram(this.transferProg)
-    const u = this.transferUni
+    const primaryProfile = brush&&usesNativeSmudgeFeatures(brush)?brush.tip.profile:(brush?.tip.profile?.kind === 'standard' || brush?.tip.profile?.kind === 'radialCurve') ? brush.tip.profile : undefined
+    const childProfile = !wet?.secondary && (dual?.brush.tip.profile?.kind === 'standard' || dual?.brush.tip.profile?.kind === 'radialCurve')
+      ? dual.brush.tip.profile : undefined
+    let binding = this.proceduralTransfer
+    if(texture191Binding)binding=texture191Binding
+    else if(legacyComposite){
+      if(dodgeBurn176)binding=this.colorSmudgeLegacyDodgeBurnTransfer
+      else if(arithmetic175)binding=this.colorSmudgeLegacyArithmeticTransfer
+      else if(minmax172)binding=this.colorSmudgeLegacyMinMaxTransfer
+      else if(overlay154)binding=this.colorSmudgeLegacyOverlayTransfer
+      else{this.prepareColorSmudgeLegacy();binding=this.colorSmudgeLegacyTransfer}
+    } else if (brush?.mixer?.algorithm) {
+      if(composite>0){this.prepareColorSmudgeForeground();binding=this.colorSmudgeForegroundTransfer}
+      else if(brush.texture?.application&&['darken','overlay','linearDodge','linearBurn','colorDodge','colorBurn','hardMixPhotoshop','hardMixSofterPhotoshop'].includes(brush.texture.application.mode)){binding=this.colorSmudgeTextureTransfer}
+      else {this.prepareColorSmudge();binding=this.colorSmudgeTransfer}
+    } else if (primaryProfile?.kind==='radialCurve' || childProfile?.kind==='radialCurve') {
+      this.prepareRadialCurves()
+      binding=this.curveTransfer
+    } else if (mainImage || childImage) {
+      this.prepareIntegerImages()
+      binding = this.imageTransfer
+    } else if (primaryProfile || childProfile) {
+      this.prepareProcedural()
+      binding = this.proceduralTransfer
+    } else binding = undefined
+    gl.useProgram(binding?.program ?? this.transferProg)
+    const u = binding?.uniforms ?? this.transferUni
+    if (binding) {
+      // Physical axes, not reconstructed inverse float matrices: the native
+      // 10px stencil transition must not become 9.999999 after inversion.
+      const ry = Math.fround(wet?.sourceRadius===undefined?radius:wet.sourceRadius*(wet.maskScale??1))
+      const rx = Math.fround(ry * Math.fround(wet?.sourceAspect ?? wet?.stamp.aspect ?? 1))
+      const ratio = dual && brush ? Math.max(.01,
+        curveAt(dual.brush.sizeByPressure, dab.pressure)
+        / Math.max(.01, curveAt(brush.sizeByPressure, dab.pressure))
+        * (dual.brush.scatter?.scale ?? 1)) : 1
+      const childRx = Math.fround(rx * ratio / (1 + (wet?.stamp.edgeSoftness ?? 0) * .15))
+      const childRy = Math.fround(childRx / (dual?.brush.tip.aspect ?? 1))
+      gl.uniform4f(u.u_tipProcedural, ...brushTipProfileUniforms(primaryProfile ? brush?.tip : undefined))
+      gl.uniform4f(u.u_dualProcedural, ...brushTipProfileUniforms(childProfile ? dual?.brush.tip : undefined))
+      gl.uniform4f(u.u_tipProceduralGeometry, rx, ry,
+        proceduralSampleCount(2 * Math.min(rx, ry), primaryProfile?.antialias ?? false), 0)
+      gl.uniform4f(u.u_dualProceduralGeometry, childRx, childRy,
+        proceduralSampleCount(2 * Math.min(childRx, childRy), childProfile?.antialias ?? false), 0)
+      gl.uniform1f(u.u_dualProceduralAngle,
+        dual?.brush.tip.rotation === 'fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0)
+      // Only the native variant expands its quad; the legacy program and
+      // compiler input retain their previous geometry and uniform traffic.
+      // The stencil offsets lie in [0,1) on both world axes. A rotated
+      // frame needs at most sqrt(2) local pixels on each axis. Retain the
+      // nominal parent clipping quad when only its child is procedural.
+      const wick = primaryProfile || mainImage ? Math.SQRT2 / Math.min(1, wet?.stamp.aspect ?? 1) : 0
+      gl.uniform1f(u.u_wickPx, wick)
+      gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
+    }
+    if ((texture191Binding || binding === this.imageTransfer || binding === this.curveTransfer || binding === this.colorSmudgeTransfer || binding === this.colorSmudgeTextureTransfer || binding === this.colorSmudgeForegroundTransfer || (binding === this.colorSmudgeLegacyTransfer || binding === this.colorSmudgeLegacyOverlayTransfer || binding === this.colorSmudgeLegacyMinMaxTransfer || binding === this.colorSmudgeLegacyArithmeticTransfer || binding === this.colorSmudgeLegacyDodgeBurnTransfer)) && binding) {
+      gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
+      gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
+      const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
+      gl.uniform2f(u.u_tipImageUVShift, tipShift[0], tipShift[1])
+      const dualShift = childImage && dual ? nativeImageUVShift(childImage, imageChildRx, imageChildRx/dual.brush.tip.aspect, dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0) : [0,0] as const
+      gl.uniform2f(u.u_dualImageUVShift, dualShift[0], dualShift[1])
+      if(mainImage && brush) gl.uniform4f(u.u_tipImageDomain,...nativeImageDomainUniform(nativeImageDomain(brush.tip,dab.x,dab.y,radius*(wet?.stamp.aspect ?? 1),radius,wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
+      if(childImage && dual) gl.uniform4f(u.u_dualImageDomain,...nativeImageDomainUniform(nativeImageDomain(dual.brush.tip,dab.x,dab.y,imageChildRx,imageChildRx/dual.brush.tip.aspect,dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
+    }
+    if(brush&&usesNativeSmudgeFeatures(brush)&&wet){
+      const profile=brush.tip.profile,ry=(wet.sourceRadius??radius)*(wet.maskScale??1),rx=ry*(wet.sourceAspect??wet.stamp.aspect)
+      gl.uniform1f(u.u_generatorAngle193,wet.sourceAngle??wet.stamp.angle)
+      gl.uniform2f(u.u_generatorCenter193,dab.x-tile.originX,dab.y-tile.originY)
+      gl.uniform4f(u.u_tipSoftnessBasis,...brushTipSoftnessBasisUniforms(brush.tip))
+      gl.uniform1f(u.u_autoSpikes193,brush.tip.autoShape?.spikes??2)
+      gl.uniform4f(u.u_rectangleCoefficients,0,0,0,0);gl.uniform4f(u.u_rectangleGeometry,0,0,0,0)
+      if(profile?.kind==='gaussian2D'&&profile.shape==='rectangle'){
+        const g=gaussianRectangleUniforms(prepareGaussianRectangle(Math.fround(rx),Math.fround(ry),profile.horizontalFade,profile.verticalFade,profile.antialias))
+        gl.uniform4f(u.u_rectangleCoefficients,...g.coefficients);gl.uniform4f(u.u_rectangleGeometry,...g.geometry)
+      }
+      const frame=wet.gih?.frame??[0,0,0,1]
+      gl.uniform4f(u.u_gihFrame,frame[0],frame[1],frame[2],frame[3])
+      if(wet.gih){gl.uniform4f(u.u_gihSampleX,...wet.gih.sampleX);gl.uniform4f(u.u_gihSampleY,...wet.gih.sampleY)}
+      gl.uniform4f(u.u_autoNoiseConfig,65535,0,0,0);gl.uniform4f(u.u_autoNoiseKey,0,0,0,0)
+      gl.uniform4f(u.u_autoNoiseGridX,0,0,0,0);gl.uniform4f(u.u_autoNoiseGridY,0,0,0,0)
+      if(brush.tip.autoNoise&&(brush.tip.autoNoise.density!==1||brush.tip.autoNoise.randomness!==0)){
+        if(wet.stamp.autoNoiseKey===undefined)throw Error('Smudge193 Auto-mask noise requires captured identity')
+        const config=autoMaskNoiseUniforms(prepareAutoMaskNoise(brush.tip.autoNoise.density,brush.tip.autoNoise.randomness))
+        const center=wet.sourceCenter??dab,grid=prepareAutoMaskNoiseGrid(center.x,center.y,rx,ry,!!brush.tip.autoShape,wet.stamp.flipX as 1|-1,wet.stamp.flipY as 1|-1)
+        const mapping=autoMaskNoiseGridUniforms(grid,tile.originX,tile.originY,buffer.height)
+        gl.uniform4f(u.u_autoNoiseConfig,config[0],config[1],mapping.stepX,mapping.stepY)
+        gl.uniform4f(u.u_autoNoiseKey,...autoMaskNoiseCoordinateBytes(wet.stamp.autoNoiseKey))
+        gl.uniform4f(u.u_autoNoiseGridX,...mapping.x);gl.uniform4f(u.u_autoNoiseGridY,...mapping.y)
+      }
+    }
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     // Same world-space paper sampling every other dab shader uses — see
     // DAB_FRAG's own #141 comment for the origin-sign/world-size reasoning.
@@ -548,14 +1675,100 @@ export class SmudgePainter {
     gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
     gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, paper.texture)
+    gl.bindTexture(gl.TEXTURE_2D, actual?.texture ?? paper.texture)
     gl.uniform1i(u.u_paperHeightMap, 0)
+    // Feedback returns before the paper pass: reuse sampler0 for actual layer.
+    if(brush?.mixer?.algorithm)gl.uniform1f(u.u_projectionCanvas,actual?1:0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)
     gl.uniform1i(u.u_carried, 1)
     gl.uniform2f(u.u_patchOrigin, patchX, patchGlY)
     gl.uniform1f(u.u_patchSize, patchSize)
-    gl.uniform1f(u.u_hardness, SMUDGE_HARDNESS)
+    gl.uniform1f(u.u_edgeBleed,wet?.stamp.edgeSoftness ?? 0)
+    gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
+    // Foreground source-over precedes masked transfer. Dab opacity belongs
+    // to both native stages; pickup belongs only to final transfer.
+    let foregroundOpacity=brushSamplesCanvas(brush) && wet?.foregroundRate !== undefined
+      ? clampNum(wet.foregroundRate*(wet.paint.strength)*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
+    const modern=!!brush?.mixer?.algorithm
+    const opacity=wet ? clampNum(wet.paint.strength*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
+    const rates=colorSmudgeRates(opacity,wet?.step?.pickup ?? 0,wet?.foregroundRate ?? 0,!!brush?.mixer?.sampling)
+    if(modern)foregroundOpacity=rates.color
+    if(binding && (texture191Binding&&modern || binding===this.colorSmudgeTransfer || binding===this.colorSmudgeTextureTransfer || binding===this.colorSmudgeForegroundTransfer))gl.uniform1f(u.u_colorSmudgePhotoshop,modern&&brush?.mixer?.colorRateComposite==='hardMixPhotoshop'?1:0)
+    if(binding && (texture191Binding&&(usesNativeSmudgeFeatures(brush)||composite>0) || binding===this.colorSmudgeForegroundTransfer || (binding===this.colorSmudgeLegacyTransfer||binding===this.colorSmudgeLegacyOverlayTransfer||binding===this.colorSmudgeLegacyMinMaxTransfer||binding===this.colorSmudgeLegacyArithmeticTransfer||binding===this.colorSmudgeLegacyDodgeBurnTransfer)))gl.uniform1f(u.u_colorSmudgeComposite,composite)
+    foregroundOpacity*=wet?.foregroundAlpha ?? 1
+    gl.uniform1f(u.u_colorSmudgeTip,brush?.tip.color?1:0)
+    const thickness=wet?.thickness ?? 1
+    const heightAdjustment=!modern?1:brush?.mixer?.paintThickness?.mode==='overwrite' ? 1 : (wet?.step.pickup ?? 1)-.01+(1-((wet?.step.pickup ?? 1)-.01))*thickness
+    if(modern)gl.uniform2f(u.u_colorSmudgeHeight,thickness,clampNum(opacity*heightAdjustment,0,1))
+    gl.uniform4f(u.u_colorSmudge,modern?1:0,rates.smear,modern && brush?.mixer?.sampling && !brush.mixer.smearAlpha ? 1:0,mode==='height'?2:mode==='mask'?1:0)
+    const foregroundColor=wet?.stamp.color ?? [0,0,0]
+    gl.uniform4f(u.u_previousCanvasForeground,foregroundColor[0],foregroundColor[1],foregroundColor[2],foregroundOpacity)
+    gl.uniform1f(u.u_previousCanvas,brushSamplesCanvas(brush) ? brush?.mixer?.smearAlpha ? 1 : 2 : 0)
+    gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
+    gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
+    const threshold=brush?.tip.alphaThreshold, dualThreshold=brush?.behavior?.dual?.brush.tip.alphaThreshold
+    gl.uniform3f(u.u_alphaThreshold,brushAlphaThresholdValue(threshold,wet?.stamp.sharpnessScale),threshold?.softness ?? 0,threshold ? 1 : 0)
+    gl.uniform3f(u.u_dualAlphaThreshold,brushAlphaThresholdValue(dualThreshold,wet?.stamp.dualSharpnessScale),dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
+    const tipBounds=wet?.maskBounds ?? mainImage?.bounds ?? brush?.tip.maskBounds
+    gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
+    const dualBounds=childImage?.bounds ?? dual?.brush.tip.maskBounds
+    gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
+    for (const [unit,texture,name] of [
+      [2,tipTexture,'u_tip'],
+      [3,grainTexture,'u_wetGrain'],
+      [4,dualTexture,'u_dual'],
+      [5,original?.texture ?? carried.texture,'u_wetOriginal'],
+      [7,dualGrainTexture,'u_dualGrain'],
+    ] as const) {
+      gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(u[name],unit)
+    }
+    // Uploads bind on the current active unit; restore the carried sampler
+    // after resolving all lazily-created masks and grain.
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D,carried.texture)
+    const blend=(name:typeof BRUSH_BLEND_MODES[number] | undefined):number=>Math.max(0,BRUSH_BLEND_MODES.indexOf(name ?? 'normal'))
+    const dualAngle=(dual?.brush.tip.angle ?? 0)-(brush?.tip.angle ?? 0)
+    gl.uniform1f(u.u_dualKind,dual && !wet?.secondary ? dual.brush.tip.kind === 'bitmap' ? 2 : 1 : 0)
+    // New168 is final accumulated-mask only; this legacy per-dab selector is inactive.
+    gl.uniform1f(u.u_dualBlend,dual?.blendMode==='hardMixPhotoshopAlpha'||dual?.blendMode==='hardMixSofterPhotoshop'?0:blend(dual?.blendMode))
+    gl.uniform4f(u.u_dualTransform,1+(wet?.stamp.edgeSoftness ?? 0)*.15,(1+(wet?.stamp.edgeSoftness ?? 0)*.15)*(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
+    gl.activeTexture(gl.TEXTURE6)
+    gl.bindTexture(gl.TEXTURE_2D,secondaryTexture)
+    gl.uniform1i(u.u_secondaryCoverage,6)
+    gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
+    const primaryApplication=brushTextureApplication(brush?.texture,wet?.seed ?? 0,tile.originX,tile.originY)
+    const secondaryApplication=brushTextureApplication(dualGrain,wet?.seed ?? 0,tile.originX,tile.originY,1)
+    const maskScale=wet?.maskScale ?? 1
+    if(maskScale!==1)for(const {mapping} of [primaryApplication,secondaryApplication]){
+      mapping[0]*=maskScale;mapping[2]*=maskScale;mapping[3]*=maskScale
+    }
+    gl.uniform4f(u.u_textureApplication,...primaryApplication.application);gl.uniform4f(u.u_textureMapping,...primaryApplication.mapping)
+    gl.uniform4f(u.u_dualTextureApplication,...secondaryApplication.application);gl.uniform4f(u.u_dualTextureMapping,...secondaryApplication.mapping)
+    gl.uniform1f(u.u_dualGrainStrength,dualGrain?.strength ?? 0)
+    const rendering=brush?.behavior?.rendering
+    const modes=['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
+    gl.uniform4f(u.u_wetRender,0,rendering?.burntEdges ?? 0,rendering ? modes.indexOf(rendering.mode) : 6,rendering?.luminance ? 1 : 0)
+    gl.uniform1f(u.u_wetBlend,blend(rendering?.blendMode))
+    gl.uniform1f(u.u_burntBlend,blend(rendering?.burntEdgesMode))
+    gl.uniform1f(u.u_wetGamma,rendering?.gammaCorrect ? 1 : 0)
+    const g=brush?.behavior?.grain
+    const period=Math.max(0.5,(brush?.texture?.periodPx ?? 1)*(g ? 0.1+g.zoom*1.9 : 1))
+    const depth=(brush?.texture?.strength ?? 0)*(wet?.stamp.grainDepth ?? 1)
+    gl.uniform1f(u.u_grainPeriod,period*maskScale)
+    const random=(i:number):number=>brushDabRandom(wet?.seed ?? 0,i)
+    gl.uniform1f(u.u_grainStrength,clampNum(Math.max(g?.depthMinimum ?? 0,depth)*(1-(g?.depthJitter ?? 0)*random(43)),0,1))
+    gl.uniform1f(u.u_grainBlend,g ? Math.max(0,BRUSH_BLEND_MODES.indexOf(g.blendMode)) : 1)
+    const movement=g?.mode === 'moving' ? 1-g.movement : 0
+    const angle=(g?.rotation ?? 0)*Math.PI
+    const jitter=g?.offsetJitter ? random(42)*period : 0
+    const grainDab=wet?.maskSourceDab ?? dab
+    gl.uniform4f(u.u_grainTransform,(-grainDab.x*movement+jitter)*maskScale+tile.originX*(maskScale-1),(-grainDab.y*movement+jitter)*maskScale+tile.originY*(maskScale-1),Math.cos(angle),Math.sin(angle))
+    gl.uniform2f(u.u_grainTone,g?.brightness ?? 0,clampNum((g?.contrast ?? 0)+(wet?.stamp.wetGrade ?? 0),-1,1))
+    gl.uniform2f(u.u_wetWorldOrigin,tile.originX,tile.originY+buffer.height)
+    const phase=brushDabSeed(dab.x,dab.y,dab.pressure)
+    gl.uniform2f(u.u_wetRoundPhase,phase&7,(phase>>>3)&7)
+    gl.uniform2f(u.u_flip,wet?.stamp.flipX ?? 1,wet?.stamp.flipY ?? 1)
     gl.uniform1f(u.u_mode, mode === 'lay' ? 1.0 : 0.0)
     gl.uniform1f(u.u_strength, strength)
     gl.uniform1f(u.u_pressure, dab.pressure)
@@ -566,24 +1779,84 @@ export class SmudgePainter {
     gl.uniform1f(u.u_grainRelief, smudgeGrainRelief(dab.pressure))
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-    gl.enableVertexAttribArray(this.transferPosLoc)
-    gl.vertexAttribPointer(this.transferPosLoc, 2, gl.FLOAT, false, 0, 0)
+    const position=binding?.position ?? this.transferPosLoc
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
 
     gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
     gl.uniform1f(u.u_dabRadius, radius)
-    gl.uniform1f(u.u_angle, 0)
-    gl.uniform1f(u.u_aspectRatio, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.uniform1f(u.u_angle, wet?.stamp.angle ?? 0)
+    gl.uniform1f(u.u_aspectRatio, wet?.stamp.aspect ?? 1)
+    if(brush&&usesNativeSmudgeFeatures(brush)&&wet){
+      if(wet.gih){gl.uniform1f(u.u_wickPx,0);gl.uniform1f(u.u_angle,0)}
+      else if(brush.tip.autoShape){gl.uniform1f(u.u_wickPx,0);gl.uniform1f(u.u_angle,0)}
+    }
+    if(wet?.smearPlacement) {
+      const rect=wet.smearPlacement.rect
+      const left=Math.max(0,rect.minX-tile.originX),right=Math.min(buffer.width,rect.maxX-tile.originX)
+      const bottom=Math.max(0,buffer.height-(rect.maxY-tile.originY)),top=Math.min(buffer.height,buffer.height-(rect.minY-tile.originY))
+      const enabled=gl.isEnabled(gl.SCISSOR_TEST)
+      const saved=enabled ? gl.getParameter(gl.SCISSOR_BOX) as Int32Array : undefined
+      const x=saved ? Math.max(left,saved[0]) : left,y=saved ? Math.max(bottom,saved[1]) : bottom
+      const x2=saved ? Math.min(right,saved[0]+saved[2]) : right,y2=saved ? Math.min(top,saved[1]+saved[3]) : top
+      gl.enable(gl.SCISSOR_TEST);gl.scissor(x,y,Math.max(0,x2-x),Math.max(0,y2-y))
+      try { gl.drawArrays(gl.TRIANGLES,0,6) }
+      finally { if(saved)gl.scissor(saved[0],saved[1],saved[2],saved[3]);if(!enabled)gl.disable(gl.SCISSOR_TEST) }
+    }else gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     buffer.endDraw()
+  }
+
+  hasPreparedTexture(resource: BrushPreparationResource): boolean {
+    return this.wetTextures.get(brushTextureResourceKey(resource)) !== undefined
+  }
+
+  prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
+    if(group.some(entry=>entry.nativeImage || entry.lookup32)) assertNativeImageAdmission(group,this.imageDimensionLimit())
+    this.wetTextures.protect(group.map(brushTextureResourceKey))
+    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage,resource.lookup32,resource.colorPlanes,resource.gradientLut)
+  }
+
+  /** Byte-bounded residency; active samplers remain protected across draws. */
+  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true, colorPlanes?:readonly [string,string,string],gradientLut?:string): WebGLTexture {
+    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32,colorPlanes,gradientMap:gradientLut?true:undefined,gradientLut}), cached = this.wetTextures.get(key)
+    if(cached)return cached
+    if(colorPlanes){
+      const alpha=importedAssetPixels(id),side=Math.sqrt(alpha.length)
+      const pixels=gradientLut ? colorSmudgeGradientTipPixels(alpha,importedAssetPixels(colorPlanes[0]),gradientLut) : colorSmudgeTipPixels(alpha,colorPlanes.map(importedAssetPixels))
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,false,{width:side,height:side})
+      this.wetTextures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
+    if (lookup32) {
+      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
+      this.wetTextures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
+    if(nativeImage) {
+      const pixels=this.imageMips.get(key,()=>[nativeImagePixels(nativeImage,importedAssetPixels(id))])[0]
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,false,nativeImage)
+      this.wetTextures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
+    const levels=grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
+    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,discrete)
+    this.wetTextures.put(key,entry.texture,entry.bytes)
+    return entry.texture
   }
 
   /** Smudge's own size-keyed free list (patches *and* imprints — both are
    *  square, patch-sized and LINEAR-filtered, and a stroke cycles two or
    *  three of them per dab). Kept separate from AreaOps' scratchPool — see
    *  the field's own comment. */
-  private acquireScratch(size: number): AccumulationBuffer {
-    return this.scratchPool.acquire(size, size)
+  leaseSprayScratch(width:number,height:number){
+    const epoch=this.sprayLeaseEpoch
+    if(!epoch.live||![width,height].every(n=>Number.isSafeInteger(n)&&n>0&&n<=this.imageDimensionLimit()))throw Error('Spray scratch lease is invalid')
+    const buffer=this.scratchPool.acquire(width,height);let live=true
+    return{buffer,assertCurrent:()=>{if(!live||epoch!==this.sprayLeaseEpoch||!epoch.live)throw Error('Spray scratch lease was retired')},release:()=>{if(!live)return;live=false;if(epoch.lost)return;if(epoch!==this.sprayLeaseEpoch||!epoch.live)buffer.destroy();else this.scratchPool.release(buffer)}}
+  }
+  private acquireScratch(size: number,height=size): AccumulationBuffer {
+    return this.scratchPool.acquire(size, height)
   }
 
   private releaseScratch(buf: AccumulationBuffer): void {

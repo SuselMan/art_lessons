@@ -1,0 +1,197 @@
+{
+  "commit": "2768251dacce3939136c839aeca413f4aa4241d0",
+  "files": [
+    {
+      "path": "COPYING",
+      "sha256": "1246cef097bd4b57ad0fb1127cf131af7aeb06e0c00a6aff5dd5b7603303b149"
+    },
+    {
+      "path": "mypaint-brush.c",
+      "sha256": "d08c7501c13099ec3953f3a55c4621d36750418c5a1dbe6341e273e7d4b13a30"
+    },
+    {
+      "path": "mypaint-brush.h",
+      "sha256": "f581369d67eb418d89d708b5a3e291d51d209d602d970e29db7a6f957a540186"
+    },
+    {
+      "path": "mypaint-brush-settings.c",
+      "sha256": "8d70fbbcc83c984e8264f915ed3d04059462d1d189a08c57379eafe3f19a592b"
+    },
+    {
+      "path": "mypaint-brush-settings.h",
+      "sha256": "1354e82d3fec78aa5707cacf425a1cd689278ddf54f2ba184fc14cbb4ba73759"
+    },
+    {
+      "path": "mypaint-mapping.c",
+      "sha256": "b6aece925f90446ae46702aec472025980c61bb404ba5b8d6d8d2bde19d960dc"
+    },
+    {
+      "path": "mypaint-mapping.h",
+      "sha256": "316b646e33199c3452836a14a64136610642ced8795cb83ae4c139a63916e32d"
+    },
+    {
+      "path": "mypaint-surface.c",
+      "sha256": "0bcb8ce0697d4c64c2915d0e9ed43bffae54b914e9b743b4adeef53ea7095e7e"
+    },
+    {
+      "path": "mypaint-surface.h",
+      "sha256": "284b6e2edfff170b513a509547d8ee1eee03b7e02ead6e4c55b5947f1414c5ca"
+    },
+    {
+      "path": "mypaint-rectangle.c",
+      "sha256": "d65a6df90c26ca25dbea6bfc3cdf5985d01c78752d0b4949e44e121b2adb17e7"
+    },
+    {
+      "path": "mypaint-rectangle.h",
+      "sha256": "a9320558d58910c43d00ddacb2349c595d448ceb9f46931440ca8d7dce88d2c2"
+    },
+    {
+      "path": "rng-double.c",
+      "sha256": "53fcb804efb6a48eaaa2be0ad8cbb25ae731853a47305344b2842dc196cb286d"
+    },
+    {
+      "path": "rng-double.h",
+      "sha256": "7a2d27cee6708b2c73f8bdad2dde7ef3d0891b02e9466e5bb69e0e14ce82573b"
+    },
+    {
+      "path": "helpers.c",
+      "sha256": "a9db1f94c930538214b13f92230ead75f24dbd7052c47bd2b213c082c04192e7"
+    },
+    {
+      "path": "helpers.h",
+      "sha256": "938e59c5dc8165ae5d1fa91b9a82428dd6c586cc9e929b74798378259427bc45"
+    },
+    {
+      "path": "mypaint-glib-compat.h",
+      "sha256": "2faf466eb739bdd0c9c41105651c581cd63813338b7198486fe160f38d9126ce"
+    },
+    {
+      "path": "brushsettings.json",
+      "sha256": "62e423c4424aa6a33fbda172bc493cf5188314782ae0c304d7cc70b06cf49da4"
+    },
+    {
+      "path": "generate.py",
+      "sha256": "9f6e5b99cad5d5bd27a614c44c7f0035f748cc2076c0d7ea732de1aa6b6d6100"
+    },
+    {
+      "path": "mypaint-config.h",
+      "sha256": "39ab25cf6c025bc659ac796ec74451fa1767b590d1ea444819da5a149fc5ffc1"
+    },
+    {
+      "path": "fastapprox/cast.h",
+      "sha256": "f6399c2b62dfa22a71e234ef7496f9c9ffa9f35c8c41849bbbbe52d1733a3585"
+    },
+    {
+      "path": "fastapprox/fasterf.h",
+      "sha256": "38f94dea84541bbbbaab22565123937ce7675d7717960057c71670fadd764cac"
+    },
+    {
+      "path": "fastapprox/fastexp.h",
+      "sha256": "2291d6318f048151654cd633c1dd00c461570274c802f6e9552760d759226d44"
+    },
+    {
+      "path": "fastapprox/fastgamma.h",
+      "sha256": "2eae51c2af0f08aa138509a2e0f2c6cd850cfe1496222edfb3e7d97736de9ed8"
+    },
+    {
+      "path": "fastapprox/fasthyperbolic.h",
+      "sha256": "40963b679847ebbb420f73f6613be5d53b8fcef6584b8a73e52730f2646c4d6e"
+    },
+    {
+      "path": "fastapprox/fastlambertw.h",
+      "sha256": "c098cf25f3cb284497fafcfa6cb0a640c033b123bcc8e303ea1a7b495d2841cc"
+    },
+    {
+      "path": "fastapprox/fastlog.h",
+      "sha256": "5141ab78a8359b21cdbf6a5f7ee2e4b7c8edcaec4523214ebed3f8d7bb3cfc39"
+    },
+    {
+      "path": "fastapprox/fastonebigheader.h",
+      "sha256": "5ee229cbe43183170b50e32df7617208f424fe48131427148bcc5fde8bc5ecbf"
+    },
+    {
+      "path": "fastapprox/fastpow.h",
+      "sha256": "fcd0e1d8b1bb39c8e0fcd6db0e5cf524fbca0ddee305794bedd6ff5f308c3d24"
+    },
+    {
+      "path": "fastapprox/fastsigmoid.h",
+      "sha256": "b8220f2e00b9e165a650f87b7d43d52b030db91a01914c04c8ce6fd0a3331de7"
+    },
+    {
+      "path": "fastapprox/fasttrig.h",
+      "sha256": "081d4bfe5d45b96ca3c02a331f5516baf9c37a60049a4d2a859f869d1ab585ef"
+    },
+    {
+      "path": "fastapprox/sse.h",
+      "sha256": "7396daa1a9abef8b652541cc192375c4a252c82ae2659d5b4f15c20921ed3f56"
+    },
+    {
+      "path": "brushmodes.h",
+      "sha256": "401d2a25a079558063c5a042093ccfe6b3b16aafe3a050b9370037df0252faef"
+    },
+    {
+      "path": "fifo.h",
+      "sha256": "4759a76c898a2b61ef21b5030eaaae256bfc31f1ad348851a80c76548a308520"
+    },
+    {
+      "path": "mypaint-fixed-tiled-surface.h",
+      "sha256": "206212d258737aca024b65ac0c48bddb665175c37bec6dfa0b9eecdf1d5b023f"
+    },
+    {
+      "path": "mypaint-matrix.h",
+      "sha256": "f92af380572cd7abc1bdad21756e538af1460c80f9051237dedbf73bd5b519c0"
+    },
+    {
+      "path": "mypaint-symmetry.h",
+      "sha256": "9a3964d2180cd8d6d9b54c919203877200c449c78386fac52c876aee363527f8"
+    },
+    {
+      "path": "mypaint-tiled-surface.h",
+      "sha256": "79980343c3459134668bf050a0ca74efe74f73acee7f2a68fdf0fafd932c0a2e"
+    },
+    {
+      "path": "mypaint.h",
+      "sha256": "cbbaee4c6e6882aabdc1d955a4dc7e682a08c69c9ed8cc5ea2709d1dfb39b8b2"
+    },
+    {
+      "path": "operationqueue.h",
+      "sha256": "6644a5470df3877ef1c2303d8c659080dd229b7717006ea821b88e6184993a8f"
+    },
+    {
+      "path": "tiled-surface-private.h",
+      "sha256": "ca6e7ca6143e08ea5c8515fdaa824a0895ec6b81a68d635b5f964436fed0196f"
+    },
+    {
+      "path": "tilemap.h",
+      "sha256": "56d039a785d2f76011abfac5cf6e06fe20bc8ce91264d339f7e5681a85d32406"
+    },
+    {
+      "path": "mypaint-tiled-surface.c",
+      "sha256": "c2db8ac4c6efde478a56eb42d35cad59604218d23452a7a44f0ea6efc7fc9d7c"
+    },
+    {
+      "path": "operationqueue.c",
+      "sha256": "b07adc521ea43aa9d348b0ddb7030348cd8d0f2ca05358899d6abac559865a7f"
+    },
+    {
+      "path": "tilemap.c",
+      "sha256": "ea4707f113648b8a7cf8c5228003ce6dc8f9de9e076282000951fe6f5dd1dde7"
+    },
+    {
+      "path": "fifo.c",
+      "sha256": "b1be922c7fedbb56ffadb6d56452ab194e7a312d72964d9cde6f9c84f7aa6aab"
+    },
+    {
+      "path": "brushmodes.c",
+      "sha256": "9f675cbdd49e04cabb601129aae31a6d7ac3c6a6355ca097fdd1af91ed810a6d"
+    },
+    {
+      "path": "mypaint-matrix.c",
+      "sha256": "d17c64bd9b21d837f3e1038add51870f180c8dcf8099c26c27092a45edb33832"
+    },
+    {
+      "path": "mypaint-symmetry.c",
+      "sha256": "f65ecd5e404c75da200a6c03b02dc7ab4d1e9f249b792b4e2afa264c86b83922"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { createBrushRandomStrokeId } from '@grafetto/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { unpackDabs, type LayerAddOperation, type StrokeOperation } from '@grafetto/shared'
@@ -142,4 +143,23 @@ it('sends the optional cancellation marker only for a cancelled live tail', () =
   on.onLiveStrokeEnd('tail', true)
   on.onLiveStrokeEnd('normal')
   expect(deps.sendLiveEnd.mock.calls).toEqual([[{ strokeId: 'tail', cancelled: true }], [{ strokeId: 'normal' }]])
+})
+
+it('sends independent random metadata without changing packed dab payload', () => {
+ const {deps,on}=setup(),seeds={version:1 as const,sequentialSeed:0,strokeSeed:0xffffffff}
+ on.onLiveStrokeDabs({strokeId:createBrushRandomStrokeId('nonce00000',seeds),layerId:'layer-1',tool:'digitalBrush',preset:'hard-round',color:[0,0,0],packetSeq:0,dabs:[],brushRandom:seeds})
+ const sent=vi.mocked(deps.sendLive).mock.calls[0][0]
+ expect(sent.brushRandom).toEqual(seeds); expect(sent.brushRandom).not.toBe(seeds)
+ expect(unpackDabs(sent.dabsPacked)).toEqual([])
+})
+
+
+it('preserves captured projection sources on live packets', () => {
+ const {deps,on}=setup(),source={version:1 as const,projection:[{id:'lower',opacity:.5}]}
+ on.onLiveStrokeDabs({strokeId:'projection-test',layerId:'upper',tool:'digitalBrush',preset:'hard-round',color:[0,0,0],packetSeq:0,dabs:[],brushSource:source})
+ const sent=vi.mocked(deps.sendLive).mock.calls[0][0]
+ expect(sent.brushSource).toEqual(source)
+ expect(sent.brushSource).not.toBe(source)
+ source.projection[0].opacity=1
+ expect(sent.brushSource?.projection?.[0].opacity).toBe(.5)
 })

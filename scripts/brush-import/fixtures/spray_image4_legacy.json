@@ -1,0 +1,131 @@
+{
+  "sourceKppBase64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAABoHRFWHRwcmVzZXQAPFByZXNldCBwYWludG9waWQ9InNwcmF5YnJ1c2giIG5hbWU9Ik93biBpbWFnZSBzaGFwZSBmaXh0dXJlIj48cGFyYW0gbmFtZT0iU3ByYXkvZGlhbWV0ZXIiPjEwMDwvcGFyYW0+PHBhcmFtIG5hbWU9IlNwcmF5L3NjYWxlIj4xPC9wYXJhbT48cGFyYW0gbmFtZT0iU3ByYXkvcGFydGljbGVDb3VudCI+MTwvcGFyYW0+PHBhcmFtIG5hbWU9IlNwcmF5U2hhcGUvZW5hYmxlZCI+dHJ1ZTwvcGFyYW0+PHBhcmFtIG5hbWU9IlNwcmF5U2hhcGUvc2hhcGUiPjA8L3BhcmFtPjxwYXJhbSBuYW1lPSJTcHJheVNoYXBlL3dpZHRoIj45PC9wYXJhbT48cGFyYW0gbmFtZT0iU3ByYXlTaGFwZS9oZWlnaHQiPjM8L3BhcmFtPjxwYXJhbSBuYW1lPSJTcHJheVNoYXBlL2ltYWdlVXJsIj5wYXJ0aWNsZS5wbmc8L3BhcmFtPjwvUHJlc2V0PkFE+MkAAAAUSURBVHicY/zPwPCfgYGBgYkBCgAfFwICT5TOvgAAAABJRU5ErkJggg==",
+  "sourceSha256": "d42661f6f7f7a2f6934fc74eb392a6cfcbcf2ace5332c3e993855b4ddd232b12",
+  "descriptor": {
+    "id": "imported-f1d2cbeea7d2b3083a1737ac",
+    "version": 43,
+    "model": "stamp",
+    "category": "paint",
+    "tip": {
+      "kind": "procedural",
+      "hardness": 1,
+      "aspect": 1,
+      "angle": -0.0,
+      "rotation": "fixed",
+      "profile": {
+        "kind": "standard",
+        "shape": "ellipse",
+        "horizontalFade": 1.0,
+        "verticalFade": 1.0,
+        "antialias": true
+      }
+    },
+    "paperInteraction": 0,
+    "spacing": 0.25,
+    "flow": 1,
+    "flowPer": "stamp",
+    "sizeByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "flowByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "opacityByPressure": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "pressureSmoothingPx": 0,
+    "opacity": 1,
+    "behavior": {
+      "version": 2,
+      "speedInput": {
+        "version": 1,
+        "space": "view",
+        "maximum": 30,
+        "estimator": "grafettoEMA30ms"
+      },
+      "rendering": {
+        "opacityCeiling": "uniform",
+        "mode": "buildUp",
+        "blendMode": "normal",
+        "wetEdges": 0,
+        "burntEdges": 0,
+        "burntEdgesMode": "multiply",
+        "accumulation": "directOver"
+      },
+      "spacing": {
+        "mode": "diameter",
+        "coefficient": 0.25,
+        "isotropic": true
+      }
+    },
+    "spray": {
+      "version": 1,
+      "diameter": 100.0,
+      "scale": 1.0,
+      "aspect": 1,
+      "angle": 0.0,
+      "count": 1,
+      "jitter": 0,
+      "radial": {
+        "maximum": 1,
+        "samples": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff"
+      },
+      "angular": "00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f00800080ff81ff82ff83ff84ff85ff86ff87ff88ff89ff8aff8bff8cff8dff8eff8fff90ff91ff92ff93ff94ff95ff96ff97ff98ff99ff9aff9bff9cff9dff9eff9fffa0ffa1ffa2ffa3ffa4ffa5ffa6ffa7ffa8ffa9ffaaffabffacffadffaeffafffb0ffb1ffb2ffb3ffb4ffb5ffb6ffb7ffb8ffb9ffbaffbbffbcffbdffbeffbfffc0ffc1ffc2ffc3ffc4ffc5ffc6ffc7ffc8ffc9ffcaffcbffccffcdffceffcfffd0ffd1ffd2ffd3ffd4ffd5ffd6ffd7ffd8ffd9ffdaffdbffdcffddffdeffdfffe0ffe1ffe2ffe3ffe4ffe5ffe6ffe7ffe8ffe9ffeaffebffecffedffeeffeffff0fff1fff2fff3fff4fff5fff6fff7fff8fff9fffafffbfffcfffdfffeffffff",
+      "particle": {
+        "shape": "ellipse",
+        "width": 9.0,
+        "height": 3.0,
+        "proportional": false
+      },
+      "dynamics": {
+        "randomSize": false,
+        "fixedAngle": 0,
+        "randomAngle": 0,
+        "radialAngle": 0,
+        "pathAngle": 0
+      },
+      "color": {
+        "perParticle": true,
+        "hue": 0,
+        "saturation": 0,
+        "value": 0,
+        "randomOpacity": false
+      }
+    }
+  },
+  "compatibility": [
+    {
+      "feature": "standardMaskProfile",
+      "status": "approximate",
+      "detail": "Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison."
+    },
+    {
+      "feature": "spray",
+      "status": "approximate",
+      "detail": "Independent area/particle geometry, count/density (bounded4096 particles per dab), inverse-CDF distributions, particle dynamics and colour retained. Grafetto RNG, raster AA, image-pipe selection and colour rounding differ from native Krita."
+    }
+  ],
+  "descriptorSha256": "428322efea3d7d65ae74f8dadba1299a99142919b804af2b271c91a5b99f4a16",
+  "compatibilitySha256": "5cc59d524350286e64f86fef3865eba8f97545335ea4d39a8a0e079797057514"
+}

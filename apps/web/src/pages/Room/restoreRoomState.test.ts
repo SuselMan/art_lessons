@@ -38,6 +38,9 @@ it('seeds inclusive undo5 before tail redo6 using actual engine history and pixe
   await restoreRoomState(target, { latestSnapshotSeq: 5, tailOperations: ops, participants: [], palette: [], frozen: false }, { mode: 'join', alreadyHadSeq: 0 }, deps)
   expect(deps.setRestoreFailure).not.toHaveBeenCalled()
   expect(applied).toEqual(['r6'])
+  // Backfill receives the inclusive snapshot boundary; the hook converts it
+  // once to the exclusive history cursor.
+  expect(deps.backfillHistory).toHaveBeenCalledWith('room', target, 5)
   expect([...readLayerPixels(target, 'L')!]).toEqual([...readLayerPixels(source, 'L')!])
   expect(target.getOperationsSinceRestore().map(op => op.id)).toEqual(['r6'])
 })
@@ -135,11 +138,12 @@ it('drains the real confirmed stream before requesting first snapshot at the adv
 it.each(['restored', 'failed'] as const)('records only successfully restored server history for reconnect (%s, #739)', async status => {
   const engine = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
   const op: Operation = { type: 'layer_add', id: 'layer6', seq: 106048, userId: 'A', timestamp: 6, layerId: 'L', name: 'Layer' }
+  const existingIndexUploader=createSnapshotUploader('room'), armExisting=vi.spyOn(existingIndexUploader,'requestFirstSnapshot')
   const deps: RestoreRoomStateDeps = {
     boardId: 'room', restoreFromSnapshot: vi.fn().mockResolvedValue(status), backfillHistory: vi.fn().mockResolvedValue(undefined),
     applyRemoteOp: vi.fn(), syncFromLogNow: vi.fn(), markJoinRestoreDone: vi.fn(), dispatchParticipants: vi.fn(),
     setRestoreFailure: vi.fn(), setRoomContentReady: vi.fn(), finishOpenTimer: vi.fn(), notifyReplayIncomplete: vi.fn(),
-    getSnapshotUploader: () => null, latestKnownSeqRef: { current: 0 }, replayIncompleteRef: { current: false },
+    getSnapshotUploader: () => existingIndexUploader, latestKnownSeqRef: { current: 0 }, replayIncompleteRef: { current: false },
     pendingPreviewsRef: { current: createPendingPreviews() }, openTimerRef: { current: null }, replayGate: createReplayGate(),
   }
   try {
@@ -147,6 +151,7 @@ it.each(['restored', 'failed'] as const)('records only successfully restored ser
       { mode: 'join', alreadyHadSeq: 0 }, deps)
     expect(deps.latestKnownSeqRef.current).toBe(status === 'restored' ? 106048 : 0)
     if (status === 'restored') {
+      expect(armExisting).toHaveBeenCalledOnce() // Existing nonzero index still needs first coverage for new layers.
       await restoreRoomState(engine, { latestSnapshotSeq: 106000, tailOperations: [], participants: [], palette: [], frozen: false },
         { mode: 'catchup', alreadyHadSeq: deps.latestKnownSeqRef.current }, deps)
       expect(deps.restoreFromSnapshot).toHaveBeenCalledOnce()

@@ -237,3 +237,14 @@ describe('scoped dependency history HTTP query', () => {
     expect(response.statusCode).toBe(400)
   })
 })
+
+it('GET index exposes physical first-upload coverage without adding unsafe restore blobs', async () => {
+  mockRooms.getSnapshotIndex.mockResolvedValue({ seq: 200, layerState: {},
+    layers: [{ layerId: 'safe', seq: 200, hash: HASH }],
+    storedCoverage: [{ layerId: 'safe', seq: 200 }, { layerId: 'history-fallback', seq: 200 }] })
+  const res = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/snapshots/index' })
+  expect(res.statusCode).toBe(200)
+  expect(res.json().layers).toEqual([{ layerId: 'safe', seq: 200, hash: HASH }])
+  expect(res.json().storedCoverage).toEqual([{ layerId: 'safe', seq: 200 }, { layerId: 'history-fallback', seq: 200 }])
+  expect(res.headers['cache-control']).toBe('no-store')
+})

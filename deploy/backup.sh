@@ -62,6 +62,8 @@ mkdir -p "$BACKUP_DIR"
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 final="$BACKUP_DIR/$DB_NAME-$timestamp.dump"
 partial="$final.partial"
+brush_final="$BACKUP_DIR/$DB_NAME-$timestamp.brushes.tar.gz"
+brush_partial="$brush_final.partial"
 
 # A dump needs room, and this box has 1GB of RAM and a small disk shared with
 # Docker images and Postgres itself. Filling the disk while the app is live is
@@ -71,7 +73,9 @@ db_bytes=$("${COMPOSE[@]}" exec -T postgres \
   psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT pg_database_size('$DB_NAME')" 2>/dev/null | tr -d '[:space:]') \
   || fail "could not reach postgres to size the database — is the stack up?"
 free_bytes=$(($(df --output=avail -k "$BACKUP_DIR" | tail -1) * 1024))
-needed=$((db_bytes + 200 * 1024 * 1024))
+brush_bytes=$("${COMPOSE[@]}" exec -T server du -sb /var/lib/grafetto/brushes | cut -f1) \
+  || fail "could not size persistent brush storage"
+needed=$((db_bytes + brush_bytes + 200 * 1024 * 1024))
 log "database $((db_bytes / 1024 / 1024)) MB, free $((free_bytes / 1024 / 1024)) MB in $BACKUP_DIR"
 if [ "$free_bytes" -lt "$needed" ]; then
   fail "not enough free space: need ~$((needed / 1024 / 1024)) MB, have $((free_bytes / 1024 / 1024)) MB"
@@ -94,6 +98,16 @@ log "dumping $DB_NAME"
 log "verifying archive is readable end to end"
 "${COMPOSE[@]}" exec -T postgres pg_restore -f /dev/null < "$partial" \
   || { rm -f "$partial"; fail "dump did not verify — refusing to keep it"; }
+
+# Capture CAS after the DB dump: historical referenced assets are retained.
+# Conversion jobs and process locks are disposable and must not be restored.
+log "archiving persistent brush library"
+"${COMPOSE[@]}" exec -T server tar --exclude='./.write-lock' --exclude='./jobs' --exclude='./tmp' \
+  -czf - -C /var/lib/grafetto/brushes . > "$brush_partial" \
+  || { rm -f "$partial" "$brush_partial"; fail "brush archive failed"; }
+tar -tzf "$brush_partial" >/dev/null \
+  || { rm -f "$partial" "$brush_partial"; fail "brush archive did not verify"; }
+mv "$brush_partial" "$brush_final"
 
 # Rename only after verification, so the freshness check (and any human in a
 # hurry) can trust that any *.dump present is a complete, readable one.
@@ -122,7 +136,8 @@ elif [ -n "${BACKUP_REMOTE:-}" ]; then
   # the disk over the 75 % line that turns uptime.yml red — the storage
   # failure became a disk failure on the box being backed up. The run still
   # ends non-zero, below, after the disk is kept in order.
-  if rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3; then
+  if rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3 \
+    && rclone copy "$brush_final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3; then
     log "off-site copy done"
   else
     upload_error="off-site upload failed — local dump kept, but it is not safe from disk loss"
@@ -157,7 +172,7 @@ fi
 log "rotating local dumps, keeping newest $KEEP_LOCAL"
 ls -1t "$BACKUP_DIR"/"$DB_NAME"-*.dump 2>/dev/null | tail -n "+$((KEEP_LOCAL + 1))" | while read -r old; do
   log "removing $old"
-  rm -f "$old"
+  rm -f "$old" "${old%.dump}.brushes.tar.gz"
 done
 
 [ -z "$upload_error" ] || fail "$upload_error"

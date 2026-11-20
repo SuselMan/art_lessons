@@ -1,0 +1,7 @@
+import{it,expect}from'vitest'
+import{isBrushLibrary,hasBrushSourceInputs,curveHostInterval167}from'./brushes.js'
+import{library167,dab167}from'./curveHostTimer167.testFixture.js'
+it('literal native host intervals and recorded sourceTime contract',()=>{expect([20,3,1000].map(curveHostInterval167)).toEqual([25,166,1]);const l=library167();expect(isBrushLibrary(l)).toBe(true);expect(hasBrushSourceInputs(l.brushes[0].descriptor,[dab167()])).toBe(true);const d=dab167();Reflect.deleteProperty(d,'sourceTime');expect(hasBrushSourceInputs(l.brushes[0].descriptor,[d])).toBe(false)})
+it('closed167 rejects downgrade,rate dynamics,distance,erase,dual and family controls',()=>{for(const mode of['old','rate','distance','erase','dual','dynamic']){const l=library167(),b=l.brushes[0].descriptor;if(mode==='old')b.version=53;if(mode==='rate')b.behavior!.timing!.rateDynamics=[];if(mode==='distance')b.behavior!.timing!.ignoreDistanceSpacing=false;if(mode==='erase')b.behavior!.erase=true;if(mode==='dual')Reflect.set(b.behavior!,'dual',{});if(mode==='dynamic')b.curveTrace!.dynamics={width:[]};expect(isBrushLibrary(l)).toBe(false)}})
+
+it('preserves exact existing native view speed profile but rejects other profiles',()=>{const l=library167(),b=l.brushes[0].descriptor;b.behavior!.speedInput={version:1,space:'view',maximum:30,estimator:'grafettoEMA30ms'};expect(isBrushLibrary(l)).toBe(true);Reflect.set(b.behavior!.speedInput,'maximum',31);expect(isBrushLibrary(l)).toBe(false)})

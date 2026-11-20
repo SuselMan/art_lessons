@@ -82,35 +82,51 @@ export class ScratchSlot<B extends Poolable> {
  *  into a pool of uniformly-sized buffers after first use. */
 export class ScratchFreeList<B extends Poolable> {
   private free: B[] = []
+  private freeBytes = 0
+  private readonly maxIdleBytes: number
   private readonly make: (width: number, height: number) => B
 
-  constructor(make: (width: number, height: number) => B) {
+  /** The optional ceiling covers idle RGBA8 buffers only; checked-out buffers
+   * remain owned by the painter and cannot be evicted. */
+  constructor(make: (width: number, height: number) => B, maxIdleBytes = Infinity) {
     this.make = make
+    this.maxIdleBytes = maxIdleBytes
   }
 
   acquire(width: number, height: number): B {
     const idx = this.free.findIndex(b => b.width === width && b.height === height)
-    if (idx !== -1) return this.free.splice(idx, 1)[0]
+    if (idx !== -1) {
+      const reused = this.free.splice(idx, 1)[0]
+      this.freeBytes -= reused.width * reused.height * 4
+      return reused
+    }
     return this.make(width, height)
   }
 
   release(buf: B): void {
+    const bytes = buf.width * buf.height * 4
+    if (bytes > this.maxIdleBytes) { buf.destroy(); return }
+    while (this.free.length && this.freeBytes + bytes > this.maxIdleBytes) {
+      const oldest = this.free.shift()!
+      this.freeBytes -= oldest.width * oldest.height * 4
+      oldest.destroy()
+    }
     this.free.push(buf)
+    this.freeBytes += bytes
   }
 
-  /** How many buffers are idle in the list. */
-  idleCount(): number {
-    return this.free.length
-  }
+  idleCount(): number { return this.free.length }
+  idleBytes(): number { return this.freeBytes }
 
   destroy(): void {
     for (const b of this.free) b.destroy()
     this.free = []
+    this.freeBytes = 0
   }
 
-  /** Dropped, not released: after a context loss the handles are dead, and
-   *  putting them back would hand the next caller a buffer to paint through. */
+  /** Context loss already killed the GL names; never call destroy here. */
   forget(): void {
     this.free = []
+    this.freeBytes = 0
   }
 }

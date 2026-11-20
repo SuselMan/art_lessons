@@ -1,11 +1,13 @@
+import {CanvasPatternControls} from './CanvasPatternControls'
 import type { ShapeFrame } from '@grafetto/shared'
 
 import { SettingField } from '../../../components/SettingField'
 import { useT } from '../../../i18n'
 import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeRatioPresets } from '../shapes/ShapeFrameFields'
-import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
+import { TOOL_SCHEMAS, toolSettingDescriptor, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
+import { BrushLibraryControls } from './BrushLibraryControls'
 
 export interface ToolSettingsTabProps {
   /** Opens the colour flyout on the rail's well for this colour field. */
@@ -47,7 +49,7 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
         .map(([key, descriptor]) => (
         <SettingField
           key={key}
-          descriptor={descriptor}
+          descriptor={toolSettingDescriptor(settingsToolId,key,toolSettings[settingsToolId])}
           value={toolSettings[settingsToolId][key]}
           onChange={v => setToolSetting(settingsToolId, key, v)}
           layout="panel"
@@ -66,6 +68,7 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
           once, and the rail is for what a hand reaches for
           mid-gesture. Only while a shape is open — they resize
           that shape, not the tool. */}
+      {settingsToolId === 'digitalBrush' && <><BrushLibraryControls /><CanvasPatternControls /></>}
       {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={onShapeFrameChange} />}
     </div>
   )

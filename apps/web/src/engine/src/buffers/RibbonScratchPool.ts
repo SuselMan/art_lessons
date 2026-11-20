@@ -60,8 +60,9 @@ export class RibbonScratchPool {
     // its getOrCreate comment. The pool must never hand back a buffer built
     // with a different filter, which is why it is keyed by size alone and
     // used by this one caller.
+    const fresh = new AccumulationBuffer(this.gl, width, height, 'nearest')
     this._allocatedBytes += width * height * 4
-    return new AccumulationBuffer(this.gl, width, height, 'nearest')
+    return fresh
   }
 
   /** (§17.70) While set, released buffers are all kept: a rebuild on a

@@ -8,7 +8,7 @@ describe('fallbackToolFor', () => {
   })
 
   it('is the first material the room offers, never a tool that cannot draw', () => {
-    expect(fallbackToolFor(['eyedropper', 'eraser', 'watercolor', 'charcoal'])).toBe('watercolor')
+    expect(fallbackToolFor(['eyedropper', 'eraser', 'watercolor', 'charcoal'])).toBe('charcoal')
   })
 })
 

@@ -45,14 +45,14 @@ describe('sanitizeEnabledTools', () => {
 
   it('every material alone is a legal toolset', () => {
     for (const material of TOOLSET_MATERIAL_TOOLS) {
-      expect(sanitizeEnabledTools([material])).toEqual([material])
+      expect(sanitizeEnabledTools([material])).toEqual(material === 'watercolor' ? undefined : [material])
     }
   })
 })
 
 describe('isToolEnabledInRoom', () => {
   it('offers everything when the room does not restrict', () => {
-    for (const tool of TOGGLEABLE_TOOLS) expect(isToolEnabledInRoom(undefined, tool)).toBe(true)
+    for (const tool of TOGGLEABLE_TOOLS) expect(isToolEnabledInRoom(undefined, tool)).toBe(tool !== 'watercolor')
   })
 
   it('offers only what is listed', () => {

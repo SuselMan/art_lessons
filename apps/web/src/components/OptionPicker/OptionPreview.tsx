@@ -57,14 +57,18 @@ export function OptionPreview({ option, shape }: OptionPreviewProps) {
       </span>
     )
   }
+  if (option.photo && option.photoTipScale) {
+    return <span className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto, styles.photoTipFrame)}>
+      <img className={styles.photoTipImage} style={{ transform: shape === 'dot' ? `scale(${option.photoTipScale})` : undefined }} src={option.photo} alt="" loading="lazy" decoding="async" />
+    </span>
+  }
   if (option.photo) {
-    return (
-      <span
-        className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto)}
-        style={{ backgroundImage: `url(${option.photo})` }}
-        role="presentation"
-      />
-    )
+    return <img className={clsx(styles.preview, shape === 'dot' ? styles.previewPhotoDot : styles.previewPhoto)}
+      src={option.photo} alt="" loading="lazy" decoding="async" />
+  }
+  if (option.thumbnail) {
+    return <img className={clsx(styles.preview, styles.previewThumbnail, shape === 'dot' && styles.previewThumbnailDot)}
+      src={option.thumbnail} alt="" loading="lazy" decoding="async" />
   }
   if (!option.image) return null
   return (

@@ -1,3 +1,5 @@
+import type { BrushSourceContext } from './brushSource.js'
+import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
 import type {
   AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, Room, RoomAccessMode, RoomJoinRequest,
@@ -112,6 +114,9 @@ export type CursorMoveData = {
  *  belongs — the sender coalesces dabs into one packet per interval instead of
  *  emitting per frame. */
 export type StrokeLiveData = {
+  /** Same recorded context as the authoritative operation, repeated per packet. */
+  brushRandom?: BrushRandomSeeds
+  brushSource?: BrushSourceContext
   strokeId: string
   layerId: string
   tool: ToolType
@@ -235,6 +240,7 @@ export type RejectReason =
   // place a server-side failure could happen with nothing visible anywhere
   // but a log line. See socketHandlers.ts's 'operation' handler.
   | 'server_error'
+  | 'invalid_operation'
 
 /** (#495) The reasons that are not verdicts on the operation.
  *
@@ -330,6 +336,7 @@ export type ServerToClientEvents = {
   // the toolset is a teaching control ("today we work in pencil"), and a
   // control that lands only after everyone reloads is one nobody will reach
   // for mid-lesson. `undefined` is the unrestricted room, same as on `Room`.
+  room_brush_selection_changed: () => void
   room_tools_changed: (data: { enabledTools?: ToggleableTool[] }) => void
   // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
   // is accepted — every participant needs this, not just the target, so

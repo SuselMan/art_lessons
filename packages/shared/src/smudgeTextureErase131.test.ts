@@ -1,0 +1,7 @@
+import{it,expect}from'vitest'
+import{isBrushLibrary,hasBrushSourceInputs,hasSmudgeTextureErase131Scope}from'./brushes.js'
+import{brush131,library131}from'./smudgeTextureErase131.testFixture.js'
+import{dab129}from'./legacySmudgeTiming129.testFixture.js'
+it.each(['multiply','subtract']as const)('admits only captured modern foreground erase131 %s',mode=>{const d=brush131();d.texture!.application!.mode=mode;expect(hasSmudgeTextureErase131Scope(d)).toBe(true);expect(isBrushLibrary(library131(d))).toBe(true);expect(hasBrushSourceInputs(d,[dab129(0)])).toBe(true)})
+it('closes revision/source/foreground/child/material/timing/family before source earlyreturn',()=>{for(const mutate of[(d:ReturnType<typeof brush131>)=>{d.version=130},(d:ReturnType<typeof brush131>)=>{d.mixer!.source='projectionCanvas'},(d:ReturnType<typeof brush131>)=>{delete d.mixer!.algorithm},(d:ReturnType<typeof brush131>)=>{d.behavior!.erase=false},(d:ReturnType<typeof brush131>)=>{Reflect.set(d.behavior!,'dual',null)},(d:ReturnType<typeof brush131>)=>{Reflect.set(d,'clone',null)},(d:ReturnType<typeof brush131>)=>{Reflect.set(d.behavior!,'timing',null)},(d:ReturnType<typeof brush131>)=>{d.texture!.application!.mode='overlay'}]){const d=brush131();mutate(d);expect(hasBrushSourceInputs(d,[dab129(0)])).toBe(false);expect(isBrushLibrary(library131(d))).toBe(false)}})
+it('checks actual paired CAS side and bounded original mask',()=>{for(const sizes of[[4,8,4],[1024,4,4],[4,1024,1024]]){const lib=library131();lib.assets.forEach((a,i)=>a.size=sizes[i]!);expect(isBrushLibrary(lib)).toBe(false)}})

@@ -1,0 +1,246 @@
+{
+  "False": {
+    "source": "Old.kpp",
+    "name": "QA Krita",
+    "sourceDefaults": {
+      "sizePx": 14.7781121978613,
+      "opacity": 1,
+      "flow": 1
+    },
+    "descriptor": {
+      "id": "imported-5960b73578c604c148657020",
+      "version": 55,
+      "model": "stamp",
+      "category": "paint",
+      "tip": {
+        "kind": "round",
+        "hardness": 1,
+        "aspect": 1,
+        "rotation": "fixed",
+        "angle": 0
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "rendering": {
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "accumulation": "directOver",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply"
+        },
+        "timing": {
+          "version": 1,
+          "rate": 60,
+          "ignoreDistanceSpacing": false
+        }
+      },
+      "mypaint": {
+        "version": 1,
+        "kernel": "libmypaint-1.6.1",
+        "settings": [
+          {
+            "id": 8,
+            "base": 30,
+            "inputs": [
+              {
+                "id": 0,
+                "points": [
+                  [
+                    0,
+                    -10
+                  ],
+                  [
+                    1,
+                    10
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "baseRadius": 7.38905609893065,
+        "erase": false
+      }
+    },
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "compatibility": [
+      {
+        "feature": "mypaint",
+        "status": "approximate",
+        "detail": "Original libmypaint1.6.1 WASM dynamics and64px Q15 tiled renderer. Contact inputs, time, seeds and endpoint recorded; canvas commits quantized per input, not per network packet. No Qt/GLib. Native Krita uses a different surface and colour-space rounding. Dwell sampled at60Hz; pigment paint_mode rejected; legacy blending/smudging retained."
+      }
+    ],
+    "warnings": [
+      "mypaint: Original libmypaint1.6.1 WASM dynamics and64px Q15 tiled renderer. Contact inputs, time, seeds and endpoint recorded; canvas commits quantized per input, not per network packet. No Qt/GLib. Native Krita uses a different surface and colour-space rounding. Dwell sampled at60Hz; pigment paint_mode rejected; legacy blending/smudging retained."
+    ]
+  },
+  "True": {
+    "source": "Old.kpp",
+    "name": "QA Krita",
+    "sourceDefaults": {
+      "sizePx": 14.7781121978613,
+      "opacity": 1,
+      "flow": 1
+    },
+    "descriptor": {
+      "id": "imported-6930000a54a418c3c519785e",
+      "version": 156,
+      "model": "stamp",
+      "category": "paint",
+      "tip": {
+        "kind": "round",
+        "hardness": 1,
+        "aspect": 1,
+        "rotation": "fixed",
+        "angle": 0
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "rendering": {
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "accumulation": "directOver",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply"
+        },
+        "timing": {
+          "version": 1,
+          "rate": 60,
+          "ignoreDistanceSpacing": false
+        }
+      },
+      "mypaint": {
+        "version": 1,
+        "kernel": "libmypaint-1.6.1",
+        "settings": [
+          {
+            "id": 8,
+            "base": 30,
+            "inputs": [
+              {
+                "id": 0,
+                "points": [
+                  [
+                    0,
+                    -10
+                  ],
+                  [
+                    1,
+                    10
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "id": 63,
+            "base": 0.8,
+            "inputs": [
+              {
+                "id": 0,
+                "points": [
+                  [
+                    0,
+                    -0.2
+                  ],
+                  [
+                    1,
+                    0.2
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "baseRadius": 7.38905609893065,
+        "erase": false,
+        "surfacePolicy": "krita-legacy-v1"
+      }
+    },
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "compatibility": [
+      {
+        "feature": "mypaintKritaLegacy156",
+        "status": "approximate",
+        "detail": "Embedded Krita MyPaint uses the legacy stroke/surface API. Captured paint_mode bases and sensor mappings are preserved but native-ignored; this does not enable spectral pigment blending or standalone MyPaint2 semantics."
+      }
+    ],
+    "warnings": [
+      "mypaintKritaLegacy156: Embedded Krita MyPaint uses the legacy stroke/surface API. Captured paint_mode bases and sensor mappings are preserved but native-ignored; this does not enable spectral pigment blending or standalone MyPaint2 semantics."
+    ]
+  }
+}

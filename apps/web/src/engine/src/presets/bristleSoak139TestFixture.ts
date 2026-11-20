@@ -1,0 +1,6 @@
+import type {BrushDescriptor,Dab} from '@grafetto/shared'
+import type {BristleSoakState139} from './bristleSoak139'
+export const ink={depletion:[0,.5,1],useOpacity:false,useSaturation:false,useWeights:false,pressureWeight:.5,bristleLengthWeight:.5,bristleInkAmountWeight:.5,inkDepletionWeight:50}
+export const brush:BrushDescriptor={id:'soak-test',version:139,model:'stamp',category:'paint',tip:{kind:'round',hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'stamp',sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],pressureSmoothingPx:0,opacity:1,bristle:{version:2,soak:{sourcePolicy:'canonical-begin-v1',initialSide:6},hairs:[[-1/6,0,.2],[1/6,0,1]],scale:1,shear:0,random:0,mousePressure:false,threshold:false,connected:true,antialias:false,compositing:false,ink},behavior:{version:2,rendering:{mode:'buildUp',blendMode:'normal',accumulation:'directOver',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}}
+export const dab:Dab={x:-.5,y:-1.5,size:8,angle:0,aspectRatio:1,pressure:.5,tiltX:0,tiltY:0,opacity:1,t:0}
+export const soak=():BristleSoakState139=>({binding:{layerId:'L',userId:'U',strokeId:'S',targetGeneration:1,prefixKey:'P',begin:{kind:'canonical',firstOpId:'A',seq:1}},rgba:new Uint8Array([255,0,0,0,0,0,255,128])})

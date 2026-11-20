@@ -1,3 +1,4 @@
+import { circleBandAlpha } from '../src/raster/roundCoverage'
 // A software WebGL1 mock, just faithful enough to exercise PencilEngine's
 // real pixel pipeline (dab painting, erase, layer compositing/merging) inside
 // vitest's plain 'node' environment — no browser, no GPU, no headless-gl
@@ -102,7 +103,7 @@ const ENUM = {
   // which this mock's single-scalar-per-texel model happens to match exactly.
   ALPHA: 30,
   TEXTURE0: 100, TEXTURE1: 101,
-  UNPACK_ALIGNMENT: 102,
+  UNPACK_ALIGNMENT: 102, ACTIVE_TEXTURE: 1060, TEXTURE_BINDING_2D: 1061,
   // #141: infinite-canvas paper texture wrap mode — REPEAT vs CLAMP_TO_EDGE
   // is otherwise never observable through this mock (texParameteri used to
   // be a total no-op — see its own comment), so a test asserting the fix
@@ -151,8 +152,16 @@ export class MockGL {
   readonly ALPHA = ENUM.ALPHA
   readonly TEXTURE0 = ENUM.TEXTURE0
   readonly TEXTURE1 = ENUM.TEXTURE1
+  readonly TEXTURE2 = ENUM.TEXTURE0 + 2
+  readonly TEXTURE3 = ENUM.TEXTURE0 + 3
+  readonly TEXTURE4 = ENUM.TEXTURE0 + 4
+  readonly TEXTURE5 = ENUM.TEXTURE0 + 5
+  readonly TEXTURE6 = ENUM.TEXTURE0 + 6
+  readonly TEXTURE7 = ENUM.TEXTURE0 + 7
   readonly REPEAT = ENUM.REPEAT
   readonly UNPACK_ALIGNMENT = ENUM.UNPACK_ALIGNMENT
+  readonly ACTIVE_TEXTURE = ENUM.ACTIVE_TEXTURE
+  readonly TEXTURE_BINDING_2D = ENUM.TEXTURE_BINDING_2D
 
   private _textureData = new Map<object, TextureInfo>()
   // #141 introspection only (see texParameteri) — never read by any
@@ -166,6 +175,7 @@ export class MockGL {
   private _transformDraws: Array<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> = []
   private _framebuffers = new Map<object, FramebufferInfo>()
   private _activeUnit = 0
+  private _unpackAlignment = 4
   private _textureUnits: Array<object | null> = []
   private _boundTextureTarget: object | null = null // last bound, regardless of unit (texImage2D/texParameteri target)
   private _boundFramebuffer: object | null = null
@@ -222,8 +232,9 @@ export class MockGL {
     if (source.includes('u_eraseMode')) return 'dab'
     // (#573) The digital brush's own two programs — each has one uniform no
     // other shader declares.
-    if (source.includes('u_tipKind')) return 'brushStamp'
-    if (source.includes('u_useCeiling')) return 'brushComposite'
+    if (source.includes('u_patchOrigin')) return 'smudge'
+    if (source.includes('u_tipKind') || source.includes('u_circleClipped')) return 'brushStamp'
+    if (source.includes('u_strokeCoverage')) return 'brushComposite'
     // Order matters against 'dab' above only: DAB_FRAG is caught by
     // u_eraseMode first, and these two names appear in no other shader.
     if (source.includes('u_patchOrigin')) return 'smudge'
@@ -363,12 +374,9 @@ export class MockGL {
     if (pname === ENUM.TEXTURE_MAG_FILTER) this._magFilter.set(tex, param)
   }
 
-  // pixelStorei affects only real-GL row-alignment during unpack — this
-  // mock reads whole typed arrays directly (no row-stride math), so it's a
-  // true no-op; kept only so callers (e.g. paperLoader.ts's
-  // uploadPaperTexture, matching real-browser practice for a LUMINANCE
-  // upload) don't hit a missing-method error under vitest's mocked gl.
-  pixelStorei(_pname: number, _param: number): void { /* no-op */ }
+  // Typed arrays need no row-stride math here; retain alignment so uploads
+  // can nevertheless prove that they restore the caller's packing state.
+  pixelStorei(pname: number, param: number): void { if (pname === ENUM.UNPACK_ALIGNMENT) this._unpackAlignment = param }
 
   // Two overloads, exactly as real WebGL1 has them. The 6-argument form takes
   // a DOM source (an HTMLImageElement — reference-image import, #88/#398)
@@ -498,7 +506,10 @@ export class MockGL {
   // stamp its report — exercises the same shape here as in a browser. A mock
   // that simply lacks the method turns a diagnostic into a crash, which is the
   // one thing a diagnostic must never be.
-  getParameter(pname: number): number | null {
+  getParameter(pname: number): number | object | null {
+    if (pname === ENUM.ACTIVE_TEXTURE) return ENUM.TEXTURE0 + this._activeUnit
+    if (pname === ENUM.TEXTURE_BINDING_2D) return this._textureUnits[this._activeUnit] ?? null
+    if (pname === ENUM.UNPACK_ALIGNMENT) return this._unpackAlignment
     return pname === ENUM.MAX_TEXTURE_SIZE ? 4096 : null
   }
 
@@ -1043,6 +1054,28 @@ export class MockGL {
     const { width, height, data } = info
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
     const radius = (uniforms.get('u_dabRadius') as number) ?? 1
+    // This scalar mock can verify max-alpha geometry/replay, but cannot
+    // prove whole RGB pigment replacement. That requires the GPU witness.
+    if (uniforms.has('u_circleClipped')) {
+      const previousTexture = this._textureUnits[(uniforms.get('u_previousCeiling') as number) ?? 5]
+      const previous = previousTexture ? this._textureData.get(previousTexture) : undefined
+      if (!previous) throw Error('Circle band must read an explicit previous-stroke copy')
+      for (let py = Math.max(0, Math.floor(cy - radius - 1)); py < Math.min(height, Math.ceil(cy + radius + 1)); py++) {
+        for (let px = Math.max(0, Math.floor(cx - radius - 1)); px < Math.min(width, Math.ceil(cx + radius + 1)); px++) {
+          const x = px + .5 - cx, y = py + .5 - cy
+          if ((uniforms.get('u_circleClipped') as number) > .5) {
+            const inside = (i: number): boolean => {
+              const p = uniforms.get(`u_circleClip${i}`) as number[]
+              return p[0] * x + p[1] * y + p[2] >= 0
+            }
+            if (!(inside(0) && inside(1) || inside(2) && inside(3))) continue
+          }
+          const alpha = circleBandAlpha(x, y, radius), index = py * width + px
+          if (alpha > Math.round(previous.data[index] * 255)) data[index] = alpha / 255
+        }
+      }
+      return
+    }
     const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
     const flow = (uniforms.get('u_opacity') as number) ?? 1
     const pad = radius + 2
@@ -1052,7 +1085,10 @@ export class MockGL {
         if (d >= 1) continue
         const amount = (1 - smoothstep(Math.min(hardness, 0.99), 1, d)) * flow
         const idx = py * width + px
-        data[idx] = amount + data[idx] * (1 - amount)
+        if ((uniforms.get('u_ceilingPass') as number) > 0.5) {
+          const shape=1-smoothstep(Math.min(hardness,0.99),1,d)
+          data[idx]=Math.max(data[idx],((uniforms.get('u_ceiling') as number)??1)*smoothstep(0,.3,shape))
+        } else data[idx] = amount + data[idx] * (1 - amount)
       }
     }
   }
@@ -1067,16 +1103,29 @@ export class MockGL {
     const coverage = coverageTex ? this._textureData.get(coverageTex) : undefined
     const original = originalTex ? this._textureData.get(originalTex) : undefined
     if (!coverage || !original) return
+    const ceilingTex=this._textureUnits[(uniforms.get('u_ceiling') as number)??2]??null
+    const ceiling=ceilingTex?this._textureData.get(ceilingTex):undefined
     const opacity = (uniforms.get('u_opacity') as number) ?? 1
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
-    const radius = ((uniforms.get('u_dabRadius') as number) ?? 1) * Math.SQRT2 + 1
-    for (let py = Math.max(0, Math.floor(cy - radius)); py < Math.min(height, Math.ceil(cy + radius)); py++) {
-      for (let px = Math.max(0, Math.floor(cx - radius)); px < Math.min(width, Math.ceil(cx + radius)); px++) {
+    // Rasterize the actual DAB_VERT quad: local X is stretched before
+    // rotation. A tight dirty rectangle can be much wider than it is tall;
+    // treating radius as a square silently drops its ends during replay.
+    const radius = (uniforms.get('u_dabRadius') as number) ?? 1
+    const aspect = Math.max((uniforms.get('u_aspectRatio') as number) ?? 1, 1e-6)
+    const angle = (uniforms.get('u_angle') as number) ?? 0
+    const c = Math.cos(angle), s = Math.sin(angle)
+    const halfY = radius * this._boundQuadExtent() * 2, halfX = halfY * aspect
+    const extentX = Math.abs(c) * halfX + Math.abs(s) * halfY
+    const extentY = Math.abs(s) * halfX + Math.abs(c) * halfY
+    for (let py = Math.max(0, Math.floor(cy - extentY)); py < Math.min(height, Math.ceil(cy + extentY)); py++) {
+      for (let px = Math.max(0, Math.floor(cx - extentX)); px < Math.min(width, Math.ceil(cx + extentX)); px++) {
+        const dx = px + .5 - cx, dy = py + .5 - cy
+        if (Math.abs(dx * c + dy * s) > halfX || Math.abs(-dx * s + dy * c) > halfY) continue
         const idx = py * width + px
         const cov = coverage.data[idx] ?? 0
         if (cov <= 0) continue
-        const a = clamp(cov * opacity, 0, 1)
-        data[idx] = a + (1 - a) * (original.data[idx] ?? 0)
+        const a = clamp(cov * opacity * ((uniforms.get('u_physicalAccumulation') as number) > .5 ? 1 : ceiling?.data[idx]??1), 0, 1)
+        data[idx] = ((uniforms.get('u_erase') as number) > .5 ? 0 : a) + (1 - a) * (original.data[idx] ?? 0)
       }
     }
   }

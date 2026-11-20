@@ -104,6 +104,36 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
   await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
 })
 
+it('resolves an undo target discovered only while loading another layer history',async()=>{
+ const other={...stroke('other2',2),layerId:'O'}
+ const otherUndo:Operation={id:'undoOther7',seq:7,timestamp:7,userId:'A',type:'operation_undo',targetOpId:other.id}
+ mocks.rooms.get('room').nextSeq=8
+ mocks.snapshots.mockResolvedValue([{layerId:'L',seq:5,hash:'L'},{layerId:'O',seq:5,hash:'O'}])
+ mocks.operations.mockImplementation(async({where})=>{
+  if(where.id)return [...original,other,otherUndo].filter(op=>where.id.in.includes(op.id)).map(data=>({data}))
+  const ids=where.OR?.find((v:{layerId?:unknown})=>v.layerId)?.layerId.in??[]
+  return [...original.filter(op=>!('layerId'in op)||ids.includes(op.layerId)),otherUndo,...(ids.includes('O')?[other]:[])].map(data=>({data}))
+ })
+ const result=await prepareSnapshotReplay('room')
+ expect(result.unresolvedTargets.size).toBe(0)
+ expect(result.operations.some(op=>op.id===other.id)).toBe(true)
+ expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:'room',id:{in:['other2']}}}))
+})
+
+// Storage admission must not mistake history-safe replay rollback for no physical bitmap.
+it('reports latest physical coverage separately from a selected earlier safe snapshot', async () => {
+  mocks.snapshots.mockResolvedValue([{ layerId: 'L', seq: 5, hash: 'bad' }, { layerId: 'L', seq: 2, hash: 'before-colour' }])
+  const p = await prepareSnapshotReplay('room')
+  expect(p.index?.layers).toEqual([{ layerId: 'L', seq: 2, hash: 'before-colour' }])
+  expect(p.index?.storedCoverage).toEqual([{ layerId: 'L', seq: 5 }])
+  expect(p.coverage.get('L')).toBe(2)
+})
+it('retains physical coverage for a bitmap excluded entirely from replay', async () => {
+  const p = await prepareSnapshotReplay('room')
+  expect(p.index?.layers).toEqual([{ layerId: 'safe', seq: 5, hash: 'safe-picture' }])
+  expect(p.index?.storedCoverage).toEqual([{ layerId: 'L', seq: 5 }, { layerId: 'safe', seq: 5 }])
+  expect(p.coverage.has('L')).toBe(false)
+})
 it('loads old gesture siblings when Undo targets a tail chunk after the snapshot',async()=>{
  const first={...stroke('first',1),strokeId:'gesture-G'} as Operation
  const last={...stroke('last',3),strokeId:'gesture-G'} as Operation

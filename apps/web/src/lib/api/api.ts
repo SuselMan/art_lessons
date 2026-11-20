@@ -104,7 +104,9 @@ async function send(key: ApiRouteKey, args: AnyArgs | undefined, init: RequestIn
 
 /** The URL of route K — for the binary ones (images, snapshot blobs) that are
  *  loaded by URL rather than parsed, and for `<img src>`. */
-export function apiPath<K extends ApiRouteKey>(key: K, ...[args]: ArgList<K>): string {
+type PathArgs<K extends ApiRouteKey> = Omit<ApiArgs<K>, 'body'>
+type PathArgList<K extends ApiRouteKey> = object extends PathArgs<K> ? [args?: PathArgs<K>] : [args: PathArgs<K>]
+export function apiPath<K extends ApiRouteKey>(key: K, ...[args]: PathArgList<K>): string {
   return urlOf(key, args)
 }
 

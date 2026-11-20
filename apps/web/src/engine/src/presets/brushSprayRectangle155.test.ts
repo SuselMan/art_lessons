@@ -1,0 +1,6 @@
+import{expect,it}from'vitest'
+import{sprayRectangle155,dab155}from'../../../../../../packages/shared/src/brushSprayRectangle155.testFixture'
+import{beginBrushBehavior,behaviorStampsForDab}from'./brushBehavior'
+import{brushExecutionContext}from'./brushExecutionContext'
+import{autoMaskNoiseAlpha,prepareAutoMaskNoise}from'../raster/autoMaskNoise'
+it('captured155 particlekeys differ whilewhole/chunks andphysicalfullgrid arestable',()=>{const b=sprayRectangle155(),ds=[dab155,{...dab155,t:10},{...dab155,t:20}],execution=brushExecutionContext({version:1,strokeSeed:123,sequentialSeed:456});const run=(chunks:typeof ds[])=>{const state=beginBrushBehavior(ds[0],execution),stamps=chunks.flatMap(chunk=>chunk.flatMap(d=>behaviorStampsForDab(b,d,state,[.2,.3,.4])));return{state,stamps}};const a=run([ds]),c=run([[ds[0]],ds.slice(1)]);expect(a).toEqual(c);expect(a.stamps).toHaveLength(6);expect(new Set(a.stamps.map(s=>s.autoNoiseKey)).size).toBe(6);const n=prepareAutoMaskNoise(.5,.4),pixels=(key:number)=>Array.from({length:64},(_,i)=>autoMaskNoiseAlpha(255,n,key,i%8,Math.floor(i/8)));expect(pixels(a.stamps[0].autoNoiseKey!)).not.toEqual(pixels(a.stamps[1].autoNoiseKey!));expect(()=>behaviorStampsForDab(b,ds[0],beginBrushBehavior(ds[0]),[1,0,0])).toThrow('captured stroke seed')})

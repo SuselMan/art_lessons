@@ -1,3 +1,6 @@
+import type{FilterSmudge147State}from'../dabs/FilterSmudge147'
+import type {CanonicalBeginSource} from '../dabs/CanonicalBeginSource'
+import type { BrushBehaviorState, SecondarySamplingState } from '../presets/brushBehavior'
 import type { Dab } from '@grafetto/shared'
 
 import { AccumulationBuffer } from './AccumulationBuffer'
@@ -109,6 +112,19 @@ function clearParkedBuffer(buffer: AccumulationBuffer): void {
 type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
+  brushNative?:{destroy():void}
+  canonicalSource?:CanonicalBeginSource
+  filterSmudge147State?:FilterSmudge147State
+  brushBehavior?: BrushBehaviorState
+  private _brushSecondary?: {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tiles:Map<AccumulationBuffer,AccumulationBuffer>}
+  brushSecondary(): {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tile:(source:AccumulationBuffer)=>AccumulationBuffer} {
+    const state=this._brushSecondary ??= {scratch:new RibbonStrokeScratch(this.pool,false),sampling:{remaining:0},tiles:new Map()}
+    return {scratch:state.scratch,sampling:state.sampling,tile:source=>{
+      let buffer=state.tiles.get(source)
+      if(!buffer){buffer=this.pool.acquire(source.width,source.height);clearParkedBuffer(buffer);state.tiles.set(source,buffer)}
+      return buffer
+    }}
+  }
   /** Transient next-film continuation while the previous settle is pending. */
   trackRunningSource = false
   runningSourceCommands: Array<() => void> = []
@@ -590,27 +606,69 @@ export class RibbonStrokeScratch {
       // is read — copyTo overwrites `original` outright, the others are
       // cleared — so a reused buffer carries nothing of whatever gesture had
       // it last.
-      const original = this.pool.acquire(tile.width, tile.height)
-      tile.copyTo(original)
-      const coverage = this.pool.acquire(tile.width, tile.height)
-      coverage.clear()
-      let inkLoad: AccumulationBuffer | null = null
-      let inkColor: AccumulationBuffer | null = null
-      if (this.needsInk) {
-        inkLoad = this.pool.acquire(tile.width, tile.height)
-        inkLoad.clear()
-        if (this.needsColor) {
-          inkColor = this.pool.acquire(tile.width, tile.height)
-          inkColor.clear()
-        }
+      const acquired: AccumulationBuffer[] = []
+      const acquire = (): AccumulationBuffer => {
+        const buffer = this.pool.acquire(tile.width, tile.height)
+        acquired.push(buffer)
+        return buffer
       }
-      // The settled pair is taken on the first settle, by the pass that needs
-      // it — a marker gesture never does, and three buffers a tile was already
-      // the churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
-      this._tiles.set(tile, entry)
+      try {
+        const original = acquire()
+        tile.copyTo(original)
+        const coverage = acquire()
+        coverage.clear()
+        let inkLoad: AccumulationBuffer | null = null
+        let inkColor: AccumulationBuffer | null = null
+        if (this.needsInk) {
+          inkLoad = acquire()
+          inkLoad.clear()
+          if (this.needsColor) {
+            inkColor = acquire()
+            inkColor.clear()
+          }
+        }
+        entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null, strokeInk: null, inkBase: null, strokeColor: null, colorBase: null, filmGesture: -1, inkDry: null, colorDry: null }
+        this._tiles.set(tile, entry)
+      } catch (error) {
+        // Nothing was published. Attempt every release independently; a
+        // cleanup failure must not hide the original (including undefined).
+        for (let i = acquired.length - 1; i >= 0; i--) {
+          try { this.pool.release(acquired[i]) } catch { /* Preserve primary. */ }
+        }
+        throw error
+      }
     }
     return entry
+  }
+
+  /** V2 brush opacity ceiling, pooled and captured by the existing inkLoad snapshot slot. */
+  brushCeiling(tile: AccumulationBuffer): AccumulationBuffer {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkLoad) {
+      const ceiling = this.pool.acquire(tile.width, tile.height)
+      try { ceiling.clear() }
+      catch (error) {
+        try { this.pool.release(ceiling) } catch { /* Preserve primary. */ }
+        throw error
+      }
+      entry.inkLoad = ceiling
+    }
+    return entry.inkLoad
+  }
+
+  /** Reversible brush tail preview. Main coverage remains the committed prefix. */
+  brushPreview(tile: AccumulationBuffer): { coverage: AccumulationBuffer; ceiling: AccumulationBuffer } {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkSettled) entry.inkSettled = this.pool.acquire(tile.width, tile.height)
+    if (!entry.colorSettled) entry.colorSettled = this.pool.acquire(tile.width, tile.height)
+    return { coverage: entry.inkSettled, ceiling: entry.colorSettled }
+  }
+
+  /** Slow WebGL1 fallback when EXT_blend_minmax is unavailable. */
+  brushCeilingCopy(tile: AccumulationBuffer): AccumulationBuffer {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkColor) entry.inkColor = this.pool.acquire(tile.width, tile.height)
+    return entry.inkColor
   }
 
   /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
@@ -631,6 +689,14 @@ export class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
+    if(this._brushSecondary){this._brushSecondary.scratch.destroy();for(const buffer of this._brushSecondary.tiles.values())this.pool.release(buffer);this._brushSecondary=undefined}
+    this.brushNative?.destroy();this.brushNative=undefined
+    const canonicalSource=this.canonicalSource;this.canonicalSource=undefined
+    const filterState=this.filterSmudge147State;this.filterSmudge147State=undefined
+    let sourceFailed=false,sourceFailure:unknown
+    try{filterState?.release()}catch(error){sourceFailed=true;sourceFailure=error}
+    try{canonicalSource?.release()}catch(error){if(!sourceFailed){sourceFailed=true;sourceFailure=error}}
+    this.brushBehavior = undefined
     this._materialGesture = null
     this._storageBounds = null
     this._waterUsed = 0
@@ -653,16 +719,27 @@ export class RibbonStrokeScratch {
       if (colorSettled) this.pool.release(colorSettled)
     }
     this._tiles.clear()
+    if(sourceFailed)throw sourceFailure
   }
 
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this._brushSecondary?.scratch.forget()
+    this._brushSecondary=undefined
+    this.brushNative?.destroy();this.brushNative=undefined
+    const canonicalSource=this.canonicalSource;this.canonicalSource=undefined
+    const filterState=this.filterSmudge147State;this.filterSmudge147State=undefined
+    let sourceFailed=false,sourceFailure:unknown
+    try{filterState?.release()}catch(error){sourceFailed=true;sourceFailure=error}
+    try{canonicalSource?.release()}catch(error){if(!sourceFailed){sourceFailed=true;sourceFailure=error}}
+    this.brushBehavior = undefined
     this._materialGesture = null
     this.trackRunningSource = false
     this.runningSourceCommands = []
     this._tiles.clear()
     this.pendingComposite.clear()
+    if(sourceFailed)throw sourceFailure
   }
 
   /** (#536, §17.22) Whether this scratch still holds its tiles — false once
@@ -681,6 +758,9 @@ export class RibbonStrokeScratch {
    *  `originOf` names each tile by its place on the sheet: the replay that
    *  restores this paints into another buffer. */
   snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
+    // Secondary live coverage is not part of the watercolor snapshot format.
+    // Rebuild from operations rather than publishing an incomplete checkpoint.
+    if (this._brushSecondary||this.filterSmudge147State) return null
     if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     if ([...this._tiles.values()].some(entry => entry.coverageFilm)) return null
     const tiles: ScratchSnapshot['tiles'] = []
@@ -703,6 +783,8 @@ export class RibbonStrokeScratch {
   /** Every number the next operation of this wash reads - see snapshot. */
   private _scalars(): ScratchScalars {
     return {
+      canonicalSource:this.canonicalSource?.retain(),
+      brushBehavior: this.brushBehavior ? structuredClone(this.brushBehavior) : undefined,
       needsInk: this.needsInk, needsColor: this.needsColor,
       storageBounds: this._storageBounds ? { ...this._storageBounds } : this._storageBounds,
       paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
@@ -718,6 +800,8 @@ export class RibbonStrokeScratch {
   }
 
   private _applyScalars(snap: ScratchScalars, target: ILayerBuffer): void {
+    this.canonicalSource?.release();this.canonicalSource=snap.canonicalSource?.retain()
+    this.brushBehavior = snap.brushBehavior ? structuredClone(snap.brushBehavior) : undefined
     this._materialGesture = null
     this.pigmentInputsKnownZero = false
 
@@ -761,6 +845,9 @@ export class RibbonStrokeScratch {
    * clear and only receive writes inside storageBounds. GPU sub-rect copies
    * preserve every byte; unpark clears the missing exterior. */
   spill(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): SpilledScratch | null {
+    // Secondary live coverage is not part of the watercolor snapshot format.
+    // Rebuild from operations rather than publishing an incomplete checkpoint.
+    if (this._brushSecondary||this.filterSmudge147State) return null
     if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     const work = this.spillWork(originOf)
     let r = work.next()
@@ -769,13 +856,15 @@ export class RibbonStrokeScratch {
   }
 
   *spillWork(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): Generator<void, SpilledScratch | null, void> {
+    if(this.filterSmudge147State)return null // Mutable T requires full BEGIN replay, never shared/spilled.
     if (this.diffusePending || this.pendingComposite.size) return null
     const tiles: SpilledScratch['tiles'] = []
     const owned = new Set<AccumulationBuffer>(), moved = new Set<AccumulationBuffer>()
     let bytes = 0, committed = false
+    let canonicalSource:CanonicalBeginSource|undefined
     const takeBuffer = (b: AccumulationBuffer): void => { owned.delete(b) }
     const releaseBuffer = (b: AccumulationBuffer): void => { if (owned.delete(b)) this.pool.release(b) }
-    const dispose = (): void => { for (const b of owned) this.pool.release(b); owned.clear() }
+    const dispose = (): void => { const source=canonicalSource;canonicalSource=undefined;try{source?.release()}finally{for (const b of owned) this.pool.release(b); owned.clear()} }
     try {
       for (const [tile, entry] of this._tiles) {
         if (entry.coverageFilm || entry.strokeInk || entry.inkBase || entry.strokeColor || entry.colorBase || entry.strokeSolvent || entry.solventBase) return null
@@ -823,7 +912,8 @@ export class RibbonStrokeScratch {
         }
         tiles.push({ ...at, width: tile.width, height: tile.height, bufs })
       }
-      const result = { ...this._scalars(), tiles, bytes, dispose, takeBuffer, releaseBuffer }
+      const scalars=this._scalars();canonicalSource=scalars.canonicalSource
+      const result = { ...scalars, tiles, bytes, dispose, takeBuffer, releaseBuffer }
       // Ownership moves only on successful completion. Until now the active
       // scratch was untouched and cancellation can simply release its copies.
       for (const b of moved) owned.add(b)
@@ -920,12 +1010,19 @@ export function scratchSnapshotBytes(snap: ScratchSnapshot): number {
 }
 
 export function freeScratchSnapshot(snap: ScratchSnapshot): void {
-  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) b?.destroy()
+  const source=snap.canonicalSource;snap.canonicalSource=undefined
+  let failed=false,primary:unknown
+  const attempt=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;primary=error}}}
+  attempt(()=>source?.release())
+  for (const t of snap.tiles) for (const b of Object.values(t.bufs)) if(b)attempt(()=>b.destroy())
+  if(failed)throw primary
 }
 
 /** (#536, §17.56) Every number of a RibbonStrokeScratch the next operation
  *  of its wash reads. */
 interface ScratchScalars {
+  canonicalSource?:CanonicalBeginSource
+  brushBehavior?: BrushBehaviorState
   storageBounds?: ScratchBounds | null
   needsInk: boolean; needsColor: boolean
   paints: string[]; waterUsed: number; pigmentUsed: number

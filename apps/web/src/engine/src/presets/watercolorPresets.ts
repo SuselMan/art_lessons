@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
 import { anchoredAngleShaping, tiltOrPathAngle, DEFAULT_NIB_ANCHOR,
-  type DabShapingProfile, type HeadTaperProfile, type TipBendProfile } from './dabShaping'
+  type DabShapingProfile, type HeadTaperProfile, type TipBendProfile } from './brushGeometry'
 // Type-only, so it is erased and cannot join the import cycle this file's
 // header warns about. The config is not marker-specific any more (#489).
 import type { NibAngleConfig } from './markerPresets'

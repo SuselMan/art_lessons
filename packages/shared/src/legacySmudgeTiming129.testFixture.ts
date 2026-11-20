@@ -1,0 +1,6 @@
+import type{BrushDescriptor,BrushLibrary}from'./brushes.js'
+import type{Dab}from'./stroke.js'
+export const asset129=('asset:'+'a'.repeat(64))as`asset:${string}`
+export function brush129():BrushDescriptor{return{id:'imported-129000000000000000000001',version:129,model:'mixer',category:'wet',tip:{kind:'bitmap',mask:asset129,angle:0,aspect:1,hardness:1,rotation:'fixed'},paperInteraction:0,spacing:.2,flow:1,flowPer:'stamp',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,1],[1,1]],flowByPressure:[[0,1],[1,1]],opacityByPressure:[[0,1],[1,1]],mixer:{source:'previousCanvas',load:0,initialLoad:0,pickup:1,strength:1,smearAlpha:true},behavior:{version:2,rendering:{mode:'buildUp',opacityCeiling:'uniform',blendMode:'normal',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'},timing:{version:1,rate:100.13,ignoreDistanceSpacing:false},dynamics:{angle:{control:'random',minimum:0,jitter:0,randomSource:{kind:'grafettoSourceTime-v1',key:'behavior/dynamics/angle'}}}}}}
+export const dab129=(sourceTime:number):Dab=>({x:-10,y:20,size:12,pressure:.8,opacity:1,aspectRatio:1,angle:0,tiltX:0,tiltY:0,t:sourceTime,sourceTime})
+export function library129(d=brush129()):BrushLibrary{return{schemaVersion:1,assets:[{id:asset129,size:2,file:'a'.repeat(64)+'.bin'}],skipped:[],brushes:[{name:'Own129',source:'own129.kpp',warnings:[],descriptor:d}]}}

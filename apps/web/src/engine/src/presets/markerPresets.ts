@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 import {
   anchoredAngleShaping, DEFAULT_NIB_ANCHOR, tiltOrPathAngle,
   type DabShapingProfile, type NibAnchor,
-} from './dabShaping'
+} from './brushGeometry'
 import type { DwellConfig } from './linerPresets'
 
 // #251, ADR 004 §1: the two marker nib dab-shaping profiles. Mirrors

@@ -1,3 +1,45 @@
+import { isEmptySnapshotTile } from './src/buffers/retileSnapshot'
+import{hasLegacyColorSmudgeArithmetic175Scope,hasLegacyColorSmudgeDodgeBurn176Scope,hasLegacyColorSmudgeMinMax172Scope,hasLegacyColorSmudgeOverlay154Scope,hasSpraySource146Scope}from'./src/presets/stationary195Scopes'
+import{hasGridWash137Scope}from'./src/presets/stationary195Scopes'
+import{hasBristleInitializationScope,hasBristleNativePointCoverage,hasBristleSoak139Scope,hasCloneHealing152Scope,hasCloneProjection149Scope,hasDeformOldData145Scope,hasExperimentCurrentPattern158Scope,hasFilterSmudge147Scope,hasMyPaintTimer177Scope,hasTangentNormalWash136Scope}from'./src/presets/stationary195Scopes'
+import{usesNativeSmudgeTexture,usesNativeSmudgeFeatures,usesNativeSketchSpray}from'./src/presets/nativeBrushFeatures'
+import { mask190RootExecution } from './src/presets/independentMask190'
+import{assertRecordedPen188Brush,captureLatchedRecordedPenInput}from './src/presets/recordedPen188'
+import{usesRecordedPen188Controls}from'@grafetto/shared'
+
+
+
+
+import{hasCurveHostTimer167Scope}from'@grafetto/shared'
+import{hasSketchTimer161Scope}from'@grafetto/shared'
+import{hasDeformTimer160Scope}from'@grafetto/shared'
+import{copyBrushPattern,isBrushPattern,type BrushPattern}from'@grafetto/shared'
+import{hasParticleTimer157Scope}from'@grafetto/shared'
+
+import type{CanonicalBeginLayeredView}from'./src/dabs/CanonicalBeginSource'
+
+import {CanonicalBeginBlocked,canonicalBeginIsStamp,canonicalBeginBindingKey,firstBristleLine139,isBristleAnchor139,type CanonicalBeginCapability,type CanonicalBeginRuntime,type CanonicalBeginOwnerInfo} from './src/dabs/CanonicalBeginRuntime'
+import {isGridRenderableDab137} from './src/dabs/GridWashRuntime'
+import {hasOpenGridGesture,type WashOp} from './src/oplog/checkpointStore'
+
+import type {GridWashBinding,GridWashNotReady,GridBeginResult,GridDestinationPinsResult,GridWashPaintResult,GridWashPrepareResult} from './src/dabs/GridWashRuntime'
+
+import {textureMaterialVariant} from './src/presets/textureLightness'
+import {usesColorSmudgeTexture} from './src/presets/colorSmudgeTexture'
+import {usesFilteredPixelGradient} from './src/presets/pixelOriginalRgba'
+import {captureHatchingBackground,type HatchingRgba8} from './src/raster/hatchingBackground'
+import type {ProjectionReadSession} from './src/raster/CanvasProjectionSampler'
+import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
+import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
+import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
+import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
+import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
+import { BrushMipCache } from './src/dabs/BrushMipCache'
+import{ copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds }from'@grafetto/shared'
+import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { importedAssetPixels } from './src/presets/importedBrushes'
+import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
+import { clearReplayStart } from './src/oplog/clearReplayStart'
 import { cancelRestoreGeneration } from './restoreGeneration'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -74,6 +116,7 @@ import {
   OperationLog, pixelReadLayerIds, pixelWriteLayerIds, type LogEntry, type PixelOperation,
 } from './src/oplog/OperationLog'
 import { PointerInput, type DiagLog, type PointerData, type PressureMap } from './src/input/PointerInput'
+import { normalizedBrushSpeed } from './src/input/brushSpeed'
 import {
   PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT,
   type PencilGradeName, type PencilPreset,
@@ -116,13 +159,23 @@ import {
   IDENTITY_MATRIX, type Matrix3,
 } from './src/raster/matrix'
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
-import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/buffers/TiledLayerBuffer'
+import { TiledLayerBuffer, LayerTilesNotReady, type TileRebuilder } from './src/buffers/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/buffers/ILayerBuffer'
 import { TILE_SIZE, tilesOverlappingRect, tileWorldRect, type WorldRect } from './src/buffers/tileMath'
 import { packTilePixels, unpackTilePixels } from './src/buffers/pinnedTiles'
+import { compactHistoricalLayer, type HistoricalProjectionSource } from './src/buffers/HistoricalProjectionSource'
+
+import { packColorSmudge, restoreCheckpointMaterial } from './src/oplog/materialCheckpoint'
 import type { SnapshotTile } from './src/oplog/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/oplog/snapshotAudit'
-import { packDabs, strokeDabs } from '@grafetto/shared'
+import{ brushRequiresSourceTime, packDabs, strokeDabs, strokeEndSample as readStrokeEndSample, packStrokeEndSample }from'@grafetto/shared'
+
+type HistoricalProjectionEntry={buffer:HistoricalProjectionSource;bytes:number;replayTarget?:ILayerBuffer}
+interface RebuiltProjectionProof {
+  readonly layerId:string
+  readonly opIds:readonly string[]
+  readonly tiles:readonly {readonly buffer:AccumulationBuffer;readonly texture:WebGLTexture;readonly originX:number;readonly originY:number;readonly width:number;readonly height:number;readonly revision:number;readonly contentRect:Readonly<WorldRect>|null}[]
+}
 
 export type { HapticGrainStats }
 export type { DiagLog, PressureMap } from './src/input/PointerInput'
@@ -687,6 +740,7 @@ export interface PencilEngineAPI {
   // lets a bake carry only the layers that changed instead of re-reading every
   // layer in the room. False for a layer nobody has ever painted, so an
   // untouched `background` never costs a readback.
+  gridReadiness(layerId:string):{layer:GridWashNotReady|null;author:GridWashNotReady|null}
   isLayerDirty(layerId: string): boolean
   // (#386) Every layer this engine currently holds a pixel buffer for.
   //
@@ -805,10 +859,24 @@ export interface PencilEngineAPI {
   setUserId(id: string): void
   setPaper(type: PaperType): void
   setPencil(type: string): void
+  /** Selected-brush warmup only: one CPU-mips/upload task per rAF. Oversized
+   * sets or residency displaced by concurrent replay use the lazy fallback.
+   * A new request, abort, context loss or destroy cancels pending work. */
+  prepareBrush(preset: string, options?: BrushPreparationOptions): Promise<BrushPreparationResult>
   setTool(tool: ToolType): void
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
+  /** Canvas gradient resource; omitted uses foreground to white at pen-down.
+   * Changes affect the next gesture. Prepare the brush after changing a
+   * gradient-map resource to keep its texture upload outside pen input. */
+  requestCloneSourcePick():void
+  setBrushPattern(pattern?:BrushPattern):void
+  setBrushGradient(lut?:string):void
+  /** Next-gesture brush background; omitted resets explicit Grafetto white default.
+   * Independent of paper. No background picker UI is currently provided. */
+  setHatchingBackground(rgba?:HatchingRgba8):void
+  setBrushBackground(rgba?:HatchingRgba8):void
   // #278/#489: the angle setting of whichever nib the active tool is wearing.
   // angleRadians is always canvas-space (the caller resolves the local
   // viewport's own rotation into this one number, same "engine only ever sees
@@ -882,13 +950,13 @@ export interface PencilEngineAPI {
   // existing confirm, #171) to skip the dialog for a genuinely empty layer.
   hasLayerContent(layerId: string): boolean
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
-  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
+  // Camera-relative viewport rendering (bounded and infinite rooms).
   // (wx, wy) is the world point currently at screen center (unlike
   // setViewport's (cx, cy), a screen-space canvas-center position — there's
-  // no fixed canvas rect to recenter around here). Meaningless/never read
-  // for a bounded-canvas engine. Also updates the pointer transform, same
-  // as setViewport does, so drawing and camera movement share one call.
-  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void
+  // no fixed canvas rect to recenter around here). Also updates pointer input.
+  // Optional cssZoom is the viewport's nominal CSS/image scalar before backing
+  // store integer rounding; new source cursor-history policies use that resource.
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number, cssZoom?: number): void
   // Resizes the canvas backing buffer itself — the canvas element IS the
   // viewport, so it must track the viewport container's size. (#470) Both
   // kinds of room: a bounded room's canvas used to be its sheet, fixed for
@@ -1120,6 +1188,8 @@ function blobToDataUrl(blob: Blob): Promise<string | null> {
  *  everywhere else, and keeping the unpacking at the socket seam means a test
  *  can drive this without going through the codec. */
 export interface PeerLivePacket {
+  brushRandom?: BrushRandomSeeds
+  brushSource?:BrushSourceContext
   strokeId: string
   layerId: string
   tool: ToolType
@@ -1182,6 +1252,7 @@ interface DeferredSnapshotInstall {
 }
 
 interface PeerLiveStroke {
+  gridBlocked?:GridWashNotReady
   tool?: StrokeOperation['tool']
   peerId: string
   strokeId: string
@@ -1246,6 +1317,28 @@ interface EngineOpts {
   opacity: number
 }
 
+interface AuthorStartSnapshot {
+  brushSource?:BrushSourceContext
+  opts: EngineOpts
+  layerId: string
+  initialDirection: number
+  sourceZoom?: number
+  cameraAngle: number
+  nibAngle: number
+  nibAnchor: NibAnchor
+  tiltResponse: TiltResponse
+  extraLayerIds: string[]
+  dispatchNow: number
+}
+interface TimedAuthorSession {
+  snapshot: AuthorStartSnapshot
+  input: PointerData
+  lastTime: number
+  cameraAngle: number
+  ended: boolean
+  hold?: { times: number[]; input: PointerData; cameraAngle:number }
+}
+
 // One peer's live-stroke reveal state (#37 follow-up v2, see
 // PencilEngineAPI.previewOperation). `queue[0]` is the op currently being
 // revealed; `dabIdx` is how many of its dabs have been painted into `buf` so
@@ -1285,8 +1378,12 @@ interface PeerPreviewState {
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
  *  operations replayed into a FRESH buffer a slice at a time, the old buffer
  *  on screen meanwhile, swapped in whole when the replay has caught up. */
+class GridHostNotReady extends LayerTilesNotReady {constructor(outcome:GridWashNotReady,layerId?:string){super(outcome,layerId)}}
+interface GridAuthorCandidate {capability?:CanonicalBeginCapability;scratch?:RibbonStrokeScratch;input:PointerData;latest?:PointerData;end?:PointerData;snapshot:AuthorStartSnapshot;seeds:NonNullable<ReturnType<typeof createBrushRandomContext>>;strokeId:string;sampler:DabSystem;dabs:Dab[];binding?:GridWashBinding;blocked?:GridWashNotReady;committed:boolean;firstPublished?:boolean;firstElapsed?:number;finalizeEnd?:()=>void}
 interface RebuildJob {
   layerId: string
+  gridBlocked?:GridWashNotReady
+  gridProgress?:{opId:string;acceptedDabs:number}
   fresh: ILayerBuffer
   /** The job's own replay-scratch cache: live washes keep theirs. */
   chunks: Map<string, { strokeId: string; washStrokeId?: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }>
@@ -1522,8 +1619,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _onLiveStrokeEnd?: (strokeId: string, cancelled?: boolean) => void
   private _liveDabQueue: Dab[] = []
   private _liveLastEmitAt = -Infinity
-  private _liveEmitTimer: ReturnType<typeof setTimeout> | null = null
   private _livePacketSeq = 0
+  private _liveDabFlush?: {timer?:ReturnType<typeof setTimeout>;strokeId:string;layerId:string}
 
   // Debug instrumentation (#91 device investigation) — all no-ops unless
   // _debug is true, so this costs nothing in normal use.
@@ -1657,6 +1754,16 @@ export class PencilEngine implements PencilEngineAPI {
   // The gesture this stroke belongs to (StrokeOperation.strokeId) — one id
   // from pen-down to pen-up, stamped on every chunk _flushStrokeChunk emits
   // along the way as well as on the final op.
+  private _strokeBrushRandom?: BrushRandomSeeds
+  private _strokeBrushSource?:BrushSourceContext
+  private _clonePickArmed=false
+  private _cloneSource?:{x:number;y:number}
+  private _cloneOffset?:{x:number;y:number}
+  private _hatchingBackground?:HatchingRgba8
+  private _canvasBrushGradient?:string
+  private _canvasBrushPattern?:BrushPattern
+  private readonly _rebuiltProjectionProofs=new WeakMap<ILayerBuffer,RebuiltProjectionProof>()
+  private _projectionReadScope?:{beforeSeq:number;target:ILayerBuffer;layerId:string;store:{cache:Map<string,HistoricalProjectionEntry>;bytes:number;pinned?:Set<HistoricalProjectionSource>}}
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
    *  scratch alive across the several operations it was chunked into.
@@ -1706,23 +1813,26 @@ export class PencilEngine implements PencilEngineAPI {
     ? GPU_BUDGET_TOUCH_BYTES : Infinity
   /** (§17.70) A rebuild's step is running: the cache is the job's own. */
   private _inJobStep = false
+  /** Synchronous historical-source frames never own live queues/presentation. */
+  private _historicalSourceDepth = 0
 
   private readonly _ribbonCache = new RibbonReplayCache({
     ribbonScratchPool: () => this._ribbonScratchPool,
     destroyed: () => this._destroyed,
     contextLost: () => this._contextLost,
-    inJobStep: () => this._inJobStep,
+    inJobStep: () => this._historicalSourceDepth>0 || this._inJobStep,
+    preserveOpenChunks: () => this._historicalSourceDepth>0,
     gpuBudget: () => this._gpuBudget,
-    settlingScratch: () => this._settle?.scratch,
-    completeSettle: () => this._completeSettle(),
-    finishedChunk: () => [...this._replayRibbonChunks].find(([key, chunk]) => {
+    settlingScratch: () => this._historicalSourceDepth>0 ? undefined : this._settle?.scratch,
+    completeSettle: () => { if(!this._historicalSourceDepth)this._completeSettle() },
+    finishedChunk: () => this._historicalSourceDepth>0 ? undefined : [...this._replayRibbonChunks].find(([key, chunk]) => {
       const job = [...this._rebuildJobs.values()].find(j => j.fresh === chunk.target)
       if (!job) return false
       const remaining = this._log.layerPixelOps(job.layerId).slice(job.start + job.applied.length)
       return !remaining.some(op => op.type === 'stroke' && (op.washId ?? op.strokeId) === key)
     }),
-    rebuildLostWash: target => this._rebuildLostWash(target),
-    scheduleBudgetCheck: () => this._scheduleBudgetCheck(),
+    rebuildLostWash: target => {if(!this._historicalSourceDepth)this._rebuildLostWash(target)},
+    scheduleBudgetCheck: () => {if(!this._historicalSourceDepth)this._scheduleBudgetCheck()},
     washGpuBytes: () => this._washGpuBytes(),
   })
   private get _replayRibbonChunks() { return this._ribbonCache.chunks }
@@ -1857,7 +1967,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcAsyncLocalStroke: string | null = null
   private readonly _wcAsyncLocalTools = new Map<string, {
     layers: Map<string, { buffer: ILayerBuffer; copied: Set<string>; scratch: RibbonStrokeScratch }>
-    ended: boolean; queued: number
+    ended: boolean; queued: number; execution?:BrushExecutionContext
   }>()
   /** Default-OFF expedited Dry uses only owned scheduling/presentation metadata. */
   private _wcExpeditedDry = false
@@ -1948,7 +2058,7 @@ export class PencilEngine implements PencilEngineAPI {
     nibDrawCost: (tile, dab, preset) => this._nibDrawCost(tile, dab, preset),
     nibTouchesTile: (tile, dab, preset) => this._nibTouchesTile(tile, dab, preset),
     pageSize: () => this._pageSize(),
-    paintBrushStroke: (target, dabs, preset, stamp, color, scratch, prevDab) => this._paintBrushStroke(target, dabs, preset, stamp, color, scratch, prevDab),
+    paintBrushStroke: (target, dabs, preset, stamp, color, scratch, prevDab,execution,canonicalBeginRuntime) => this._paintBrushStroke(target, dabs, preset, stamp, color, scratch, prevDab,execution,canonicalBeginRuntime),
     resolveWithinSheet: (target, r) => this._resolveWithinSheet(target, r),
     revealAfterBatch: (tile, bounds, prev) => this._revealAfterBatch(tile, bounds, prev),
     revealBeforeBatch: (tile, bounds) => this._revealBeforeBatch(tile, bounds),
@@ -2079,6 +2189,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _minmaxExt: { MAX_EXT: number } | null = null
   // (#494) The digital brush's stamp model, its tips and textures — see
   // BrushPainter.ts. Its programs are built by _initGL, like every other one.
+  private _brushPreparationGeneration = 0
+  private _brushPreparationPreset?: string
+  private readonly _brushPreparation = new BrushPreparation()
+  private readonly _brushMipCache = new BrushMipCache()
   private readonly _brush: BrushPainter
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
@@ -2109,6 +2223,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
+  private readonly _sourceCursorHistory=createCursorHistory()
+  private _boundedInputZoom=1
+  private _inputUsesCamera=false
+  private _sourceNominalZoom?:number
   // (#650) See PencilEngineOptions.diagLog.
   private readonly _diagLog: DiagLog
 
@@ -2178,6 +2296,501 @@ export class PencilEngine implements PencilEngineAPI {
    *  (§17.63) its widest dab's half-size across the long axis, before the
    *  preset's size multiplier. */
   private _strokeChunkBox: { minX: number; minY: number; maxX: number; maxY: number; half: number } | null = null
+  private _airbrushTimer: ReturnType<typeof setTimeout> | null=null
+  private _airbrushInput?:PointerData
+  private _authorCameraAngle=0
+  private _gridAuthor?:GridAuthorCandidate
+  private _gridNextAuthor?:GridAuthorCandidate
+  private _gridWakeQueued=false
+  private readonly _gridTargetEpochs=new WeakMap<ILayerBuffer,number>()
+  private _gridNextTargetEpoch=1
+  private _gridReplayOperation?:StrokeOperation
+  private _gridReplayTarget?:{target:ILayerBuffer;layerId:string}
+  private _gridDirectOperation?:StrokeOperation
+  private _isGrid137Brush(brush:BrushDescriptor):boolean{
+    if(brush.version<137||brush.grid?.sourcePolicy!=='canonical-begin-v1')return false
+    if(!hasGridWash137Scope(brush))throw Error('Invalid Grid137 scope')
+    return true
+  }
+  private _beginCapability(brush:BrushDescriptor):CanonicalBeginCapability|undefined{
+    if(brush.clone&&'healing'in brush.clone){if(!hasCloneHealing152Scope(brush))throw Error('Invalid healing Clone152 scope');return'cloneHealing152'}
+    if(brush.clone&&(brush.clone.source!==undefined||brush.clone.sourcePolicy!==undefined)){if(!hasCloneProjection149Scope(brush))throw Error('Invalid merged Clone149 scope');return'cloneProjection149'}
+    if(this._isGrid137Brush(brush))return'grid137'
+    if(brush.bristle?.version===2&&brush.bristle.soak){if(!hasBristleSoak139Scope(brush))throw Error('Invalid Bristle Soak139 scope');return'bristleSoak139'}
+    if(brush.deform?.sourcePolicy==='canonical-begin-v1'){if(!hasDeformOldData145Scope(brush))throw Error('Invalid Deform145 scope');return'deformOld145'}
+    if(brush.filter&&'smudgeMode'in brush.filter){if(!hasFilterSmudge147Scope(brush))throw Error('Invalid Filter147 scope');return'filterSmudge147'}
+    if(brush.spray?.color.sourcePolicy==='canonical-begin-v1'){if(!(usesNativeSketchSpray(brush)||brush.version===195||hasSpraySource146Scope(brush)))throw Error('Invalid Spray146 scope');return'spray146'}
+    return undefined
+  }
+  private _isCanonicalBeginOperation(op:WashOp):boolean{return op.type==='stroke'&&op.tool==='digitalBrush'&&!!op.preset&&this._beginCapability(digitalBrushFromPreset(op.preset))!==undefined}
+  private _beginFirstEntry(entries:readonly LogEntry[],layerId:string,userId:string,strokeId:string,capability:CanonicalBeginCapability){
+    let previous:Dab|undefined
+    for(const entry of entries){const op=entry.op;if(op.type!=='stroke'||op.layerId!==layerId||op.userId!==userId||op.strokeId!==strokeId)continue
+      const dabs=strokeDabs(op)
+      if(capability==='bristleSoak139'?(op.preset&&digitalBrushFromPreset(op.preset).version===195?dabs.length>0:firstBristleLine139(dabs,previous)):dabs.some(isGridRenderableDab137))return entry
+      if(capability==='bristleSoak139')for(const dab of dabs)if(isBristleAnchor139(dab))previous=dab
+    }
+    return undefined
+  }
+  /** Existing scratch inventories, including paused rebuild owners; no palette registry. */
+  private _soakScratchOwners():Array<{target:ILayerBuffer;scratch:RibbonStrokeScratch}>{
+    const result:Array<{target:ILayerBuffer;scratch:RibbonStrokeScratch}>=[],seen=new Set<RibbonStrokeScratch>()
+    const add=(target:ILayerBuffer|undefined,scratch:RibbonStrokeScratch|undefined|null)=>{if(target&&scratch&&!seen.has(scratch)){seen.add(scratch);result.push({target,scratch})}}
+    add(this._strokeLayerId?this._layers.get(this._strokeLayerId):undefined,this._ribbonStrokeScratch)
+    if(this._gridAuthor?.capability&&canonicalBeginIsStamp(this._gridAuthor.capability))add(this._layers.get(this._gridAuthor.snapshot.layerId),this._gridAuthor.scratch)
+    for(const chunk of this._replayRibbonChunks.values())add(chunk.target,chunk.scratch)
+    for(const job of this._rebuildJobs.values())for(const chunk of job.chunks.values())add(chunk.target,chunk.scratch)
+    return result
+  }
+  private _canonicalBeginOwners(target?:ILayerBuffer):CanonicalBeginOwnerInfo[]{
+    const result:CanonicalBeginOwnerInfo[]=this._smudge.activeGridOwners(target).map(info=>({...info,capability:'grid137' as const}))
+    result.push(...this._smudge.activeDeformOwners(target))
+    for(const own of this._soakScratchOwners()){const source=own.scratch.canonicalSource;if(source&&(!target||source.target===target))result.push({target:source.target,binding:source.binding,capability:source.capability});if(target&&own.target!==target)continue;const binding=this._brush.bristleSoakBinding(own.scratch);if(binding)result.push({target:own.target,binding,capability:'bristleSoak139'})}
+    return result
+  }
+  private _invalidateCanonicalBeginOwners(target:ILayerBuffer,reason:'prefix'|'context'):void{
+    this._smudge.invalidateGridOwners(target,reason)
+    this._smudge.invalidateDeformOwners(target,reason)
+    for(const own of this._soakScratchOwners())if(own.target===target){this._brush.invalidateBristleSoak(own.scratch);this._brush.invalidateFilterBegin(own.scratch);this._brush.invalidateCloneBegin(own.scratch);this._brush.invalidateSprayBegin(own.scratch)}
+  }
+  private _isGrid137Operation(op:WashOp):boolean{
+    return op.type==='stroke'&&op.tool==='digitalBrush'&&!!op.preset&&this._isGrid137Brush(digitalBrushFromPreset(op.preset))
+  }
+  private _gridLayerReadiness(layerId:string,seen=new Set<string>()):GridWashNotReady|null{
+    if(seen.has(layerId))return null
+    seen.add(layerId)
+    const target=this._layers.get(layerId)
+    const own=this._rebuildJobs.get(layerId)?.gridBlocked
+      ??[...this._peerLiveStrokes.values()].find(live=>live.layerId===layerId&&live.gridBlocked)?.gridBlocked
+      ??(target instanceof TiledLayerBuffer?target.pendingTileRecovery:null)
+    if(own)return own
+    if(this._snapshotIO.historyRepairPending(layerId))return{kind:'notReady',reason:'history',retryKey:'history:'+layerId}
+    for(const source of this._snapshotDependentLayers.get(layerId)??[]){
+      const pending=this._gridLayerReadiness(source,seen)
+      if(pending)return{...pending,retryKey:'dependency:'+layerId+':'+pending.retryKey}
+    }
+    return null
+  }
+  gridReadiness(layerId:string):{layer:GridWashNotReady|null;author:GridWashNotReady|null}{
+    return{layer:this._gridLayerReadiness(layerId),author:this._gridAuthor?.snapshot.layerId===layerId&&!this._gridAuthor.committed?this._gridAuthor.blocked??null:null}
+  }
+  private _gridEpoch(target:ILayerBuffer):number{
+    let epoch=this._gridTargetEpochs.get(target)
+    if(epoch===undefined){epoch=this._gridNextTargetEpoch++;this._gridTargetEpochs.set(target,epoch)}
+    return epoch
+  }
+  private _gridLayer(target:ILayerBuffer):string|undefined{
+    for(const[id,value]of this._layers)if(value===target)return id
+    for(const job of this._rebuildJobs.values())if(job.fresh===target)return job.layerId
+    return this._gridReplayTarget?.target===target?this._gridReplayTarget.layerId:undefined
+  }
+  private _gridBinding(target:ILayerBuffer,userId:string,strokeId:string,capability:CanonicalBeginCapability='grid137'):CanonicalBeginRuntime|GridWashNotReady{
+    const layerId=this._gridLayer(target)
+    if(!layerId)return{kind:'notReady',reason:'prefix',retryKey:'target-unbound'}
+    if(this._contextLost||this.gl.isContextLost())return{kind:'notReady',reason:'context',retryKey:'context:'+this._gridEpoch(target)}
+    if(this._snapshotIO.historyRepairPending(layerId))return{kind:'notReady',reason:'history',retryKey:'history:'+layerId}
+    if(this._layers.get(layerId)===target&&this._rebuildJobs.has(layerId))return{kind:'notReady',reason:'prefix',retryKey:'rebuild:'+layerId}
+    const entries=this._log.entries.filter(e=>e.state==='done')
+    const first=this._beginFirstEntry(entries,layerId,userId,strokeId,capability)
+    const before=first?entries.slice(0,entries.indexOf(first)):entries
+    const snapshot=this._checkpoints.all().find(cp=>cp.layerId===layerId&&cp.fromSnapshot)
+    // An existing original source is sufficient for the optimistic live continuation.
+    // Cold canonical replay cannot infer BEGIN from a possibly truncated pixel-only base.
+    const standing=this._canonicalBeginOwners(target).find(x=>x.binding.userId===userId&&x.binding.strokeId===strokeId)
+    if(first&&snapshot?.coveredSeq&&!standing){
+      const coveredSeq=snapshot.coveredSeq
+      // Absence of an earlier chunk is authoritative only after the COMPLETE
+      // confirmed prefix, including undone/anchor-only chunks, is available.
+      // Neither a seeded identity nor first-retained/t=0 proves a fresh BEGIN.
+      const all=this._log.entries
+      const through=Math.max(coveredSeq,first.serverSeq??all.reduce((n,e)=>Math.max(n,e.serverSeq??0),0))
+      const confirmed=new Set(all.map(e=>e.serverSeq).filter((seq):seq is number=>seq!==undefined&&Number.isSafeInteger(seq)&&seq>=1&&seq<=through))
+      let complete=confirmed.size===through
+      if(complete)for(let seq=1;seq<=through;seq++)if(!confirmed.has(seq)){complete=false;break}
+      const coveredGesture=all.some(e=>e.serverSeq!==undefined&&e.serverSeq<=coveredSeq&&e.op.type==='stroke'&&e.op.userId===userId&&e.op.strokeId===strokeId)
+      if(!complete||coveredGesture||first.serverSeq!==undefined&&first.serverSeq<=coveredSeq){
+        if(coveredGesture||first.serverSeq!==undefined&&first.serverSeq<=coveredSeq)this._snapshotIO.requireHistoryRepair(layerId,coveredSeq)
+        else this._snapshotIO.requireHistoryProof(layerId,through)
+        queueMicrotask(()=>{if(!this._destroyed){this._resolveSnapshotHistoryRepairs();if(this.pendingSnapshotHistoryRepairs().length)this._onSnapshotHistoryRepairNeeded?.()}})
+        return{kind:'notReady',reason:'history',retryKey:'begin-prefix:'+snapshot.coveredSeq}
+      }
+    }
+    const prefixKey=JSON.stringify([snapshot?.coveredSeq??0,before.map(e=>e.op.id)])
+    const binding:GridWashBinding={layerId,userId,strokeId,targetGeneration:this._gridEpoch(target),prefixKey,begin:first&&first.serverSeq!==undefined?{kind:'canonical',firstOpId:first.op.id,seq:first.serverSeq}:{kind:'optimistic',logRevision:this._log.revision}}
+    if(standing){
+      if(standing.binding.prefixKey!==prefixKey||standing.binding.targetGeneration!==binding.targetGeneration){this._invalidateCanonicalBeginOwners(target,'prefix');return{kind:'notReady',reason:'prefix',retryKey:'prefix:'+this._log.revision}}
+      // Own append after BEGIN changes log.revision but not the immutable source prefix.
+      return capability==='grid137'?{binding:standing.binding}:{binding:standing.binding,capability}
+    }
+    return capability==='grid137'?{binding}:{binding,capability}
+  }
+  private _gridCaptureReady(target:ILayerBuffer,binding:GridWashBinding,capability:CanonicalBeginCapability='grid137'):boolean{
+    const first=this._beginFirstEntry(this._log.entries.filter(e=>e.state==='done'),binding.layerId,binding.userId,binding.strokeId,capability)
+    if(this._gridReplayTarget?.target===target&&this._gridReplayOperation?.id===first?.op.id)return true
+    if(this._layers.get(binding.layerId)!==target||this._unsettledLayers.has(binding.layerId)||this._rebuildJobs.has(binding.layerId)||this._pendingRebuilds.has(binding.layerId)||this._hasUnrecordedInk(binding.layerId))return false
+    if(!first)return binding.begin.kind==='optimistic'
+    const last=this._log.layerPixelOps(binding.layerId).at(-1)
+    return this._gridDirectOperation?.id===first.op.id&&last?.id===first.op.id
+  }
+  private _openGridBegin(target:ILayerBuffer,binding:GridWashBinding):GridBeginResult{return this._openCanonicalBegin(target,binding,'grid137')}
+  private _openCanonicalBegin(target:ILayerBuffer,binding:GridWashBinding,capability:CanonicalBeginCapability):GridBeginResult{
+    const runtime=this._gridBinding(target,binding.userId,binding.strokeId,capability)
+    if('kind'in runtime)return runtime
+    if(runtime.binding.prefixKey!==binding.prefixKey||runtime.binding.targetGeneration!==binding.targetGeneration)return{kind:'notReady',reason:'prefix',retryKey:'stale-begin:'+this._log.revision}
+    if(!this._gridCaptureReady(target,binding,capability))return{kind:'notReady',reason:'prefix',retryKey:'unproven-BEGIN-pixels:'+this._log.revision}
+    const tiles=target instanceof TiledLayerBuffer?target.gridBeginTargets():target.allResident()
+    if(!tiles)return{kind:'notReady',reason:'prefix',retryKey:'evicted-begin:'+this._gridEpoch(target)}
+    const lease=target instanceof TiledLayerBuffer?target.pinGridDestinations(tiles):{assertCurrent:()=>{if(this._gridEpoch(target)!==binding.targetGeneration)throw Error('Grid source target changed')},release:()=>{}}
+    let released=false
+    return{kind:'ready',view:{binding,tiles,assertCurrent:()=>{lease.assertCurrent();const now=this._gridBinding(target,binding.userId,binding.strokeId,capability);if(released||'kind'in now||now.binding.prefixKey!==binding.prefixKey||!this._gridCaptureReady(target,binding,capability))throw Error('Grid BEGIN source changed during capture')},release:()=>{if(released)return;released=true;lease.release()}}}
+  }
+  /** Complete captured projection, before the gesture's first real request.
+   * Every layer is reconstructed from the same historical prefix; current
+   * visible buffers and per-request lazy layer reads are never authorities. */
+  private _openLayeredCanonicalBegin(target:ILayerBuffer,binding:GridWashBinding,projection:NonNullable<BrushSourceContext['projection']>,capability:'cloneProjection149'|'cloneHealing152'='cloneProjection149'):{kind:'ready';view:CanonicalBeginLayeredView}|GridWashNotReady{
+    const runtime=this._gridBinding(target,binding.userId,binding.strokeId,capability)
+    if('kind'in runtime)return runtime
+    if(canonicalBeginBindingKey(runtime.binding)!==canonicalBeginBindingKey(binding))return{kind:'notReady',reason:'prefix',retryKey:'stale-projection-BEGIN'}
+    const captured=projection.map(item=>Object.freeze({id:item.id,opacity:item.opacity}))
+    if(new Set(captured.map(item=>item.id)).size!==captured.length||captured.some(item=>!item.id||!Number.isFinite(item.opacity)||item.opacity<0||item.opacity>1))throw Error('Invalid captured Clone149 layer list')
+    const entries=this._log.entries,first=this._beginFirstEntry(entries.filter(e=>e.state==='done'),binding.layerId,binding.userId,binding.strokeId,capability)
+    const beforeSeq=first?.op.seq??entries.length+1
+    if(!Number.isSafeInteger(beforeSeq)||beforeSeq<1)throw Error('Unordered merged Clone149 BEGIN')
+    const snapshots=this._checkpoints.all().filter(cp=>cp.fromSnapshot&&captured.some(item=>item.id===cp.layerId))
+    const through=Math.max(first?.serverSeq??0,...snapshots.map(cp=>cp.coveredSeq??0),...entries.map(e=>e.serverSeq??0))
+    const confirmed=new Set(entries.map(e=>e.serverSeq).filter((seq):seq is number=>seq!==undefined&&Number.isSafeInteger(seq)&&seq>=1&&seq<=through))
+    let complete=confirmed.size===through
+    if(complete)for(let seq=1;seq<=through;seq++)if(!confirmed.has(seq)){complete=false;break}
+    if(captured.length&&!complete){
+      this._snapshotIO.requireHistoryProof(binding.layerId,through)
+      queueMicrotask(()=>{if(!this._destroyed){this._resolveSnapshotHistoryRepairs();if(this.pendingSnapshotHistoryRepairs().length)this._onSnapshotHistoryRepairNeeded?.()}})
+      return{kind:'notReady',reason:'history',retryKey:'projection-BEGIN-prefix:'+through}
+    }
+    const outer=this._projectionReadScope
+    const scope:NonNullable<PencilEngine['_projectionReadScope']>={beforeSeq,target,layerId:binding.layerId,store:outer?.store??{cache:new Map(),bytes:0}}
+    const oldPins=scope.store.pinned,pinned=oldPins??new Set<HistoricalProjectionSource>(),ownPins:HistoricalProjectionSource[]=[],leases:Array<{assertCurrent():void;release():void}>=[]
+    scope.store.pinned=pinned
+    let retired=false,published=false,failed=false
+    const release=()=>{if(retired)return;retired=true;let failure=false,primary:unknown;const attempt=(fn:()=>void)=>{try{fn()}catch(error){if(!failure){failure=true;primary=error}}};for(const lease of leases)attempt(()=>lease.release());for(const buffer of ownPins)pinned.delete(buffer);scope.store.pinned=oldPins;if(!outer)attempt(()=>this._releaseProjectionScope(scope));if(failure)throw primary}
+    const assertCurrent=()=>{if(retired)throw Error('Merged Clone149 view retired');for(const lease of leases)lease.assertCurrent();const now=this._gridBinding(target,binding.userId,binding.strokeId,capability);if('kind'in now||canonicalBeginBindingKey(now.binding)!==canonicalBeginBindingKey(binding))throw Error('Merged Clone149 BEGIN changed during capture')}
+    try{
+      const layers:CanonicalBeginLayeredView['layers'][number][]=[]
+      for(const item of captured){
+        assertCurrent()
+        const buffer=this._historicalProjectionLayer(scope,item.id)
+        if(!pinned.has(buffer)){pinned.add(buffer);ownPins.push(buffer)}
+        const tiles=buffer instanceof TiledLayerBuffer?buffer.gridBeginTargets():buffer.allResident()
+        if(!tiles)throw new GridHostNotReady({kind:'notReady',reason:'prefix',retryKey:'evicted-projection-BEGIN:'+item.id},binding.layerId)
+        const lease=buffer instanceof TiledLayerBuffer?buffer.pinGridDestinations(tiles):{assertCurrent:()=>{},release:()=>{}}
+        leases.push(lease);lease.assertCurrent()
+        layers.push(Object.freeze({opacity:item.opacity,tiles:Object.freeze(tiles.map(tile=>Object.freeze({...tile,contentRect:tile.contentRect?Object.freeze({...tile.contentRect}):null})))}))
+      }
+      assertCurrent();const view:CanonicalBeginLayeredView={binding,layers:Object.freeze(layers),assertCurrent,release};published=true;return{kind:'ready',view}
+    }catch(error){if(error instanceof GridHostNotReady)return error.outcome;failed=true;throw error}
+    finally{if(!published)try{release()}catch(error){if(!failed)throw error}}
+  }
+  private _pinGridDestinations(target:ILayerBuffer,binding:GridWashBinding,tiles:readonly PaintTarget[]):GridDestinationPinsResult{
+    if(this._gridEpoch(target)!==binding.targetGeneration)return{kind:'notReady',reason:'prefix',retryKey:'destination-target'}
+    const pin=target instanceof TiledLayerBuffer?target.pinGridDestinations(tiles):{assertCurrent:()=>{if(this._gridEpoch(target)!==binding.targetGeneration)throw Error('Grid destination changed')},release:()=>{}}
+    return{kind:'ready',lease:pin}
+  }
+  private _blockGridLayer(layerId:string,outcome:GridWashNotReady):void{
+    queueMicrotask(()=>{
+      if(this._destroyed||!this._layers.has(layerId))return
+      let job=this._rebuildJobs.get(layerId)
+      if(!job){this._startRebuildJob(layerId);job=this._rebuildJobs.get(layerId)}
+      if(!job)return
+      if(job.timer)clearTimeout(job.timer)
+      job.timer=0;job.gridBlocked=outcome
+      this._unsettledLayers.add(layerId)
+    })
+  }
+  private _wakeGridResources():void{
+    if(this._gridWakeQueued||this._destroyed)return
+    this._gridWakeQueued=true
+    queueMicrotask(()=>{
+      this._gridWakeQueued=false;if(this._destroyed||this._contextLost)return
+      for(const info of this._canonicalBeginOwners()){
+        const checked=this._gridBinding(info.target,info.binding.userId,info.binding.strokeId,info.capability)
+        if('kind'in checked&&checked.reason==='prefix'&&this._layers.get(info.binding.layerId)===info.target&&!this._rebuildJobs.has(info.binding.layerId))this._rebuildLayerOrDefer(info.binding.layerId)
+      }
+      for(const job of this._rebuildJobs.values())if(job.gridBlocked&&job.timer===0){job.gridBlocked=undefined;job.timer=setTimeout(()=>this._stepRebuildJob(job),0)}
+      const author=this._gridAuthor
+      if(author&&!author.committed){this._tryGridAuthorStart(author);return}
+      if(author?.committed&&(author.latest||author.end)){
+        const latest=author.latest,end=author.end;author.latest=undefined;author.end=undefined
+        const owner=this
+        this._authorInput.prepend(function*(){
+          if(owner._gridAuthor!==author)return
+          // These belong to the old captured physical gesture, not nextStart.
+          owner._authorInput.beforeQueued(()=>{
+            if(latest)owner._onMoveCurrent(latest)
+            if(end)owner._onEndCurrent(end)
+          })
+        })
+      }
+      this._authorInput.resume()
+    })
+  }
+  private _configureAuthorSampler(sampler:DabSystem,snapshot:AuthorStartSnapshot,execution:BrushExecutionContext|undefined):void{
+    const recordedPenBrush=snapshot.opts.tool==='digitalBrush'?digitalBrushFromPreset(snapshot.opts.pencilType):undefined
+    if(recordedPenBrush)execution=mask190RootExecution(recordedPenBrush,execution)
+    sampler.recordedPen188=recordedPenBrush&&assertRecordedPen188Brush(recordedPenBrush)?recordedPenBrush:undefined
+    sampler.cameraAngle=snapshot.cameraAngle;sampler.brushExecution=execution
+    sampler.setShaping(shapingForTool(
+      snapshot.opts.tool, snapshot.opts.pencilType,
+      { angle: snapshot.nibAngle, anchor: snapshot.nibAnchor },
+      snapshot.tiltResponse,
+    ))
+    // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
+    // straight chords between samples); every other tool keeps its plain
+    // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
+    sampler.curvatureTolerancePx = isRibbonTool(snapshot.opts.tool)
+      ? ribbonProfileFor(snapshot.opts.tool, snapshot.opts.pencilType).curvatureTolerancePx
+      : null
+    // #547 — the step between stamps is a property of the *brush*, not of the
+    // engine, so it is latched here with everything else that is fixed for the
+    // length of one stroke.
+    //
+    // Every brush in the set asks for a tighter step than the engine's 0.22
+    // default, and that default is why: it was calibrated (#478) against tools
+    // whose dabs blend through paper grain and soft graphite falloff. A digital
+    // stamp has neither, so its own ripple shows several times sooner — see the
+    // spacing values in digitalBrushPresets.ts.
+    sampler.spacingFactor = snapshot.opts.tool === 'digitalBrush'
+      ? digitalBrushFromPreset(snapshot.opts.pencilType).spacing
+      : DEFAULT_DAB_SPACING_FACTOR
+    // #478 — same slot and the same lifecycle: a property of the tool, latched
+    // once per stroke. Dab spacing has to track the mark this tool actually
+    // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
+    // mark. See dabSpacing.ts for the whole argument, including which tools
+    // are deliberately left on the old rule.
+    // (#579) Not for a brush whose stamps are separate marks (flowPer
+    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
+    // exists to hide the stamp — to keep a hard edge from reading as a row of
+    // discs — and for these the separate prints *are* the brush: a sponge
+    // spaced to the footprint came out as a smooth band with no dabs in it.
+    // Recorded strokes are unaffected: spacing is decided when the dabs are
+    // made, and a replay paints the dabs the log holds.
+    const spacingBrush = snapshot.opts.tool === 'digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType) : null
+    sampler.strokeInput=spacingBrush?.behavior?.strokeInput
+    sampler.timing=spacingBrush?.behavior?.timing
+    const stationary195=sampler.brushExecution?.maskRole190?.stationary195
+    sampler.stationary195=stationary195?{...stationary195,updateSpacingBetweenDabs:sampler.timing?.version===2&&sampler.timing.updateSpacingBetweenDabs,ignoreRate:!!spacingBrush?.mypaint}:undefined
+    sampler.mypaintTiming177=hasMyPaintTimer177Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.deformTiming160=hasDeformTimer160Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.sketchTiming161=hasSketchTimer161Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.curveHostTiming167=hasCurveHostTimer167Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.particleTiming157=hasParticleTimer157Scope(spacingBrush)?spacingBrush!:undefined
+    sampler.inputKnots=!!(spacingBrush?.mypaint||spacingBrush?.sketch||spacingBrush?.bristle||spacingBrush?.curveTrace||spacingBrush?.particle||spacingBrush?.experiment)
+    sampler.captureSourceTime=!!spacingBrush && brushRequiresSourceTime(spacingBrush)
+    sampler.initialDirection=snapshot.initialDirection
+    sampler.captureSourceAngle=(spacingBrush?.version===190||spacingBrush?.version===191||spacingBrush?.version===192||spacingBrush?.version===193||spacingBrush?.version===194||spacingBrush?.version===195)||!!spacingBrush?.tangentNormal
+    sampler.captureSourceSize = !!spacingBrush && ((spacingBrush.version===190||spacingBrush.version===191||spacingBrush.version===192||spacingBrush.version===193||spacingBrush.version===194||spacingBrush.version===195)||!!spacingBrush.behavior?.sequentialRandom || hasBristleInitializationScope(spacingBrush))
+    const sourceSpacing:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>|undefined = spacingBrush?.grid?{mode:'diameter',coefficient:spacingBrush.grid.width*spacingBrush.grid.scale/Math.max(.01,snapshot.opts.size),isotropic:true}:spacingBrush?.behavior?.spacing ?? (spacingBrush && (spacingBrush.behavior?.sequentialRandom || sampler.recordedPen188) ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
+    sampler.autoSpacing = spacingBrush && sourceSpacing
+      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
+      : null
+    const stampBrush = snapshot.opts.tool === 'digitalBrush'
+      && digitalBrushFromPreset(snapshot.opts.pencilType).flowPer === 'stamp'
+    sampler.footprint = isFootprintSpacedTool(snapshot.opts.tool) && !stampBrush
+      ? {
+        sizeScale: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType),
+        hardness: this._resolvePreset(snapshot.opts.tool, snapshot.opts.pencilType).hardness,
+        // #547 — the digital brush follows its footprint at every hardness. See
+        // DabFootprint.spacingStrength for why the gate the other three tools
+        // use is a graphite calibration that does not carry over to a mark with
+        // no paper in it.
+        ...(snapshot.opts.tool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
+      }
+      : null
+    // #489: watercolor's *elongated* nibs take the scallop bound without the
+    // rest of that rule — DabSystem.nibScallop carries the whole argument,
+    // including why the marker's identical 5:1 geometry is left as it is.
+    //
+    // Not the round nib, and that exclusion is measured rather than assumed.
+    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
+    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
+    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
+    // round brush's stroke. Its deposit is normalised per unit travel so the
+    // tone would have held, but the mark's fine structure would not have, and
+    // that is exactly the regression #483 was filed for. This tool has shipped;
+    // the flat has not.
+    //
+    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
+    // tilt and does scallop a little there. Nobody has reported it, and quietly
+    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
+    //
+    // #501: and charcoal's chisel, which wants this *and* the footprint rule —
+    // it is a stamped mark, so its gaps are real holes, and it is an elongated
+    // nib, so its silhouette scallops. Both bounds compose in _spacingAfter.
+    sampler.nibScallop = this._nibScallops(snapshot.opts.tool, snapshot.opts.pencilType)
+      ? { sizeScale: this._dabSizeScale(snapshot.opts.tool, snapshot.opts.pencilType) }
+      : null
+  }
+  private _stageGridAuthor(input:PointerData,snapshot:AuthorStartSnapshot):GridAuthorCandidate{
+    const seeds=createBrushRandomContext('digitalBrush')!
+    const strokeId=createBrushRandomStrokeId(createBrushSourceNonce(nanoid(10),snapshot.brushSource),seeds)
+    const sampler=this._dabs.forkForPreview()
+    this._configureAuthorSampler(sampler,snapshot,brushExecutionContext(seeds,snapshot.brushSource))
+    const dabs=sampler.startStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),0,captureLatchedRecordedPenInput(sampler.recordedPen188,input))
+    bakeDabOpacity(dabs,input.speed,snapshot.opts.tool,snapshot.opts.pencilType,snapshot.opts.opacity,snapshot.opts.size,sampler.spacingFactor)
+    const canonical=dabs.map(codecDab)
+    return{input,snapshot,seeds,strokeId,sampler,dabs:canonical,committed:false,capability:this._beginCapability(digitalBrushFromPreset(snapshot.opts.pencilType))}
+  }
+  private _tryGridAuthorStart(candidate:GridAuthorCandidate):void{
+    if(this._gridAuthor!==candidate||candidate.committed||this._destroyed)return
+    const target=this._layers.get(candidate.snapshot.layerId)
+    if(!target||this._activeId!==candidate.snapshot.layerId){this._cancelGridAuthorStart();return}
+    const capability=candidate.capability??'grid137',line=capability==='bristleSoak139'?firstBristleLine139(candidate.dabs):undefined
+    const initialSoak195=capability==='bristleSoak139'&&digitalBrushFromPreset(candidate.snapshot.opts.pencilType).version===195
+    if(capability==='bristleSoak139'?(initialSoak195?!candidate.dabs.length:!line):!candidate.dabs.some(isGridRenderableDab137))return
+    const runtime=this._gridBinding(target,this._userId,candidate.strokeId,capability)
+    if('kind'in runtime){candidate.blocked=runtime;return}
+    let prepared:GridWashPrepareResult
+    if(canonicalBeginIsStamp(capability)){
+      const brush=digitalBrushFromPreset(candidate.snapshot.opts.pencilType),profile=ribbonProfileFor('digitalBrush',candidate.snapshot.opts.pencilType)
+      if(capability==='bristleSoak139')this._brush.prepareBristleSoak(brush);else if(capability==='spray146'){this._brush.prepareRecordedStampResources(brush);if(usesNativeSketchSpray(brush)&&brushUsesGradient(brush))this._brush.preparePixelGradient(brush,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource));this._brush.prepareSpraySources()}else if(capability==='filterSmudge147')this._brush.prepareFilterSmudge147(brush);else if(capability==='cloneProjection149')this._brush.prepareClone();else if(capability==='cloneHealing152')this._brush.prepareCloneHealing152()
+      if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
+      const scratch=candidate.scratch??=new RibbonStrokeScratch(this._ribbonScratchPool,profile.ink,profile.normalizeDeposit)
+      try{prepared=initialSoak195?this._brush.prepareBristleInitial195(target,candidate.dabs[0],this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='bristleSoak139'?this._brush.prepareBristleSoakGesture(target,line!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):capability==='filterSmudge147'?this._brush.prepareFilterBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):(capability==='cloneProjection149'||capability==='cloneHealing152')?this._brush.prepareCloneBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch):this._brush.prepareSprayBeginGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,candidate.strokeId,profile.brushStamp,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime,scratch)}catch(error){candidate.scratch=undefined;try{scratch.destroy()}catch{/* Preserve the primary, including undefined. */}throw error}
+    }else{
+      const paint=digitalBrushMixer(candidate.snapshot.opts.pencilType,candidate.snapshot.opts.graphiteColor)
+      if(!paint)throw Error('Grid137 mixer metadata missing')
+      if(capability==='deformOld145'){this._smudge.prepareCanvasEffect();prepared=this._smudge.prepareDeformGesture(target,candidate.dabs.find(isGridRenderableDab137)!,this._userId,paint,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime)}else{this._brush.prepareGridWash();this._smudge.prepareGrid();prepared=this._smudge.prepareGridGesture(target,candidate.dabs[0],this._userId,paint,brushExecutionContext(candidate.seeds,candidate.snapshot.brushSource),runtime)}
+    }
+    if(prepared.kind==='notReady'){if(canonicalBeginIsStamp(capability)){candidate.scratch?.destroy();candidate.scratch=undefined}candidate.blocked=prepared;if(prepared.reason==='prefix'&&!this._hasUnrecordedInk(candidate.snapshot.layerId)&&!this._rebuildJobs.has(candidate.snapshot.layerId))this._rebuildLayerOrDefer(candidate.snapshot.layerId);return}
+    candidate.binding=runtime.binding;candidate.blocked=undefined;candidate.committed=true
+    this._authorSnapshot=candidate.snapshot
+    const session:TimedAuthorSession={snapshot:candidate.snapshot,input:candidate.input,lastTime:0,cameraAngle:candidate.snapshot.cameraAngle,ended:false}
+    this._authorProducer=session
+    this._timedClockStart=candidate.snapshot.dispatchNow;this._timedClockLast=0
+    const owner=this
+    this._authorInput.enqueue(function*(){
+      if(owner._gridAuthor!==candidate||!candidate.committed)return
+      if(candidate.capability){
+        const target=owner._layers.get(candidate.snapshot.layerId)
+        const checked=target?owner._gridBinding(target,owner._userId,candidate.strokeId,candidate.capability):{kind:'notReady' as const,reason:'prefix' as const,retryKey:'author-target-missing'}
+        if('kind'in checked||!candidate.binding||canonicalBeginBindingKey(checked.binding)!==canonicalBeginBindingKey(candidate.binding)){candidate.committed=false;candidate.blocked='kind'in checked?checked:{kind:'notReady',reason:'prefix',retryKey:'staged-BEGIN-changed'};owner._retireStagedBeginScratch(candidate);if(candidate.capability==='deformOld145')owner._smudge.finishGesture(owner._userId,candidate.strokeId);owner._wakeGridResources();return}
+      }
+      owner._executeAuthorStart(candidate.input,candidate.snapshot)
+      if(owner._strokeId!==candidate.strokeId){if(candidate.capability&&canonicalBeginIsStamp(candidate.capability)){owner._cancelOwnedAuthor(false);return}owner._smudge.finishGesture(owner._userId,candidate.strokeId);owner._gridAuthor=undefined;return}
+      const latest=candidate.latest;candidate.latest=undefined;if(latest)owner._onMoveCurrent(latest)
+      // A canonical source may wait before it owns a real gesture. Arm the
+      // same author clock only after that start lands, never for an ended,
+      // cancelled or replaced session queued while BEGIN was being acquired.
+      if(owner._gridAuthor===candidate&&owner._authorProducer===session&&!session.ended&&owner._strokeId===candidate.strokeId&&owner._dabs.timing){owner._airbrushInput={...session.input};owner._scheduleAirbrush()}
+
+    })
+  }
+  private _retireStagedBeginScratch(candidate:GridAuthorCandidate|undefined,lost=false):void{
+    const scratch=candidate?.scratch;if(!scratch)return
+    candidate!.scratch=undefined
+    if(scratch!==this._ribbonStrokeScratch){if(lost)scratch.forget();else scratch.destroy()}
+  }
+  private _cancelGridAuthorStart():void{
+    const candidate=this._gridAuthor
+    if(!candidate||candidate.committed)return
+    this._gridAuthor=undefined
+    this._retireStagedBeginScratch(candidate)
+    const target=this._layers.get(candidate.snapshot.layerId)
+    if(target&&candidate.binding&&(this._smudge.hasGridBinding(target,candidate.binding)||this._smudge.hasDeformBinding(target,candidate.binding)))this._smudge.finishGesture(this._userId,candidate.strokeId)
+  }
+  private _paintGrid137(target:ILayerBuffer,dabs:Dab[],userId:string,strokeId:string|undefined,paint:NonNullable<ReturnType<typeof digitalBrushMixer>>,execution:BrushExecutionContext|undefined,prevDab?:Dab,strokeEnd=false):GridWashPaintResult{
+    if(!strokeId)throw Error('Grid137 requires gesture identity before paint')
+    if(!dabs.some(isGridRenderableDab137)){if(strokeEnd)this._smudge.finishGesture(userId,strokeId);return{kind:'painted',acceptedDabs:dabs.length}}
+    if(!paint.brush)throw Error('Canonical BEGIN mixer descriptor missing')
+    const capability=this._beginCapability(paint.brush)??'grid137'
+    const runtime=this._gridBinding(target,userId,strokeId,capability)
+    const outcome:GridWashPaintResult = 'kind'in runtime?{...runtime,acceptedDabs:0}:(()=>{
+      if(capability==='deformOld145')this._smudge.prepareCanvasEffect();else{this._brush.prepareGridWash();this._smudge.prepareGrid()}
+      if(capability==='grid137')this._smudge.markGridDestinationBoundary(target,{userId,strokeId})
+      const result=this._smudge.paint(target,dabs,userId,prevDab,strokeId,paint,execution,runtime)
+      if(!result)throw Error('Grid137 renderer omitted explicit acceptance')
+      return result
+    })()
+    if(outcome.kind==='notReady'){
+      const job=[...this._rebuildJobs.values()].find(value=>value.fresh===target)
+      if(job&&this._gridReplayOperation){job.gridProgress={opId:this._gridReplayOperation.id,acceptedDabs:(job.gridProgress?.acceptedDabs??0)+outcome.acceptedDabs};throw new GridHostNotReady(outcome,job.layerId)}
+      if(this._gridReplayOperation)throw new GridHostNotReady(outcome,this._gridLayer(target))
+    }else if(strokeEnd)this._smudge.finishGesture(userId,strokeId)
+    return outcome
+  }
+  private _paintSoak139(target:ILayerBuffer,dabs:Dab[],userId:string,strokeId:string|undefined,presetName:string,color:[number,number,number],execution:BrushExecutionContext|undefined,previous?:Dab,scratch?:RibbonStrokeScratch,strokeEnd=false):GridWashPaintResult{
+    if(!strokeId)throw Error('Bristle Soak139 requires gesture identity before paint')
+    const standing=scratch??this._replayRibbonChunks.get(strokeId)?.scratch
+    const stored=standing?.brushBehavior?.bristle?.previous
+    const prior=previous??(stored&&dabs[0]?{...dabs[0],...stored}:undefined)
+    const capability=this._beginCapability(digitalBrushFromPreset(presetName))!
+    if(capability!=='bristleSoak139'&&!standing?.canonicalSource&&!dabs.some(isGridRenderableDab137))return{kind:'painted',acceptedDabs:dabs.length}
+    const needsSource=capability==='bristleSoak139'?(digitalBrushFromPreset(presetName).version===195&&dabs.length>0||!!standing?.canonicalSource||!!(standing&&this._brush.bristleSoakBinding(standing))||!!firstBristleLine139(dabs,prior)):(!!standing?.canonicalSource||dabs.some(isGridRenderableDab137))
+    const runtime=needsSource?this._gridBinding(target,userId,strokeId,capability):undefined
+    if(runtime&&'kind'in runtime)return{...runtime,acceptedDabs:0}
+    const acceptedBefore=standing?.brushBehavior?.dabSequence??0
+    try{
+      this._paintRibbonDabs(target,dabs,'digitalBrush',presetName,color,scratch,previous,strokeId,undefined,undefined,mottleSeedFromStrokeId(strokeId),false,strokeEnd,undefined,execution,runtime)
+      return{kind:'painted',acceptedDabs:dabs.length}
+    }catch(error){
+      if(error instanceof GridHostNotReady)return{...error.outcome,acceptedDabs:0}
+      if(error instanceof CanonicalBeginBlocked){
+        const current=scratch??this._replayRibbonChunks.get(strokeId)?.scratch
+        const acceptedDabs=(current?.brushBehavior?.dabSequence??0)-acceptedBefore
+        if(!Number.isSafeInteger(acceptedDabs)||acceptedDabs<0||acceptedDabs>dabs.length)throw Error('Canonical BEGIN invalid accepted input prefix')
+        const job=[...this._rebuildJobs.values()].find(value=>value.fresh===target)
+        if(job&&this._gridReplayOperation)job.gridProgress={opId:this._gridReplayOperation.id,acceptedDabs:(job.gridProgress?.acceptedDabs??0)+acceptedDabs}
+        return{...error.outcome,acceptedDabs}
+      }
+      throw error
+    }
+  }
+  /** Only accepted logical dabs may enter the live stream or durable operation. */
+  private _acceptGridAuthorDabs(dabs:readonly Dab[]):void{
+    this._strokeDabs.push(...dabs)
+    for(const dab of dabs)this._noteChunkDab(dab)
+    if(this._onLiveStrokeDabs&&dabs.length){this._liveDabQueue.push(...dabs);this._emitLiveDabsIfDue()}
+    if(this._gridAuthor&&!this._gridAuthor.firstPublished&&dabs.some(isGridRenderableDab137)){this._gridAuthor.firstPublished=true;this._flushStrokeChunk()}
+    else if(this._strokeDabs.length>=STROKE_DAB_CHUNK_LIMIT||this._chunkSpanExceeded())this._flushStrokeChunk()
+  }
+  private _paintGridAuthorDabs(target:ILayerBuffer,dabs:Dab[],paint:NonNullable<ReturnType<typeof digitalBrushMixer>>|undefined):void{
+    const owner=this,strokeId=this._strokeId!,execution=brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
+    const attempt=(dest:ILayerBuffer,batch:Dab[],previous:Dab|undefined)=>!!this._gridAuthor?.capability&&canonicalBeginIsStamp(this._gridAuthor.capability)
+      ?this._paintSoak139(dest,batch,this._userId,strokeId,this._strokePreset,this._strokeColor,execution,previous,this._ribbonStrokeScratch??undefined)
+      :this._paintGrid137(dest,batch,this._userId,strokeId,paint!,execution,previous)
+    const initial=attempt(target,dabs,this._strokeDabs.at(-1)??this._strokeChunkTail)
+    this._acceptGridAuthorDabs(dabs.slice(0,initial.acceptedDabs))
+    if(initial.kind==='painted')return
+    let offset=initial.acceptedDabs
+    this._gridAuthor!.blocked=initial
+    this._authorInput.park()
+    this._authorInput.prepend(function*(){
+      while(offset<dabs.length){
+        if(owner._strokeId!==strokeId)return
+        const rebound=owner._layers.get(owner._strokeLayerId??'');if(!rebound)return
+        const result=attempt(rebound,dabs.slice(offset),offset?dabs[offset-1]:owner._strokeDabs.at(-1)??owner._strokeChunkTail)
+        owner._acceptGridAuthorDabs(dabs.slice(offset,offset+result.acceptedDabs));offset+=result.acceptedDabs
+        if(result.kind==='notReady'){owner._gridAuthor!.blocked=result;owner._authorInput.park();yield}else if(owner._gridAuthor)owner._gridAuthor.blocked=undefined
+      }
+      const candidate=owner._gridAuthor
+      if(candidate?.strokeId===strokeId&&candidate.finalizeEnd){const finish=candidate.finalizeEnd;candidate.finalizeEnd=undefined;finish()}
+    })
+  }
+  private _authorSnapshot?: AuthorStartSnapshot
+  private _authorProducer?: TimedAuthorSession
+  private _authorInputError: unknown
+  private readonly _authorTasks = new AuthorTaskScheduler({
+    createChannel:typeof window!=='undefined' && typeof window.MessageChannel==='function' ? ()=>new window.MessageChannel():undefined,
+    scheduleFrame:callback=>requestAnimationFrame(callback),
+    cancelFrame:handle=>cancelAnimationFrame(handle),
+  })
+  private readonly _authorInput = new AuthorInputFIFO({
+    schedule: callback => this._authorTasks.schedule(callback),
+    unschedule: handle => this._authorTasks.unschedule(handle),
+    now: () => performance.now(),
+    failed: error => { this._authorInputError=error; this._stopAirbrush(); this._diagLog('[engine] author input failed',error) },
+  })
+
+  private _timedClockStart=0
+  private _timedClockLast=0
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278/#489: the active tool's live nib angle — canvas-space radians (the
@@ -2392,6 +3005,7 @@ export class PencilEngine implements PencilEngineAPI {
       quiet: id => this._snapshotQuiet(id),
       settled: id => this._snapshotSettled(id),
       scratchLayer: id => this._makeLayerBuffer(id),
+      withIsolatedBrushGestures: work => this._smudge.withIsolatedGestures(work),
       applyPixelOp: (buf, id, op) => this._applyPixelOp(buf, id, op),
       preloadImages: ops => { void this.preloadImages(ops) },
     })
@@ -2435,6 +3049,17 @@ export class PencilEngine implements PencilEngineAPI {
     // built by _initGL below, like every other one.
     this._smudge = new SmudgePainter({
       gl,
+      brushMipCache: this._brushMipCache,
+      createBrushScratch:()=>new RibbonStrokeScratch(this._ribbonScratchPool,false),
+      paintBrushMask:(...args)=>this._brush.paintMask(...args),
+      openProjection:(source,target)=>this._openProjectionSource(source,target),
+      openGridBegin:(target,binding)=>this._openGridBegin(target,binding),
+      openCanonicalBegin:(target,binding,capability)=>this._openCanonicalBegin(target,binding,capability),
+      pinGridDestinations:(target,binding,tiles)=>this._pinGridDestinations(target,binding,tiles),
+      gridResourcesReleased:()=>this._wakeGridResources(),
+      assertGridWashPrepared:()=>this._brush.assertGridWashPrepared(),
+      borrowRequestWash:()=>this._brush.borrowRequestWash(),
+
       quadBuf: () => this._quadBuf,
       screenBuf: () => this._screenBuf,
       paper: this._paper,
@@ -2452,12 +3077,19 @@ export class PencilEngine implements PencilEngineAPI {
     // (#494) The digital brush — see BrushPainter.ts; its programs are
     // built by _initGL below too.
     this._brush = new BrushPainter({
+      openCanonicalBegin:(target,binding,capability)=>this._openCanonicalBegin(target,binding,capability),
+      openLayeredCanonicalBegin:(target,binding,projection,capability)=>this._openLayeredCanonicalBegin(target,binding,projection,capability),
+      acquireSprayScratch:(width,height)=>this._smudge.leaseSprayScratch(width,height),
+      reserveCanonicalBeginSource:(binding,bytes)=>this._smudge.reserveCanonicalBeginSource(binding,bytes),
+      canonicalResourcesReleased:()=>this._wakeGridResources(),
       gl,
+      brushMipCache: this._brushMipCache,
       quadBuf: () => this._quadBuf,
       paper: this._paper,
       segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
     })
 
+    if(typeof document!=='undefined' && typeof document.addEventListener==='function')document.addEventListener('visibilitychange',this._handleAuthorVisibility)
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
 
@@ -2491,6 +3123,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._charcoalGrainMode = options.charcoalGrainMode
 
     this._initGL()
+    this._wakeGridResources()
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
     this._pointer = new PointerInput(canvas, this._diagLog)
@@ -2502,7 +3135,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId        = null
     this._locked          = false
     this._log             = new OperationLog()
-    this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES)
+    this._log.onRevision=()=>this._wakeGridResources()
+    this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES,op=>this._isCanonicalBeginOperation(op)&&strokeDabs(op as StrokeOperation).some(isGridRenderableDab137))
     this._strokeLayerId   = null
     this._strokeTool      = 'pencil'
     this._strokePreset    = this._opts.pencilType
@@ -2514,6 +3148,10 @@ export class PencilEngine implements PencilEngineAPI {
       .on('start', e => this._onStart(e))
       .on('move',  e => this._onMove(e))
       .on('end',   e => this._onEnd(e))
+      .onCursor(point => {
+        const zoom=this._sourceInputZoom()
+        if(zoom!==undefined)pushCursorHistory(this._sourceCursorHistory,point,zoom)
+      })
 
     // Only registered when enabled — PointerInput never calls
     // getPredictedEvents() unless a 'predict' handler exists (see
@@ -2578,6 +3216,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setActiveLayer(id: string): void {
+    if(id!==this._activeId&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
     if (id !== this._activeId) this._clearWash()
     this._activeId = id
     // #122: moves the below/above split point itself.
@@ -2731,6 +3370,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    assertBrushRandomContext(op)
+    if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+    }
+    if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
     // settle to land now: on the iPad the forced landing was 85-325 ms of every
@@ -2794,7 +3440,19 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
+  private _appendOperationNow(op:Operation,source:OperationSource,canonicalExecution=false,alreadyLogged=false):void{
+    try{this._appendOperationNowBody(op,source,canonicalExecution,alreadyLogged)}catch(error){
+      if(!(error instanceof LayerTilesNotReady))throw error
+      const layers=pixelWriteLayerIds(op)
+      const sourceLayer=error.layerId
+      if(sourceLayer)this._blockGridLayer(sourceLayer,error.outcome)
+      for(const id of layers){
+        if(sourceLayer&&id!==sourceLayer){let deps=this._snapshotDependentLayers.get(id);if(!deps){deps=new Set();this._snapshotDependentLayers.set(id,deps)}deps.add(sourceLayer)}
+        else this._blockGridLayer(id,error.outcome)
+      }
+    }
+  }
+  private _appendOperationNowBody(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
     if (this._wcAsyncFinish && source === 'local' && !canonicalExecution && this._wcCanonical.pending) {
       if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') this._cancelSettle()
       else if (op.type !== 'paper_dry') {
@@ -2842,13 +3500,22 @@ export class PencilEngine implements PencilEngineAPI {
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
-    const pendingReads = this._noteSnapshotReadDependencies(op)
-    if (pendingReads || pixelWriteLayerIds(op).some(id => this.isSnapshotHistoryRepairPending(id))) {
+    const recoveryControl=op.type==='layer_clear'||op.type==='layer_delete'||op.type==='operation_undo'||op.type==='operation_redo'||op.type==='operation_revoke'
+    if(op.type==='layer_clear'||op.type==='layer_delete'){
+      if(this._strokeLayerId&&pixelWriteLayerIds(op).includes(this._strokeLayerId)&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
+      for(const id of pixelWriteLayerIds(op)){this._cancelRebuildJob(id);this._pendingRebuilds.delete(id);this._snapshotDependentLayers.delete(id);this._snapshotRepairRebuilds.delete(id);for(const live of this._peerLiveStrokes.values())if(live.layerId===id)live.gridBlocked=undefined}
+    }
+    const pendingReads=recoveryControl?false:this._noteSnapshotReadDependencies(op)
+    if (!recoveryControl&&(pendingReads||pixelWriteLayerIds(op).some(id=>this.isSnapshotHistoryRepairPending(id)||!!this.gridReadiness(id).layer))) {
       if (source === 'local' && !alreadyLogged) this._onLocalOperation?.(op)
       return
     }
+    const foreignRead=pixelReadLayerIds(op).some(id=>this._foreignUnrecordedInk(id,op))
     for (const layerId of pixelWriteLayerIds(op)) {
-      if (this._foreignUnrecordedInk(layerId, op)) this._unsettledLayers.add(layerId)
+      if (foreignRead || this._foreignUnrecordedInk(layerId, op)) this._unsettledLayers.add(layerId)
+    }
+    if(['layer_clear','area_clear','area_transform','layer_transform','layer_delete','layer_merge','layer_duplicate'].includes(op.type)){
+      for(const id of pixelWriteLayerIds(op)){const target=this._layers.get(id);if(target){if(op.type==='layer_delete')this._invalidateCanonicalBeginOwners(target,'prefix');else this._smudge.prepareGridDestinationMutation(target)}}
     }
     switch (op.type) {
       case 'layer_add':
@@ -2952,9 +3619,20 @@ export class PencilEngine implements PencilEngineAPI {
             && typeof requestAnimationFrame === 'function') {
             this._paintOpOverFrames(buf, op, dabs) // (§17.72)
           } else {
-            const standing = dabs.length
-              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread)
-              : undefined
+            const previousGridDirect=this._gridDirectOperation
+            this._gridDirectOperation=op
+            let standing:ReadonlyMap<Dab,number>|undefined
+            try{standing = (dabs.length || readStrokeEndSample(op))
+              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource))
+              : undefined}finally{this._gridDirectOperation=previousGridDirect}
+            // A committed final op can contain only dabs already claimed by the live stream.
+            if (op.strokeEnd && op.strokeId) {
+              // The final operation can be entirely claimed by live painting.
+              // Its durable end still closes the matching carried reservoir.
+              if (op.tool === 'digitalBrush' || op.tool === 'smudge') this._smudge.finishGesture(op.userId, op.strokeId)
+              const open = this._replayRibbonChunks.get(op.strokeId)
+              if (open?.target === buf) this._brush.finish(open.scratch,readStrokeEndSample(op))
+            }
             // (#536) The same dabs, and the same slice: whatever the live stream
             // already delivered has already wet the paper here.
             this._wetFromForeignStroke(op.layerId, op.tool, op.preset, dabs, op.timestamp, standing, op.id)
@@ -3143,6 +3821,8 @@ export class PencilEngine implements PencilEngineAPI {
       if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op)
     }
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
+    this._snapshotIO.confirmCoverage(opId, seq)
+    this._resolveSnapshotHistoryRepairs()
     this._settleLayers()
     return true
   }
@@ -3182,8 +3862,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  "Touch" includes reading: a merge or duplicate bakes its source's content
    *  as of its own place in the order, so a source that picked up something
    *  which now sorts after the merge was baked with too much in it. */
+  private _invalidateReadHistory(read:Operation):void {
+    for(const id of pixelWriteLayerIds(read)){
+      for(const checkpoint of [...this._checkpoints.all()])if(checkpoint.layerId===id&&!checkpoint.fromSnapshot&&checkpoint.opIds.includes(read.id))this._checkpoints.remove(checkpoint)
+      this._snapshotIO.invalidateCoveredHistory([id],read.id)
+      this._unsettledLayers.add(id)
+    }
+    this._noteSnapshotReadDependencies(read)
+    if(this.pendingSnapshotHistoryRepairs().length)queueMicrotask(()=>{if(!this._destroyed)this._onSnapshotHistoryRepairNeeded?.()})
+  }
+
   private _noteOvertaken(op: Operation, overtaken: readonly LogEntry[]): void {
     if (!overtaken.length) return
+    for(const read of dependentReadOperations(overtaken.filter(entry=>entry.state==='done').map(entry=>entry.op),[op]))this._invalidateReadHistory(read)
     const writes = pixelWriteLayerIds(op)
     const reads = pixelReadLayerIds(op)
     if (!writes.length && !reads.length) return
@@ -3238,11 +3929,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._flushDeferredSnapshots()
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
-    if (!this._unsettledLayers.size || this._strokeLayerId) return
+    if (this._strokeLayerId) return
+    this._resolveSnapshotHistoryRepairs()
+    if (!this._unsettledLayers.size) return
     let settled = false
     for (const layerId of [...this._unsettledLayers]) {
       if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); this._cancelledPeerLayers.delete(layerId); continue }
-      if (this.isSnapshotHistoryRepairPending(layerId) || this._hasUnrecordedInk(layerId)) continue
+      if (this.isSnapshotHistoryRepairPending(layerId) || this._hasUnrecordedInk(layerId) || this._snapshotIO.hasAmbiguousPending(layerId)) continue
       // An explicitly cancelled stream owes no final operation. Repair its
       // landed tail once owners/other live ink are quiet, without waiting for
       // the accepted wash's usual joining window.
@@ -3422,20 +4115,113 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
-  setPencil(type: string): void  { this._opts.pencilType = type }
+  async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
+    if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    const descriptor = digitalBrushFromPreset(preset)
+    const beginCapability=this._beginCapability(descriptor)
+    const plan=brushPreparationPlan(descriptor),capabilities=plan.capabilities
+    const gradient=descriptor.texture?.material?.kind==='gradient'||descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
+    const pattern=hasExperimentCurrentPattern158Scope(descriptor)?options.pattern??this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
+    const resources=bindBrushPattern(bindBrushGradient(plan.resources,gradient),pattern)
+    const preparationKey=(gradient ? preset+':gradient:'+gradient : preset)+(pattern?':pattern:'+JSON.stringify(pattern):'')
+    if (resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
+    if (bytes+brushPreparationTransientBytes(resources) > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
+    const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
+    const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
+    // Capabilities and textures share one traversal, including independent children.
+    const programJobs = [...(pattern?[()=>this._brush.prepareExperimentPatternPrograms()]:[]),...[...capabilities].map(painter => () => {
+      if(painter === 'native194')this._brush.prepareCompositeEffects(true)
+      else if(painter === 'nativeSpray194'){this._brush.prepareSpraySources(false,true);this._brush.prepareSpraySources(true,true)}
+      else if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
+      else if(painter === 'cloneBrush')this._brush.prepareClone()
+      else if(painter === 'filterBrush')this._brush.prepareFilter()
+      else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
+      else if(painter === 'polygonFill')this._brush.preparePolygon()
+      else if(painter === 'grid'){if(this._isGrid137Brush(descriptor))this._brush.prepareGridWash();this._smudge.prepareGrid()}
+      else if(painter === 'hatching')this._brush.prepareHatching()
+      else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(hasBristleNativePointCoverage(descriptor))this._brush.prepareBristleNativeAA142();else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
+      else if(painter === 'requestWash')this._brush.prepareParticleWash()
+      else if(painter === 'bristleWash')this._brush.prepareBristleWash()
+      else if(painter === 'sprayWash')this._brush.prepareSpraySources(true)
+      else if(painter === 'spraySources')this._brush.prepareSpraySources()
+      else if(painter === 'sprayImages')this._brush.prepareSprayImages()
+      else if(painter === 'sprayShapes')this._brush.prepareSprayShapes()
+      else if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
+      else if (painter === 'stampEffects') this._brush.prepareStampEffects(usesFilteredPixelGradient(descriptor),textureMaterialVariant(descriptor))
+      else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
+      else if (painter === 'colorSmudgeMean') this._smudge.prepareColorSmudgeMean()
+      else if (painter === 'colorSmudgeTexture') this._smudge.prepareColorSmudgeTexture(descriptor)
+      else if (painter === 'colorSmudge') this._smudge.prepareColorSmudge()
+      else if (painter === 'colorSmudgeForeground') this._smudge.prepareColorSmudgeForeground()
+      else if (painter === 'colorSmudgeLegacy') this._smudge.prepareColorSmudgeLegacy(descriptor.mixer?.colorRateComposite==='overlay')
+      else if (painter === 'colorSmudgeLegacyMinMax172') this._smudge.prepareColorSmudgeLegacy(false,true)
+      else if (painter === 'colorSmudgeLegacyDodgeBurn176') this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176')
+      else if (painter === 'colorSmudgeLegacyArithmetic175') this._smudge.prepareColorSmudgeLegacy(false,false,true)
+      else if(painter === 'projectionCanvas')this._smudge.prepareProjectionSource()
+      else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
+      else if (painter === 'stamp') this._brush.prepareProcedural()
+      else if (painter === 'wet') this._smudge.prepareProcedural()
+      else if (painter === 'stampImage') this._brush.prepareIntegerImages()
+      else this._smudge.prepareIntegerImages()
+    })]
+    if(beginCapability==='bristleSoak139')programJobs.push(()=>this._brush.prepareBristleSoak(descriptor))
+    if(beginCapability==='filterSmudge147')programJobs.push(()=>this._brush.prepareFilterSmudge147(descriptor))
+    if(beginCapability==='cloneProjection149')programJobs.push(()=>this._brush.prepareClone())
+    if(beginCapability==='cloneHealing152')programJobs.push(()=>this._brush.prepareCloneHealing152())
+    // Resolve/admit the new plan before cancelling anyone else's valid work.
+    // Same immutable preset callers share one generation; raw aliases remain
+    // separate keys until their full preparation plans are proven equivalent.
+    if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    if (this._brushPreparationPreset !== preparationKey) {
+      this._brushPreparationGeneration++
+      this._brushPreparation.cancel()
+      this._brushPreparationPreset = preparationKey
+    }
+    const generation = this._brushPreparationGeneration
+    const result = await this._brushPreparation.run([...programJobs, ...missing.map(resource => () => {
+      if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
+      else this._smudge.prepareTexture(wet,resource)
+    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost(),preparationKey)
+    if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    // Another peer's replay may have changed the protected cache group between
+    // jobs. Do not claim residency or loop indefinitely under that workload.
+    if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) {
+      if (resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) throw Error('Native image bank lost residency during preparation')
+      return { status: 'skipped' }
+    }
+    return result
+  }
+
+  setPencil(type: string): void  {if(type!==this._opts.pencilType&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false);if(type!==this._opts.pencilType)this._cancelGridAuthorStart();this._opts.pencilType = type}
   setTool(tool: ToolType): void  {
+    if(tool!==this._opts.tool&&this._gridAuthor?.committed&&this._authorInput.isParked)this._cancelOwnedAuthor(false)
+    if(tool!==this._opts.tool)this._cancelGridAuthorStart()
+
     // (#468 v7) Reaching for another tool ends the wash: whatever is on the
     // paper stops being something the next stroke can pool into.
     if (tool !== this._opts.tool) this._clearWash()
     this._opts.tool = tool
   }
   setOpacity(v: number): void    { this._opts.opacity = v }
-  setSize(px: number): void      { this._opts.size = px }
+  setSize(px: number): void      {this._cancelGridAuthorStart();this._opts.size = px}
 
   // Only the *next* stroke picks this up — _onStart() copies it into
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+  requestCloneSourcePick():void {this._clonePickArmed=true}
+  setHatchingBackground(rgba?:HatchingRgba8):void {this.setBrushBackground(rgba)}
+  setBrushBackground(rgba?:HatchingRgba8):void {
+    this._hatchingBackground=rgba===undefined?undefined:captureHatchingBackground(rgba)
+  }
+  setBrushPattern(pattern?:BrushPattern):void
+  setBrushPattern(pattern?:BrushPattern):void{if(pattern!==undefined&&!isBrushPattern(pattern))throw Error('Invalid canvas pattern');this._canvasBrushPattern=pattern===undefined?undefined:copyBrushPattern(pattern)}
+
+  setBrushGradient(lut?:string):void {
+    if(lut!==undefined&&!isBrushGradient(lut))throw Error('Invalid canvas brush gradient')
+    this._canvasBrushGradient=lut
+  }
 
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
    *  up (same "never mid-stroke" rule as _nibAngleRadians' own field
@@ -3474,6 +4260,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   releaseForPageHide(): void {
     if (this._destroyed) return
+    this._cancelOwnedAuthor(false,true)
     this.gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
 
@@ -3666,8 +4453,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
+    this._boundedInputZoom=zoom
+    this._inputUsesCamera=false
+    this._sourceNominalZoom=undefined
     // #482: same reason as setInfiniteCamera's own assignment — a bounded room
     // rotates too, and the tilt reading is against the screen either way.
+    this._authorCameraAngle=angle
     this._dabs.cameraAngle = angle
     this._pointer.setTransform(this._camera.boundedPointerTransform(cx, cy, zoom, angle))
   }
@@ -3675,11 +4466,15 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. The pointer transform is the exact
    *  inverse of the composite's world->screen math — see
    *  Camera.pointerTransform. */
-  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number, cssZoom?: number): void {
+    if(cssZoom!==undefined && (!Number.isFinite(cssZoom)||cssZoom<=0))throw Error('Invalid source input CSS zoom')
+    this._inputUsesCamera=true
+    this._sourceNominalZoom=cssZoom
     this._camera.set(wx, wy, zoom, angle)
     // #482: the frame the device's tilt reading has to be converted out of —
     // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
     // it tracks a canvas rotated with the pen still down.
+    this._authorCameraAngle=angle
     this._dabs.cameraAngle = angle
     this._pointer.setTransform(this._camera.pointerTransform())
     // Unlike setViewport (bounded mode pans via a CSS transform the caller
@@ -3775,6 +4570,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
+    assertBrushRandomContext(op)
+    if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+    }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
@@ -3850,6 +4651,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
+    assertBrushRandomContext(packet)
+    if(packet.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(packet.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(packet.brushRandom,packet.brushSource))
+      assertBrushSourceInputs(brush,packet.dabs)
+    }
     if (this.isSnapshotHistoryRepairPending(packet.layerId)) return
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
@@ -3925,6 +4732,16 @@ export class PencilEngine implements PencilEngineAPI {
     const wet = packet.wet && skip ? packet.wet.slice(skip) : packet.wet
     live.liveOffset += packet.dabs.length
     if (!dabs.length) return
+    if(packet.tool==='digitalBrush'&&this._beginCapability(digitalBrushFromPreset(packet.preset))){
+      const paint=digitalBrushMixer(packet.preset,packet.color)
+      const isSoak=canonicalBeginIsStamp(this._beginCapability(digitalBrushFromPreset(packet.preset))!)
+      if(!paint&&!isSoak)throw Error('Grid137 live mixer missing')
+      const result=isSoak?this._paintSoak139(buf,dabs,peerId,packet.strokeId,packet.preset,packet.color,brushExecutionContext(packet.brushRandom,packet.brushSource))
+        :this._paintGrid137(buf,dabs,peerId,packet.strokeId,paint!,brushExecutionContext(packet.brushRandom,packet.brushSource))
+      live.paintedTotal=Math.max(live.paintedTotal,live.liveOffset-dabs.length+result.acceptedDabs)
+      if(result.kind==='notReady'){live.gridBlocked=result;live.desynced=true;this._unsettledLayers.add(packet.layerId)}
+      this._snapshots.markDirty(packet.layerId);this._displayIfNotSuspended();return
+    }
     live.paintedTotal = Math.max(live.paintedTotal, live.liveOffset)
 
     // `strokeId` is what makes marker and smudge continuous across packets —
@@ -3933,10 +4750,7 @@ export class PencilEngine implements PencilEngineAPI {
     // deliberately left undefined for the same reason it is on the replay
     // path: both tools recover it from their own gesture state, and passing a
     // second, independently-tracked copy is how the two get to disagree.
-    const standing = this._paintDabs(
-      buf, dabs, packet.tool, packet.preset, packet.color, peerId,
-      undefined, undefined, packet.strokeId, packet.washId, wet,
-      mottleSeedFromStrokeId(packet.strokeId),
+    const standing = this._paintDabs(buf, dabs, packet.tool, packet.preset, packet.color, peerId, undefined, undefined, packet.strokeId, packet.washId, wet, mottleSeedFromStrokeId(packet.strokeId), undefined, undefined, undefined, brushExecutionContext(packet.brushRandom,packet.brushSource)
     )
     // (#536) A peer's water reaches this client's paper as they lay it, not
     // when their operation lands — the point of the live stream is that the
@@ -3950,6 +4764,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   endPeerLiveStroke(peerId: string, strokeId?: string, cancelled = false): number {
+    this._smudge.finishSecondary(peerId,false,strokeId)
     if (cancelled && !strokeId) return 0
     if (cancelled && strokeId) {
       // Socket.io preserves packet/end order. Also reject already queued or
@@ -3989,6 +4804,15 @@ export class PencilEngine implements PencilEngineAPI {
       : [...this._peerLiveStrokes.values()].filter(e => e.peerId === peerId)
     let outstanding = 0
     for (const live of entries) {
+      const open = this._replayRibbonChunks.get(live.strokeId)
+      // A live-end packet can precede the durable operation carrying points
+      // omitted from the throttled live stream. Curve's buffered input must
+      // stay open until that operation has supplied its final points.
+      // A throttled live END is not the durable END: final recorded dabs
+      // can still be owed. Keep immutable BEGIN and carried Filter T until
+      // that operation has painted its tail, then its strokeEnd closes them.
+      const deferredBegin=!!open?.scratch.canonicalSource
+      if (open && !deferredBegin && !open.scratch.brushNative && !open.scratch.brushBehavior?.curveTrace?.input) this._brush.finish(open.scratch)
       live.ended = true
       const owed = Math.max(0, live.paintedTotal - live.committedOffset)
       outstanding += owed
@@ -4140,7 +4964,7 @@ export class PencilEngine implements PencilEngineAPI {
         const waterOnly = watercolorMixFromPreset(op.preset).pigment <= 0
         const marks = due.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
         this._stamps.paint(state.buf, this._translateDabs(marks, state.origin), op.tool, op.preset, waterOnly ? [0.5, 0.5, 0.5] : op.color)
-      } else this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId)
+      } else this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(op.brushRandom,op.brushSource))
       // (#697) Every peer owns a reveal timer, but all peers share one
       // screen. Coalesce their composites without delaying log commits.
       this._scheduleDisplay()
@@ -4214,6 +5038,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    if(this._destroyed)return
+    this._destroyed=true
+    if(typeof document!=='undefined' && typeof document.removeEventListener==='function')document.removeEventListener('visibilitychange',this._handleAuthorVisibility)
+    this._cancelOwnedAuthor(false)
+    this._authorTasks.destroy()
+    this._brushPreparationGeneration++
+    this._brushPreparation.cancel()
     this._cancelLiveDabFlush()
     this._cancelDeferredSnapshots()
     cancelRestoreGeneration(this)
@@ -4229,6 +5060,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dropWashBoundaries() // (§17.55)
     // Dwell (#245): the one non-rAF timer this engine owns — must not
     // outlive destroy() (e.g. a component unmounting mid-stroke).
+    this._stopAirbrush()
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     if (this._settleRetryTimer !== null) { clearTimeout(this._settleRetryTimer); this._settleRetryTimer = null }
     this._unsettledLayers.clear()
@@ -4258,6 +5090,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudge.destroy()
     this._stamps.destroy()
     this._brush.destroy()
+    this._brushMipCache.clear()
     this._ribbonPasses.destroy()
     this._watercolorPasses.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the
@@ -4267,6 +5100,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonStrokeScratch = null
     this._clearWash(false)
     this._strokeId = null
+    this._strokeBrushRandom = undefined;this._strokeBrushSource=undefined
     for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
     this._replayRibbonChunks.clear()
     for (const w of this._spilledWashes.values()) w.spill.dispose()
@@ -4335,6 +5169,9 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }
     this._noteSnapshotHistoryMutation(op, cause, historicalCause)
+    const roots=op.type==='stroke'&&op.strokeId ? this._log.entries.map(entry=>entry.op).filter(candidate=>candidate.type==='stroke'&&candidate.userId===op.userId&&candidate.strokeId===op.strokeId) : [op]
+    const dependent=dependentReadOperations(this._log.entries.filter(entry=>entry.state==='done').map(entry=>entry.op),roots)
+    for(const read of dependent)this._invalidateReadHistory(read)
     if (this._contextLost || this.gl.isContextLost()) return
     switch (op.type) {
       // (#520) Every layer of the gesture, not only this operation's own:
@@ -4483,9 +5320,10 @@ export class PencilEngine implements PencilEngineAPI {
     const ops = this._log.layerPixelOps(layerId)
     if (this._rebuildWantsSlicing(layerId, ops)) { this._startRebuildJob(layerId); return }
     this._cancelRebuildJob(layerId)
+    if(ops.some(op=>this._isCanonicalBeginOperation(op))){this._startRebuildJob(layerId);return}
     this._replayInto(buf, layerId, ops)
     this._snapshotRepairRebuilds.delete(layerId)
-    this._noteReplayedOrder(layerId)
+    this._noteReplayedOrder(layerId, ops)
     // (#522) A layer whose pixels reach below the log window can only be
     // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
     // layer was destroyed and unpinned — the replay above just produced a
@@ -4535,6 +5373,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
     for (const c of job.chunks.values()) c.scratch.destroy()
     this._forgetWashesOf(job.fresh) // (§17.68)
+    this._invalidateCanonicalBeginOwners(job.fresh,'prefix')
     job.fresh.destroy()
     // A restart makes its washes again straight away - from these.
     if (!restarting) this._endPoolHold()
@@ -4551,6 +5390,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  buffer, the best checkpoint restored into it, the replay scheduled. */
   private _startRebuildJob(layerId: string): void {
     this._cancelRebuildJob(layerId, true)
+    const gridOld=this._layers.get(layerId);if(gridOld)this._invalidateCanonicalBeginOwners(gridOld,'prefix')
     // (§17.70) Where memory is short, the washes of the buffer being replaced
     // go now rather than at the swap, and their textures become the rebuild's:
     // holding both was the iPad making 600 tile buffers per rebuild, up to 2 s
@@ -4572,16 +5412,21 @@ export class PencilEngine implements PencilEngineAPI {
     const fresh = this._makeLayerBuffer(layerId)
     ;(fresh instanceof TiledLayerBuffer ? fresh : null)?.suspendEviction()
     fresh.clear()
-    const best = this._checkpoints.best(layerId, ops)
+    const clearStart = clearReplayStart(this._log.entries, ops)
+    const checkpoint = this._checkpoints.best(layerId, ops)
+    const best = checkpoint && checkpoint.start >= clearStart ? checkpoint : null
     if (best) {
       for (const t of best.cp.tiles) {
         const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
         const pixels = unpackTilePixels(t.packed, t.width * t.height * 4)
-        for (const target of fresh.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
+        for (const target of fresh.resolveForPaint(rect)) {
+          target.buffer.restorePixelsRect(t.width, t.height, pixels)
+          restoreCheckpointMaterial(target.buffer, t)
+        }
         fresh.restoreTileContent(rect, pixels)
       }
     }
-    const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? 0, applied: [], timer: 0, part: null }
+    const job: RebuildJob = { layerId, fresh, chunks: new Map(), cp: best?.cp ?? null, start: best?.start ?? clearStart, applied: [], timer: 0, part: null }
     if (best) this._seedWashes(best.cp, fresh, job.chunks) // (§17.56)
     this._rebuildJobs.set(layerId, job)
     job.timer = setTimeout(() => this._stepRebuildJob(job), 0)
@@ -4591,15 +5436,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  restarts it), replay for ~12 ms, and swap once caught up. */
   private _stepRebuildJob(job: RebuildJob): void {
     job.timer = 0
-    if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed) return
+    if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed || job.gridBlocked) return
     if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
     const ops = this._log.layerPixelOps(job.layerId)
-    const startNow = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
+    if(job.gridProgress&&ops[job.start+job.applied.length]?.id!==job.gridProgress.opId){this._startRebuildJob(job.layerId);return}
+    const checkpointStart = job.cp ? this._checkpoints.startOf(job.cp, ops) : 0
+    const startNow = checkpointStart < 0 ? checkpointStart : Math.max(checkpointStart, clearReplayStart(this._log.entries, ops))
     let valid = startNow === job.start
     for (let k = 0; valid && k < job.applied.length; k++) valid = ops[job.start + k]?.id === job.applied[k]
     if (!valid) { this._startRebuildJob(job.layerId); return }
     // Never under this user's own pen: one watercolour operation replays in
     // up to 2 s of GPU on the iPad, which the stroke in hand would stutter by.
+    if(this._strokeLayerId&&ops.some(op=>this._isCanonicalBeginOperation(op))){job.gridBlocked={kind:'notReady',reason:'prefix',retryKey:'author-active'};return}
     if (this._strokeLayerId || this._hasUnrecordedInk(job.layerId)) { job.timer = setTimeout(() => this._stepRebuildJob(job), 50); return }
     // (§17.72) Nor over somebody else's settle still spreading: the next
     // operation's finish would land it here in one piece (0.5 s on the Surface).
@@ -4626,11 +5474,16 @@ export class PencilEngine implements PencilEngineAPI {
           if (!covered && this._replaysInSlices(op)) {
             if (!this._replayStrokeSlice(job, op)) continue
           } else if (!covered) this._applyPixelOp(job.fresh, job.layerId, op, true)
+          job.gridProgress=undefined
           job.applied.push(op.id)
           i++
         } else break
         gl.finish()
       }
+    } catch(error) {
+      if(!(error instanceof GridHostNotReady))throw error
+      job.gridBlocked=error.outcome
+      return
     } finally {
       job.chunks = this._replayRibbonChunks
       this._replayRibbonChunks = live
@@ -4638,7 +5491,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const caughtUp = job.start + job.applied.length >= ops.length && !(this._settle && this._jobOwnsSettle(job))
     if (!caughtUp) { job.timer = setTimeout(() => this._stepRebuildJob(job), 0); return }
-    this._swapRebuiltLayer(job)
+    this._swapRebuiltLayer(job, ops)
   }
 
   /** (§17.70) A stroke a rebuild may replay in slices: watercolour, grouped
@@ -4660,9 +5513,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dabs = strokeDabs(op)
       p = job.part = {
         opId: op.id, dabs,
-        work: this._ribbonDabsWork(
-          job.fresh, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-          mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS,
+        work: this._ribbonDabsWork(job.fresh, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource)
         ),
       }
     }
@@ -4719,9 +5570,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  - spread as before. One operation drawn in one piece was up to 0.94 s of
    *  GPU on the Surface. */
   private _paintOpOverFrames(buf: ILayerBuffer, op: StrokeOperation, dabs: Dab[]): void {
-    const work = this._ribbonDabsWork(
-      buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-      mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS,
+    const work = this._ribbonDabsWork(buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource)
     )
     const land = (): void => {
       let r = work.next()
@@ -4786,7 +5635,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  operation that eventually records it will skip the dabs it believes are
    *  already painted (#429's claim). Leaving the layer unsettled brings them
    *  back: the next settle, after that operation lands, replays it whole. */
-  private _noteReplayedOrder(layerId: string): void {
+  private _noteReplayedOrder(layerId: string, replayedOps:readonly PixelOperation[]): void {
     this._cancelledPeerLayers.delete(layerId)
     if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
     else {
@@ -4796,9 +5645,10 @@ export class PencilEngine implements PencilEngineAPI {
         if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
       }
     }
+    this._rememberRebuiltProjection(layerId,replayedOps)
   }
 
-  private _swapRebuiltLayer(job: RebuildJob): void {
+  private _swapRebuiltLayer(job: RebuildJob, replayedOps:readonly PixelOperation[]): void {
     const { layerId } = job
     if (this._settle) this._completeSettle()
     const old = this._layers.get(layerId)
@@ -4807,7 +5657,7 @@ export class PencilEngine implements PencilEngineAPI {
       c.scratch.destroy()
       this._replayRibbonChunks.delete(k)
     }
-    if (old) this._forgetWashesOf(old) // (§17.68)
+    if (old) {this._invalidateCanonicalBeginOwners(old,'prefix');this._forgetWashesOf(old)} // (§17.68)
     for (const [k, c] of job.chunks) this._replayRibbonChunks.set(k, c)
     this._trimChunkCache() // (§17.68)
     // This author's open wash was painted over the old tiles.
@@ -4819,7 +5669,7 @@ export class PencilEngine implements PencilEngineAPI {
     ;(job.fresh instanceof TiledLayerBuffer ? job.fresh : null)?.resumeEviction()
     old?.destroy()
     this._snapshotRepairRebuilds.delete(layerId)
-    this._noteReplayedOrder(layerId) // (#537)
+    this._noteReplayedOrder(layerId,replayedOps) // (#537)
     if (this._snapshots.hasCoverage(layerId) && !this._checkpoints.hasSnapshotFor(layerId)) {
       this._snapshots.refusePublishing(layerId)
     }
@@ -4827,9 +5677,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._invalidateSplitCache()
     this._displayIfNotSuspended()
     this._flushSnapshotDependentLayers()
+    this._wakeGridResources()
   }
 
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[], useCheckpoints = true): void {
+    // Starting a fresh replay is not a canonical foreign clear inside that replay.
+    this._invalidateCanonicalBeginOwners(buf,'prefix');this._gridTargetEpochs.delete(buf)
     // #144: `buf`'s own tile count while this method is repopulating it is a
     // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
     // tiles can momentarily exceed what the final done-history actually
@@ -4855,6 +5708,7 @@ export class PencilEngine implements PencilEngineAPI {
       const best = useCheckpoints ? this._checkpoints.best(layerId, ops) : null
       const cp = best?.cp
       if (best && cp) {
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
@@ -4866,7 +5720,10 @@ export class PencilEngine implements PencilEngineAPI {
           // after #425 clips whatever hangs off the sheet, so an edge tile's
           // payload can be smaller than the tile it restores into. A tile
           // stored before that is the same call with nothing clipped.
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
+          for (const target of buf.resolveForPaint(rect)) {
+            target.buffer.restorePixelsRect(t.width, t.height, pixels)
+            restoreCheckpointMaterial(target.buffer, t)
+          }
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
@@ -4875,6 +5732,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._seedWashes(cp, buf, this._replayRibbonChunks) // (§17.56)
         start = best.start
       } else {
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
       }
       for (let i = start; i < ops.length; i++) {
@@ -4908,16 +5766,201 @@ export class PencilEngine implements PencilEngineAPI {
    *  replay's business. Smudge carriers are scoped to the target buffer too,
    *  so another layer or temporary replay cannot replace a live imprint. */
   private _dropCarriedGestureState(buf: ILayerBuffer): void {
-    if (this._settle) this._completeSettle() // (§17.52) before the scratch goes
+    if (!this._historicalSourceDepth && this._settle) this._completeSettle() // (§17.52) before the scratch goes
     for (const [key, chunk] of this._replayRibbonChunks) {
       if (chunk.target !== buf) continue
       chunk.scratch.destroy()
       this._replayRibbonChunks.delete(key)
     }
-    this._smudge.dropReplayChunks(buf)
+    this._smudge.dropReplayChunks(buf, { userId: this._userId, strokeId: this._strokeId })
   }
 
-  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+  private _openProjectionSource(source:BrushSourceContext,target:ILayerBuffer):ProjectionReadSession {
+    if(!source.projection)throw Error('Missing captured projection sources')
+    const historical=this._projectionReadScope
+    const targetId=historical?.layerId ?? [...this._layers].find(([,buffer])=>buffer===target)?.[0]
+    const scope=historical ?? {beforeSeq:this._log.entries.length+1,target,layerId:targetId ?? '',store:{cache:new Map<string,HistoricalProjectionEntry>(),bytes:0}}
+    return {layers:source.projection.map(item=>({opacity:item.opacity,buffer:{resolveVisible:rect=>{
+      if(item.id===targetId)return target.resolveVisible(rect)
+      // A source deleted after pen-down still belongs to this captured view;
+      // reconstruct it within the same room instead of dropping its pixels.
+      const buffer=historical ? this._historicalProjectionLayer(scope,item.id) : this._layers.get(item.id) ?? this._historicalProjectionLayer(scope,item.id)
+      return buffer.resolveVisible(rect)
+    }}})),release:()=>{if(!historical)this._releaseProjectionScope(scope)}}
+  }
+
+  private _releaseProjectionScope(scope:NonNullable<PencilEngine['_projectionReadScope']>):void {
+    this._withHistoricalSourceReplay(()=>{
+      let failed=false,first:unknown
+      for(const entry of scope.store.cache.values()){
+        try{this._retireHistoricalProjectionEntry(entry)}catch(error){if(!failed){failed=true;first=error}}
+      }
+      scope.store.cache.clear();scope.store.bytes=0
+      if(failed)throw first
+    })
+  }
+
+  /** Same cache/pools/solver, with temporary synchronous state. Never spans a yield. */
+  private _withHistoricalSourceReplay<T>(work:()=>T):T {
+    const cache=this._ribbonCache
+    const saved={chunks:cache.chunks,authors:cache.authors,spilled:cache.spilled,lost:cache.lost,
+      spillJob:cache.spillJob,spillPumpTimer:cache.spillPumpTimer,fields:this._fieldCache,
+      depth:this._historicalSourceDepth??0,projection:this._projectionReadScope}
+    cache.chunks=new Map();cache.authors=new Map();cache.spilled=new Map();cache.lost=new Map()
+    cache.spillJob=null;cache.spillPumpTimer=0;this._fieldCache=[];this._historicalSourceDepth=saved.depth+1
+    // Work may install a spill job after the frame clears it. Read across the callback boundary.
+    const currentSpillJob=():RibbonReplayCache['spillJob']=>cache.spillJob
+    let failed=false
+    try{return this._smudge.withIsolatedGestures(work)}catch(error){failed=true;throw error}
+    finally {
+      let cleanupFailed=false,cleanupError:unknown
+      const attempt=(release:()=>void):void=>{try{release()}catch(error){if(!cleanupFailed){cleanupFailed=true;cleanupError=error}}}
+      try {
+        const job=currentSpillJob()
+        if(job){if(job.timer)attempt(()=>clearTimeout(job.timer));attempt(()=>{job.work.return(null)})}
+        if(cache.spillPumpTimer)attempt(()=>clearTimeout(cache.spillPumpTimer))
+        for(const chunk of cache.chunks.values())attempt(()=>chunk.scratch.destroy())
+        for(const entry of cache.spilled.values())attempt(()=>entry.spill.dispose())
+        for(const field of this._fieldCache)for(const buffer of [field.a,field.b,field.c,field.coverage,field.ca,field.cb,field.cc,field.mask,field.pressure,field.band])attempt(()=>buffer.destroy())
+      }finally {
+        cache.chunks=saved.chunks;cache.authors=saved.authors;cache.spilled=saved.spilled;cache.lost=saved.lost
+        cache.spillJob=saved.spillJob;cache.spillPumpTimer=saved.spillPumpTimer
+        this._fieldCache=saved.fields;this._projectionReadScope=saved.projection;this._historicalSourceDepth=saved.depth
+      }
+      // eslint-disable-next-line no-unsafe-finally -- Preserve any body failure; expose cleanup failure only after success.
+      if(!failed&&cleanupFailed)throw cleanupError
+    }
+  }
+
+  /** Only completed replay seams may attest that current RGBA equals these exact operations. */
+  private _rebuiltProjectionQuiet(layerId:string,buffer:ILayerBuffer):boolean {
+    if(this._destroyed||this._contextLost||this._historicalSourceDepth||this.gl.isContextLost()||this._layers.get(layerId)!==buffer)return false
+    if(this._unsettledLayers.has(layerId)||this._rebuildJobs.has(layerId)||this._pendingRebuilds.has(layerId)||this._snapshotDependentLayers.has(layerId)||this._snapshotRepairRebuilds.has(layerId)||this._cancelledPeerLayers.has(layerId))return false
+    if(this.isSnapshotHistoryRepairPending(layerId)||this._snapshotIO.hasAmbiguousPending(layerId)||this._hasUnrecordedInk(layerId))return false
+    if(this._snapshots.hasCoverage(layerId)&&!this._checkpoints.hasSnapshotFor(layerId))return false
+    if(this._settle||this._wash||this._washReveals.size||this._opQueue.length||this._wcJoinedDeferred||this._wcJoinedDeferredError!==null||this._wcJoinedRecoveryLayers.size)return false
+    if(this._wcAsyncError!==null||this._wcCanonical.pending||this._wcAsyncOwners.size||this._wcAsyncLocalTools.size||this._canonicalBeginOwners(buffer).length)return false
+    return buffer instanceof TiledLayerBuffer&&buffer.evictedTileCount===0
+  }
+
+  private _rememberRebuiltProjection(layerId:string,ops:readonly PixelOperation[]):void {
+    const buffer=this._layers.get(layerId)
+    if(!buffer||!ops.length||!this._rebuiltProjectionQuiet(layerId,buffer))return
+    const now=this._log.layerPixelOps(layerId)
+    if(now.length!==ops.length||now.some((op,i)=>op.id!==ops[i].id))return
+    const tiles=buffer instanceof TiledLayerBuffer?buffer.gridBeginTargets():undefined
+    if(!tiles)return
+    this._rebuiltProjectionProofs.set(buffer,Object.freeze({layerId,opIds:Object.freeze(ops.map(op=>op.id)),tiles:Object.freeze(tiles.map(tile=>Object.freeze({buffer:tile.buffer,texture:tile.buffer.texture,originX:tile.originX,originY:tile.originY,width:tile.buffer.width,height:tile.buffer.height,revision:tile.buffer.contentRevision,contentRect:tile.contentRect?Object.freeze({...tile.contentRect}):null})))}))
+  }
+
+  private _matchingRebuiltProjection(layerId:string,buffer:ILayerBuffer,ops:readonly PixelOperation[]):readonly PaintTarget[]|undefined {
+    const proof=this._rebuiltProjectionProofs.get(buffer)
+    if(!proof||proof.layerId!==layerId||!this._rebuiltProjectionQuiet(layerId,buffer)||proof.opIds.length!==ops.length||ops.some((op,i)=>op.id!==proof.opIds[i]))return
+    const now=this._log.layerPixelOps(layerId)
+    if(now.length!==proof.opIds.length||now.some((op,i)=>op.id!==proof.opIds[i]))return
+    const tiles=buffer instanceof TiledLayerBuffer?buffer.gridBeginTargets():undefined
+    if(!tiles||tiles.length!==proof.tiles.length)return
+    for(const expected of proof.tiles){
+      const tile=tiles.find(tile=>tile.buffer===expected.buffer&&tile.originX===expected.originX&&tile.originY===expected.originY)
+      if(!tile||tile.buffer.texture!==expected.texture||tile.buffer.width!==expected.width||tile.buffer.height!==expected.height||tile.buffer.contentRevision!==expected.revision)return
+      const a=tile.contentRect,b=expected.contentRect
+      if(a===null?b!==null:b===null||a.minX!==b.minX||a.minY!==b.minY||a.maxX!==b.maxX||a.maxY!==b.maxY)return
+    }
+    return tiles
+  }
+
+  private _copyRebuiltProjection(layerId:string,ops:readonly PixelOperation[]):HistoricalProjectionEntry|undefined {
+    const buffer=this._layers.get(layerId)
+    if(!buffer)return
+    const tiles=this._matchingRebuiltProjection(layerId,buffer,ops)
+    if(!tiles||!(buffer instanceof TiledLayerBuffer))return
+    const pin=buffer.pinGridDestinations(tiles)
+    let copy:ReturnType<typeof compactHistoricalLayer>|undefined,failed=false
+    try{
+      pin.assertCurrent()
+      // No gain means ordinary historical replay; NEVER borrow current storage.
+      copy=compactHistoricalLayer({allResident:()=>tiles.slice()})
+      if(!copy)return
+      pin.assertCurrent()
+      if(!this._matchingRebuiltProjection(layerId,buffer,ops)){copy.buffer.destroy();copy=undefined;return}
+    }catch(error){failed=true;if(copy)try{copy.buffer.destroy()}catch{/* Preserve primary, including undefined. */}throw error}
+    finally{
+      try{pin.release()}catch(error){if(!failed){if(copy)try{copy.buffer.destroy()}catch{/* Preserve pin cleanup failure. */}throw error}}
+    }
+    return copy
+  }
+
+  private _retireHistoricalProjectionEntry(entry:HistoricalProjectionEntry):void {
+    let failed=false,first:unknown
+    if(entry.replayTarget)try{this._forgetWashesOf(entry.replayTarget)}catch(error){failed=true;first=error}
+    try{entry.buffer.destroy()}catch(error){if(!failed){failed=true;first=error}}
+    if(failed)throw first
+  }
+
+  private _historicalProjectionLayer(scope:NonNullable<PencilEngine['_projectionReadScope']>,id:string):HistoricalProjectionSource {
+    const operations=this._log.layerPixelOps(id,scope.beforeSeq)
+    const key=JSON.stringify([id,operations.map(op=>op.id)])
+    const cached=scope.store.cache.get(key)
+    if(cached){scope.store.cache.delete(key);scope.store.cache.set(key,cached);return cached.buffer}
+    let fresh:ILayerBuffer|undefined,freshOwned=false
+    let selected=this._copyRebuiltProjection(id,operations)
+    try{
+      this._withHistoricalSourceReplay(()=>{
+        if(!selected){
+        fresh=this._makeLayerBuffer();freshOwned=true
+        this._replayInto(fresh,id,operations)
+        const compact=compactHistoricalLayer(fresh)
+        if(compact){
+          selected=compact
+          // Independent copies are complete; retire full replay before admission/publication.
+          freshOwned=false
+          this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})
+        }else{
+          selected={buffer:fresh,replayTarget:fresh,bytes:fresh.allResident().reduce((sum,tile)=>sum+tile.buffer.baseBytes,0)}
+          freshOwned=false
+        }
+        }
+        const bytes=selected.bytes,budget=this._gpuBudget===Infinity ? 64*1024*1024 : 16*1024*1024
+        for(const [key,entry]of scope.store.cache){
+          if(scope.store.bytes+bytes<=budget)break
+          if(scope.store.pinned?.has(entry.buffer))continue
+          scope.store.cache.delete(key);scope.store.bytes-=entry.bytes
+          this._retireHistoricalProjectionEntry(entry)
+        }
+        if(scope.store.pinned&&scope.store.bytes+bytes>budget)throw new GridHostNotReady({kind:'notReady',reason:'resource',retryKey:'projection-history-capacity:'+scope.beforeSeq},scope.layerId)
+      })
+      // Publish only after full replay, exact copy, retirement AND isolated cleanup succeed.
+      if(!selected)throw Error('Historical projection source was not prepared')
+      scope.store.cache.set(key,selected);scope.store.bytes+=selected.bytes
+      return selected.buffer
+    }catch(error){
+      if(selected)try{this._retireHistoricalProjectionEntry(selected)}catch{/* Preserve primary, including undefined. */}
+      if(freshOwned&&fresh)try{this._retireHistoricalProjectionEntry({buffer:fresh,replayTarget:fresh,bytes:0})}catch{/* Preserve primary, including undefined. */}
+      throw error
+    }
+  }
+
+  private _applyPixelOp(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
+    const previous=this._gridReplayTarget;this._gridReplayTarget={target:buf,layerId}
+    try{this._applyPixelOpScoped(buf,layerId,op,spreadSettle)}finally{this._gridReplayTarget=previous}
+  }
+  private _applyPixelOpScoped(buf:ILayerBuffer,layerId:string,op:PixelOperation,spreadSettle=false):void {
+    if(op.type!=='stroke'||!op.brushSource?.projection){this._applyPixelOpBody(buf,layerId,op,spreadSettle);return}
+    if(op.seq===undefined)throw Error('Historical projection requires ordered operation')
+    const previous=this._projectionReadScope
+    const scope={beforeSeq:op.seq,target:buf,layerId,store:previous?.store ?? {cache:new Map<string,HistoricalProjectionEntry>(),bytes:0}}
+    this._projectionReadScope=scope
+    let failed=false
+    try{this._applyPixelOpBody(buf,layerId,op,spreadSettle)}catch(error){failed=true;throw error}finally{
+      this._projectionReadScope=previous
+      // eslint-disable-next-line no-unsafe-finally -- A primary paint failure always wins over scope cleanup.
+      if(!previous){try{this._releaseProjectionScope(scope)}catch(error){if(!failed)throw error}}
+    }
+  }
+
+  private _applyPixelOpBody(buf: ILayerBuffer, layerId: string, op: PixelOperation, spreadSettle = false): void {
+    if(op.type!=='stroke'){if(['layer_clear','area_clear','area_transform','layer_transform','layer_merge','layer_duplicate'].includes(op.type))this._smudge.prepareGridDestinationMutation(buf);else this._smudge.markGridDestinationBoundary(buf)}
+    if(op.type!=='stroke')buf.dryColorSmudge?.()
     switch (op.type) {
       case 'stroke': {
         this._retireWashesOf(op) // (§17.57)
@@ -4927,8 +5970,14 @@ export class PencilEngine implements PencilEngineAPI {
         //
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
-        const dabs = strokeDabs(op)
-        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle)
+        const wholeDabs=strokeDabs(op)
+        const gridJob=[...this._rebuildJobs.values()].find(job=>job.fresh===buf)
+        const accepted=(this._isGrid137Operation(op)||this._isCanonicalBeginOperation(op))&&gridJob?.gridProgress?.opId===op.id?gridJob.gridProgress.acceptedDabs:0
+        const dabs=accepted?wholeDabs.slice(accepted):wholeDabs
+        const previousGridOperation=this._gridReplayOperation
+        this._gridReplayOperation=op
+        let standing:ReadonlyMap<Dab,number>|undefined
+        try{standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.strokeEnd, readStrokeEndSample(op), brushExecutionContext(op.brushRandom,op.brushSource))}finally{this._gridReplayOperation=previousGridOperation}
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
@@ -4939,6 +5988,7 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_clear':
+        this._smudge.prepareGridDestinationMutation(buf)
         buf.clear()
         break
       case 'layer_merge':
@@ -5090,15 +6140,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  evicted tiles as the caller needs in a single recoverTiles batch (see
    *  TiledLayerBuffer.recoverTiles), not one replay per tile. */
   private _makeTileRebuilder(layerId: string): TileRebuilder {
-    return (): TileRebuildSession => {
-      const scratch = this._makeLayerBuffer()
-      this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
+    return () => {
+      const scratch=this._makeLayerBuffer()
+      try{this._smudge.withIsolatedGestures(()=>this._replayInto(scratch,layerId,this._log.layerPixelOps(layerId)))}catch(error){
+        this._invalidateCanonicalBeginOwners(scratch,'prefix');scratch.destroy()
+        if(!(error instanceof LayerTilesNotReady))throw error
+        this._blockGridLayer(layerId,error.outcome)
+        return error.outcome
+      }
       return {
         readPixels: rect => {
           const found = scratch.resolveVisible(rect)[0]
           return found ? found.buffer.readPixels() : null
         },
-        destroy: () => scratch.destroy(),
+        readColorSmudgePixels:rect=>scratch.resolveVisible(rect)[0]?.buffer.readColorSmudgePixels(),
+        destroy: () => {this._invalidateCanonicalBeginOwners(scratch,'prefix');scratch.destroy()},
       }
     }
   }
@@ -5155,9 +6211,14 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    this._contextLost=true
+    this._cancelOwnedAuthor(true)
+    this._brushPreparationGeneration++
+    this._brushPreparation.cancel()
     this._cancelLiveDabFlush()
     this._continuationGpuFence?.forget()
     e.preventDefault()
+    this._stopAirbrush()
     this._contextLost = true
     this._cancelDeferredSnapshots()
     // Packed checkpoint pixels survive loss; carried wash snapshots are GL
@@ -5206,6 +6267,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._washBoundaries.clear() // (§17.55) their textures went with the context
     this._contextLost = false
     this._initGL()
+    this._wakeGridResources()
     // The dead context took the paper texture with it: a fresh placeholder,
     // then a re-upload from the byte cache — see PaperState.init.
     this._paper.init()
@@ -5514,6 +6576,7 @@ export class PencilEngine implements PencilEngineAPI {
         const tiles = copies.map(({ buffer, originX, originY }) => ({
           originX, originY, width: buffer.width, height: buffer.height,
           packed: packTilePixels(buffer.readPixels()),
+          colorSmudge: packColorSmudge(buffer.readColorSmudgePixels()),
         }))
         if (washes.length) {
           // One checkpoint carrying washes per layer: the textures are dear.
@@ -5540,7 +6603,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _takeCheckpoint(layerId: string): void {
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._wcJoinedTouchLease === this._settle) return
-    if (this.isSnapshotHistoryRepairPending(layerId)) return
+    if (this.isSnapshotHistoryRepairPending(layerId)||this._rebuildJobs.get(layerId)?.gridBlocked) return
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || this._wcCanonical.pending || this._wcAsyncOwners.size || this._wcAsyncLocalTools.size)) return
     // (§17.53) The old buffer on screen during a sliced rebuild still holds
     // what the log no longer has (the undone stroke): never bake it.
@@ -5589,6 +6652,7 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
+    if (hasOpenGridGesture(ops,op=>this._isCanonicalBeginOperation(op)&&strokeDabs(op as StrokeOperation).some(isGridRenderableDab137))) return
     if (!ops.length) return
     // (#467) Packed on the way in, so the budget below counts what this
     // actually holds. An ordinary checkpoint is evictable and so was never the
@@ -5600,6 +6664,7 @@ export class PencilEngine implements PencilEngineAPI {
     const read = ({ buffer, originX, originY }: PaintTarget) => ({
       originX, originY, width: buffer.width, height: buffer.height,
       packed: packTilePixels(buffer.readPixels()),
+      colorSmudge:packColorSmudge(buffer.readColorSmudgePixels()),
     })
     const opIds = ops.map(o => o.id)
     const snapshotBase = this._checkpoints.all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
@@ -5657,7 +6722,9 @@ export class PencilEngine implements PencilEngineAPI {
     // glaze instead of one wet wash, for that participant only, for good, and
     // passed on in every snapshot they bake. Refusing costs nothing: the layer
     // is left out of this upload and the server keeps serving its operations.
+    if(this.gridReadiness(layerId).layer)return false
     const done = this._log.doneOperations()
+    if (hasOpenBrushStroke(done,layerId)) return false
     // A closed wash can still supply water to another gesture. Its encoded
     // donor must remain in the join tail until that ephemeral water expires.
     if (hasActiveWater(done, layerId, Date.now())) return false
@@ -5749,14 +6816,24 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _restoreLayerFromSnapshotNow(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     const target=this._layers.get(layerId)
-    if(target){
+    const pixelIds = coveredSeq === undefined ? undefined : new Set(this._log.layerPixelOps(layerId).map(op => op.id))
+    const knownTail = pixelIds && this._log.entries.some(entry => pixelIds.has(entry.op.id)
+      && entry.op.type === 'stroke' && entry.op.tool === 'digitalBrush'
+      && (entry.pending || entry.serverSeq !== undefined && entry.serverSeq > coveredSeq!))
+    const gridTarget=this._layers.get(layerId)
+    const sameBase = coveredSeq !== undefined && this._checkpoints.all().some(cp => cp.layerId === layerId && cp.fromSnapshot && cp.coveredSeq === coveredSeq)
+    const pendingAboveSameBase = sameBase && this._log.entries.some(entry => entry.pending && pixelIds?.has(entry.op.id))
+    const installOnly = !!knownTail || !!pendingAboveSameBase || !!(gridTarget&&this._canonicalBeginOwners(gridTarget).length)
+    if(target && !installOnly){
       this._sweepReveals(performance.now(), layerId)
       this._cancelRebuildJob(layerId)
       this._forgetWashesOf(target) // Authoritative handover, never commit an obsolete wet goal.
       this._paperWet.forgetLayer(layerId)
       for(const cp of [...this._checkpoints.all()])if(cp.layerId===layerId && !cp.fromSnapshot)this._checkpoints.remove(cp)
     }
-    this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly)
+    this._resolveSnapshotHistoryRepairs()
+    if (installOnly && target) { this._unsettledLayers.add(layerId); this._settleLayers() }
     // Peer END can precede its durable operation; repair overwritten live
     // dabs once the operation arrives, without waiting for ACK to install.
     if (this._hasUnrecordedInk(layerId)) this._unsettledLayers.add(layerId)
@@ -5773,7 +6850,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // A replacement bitmap must preserve accepted newer and pending local
     // operations. Local array indices are never proof of server coverage.
-    if (tail.length) this._rebuildLayerOrDefer(layerId)
+    if (tail.length && !installOnly) {
+      // An unresolved local ACK may name ink already baked into this bitmap.
+      // An empty bitmap proves there is no such ink; otherwise wait for coverage.
+      if (this._snapshotIO.hasAmbiguousPending(layerId) && !tiles.every(isEmptySnapshotTile)) this._unsettledLayers.add(layerId)
+      else this._rebuildLayerOrDefer(layerId)
+    }
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
@@ -5839,6 +6921,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _noteSnapshotHistoryMutation(op: Operation, cause?: Operation, historicalCause = false): void {
+    this._wakeGridResources()
     const entries = this._log.entries
     const targetEntry = entries.find(entry => entry.op.id === op.id)
     const causeEntry = cause ? entries.find(entry => entry.op.id === cause.id) : undefined
@@ -5858,8 +6941,15 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  private _historyDependencyPending(layerId:string,seen=new Set<string>()):boolean{
+    if(this._snapshotIO.historyRepairPending(layerId)||this._snapshotRepairRebuilds.has(layerId))return true
+    if(seen.has(layerId))return false
+    seen.add(layerId)
+    return [...(this._snapshotDependentLayers.get(layerId)??[])].some(id=>this._historyDependencyPending(id,seen))
+  }
+
   isSnapshotHistoryRepairPending(layerId: string): boolean {
-    return this._snapshotIO.historyRepairPending(layerId) || this._snapshotRepairRebuilds.has(layerId) || this._snapshotDependentLayers.has(layerId)
+    return this._historyDependencyPending(layerId)
   }
 
   pendingSnapshotHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
@@ -5867,7 +6957,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _noteSnapshotReadDependencies(op: Operation): boolean {
-    const pending = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id))
+    const pending = pixelReadLayerIds(op).filter(id => this.isSnapshotHistoryRepairPending(id)||!!this.gridReadiness(id).layer)
     for (const target of pixelWriteLayerIds(op)) for (const source of pending) {
       if (source === target) continue
       let deps = this._snapshotDependentLayers.get(target)
@@ -5883,7 +6973,7 @@ export class PencilEngine implements PencilEngineAPI {
     // L→R→L is safe: StructuralOps recursively reads each source before the
     // operation's seq. Only a reachable unknown baked prefix prevents replay.
     const unknown = (id: string, seen = new Set<string>()): boolean => {
-      if (this._snapshotIO.historyRepairPending(id)) return true
+      if (this._snapshotIO.historyRepairPending(id)||this._rebuildJobs.get(id)?.gridBlocked) return true
       if (seen.has(id)) return false
       seen.add(id)
       return [...(this._snapshotDependentLayers.get(id) ?? [])].some(source => unknown(source, seen))
@@ -5900,22 +6990,56 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  private _snapshotHistoryRepairNotifyQueued = false
+  private _snapshotHistoryRepairNotifiedKey: string | undefined
+
+  /** Notify only a new missing-prefix edge. The room hook owns the existing
+   * in-flight history walk; rebuilding/polling the same job cannot retry it. */
+  private _queueSnapshotHistoryRepair(): void {
+    const pending = this.pendingSnapshotHistoryRepairs()
+    if (!pending.length) { this._snapshotHistoryRepairNotifiedKey = undefined; return }
+    if (this._snapshotHistoryRepairNotifyQueued) return
+    this._snapshotHistoryRepairNotifyQueued = true
+    queueMicrotask(() => {
+      this._snapshotHistoryRepairNotifyQueued = false
+      if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+      const current = this.pendingSnapshotHistoryRepairs()
+      if (!current.length) { this._snapshotHistoryRepairNotifiedKey = undefined; return }
+      const key = JSON.stringify(current.map(r => [r.layerId, r.beforeSeq]).sort((a, b) => String(a[0]).localeCompare(String(b[0])) || Number(a[1]) - Number(b[1])))
+      if (key === this._snapshotHistoryRepairNotifiedKey || !this._onSnapshotHistoryRepairNeeded) return
+      // Latch BEFORE callback: the callback can synchronously re-enter resolve.
+      this._snapshotHistoryRepairNotifiedKey = key
+      this._onSnapshotHistoryRepairNeeded()
+    })
+  }
+
   private _resolveSnapshotHistoryRepairs(): void {
     if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
-    for (const id of this._snapshotIO.resolveHistoryRepairs()) {
+    // Metadata completion resumes the SAME blocked job with its pinned base;
+    // only the destructive result below may schedule a replacement rebuild.
+    const proven = this._snapshotIO.resolveHistoryProofs()
+    for (const id of this._snapshotIO.resolveHistoryRepairs(id => !this._strokeLayerId && !this._hasUnrecordedInk(id))) {
       this._snapshotRepairRebuilds.add(id)
       this._rebuildLayerOrDefer(id)
       if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
     }
+    if (this._snapshotIO.resolveHistoryProofs().length || proven.length) this._wakeGridResources()
     this._flushSnapshotDependentLayers()
+    this._queueSnapshotHistoryRepair()
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
+    for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom,op.brushSource))
+      if((brush.version===190||brush.version===191||brush.version===192||brush.version===193||usesNativeSketchSpray(brush)||brush.version===195) || brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush) || usesRecordedPen188Controls(brush.behavior)) assertBrushSourceInputs(brush,strokeDabs(op),readStrokeEndSample(op))
+    } }
     const changed = this._snapshotIO.absorbHistorical(pageOps)
     for (const op of changed) {
       if (op.type !== 'operation_undo' && op.type !== 'operation_redo' && op.type !== 'operation_revoke') this._applyHistoryChange(op, this._historicalMutationCause(op), true)
     }
     this._resolveSnapshotHistoryRepairs()
+    this._settleLayers()
   }
 
   /** Restore dependency prefix without replaying already baked structure or
@@ -5985,6 +7109,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _destroyBuffer(id: string): void {
+    const gridTarget=this._layers.get(id);if(gridTarget){this._invalidateCanonicalBeginOwners(gridTarget,'prefix');this._gridTargetEpochs.delete(gridTarget)}
+
     this._cancelDeferredSnapshot(id)
     this._wcJoinedRecoveryLayers.delete(id)
     if (!this._wcJoinedRecoveryLayers.size) this._wcJoinedDeferredError = null
@@ -6152,7 +7278,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  this is bounded rooms joining them, which is also why the two branches
    *  collapsed into none. */
   private get _physicalSize(): number {
-    return this._opts.size
+    return this._authorSnapshot?.opts.size ?? this._opts.size
   }
 
   // ─── Stroke input ────────────────────────────────────────────────────────────
@@ -6168,7 +7294,227 @@ export class PencilEngine implements PencilEngineAPI {
     return this._ruler ? snapToRuler(x, y, this._ruler) : { x, y }
   }
 
-  private _onStart(e: PointerData): void {
+  private _sourceInputZoom(): number | undefined {
+    const zoom=this._inputUsesCamera ? this._camera.effectiveInputZoom(this._sourceNominalZoom) : this._boundedInputZoom
+    return zoom!==undefined && Number.isFinite(zoom) && zoom>0 ? zoom : undefined
+  }
+
+  /** Native timing policy v1 uses elapsed dispatch time. Hardware/coalesced
+   * samples may arrive after a hold tick; recorded past requests stay immutable.
+   */
+  private _timedElapsed():number {
+    return this._timedClockLast=Math.max(this._timedClockLast,Math.floor(performance.now()-this._timedClockStart))
+  }
+  private _stopAirbrush():void {
+    if(this._airbrushTimer!==null)clearTimeout(this._airbrushTimer)
+    this._airbrushTimer=null;this._airbrushInput=undefined;this._authorProducer=undefined
+  }
+  private _cancelOwnedAuthor(lost:boolean,repair=false):void {
+    this._cancelLiveDabFlush()
+    // Only accepted input has entered _strokeDabs; cancellation may discard the
+    // parked remainder but must first preserve that accepted prefix and its END.
+    if(!lost&&this._gridAuthor?.committed&&this._strokeId&&this._strokeLayerId&&(!this._gridAuthor.capability||!canonicalBeginIsStamp(this._gridAuthor.capability)||this._gridAuthor.strokeId===this._strokeId)){
+      this._flushStrokeChunk()
+      const op:StrokeOperation={id:nanoid(10),type:'stroke',userId:this._userId,layerId:this._strokeLayerId,
+        tool:this._strokeTool,preset:this._strokePreset,color:this._strokeColor,dabs:[],timestamp:Date.now(),
+        strokeId:this._strokeId,strokeEnd:true,...brushRandomMetadata(this._strokeBrushRandom,this._strokeBrushSource)}
+      this._log.append(op,{pending:true});this._onLocalOperation?.(op)
+    }
+    this._retireStagedBeginScratch(this._gridAuthor,lost);this._retireStagedBeginScratch(this._gridNextAuthor,lost)
+    this._cancelGridAuthorStart();this._gridAuthor=undefined;this._gridNextAuthor=undefined
+
+    const owned=!!this._authorSnapshot||!!this._authorProducer||this._authorInput.pending
+    this._stopAirbrush();this._authorInput.cancel();this._authorTasks.reset()
+    if(!owned)return
+    const id=this._strokeId,layers=this._strokeLayerId?[this._strokeLayerId,...this._strokeExtraLayerIds]:[]
+    const scratch=this._ribbonStrokeScratch
+    if(scratch){
+      if(this._settle?.scratch===scratch)this._cancelSettle()
+      if(this._liveComposite?.scratch===scratch)this._liveComposite=null
+      if(this._wash?.scratch===scratch){this._wash=null;this._washId=null}
+      if(lost)scratch.forget();else this._retireAsyncScratch(scratch)
+    }
+    if(id)this._smudge.releaseGesture(this._userId,id,lost)
+    if(this._wcAsyncLocalStroke)this._releaseAsyncLocalTool(this._wcAsyncLocalStroke,lost)
+    this._wcAsyncLocalStroke=null;this._ribbonStrokeScratch=null
+    this._strokeId=null;this._strokeLayerId=null;this._strokeBrushRandom=undefined;this._strokeBrushSource=undefined
+    this._strokeDabs=[];this._strokeExtraLayerIds=[];this._strokeChunkTail=undefined;this._strokeChunkBox=null
+    this._liveDabQueue=[];this._strokeWet='';this._liveWetQueue='';this._previewBuf=null;this._tipBuf=null
+    this._paperWet.dropPending();this._authorSnapshot=undefined
+    if(this._dwellTimer){clearInterval(this._dwellTimer);this._dwellTimer=null}
+    this._dwellCfg=null
+    if(repair)for(const layer of layers)this._unsettledLayers.add(layer)
+    if(id)this._onLiveStrokeEnd?.(id,true)
+    if(repair){this._settleLayers();this._scheduleDisplay()}
+  }
+  private _handleAuthorVisibility=():void=>{
+    if(typeof document!=='undefined' && document.hidden)this._cancelOwnedAuthor(false,true)
+  }
+  private _scheduleAirbrush(restart=false):void {
+    const session=this._authorProducer
+    const timing=session?.snapshot.opts.tool==='digitalBrush'?digitalBrushFromPreset(session.snapshot.opts.pencilType).behavior?.timing:undefined
+    if(restart&&timing?.version===2&&this._airbrushTimer!==null){clearTimeout(this._airbrushTimer);this._airbrushTimer=null}
+    if(timing?.version===2&&timing.hostRate===0)return
+
+    if(this._airbrushTimer!==null || !session || session.ended)return
+    this._airbrushTimer=setTimeout(()=>{
+      this._airbrushTimer=null
+      if(this._authorProducer!==session || session.ended || this._destroyed || this._contextLost || this.gl.isContextLost())return
+      const time=this._captureAuthorTime(session,performance.now())
+      if(session.hold)session.hold.times.push(time)
+      else {
+        const hold={times:[time],input:timing?.version===2?{...session.input,speed:0,viewSpeed:0,normalizedSpeed:0}:{...session.input},cameraAngle:session.cameraAngle};session.hold=hold
+        const owner=this
+        this._authorInput.enqueue(function*(){
+          try {
+            let consumed=0
+            while(consumed<hold.times.length){
+              const target=hold.times[consumed++]
+              yield* owner._paintTimedInput(hold.input,target,0,hold.cameraAngle)
+              if(consumed>=1024){hold.times.splice(0,consumed);consumed=0}
+            }
+          } finally {if(session.hold===hold)session.hold=undefined}
+        })
+      }
+      this._scheduleAirbrush()
+    },timing?.version===2?Math.max(1,Math.floor(500/timing.hostRate)):session.snapshot.opts.tool==='digitalBrush'&&digitalBrushFromPreset(session.snapshot.opts.pencilType).mypaint?16:1)
+  }
+  private _captureAuthorTime(session:TimedAuthorSession,now:number):number {
+    session.lastTime=Math.max(session.lastTime,Math.floor(now-session.snapshot.dispatchNow))
+    this._timedClockLast=session.lastTime
+    return session.lastTime
+  }
+  private _captureAuthorStart(e:PointerData,now:number):AuthorStartSnapshot|undefined {
+    if(this._locked || !this._paper.loaded || this._destroyed || this._contextLost || this.gl.isContextLost() || this._authorInputError!==undefined || typeof document!=='undefined' && document.hidden)return
+    const layerId=this._activeId
+    if(!layerId || !this._layers.has(layerId) || this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedRecoveryLayers.has(layerId))return
+    const sourceZoom=this._sourceInputZoom()
+    const brush=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : undefined
+    const policy=brush?.behavior?.strokeInput
+    if((policy||brush?.version===190||brush?.version===191||brush?.version===192||brush?.version===193||brush?.version===194||brush?.version===195) && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    const projection=brush&&(brush.mixer?.source==='projectionCanvas'||hasCloneProjection149Scope(brush)||(hasCloneHealing152Scope(brush)&&brush.clone?.source==='projectionCanvas')) ? this._compositeOrder.map(item=>({...item})) : undefined
+    const gradient=brush&&brushUsesGradient(brush) ? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
+    if(brush?.clone&&!this._cloneSource)return
+    if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
+    const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
+    const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
+    const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground||brush.spray?.color.mixBackground||brush.spray?.color.fillBackground)?captureHatchingBackground(this._hatchingBackground):undefined
+    const pattern=brush&&hasExperimentCurrentPattern158Scope(brush)?this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
+    const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background||pattern ? copyBrushSourceContext({version:1,...(pattern?{pattern}:{}),...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
+    return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
+      initialDirection:sourceZoom===undefined?0:startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch'),sourceZoom,
+      cameraAngle:this._authorCameraAngle,nibAngle:this._nibAngleRadians,nibAnchor:this._nibAnchor,tiltResponse:this._tiltResponse,
+      extraLayerIds:[...this._eraseThroughIds],dispatchNow:now}
+  }
+  private _onStart(e:PointerData):void {
+    this._cancelGridAuthorStart()
+
+    if(this._clonePickArmed&&this._opts.tool==='digitalBrush'&&digitalBrushFromPreset(this._opts.pencilType).clone){this._cloneSource={x:e.x,y:e.y};this._cloneOffset=undefined;this._clonePickArmed=false;return}
+    const now=e.dispatchTime ?? performance.now(),snapshot=this._captureAuthorStart(e,now)
+    if(!snapshot)return
+    const input={...e,...this._snapPoint(e.x,e.y)}
+    if(snapshot.opts.tool==='digitalBrush'&&this._beginCapability(digitalBrushFromPreset(snapshot.opts.pencilType))){
+      const candidate=this._stageGridAuthor(input,snapshot)
+      if(this._authorInput.pending){
+        this._gridNextAuthor=candidate
+        const owner=this
+        this._authorInput.enqueue(function*(){
+          if(owner._gridNextAuthor!==candidate)return
+          owner._gridNextAuthor=undefined;owner._gridAuthor=candidate
+          owner._tryGridAuthorStart(candidate)
+        })
+      }else{this._gridAuthor=candidate;this._tryGridAuthorStart(candidate)}
+      return
+    }
+    const timed=snapshot.opts.tool==='digitalBrush' && !!digitalBrushFromPreset(snapshot.opts.pencilType).behavior?.timing
+    if(!timed && !this._authorInput.pending && !this._authorSnapshot){this._executeAuthorStart(input,snapshot);return}
+    this._stopAirbrush()
+    const owner=this
+    this._timedClockStart=now;this._timedClockLast=0
+    const session:TimedAuthorSession={snapshot,input,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false}
+    this._authorProducer=session
+    this._authorInput.enqueue(function*(){owner._authorSnapshot=snapshot;owner._executeAuthorStart(input,snapshot)})
+    if(timed){this._airbrushInput={...input};this._scheduleAirbrush()}
+  }
+  private _onMove(e:PointerData):void {
+    if(this._gridNextAuthor){this._gridNextAuthor.latest={...e,...this._snapPoint(e.x,e.y)};return}
+    this._onMoveCurrent(e)
+  }
+  private _onMoveCurrent(e:PointerData):void {
+    if(this._gridAuthor&&!this._gridAuthor.committed){
+      const pending=this._gridAuthor,input={...e,...this._snapPoint(e.x,e.y)}
+      if(pending.capability==='bristleSoak139'?!firstBristleLine139(pending.dabs):!pending.dabs.some(isGridRenderableDab137)){
+        const elapsed=Math.max(0,e.timeStamp-pending.input.timeStamp)
+        const dabs=pending.sampler.continueStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,pending.snapshot.opts.size,input.speed,this._normalizedBrushSpeed(input),elapsed,captureLatchedRecordedPenInput(pending.sampler.recordedPen188,input))
+        bakeDabOpacity(dabs,input.speed,pending.snapshot.opts.tool,pending.snapshot.opts.pencilType,pending.snapshot.opts.opacity,pending.snapshot.opts.size,pending.sampler.spacingFactor)
+        pending.dabs=pending.capability==='bristleSoak139'?[...pending.dabs,...dabs.map(codecDab)]:dabs.map(codecDab)
+        if(pending.capability==='bristleSoak139'?!!firstBristleLine139(pending.dabs):pending.dabs.some(isGridRenderableDab137)){pending.firstElapsed=elapsed;pending.latest=undefined;this._tryGridAuthorStart(pending)}
+      }else pending.latest=input
+      return
+    }
+    if(this._gridAuthor&&this._authorInput.isParked){this._gridAuthor.latest={...e,...this._snapPoint(e.x,e.y)};return}
+    if(this._authorInputError!==undefined)return
+    const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
+    if(!session){this._executeAuthorMove(e);return}
+    if(session.ended)return
+    const input={...e,...this._snapPoint(e.x,e.y)},time=this._captureAuthorTime(session,now),cameraAngle=this._authorCameraAngle
+    session.hold=undefined;session.input=input;session.cameraAngle=cameraAngle
+    if(this._dabs.timing?.version===2)this._scheduleAirbrush(true)
+    this._handlers.pointer?.(input)
+    this._airbrushInput={...input}
+    const owner=this
+    this._authorInput.enqueue(function*(){
+      if(owner._dabs.timing){
+        if(owner._haptic){owner._haptic.sample(owner._hapticX,owner._hapticY,input.x,input.y);owner._hapticX=input.x;owner._hapticY=input.y}
+        owner._lastPointerX=input.x;owner._lastPointerY=input.y;owner._lastPointerPressure=input.pressure
+        owner._lastPointerTiltX=input.tiltX;owner._lastPointerTiltY=input.tiltY
+        yield* owner._paintTimedInput(input,time,input.speed,cameraAngle,'real')
+      }else owner._executeAuthorMove(input,true)
+    })
+  }
+  private _onEnd(e:PointerData):void {
+    if(this._gridNextAuthor){this._gridNextAuthor=undefined;return}
+    this._onEndCurrent(e)
+  }
+  private _onEndCurrent(e:PointerData):void {
+    this._cancelLiveDabFlush()
+    if(this._gridAuthor&&!this._gridAuthor.committed){this._cancelGridAuthorStart();return}
+    if(this._gridAuthor&&this._authorInput.isParked){this._gridAuthor.end={...e};return}
+    if(this._authorInputError!==undefined)return
+    const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
+    if(!session){this._executeAuthorEnd(e);this._wakeGridResources();return}
+    const time=this._captureAuthorTime(session,now),input={...e},held={...session.input}
+    session.ended=true;session.hold=undefined
+    this._stopAirbrush()
+    const owner=this,endingGrid=this._gridAuthor
+    this._authorInput.enqueue(function*(){
+      if(owner._dabs.timing && owner._dabs.timing.version!==2 && !input.cancelled)yield* owner._paintTimedInput(held,time,0,session.cameraAngle)
+      owner._executeAuthorEnd(input,time,true)
+      owner._wakeGridResources()
+      if(!endingGrid||!owner._authorInput.isParked){
+        owner._authorSnapshot=undefined
+        if(owner._gridAuthor===endingGrid)owner._gridAuthor=undefined
+      }
+    })
+  }
+  private *_paintTimedInput(input:PointerData,time:number,speed:number,cameraAngle:number,role:'real'|'hold'='hold'):Generator<void,void,void> {
+    if(!this._strokeLayerId)return
+    const stream=this._dabs.continueTimedStroke(input.x,input.y,input.pressure,input.tiltX,input.tiltY,this._physicalSize,speed,this._normalizedBrushSpeed(input),time,role,captureLatchedRecordedPenInput(this._dabs.recordedPen188,input))
+    let batch:Dab[]=[]
+    try {
+      while(true){
+        this._dabs.cameraAngle=cameraAngle
+        const step=stream.next();if(step.done)break
+        const dab=step.value
+        batch.push(dab)
+        if(batch.length===32){this._paintStrokeDabs(batch,speed,time);batch=[];this._scheduleDisplay();yield}
+      }
+      if(batch.length)this._paintStrokeDabs(batch,speed,time)
+      this._scheduleDisplay()
+    }finally{stream.return()}
+  }
+
+  private _executeAuthorStart(e: PointerData,snapshot:AuthorStartSnapshot): void {
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
     // one-second hitch on the iPad right at the pen's touch. It lands after
     // this stroke, one a frame - the same order this author already saw for
@@ -6179,7 +7525,7 @@ export class PencilEngine implements PencilEngineAPI {
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || this._wcAsyncFinish && this._wcAsyncError !== null || !this._paper.loaded || this._contextLost || this.gl.isContextLost()) {
+    if ( this._wcAsyncFinish && this._wcAsyncError !== null || !this._paper.loaded || this._contextLost || this.gl.isContextLost()) {
       // (#517) Both refusals below are correct and both are silent, which is
       // indistinguishable from the input layer having dropped the stroke —
       // and telling those two apart is the whole question in the iPad report.
@@ -6188,7 +7534,7 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
-    const layerId = this._activeId
+    const layerId = snapshot.layerId
     if (layerId && (this.isSnapshotHistoryRepairPending(layerId) || this._wcJoinedRecoveryLayers.has(layerId))) {
       this._diagLog('[engine] stroke start REFUSED: snapshot history repair', { layerId })
       return
@@ -6199,6 +7545,11 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
+    const sourcePolicy=snapshot.opts.tool==='digitalBrush' ? digitalBrushFromPreset(snapshot.opts.pencilType).behavior?.strokeInput : undefined
+    const sourceZoom=snapshot.sourceZoom
+    if(sourcePolicy && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    // Native cursor history belongs to the freehand tool session, even between
+    // brushes without opt-in. Its result only changes new versioned policies.
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
@@ -6208,25 +7559,26 @@ export class PencilEngine implements PencilEngineAPI {
     const openTouch = this._wash
     const touchInputs = oldJob ? this._wcJoinedTouchInputs.get(oldJob) : undefined
     const touchNow = performance.now()
-    const touchSignature = watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
+    const touchSignature = watercolorWashSignature(snapshot.opts.pencilType, snapshot.opts.graphiteColor)
     const joinedTouch = this._wcJoinedTouch && !this._wcAsyncFinish && !this._wcMaterialPresentation
       && this._wcSourceFilmRebase && !this._settlePlan.splitQuanta
-      && this._opts.tool === 'watercolor' && oldJob !== null && openTouch !== null
+      && snapshot.opts.tool === 'watercolor' && oldJob !== null && openTouch !== null
       && oldJob.scratch === openTouch.scratch && this._wcJoinedTouchLease === null
       && oldJob.scratch.live
       && touchInputs !== undefined && touchInputs.gesture === oldJob.scratch.gesture
       && ((this._wcJoinedTouchMixed && touchInputs.finish?.gesture === touchInputs.gesture)
-        || (touchInputs.preset === this._opts.pencilType
-          && touchInputs.color.every((c, i) => c === this._opts.graphiteColor[i])))
+        || (touchInputs.preset === snapshot.opts.pencilType
+          && touchInputs.color.every((c, i) => c === snapshot.opts.graphiteColor[i])))
       && openTouch.layerId === layerId && openTouch.signature === touchSignature
       && touchNow - openTouch.endedAt <= WASH_JOIN_MS
-      && (this._paperWet.anyWetNear(layerId, e.x, e.y, this._opts.size * 0.75, touchNow)
-        || watercolorMixFromPreset(this._opts.pencilType).pigment <= 0 && this._paperWet.anyWet(layerId, touchNow)
+      && (this._paperWet.anyWetNear(layerId, e.x, e.y, snapshot.opts.size * 0.75, touchNow)
+        || watercolorMixFromPreset(snapshot.opts.pencilType).pigment <= 0 && this._paperWet.anyWet(layerId, touchNow)
         || touchNow - openTouch.endedAt <= WASH_RECENT_MS)
     if (joinedTouch) this._wcJoinedTouchLease = oldJob
     else if (oldJob && !this._wcAsyncFinish) this._completeSettle()
     this._strokeLayerId = layerId
-    this._strokeTool    = this._opts.tool
+    this._dabs.cameraAngle=snapshot.cameraAngle
+    this._strokeTool    = snapshot.opts.tool
     // (#520) The eraser's cross-layer mode, resolved once here for the whole
     // gesture. The active layer is dropped from the list because it is already
     // `_strokeLayerId` — painting it twice would take two passes of the eraser
@@ -6235,13 +7587,13 @@ export class PencilEngine implements PencilEngineAPI {
     // duplicate id. Ids with no buffer are dropped too: `_paintDabs` needs one,
     // and a layer that does not exist here cannot be erased anyway.
     this._strokeExtraLayerIds = this._strokeTool === 'eraser'
-      ? this._eraseThroughIds.filter(id => id !== layerId && this._layers.has(id))
+      ? snapshot.extraLayerIds.filter(id => id !== layerId && this._layers.has(id))
       : []
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
-    const profile = ribbonProfileFor(this._strokeTool, this._opts.pencilType)
+    const profile = ribbonProfileFor(this._strokeTool, snapshot.opts.pencilType)
     // (#468 v7, ADR 011 §7) Does this stroke join the wash already on the
     // paper, or start a new one?
     //
@@ -6253,8 +7605,8 @@ export class PencilEngine implements PencilEngineAPI {
     // tool that string carries the mix — so moving either slider ended the
     // wash. See watercolorWashSignature.
     const washSignature = this._strokeTool === 'watercolor'
-      ? watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
-      : `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
+      ? watercolorWashSignature(snapshot.opts.pencilType, snapshot.opts.graphiteColor)
+      : `${snapshot.opts.pencilType}|${snapshot.opts.graphiteColor.join(',')}`
     // (#536) The gesture's own record of what it painted into. Cleared here
     // rather than at pen-up so a stroke refused above cannot leave a stale
     // profile behind for the next one to inherit.
@@ -6276,7 +7628,7 @@ export class PencilEngine implements PencilEngineAPI {
       // wetted almost nothing, so the wash it belongs to has to be allowed to
       // continue on recency alone.
       const landedWet = this._paperWet.anyWetNear(
-        layerId, e.x, e.y, this._opts.size * 0.75, now,
+        layerId, e.x, e.y, snapshot.opts.size * 0.75, now,
       )
       // (#536) Clean water is *about* the paint already there, so it joins the
       // open wash if that wash's paper is still wet anywhere, not only if the
@@ -6286,7 +7638,7 @@ export class PencilEngine implements PencilEngineAPI {
       // accumulation the new water could never move. Pigment strokes keep the
       // landing rule: a mark set down on dry paper away from the wash is a new
       // mark, however wet the wash still is.
-      const waterOnly = watercolorMixFromPreset(this._opts.pencilType).pigment <= 0
+      const waterOnly = watercolorMixFromPreset(snapshot.opts.pencilType).pigment <= 0
       const washStillWet = waterOnly && open !== null && this._paperWet.anyWet(open.layerId, now)
       const joins = open !== null
         && open.layerId === layerId
@@ -6323,11 +7675,18 @@ export class PencilEngine implements PencilEngineAPI {
       this._washId = null
       this._retireAsyncScratch(this._wash?.scratch)
       this._wash = null
-      this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
+      const staged=this._gridAuthor?.committed?this._gridAuthor.scratch:undefined
+      this._ribbonStrokeScratch = staged??new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
+      if(staged)this._gridAuthor!.scratch=undefined
     }
-    this._strokeId = nanoid(10)
+    this._strokeBrushSource=snapshot.brushSource
+    this._strokeBrushRandom = this._gridAuthor?.committed?this._gridAuthor.seeds:createBrushRandomContext(this._strokeTool)
+    this._dabs.brushExecution = brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
+    this._strokeId = this._gridAuthor?.committed?this._gridAuthor.strokeId:this._strokeBrushRandom
+      ? createBrushRandomStrokeId(createBrushSourceNonce(nanoid(10),this._strokeBrushSource), this._strokeBrushRandom)
+      : nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
-    if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
+    if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0, execution:brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource) })
     // (#429) No preceding emit: the first packet goes out immediately. It
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
@@ -6337,83 +7696,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._liveLastEmitAt = -Infinity
     this._livePacketSeq = 0
     // #251: this._strokePreset isn't assigned until the next line — pass the
-    // raw incoming preset (this._opts.pencilType) directly so a marker
+    // raw incoming preset (snapshot.opts.pencilType) directly so a marker
     // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
     // shapingForMarkerPreset) sees this stroke's actual nib, not whatever
     // preset the *previous* stroke left in _strokePreset.
-    this._dabs.setShaping(shapingForTool(
-      this._strokeTool, this._opts.pencilType,
-      { angle: this._nibAngleRadians, anchor: this._nibAnchor },
-      this._tiltResponse,
-    ))
-    // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
-    // straight chords between samples); every other tool keeps its plain
-    // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
-    this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
-      ? ribbonProfileFor(this._strokeTool, this._opts.pencilType).curvatureTolerancePx
-      : null
-    // #547 — the step between stamps is a property of the *brush*, not of the
-    // engine, so it is latched here with everything else that is fixed for the
-    // length of one stroke.
-    //
-    // Every brush in the set asks for a tighter step than the engine's 0.22
-    // default, and that default is why: it was calibrated (#478) against tools
-    // whose dabs blend through paper grain and soft graphite falloff. A digital
-    // stamp has neither, so its own ripple shows several times sooner — see the
-    // spacing values in digitalBrushPresets.ts.
-    this._dabs.spacingFactor = this._strokeTool === 'digitalBrush'
-      ? digitalBrushFromPreset(this._opts.pencilType).spacing
-      : DEFAULT_DAB_SPACING_FACTOR
-    // #478 — same slot and the same lifecycle: a property of the tool, latched
-    // once per stroke. Dab spacing has to track the mark this tool actually
-    // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
-    // mark. See dabSpacing.ts for the whole argument, including which tools
-    // are deliberately left on the old rule.
-    // (#579) Not for a brush whose stamps are separate marks (flowPer
-    // 'stamp': sponge, splatter, grass, foliage, grain). The footprint rule
-    // exists to hide the stamp — to keep a hard edge from reading as a row of
-    // discs — and for these the separate prints *are* the brush: a sponge
-    // spaced to the footprint came out as a smooth band with no dabs in it.
-    // Recorded strokes are unaffected: spacing is decided when the dabs are
-    // made, and a replay paints the dabs the log holds.
-    const stampBrush = this._strokeTool === 'digitalBrush'
-      && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'
-    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool) && !stampBrush
-      ? {
-        sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
-        hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
-        // #547 — the digital brush follows its footprint at every hardness. See
-        // DabFootprint.spacingStrength for why the gate the other three tools
-        // use is a graphite calibration that does not carry over to a mark with
-        // no paper in it.
-        ...(this._strokeTool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
-      }
-      : null
-    // #489: watercolor's *elongated* nibs take the scallop bound without the
-    // rest of that rule — DabSystem.nibScallop carries the whole argument,
-    // including why the marker's identical 5:1 geometry is left as it is.
-    //
-    // Not the round nib, and that exclusion is measured rather than assumed.
-    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
-    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
-    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
-    // round brush's stroke. Its deposit is normalised per unit travel so the
-    // tone would have held, but the mark's fine structure would not have, and
-    // that is exactly the regression #483 was filed for. This tool has shipped;
-    // the flat has not.
-    //
-    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
-    // tilt and does scallop a little there. Nobody has reported it, and quietly
-    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
-    //
-    // #501: and charcoal's chisel, which wants this *and* the footprint rule —
-    // it is a stamped mark, so its gaps are real holes, and it is an elongated
-    // nib, so its silhouette scallops. Both bounds compose in _spacingAfter.
-    this._dabs.nibScallop = this._nibScallops(this._strokeTool, this._opts.pencilType)
-      ? { sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
-      : null
-    this._strokePreset  = this._opts.pencilType
-    this._strokeColor   = this._opts.graphiteColor
+    this._configureAuthorSampler(this._dabs,snapshot,brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource))
+    this._strokePreset  = snapshot.opts.pencilType
+    this._strokeColor   = snapshot.opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
     // SmudgePainter.paint does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see SmudgePainter.resumeGesture).
@@ -6448,12 +7737,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     // Watercolor ribbons cannot paint AccumulationBuffer previews; real dabs
     // and the physical end of the stroke remain on the canonical layer.
-    if (this._predictPointer && this._strokeTool !== 'watercolor') {
+    if (this._predictPointer && this._strokeTool !== 'watercolor'&&!(this._strokeTool==='digitalBrush'&&this._beginCapability(digitalBrushFromPreset(snapshot.opts.pencilType)))) {
       this._previewBuf = this._previewBufPool.acquire(this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
-    if (this._liveTip && this._strokeTool !== 'watercolor') {
+    if (this._liveTip && this._strokeTool !== 'watercolor'&&!(this._strokeTool==='digitalBrush'&&this._beginCapability(digitalBrushFromPreset(snapshot.opts.pencilType)))) {
       this._tipBuf = this._tipBufPool.acquire(this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
@@ -6461,7 +7750,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Ruler tool (#89): snap before the haptic tracker and DabSystem ever
     // see this point, so both "feel" and paint the same (possibly
     // straightened) position as what ends up recorded.
-    const { x, y } = this._snapPoint(e.x, e.y)
+    const { x, y } = e
     if (this._haptic) {
       this._haptic.reset()
       this._hapticX = x
@@ -6481,14 +7770,14 @@ export class PencilEngine implements PencilEngineAPI {
       const cfg = this._dwellCfg
       this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
     }
-    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed)
-    this._paintStrokeDabs(dabs, e.speed, 0)
+    const dabs = this._gridAuthor?.committed?(()=>{this._dabs=this._gridAuthor!.sampler;return this._gridAuthor!.dabs})():this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
+    this._paintStrokeDabs(dabs, e.speed, this._gridAuthor?.firstElapsed??0)
     this._display()
     this._handlers.strokeStart?.(e)
   }
 
-  private _onMove(e: PointerData): void {
-    this._handlers.pointer?.(e)
+  private _executeAuthorMove(e: PointerData,snapped=false): void {
+    if(!snapped)this._handlers.pointer?.(e)
     if (!this._strokeLayerId) return
     if (this._debug) {
       const now = performance.now()
@@ -6504,7 +7793,7 @@ export class PencilEngine implements PencilEngineAPI {
     // docstring). `e.timeStamp` itself is saved for the next call's use at
     // the bottom of this method.
     const prevMoveTimestamp = this._dbgPrevMoveTimestamp
-    const { x, y } = this._snapPoint(e.x, e.y)
+    const { x, y } = snapped?e:this._snapPoint(e.x, e.y)
     if (this._haptic) {
       this._haptic.sample(this._hapticX, this._hapticY, x, y)
       this._hapticX = x
@@ -6523,7 +7812,9 @@ export class PencilEngine implements PencilEngineAPI {
         this._dwellAnchorX = x; this._dwellAnchorY = y; this._dwellAnchorTimestamp = performance.now()
       }
     }
-    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed)
+    if(this._dabs.timing)this._airbrushInput={...e,x,y}
+    const sourceTime=this._dabs.timing?this._timedElapsed():e.timeStamp-this._strokeStartTimestamp
+    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),sourceTime,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
     let painted = false
     if (dabs.length) {
       const t0 = performance.now()
@@ -6566,18 +7857,21 @@ export class PencilEngine implements PencilEngineAPI {
   // (never accumulated), same non-destructive pattern as _onPredict's
   // _previewBuf below, so a since-superseded tangent estimate never lingers
   // or double-inks the real buffer.
+  private _normalizedBrushSpeed(input:PointerData):number|undefined {
+    const profile=this._strokeTool==='digitalBrush' ? digitalBrushFromPreset(this._strokePreset).behavior?.speedInput : undefined
+    return normalizedBrushSpeed(input,profile)
+  }
+
   private _refreshTip(speed: number): void {
     if (this._wcAsyncLocalStroke) return
     if (!this._tipBuf) return
     this._tipBuf.clear()
     const dabs = this._dabs.peekTipDabs(this._physicalSize, speed)
     if (dabs.length) {
-      this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
+      this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
       // #138: translated into _tipBuf's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      this._paintDabs(
-        this._tipBuf, this._translateDabs(dabs, this._tipBufOrigin), this._strokeTool, this._strokePreset,
-        this._strokeColor, this._userId,
+      this._paintDabs(this._tipBuf, this._translateDabs(dabs, this._tipBufOrigin), this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
       )
     }
   }
@@ -6594,6 +7888,7 @@ export class PencilEngine implements PencilEngineAPI {
   // layer's real buffer, never appended to `_strokeDabs`, so predictions can
   // never reach the recorded Operation or onLocalOperation/broadcast.
   private _onPredict(samples: PointerData[]): void {
+    if(this._authorInput.pending)return
     if (this._wcAsyncLocalStroke) return
     if (!this._strokeLayerId || !this._previewBuf) return
     this._previewBuf.clear()
@@ -6605,21 +7900,19 @@ export class PencilEngine implements PencilEngineAPI {
       // Ruler tool (#89): keep the speculative preview visually consistent
       // with the real path above, which snaps too.
       const { x, y } = this._snapPoint(s.x, s.y)
-      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed))
+      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed,this._normalizedBrushSpeed(s),this._dabs.timing?this._timedClockLast+Math.max(0,s.timeStamp-(this._airbrushInput?.timeStamp??s.timeStamp)):s.timeStamp-this._strokeStartTimestamp,captureLatchedRecordedPenInput(fork.recordedPen188,s)))
     }
     if (dabs.length) {
-      this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
+      this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
       // #138: translated into _previewBuf's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      this._paintDabs(
-        this._previewBuf, this._translateDabs(dabs, this._previewBufOrigin), this._strokeTool, this._strokePreset,
-        this._strokeColor, this._userId,
+      this._paintDabs(this._previewBuf, this._translateDabs(dabs, this._previewBufOrigin), this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
       )
     }
     this._scheduleDisplay()
   }
 
-  private _onEnd(e: PointerData): void {
+  private _executeAuthorEnd(e: PointerData,capturedTime?:number,catchupDone=false): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
     // (#517) `startStroke` always emits the touch-down dab, so every stroke
@@ -6639,7 +7932,20 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     this._dwellCfg = null
     const t0 = this._debug ? performance.now() : 0
-    const dabs = this._dabs.endStroke(this._physicalSize, e.speed)
+    const held=this._airbrushInput
+    const finalTime=capturedTime??(this._dabs.timing?this._timedElapsed():e.timeStamp-this._strokeStartTimestamp)
+    const dabs = !catchupDone && held && !e.cancelled ? this._dabs.continueStroke(held.x,held.y,held.pressure,held.tiltX,held.tiltY,this._physicalSize,0,0,finalTime,captureLatchedRecordedPenInput(this._dabs.recordedPen188,held)) : []
+    dabs.push(...this._dabs.endStroke(this._physicalSize, e.speed))
+    const endpointBrush=this._strokeTool==='digitalBrush' ? digitalBrushFromPreset(this._strokePreset) : undefined
+    const endInput=endpointBrush?.mypaint||endpointBrush?.behavior?.dual?.sampling==='independent' ? this._dabs.peekEndSample(this._physicalSize,e.speed) : undefined
+    let strokeEndSample:StrokeOperation['strokeEndSample']
+    if(endInput) {
+      if(this._dabs.recordedPen188)Object.assign(endInput,captureLatchedRecordedPenInput(this._dabs.recordedPen188,e))
+      endInput.t=Math.max(0,finalTime)
+      if(this._dabs.captureSourceTime)endInput.sourceTime=Math.max(0,finalTime)
+      this._bakeDabOpacity([endInput],e.speed,this._strokeTool,this._strokePreset,(this._authorSnapshot?.opts.opacity??this._opts.opacity))
+      strokeEndSample={...codecDab(endInput),baseSize:Math.fround(this._physicalSize)}
+    }
     if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
     // #454: the same post-process one tool over, and far deeper — a liner
     // narrows by at most 15%, a brush pen by up to 75%, which is what turns a
@@ -6657,7 +7963,23 @@ export class PencilEngine implements PencilEngineAPI {
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+    const grid=this._gridAuthor
+    if(grid?.committed&&this._authorInput.isParked){
+      grid.finalizeEnd=()=>this._completeAuthorEnd(e,layerId,dabs,strokeEndSample,t0)
+      return
+    }
+    this._completeAuthorEnd(e,layerId,dabs,strokeEndSample,t0)
+  }
+
+  private _completeAuthorEnd(e:PointerData,layerId:string,dabs:Dab[],strokeEndSample:StrokeOperation['strokeEndSample'],t0:number):void {
+    const completedGrid=this._gridAuthor
+    // Async canonical chunks may still be queued after local pen-up; their
+    // final operation owns cleanup. Synchronous local painting uses null ID.
+    if (!this._wcAsyncLocalStroke) this._smudge.finishGesture(this._userId, completedGrid?.committed?completedGrid.strokeId:null)
+    if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
+      this._brush.finish(this._ribbonStrokeScratch,strokeEndSample)
+      this._finishRibbonStroke(this._ribbonStrokeScratch, true)
+    }
     if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
       // (#468 v7) A wash outlives its strokes — the paint is still on the paper
       // and still wet, so the buffers stay open for the next band to pool into.
@@ -6705,7 +8027,7 @@ export class PencilEngine implements PencilEngineAPI {
       })
     }
 
-    if (this._strokeDabs.length) {
+    if (this._strokeDabs.length || strokeEndSample || completedGrid?.firstPublished) {
       // (#520) One operation per layer the gesture painted into — normally
       // exactly one, and several only under a cross-layer erase. They share
       // `strokeId`, which is what makes them one gesture to undo
@@ -6717,8 +8039,10 @@ export class PencilEngine implements PencilEngineAPI {
         const op: Operation = {
           id: nanoid(10), type: 'stroke', userId: this._userId,
           layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-          dabsPacked, timestamp: Date.now(),
+          dabsPacked, timestamp: Date.now(), strokeEnd: true,
+          ...(strokeEndSample ? {strokeEndSamplePacked:packStrokeEndSample(strokeEndSample)} : {}),
           ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+          ...brushRandomMetadata(this._strokeBrushRandom,this._strokeBrushSource),
           ...(this._washId ? { washId: this._washId } : {}),
           // (#536) Only when there was something to see: most strokes land on
           // dry paper, and an all-zero profile is bytes spent saying nothing.
@@ -6755,6 +8079,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (localHeld) localHeld.ended = true
     this._wcAsyncLocalStroke = null
     this._strokeId = null
+    this._strokeBrushRandom = undefined;this._strokeBrushSource=undefined
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
@@ -6770,6 +8095,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#537) The pen is up: whatever was waiting for it to re-settle can now.
     this._settleLayers()
     this._handlers.strokeEnd?.(e)
+    if(completedGrid&&this._gridAuthor===completedGrid){this._gridAuthor=undefined;this._authorSnapshot=undefined}
   }
 
   /** (#494) A one-line wrapper over presetForTool (presets/resolvePreset.ts,
@@ -6846,7 +8172,13 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
     this._snapshots.markDirty(this._strokeLayerId)
 
-    this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
+    if(this._gridAuthor?.dabs!==dabs)this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._authorSnapshot?.opts.opacity??this._opts.opacity)
+    if(this._strokeTool==='digitalBrush'&&this._beginCapability(digitalBrushFromPreset(this._strokePreset))){
+      const paint=digitalBrushMixer(this._strokePreset,this._strokeColor)
+      if(!paint&&(!this._gridAuthor?.capability||!canonicalBeginIsStamp(this._gridAuthor.capability)))throw Error('Grid137 author mixer missing')
+      if(!this._dabs.strokeInput&&!this._dabs.captureSourceTime)for(const dab of dabs)dab.t=elapsedMs
+      this._paintGridAuthorDabs(buf,dabs.map(codecDab),paint??undefined);return
+    }
     // #454, ADR 009 §4. Before painting *and* before _strokeDabs.push below,
     // so the narrowing is baked into the dab every other route to these pixels
     // reads — the recorded StrokeOperation, the packet a peer replays, an
@@ -6863,7 +8195,7 @@ export class PencilEngine implements PencilEngineAPI {
     // The *tail* taper stays a post-pass, in _onEnd, and that is a property of
     // drawing rather than an omission: "how far until the stroke ends" does not
     // exist until the pen is lifted.
-    for (const dab of dabs) dab.t = elapsedMs
+    if(!this._dabs.strokeInput && !this._dabs.captureSourceTime) for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
     // read *before* pushing this call's dabs onto _strokeDabs below — a
     // fresh stroke's very first _onStart call correctly sees undefined
@@ -6891,10 +8223,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._liveWetQueue += seen
       batchWet = seen
     }
-    const standing = this._paintDabs(
-      buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
-      undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined),
+    const standing = this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId, this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined, undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined), undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
     )
     this._paintExtraLayers(dabs)
     // …and this stroke's own water is *queued*, not laid. It reaches the paper
@@ -6977,7 +8306,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const id of this._strokeExtraLayerIds) {
       const buf = this._layers.get(id)
       if (!buf) continue
-      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
+      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource))
       this._snapshots.markDirty(id)
     }
     // #122: on every batch, not once when the gesture starts. The composite
@@ -7051,9 +8380,7 @@ export class PencilEngine implements PencilEngineAPI {
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
     dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(fp.tiltMag) * dwellFlow(elapsed, cfg)
 
-    this._paintDabs(
-      buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
+    this._paintDabs(buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId, this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom,this._strokeBrushSource)
     )
     // (#520) A no-op today — only the liner dwells, and only the eraser goes
     // through layers — but a dwell dab is a real dab of this gesture (see the
@@ -7073,26 +8400,41 @@ export class PencilEngine implements PencilEngineAPI {
     this._scheduleDisplay()
   }
 
-  private _cancelLiveDabFlush(): void {
-    if (this._liveEmitTimer !== null) clearTimeout(this._liveEmitTimer)
-    this._liveEmitTimer = null
+  /** Retire the single owned live-prefix deadline before gesture teardown. */
+  private _cancelLiveDabFlush():void {
+    const queued=this._liveDabFlush
+    this._liveDabFlush=undefined
+    if(queued?.timer!==undefined)clearTimeout(queued.timer)
   }
 
-  /** (#429/#764) Pace live packets while moving, but also deliver a paused
-   * pen's already-painted tail at the next interval. There is at most one
-   * timer per gesture; an empty queue and non-network engines own none. */
+  /** Send only the already generated prefix when the pen stops inside the
+   * live throttle interval. The token owns one timeout, never input or RNG. */
+  private _queueLiveDabFlush(delay:number):void {
+    if(this._authorProducer?.ended||this._gridAuthor?.end)return
+    const strokeId=this._strokeId,layerId=this._strokeLayerId
+    if(!strokeId||!layerId)return
+    const previous=this._liveDabFlush
+    if(previous?.strokeId===strokeId&&previous.layerId===layerId)return
+    this._cancelLiveDabFlush()
+    const queued:{timer?:ReturnType<typeof setTimeout>;strokeId:string;layerId:string}={strokeId,layerId}
+    this._liveDabFlush=queued
+    queued.timer=setTimeout(()=>{
+      if(this._liveDabFlush!==queued)return
+      this._liveDabFlush=undefined
+      if(this._destroyed||this._contextLost||this.gl.isContextLost()||this._strokeId!==strokeId||this._strokeLayerId!==layerId||this._authorProducer?.ended||this._gridAuthor?.end)return
+      this._emitLiveDabsIfDue()
+    },Math.max(1,delay))
+  }
+
+  /** Emit the existing queued prefix at the 60ms cadence. One coalesced
+   * deadline flushes already generated dabs while the pen is stationary;
+   * it never samples input, advances the brush clock, or creates operations. */
   private _emitLiveDabsIfDue(): void {
-    if (this._destroyed || this._contextLost || !this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId) return
-    if (!this._liveDabQueue.length) return
+    if(this._destroyed||this._contextLost||this.gl.isContextLost()){this._cancelLiveDabFlush();return}
+    if (!this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId || !this._liveDabQueue.length){this._cancelLiveDabFlush();return}
     const now = performance.now()
-    const remaining = LIVE_STROKE_EMIT_INTERVAL_MS - (now - this._liveLastEmitAt)
-    if (remaining > 0) {
-      if (this._liveEmitTimer === null) this._liveEmitTimer = setTimeout(() => {
-        this._liveEmitTimer = null
-        this._emitLiveDabsIfDue()
-      }, Math.ceil(remaining))
-      return
-    }
+    const remaining=LIVE_STROKE_EMIT_INTERVAL_MS-(now-this._liveLastEmitAt)
+    if(remaining>0){this._queueLiveDabFlush(remaining);return}
     this._cancelLiveDabFlush()
     this._liveLastEmitAt = now
     // (#520) One packet per layer this gesture paints into, all carrying the
@@ -7109,6 +8451,7 @@ export class PencilEngine implements PencilEngineAPI {
         strokeId: this._strokeId, layerId,
         tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         packetSeq, dabs,
+        ...brushRandomMetadata(this._strokeBrushRandom,this._strokeBrushSource),
         // (#468) Decided at pen-down and constant for the gesture, so every
         // packet carries the same value the operation will.
         ...(this._washId ? { washId: this._washId } : {}),
@@ -7151,6 +8494,15 @@ export class PencilEngine implements PencilEngineAPI {
     return Math.max(b.maxX - b.minX, b.maxY - b.minY) + this._opts.size > span
   }
 
+  /** Flushes the in-progress stroke's accumulated dabs as a complete
+   *  StrokeOperation without ending the stroke itself — same Operation
+   *  shape _onEnd's own dispatch builds, just none of _onEnd's stroke
+   *  teardown (_strokeLayerId/_previewBuf/_tipBuf/_display() are all still
+   *  legitimately mid-stroke and untouched here; the pointer is still
+   *  down, painting continues into the same buffer right after this
+   *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
+   *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
+   *  dispatch is — never called with nothing to flush. */
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
@@ -7162,6 +8514,7 @@ export class PencilEngine implements PencilEngineAPI {
         layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked, timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        ...brushRandomMetadata(this._strokeBrushRandom,this._strokeBrushSource),
         // (#536) The wash too, exactly as _onEnd stamps it: replay groups a
         // chunk by washId ?? strokeId, so a chunk without it landed in a
         // different scratch from the gesture's last chunk — and the halo
@@ -7346,21 +8699,63 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536, §17.52) A peer's operation arriving live: its settle may be
      *  spread over frames. Never for a history batch or a rebuild. */
     spreadSettle = false,
+    strokeEnd = false,
+    strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
   ): ReadonlyMap<Dab, number> | undefined {
-    if (!dabs.length) return undefined
+    if (tool === 'digitalBrush') {
+      const brush=digitalBrushFromPreset(presetName)
+      assertBrushSourceInputs(brush,dabs,strokeEndSample)
+      assertBrushExecutionContext(brush,execution)
+    }
+    if(tool==='digitalBrush'&&strokeEnd&&strokeId&&!dabs.length){
+      const capability=this._beginCapability(digitalBrushFromPreset(presetName))
+      // A durable metadata-only END must close the existing source on cold
+      // replay too. It never captures another BEGIN or supplies a drawing dab.
+      if(capability&&capability!=='bristleSoak139'){
+        if(canonicalBeginIsStamp(capability)){
+          const open=this._replayRibbonChunks.get(strokeId)
+          const scratch=ribbonScratch??(open?.target===target?open.scratch:undefined)
+          const binding=scratch?.canonicalSource?.binding
+          if(binding?.userId===userId&&binding.strokeId===strokeId)this._brush.finish(scratch!,strokeEndSample)
+        }else this._smudge.finishGesture(userId,strokeId)
+        return undefined
+      }
+    }
+    if(tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))&&!dabs.some(isGridRenderableDab137)){if(strokeEnd&&strokeId)this._smudge.finishGesture(userId,strokeId);return undefined}
+    if (!dabs.length && !strokeEndSample) {if(strokeEnd&&strokeId&&tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName)))this._smudge.finishGesture(userId,strokeId);return undefined}
+    if(tool==='digitalBrush')this._smudge.prepareRecordedTexture191(digitalBrushFromPreset(presetName),execution)
+    if(!(tool==='digitalBrush' && digitalBrushFromPreset(presetName).mixer?.paintThickness))target.dryColorSmudge?.()
+    // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
+    if (tool === 'digitalBrush') {
+      dabs = dabs.map(codecDab)
+      if (prevDab) prevDab = codecDab(prevDab)
+    }
+    if('resolveForPaint' in target&&dabs.some(isGridRenderableDab137)){
+      const same=tool==='digitalBrush'&&this._isGrid137Brush(digitalBrushFromPreset(presetName))?(strokeId??this._strokeId??undefined):undefined
+      this._smudge.markGridDestinationBoundary(target,same?{userId,strokeId:same}:undefined)
+    }
     // Logical input remains immediate. Only isolated display copies may change
     // before the preceding canonical solver has landed.
     if (!strokeId && this._wcAsyncLocalStroke && tool !== 'watercolor') {
       const layerId = [...this._layers].find(([, buffer]) => buffer === target)?.[0]
       if (layerId) { this._paintAsyncLocalTool(layerId, dabs, tool, presetName, color, prevDab); return undefined }
     }
-    if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); return undefined }
+    if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     // #573 — the mixer brush paints through smudge's carried imprint with its
     // own colour loaded into it; every other digital brush is a ribbon-scratch
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); return undefined }
+      const sourceBrush=digitalBrushFromPreset(presetName)
+      if(this._beginCapability(sourceBrush)&&canonicalBeginIsStamp(this._beginCapability(sourceBrush)!)){
+        if(target instanceof AccumulationBuffer)return undefined
+        const result=this._paintSoak139(target,dabs,userId,strokeId??this._strokeId??undefined,presetName,color,execution,prevDab,ribbonScratch,strokeEnd)
+        if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target))
+        return undefined
+      }
+      if(paint?.brush&&this._beginCapability(paint.brush)){if(!(target instanceof TiledLayerBuffer))throw Error('Grid137 requires a tiled layer target');const result=this._paintGrid137(target,dabs,userId,strokeId??this._strokeId??undefined,paint,execution,prevDab,strokeEnd);if(result.kind==='notReady')throw new GridHostNotReady(result,this._gridLayer(target));return undefined}
+      if (paint) { if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)){if(paint.brush?.mixer?.colorRateComposite==='dodge'||paint.brush?.mixer?.colorRateComposite==='burn'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeDodgeBurn176Scope(paint.brush))throw Error('Invalid legacy foreground DodgeBurn176 scope');this._smudge.prepareColorSmudgeLegacyFamily('dodgeBurn176');} if(paint.brush?.mixer?.colorRateComposite==='add'||paint.brush?.mixer?.colorRateComposite==='subtract'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeArithmetic175Scope(paint.brush))throw Error('Invalid legacy foreground Arithmetic175 scope');this._smudge.prepareColorSmudgeLegacy(false,false,true);} if(paint.brush?.mixer?.colorRateComposite==='darken'||paint.brush?.mixer?.colorRateComposite==='lighten'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeMinMax172Scope(paint.brush))throw Error('Invalid legacy foreground MinMax172 scope');this._smudge.prepareColorSmudgeLegacy(false,true);} if(paint.brush?.mixer?.colorRateComposite==='overlay'){if(!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&!hasLegacyColorSmudgeOverlay154Scope(paint.brush))throw Error('Invalid legacy foreground Overlay154 scope');this._smudge.prepareColorSmudgeLegacy(true);} }if(paint.brush&&!usesNativeSmudgeTexture(paint.brush)&&!usesNativeSmudgeFeatures(paint.brush)&&usesColorSmudgeTexture(paint.brush))this._smudge.prepareColorSmudgeTexture(paint.brush); this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -7380,7 +8775,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Native input and decoded operations must enter CPU geometry at the
       // same codec precision. Keep the recorded dabs and standing keys intact.
       const canonical = dabs.map(codecDab)
-      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
+      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample, execution)
       if (!standing) return undefined
       const originalKeys = new Map(standing)
       for (let i = 0; i < canonical.length; i++) {
@@ -7396,7 +8791,7 @@ export class PencilEngine implements PencilEngineAPI {
       dabs = dabs.map(codecDab)
       if (prevDab) prevDab = codecDab(prevDab)
     }
-    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle)
+    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample, execution)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
     this._stamps.paint(target, dabs, tool, presetName, color)
     return undefined
@@ -7434,8 +8829,12 @@ export class PencilEngine implements PencilEngineAPI {
     wetProfile?: string,
     strokeSeed?: [number, number],
     spreadSettle = false,
+    strokeEnd = false,
+    strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
+    canonicalBeginRuntime?:CanonicalBeginRuntime,
   ): ReadonlyMap<Dab, number> | undefined {
-    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0)
+    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0, strokeEnd, strokeEndSample, execution,canonicalBeginRuntime)
     let r = work.next()
     while (!r.done) r = work.next()
     return r.value
@@ -7459,6 +8858,10 @@ export class PencilEngine implements PencilEngineAPI {
     strokeSeed: [number, number] | undefined,
     spreadSettle: boolean,
     pieceTris: number,
+    strokeEnd = false,
+    strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
+    canonicalBeginRuntime?:CanonicalBeginRuntime,
   ): Generator<number, ReadonlyMap<Dab, number> | undefined, void> {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -7468,8 +8871,25 @@ export class PencilEngine implements PencilEngineAPI {
     // the identical structural reason. The real dabs always paint straight
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
+    if(tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(presetName)
+      assertBrushSourceInputs(brush,dabs,strokeEndSample)
+      assertBrushExecutionContext(brush,execution)
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput || brushRequiresSourceTime(brush) || hasBristleInitializationScope(brush)) {
+        // The source response has the same canonical F32 boundary on sliced
+        // rebuilds as on immediate/live painting. Never infer it from size.
+        dabs=dabs.map(codecDab)
+        if(prevDab)prevDab=codecDab(prevDab)
+        if(strokeEndSample)strokeEndSample={...codecDab(strokeEndSample),baseSize:Math.fround(strokeEndSample.baseSize)}
+      }
+    }
     if (target instanceof AccumulationBuffer) return undefined
-    this._washActiveAt = performance.now() // (§17.68)
+    if(!dabs.length) {
+      const open=strokeId ? this._replayRibbonChunks.get(strokeId) : undefined
+      if(strokeEnd && open?.target===target)this._brush.finish(open.scratch,strokeEndSample)
+      return undefined
+    }
+    if(!this._historicalSourceDepth)this._washActiveAt = performance.now() // (§17.68)
     const preset = this._resolvePreset(tool, presetName)
     // (#536) The paper's own wetness where this gesture came down, read from
     // what the stroke recorded rather than from the live field: a replay has no
@@ -7528,7 +8948,37 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.52) A settle of this same wash still spread over frames lands
     // before anything is painted into it - replay order.
     if (!ribbonScratch && this._settle?.scratch === scratch) this._completeSettle()
-    yield* this._ribbonStrokeWork(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch, pieceTris)
+    if(canonicalBeginRuntime?.capability==='bristleSoak139'){
+      const brush=digitalBrushFromPreset(presetName),stored=scratch.brushBehavior?.bristle?.previous
+      const previous=prevDab??chunk?.prevDab??(stored&&dabs[0]?{...dabs[0],...stored}:undefined)
+      const line=firstBristleLine139(dabs,previous)
+      if(brush.version===195&&dabs.length&&!this._brush.bristleSoakBinding(scratch)){
+        if(!profile.brushStamp)throw Error('Bristle195 stamp profile missing')
+        this._brush.prepareBristleSoak(brush)
+        const initial=this._brush.prepareBristleInitial195(target,dabs.find(isBristleAnchor139)??dabs[0],canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch)
+        if(initial.kind==='notReady')throw new GridHostNotReady(initial,canonicalBeginRuntime.binding.layerId)
+      }
+      if(line){
+        if(!profile.brushStamp)throw Error('Bristle Soak stamp profile missing')
+        this._brush.prepareBristleSoak(brush)
+        const result=this._brush.prepareBristleSoakGesture(target,line,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch)
+        if(result.kind==='notReady')throw new GridHostNotReady(result,canonicalBeginRuntime.binding.layerId)
+      }
+    }
+    if(canonicalBeginRuntime?.capability==='spray146'){
+      const first=dabs.find(isGridRenderableDab137)
+      if(first){if(!profile.brushStamp)throw Error('Spray146 stamp profile missing');this._brush.prepareRecordedStampResources(profile.brushStamp.brush);if(usesNativeSketchSpray(profile.brushStamp.brush)&&brushUsesGradient(profile.brushStamp.brush))this._brush.preparePixelGradient(profile.brushStamp.brush,execution);this._brush.prepareSpraySources();const ready=this._brush.prepareSprayBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+    }
+    if(canonicalBeginRuntime?.capability==='cloneProjection149'||canonicalBeginRuntime?.capability==='cloneHealing152'){
+      const first=dabs.find(isGridRenderableDab137)
+      if(first){if(!profile.brushStamp)throw Error('Clone BEGIN stamp profile missing');if(canonicalBeginRuntime.capability==='cloneHealing152')this._brush.prepareCloneHealing152();else this._brush.prepareClone();const ready=this._brush.prepareCloneBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+    }
+    if(canonicalBeginRuntime?.capability==='filterSmudge147'){
+      const first=dabs.find(isGridRenderableDab137)
+      if(first){if(!profile.brushStamp)throw Error('Filter147 stamp profile missing');this._brush.prepareFilterSmudge147(profile.brushStamp.brush);const ready=this._brush.prepareFilterBeginGesture(target,first,canonicalBeginRuntime.binding.userId,canonicalBeginRuntime.binding.strokeId,profile.brushStamp,execution,canonicalBeginRuntime,scratch);if(ready.kind==='notReady')throw new GridHostNotReady(ready,canonicalBeginRuntime.binding.layerId)}
+    }
+    yield* this._ribbonStrokeWork(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch, pieceTris, execution,canonicalBeginRuntime)
+    if (strokeEnd || (!strokeId && !ribbonScratch)) this._brush.finish(scratch,strokeEndSample)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
     // operation. Both recomposite now; a chunked gesture simply does it again,
@@ -7587,10 +9037,12 @@ export class PencilEngine implements PencilEngineAPI {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
+    execution?:BrushExecutionContext,
+    canonicalBeginRuntime?:CanonicalBeginRuntime,
   ): Generator<number, void, void> {
     const deferred = this._wcAsyncFinish && deferComposite && scratch === this._ribbonStrokeScratch
     yield* this._ribbonPainter.paint(target, dabs, preset, presetName, profile, color, scratch, prevDab, wetProfile, strokeSeed, deferComposite, pieceTris,
-      { waterOnly: false, segmented: false, ...(deferred ? { deferMaterial: request => {
+      { waterOnly: false, segmented: false, brushExecution:execution,canonicalBeginRuntime, ...(deferred ? { deferMaterial: request => {
         this._holdAsyncScratch(scratch)
         const presentation = this._showAsyncPresentation(scratch, request.metadata.gesture, request.presentationDabs, presetName, color)
         const owner = this
@@ -7614,9 +9066,39 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintBrushStroke(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
-    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
+    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,execution?:BrushExecutionContext,canonicalBeginRuntime?:CanonicalBeginRuntime,
   ): void {
-    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab)
+    if(stamp.brush.bristle?.version===2&&stamp.brush.bristle.soak){
+      if(!hasBristleSoak139Scope(stamp.brush))throw Error('Invalid Bristle Soak139 scope')
+      assertBrushSourceInputs(stamp.brush,dabs);assertBrushExecutionContext(stamp.brush,execution)
+      const stored=scratch.brushBehavior?.bristle?.previous,previous=prevDab??(stored&&dabs[0]?{...dabs[0],...stored}:undefined)
+      if(firstBristleLine139(dabs,previous)){
+        const bound=this._brush.bristleSoakBinding(scratch)
+        if(canonicalBeginRuntime?.capability!=='bristleSoak139'||!bound||canonicalBeginBindingKey(bound)!==canonicalBeginBindingKey(canonicalBeginRuntime.binding))throw Error('Bristle Soak139 requires prepared canonical BEGIN palette')
+      }
+    }
+    if(stamp.brush.tangentNormal&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken'){
+      if(!hasTangentNormalWash136Scope(stamp.brush))throw Error('Invalid Tangent Wash136 scope')
+      assertBrushSourceInputs(stamp.brush,dabs);assertBrushExecutionContext(stamp.brush,execution)
+    }
+    // Recorded/peer/cold brushes need not be the locally selected tool.
+    // Prepare this exact capability before the painter advances gesture state.
+    if(hasExperimentCurrentPattern158Scope(stamp.brush)){assertBrushExecutionContext(stamp.brush,execution);this._brush.prepareExperimentPattern(stamp.brush,execution?.brushSource?.pattern)}
+    this._brush.prepareRecordedStampResources(stamp.brush)
+    if(usesNativeSketchSpray(stamp.brush)?brushUsesGradient(stamp.brush):stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
+    if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
+    if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
+    if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)
+    else if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)
+    if(stamp.brush.bristle?.version===2)this._brush.prepareBristleInk(stamp.brush.bristle.ink,stamp.brush.bristle.antialias,stamp.brush.bristle.compositing,stamp.brush)
+    else if(hasBristleNativePointCoverage(stamp.brush))this._brush.prepareBristleNativeAA142()
+    else if(stamp.brush.bristle&&!stamp.brush.bristle.antialias&&!stamp.brush.bristle.compositing)this._brush.prepareBristleRequests()
+    if(stamp.brush.bristle&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareBristleWash()
+    else if(stamp.brush.particle&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareParticleWash()
+    else if(stamp.brush.spray&&stamp.brush.behavior?.rendering?.accumulation==='alphaDarken')this._brush.prepareSpraySources(true)
+    else if(stamp.brush.spray&&(stamp.brush.spray.color.sampleInput||stamp.brush.spray.color.mixBackground||stamp.brush.spray.color.fillBackground))this._brush.prepareSpraySources()
+    else if(stamp.brush.spray?.particle.image)this._brush.prepareSprayImages()
+    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution,canonicalBeginRuntime)
   }
 
   /** (#468 v6) One composite over everything the finished gesture touched, with
@@ -8368,7 +9850,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _diffuseFieldFor(w: number, h: number): SettleField {
     // A settle still spread over frames works in the field it was handed:
     // it lands first, before the field is cleared or replaced under it.
-    if (this._settle) this._completeSettle()
+    if (!this._historicalSourceDepth && this._settle) this._completeSettle()
     const need = (n: number): number => Math.max(WC_FIELD_PX, Math.ceil(n / 256) * 256)
     const W = need(w), H = need(h)
     // (#536, ADR 011 §17.49) EXACTLY this settle's size, never a larger field
@@ -8392,24 +9874,28 @@ export class PencilEngine implements PencilEngineAPI {
     if (cur) destroyField(cur)
     this._fieldCache = []
     const { gl } = this
+    const partial:AccumulationBuffer[]=[]
+    const historicalBuffer=(filter:'linear'|'nearest'):AccumulationBuffer=>{const buffer=new AccumulationBuffer(gl,W,H,filter);partial.push(buffer);return buffer}
+    try {
     const field = {
       w: W, h: H,
-      a: new AccumulationBuffer(gl, W, H, 'nearest'),
-      b: new AccumulationBuffer(gl, W, H, 'nearest'),
-      c: new AccumulationBuffer(gl, W, H, 'nearest'),
-      coverage: new AccumulationBuffer(gl, W, H, 'nearest'),
-      ca: new AccumulationBuffer(gl, W, H, 'nearest'),
-      cb: new AccumulationBuffer(gl, W, H, 'nearest'),
-      cc: new AccumulationBuffer(gl, W, H, 'nearest'),
+      a: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      b: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      c: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      coverage: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      ca: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      cb: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
+      cc: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
       // (#536, §17.23) The operation's footprint and the pressure dome over
       // it, for the bloom and the tideline. Linear: the dome is read at
       // warped positions.
-      mask: new AccumulationBuffer(gl, W, H, 'linear'),
-      pressure: new AccumulationBuffer(gl, W, H, 'linear'),
-      band: new AccumulationBuffer(gl, W, H, 'nearest'),
+      mask: this._historicalSourceDepth ? historicalBuffer('linear') : new AccumulationBuffer(gl, W, H, 'linear'),
+      pressure: this._historicalSourceDepth ? historicalBuffer('linear') : new AccumulationBuffer(gl, W, H, 'linear'),
+      band: this._historicalSourceDepth ? historicalBuffer('nearest') : new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._fieldCache.push(field)
     return field
+    }catch(error){for(const buffer of partial){try{buffer.destroy()}catch{/* Preserve primary, including undefined. */}}throw error}
   }
 
   private _holdAsyncScratch(scratch: RibbonStrokeScratch): void {
@@ -8509,7 +9995,7 @@ export class PencilEngine implements PencilEngineAPI {
       layer = { buffer, copied: new Set(), scratch: new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit) }
       held.layers.set(layerId, layer)
     }
-    this._paintDabs(layer.buffer, dabs, tool, preset, color, this._userId + ':async-preview', prev, layer.scratch, id + ':preview')
+    this._paintDabs(layer.buffer, dabs, tool, preset, color, this._userId + ':async-preview', prev, layer.scratch, id + ':preview', undefined, undefined, undefined, undefined, undefined, undefined, held.execution)
     this._invalidateSplitCache()
     this._scheduleDisplay()
   }
@@ -8711,7 +10197,7 @@ export class PencilEngine implements PencilEngineAPI {
       const endedStroke = this._strokeId
       this._cancelLiveDabFlush()
       this._wcAsyncLocalStroke = null
-      this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
+      this._strokeLayerId = null; this._strokeId = null; this._strokeBrushRandom = undefined;this._strokeBrushSource=undefined; this._strokeDabs = []
       // Only the unrecorded tail is discarded. Confirmed chunks remain in
       // the journal; peers still need the matching ephemeral stream closed.
       if (endedStroke) this._onLiveStrokeEnd?.(endedStroke, true)
@@ -8884,12 +10370,12 @@ export class PencilEngine implements PencilEngineAPI {
     // building the dry target and nobody is watching it happen.
     if (owned?.diffusePending ?? scratch.diffusePending) {
       if (!owned) scratch.diffusePending = false
-      if (this._settle) this._completeSettle()
+      if (!this._historicalSourceDepth && this._settle) this._completeSettle()
       // (§17.26) …and a loaded brush pushes the wash under it less than a
       // brush of clean water: its own paint lands where the water goes.
       const bloom = watercolorBloomStrength(ctx.landedWet, profile.pigmentLevel) * watercolorBloomPush(profile.pigmentLevel)
       // Dev probe for the rig: what this settle was given.
-      Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
+      if(!this._historicalSourceDepth)Object.assign(globalThis, { __wcSettle: { bloom, radiusPx: ctx.radiusPx, landedWet: ctx.landedWet, wetPeak: ctx.wetPeak, merge: watercolorPuddleMerge(ctx.wetPeak), reveal } })
       const delivery = ribbonWaterDelivery(profile)
       const standing = delivery.water * (delivery.retain + (1 - delivery.retain) * Math.min(1, ctx.landedWet))
       // (§17.42) ...and what the group tide will need, should the wash dry
@@ -8964,7 +10450,7 @@ export class PencilEngine implements PencilEngineAPI {
           for (const op of job.ops) op()
           complete()
         } finally { job.dispose() }
-        this._scheduleFieldRelease()
+        if(!this._historicalSourceDepth)this._scheduleFieldRelease()
         return
       }
     }
@@ -9200,6 +10686,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  it did not paint. */
     standing?: ReadonlyMap<Dab, number>, opId?: string,
   ): void {
+    if(this._historicalSourceDepth)return // Temporary source pixels do not publish live paper wetness.
     if (opId) {
       if (this._wetReplayRevision !== this._log.revision) {
         this._wetReplayIds = wetReplayOperationIds(this._log.doneOperations())

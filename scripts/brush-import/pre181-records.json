@@ -1,0 +1,250 @@
+{
+  "174": {
+    "descriptor": {
+      "id": "imported-89dde1c646ba9521262a61bf",
+      "version": 174,
+      "model": "stamp",
+      "category": "paint",
+      "tip": {
+        "kind": "bitmap",
+        "mask": "asset:a91f078733f7f625ade9c9e963a40c2d22109c0e2902b772a0bf0926abb34fc9",
+        "hardness": 0.7,
+        "aspect": 1.0,
+        "rotation": "fixed",
+        "angle": 0.0,
+        "maskBounds": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1.0,
+          "height": 1.0
+        },
+        "animation": {
+          "mode": "incremental",
+          "frames": [
+            "asset:a91f078733f7f625ade9c9e963a40c2d22109c0e2902b772a0bf0926abb34fc9",
+            "asset:d37a4c2900bb85dfd24592c0b52e8dcd72e0ea45c47fa2db0cf1c4c132c80c66"
+          ]
+        }
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "speedInput": {
+          "version": 1,
+          "space": "view",
+          "maximum": 30,
+          "estimator": "grafettoEMA30ms"
+        },
+        "rendering": {
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "accumulation": "directOver",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply"
+        }
+      },
+      "sketch": {
+        "version": 1,
+        "mode": "mask",
+        "maskSize": [
+          4,
+          4
+        ],
+        "width": 1,
+        "offset": 0.3,
+        "probability": 0.5,
+        "connect": true,
+        "magnetify": true,
+        "randomRGB": false,
+        "randomOpacity": false,
+        "distanceDensity": true,
+        "distanceOpacity": false,
+        "antialias": false,
+        "maskSignal": "gih-alpha-v1"
+      }
+    },
+    "name": "QA Krita",
+    "source": "own174.kpp",
+    "warnings": [
+      "sketchGih174: Equal captured ordinary alpha frames select Sketch points through allocated mask U8!=0. Incremental sequence advances per generated non-tiny mask, never per connection/chunk/tile. Existing geometry/line/RNG remain functionally qualified; no native pixel identity."
+    ],
+    "compatibility": [
+      {
+        "feature": "sketchGih174",
+        "status": "approximate",
+        "detail": "Equal captured ordinary alpha frames select Sketch points through allocated mask U8!=0. Incremental sequence advances per generated non-tiny mask, never per connection/chunk/tile. Existing geometry/line/RNG remain functionally qualified; no native pixel identity."
+      }
+    ],
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "sourceDefaults": {
+      "sizePx": 4.0,
+      "opacity": 1,
+      "flow": 1
+    }
+  },
+  "162": {
+    "descriptor": {
+      "id": "imported-c361e37025fdb4b84ff5928d",
+      "version": 162,
+      "model": "stamp",
+      "category": "paint",
+      "tip": {
+        "kind": "bitmap",
+        "mask": "asset:c930fac9f8fc927ddb5546e19e7ac5491c48f355fea58909a629c09d4edcaa67",
+        "hardness": 0.7,
+        "aspect": 1.0,
+        "rotation": "fixed",
+        "angle": 0.0,
+        "maskBounds": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1.0,
+          "height": 1.0
+        }
+      },
+      "paperInteraction": 0,
+      "spacing": 0.1,
+      "flow": 1,
+      "flowPer": "stamp",
+      "sizeByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "flowByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "opacityByPressure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "pressureSmoothingPx": 0,
+      "opacity": 1,
+      "behavior": {
+        "version": 2,
+        "speedInput": {
+          "version": 1,
+          "space": "view",
+          "maximum": 30,
+          "estimator": "grafettoEMA30ms"
+        },
+        "rendering": {
+          "mode": "buildUp",
+          "blendMode": "normal",
+          "accumulation": "directOver",
+          "wetEdges": 0,
+          "burntEdges": 0,
+          "burntEdgesMode": "multiply"
+        }
+      },
+      "sketch": {
+        "version": 1,
+        "mode": "mask",
+        "maskSize": [
+          4,
+          4
+        ],
+        "width": 1,
+        "offset": 0.3,
+        "probability": 0.5,
+        "connect": true,
+        "magnetify": true,
+        "randomRGB": false,
+        "randomOpacity": false,
+        "distanceDensity": true,
+        "distanceOpacity": false,
+        "antialias": false,
+        "maskSignal": "image-alpha-v1"
+      }
+    },
+    "name": "QA Krita",
+    "source": "rgba-sketch.kpp",
+    "warnings": [
+      "integerImagePyramid: Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.",
+      "sketch: Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu.",
+      "sketchMask: Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported."
+    ],
+    "compatibility": [
+      {
+        "feature": "integerImagePyramid",
+        "status": "approximate",
+        "detail": "Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison."
+      },
+      {
+        "feature": "sketch",
+        "status": "approximate",
+        "detail": "Static bitmap alpha-mask-selected connections use native bounding box/hotspot/nonzero-alpha gating before probability/distance density, magnetify/offset and line colour. Native Sketch fixes dab ratio to1: generic dab.aspectRatio and generic aspect responses do not alter this mask; intrinsic nonsquare maskSize is retained. Retains32768 input points and at most4096 recent neighbours per request. Browser allocated-mask filtering, RNG and capsule AA/line byte rounding differ from native QImage/DDA/Wu."
+      },
+      {
+        "feature": "sketchMask",
+        "status": "approximate",
+        "detail": "Captured static alpha bitmap<=256 selects historical input points after allocated-mask bounding box, hotspot/qRound and nonzero filtered alpha; the alpha is a gate, not another probability. Size and Rotation are evaluated per request. Browser bilinear mask filtering/allocation differs from native QImage; animated/procedural/colour masks, mask distanceOpacity and timers remain unsupported."
+      },
+      {
+        "feature": "sketchImageAlpha162",
+        "status": "supported",
+        "detail": "Static native IMAGESTAMP contributes original alpha only to nonzero Sketch point selection. Source RGB is not drawn; connections retain the normal Sketch foreground/random-color law. Same alpha CAS/101 geometry and114 distanceOpacity; browser filtering/RNG/U8 line AA remain functionally qualified."
+      }
+    ],
+    "preview": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAMAAABFaP0WAAABgFBMVEX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACtoaNRAAAAgHRSTlP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPePFPEAAAALSURBVHjaY2AAAQAABgABbSgQLwAAAABJRU5ErkJggg==",
+    "sourceDefaults": {
+      "sizePx": 4.0,
+      "opacity": 1,
+      "flow": 1
+    }
+  }
+}

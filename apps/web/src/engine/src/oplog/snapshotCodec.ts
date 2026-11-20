@@ -22,6 +22,22 @@ export interface SnapshotTile {
   width: number
   height: number
   pixels: Uint8Array // RGBA8, exactly width*height*4 bytes
+  /** Color Smudge's unshaded colour and premultiplied gray height field.
+   * Absent means dry paint: colour is pixels and height is transparent.
+   * These are state, not optional display previews. Never discard one plane. */
+  colorSmudge?: { color: Uint8Array; height: Uint8Array }
+}
+
+const MATERIAL_FRAME = 0xffffffff
+const MATERIAL_VERSION = 1
+
+function tileBytes(tile: SnapshotTile): number {
+  if (![tile.originX,tile.originY].every(n=>Number.isInteger(n)&&n>=-2147483648&&n<=2147483647)
+    || ![tile.width,tile.height].every(n=>Number.isInteger(n)&&n>=0&&n<=0xffffffff)) throw new Error('Invalid snapshot tile geometry')
+  const bytes=tile.width*tile.height*4
+  if (!Number.isSafeInteger(bytes)||tile.pixels.byteLength!==bytes
+    || tile.colorSmudge && (tile.colorSmudge.color.byteLength!==bytes||tile.colorSmudge.height.byteLength!==bytes)) throw new Error('Incomplete snapshot tile planes')
+  return bytes
 }
 
 /** Raw (uncompressed) per-layer tile payload: tileCount:u32, then per tile
@@ -30,18 +46,32 @@ export interface SnapshotTile {
  *  the one caller. Compression happens once, on the room-level bundle this
  *  gets embedded into (encodeRoomSnapshot below), not per layer. */
 export function encodeLayerTiles(tiles: SnapshotTile[]): Uint8Array {
-  let size = 4
-  for (const t of tiles) size += 16 + t.pixels.byteLength
+  // Keep old ordinary RGBA snapshots byte-for-byte. The impossible legacy
+  // count is an explicit new frame, so older clients fail instead of silently
+  // flattening material and changing subsequent brush strokes.
+  const material=tiles.some(t=>t.colorSmudge!==undefined)
+  let size = material ? 12 : 4
+  if (tiles.length>=MATERIAL_FRAME) throw new Error('Too many snapshot tiles')
+  for (const t of tiles) size += 16 + (material ? 4 : 0) + tileBytes(t)*(t.colorSmudge ? 3 : 1)
   const buf = new Uint8Array(size)
   const view = new DataView(buf.buffer)
   let offset = 0
+  if (material) {
+    view.setUint32(offset,MATERIAL_FRAME,true);offset+=4
+    view.setUint32(offset,MATERIAL_VERSION,true);offset+=4
+  }
   view.setUint32(offset, tiles.length, true); offset += 4
   for (const t of tiles) {
+    if (material) {view.setUint32(offset,t.colorSmudge ? 1 : 0,true);offset+=4}
     view.setInt32(offset, t.originX, true); offset += 4
     view.setInt32(offset, t.originY, true); offset += 4
     view.setUint32(offset, t.width, true); offset += 4
     view.setUint32(offset, t.height, true); offset += 4
     buf.set(t.pixels, offset); offset += t.pixels.byteLength
+    if (t.colorSmudge) {
+      buf.set(t.colorSmudge.color,offset);offset+=t.colorSmudge.color.byteLength
+      buf.set(t.colorSmudge.height,offset);offset+=t.colorSmudge.height.byteLength
+    }
   }
   return buf
 }
@@ -52,18 +82,37 @@ export function encodeLayerTiles(tiles: SnapshotTile[]): Uint8Array {
  *  layer from. Tile `pixels` are subarray views into `buf`, not copies. */
 export function decodeLayerTiles(buf: Uint8Array, offset: number): { tiles: SnapshotTile[]; nextOffset: number } {
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
-  const tileCount = view.getUint32(offset, true)
-  offset += 4
+  const requireBytes=(count:number):void=>{
+    if (!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(count)||count<0||count>buf.byteLength-offset) throw new Error('Truncated snapshot tile frame')
+  }
+  const word=():number=>{requireBytes(4);const n=view.getUint32(offset,true);offset+=4;return n}
+  let tileCount=word()
+  const material=tileCount===MATERIAL_FRAME
+  if (material) {
+    if (word()!==MATERIAL_VERSION) throw new Error('Unknown snapshot material version')
+    tileCount=word()
+  }
+  if (tileCount>Math.floor((buf.byteLength-offset)/(material ? 20 : 16))) throw new Error('Truncated snapshot tile headers')
   const tiles: SnapshotTile[] = []
   for (let i = 0; i < tileCount; i++) {
+    const flags=material ? word() : 0
+    if (flags>1) throw new Error('Unknown snapshot material planes')
+    requireBytes(16)
     const originX = view.getInt32(offset, true); offset += 4
     const originY = view.getInt32(offset, true); offset += 4
     const width = view.getUint32(offset, true); offset += 4
     const height = view.getUint32(offset, true); offset += 4
     const byteLength = width * height * 4
+    requireBytes(byteLength*(flags===1 ? 3 : 1))
     const pixels = buf.subarray(offset, offset + byteLength)
     offset += byteLength
-    tiles.push({ originX, originY, width, height, pixels })
+    const tile:SnapshotTile={ originX, originY, width, height, pixels }
+    if(flags===1) {
+      const color=buf.subarray(offset,offset+byteLength);offset+=byteLength
+      const height=buf.subarray(offset,offset+byteLength);offset+=byteLength
+      tile.colorSmudge={color,height}
+    }
+    tiles.push(tile)
   }
   return { tiles, nextOffset: offset }
 }

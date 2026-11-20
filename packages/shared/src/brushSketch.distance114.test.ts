@@ -1,0 +1,5 @@
+import{expect,it}from'vitest'
+import{isBrushSketch,type BrushSketch}from'./brushSketch.js'
+const sketch:BrushSketch={version:1,mode:'mask',maskSize:[4,2],width:1,offset:.3,probability:1,connect:true,magnetify:true,randomRGB:false,randomOpacity:true,distanceDensity:false,distanceOpacity:true,distanceOpacityPolicy:'generic-clamp-v1',antialias:true}
+it('requires exactly generic-clamp-v1 only for active mask distance opacity',()=>{expect(isBrushSketch(sketch)).toBe(true);for(const change of[(s:BrushSketch)=>{delete s.distanceOpacityPolicy},(s:BrushSketch)=>{Reflect.set(s,'distanceOpacityPolicy','optimized-wrap-v1')},(s:BrushSketch)=>{s.distanceOpacity=false},(s:BrushSketch)=>{s.mode='simple';delete s.maskSize}]){const s=structuredClone(sketch);change(s);expect(isBrushSketch(s)).toBe(false)}})
+it('preserves absent policy for historical101 mask and44 simple including active simple distance opacity',()=>{const s=structuredClone(sketch);s.distanceOpacity=false;delete s.distanceOpacityPolicy;expect(isBrushSketch(s)).toBe(true);s.mode='simple';delete s.maskSize;s.distanceOpacity=true;expect(isBrushSketch(s)).toBe(true)})

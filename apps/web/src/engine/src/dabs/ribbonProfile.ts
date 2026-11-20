@@ -1000,7 +1000,7 @@ function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   // has to be the one that was drawn.
   const flowFromPressure = digitalBrushFlowFromPreset(presetName)
   return {
-  ...(brush.model === 'stamp'
+  ...(brush.model === 'stamp' || brush.filter
     ? { brushStamp: { brush, pressure: digitalBrushPressureFromPreset(presetName) } }
     : {}),
   stampFlow: (pressure: number) => digitalBrushFlow(brush, pressure, flowFromPressure),

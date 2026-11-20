@@ -27,5 +27,5 @@
   "include": ["src", "landing"],
   // The service worker runs in a worker global, not the DOM — it has its own
   // project (tsconfig.sw.json) with the right lib. See that file.
-  "exclude": ["src/pwa/sw.ts"]
+  "exclude": ["src/pwa/sw.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.testFixture.ts", "src/**/fixtures/**"]
 }

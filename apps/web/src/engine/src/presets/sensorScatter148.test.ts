@@ -1,0 +1,10 @@
+import{it,expect}from'vitest'
+import{brushDynamicValue,beginBrushBehavior}from'./brushBehavior'
+import type{BrushDynamic}from'@grafetto/shared'
+const dab={x:0,y:0,size:10,pressure:1,opacity:1,angle:0,aspectRatio:1,tiltX:0,tiltY:0,t:0}
+const leaf=(value:number):BrushDynamic=>({control:'pressure',minimum:0,jitter:0,curve:[[0,value],[1,value]]})
+it('native range5 applies constant before clamp and external radius once',()=>{const state=beginBrushBehavior(dab),control:BrushDynamic={control:'off',minimum:0,jitter:0,combine:{policy:'native-scatter-v1',mode:'sum',constant:4,scaling:[leaf(.75),leaf(.75)],additive:[]}};expect(4*brushDynamicValue(control,dab,state,0)).toBe(5);delete control.combine!.policy;control.combine!.constant=.5;expect(.5*brushDynamicValue(control,dab,state,0)).toBe(.75);control.combine!.policy='native-scatter-v1';control.combine!.constant=2;expect(2*brushDynamicValue(control,dab,state,0)).toBe(3);control.combine!.constant=0;expect(brushDynamicValue(control,dab,state,0)).toBe(0)})
+import{behaviorStampsForDab}from'./brushBehavior'
+import{scatter148}from'../../../../../../packages/shared/src/sensorScatter148.testFixture'
+import{brushDabRandom,brushDabSeed}from'./digitalBrushPresets'
+it('actual placed coordinates use clamped native radius5 once, including negative world and chunks',()=>{const brush=scatter148(),d={...dab,x:-13,y:7},seed=brushDabSeed(d.x,d.y,d.pressure),state=beginBrushBehavior(d),stamp=behaviorStampsForDab(brush,d,state,[1,0,0])[0],dx=(brushDabRandom(seed,0x90000)*2-1)*10,dy=(brushDabRandom(seed,0x90001)*2-1)*10;expect(stamp.x).toBeCloseTo(d.x+5*dx,12);expect(stamp.y).toBeCloseTo(d.y+5*dy,12);expect(Math.abs(stamp.x-(d.x+dx))).toBeGreaterThan(1);const inputs=[d,{...d,x:-2,y:8,t:1},{...d,x:4,y:-9,t:2}],whole=beginBrushBehavior(d),split=beginBrushBehavior(d),a=inputs.flatMap(v=>behaviorStampsForDab(brush,v,whole,[1,0,0])),b=[...inputs.slice(0,1).flatMap(v=>behaviorStampsForDab(brush,v,split,[1,0,0])),...inputs.slice(1).flatMap(v=>behaviorStampsForDab(brush,v,split,[1,0,0]))];expect(a).toEqual(b);expect(whole).toEqual(split)})

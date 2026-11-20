@@ -38,3 +38,18 @@ describe('covered snapshot repair continuation', () => {
     expect(engine.absorbHistoricalOperations).not.toHaveBeenCalled()
   })
 })
+
+it('drains a newly higher/new-layer prefix inside the SAME work, without retrying the old range',async()=>{
+ let needed=[{layerId:'A',beforeSeq:20}],cursor=0
+ const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{needed=cursor===20?[{layerId:'B',beforeSeq:50}]:[]})}
+ const walk=vi.fn(async(_room:string,from:number,_depth:number,consume:(page:Operation[])=>void)=>{cursor=from;consume([])})
+ expect(await continueSnapshotHistoryRepair('room',engine,{current:()=>true,onPage:vi.fn(),walk})).toBe(true)
+ expect(walk.mock.calls.map(x=>x[1])).toEqual([20,50])
+})
+it.each([20,10])('fails instead of retrying same/older unresolved prefix %s',async remaining=>{
+ let needed=[{layerId:'A',beforeSeq:20}]
+ const engine={pendingSnapshotHistoryRepairs:()=>needed,absorbHistoricalOperations:vi.fn(()=>{needed=[{layerId:'B',beforeSeq:remaining}]})}
+ const walk=vi.fn(async(_room:string,_from:number,_depth:number,consume:(page:Operation[])=>void)=>consume([]))
+ await expect(continueSnapshotHistoryRepair('room',engine,{current:()=>true,onPage:vi.fn(),walk})).rejects.toThrow('Incomplete')
+ expect(walk).toHaveBeenCalledTimes(1)
+})

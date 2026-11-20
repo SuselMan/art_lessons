@@ -1,0 +1,10 @@
+import{expect,it}from'vitest'
+import type{BrushParticle,Dab}from'@grafetto/shared'
+import{particleStamps,type ParticleState}from'./brushParticle'
+import{isBrushParticle}from'../../../../../../packages/shared/src/brushParticle'
+const p:BrushParticle={version:1,count:1,iterations:1,gravity:1,weight:.2,scaleX:1,scaleY:1},dab:Dab={x:0,y:0,size:100,angle:0,aspectRatio:1,pressure:1,tiltX:0,tiltY:0,opacity:1,t:0},state=():ParticleState=>({values:new Float64Array(),ordinal:0})
+it('follows fixed native acceleration/velocity/time step',()=>{const s=state();particleStamps(p,dab,s,[1,0,0]);const a=particleStamps(p,{...dab,x:10},s,[1,0,0]);expect(s.values[2]).toBe(5);expect(s.values[0]).toBeCloseTo(.00015,12);expect(a[0].x).toBeCloseTo(.50015,12);expect(a[0].flowScale).toBe(.2)})
+it('retains native absolute next-position initialization and gravity',()=>{const s=state();particleStamps({...p,gravity:.5},{...dab,x:10,y:20},s,[1,0,0]);expect(s.values[0]).toBeCloseTo(10.00015,12);expect(s.values[1]).toBeCloseTo(20.0003,12)})
+it('uses per-particle acceleration and iteration-major ordered deposits',()=>{const s=state(),a=particleStamps({...p,count:2,iterations:2},{...dab,x:0},s,[1,0,0]);expect(a).toHaveLength(4);const b=particleStamps({...p,count:2,iterations:2},{...dab,x:10},s,[1,0,0]);expect(b[1].x).toBeGreaterThan(b[0].x);expect(b[2].x).toBeGreaterThan(b[0].x);expect(b.every(x=>x.group===1)).toBe(true)})
+it('replays identical continuations from structured cloned solver state',()=>{const s=state();for(let x=0;x<5;x++)particleStamps(p,{...dab,x},s,[.2,.4,.8]);const copy=structuredClone(s);expect(particleStamps(p,{...dab,x:10},s,[.2,.4,.8])).toEqual(particleStamps(p,{...dab,x:10},copy,[.2,.4,.8]));expect(s.values).toEqual(copy.values)})
+it('canonicalizes input and rejects excessive/unstable populations',()=>{expect(particleStamps(p,{...dab,x:20-1e-8},state(),[1,0,0])).toEqual(particleStamps(p,{...dab,x:20},state(),[1,0,0]));expect(isBrushParticle(p)).toBe(true);expect(isBrushParticle({...p,count:500,iterations:200})).toBe(false);expect(isBrushParticle({...p,gravity:-1})).toBe(false)})

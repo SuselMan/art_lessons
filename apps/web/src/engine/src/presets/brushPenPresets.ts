@@ -4,7 +4,7 @@ import { clamp } from 'lodash-es'
 import {
   tiltOrPathAngle,
   type DabShapingProfile, type HeadTaperProfile, type SpeedContactProfile, type TipBendProfile,
-} from './dabShaping'
+} from './brushGeometry'
 import type { PencilPreset } from './pencilPresets'
 
 // This file and dabShaping.ts import from each other, the same safe circular

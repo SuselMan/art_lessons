@@ -44,7 +44,7 @@ describe('dab packing (#366)', () => {
     // catching, a field packed or read in the wrong slot.
     for (let i = 0; i < dabs.length; i++) {
       for (const key of Object.keys(dabs[i]) as Array<keyof Dab>) {
-        expect(back[i][key]).toBe(Math.fround(dabs[i][key]))
+        expect(back[i][key]).toBe(Math.fround(dabs[i][key]!))
       }
     }
   })

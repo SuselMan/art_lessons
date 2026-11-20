@@ -153,7 +153,7 @@ export class LayerCompositor {
       const materialMinifying = frame.scale * material.worldWidth / material.buffer.width < 1
         && frame.scale * material.worldHeight / material.buffer.height < 1
       material.buffer.setMipSampling(materialMinifying && material.buffer.ensureMipmaps())
-      this.drawTileComposite(frame, material.buffer.texture, material.originX, material.originY,
+      this.drawBufferComposite(frame, material.buffer, material.originX, material.originY,
         material.worldWidth, material.worldHeight, opacity, targetFbo, targetW, targetH)
       return
     }
@@ -167,8 +167,8 @@ export class LayerCompositor {
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
-        this.drawTileComposite(
-          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        this.drawBufferComposite(
+          frame, buffer, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       if (!areaPreview) return
@@ -186,8 +186,8 @@ export class LayerCompositor {
       for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
         if (shadowed.has(`${originX},${originY}`)) continue
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
-        this.drawTileComposite(
-          frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        this.drawBufferComposite(
+          frame, buffer, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -215,8 +215,8 @@ export class LayerCompositor {
       const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(false)
-        this.drawTileComposite(
-          frame, buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
+        this.drawBufferComposite(
+          frame, buffer, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
         )
       }
       return
@@ -236,9 +236,28 @@ export class LayerCompositor {
         )
         continue
       }
-      this.drawTileComposite(
-        frame, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+      this.drawBufferComposite(
+        frame, buffer, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )
+    }
+  }
+
+  /** A physical texel copy must not acquire a bilinear halo. World size alone
+   * cannot decide this: projected material and coarse tiles have different
+   * world/physical dimensions. All five owned-buffer routes use this law. */
+  private drawBufferComposite(
+    frame:CameraFrame, buffer:AccumulationBuffer, originX:number, originY:number,
+    worldWidth:number, worldHeight:number, opacity:number, targetFbo:WebGLFramebuffer,
+    targetW:number, targetH:number,
+  ):void {
+    const point=frame.scale*worldWidth===buffer.width && frame.scale*worldHeight===buffer.height
+      && frameEdgeX(frame,originX+worldWidth)-frameEdgeX(frame,originX)===buffer.width
+      && frameEdgeY(frame,originY+worldHeight)-frameEdgeY(frame,originY)===buffer.height
+    if(point)buffer.setPointSampling(true)
+    try {
+      this.drawTileComposite(frame,buffer.texture,originX,originY,worldWidth,worldHeight,opacity,targetFbo,targetW,targetH)
+    } finally {
+      if(point)buffer.setPointSampling(false)
     }
   }
 

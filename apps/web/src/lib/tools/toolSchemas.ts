@@ -1,3 +1,7 @@
+import { importedBrushes } from '../../engine/brushLibrary'
+import {hasBristleInitializationScope}from'@grafetto/shared'
+import { pickerImportedBrushes } from './brushCatalog'
+
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
@@ -5,7 +9,6 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
-  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH, type BrushCategory,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
@@ -19,7 +22,6 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../br
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
-import { DIGITAL_BRUSH_IMAGES } from './toolTypeImages'
 import { TRANSFORM_MODES, type TransformMode } from '../transform/transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionShapes'
 import type { TranslationKey } from '../../i18n/core/en'
@@ -40,6 +42,7 @@ import type { IconName } from '../../icons/iconNames'
 // (toolSlice.ts) is built from: everything selectable is a UiToolId, so the
 // selected tool always has a schema to show, but not every UiToolId is
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
+
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
   | 'digitalBrush'
@@ -108,6 +111,10 @@ export interface SettingDescriptor {
    *  the entire basis for choosing one and which no amount of labelling
    *  conveys. Keyed by option value; see toolTypeImages.ts. */
   optionImages?: Readonly<Record<string, string>>
+  /** Keep a stored imported brush id while its library metadata is loading. */
+  brushReference?: boolean
+  /** Original author preview, fitted whole rather than cropped as a stroke. */
+  optionThumbnails?: Readonly<Record<string, string>>
   /** (#335) Icon name per `enumOptions` value, for options whose difference is
    *  a *shape* rather than a tone — the marker's two nibs. Mutually exclusive
    *  with `optionImages` in practice; a descriptor carrying both would render
@@ -129,6 +136,7 @@ export interface SettingDescriptor {
    *  list is drawn in groups under these, in the order the options come in.
    *  The digital brush's sixteen brushes are unreadable as one column; five
    *  labelled rows of two or three are how every painting app shows a set. */
+  optionDescriptions?: Readonly<Record<string, string>>
   optionGroups?: Readonly<Record<string, TranslationKey>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
@@ -374,61 +382,20 @@ const linerSchema = (): ToolSchema => ({
 // draws differently on the student's screen and after the next retune.
 //
 // So the tool's real control is which brush is in hand, and that is one field.
-/** (#573) The picker's group headings, one per BrushCategory. */
-const BRUSH_GROUP_LABEL_KEYS: Readonly<Record<BrushCategory, TranslationKey>> = {
-  line: 'tool.brushGroup.line',
-  paint: 'tool.brushGroup.paint',
-  wet: 'tool.brushGroup.wet',
-  soft: 'tool.brushGroup.soft',
-  texture: 'tool.brushGroup.texture',
-  scatter: 'tool.brushGroup.scatter',
-}
-
 const digitalBrushSchema = (): ToolSchema => ({
   // First, and in quick access, because for this tool it is *the* choice — the
   // equivalent of picking a pencil out of the stack, not of adjusting one.
   brush: {
     nameKey: 'tool.field.brush',
-    valueType: { kind: 'enumOptions', options: DIGITAL_BRUSH_IDS },
-    optionLabelKeys: {
-      'soft-round': 'tool.brush.softRound',
-      'medium-round': 'tool.brush.mediumRound',
-      'hard-round': 'tool.brush.hardRound',
-      'ink-round': 'tool.brush.inkRound',
-      'opaque-paint': 'tool.brush.opaquePaint',
-      'flat': 'tool.brush.flat',
-      'textured-paint': 'tool.brush.texturedPaint',
-      'bristle': 'tool.brush.bristle',
-      'mixer': 'tool.brush.mixer',
-      'airbrush': 'tool.brush.airbrush',
-      'chalk': 'tool.brush.chalk',
-      'grain': 'tool.brush.grain',
-      'screentone': 'tool.brush.screentone',
-      'splatter': 'tool.brush.splatter',
-      'grass': 'tool.brush.grass',
-      'foliage': 'tool.brush.foliage',
-      'wet-wash': 'tool.brush.wetWash',
-      'wet-on-wet': 'tool.brush.wetOnWet',
-      'wet-edge': 'tool.brush.wetEdge',
-      'granulating': 'tool.brush.granulating',
-      'dry-wash': 'tool.brush.dryWash',
-      'wet-bands': 'tool.brush.wetBands',
-      'sponge': 'tool.brush.sponge',
-      'gouache': 'tool.brush.gouache',
-    },
-    optionGroups: Object.fromEntries(
-      DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]),
-    ),
-    // A sample stroke, like a pencil grade's — not the plotted falloff this
-    // shipped with first. The curve was honest and still wrong for the job: it
-    // showed the tool's insides where the question is "what does this leave on
-    // the paper", and a brush is chosen by its mark. Baked by the engine itself
-    // (`npm run bake:brush-samples`), so it cannot drift from the brush the way
-    // a hand-drawn or re-implemented preview would.
-    optionImages: DIGITAL_BRUSH_IMAGES,
+    brushReference: true,
+    get valueType() { return { kind: 'enumOptions' as const, options: pickerImportedBrushes().map(b => b.descriptor.id) } },
+    get optionDescriptions() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
+    get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : /\.(kpp|bundle)$/i.test(b.source) ? 'Krita' : /\.brush(set)?$/i.test(b.source) ? 'Procreate' : 'Grafetto'} · ${b.name}`])) },
+    get optionThumbnails() { return Object.fromEntries(pickerImportedBrushes().filter(b => b.preview).map(b => [b.descriptor.id, b.preview!])) },
     uiControls: ['select'],
-    quickAccess: true,
-    default: DEFAULT_DIGITAL_BRUSH,
+    quickAccess: false,
+    visibleWhen: () => false,
+    default: '',
   },
   size: {
     nameKey: 'tool.field.size',
@@ -1069,6 +1036,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   digitalBrush: digitalBrushSchema(),
   watercolor: watercolorSchema(),
   eraser: {
+    brush: {
+      nameKey: 'tool.field.brush',
+    brushReference: true,
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...pickerImportedBrushes('eraser').map(b => b.descriptor.id)] } },
+      uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
+    },
     size: {
       nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
@@ -1102,6 +1075,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // Default off. It is destructive across layers a person cannot see the
     // effect on without scrolling the panel, so it has to be asked for.
     throughLayers: {
+      visibleWhen: settings => settings.brush === 'native',
       nameKey: 'tool.field.eraseThroughLayers',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
@@ -1131,6 +1105,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // blending stump does (Ilya, on the deployed build). The knob still
   // reaches its old range; this is where a stroke starts.
   smudge: {
+    brush: {
+      nameKey: 'tool.field.brush',
+    brushReference: true,
+      get valueType() { return { kind: 'enumOptions' as const, options: ['native', ...pickerImportedBrushes('smudge').map(b => b.descriptor.id)] } },
+      uiControls: [], quickAccess: false, visibleWhen: () => false, default: 'native',
+    },
     size: {
       nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
@@ -1612,8 +1592,22 @@ export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
  *  `Math.min(120, …)`/`Math.max(1, …)`, which both survived past the smudge
  *  tool getting its own 4..160 range and would have survived #336's move to
  *  MAX_TOOL_SIZE_PX too. */
-export function toolSizeRange(toolId: UiToolId): { min: number; max: number } | null {
-  const valueType = TOOL_SCHEMAS[toolId].size?.valueType
+/** The shared bounded initialization policy constrains Soak140 and ordinary141 authoring. */
+export function usesBristleSizeLimit140(toolId:UiToolId,values?:ToolSettingsValue):boolean {
+  return toolId==='digitalBrush'&&!!values&&typeof values.brush==='string'&&values.brush.length>0&&importedBrushes().some(b=>b.descriptor.id===values.brush&&hasBristleInitializationScope(b.descriptor))
+}
+export function clampToolSize140(toolId:UiToolId,values:ToolSettingsValue):ToolSettingsValue {
+  if(!usesBristleSizeLimit140(toolId,values))return values
+  const size=typeof values.size==='number'&&Number.isFinite(values.size)?Math.max(1,Math.min(64,Math.round(values.size))):1
+  return size===values.size?values:{...values,size}
+}
+export function toolSettingDescriptor(toolId:UiToolId,key:string,values:ToolSettingsValue):SettingDescriptor {
+  const descriptor=TOOL_SCHEMAS[toolId][key]
+  return key==='size'&&usesBristleSizeLimit140(toolId,values)&&descriptor.valueType.kind==='numberRange'
+    ?{...descriptor,valueType:{...descriptor.valueType,min:1,max:64,step:1}}:descriptor
+}
+export function toolSizeRange(toolId: UiToolId,values?:ToolSettingsValue): { min: number; max: number } | null {
+  const valueType = values?toolSettingDescriptor(toolId,'size',values)?.valueType:TOOL_SCHEMAS[toolId].size?.valueType
   return valueType?.kind === 'numberRange' ? { min: valueType.min, max: valueType.max } : null
 }
 
@@ -1738,6 +1732,7 @@ function coerceSettingValue(descriptor: SettingDescriptor, value: unknown): Sett
     return typeof value === 'boolean' ? value : descriptor.default
   }
   if (valueType.kind === 'enumOptions') {
+    if (descriptor.brushReference && typeof value === 'string' && /^imported-[a-f0-9]{8,64}$/.test(value)) return value
     return typeof value === 'string' && (valueType.options as readonly string[]).includes(value)
       ? value : descriptor.default
   }
@@ -1767,7 +1762,7 @@ export function loadToolSettings(storage: KeyValueStorage, roomId: string): Tool
       const storedValue = descriptor.transient ? undefined : stored?.[toolId]?.[key]
       values[key] = storedValue === undefined ? descriptor.default : coerceSettingValue(descriptor, storedValue)
     }
-    map[toolId] = values
+    map[toolId] = clampToolSize140(toolId,values)
   }
   // #482: one targeted legacy read, because the generic loop above can only
   // fall back to a default and that would silently drop a choice someone made.

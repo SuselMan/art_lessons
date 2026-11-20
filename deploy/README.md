@@ -584,3 +584,24 @@ confirmed which migration it was taken at.
 - Backups are not encrypted at rest off-site — B2 holds them under a
   bucket-scoped key. Worth revisiting when the data is other people's students
   rather than test rooms.
+
+## Brush catalog and personal uploads
+
+The server Docker build unpacks the bundled `brush-stock-20261120` archive with
+`scripts/brush-import/fetch-stock.mjs`, verifying its pinned SHA-256. It contains
+only the stock Krita catalog/resources and Grafetto-generated sample PNGs. The image
+packages that catalog, the dedicated static preview renderer, system Chromium and
+the Python importer. Neither QA bindings nor user libraries enter this artifact.
+The named `brush_data` volume stores personal uploads, favorite references, immutable
+room brush history and generated previews across container replacements. Preserve it
+alongside PostgreSQL in backups; never run compose down with `--volumes` on production.
+The renderer reads packaged assets inside an isolated browser context; it opens no
+additional public service/port and does not depend on the QA frontend.
+
+For a manual image build, first build `apps/web`; the production Docker context
+requires that static artifact. The stock archive is verified inside Docker.
+
+Brush backups: each verified database dump has a same-timestamp `.brushes.tar.gz`
+archive of the persistent CAS and owner/room metadata. Restore both together into
+the stopped stack, retaining file ownership. Jobs, temporary conversions and writer
+locks are excluded. Local rotation and configured off-site uploads cover both files.

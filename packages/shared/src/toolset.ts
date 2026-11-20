@@ -64,11 +64,11 @@ export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefin
   if (!Array.isArray(value)) return undefined
   const picked = new Set(value.filter(isToggleableTool))
   if (picked.size === 0) return undefined
-  const ordered = TOGGLEABLE_TOOLS.filter(tool => picked.has(tool))
+  const ordered = TOGGLEABLE_TOOLS.filter(tool => tool !== 'watercolor' && picked.has(tool))
   if (!ordered.some(tool => TOOLSET_MATERIAL_TOOLS.includes(tool))) return undefined
   // Every tool enabled is not a restriction, it is the default spelled out —
   // store it as the default so a later-added tool is not excluded by it.
-  if (ordered.length === TOGGLEABLE_TOOLS.length) return undefined
+  if (ordered.length === TOGGLEABLE_TOOLS.length - 1) return undefined
   return ordered
 }
 
@@ -80,6 +80,9 @@ export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefin
  *  and reading a restricted list as "everything not in it is off" would have
  *  taken the annotation rail away from every room that restricted anything. */
 export function isToolEnabledInRoom(enabledTools: readonly ToggleableTool[] | undefined, tool: string): boolean {
+  // The watercolor experiment lives in its own branch. Keep its wire type and
+  // replay support, but do not offer new strokes until the model is integrated.
+  if (tool === 'watercolor') return false
   if (!enabledTools) return true
   if (!isToggleableTool(tool)) return true
   return enabledTools.includes(tool)

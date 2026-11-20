@@ -37,9 +37,16 @@ export interface PaintTarget {
   // footprint-growth bug #155 diagnosed (a vacated tile kept contributing
   // its whole extent to every later bake's bounds forever).
   contentRect: WorldRect | null
+  /** Internal readonly historical source only: original full physical texel
+   * geometry before exact crop. Not operation/wire data. Consumers without a
+   * projection sampler keep the actual cropped buffer/origin above. */
+  readonly projectionSourceRect?: Readonly<WorldRect>
 }
 
 export interface ILayerBuffer {
+  /** A different paint model dries the whole layer, retaining its projection. */
+  dryColorSmudge?():void
+
   /** Wipes all content — destroys every resident tile (a fresh tile painted
    *  on demand afterward starts cleared, same as AccumulationBuffer's own
    *  constructor+clear). */

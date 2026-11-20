@@ -931,3 +931,41 @@ describe('covered snapshot history mutation (#728)', () => {
   })
 
 })
+
+
+describe('cross-page historical target/meta folding preserves the authoritative snapshot', () => {
+  it.each(['target-first', 'undo-first'] as const)('rebuilds A279 snapshot281 after B282 Undo283 with %s page order', async order => {
+    const source = createTestEngine({ userId: 'owner' }, { width: 8, height: 8 }).engine
+    source.setBaseLayers(['A'])
+    const a = makeStroke('owner', 'A', [dab(2, 4, { size: 3, opacity: 0.6 })], { id: 'A279', seq: 279 })
+    const b = makeStroke('owner', 'A', [dab(6, 4, { size: 3, opacity: 0.7 })], { id: 'B282', seq: 282 })
+    const undo: OperationUndoOperation = { id: 'Undo283', seq: 283, type: 'operation_undo', userId: 'owner', timestamp: 283, targetOpId: b.id }
+    source.appendOperation(a, 'remote')
+    const onlyA = readLayerPixels(source, 'A')!.slice()
+    const tiles = decodeLayerTiles(source.bakeNetworkSnapshot('A')!, 0).tiles
+    const reader = createTestEngine({ userId: 'reader' }, { width: 8, height: 8 }).engine
+    reader.setBaseLayers(['A']); reader.restoreLayerFromSnapshot('A', tiles, 281)
+    if (order === 'undo-first') {
+      await reader.restoreHistoricalOperations([undo])
+      await reader.restoreHistoricalOperations([a, b, undo])
+    } else {
+      await reader.restoreHistoricalOperations([a, b])
+      await reader.restoreHistoricalOperations([undo])
+    }
+    expect(reader['_log'].entries.find(e => e.op.id === b.id)?.state).toBe('undone')
+    expect(reader['_log'].entries.find(e => e.op.id === b.id)?.serverSeq).toBe(282)
+    expect(reader['_log'].entries.find(e => e.op.id === b.id)?.op.seq).not.toBe(282)
+    const cp = reader['_checkpoints'].all().find(cp => cp.layerId === 'A' && cp.fromSnapshot)!
+    expect(cp.covered?.has(a.id)).toBe(true); expect(cp.covered?.has(b.id)).toBe(false)
+    expect(readLayerPixels(reader, 'A')).toEqual(onlyA)
+    const redo: OperationRedoOperation = { ...undo, type: 'operation_redo', id: 'Redo284', seq: 284 }
+    source.appendOperation(b, 'remote'); reader.appendOperation(redo, 'remote')
+    expect(readLayerPixels(reader, 'A')).toEqual(readLayerPixels(source, 'A'))
+    reader.appendOperation({ ...undo, id: 'Undo285', seq: 285 }, 'remote')
+    expect(readLayerPixels(reader, 'A')).toEqual(onlyA)
+    reader.appendOperation(makeLayerAdd('owner', 'next', 'Layer', { seq: 286 }), 'remote')
+    expect(reader['_log'].entries.find(e => e.op.id === b.id)?.state).toBe('gone')
+    expect(readLayerPixels(reader, 'A')).toEqual(onlyA)
+    reader.destroy(); source.destroy()
+  })
+})

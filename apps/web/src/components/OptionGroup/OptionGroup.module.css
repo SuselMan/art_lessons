@@ -121,3 +121,6 @@
 /* :global() — a bare "material-symbols-outlined" would get hashed by CSS
    Modules and never match the class Icon actually renders. */
 .segmented .option :global(.material-symbols-outlined) { font-size: 18px; }
+
+.tabs .strip { overflow-x: auto; scrollbar-width: none; min-height: 44px; }
+.tabs .option { flex-shrink: 0; }

@@ -12,7 +12,7 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { operationLayerIds } from '@grafetto/shared'
+import { operationReadLayerIds,operationLayerIds } from '@grafetto/shared'
 
 import { captureControlBefore, initialControlStates, type ControlBeforeState, type HistoryGoneReason } from './controlHistory'
 
@@ -80,9 +80,7 @@ export function pixelWriteLayerIds(op: Operation): string[] {
  *  order is baked into its result, so something landing on them *earlier* in
  *  the order changes that result. */
 export function pixelReadLayerIds(op: Operation): string[] {
-  if (op.type === 'layer_merge') return op.sources.map(s => s.id)
-  if (op.type === 'layer_duplicate') return [op.sourceId]
-  return []
+  return operationReadLayerIds(op)
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its
@@ -152,6 +150,7 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
  *  renumbers the entries it shifted. */
 export class OperationLog {
   private _entries: LogEntry[] = []
+  onRevision?:()=>void
   private _revision = 0
   private _historicalPrefixRevision = -1
   private readonly _historicalPrefixes = new Map<number, OperationLog>()
@@ -222,7 +221,7 @@ export class OperationLog {
    *  of its region with nothing painted above it. See the class doc comment. */
   // Historical refolding suppresses coalescing to preserve operation identities.
   append(op: Operation, placement: Placement = {}, coalesce = true): LogEntry[] {
-    this._revision++
+    this._revision++;this.onRevision?.()
     const branchBefore: ControlBeforeState[] = []
     if (!META_OP_TYPES.has(op.type) && this._usersWithUndone.has(op.userId)) {
       for (const e of this._entries) {
@@ -274,7 +273,7 @@ export class OperationLog {
    *  pending here, was already confirmed (the ack and the broadcast both
    *  report it), or was coalesced into a later entry. */
   confirm(opId: string, serverSeq: number): { op: Operation; overtaken: LogEntry[]; historyChanges?: Operation[] } | null {
-    this._revision++
+    this._revision++;this.onRevision?.()
     let from = -1
     for (let i = this._confirmedCount; i < this._entries.length; i++) {
       if (this._entries[i].op.id === opId) { from = i; break }
@@ -391,7 +390,7 @@ export class OperationLog {
    *  Guards `op.userId` against the target's own author: even without real
    *  auth (#41) yet, a client can never undo an op it didn't author. */
   applyUndo(targetOpId: string, userId: string): Operation | null {
-    this._revision++
+    this._revision++;this.onRevision?.()
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId)
     if (!target) return null
     this._usersWithUndone.add(userId)
@@ -458,7 +457,7 @@ export class OperationLog {
 
   /** Symmetric with `applyUndo`: undone → done for one specific entry. */
   applyRedo(targetOpId: string, userId: string): Operation | null {
-    this._revision++
+    this._revision++;this.onRevision?.()
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)
     if (!target) return null
     for (const e of this._gestureEntries(target, 'undone')) {
@@ -487,7 +486,7 @@ export class OperationLog {
   /** Privileged removal of someone else's operation (teacher). The target goes
    *  straight to `gone` — no redo, the author's own undo stack is untouched. */
   revoke(targetOpId: string): Operation | null {
-    this._revision++
+    this._revision++;this.onRevision?.()
     for (const e of this._entries) {
       if (e.op.id === targetOpId && (e.state !== 'gone' || e.goneReason === 'branch')) {
         // Only a still-`done` entry was ever counted (an `undone` one
@@ -570,7 +569,7 @@ export class OperationLog {
     this._nextSeq = scratch._nextSeq
     this._pixelOpDoneCount = scratch._pixelOpDoneCount
     this._usersWithUndone = scratch._usersWithUndone
-    this._revision++
+    this._revision++;this.onRevision?.()
     return added
   }
 
@@ -602,16 +601,17 @@ export class OperationLog {
     }
     this._entries.push({...entry, op: {...entry.op, seq: this._nextSeq++}})
     if (!entry.pending) this._confirmedCount++
-    this._revision++
+    this._revision++;this.onRevision?.()
   }
 
   /** Legacy import of already-resolved entries without original controls.
    * Network history uses absorbHistorical() to resolve controls across page
    * boundaries. This method preserves supplied states, prepends known older
    * entries and renumbers local seq, without inventing new user actions. */
-  prependHistorical(entries: readonly LogEntry[]): void {
-    this._revision++
-    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
+  prependHistorical(entries: readonly LogEntry[], reconcileCanonicalHistory = false): Operation[] {
+    this._revision++;this.onRevision?.()
+    const held = this._entries
+    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...held]
     // A repair may fill a hole inside the known snapshot prefix, rather than
     // merely prepend an older page. Original server order is authoritative;
     // legacy seq-less callers keep their established prepend contract.
@@ -622,10 +622,49 @@ export class OperationLog {
     this._entries = merged
     this._nextSeq = merged.length
     this._confirmedCount += entries.length
-    for (const e of entries) {
-      if (e.state === 'done') this._bumpPixelOpCount(e.op, 1)
-      else if (e.state === 'undone') this._usersWithUndone.add(e.op.userId)
+    const changed: Operation[] = []
+    const newIds = new Set(entries.map(entry => entry.op.id))
+    // Conservative background-only admission: any canonical history metadata
+    // may interact with a newly supplied page in either direction. There is
+    // deliberately no directional target/branch shortcut here. Live append
+    // never enters this fold, and default/seq-less prepend stays unchanged.
+    const hasHistory = merged.some(entry => entry.op.type === 'operation_undo' || entry.op.type === 'operation_redo' || entry.op.type === 'operation_revoke')
+    const joinsOpacity = merged.some((entry, index) => index > 0 && newIds.has(entry.op.id) !== newIds.has(merged[index - 1].op.id) && coalesces(merged[index - 1].op, entry.op))
+    if (reconcileCanonicalHistory && (hasHistory || joinsOpacity) && incoming.every(entry => entry.pending || entry.serverSeq !== undefined)) {
+      const fold = (ordered: readonly LogEntry[]): OperationLog => {
+        const resolved = new OperationLog()
+        for (const entry of ordered) {
+          if (entry.pending && entry.state === 'gone') continue
+          const op = entry.op
+          resolved.append(op, entry.pending ? { pending: true } : { serverSeq: entry.serverSeq })
+          if (op.type === 'operation_undo') resolved.applyUndo(op.targetOpId, op.userId)
+          else if (op.type === 'operation_redo') resolved.applyRedo(op.targetOpId, op.userId)
+          else if (op.type === 'operation_revoke') resolved.revoke(op.targetOpId)
+        }
+        return resolved
+      }
+      // Compare against the held journal's OWN fold, with the same active
+      // pending rules. A non-done local override differs from that baseline;
+      // canonical gone does not, so a late Redo may legitimately recover it.
+      const heldNonDone = held.filter(entry => !entry.pending && entry.state !== 'done')
+      const heldCanonical = heldNonDone.length ? new Map(fold(held).entries.map(entry => [entry.op.id, entry.state])) : null
+      const localOverrides = new Set(heldNonDone.filter(entry => (heldCanonical?.get(entry.op.id) ?? 'gone') !== entry.state).map(entry => entry.op.id))
+      const resolved = fold(merged)
+      const states = new Map(resolved.entries.map(entry => [entry.op.id, entry.state]))
+      for (const entry of merged) {
+        if (entry.pending || localOverrides.has(entry.op.id)) continue
+        // Canonical append coalesces slider identities. Keep the immutable
+        // original id as terminal history, not as phantom done opacity.
+        const state = states.get(entry.op.id) ?? 'gone'
+        if (state !== entry.state) { entry.state = state; changed.push(entry.op) }
+      }
+      this._pixelOpDoneCount.clear()
+      for (const entry of merged) if (entry.state === 'done') this._bumpPixelOpCount(entry.op, 1)
+    } else {
+      for (const entry of entries) if (entry.state === 'done') this._bumpPixelOpCount(entry.op, 1)
     }
+    this._recountStateIndexes()
+    return changed
   }
 
   /** All `done` operations in seq order. */

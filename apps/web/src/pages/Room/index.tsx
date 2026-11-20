@@ -1,3 +1,6 @@
+import { Button } from '../../components/Button'
+import { RoomBrushGallery } from '../../components/BrushGallery/RoomBrushGallery'
+import { loadBrushPreferences, saveBrushPreferences } from '../../lib/tools/brushPreferences'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -111,7 +114,7 @@ import { createSnapshotGate } from './net/snapshotGate'
 import type { RoomStatePayload } from './restoreRoomState'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
-import { initLayersFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
+import { initEngineFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { isHandActive } from '../../stores/slices/viewportSlice'
@@ -322,8 +325,8 @@ function RoomEditor() {
   // (#493) The toolset gate, every way a tool gets into a hand, and the two
   // groups the rail and the floating panel show — see useToolChoice.
   const {
-    toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool,
-    drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
+    toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool, drawingGroupValue, eraserGroupOptions, smudgeGroupOptions, eraserGroupValue, smudgeGroupValue,
+    galleryOpen, openGallery, closeGallery, drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
   } = useToolChoice(id)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
@@ -347,7 +350,9 @@ function RoomEditor() {
   // shared by whatever tool happened to be active; it now lives at
   // `toolSettings.pencil.color` — the schema's per-tool slot — same value,
   // same behavior, just no longer a second parallel place settings live.
-  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
+  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? ''), brushPreferences: loadBrushPreferences(localStorage, id ?? '') }))
+  const brushPreferences = useRoomStore(s => s.brushPreferences)
+  useEffect(() => { if (id) saveBrushPreferences(localStorage, id, brushPreferences) }, [id, brushPreferences])
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
@@ -1016,7 +1021,7 @@ function RoomEditor() {
     // (#493) What happens around this person's own strokes, and the layer
     // structure the store already holds — see engineWiring.
     wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
-    initLayersFromStore(engine)
+    initEngineFromStore(engine, boardId)
 
     // (#493) The `room_state` parked for this engine, or the paper wait for a
     // room with none — see openParkedRoomState.
@@ -1047,16 +1052,16 @@ function RoomEditor() {
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
-  const { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
-    useToolSync({ engineRef, engineEpoch })
-  useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
   // well, the room palette and the flyout — see useToolColor.
   const {
-    applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,
+    activeColor,applyToolColor, colorTool, pickedColorTool, well, wellLabel, colorPair, palette, addPaletteColor,
     colorContent, colorFlyoutAt, openPanelColorSurface, railWellRef, panelWellRef, closeColorFlyout,
     openRailColorSurface, expandColorField,
   } = useToolColor({ engineRef, engineEpoch, socketRef })
+  const { renderTool, brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
+    useToolSync({ engineRef, engineEpoch, canvasRef,activeColor })
+  useWatercolorDevFlags(engineRef, engineEpoch)
   // Global, not per room — see settingsStore's own comment for why the panel's
   // layout and the panel's position part company on that.
   const floatingPanelLayout = useSettingsStore(s => s.floatingPanelLayout)
@@ -1087,7 +1092,7 @@ function RoomEditor() {
   // ── sync layer state → engine ─────────────────────────────────────────────────
   // (#493) Active layer, composite order, and the one gate that decides
   // whether a stroke may start at all — see useLayerStateSync.
-  useLayerStateSync(engineRef, isOwner)
+  useLayerStateSync(engineRef, isOwner, brushResourcesReady)
 
   // (#520) Which layers the eraser goes through, when it is set to go through
   // them at all. Pushed from here rather than decided in the engine because the
@@ -1451,7 +1456,7 @@ function RoomEditor() {
       config={config} vp={vp} vpRef={vpRef} socket={socketRef.current}
       dabPreview={cursor.dabPreview}
       brush={{
-        presetName: cursorPresetName, baseSize: sizePx, nibAngleRadians: nibCanvasAngleRadians, nibAnchor,
+        tool: renderTool, presetName: cursorPresetName, baseSize: sizePx, nibAngleRadians: nibCanvasAngleRadians, nibAnchor,
         tiltResponse,
       }}
       rulerVisible={rulerVisible} rulerMeasuring={rulerMeasuring}
@@ -1512,6 +1517,7 @@ function RoomEditor() {
           onClose={() => setSettingsOpen(false)}
           roomId={lessonId}
           isOwner={isOwner}
+          toolsContent={<Button size="md" type="secondary" onClick={openGallery}><span className="material-symbols-outlined" aria-hidden="true">add</span>{t('gallery.more')}</Button>}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
           classVisibility={classVisibility}
@@ -1544,6 +1550,8 @@ function RoomEditor() {
           railWellRef={railWellRef} well={well} wellLabel={wellLabel}
           colorExpanded={colorFlyoutAt === 'rail'} openRailColorSurface={openRailColorSurface}
           drawingGroupTool={drawingGroupTool} drawingGroupOptions={drawingGroupOptions}
+          drawingGroupValue={drawingGroupValue} eraserGroupOptions={eraserGroupOptions} smudgeGroupOptions={smudgeGroupOptions}
+          eraserGroupValue={eraserGroupValue} smudgeGroupValue={smudgeGroupValue} selectGroupMember={selectGroupMember}
           drawingGroupActive={drawingGroupActive} gradeHotkeyLabels={gradeHotkeyLabels}
           shapeKind={shapeKind} shapeKindOptions={shapeKindOptions}
           hasTransformTargets={transformTargetIds.length > 0}
@@ -1556,6 +1564,7 @@ function RoomEditor() {
           paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
           copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
           pasteClipboard={() => { void pasteClipboard() }} deleteSelectionContents={deleteSelectionContents}
+          onCloneSourcePick={() => engineRef.current?.requestCloneSourcePick()}
           onWatercolorDry={() => { dispatchOp({ type: 'paper_dry' }) }}
         />
         </div>
@@ -1822,6 +1831,7 @@ function RoomEditor() {
         strokeStats={strokeStats} hapticStats={hapticStats} tapDebug={tapDebug}
         engineRef={engineRef} pencilSoundRef={pencilSoundRef} tool={tool} drawingTool={drawingTool}
       />
+      {galleryOpen && <RoomBrushGallery onClose={closeGallery} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
-import { IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { hasValidBrushRandomContext, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
 import { isRestoreCancelled } from '../../engine/restoreGeneration'
@@ -62,6 +62,7 @@ export function useRemoteOperations({
   // not dedupe by id — see engine/src/oplog/OperationLog.ts), corrupting pixel
   // state and undo. It does not attempt to reconcile a divergent history.
   const applyRemoteOp = useCallback((op: Operation) => {
+    if (!hasValidBrushRandomContext(op)) { repairFailure.current(); return }
     if (appliedOpIdsRef.current.has(op.id)) {
       // (#537) Seen before — and if it is this client's own, still waiting for
       // its seq, this is where it gets one: room_state's tail after a
@@ -72,7 +73,11 @@ export function useRemoteOperations({
       return
     }
     appliedOpIdsRef.current.add(op.id)
-    engineRef.current?.appendOperation(op, 'remote')
+    try { engineRef.current?.appendOperation(op, 'remote') } catch {
+      appliedOpIdsRef.current.delete(op.id)
+      repairFailure.current()
+      return
+    }
     if (op.seq !== undefined) noteOperationSeq(op, op.seq)
     if (op.type === 'stroke') markActive(op.userId)
     // (#395) The layer now genuinely carries this transform, so the gizmo
@@ -97,9 +102,10 @@ export function useRemoteOperations({
     }
   }, [deferredOpsQueueRef, appliedOpIdsRef, applyRemoteOp, syncFromLog, checkSnapshotBoundary])
 
-  const repairSnapshotHistory = useCallback(() => {
+  const repairSnapshotHistory = useCallback((): void => {
     const engine = engineRef.current
     if (!engine || !boardId || repairs.current.has(engine)) return
+    let succeeded = false
     const work = (async () => {
       const complete = await continueSnapshotHistoryRepair(boardId, engine, {
         ordinary: ordinaryBackfills.current.get(engine), current: () => engineRef.current === engine,
@@ -109,9 +115,16 @@ export function useRemoteOperations({
         },
       })
       if (!complete) return
-      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary() }
+      if (engineRef.current === engine) { syncFromLog(); checkSnapshotBoundary(); succeeded = true }
     })().catch(() => { if (engineRef.current === engine) repairFailure.current() })
-      .finally(() => { repairs.current.delete(engine) })
+      .finally(() => {
+        repairs.current.delete(engine)
+        // Success proved no pending range. A range appearing before this
+        // completion edge is new work; failures never retry their old range.
+        if (succeeded && engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) queueMicrotask(() => {
+          if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+        })
+      })
     repairs.current.set(engine, work)
   }, [engineRef, boardId, appliedOpIdsRef, syncFromLog, checkSnapshotBoundary, drainDeferredQueue])
 
@@ -242,7 +255,10 @@ export function useRemoteOperations({
   const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
     const existing = ordinaryBackfills.current.get(engine)
     if (existing) return existing
-    const work = walkHistoryBackward(roomId, fromSeq, HISTORY_BACKFILL_DEPTH, page => {
+    // Snapshot coverage includes fromSeq; the history API/walker cursor is
+    // exclusive. Keep the conversion here: repair callers already pass their
+    // own exclusive cursor and must not include an extra operation.
+    const work = walkHistoryBackward(roomId, fromSeq + 1, HISTORY_BACKFILL_DEPTH, page => {
       if (engineRef.current !== engine) return
       engine.absorbHistoricalOperations(page)
       for (const op of page) appliedOpIdsRef.current.add(op.id)

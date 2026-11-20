@@ -4,6 +4,7 @@ import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 import { prisma } from '../db/prisma.js'
 import { toWireRoom } from './roomMapper.js'
 import { rooms, type RoomResidencyLease } from './roomRegistry.js'
+import { supportsRoomStorage } from './roomStoragePolicy.js'
 import { persistPalette } from './roomPersistence.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
@@ -95,7 +96,8 @@ async function loadRoom(roomId: string, load: PendingRoomLoad, residency?: Pick<
     // into the heap. See loadResidentOperations.
     include: { thumbnail: { select: { updatedAt: true } } },
   })
-  if (!dbRoom || load.cancelled) return false
+  // Reject unsupported archived pixels and cancelled residency loads.
+  if (!dbRoom || load.cancelled || !supportsRoomStorage(dbRoom.rasterVersion)) return false
   load.lessonId = dbRoom.lessonId
 
   // (#176) Lesson first, always: the board's join gate, freeze and

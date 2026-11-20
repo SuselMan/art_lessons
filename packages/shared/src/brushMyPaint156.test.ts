@@ -1,0 +1,7 @@
+import{it,expect}from'vitest'
+import{isMyPaintDescriptor}from'./brushMyPaint'
+import{MYPAINT_SCHEMA}from'./mypaintSchema'
+const paint=MYPAINT_SCHEMA.settings.find(x=>x.name==='paint_mode')!.id
+const fixture=()=>({version:156,model:'stamp',paperInteraction:0,mypaint:{version:1,kernel:'libmypaint-1.6.1',surfacePolicy:'krita-legacy-v1',baseRadius:4,erase:false,settings:[{id:paint,base:.8,inputs:[{id:0,points:[[0,-.2],[1,.2]]}]}]},behavior:{version:2}})
+it('156 admits preserved native-ignored paint settings only under exact legacy policy',()=>{const d=fixture();expect(isMyPaintDescriptor(d)).toBe(true);expect(d.mypaint.settings[0].inputs[0].points).toEqual([[0,-.2],[1,.2]]);for(const version of[55,155,157])expect(isMyPaintDescriptor({...d,version})).toBe(false);expect(isMyPaintDescriptor({...d,mypaint:{...d.mypaint,surfacePolicy:'surface2'}})).toBe(false);const no={...d.mypaint};delete(no as Partial<typeof no>).surfacePolicy;expect(isMyPaintDescriptor({...d,mypaint:no})).toBe(false);expect(isMyPaintDescriptor({...d,version:55,mypaint:no})).toBe(false)})
+it('156 retains bounded original mapping validation and old55 zero-mode law',()=>{const d=fixture();d.mypaint.settings[0].inputs[0].points=[[1,0],[0,1]];expect(isMyPaintDescriptor(d)).toBe(false);const old=fixture();delete(old.mypaint as Partial<typeof old.mypaint>).surfacePolicy;old.version=55;old.mypaint.settings[0]={id:paint,base:0,inputs:[]};expect(isMyPaintDescriptor(old)).toBe(true);old.mypaint.settings[0].inputs=[{id:0,points:[]}];expect(isMyPaintDescriptor(old)).toBe(false)})

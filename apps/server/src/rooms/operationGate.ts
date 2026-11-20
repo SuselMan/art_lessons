@@ -1,3 +1,4 @@
+import{hasValidRecordedPenOperation}from '@grafetto/shared'
 // (#612) Whether an operation may be applied, out of rooms.ts: every gate a
 // submitted operation passes — owner-only types, a target that is gone, a
 // closed lesson, a board that is not the sender's, a shared lock, a frozen
@@ -6,7 +7,7 @@
 // lesson it belongs to) and never writes. rooms.ts looks the records up.
 
 import type { Operation, Participant, RejectReason, Room } from '@grafetto/shared'
-import { operationLayerIds, paintedLayerIds } from '@grafetto/shared'
+import { hasValidBrushRandomContext,hasValidBrushSourceContext, hasValidStrokeEndSample, operationLayerIds, paintedLayerIds } from '@grafetto/shared'
 
 import { canDrawOnBoard } from './lessons.js'
 
@@ -62,6 +63,7 @@ export interface GateLesson {
 export function operationRejectReason(
   record: GateBoard, lesson: GateLesson, userId: string, op: Operation,
 ): RejectReason | null {
+  if (!hasValidRecordedPenOperation(op) || !hasValidBrushRandomContext(op) || !hasValidBrushSourceContext(op) || !hasValidStrokeEndSample(op)) return 'invalid_operation'
   // (#176) Who is asking, whether the lesson is closed or frozen — the
   // lesson's; what the operation targets and whether that is locked or gone
   // — the board's. Both are read below, from the right record each.

@@ -1,3 +1,4 @@
+import {LayerTilesNotReady} from '../buffers/TiledLayerBuffer'
 // (#494) The room snapshot's way in and out of the engine, out of PencilEngine
 // (seam С7 of the survey): baking a layer for upload, the independent
 // full-replay bake it is verified against, restoring a downloaded one into a
@@ -21,9 +22,11 @@
 import type { Operation } from '@grafetto/shared'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
-import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
+import {packColorSmudge} from './materialCheckpoint'
+import { isEmptySnapshotTile, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
 import type { OperationLog, PixelOperation } from './OperationLog'
+import { hasOpenBrushStroke } from './openBrushStroke'
 import type { SnapshotRestoreAudit } from './snapshotAudit'
 import { encodeLayerTiles, type SnapshotTile } from './snapshotCodec'
 import type { SnapshotLedger } from './snapshotLedger'
@@ -60,6 +63,8 @@ export interface SnapshotIOContext {
   /** A fresh, empty layer buffer for a scratch replay — see _makeLayerBuffer.
    *  The caller destroys it. */
   scratchLayer(layerId: string): ILayerBuffer
+  /** Whole synchronous verification replay; never isolates individual rebuild slices. */
+  withIsolatedBrushGestures?<T>(work:()=>T):T
   /** The engine's _applyPixelOp: what a first-ever paint of `op` does. */
   applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void
   /** Starts decoding the images `ops` import; never awaited. */
@@ -117,8 +122,9 @@ export class SnapshotIO {
       const pixels = width === buffer.width && height === buffer.height
         ? buffer.readPixels()
         : buffer.readPixelsRegion(0, buffer.height - height, width, height)
-      const tile = { originX, originY, width, height, pixels }
-      return isFullyTransparent(tile.pixels) ? [] : [tile]
+      const material=buffer.readColorSmudgePixels(width,height)
+      const tile:SnapshotTile = { originX, originY, width, height, pixels,...(material ? {colorSmudge:material} : {}) }
+      return isEmptySnapshotTile(tile) ? [] : [tile]
     })
   }
 
@@ -144,7 +150,7 @@ export class SnapshotIO {
    *     the layer is left out, keeps whatever coverage it had, and a joiner
    *     replays its operations instead. */
   bake(layerId: string): Uint8Array | null {
-    if (!this.ctx.quiet(layerId)) return null
+    if (this.historyRepairPending(layerId) || !this.ctx.quiet(layerId)) return null
     const buf = this.ctx.layer(layerId)
     if (!buf) return null
     if (!this.ctx.ledger.mayPublish(layerId)) return null
@@ -162,7 +168,8 @@ export class SnapshotIO {
     // ledger revision or replacement buffer makes the observation obsolete.
     const revision = this.ctx.ledger.pixelRevision(layerId)
     if (this._emptyRevision.get(buf) === revision) return null
-    const tiles = this._bakeTiles(buf)
+    let tiles:SnapshotTile[]
+    try{tiles=this._bakeTiles(buf)}catch(error){if(!(error instanceof LayerTilesNotReady))throw error;return null}
     // (#467) Since _bakeTiles drops fully transparent tiles, this now also
     // catches a layer that is resident but holds nothing — painted and then
     // erased away. Omitting it leaves it uncovered, so the server sends its
@@ -201,8 +208,12 @@ export class SnapshotIO {
 
     const scratch = this.ctx.scratchLayer(layerId)
     try {
-      scratch.clear()
-      for (const op of ops) this.ctx.applyPixelOp(scratch, layerId, op)
+      const replay=()=>{
+        scratch.clear()
+        for (const op of ops) this.ctx.applyPixelOp(scratch, layerId, op)
+      }
+      if(this.ctx.withIsolatedBrushGestures)this.ctx.withIsolatedBrushGestures(replay)
+      else replay()
       // (#425) The same clipping as `bake`, and it has to be the same call:
       // this is the oracle those bytes are compared against (#168, #289), so
       // a difference in geometry here would read as a determinism violation
@@ -210,6 +221,7 @@ export class SnapshotIO {
       const tiles = this._bakeTiles(scratch)
       if (!tiles.length) return null
       return encodeLayerTiles(tiles)
+    } catch(error){if(!(error instanceof LayerTilesNotReady))throw error;return null
     } finally {
       scratch.destroy()
     }
@@ -243,11 +255,11 @@ export class SnapshotIO {
    *  historical ops eventually get backfilled in front of it: their presence
    *  shifts the current `ops` prefix, and the id-based prefix match in
    *  `CheckpointStore.best` stops matching this checkpoint on its own. */
-  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, installOnly = false): void {
     const { gl, ledger } = this.ctx
     // (#474) Counted before anything can return early, so a dropped restore
     // still reports the size of what it dropped.
-    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength, 0)
+    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength + (t.colorSmudge ? t.colorSmudge.color.byteLength+t.colorSmudge.height.byteLength : 0), 0)
     const buf = this.ctx.layer(layerId)
     if (!buf) {
       this._restoreAudit.push({
@@ -285,34 +297,38 @@ export class SnapshotIO {
     // The scan is not free, but it is cheap against what it prevents: it exits
     // on the first non-zero alpha, and a tile it does not exit early on is one
     // whose 4 MiB upload it has just cancelled.
-    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
+    const painted = retiled.filter(t => !isEmptySnapshotTile(t))
     // Blank tiles are dropped from the upload only while the layer is
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
     // all-transparent tile is *doing* something: clearing what is under it.
-    // Preserve explicit transparent uploads in the restore audit on a live
-    // layer, while omitting their allocation for an initially empty layer.
-    const uploads = buf.allResident().length === 0 ? painted : retiled
-    // A snapshot replaces the whole layer, including tiles absent from its
-    // sparse payload. Retaining old tiles would resurrect cleared content.
-    buf.clear()
+    // Nothing clears the layer ahead of this, so that distinction is ours to
+    // make, and one cheap check makes it without asking per tile.
+    // A late restore may have a known or still-unrecorded live tail. Install
+    // its authoritative replay base without replacing those visible pixels;
+    // the engine settles the tail through its ordinary guarded rebuild path.
+    const uploads = installOnly ? [] : buf.allResident().length === 0 ? painted : retiled
+    if (!installOnly) buf.clear()
     // (#474) Any error already pending is drained first, so what this reads
     // afterward is this restore's own — the same discipline generatePaperMipmaps
     // uses, and for the same reason: an inherited error would accuse the wrong
     // code, and inheriting *silence* is impossible, so only draining can be wrong.
-    this._drainGlErrors()
+    if (!installOnly) this._drainGlErrors()
     for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
       // (#425) See the same call in the engine's _replayInto: the payload
       // carries its own size because edge tiles are clipped to the sheet.
-      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+      for (const target of buf.resolveForPaint(rect)) {
+        target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+        target.buffer.restoreColorSmudgePixels(t.width, t.height, t.colorSmudge)
+      }
       buf.restoreTileContent(rect, t.pixels)
     }
     // One getError for the whole layer rather than one per tile: the question a
     // report has to answer is "did this layer land", and a per-tile scan would
     // add a GPU sync point per tile to a path that runs at join time on the
     // slowest devices we have.
-    const glError = gl.getError()
+    const glError = installOnly ? 0 : gl.getError()
     const resident = buf.allResident()
     this._restoreAudit.push({
       layerId, known: true, tilesIn: tiles.length, tilesUploaded: uploads.length, bytes, glError,
@@ -333,7 +349,7 @@ export class SnapshotIO {
     // immediately marked as known to the server. Otherwise every joining
     // client would re-bake and re-upload the whole room it just downloaded.
     ledger.markDirty(layerId)
-    ledger.markPublished(layerId)
+    if (!installOnly) ledger.markPublished(layerId)
     // The *painted* set, not what arrived: a checkpoint restore clears the
     // buffer before replaying its tiles (see the engine's _rebuildLayerFromLog),
     // so a blank tile there can only ever cost memory, never carry meaning.
@@ -378,10 +394,30 @@ export class SnapshotIO {
     const held = tiles.map(t => ({
       originX: t.originX, originY: t.originY, width: t.width, height: t.height,
       packed: packTilePixels(t.pixels),
+      colorSmudge:packColorSmudge(t.colorSmudge),
     }))
     // Replaces any snapshot checkpoint this layer already had — see
     // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.
+    const previous = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    const preserved = previous?.coveredSeq !== undefined && coveredSeq !== undefined && previous.coveredSeq <= coveredSeq
+      ? [...(previous.covered ?? [])].map(id => ({ id, seq: previous.coveredSeq })) : []
     this.ctx.checkpoints().pinSnapshot(layerId, held, coveredSeq)
+    this.ctx.checkpoints().markCovered(preserved)
+    // Reconnect/concurrent restore can replace this checkpoint AFTER history
+    // backfill has landed. Its pixels still contain that prefix. Reconcile
+    // from retained authoritative server ordering, never op.seq (local index).
+    this.ctx.checkpoints().markCovered(this.ctx.log().entries
+      .filter(entry => !entry.pending && entry.serverSeq !== undefined)
+      .map(entry => ({ id: entry.op.id, seq: entry.serverSeq })))
+    this._invalidateSplitBrushSnapshots()
+  }
+
+  /** An ACK can resolve whether an optimistic operation was already baked.
+   * No historical log merge is needed: this ID is already retained. */
+  confirmCoverage(id: string, seq: number): void {
+    if (!this.ctx.checkpoints().all().some(cp => cp.fromSnapshot && cp.coveredSeq !== undefined && seq <= cp.coveredSeq)) return
+    this.ctx.checkpoints().markCovered([{ id, seq }])
+    this._invalidateSplitBrushSnapshots()
   }
 
   /** Merge original history with the held journal before resolving controls.
@@ -414,24 +450,83 @@ export class SnapshotIO {
     // Decoding in the background now is what lets it find the image ready;
     // deliberately not awaited, since backfill itself never blocks anything.
     this.ctx.preloadImages(ops)
+    this._invalidateSplitBrushSnapshots()
     return changed
+  }
+
+  /** A legacy snapshot may end inside a carried brush gesture. Pixels cannot
+   * restore its scratch/coverage or RNG cursor. Recover the complete original
+   * prefix, then rebuild the gesture through the ordinary replay pipeline. */
+  private _invalidateSplitBrushSnapshots(): void {
+    const entries = this.ctx.log().entries
+    for (const snapshot of this.ctx.checkpoints().all()) {
+      if (!snapshot.fromSnapshot || snapshot.coveredSeq === undefined) continue
+      const coveredSeq = snapshot.coveredSeq
+      const prefix = entries.filter(entry => !entry.pending && entry.serverSeq !== undefined && entry.serverSeq <= coveredSeq)
+        .sort((a, b) => a.serverSeq! - b.serverSeq!).map(entry => entry.op)
+      if (!hasOpenBrushStroke(prefix, snapshot.layerId)) continue
+      this.historyRepairs.set(snapshot.layerId, coveredSeq)
+      this.ctx.ledger.markDirty(snapshot.layerId)
+      this.ctx.ledger.refusePublishing(snapshot.layerId)
+    }
   }
 
   /** A covered history mutation cannot be subtracted from a baked tile.
    *  Discard that base only when every original server operation up to it is
    *  available, so rebuilding from empty cannot discard an unknown prefix. */
   private readonly historyRepairs = new Map<string, number>()
+  // Metadata-only authority checks share the existing backfill queue. Unlike
+  // repairs, completing these must not discard an otherwise valid pixel base.
+  private readonly historyProofs = new Map<string, number>()
 
   pendingHistoryRepairs(): Array<{ layerId: string; beforeSeq: number }> {
+    if (!this.historyRepairs.size && !this.historyProofs.size) return []
     const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
-    return [...this.historyRepairs].flatMap(([layerId, coveredSeq]) => {
+    const pending = new Map(this.historyProofs)
+    for (const [id, seq] of this.historyRepairs) pending.set(id, Math.max(seq, pending.get(id) ?? 0))
+    return [...pending].flatMap(([layerId, coveredSeq]) => {
       let missing = coveredSeq
       while (missing > 0 && sequences.has(missing)) missing--
       return missing > 0 ? [{ layerId, beforeSeq: missing + 1 }] : []
     })
   }
 
-  historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) }
+  /** An explicit BEGIN dependency cannot be reconstructed from a pixel-only pinned base. */
+  requireHistoryRepair(layerId:string,coveredSeq:number):void{
+    if(!Number.isSafeInteger(coveredSeq)||coveredSeq<1)throw Error('Invalid Grid history coverage')
+    this.historyRepairs.set(layerId,Math.max(coveredSeq,this.historyRepairs.get(layerId)??0))
+    this.ctx.ledger.markDirty(layerId);this.ctx.ledger.refusePublishing(layerId)
+  }
+  historyRepairPending(layerId: string): boolean { return this.historyRepairs.has(layerId) || this.historyProofs.has(layerId) }
+
+  requireHistoryProof(layerId: string, throughSeq: number): void {
+    if (!Number.isSafeInteger(throughSeq) || throughSeq < 1) throw Error('Invalid BEGIN history proof')
+    this.historyProofs.set(layerId, Math.max(throughSeq, this.historyProofs.get(layerId) ?? 0))
+  }
+
+  /** Return only metadata-ready layers; retain every checkpoint and ledger bit.
+   * A destructive repair always owns the next transition when both are pending. */
+  resolveHistoryProofs(): string[] {
+    const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq))
+    const ready: string[] = []
+    for (const [id, through] of this.historyProofs) {
+      if (this.historyRepairs.has(id)) continue
+      let complete = true
+      for (let seq = 1; seq <= through; seq++) if (!sequences.has(seq)) { complete = false; break }
+      if (complete) { this.historyProofs.delete(id); ready.push(id) }
+    }
+    return ready
+  }
+
+  /** Until an ACK or historical ID resolves membership, a pending stroke may
+   * already be baked into the downloaded prefix. Preserve visible pixels;
+   * replaying it over that prefix would double its pigment. */
+  hasAmbiguousPending(layerId: string): boolean {
+    const snapshot = this.ctx.checkpoints().all().find(cp => cp.layerId === layerId && cp.fromSnapshot)
+    if (!snapshot) return false
+    const pixels = new Set(this.ctx.log().layerPixelOps(layerId).map(op => op.id))
+    return this.ctx.log().entries.some(entry => entry.pending && pixels.has(entry.op.id) && !snapshot.covered?.has(entry.op.id))
+  }
 
   /** Existing legacy entries without server order cannot prove whether a
    *  replacement bitmap covers them. Keep the bitmap, request an exact prefix. */
@@ -468,10 +563,12 @@ export class SnapshotIO {
   }
 
   /** Resolve only from a complete server prefix; metadata survives lost GL. */
-  resolveHistoryRepairs(): string[] {
+  resolveHistoryRepairs(canRebuild: (layerId: string) => boolean = () => true): string[] {
+    if (!this.historyRepairs.size) return []
     const sequences = new Set(this.ctx.log().entries.map(e => e.serverSeq).filter((n): n is number => n !== undefined && n > 0))
     const ready: string[] = []
     for (const [layerId, coveredSeq] of this.historyRepairs) {
+      if (!canRebuild(layerId)) continue
       if (sequences.size < coveredSeq) continue
       let complete = true
       for (let seq = 1; seq <= coveredSeq; seq++) if (!sequences.has(seq)) { complete = false; break }
@@ -480,6 +577,8 @@ export class SnapshotIO {
       this.ctx.ledger.forgetCoverage(layerId)
       this.ctx.ledger.allowPublishing(layerId)
       this.historyRepairs.delete(layerId)
+      // A larger metadata proof must survive this older destructive repair.
+      if ((this.historyProofs.get(layerId) ?? Infinity) <= coveredSeq) this.historyProofs.delete(layerId)
       ready.push(layerId)
     }
     return ready

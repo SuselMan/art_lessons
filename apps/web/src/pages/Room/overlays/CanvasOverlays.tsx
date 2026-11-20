@@ -30,7 +30,7 @@ export interface CanvasOverlaysProps {
    *  screen, and what it looks like. */
   dabPreview: boolean
   brush: Pick<ComponentProps<typeof BrushCursor>,
-    'presetName' | 'baseSize' | 'nibAngleRadians' | 'nibAnchor' | 'tiltResponse'>
+    'tool' | 'presetName' | 'baseSize' | 'nibAngleRadians' | 'nibAnchor' | 'tiltResponse'>
   rulerVisible: boolean
   rulerMeasuring: boolean
   /** (#530) The open shape's frame and its handle gesture, or null. */
@@ -67,7 +67,6 @@ export function CanvasOverlays({
   const t = useT()
   const boardId = useRoomStore(s => s.boardId)
   const participants = useRoomStore(s => s.participants)
-  const drawingTool = useRoomStore(s => s.drawingTool)
   const transformActive = useRoomStore(s => s.tool === 'transform')
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
@@ -136,7 +135,6 @@ export function CanvasOverlays({
       {dabPreview && (
         <BrushCursor
           vpRef={vpRef}
-          tool={drawingTool}
           vp={vp}
           config={config}
           {...brush}

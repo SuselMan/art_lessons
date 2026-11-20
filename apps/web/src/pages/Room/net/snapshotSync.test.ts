@@ -52,6 +52,15 @@ function fakeEngine(
   return { engine, bakeCalls }
 }
 
+
+/** Index responses never capture. A later normal observation supplies the
+ * actual current seq/engine/structure again, exactly as the publishing timer. */
+async function observeFirst(uploader: ReturnType<typeof createSnapshotUploader>,seq:number,engine:PencilEngineAPI,state:LayerState):Promise<void>{
+  uploader.tryFirstSnapshot(seq,engine,state)
+  for(let turn=0;turn<20;turn++)await Promise.resolve()
+  uploader.tryFirstSnapshot(seq,engine,state)
+}
+
 type FetchCall = [string, RequestInit & { body: string }]
 
 function fetchCallsTo(path: string): FetchCall[] {
@@ -68,6 +77,7 @@ beforeEach(() => {
 afterEach(() => {
   global.fetch = originalFetch
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 it('uploads opt-in worker bytes at the synchronously captured first watermark', async () => {
@@ -90,10 +100,10 @@ it('uploads opt-in worker bytes at the synchronously captured first watermark', 
   const raw = new Uint8Array([1, 2, 255]), uploader = createSnapshotUploader('room-1', { workerCompression: true })
   const { engine, bakeCalls } = fakeEngine({ 'layer-1': raw })
   uploader.requestFirstSnapshot()
-  uploader.tryFirstSnapshot(47, engine, layerState())
+  await observeFirst(uploader,47, engine, layerState())
   expect(bakeCalls).toEqual(['layer-1'])
   expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
-  uploader.tryFirstSnapshot(48, engine, layerState())
+  await observeFirst(uploader,48, engine, layerState())
   await finish!()
   await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
   const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
@@ -408,24 +418,24 @@ describe('first catch-up snapshot (#728)', () => {
     })
     const uploader = createSnapshotUploader('room-1')
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, state)
+    await observeFirst(uploader,47, engine, state)
     expect(read.mock.calls.length).toBeGreaterThan(0)
     read.mockClear()
-    for (let attempt = 0; attempt < 20; attempt++) uploader.tryFirstSnapshot(47, engine, state)
+    for (let attempt = 0; attempt < 20; attempt++) await observeFirst(uploader,47, engine, state)
     expect(read).not.toHaveBeenCalled()
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
     expect(engine.isLayerDirty('layer-1')).toBe(true)
     engine.appendOperation(fillStroke('a', 'layer-1', 4, 4, 6), 'remote')
-    uploader.tryFirstSnapshot(48, engine, state)
+    await observeFirst(uploader,48, engine, state)
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
     expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).seq).toBe(48)
     expect(read.mock.calls.length).toBeGreaterThan(0)
   })
 
-  it('does not publish until catch-up explicitly requests a first snapshot', () => {
+  it('does not publish until catch-up explicitly requests a first snapshot', async () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
-    uploader.tryFirstSnapshot(47, engine, layerState())
+    await observeFirst(uploader,47, engine, layerState())
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
@@ -433,7 +443,7 @@ describe('first catch-up snapshot (#728)', () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1, 2]) })
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
+    await observeFirst(uploader,47, engine, layerState())
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
     expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).seq).toBe(47)
   })
@@ -443,10 +453,10 @@ describe('first catch-up snapshot (#728)', () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine(contents)
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
-    expect(global.fetch).not.toHaveBeenCalled()
+    await observeFirst(uploader,47, engine, layerState())
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
     contents['layer-1'] = new Uint8Array([3])
-    uploader.tryFirstSnapshot(48, engine, layerState())
+    await observeFirst(uploader,48, engine, layerState())
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
     expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).seq).toBe(48)
   })
@@ -456,70 +466,380 @@ describe('first catch-up snapshot (#728)', () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine(contents)
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
+    await observeFirst(uploader,47, engine, layerState())
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
     await new Promise(resolve => setTimeout(resolve, 0))
     contents.background = new Uint8Array([2])
-    uploader.tryFirstSnapshot(48, engine, layerState())
+    await observeFirst(uploader,48, engine, layerState())
     await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
     expect(Object.keys(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[1][1].body).layers)).toEqual(['background'])
   })
 
   it('retries an upload failure even when baking already cleared layer dirty', async () => {
-    global.fetch = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
+    global.fetch = vi.fn().mockResolvedValueOnce({ok:true,status:204}).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
     const uploader = createSnapshotUploader('room-1')
     const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1))
+    await observeFirst(uploader,47, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3)) // failed POST plus index reconciliation
     await new Promise(resolve => setTimeout(resolve, 0))
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
     engine.isLayerDirty = () => false
-    uploader.tryFirstSnapshot(48, engine, layerState())
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    await observeFirst(uploader,48, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
     expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[1][1].body).seq).toBe(48)
   })
 
-  it('does not repeatedly read untouched paper or upload empty structures', () => {
+  it('does not repeatedly read untouched paper or upload empty structures', async () => {
     const uploader = createSnapshotUploader('room-1')
     const { engine, bakeCalls } = fakeEngine({ background: null }, null, [])
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
-    uploader.tryFirstSnapshot(48, engine, layerState())
+    await observeFirst(uploader,47, engine, layerState())
+    await observeFirst(uploader,48, engine, layerState())
     expect(bakeCalls).toEqual([])
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 })
 
 
 describe('first snapshot race with another participant (#728)', () => {
   it('stops rebaking only layers whose existing coverage the server index proves', async () => {
-    global.fetch = vi.fn()
+    global.fetch = vi.fn().mockResolvedValueOnce({ok:true,status:204})
       .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'not_a_checkpoint_seq' }) })
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ seq: 47, layerState: {}, layers: [{ layerId: 'layer-1', seq: 47, hash: 'other-client' }] }) })
       .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
     const uploader = createSnapshotUploader('room-1')
     const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(48, engine, layerState())
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    await observeFirst(uploader,48, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3))
     await new Promise(resolve => setTimeout(resolve, 0))
-    uploader.tryFirstSnapshot(49, engine, layerState())
+    await observeFirst(uploader,49, engine, layerState())
     expect(bakeCalls).toEqual(['layer-1'])
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
   })
   it('keeps a refused first layer retryable when the index still has no coverage', async () => {
-    global.fetch = vi.fn()
+    global.fetch = vi.fn().mockResolvedValueOnce({ok:true,status:204})
       .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'not_a_checkpoint_seq' }) })
       .mockResolvedValueOnce({ ok: true, status: 204 })
       .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
     const uploader = createSnapshotUploader('room-1')
     const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
     uploader.requestFirstSnapshot()
-    uploader.tryFirstSnapshot(47, engine, layerState())
-    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
-    await new Promise(resolve => setTimeout(resolve, 0))
-    uploader.tryFirstSnapshot(48, engine, layerState())
+    await observeFirst(uploader,47, engine, layerState())
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
+    await observeFirst(uploader,48, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
     expect(bakeCalls).toEqual(['layer-1', 'layer-1'])
   })
+})
+
+
+describe('bounded bootstrap transport retries', () => {
+  const success = () => ({ ok: true, status: 200, json: async () => ({ ok: true }) })
+  const offlineThenOnline = (covered: string[] = []) => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ok:true,status:204}).mockRejectedValueOnce(Error('ingress unavailable'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ layers: covered.map(layerId => ({ layerId, seq: 47, hash: 'verified' })) }) })
+      .mockResolvedValue(success())
+  }
+  const finishFailure = async () => {
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3))
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+
+  it('retries identical captured bytes/seq/structure without another bake, after backoff and index lookup', async () => {
+    offlineThenOnline()
+    const compression = await import('./snapshotCompression')
+    const encode = vi.spyOn(compression, 'compressSnapshot')
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1, 2, 3]) })
+    const uploader = createSnapshotUploader('room-1'), state = layerState()
+    uploader.requestFirstSnapshot()
+    await observeFirst(uploader,47, engine, state)
+    state.items['layer-1'].name = 'Changed after capture'
+    await finishFailure()
+    engine.isLayerDirty = () => false
+    for (let i = 0; i < 20; i++) await observeFirst(uploader,47, engine, state)
+    expect(bakeCalls).toEqual(['layer-1'])
+    expect(global.fetch).toHaveBeenCalledTimes(3)
+    now.mockReturnValue(11_001)
+    await observeFirst(uploader,47, engine, state)
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    const posts = fetchCallsTo('/api/rooms/room-1/snapshots')
+    expect(posts[1][1].body).toEqual(posts[0][1].body)
+    expect(JSON.parse(posts[1][1].body).layerState.items['layer-1'].name).toBe('Layer 1')
+    expect(bakeCalls).toEqual(['layer-1'])
+    expect(encode).toHaveBeenCalledOnce()
+  })
+
+  it('captures new pixels at a new seq instead of relabelling the retained old payload', async () => {
+    offlineThenOnline()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const contents = { 'layer-1': new Uint8Array([1]) }
+    const { engine, bakeCalls } = fakeEngine(contents)
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, engine, layerState())
+    await finishFailure()
+    contents['layer-1'] = new Uint8Array([9])
+    await observeFirst(uploader,48, engine, layerState())
+    expect(bakeCalls).toEqual(['layer-1']) // admission backoff precedes even a new bake
+    now.mockReturnValue(11_001)
+    await observeFirst(uploader,48, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    const posts = fetchCallsTo('/api/rooms/room-1/snapshots').map(([, init]) => JSON.parse(init.body))
+    expect(posts.map(body => body.seq)).toEqual([47, 48])
+    expect(posts[1].layers['layer-1']).not.toEqual(posts[0].layers['layer-1'])
+    expect(bakeCalls).toEqual(['layer-1', 'layer-1'])
+  })
+
+  it('stops only server-proven covered layers and reuses an uncovered sibling without readback', async () => {
+    offlineThenOnline(['layer-1'])
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]), background: new Uint8Array([2]) })
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, engine, layerState())
+    await finishFailure(); now.mockReturnValue(11_001)
+    await observeFirst(uploader,47, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    expect(Object.keys(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[1][1].body).layers)).toEqual(['background'])
+    expect(bakeCalls.sort()).toEqual(['background', 'layer-1'])
+  })
+
+  it('does not reuse pixels from a different engine generation at the same seq', async () => {
+    offlineThenOnline()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const first = fakeEngine({ 'layer-1': new Uint8Array([1]) }), next = fakeEngine({ 'layer-1': new Uint8Array([2]) })
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, first.engine, layerState())
+    await finishFailure(); now.mockReturnValue(11_001)
+    await observeFirst(uploader,47, next.engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    expect(first.bakeCalls).toEqual(['layer-1']); expect(next.bakeCalls).toEqual(['layer-1'])
+    const posts = fetchCallsTo('/api/rooms/room-1/snapshots').map(([, init]) => JSON.parse(init.body))
+    expect(posts[1].layers['layer-1']).not.toEqual(posts[0].layers['layer-1'])
+  })
+
+  it('backs off repeated transport failures exponentially without recapturing unchanged pixels', async () => {
+    let posts = 0
+    global.fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        posts++
+        if (posts <= 2) throw Error('offline')
+        return Response.json({ ok: true })
+      }
+      return Response.json({ layers: [] })
+    })
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, engine, layerState())
+    await finishFailure()
+    now.mockReturnValue(10_999); await observeFirst(uploader,47, engine, layerState())
+    expect(posts).toBe(1)
+    now.mockReturnValue(11_001); await observeFirst(uploader,47, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(5))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    now.mockReturnValue(13_000); await observeFirst(uploader,47, engine, layerState())
+    expect(posts).toBe(2)
+    now.mockReturnValue(13_002); await observeFirst(uploader,47, engine, layerState())
+    await vi.waitFor(() => expect(posts).toBe(3))
+    expect(bakeCalls).toEqual(['layer-1'])
+  })
+
+  it('still uploads oversized encoded snapshots but does not retain more than40MiB for retry', async () => {
+    const encoding = await import('./snapshotBase64')
+    vi.spyOn(encoding, 'snapshotBase64').mockResolvedValue('A'.repeat(12 * 1024 * 1024)) // authored encoded-size boundary, no huge GPU/raw fixture
+    offlineThenOnline()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const { engine, bakeCalls } = fakeEngine({
+      'layer-1': new Uint8Array([1]), background: new Uint8Array([2]),
+    })
+    const uploader = createSnapshotUploader('room-1')
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, engine, layerState())
+    await finishFailure()
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)
+    now.mockReturnValue(11_001); await observeFirst(uploader,47, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    expect(bakeCalls).toEqual(['background', 'layer-1', 'background', 'layer-1'])
+  })
+
+
+  it('recaptures corrected structure after a semantic refusal instead of retrying the stale candidate', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ok:true,status:204}).mockResolvedValueOnce({ ok: false, status: 400,
+      json: async () => ({ error: 'stale_layer_state', missing: ['layer-1'] }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ layers: [] }) })
+      .mockResolvedValue(success())
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    const uploader = createSnapshotUploader('room-1'), state = layerState()
+    uploader.requestFirstSnapshot(); await observeFirst(uploader,47, engine, state)
+    await finishFailure()
+    state.items['layer-1'].name = 'Corrected structure'
+    now.mockReturnValue(11_001); await observeFirst(uploader,47, engine, state)
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(2))
+    expect(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[1][1].body).layerState.items['layer-1'].name).toBe('Corrected structure')
+    expect(bakeCalls).toEqual(['layer-1', 'layer-1'])
+  })
+
+})
+
+
+describe('bootstrap index reconciliation deadlines', () => {
+  it.each(['headers', 'body'] as const)('releases a stalled index %s read and ignores its late coverage', async stalled => {
+    vi.useFakeTimers()
+    try {
+      let resolveOld!: (value: unknown) => void
+      const old = new Promise<unknown>(resolve => { resolveOld = resolve })
+      let posts = 0, indexes = 0
+      let signal: AbortSignal | undefined
+      vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts++
+          if (posts <= 2) throw Error('ambiguous upload failure')
+          return Response.json({ ok: true })
+        }
+        indexes++
+        if (indexes === 1) return new Response(null,{status:204})
+        if (indexes === 2) {
+          signal = init?.signal ?? undefined
+          if (stalled === 'headers') return old // deliberately ignores abort
+          return { ok: true, status: 200, json: () => old }
+        }
+        return Response.json({ layers: [] })
+      }))
+      const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+      const uploader = createSnapshotUploader('room-1')
+      uploader.requestFirstSnapshot()
+      await observeFirst(uploader,47, engine, layerState())
+      await vi.waitFor(() => expect(indexes).toBe(2))
+      await vi.advanceTimersByTimeAsync(5001)
+      expect(signal?.aborted).toBe(true)
+      engine.isLayerDirty = () => false
+      await observeFirst(uploader,47, engine, layerState())
+      expect(posts).toBe(1) // Failed reconciliation still honours upload backoff.
+      await vi.advanceTimersByTimeAsync(1001)
+      await observeFirst(uploader,47, engine, layerState())
+      await vi.waitFor(() => expect(indexes).toBe(3))
+      await vi.advanceTimersByTimeAsync(0)
+      const late = { layers: [{ layerId: 'layer-1', seq: 47, hash: 'old-response' }] }
+      resolveOld(stalled === 'headers' ? Response.json(late) : late)
+      await vi.advanceTimersByTimeAsync(2001)
+      await observeFirst(uploader,47, engine, layerState())
+      await vi.waitFor(() => expect(posts).toBe(3))
+      expect(bakeCalls).toEqual(['layer-1'])
+      const bodies = fetchCallsTo('/api/rooms/room-1/snapshots').map(([, init]) => init.body)
+      expect(bodies[1]).toEqual(bodies[0])
+      expect(bodies[2]).toEqual(bodies[0])
+      expect(vi.getTimerCount()).toBe(0)
+    } finally { vi.useRealTimers() }
+  })
+})
+
+
+describe('uncovered layers after an existing index', () => {
+  it('reconciles before capture, excludes old covered layers at nonboundary280 and uses a newly observed head', async () => {
+    const raw = new Uint8Array([1, 2, 3])
+    const {engine,bakeCalls} = fakeEngine({'layer-1':raw,'new-layer':raw},null,undefined,['layer-1','new-layer'])
+    const state = layerState({items:{'layer-1':layerState().items['layer-1'],'new-layer':{kind:'layer',id:'new-layer',name:'New',opacity:1,visible:true}},rootOrder:['new-layer','layer-1']})
+    let release!: (response: unknown) => void
+    global.fetch = vi.fn().mockImplementation((url:string) => url.endsWith('/snapshots/index')
+      ? new Promise(resolve => {release=resolve})
+      : Promise.resolve({ok:true,status:200,json:async()=>({ok:true})}))
+    const uploader = createSnapshotUploader('room-1');uploader.requestFirstSnapshot()
+    uploader.tryFirstSnapshot(279,engine,state)
+    expect(bakeCalls).toEqual([]) // Old implementation captures covered layer too before this GET.
+    release({ok:true,status:200,json:async()=>({seq:200,layers:[{layerId:'layer-1',seq:200,hash:'verified'}]})})
+    // A response for279 cannot label current280 pixels; reconcile280 first.
+    await vi.waitFor(()=>{uploader.tryFirstSnapshot(280,engine,state);expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url])=>String(url).endsWith('/snapshots/index'))).toHaveLength(2)})
+    expect(bakeCalls).toEqual([])
+    release({ok:true,status:200,json:async()=>({seq:200,layers:[{layerId:'layer-1',seq:200,hash:'verified'}]})})
+    await vi.waitFor(()=>{uploader.tryFirstSnapshot(280,engine,state);expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)})
+    const body=JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+    expect(body.seq).toBe(280);expect(Object.keys(body.layers)).toEqual(['new-layer']);expect(bakeCalls).toEqual(['new-layer'])
+  })
+})
+
+
+it('does not GET or bake covered-only painting at every new head after initial index reconciliation',async()=>{
+ global.fetch=vi.fn().mockResolvedValue({ok:true,status:200,json:async()=>({seq:200,layers:[{layerId:'layer-1',seq:200,hash:'verified'}]})})
+ const {engine,bakeCalls}=fakeEngine({'layer-1':new Uint8Array([1])})
+ const uploader=createSnapshotUploader('room-1');uploader.requestFirstSnapshot()
+ await observeFirst(uploader,280,engine,layerState())
+ for(const seq of [281,282,283,299])await observeFirst(uploader,seq,engine,layerState())
+ expect(global.fetch).toHaveBeenCalledOnce();expect(bakeCalls).toEqual([])
+})
+
+
+it('keeps successful boundary coverage when an older parallel index response arrives afterwards',async()=>{
+ let release!: (response:unknown)=>void
+ global.fetch=vi.fn().mockImplementation((_url:string,init?:RequestInit)=>init?.method==='POST'
+   ? Promise.resolve({ok:true,status:200,json:async()=>({ok:true})})
+   : new Promise(resolve=>{release=resolve}))
+ const {engine,bakeCalls}=fakeEngine({'layer-1':new Uint8Array([1])})
+ const uploader=createSnapshotUploader('room-1');uploader.requestFirstSnapshot()
+ uploader.tryFirstSnapshot(100,engine,layerState()) // older admission index still in flight
+ uploader.onSeqObserved(99,100,engine,layerState()) // actual normal boundary succeeds meanwhile
+ await vi.waitFor(()=>expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+ for(let turn=0;turn<20;turn++)await Promise.resolve()
+ release({ok:true,status:200,json:async()=>({seq:99,layers:[]})})
+ for(let turn=0;turn<20;turn++)await Promise.resolve()
+ await observeFirst(uploader,101,engine,layerState())
+ expect(bakeCalls).toEqual(['layer-1'])
+ expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url])=>String(url).endsWith('/snapshots/index'))).toHaveLength(1)
+ expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)
+})
+
+describe('physical first-upload coverage is independent of selected replay coverage', () => {
+  it('never rebakes a physically covered rollback layer at a nonboundary head, but uploads a genuinely new layer', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({
+      seq: 200, layerState: {}, layers: [], storedCoverage: [{ layerId: 'background', seq: 200 }] }) })
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
+    const uploader = createSnapshotUploader('room-1')
+    const { engine, bakeCalls } = fakeEngine({ background: new Uint8Array([7]), 'layer-1': new Uint8Array([8]) })
+    uploader.requestFirstSnapshot()
+    await observeFirst(uploader, 281, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+    const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+    expect(body.seq).toBe(281)
+    expect(Object.keys(body.layers)).toEqual(['layer-1'])
+    expect(bakeCalls).toEqual(['layer-1'])
+  })
+  it('reconciles physical coverage after a nonboundary rejection, not selected empty restore layers', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 204 })
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'not_a_checkpoint_seq' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ seq: 200, layerState: {}, layers: [],
+        storedCoverage: [{ layerId: 'layer-1', seq: 200 }] }) })
+    const uploader = createSnapshotUploader('room-1')
+    const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    uploader.requestFirstSnapshot()
+    await observeFirst(uploader, 281, engine, layerState())
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
+    await observeFirst(uploader, 282, engine, layerState())
+    expect(bakeCalls).toEqual(['layer-1'])
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1)
+  })
+})
+
+it.each([
+  { 'layer-1': 200 },
+  [null],
+  [{ layerId: 'layer-1', seq: 0 }],
+  [{ layerId: 'layer-1', seq: '200' }],
+  [{ layerId: 'layer-1', seq: 200 }, { layerId: '', seq: 200 }],
+].map(storedCoverage => ({ storedCoverage })))('falls back as a whole to legacy selected coverage for malformed optional physical metadata %j', async ({ storedCoverage }) => {
+  global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ seq: 200, layerState: {},
+    layers: [{ layerId: 'background', seq: 200, hash: 'legacy-safe' }], storedCoverage }) })
+    .mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) })
+  const uploader = createSnapshotUploader('room-1')
+  const { engine, bakeCalls } = fakeEngine({ background: new Uint8Array([7]), 'layer-1': new Uint8Array([8]) })
+  uploader.requestFirstSnapshot()
+  await observeFirst(uploader, 281, engine, layerState())
+  await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  expect(bakeCalls).toEqual(['layer-1'])
+  expect(Object.keys(JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body).layers)).toEqual(['layer-1'])
 })

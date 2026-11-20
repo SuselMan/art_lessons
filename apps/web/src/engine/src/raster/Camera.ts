@@ -180,6 +180,20 @@ export class Camera {
     }
   }
 
+  /** CSS/widget pixels per image unit for native cursor-history thresholds.
+   * A nonuniform CSS stretch has no scalar native equivalent; leave opt-in off.
+   */
+  effectiveInputZoom(nominalCssZoom?: number): number | undefined {
+    // The viewport knows its scalar zoom before integer backing-store rounding.
+    // When supplied, do not infer it from rounded dimensions or read DOM layout.
+    if(nominalCssZoom!==undefined)return Number.isFinite(nominalCssZoom)&&nominalCssZoom>0 ? nominalCssZoom : undefined
+    const rect=this.canvasRect()
+    const sx=this._canvas.width/(rect.width || this._canvas.width)
+    const sy=this._canvas.height/(rect.height || this._canvas.height)
+    if(!Number.isFinite(sx) || !Number.isFinite(sy) || sx<=0 || sy<=0 || Math.abs(sx-sy)>1e-6*Math.max(sx,sy))return undefined
+    return this._pose.zoom/sx
+  }
+
   /** Pixel size for the split caches and the assembly buffer: a square padded
    *  to the canvas's own half-diagonal, big enough that any camera rotation
    *  still finds the whole screen covered once the final pass crops/rotates
