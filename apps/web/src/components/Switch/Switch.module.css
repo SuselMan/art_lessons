@@ -148,10 +148,7 @@
   .switch:hover {
     color: var(--color-text);
   }
-  .switch:hover .track {
-    border-color: var(--color-accent-hover);
-  }
-  /* Keep the capsule colour steady; the track carries hover feedback. */
+  /* Keep the capsule colour steady; only an enabled track changes its fill. */
   .switch:hover .thumb {
     background: var(--color-switch-knob);
   }
