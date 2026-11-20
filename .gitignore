@@ -45,3 +45,6 @@ __pycache__/
 
 # Verified stock distribution is fetched as a pinned release artifact in CI.
 apps/server/resources/brush-stock/
+
+# UI component workshop
+apps/web/storybook-static/

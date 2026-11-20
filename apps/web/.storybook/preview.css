@@ -1,0 +1,66 @@
+/* Only the workshop's presentation; component styles come from the app. */
+body {
+  touch-action: auto;
+  overflow: auto;
+}
+.workshop {
+  background: var(--color-bg);
+  color: var(--color-text);
+  max-width: 1040px;
+  padding: 12px;
+  font: 14px/1.5 var(--font-sans);
+}
+.workshop h2 {
+  font-size: 16px;
+  color: var(--color-text-bright);
+  margin-bottom: 12px;
+}
+.workshop h3 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-dim);
+  margin-bottom: 8px;
+}
+.workshop p {
+  margin-block: 8px;
+}
+.workshop section + section {
+  margin-top: 28px;
+}
+.workshop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.workshop-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+}
+.workshop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+.workshop-swatch {
+  height: 64px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+.workshop code {
+  font: 11px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.workshop-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+.workshop-label {
+  color: var(--color-text-dim);
+  font-size: 12px;
+}

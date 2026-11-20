@@ -49,6 +49,7 @@ module.exports = {
         orphan: true,
         pathNot: [
           '[.]d[.]ts$',
+          '^apps/web/[.]storybook/main[.]ts$', // Storybook loads this entry point.
           '(^|/)[.][^/]+[.](js|cjs|mjs|ts|cts|mts|json)$',
           '(^|/)(babel|webpack|vite|vitest|playwright)[.]config[.](js|cjs|mjs|ts)$',
         ],
