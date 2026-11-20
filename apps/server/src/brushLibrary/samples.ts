@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { chromium, type Browser } from 'playwright'
-import { BRUSH_SAMPLE_VERSION, brushAssetIds, type BrushLibrary, type ImportedBrush } from '@grafetto/shared'
+import { BRUSH_SAMPLE_VERSION, NATIVE_BRUSH_SAMPLE_VERSION, brushAssetIds, type BrushLibrary, type ImportedBrush } from '@grafetto/shared'
 import { BrushStorage, empty } from './storage.js'
 import { brushContentHash, brushReference } from './contentAddressing.js'
-export const sampleKey = (brush: ImportedBrush | string): string => createHash('sha256').update(BRUSH_SAMPLE_VERSION + ':' + (typeof brush === 'string' ? 'native:' + brush : brushContentHash(brush))).digest('hex')
+export const sampleKey = (brush: ImportedBrush | string): string => createHash('sha256').update((typeof brush === 'string' ? NATIVE_BRUSH_SAMPLE_VERSION : BRUSH_SAMPLE_VERSION) + ':' + (typeof brush === 'string' ? 'native:' + brush : brushContentHash(brush))).digest('hex')
 export class BrushSamples {
   private queue: Array<{ library: BrushLibrary; reference: string; key: string }> = []
   private pending = new Set<string>()

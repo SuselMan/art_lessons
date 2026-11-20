@@ -28,7 +28,7 @@ export const NATIVE_GALLERY_BRUSHES = [
 export const DEFAULT_BRUSH_SELECTION: string[] = NATIVE_GALLERY_BRUSHES.map(b => b.reference)
 export function isNativeBrushReference(ref: string): boolean { return NATIVE_GALLERY_BRUSHES.some(b => b.reference === ref) }
 
-export const BRUSH_SAMPLE_VERSION = 'stroke-v2'
+export const BRUSH_SAMPLE_VERSION = 'stroke-v3'
 
 /** Browsing hints, not rendering semantics or permissions. Presets often carry
  * their medium in their authored name; fall back to the execution category. */
@@ -44,3 +44,6 @@ export function galleryBrushCategory(brush: ImportedBrush): string {
   if (/texture|stamp|pattern|текстур/.test(name)) return 'texture'
   return brush.descriptor.category === 'line' ? 'ink' : brush.descriptor.category === 'texture' ? 'texture' : brush.descriptor.category === 'scatter' ? 'spray' : 'paint'
 }
+
+/** Native samples use textured paper; imported sample recipes stay unchanged. */
+export const NATIVE_BRUSH_SAMPLE_VERSION = 'stroke-native-paper-v2'

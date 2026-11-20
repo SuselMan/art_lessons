@@ -65,7 +65,7 @@ module.exports = {
   ],
 
   options: {
-    doNotFollow: { path: 'node_modules|^packages/UiKit/' },
+    doNotFollow: { path: 'node_modules' },
     exclude: {
       path: [
         'node_modules',

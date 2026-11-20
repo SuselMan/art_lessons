@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import svgr from 'vite-plugin-svgr'
 import mkcert from 'vite-plugin-mkcert'
 import { VitePWA } from 'vite-plugin-pwa'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
@@ -139,7 +138,6 @@ export default defineConfig(({ mode }) => {
     // comes to that.
     define: { __SENTRY_DEBUG__: false, __SENTRY_TRACING__: false },
     plugins: [
-      svgr(),
       {
         name: 'grafetto-landing-logo',
         transformIndexHtml(html) {

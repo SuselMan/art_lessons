@@ -49,7 +49,7 @@ export function OptionPopup({
       role="option"
       data-value={option.value}
       aria-selected={option.value === value}
-      className={clsx(styles.item, tile && styles.itemTile, option.value === value && styles.itemSelected)}
+      className={clsx(styles.item, (option.photo || option.thumbnail) && styles.brushItem, tile && styles.itemTile, option.value === value && styles.itemSelected)}
       onClick={() => { if (option.action) option.action(); else onSelect(option.value); onDismiss() }}
     >
       <OptionPreview option={option} shape="strip" />

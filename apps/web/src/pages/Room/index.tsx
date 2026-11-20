@@ -1,4 +1,4 @@
-import UiButton from '../../../../../packages/UiKit/components/Button/Button'
+import { Button } from '../../components/Button'
 import { RoomBrushGallery } from '../../components/BrushGallery/RoomBrushGallery'
 import { loadBrushPreferences, saveBrushPreferences } from '../../lib/tools/brushPreferences'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
@@ -1517,7 +1517,7 @@ function RoomEditor() {
           onClose={() => setSettingsOpen(false)}
           roomId={lessonId}
           isOwner={isOwner}
-          toolsContent={<UiButton size="md" type="secondary" onClick={openGallery}>{t('gallery.more')}</UiButton>}
+          toolsContent={<Button size="md" type="secondary" onClick={openGallery}><span className="material-symbols-outlined" aria-hidden="true">add</span>{t('gallery.more')}</Button>}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
           classVisibility={classVisibility}

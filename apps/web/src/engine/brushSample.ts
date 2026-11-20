@@ -1,4 +1,4 @@
-import { BRUSH_SAMPLE_VERSION, strokeDabs, galleryBrushRole, type BrushLibrary, type ToolType } from '@grafetto/shared'
+import { BRUSH_SAMPLE_VERSION, strokeDabs, galleryBrushRole, type Operation, type BrushLibrary, type ToolType } from '@grafetto/shared'
 import { PencilEngine } from './index'
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, prepareMyPaintKernel, prepareBristleSaturationLookup } from './brushLibrary'
 
@@ -17,7 +17,7 @@ export async function renderBrushSample(input: BrushSampleInput): Promise<string
   Object.assign(canvas.style, { width: '512px', height: '128px', position: 'fixed', left: '0', top: '0' })
   document.body.append(canvas)
   let strokes = 0
-  const engine = new PencilEngine(canvas, { paper: 'flat', pageWidth: 512, pageHeight: 128, userId: 'brush-preview', onLocalOperation: op => { if (op.type === 'stroke') strokes++ } })
+  const engine = new PencilEngine(canvas, { paper: !brush && role === 'drawing' ? 'medium' : 'flat', pageWidth: 512, pageHeight: 128, userId: 'brush-preview', onLocalOperation: op => { if (op.type === 'stroke') strokes++ } })
   const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
   try {
     await engine.paperReady()
@@ -38,7 +38,18 @@ export async function renderBrushSample(input: BrushSampleInput): Promise<string
       const recorded = engine.getOperations().filter(op => op.type === 'stroke').slice(-1)[0]
       if (points.length > 20 && (!recorded || recorded.type !== 'stroke' || strokeDabs(recorded).length < 8)) throw Error('Sample stroke contains no continuous movement')
     }
-    if (role !== 'drawing' || clone) {
+    if (role !== 'drawing') {
+      const backdrop = document.createElement('canvas'); backdrop.width = 512; backdrop.height = 128
+      const ctx = backdrop.getContext('2d')!
+      ctx.fillStyle = '#5555aa'; ctx.fillRect(0, 0, 512, 128)
+      if (role === 'smudge') {
+        ctx.fillStyle = '#efece6'
+        for (let y = 0; y < 128; y += 32) for (let x = 0; x < 512; x += 32) if ((x / 32 + y / 32) % 2 === 0) ctx.fillRect(x, y, 32, 32)
+      }
+      const underlay: Operation = { type: 'image_import', id: 'sample-background', userId: 'brush-preview', timestamp: 0, layerId: 'ink', image: backdrop.toDataURL(), width: 512, height: 128 }
+      await engine.preloadImages([underlay]); engine.appendOperation(underlay)
+    }
+    if (clone) {
       const underlayY = clone ? 106 : 64
       engine.setTool('marker'); engine.setPencil('round'); engine.setSize(clone ? 44 : 74); engine.setOpacity(1)
       engine.setColor([0.18, 0.42, 0.72])
@@ -52,7 +63,9 @@ export async function renderBrushSample(input: BrushSampleInput): Promise<string
     if (brush?.descriptor.bristle?.ink?.useSaturation) { const work = prepareBristleSaturationLookup(brush.descriptor.bristle); if (work) await work }
     const tool: ToolType = brush ? role === 'drawing' ? 'digitalBrush' : role : input.reference as ToolType
     engine.setTool(tool); engine.setPencil(brush ? input.reference : tool === 'eraser' || tool === 'smudge' ? 'native' : 'HB')
-    engine.setSize(brush ? Math.max(8, Math.min(54, brush.sourceDefaults?.sizePx ?? 28)) : 26)
+    engine.setSize(brush ? Math.max(8, Math.min(54, brush.sourceDefaults?.sizePx ?? 28)) : tool === 'pencil' ? 14 : 26)
+    if (!brush && tool === 'marker') { engine.setPencil('chisel'); engine.setNibAngle(Math.PI / 4, 'screen') }
+    if (!brush && tool === 'liner') { engine.setPencil('0.1'); engine.setSize(2) }
     engine.setOpacity(1); engine.setColor([0.12, 0.14, 0.18])
     if (brush) await engine.prepareBrush(input.reference)
     await wait(50)

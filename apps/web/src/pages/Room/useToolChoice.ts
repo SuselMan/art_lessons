@@ -38,7 +38,7 @@ export function useToolChoice(roomId: string | undefined) {
   useRememberedTool(roomId)
   const t = useT()
   const [galleryOpen, setGalleryOpen] = useState(false)
-  const moreBrushes = useMemo<PickerOption>(() => ({ value: 'more-brushes', label: t('gallery.more'), action: () => setGalleryOpen(true) }), [t])
+  const moreBrushes = useMemo<PickerOption>(() => ({ value: 'more-brushes', icon: 'add', label: t('gallery.more'), action: () => setGalleryOpen(true) }), [t])
   // (#548) `undefined` for all tools, which is what every room says until
   // someone restricts it. Read straight off the room rather than mirrored into
   // a field of its own: it arrives inside `room_state` and is patched by

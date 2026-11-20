@@ -322,29 +322,3 @@
     0 6px 28px rgba(0, 0, 0, 0.26);
 }
 
-/* Theme adapter for the shared UiKit. Product palette stays authoritative. */
-:root {
-  --main-bg: var(--color-surface);
-  --second-bg: var(--color-bg);
-  --main-text-color: var(--color-text);
-  --disabled-text-color: var(--color-text-dim);
-  --border-color: var(--color-border-strong);
-  --main-active-color: var(--color-accent);
-  --main-active-color-hover: var(--color-accent);
-  --link-text: var(--color-accent);
-  --white: #fff;
-  --overlay-color: rgb(0 0 0 / 55%);
-  --error-text-color: var(--color-error);
-  --error-bg: var(--color-surface);
-  --error-bg-hover: var(--color-surface);
-  --spacing-xs: 2px;
-  --spacing-sm: 6px;
-  --spacing-md: 12px;
-  --spacing-lg: 18px;
-  --border-radius-md: var(--radius-sm);
-  --border-radius-round: 100vh;
-  --font-size-sm: 12px;
-  --font-size-md: 14px;
-  --font-size-lg: 16px;
-  --z-index-modal: 10000;
-}
