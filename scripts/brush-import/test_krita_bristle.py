@@ -4,6 +4,27 @@ from test_krita import kpp
 from brush_contract import Catalog
 from krita_import import preset
 class BristleTests(unittest.TestCase):
+    def test_procedural_source_preserves_density_and_is_deterministic(self):
+        from bristle_procedural import standard_circle
+        import xml.etree.ElementTree as ET
+        def source(density, randomness='0', angle='0'):
+            return ET.fromstring('<Brush type="auto_brush" density="'+density+'" randomness="'+randomness+'" angle="'+angle+'"><MaskGenerator id="default" type="circle" ratio="1" hfade=".6" vfade=".6" spikes="4" antialiasEdges="1"/></Brush>')
+        full=standard_circle(source('1'),25)
+        sparse=standard_circle(source('.36','.2'),25)
+        self.assertEqual(sparse.tobytes(),standard_circle(source('.36','.2'),25).tobytes())
+        self.assertLess(sum(value>0 for value in sparse.tobytes()),sum(value>0 for value in full.tobytes()))
+        self.assertEqual(max(standard_circle(source('0'),25).tobytes()),0)
+        with self.assertRaisesRegex(ValueError,'bounds'):standard_circle(source('1',angle='30'),25)
+
+    def test_procedural_bristle_converts_to_fixed_hairs(self):
+        definition='<Brush type="auto_brush" density=".36" randomness="0" angle="0"><MaskGenerator id="default" type="circle" ratio="1" hfade=".6" vfade=".6" diameter="25" spikes="4" antialiasEdges="1"/></Brush>'
+        data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/density">14</param><param name="HairyBristle/antialias">true</param><param name="HairyBristle/useCompositing">false</param><param name="PaintOpAction">2</param>')
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(data,'test.kpp',Catalog(Path(tmp)),{})
+        self.assertEqual(result['descriptor']['version'],135)
+        self.assertGreater(len(result['descriptor']['bristle']['hairs']),0)
+        self.assertTrue(any(n['feature']=='bristleProceduralSource' for n in result['compatibility']))
+
     def convert(self,extra='',aa=True):
         definition='<Brush type="gbr_brush" filename="hair.gbr" scale="1" ColorAsMask="1"/>'
         data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/antialias">'+str(aa).lower()+'</param>'+extra)
