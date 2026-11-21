@@ -756,7 +756,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(gradientWash&&!brush.texture?.material&&!this.gradientStamp)throw Error('Pixel Gradient Wash138 program was not prepared')
     const tangentWash=!!brush.tangentNormal&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(tangentWash&&(!hasTangentNormalWash136Scope(brush)||effectiveErase))throw Error('Invalid Tangent Wash136 scope')
-    if(tangentWash&&!this.proceduralStamp)throw Error('Tangent Wash136 procedural program was not prepared')
+    if(tangentWash&&!(brush.version===207?this.imageStamp:this.proceduralStamp))throw Error('Tangent Wash mask program was not prepared')
     const sketch194=usesNativeSketchSpray(brush)&&!!brush.sketch,sketchWash=sketch194&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     const bristleWash=!!brush.bristle&&brush.behavior?.rendering?.accumulation==='alphaDarken'
     if(bristleWash&&(!hasBristleWash135Scope(brush)||effectiveErase))throw Error('Invalid Bristle Wash135 scope')

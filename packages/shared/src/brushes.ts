@@ -527,6 +527,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    if(d.version===207&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===206&&(maskRoot!==undefined||!hasTangentNormalWash136Scope(d)))return false
     if(d.version===205&&(maskRoot!==undefined||!hasBristleSoak139Scope(d)||!record(d.behavior)||!record(d.behavior.dynamics)||!record(d.behavior.dynamics.angle)||d.behavior.dynamics.angle.control!=='tiltDirection'))return false
     if(d.version===204&&(maskRoot!==undefined||d.model!=='stamp'||!record(d.hatching)||!record(d.tip)||d.tip.kind!=='procedural'||!record(d.tip.profile)||d.tip.profile.kind!=='standard'||!record(d.tip.autoNoise)||d.tip.autoShape!==undefined||d.tip.alphaThreshold!==undefined||['mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)||!record(d.behavior)||d.behavior.dual!==undefined||d.behavior.timing!==undefined||!record(d.behavior.rendering)||d.behavior.rendering.blendMode!=='normal'||d.behavior.rendering.accumulation!=='directOver'))return false

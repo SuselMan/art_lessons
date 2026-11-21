@@ -1,6 +1,6 @@
 """Authored native-format derivatives; genuine original retained for future CAPS."""
 from pathlib import Path
-import io,json,copy,tempfile,unittest
+import io,json,copy,tempfile,unittest,struct,base64
 import xml.etree.ElementTree as ET
 from PIL import Image,PngImagePlugin
 from brush_contract import Catalog,finalize_identity
@@ -13,6 +13,14 @@ def authored(action='2',extra=None):
  for k,v in{**PARAMS,'PaintOpAction':action,**(extra or{})}.items():ET.SubElement(root,'param',{'name':k}).text=v
  info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));b=io.BytesIO();Image.new('RGB',(2,2),'red').save(b,format='PNG',pnginfo=info);return b.getvalue()
 class TangentWash136(unittest.TestCase):
+ def test_bitmap_wash_uses_version207_and_original_mask(self):
+  name=b'own\0';gbr=struct.pack('>7I',28+len(name),2,4,4,1,0x47494d50,25)+name+bytes(range(16))
+  definition='<Brush type="gbr_brush" filename="own.gbr" ColorAsMask="1" scale="1"/>'
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'Own.kpp';p.write_bytes(authored(extra={'brush_definition':definition}));c=Catalog(Path(tmp)/'out');convert_krita(p,c,{'own.gbr':gbr})
+   self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],207);self.assertEqual(d['tip']['imageSampling']['kind'],'integer-pyramid');self.assertTrue(tangent_wash136_scope(d))
+   payload={key:base64.b64encode((c.output/asset['file']).read_bytes()).decode()for key,asset in c.assets.items()};path=Path(tmp)/'portable.json';path.write_text(json.dumps({'library':c.write(),'assets':payload}))
+   out=Catalog(Path(tmp)/'roundtrip');portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
  def test_elliptical_wash_uses_version206(self):
   definition=PARAMS['brush_definition'].replace('ratio="1"','ratio=".47"')
   with tempfile.TemporaryDirectory() as tmp:
