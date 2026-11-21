@@ -48,6 +48,19 @@ function readDrafts(): Drafts {
     return { dark: clean(saved.dark), light: clean(saved.light) }
   } catch { return { dark: {}, light: {} } }
 }
+type PaletteVariant = { id: string; name: string; colors: Drafts }
+const variantsKey = `${storageKey}.variants`
+const snapshot = (drafts: Drafts): Drafts => ({ dark: { ...palettes.dark, ...drafts.dark }, light: { ...palettes.light, ...drafts.light } })
+function readVariants(): PaletteVariant[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(variantsKey) ?? '[]')
+    if (!Array.isArray(saved)) return []
+    return saved.filter((value): value is PaletteVariant => !!value && typeof value.id === 'string' && typeof value.name === 'string' && value.name.trim().length > 0 && ['dark', 'light'].every(theme => value.colors?.[theme] && Object.entries(value.colors[theme]).every(([name, color]) => Object.hasOwn(dark, name) && typeof color === 'string' && validColor(color))))
+  } catch { return [] }
+}
+function samePalette(a: Drafts, b: Drafts) {
+  return (['dark', 'light'] as const).every(theme => Object.keys(dark).every(name => a[theme][name] === b[theme][name]))
+}
 function exportCss(drafts: Drafts) {
   return (['dark', 'light'] as const).map(theme => `${theme === 'dark' ? ':root' : ":root[data-theme='light']"} {\n${Object.entries(drafts[theme]).filter(([, value]) => validColor(value)).map(([name, value]) => `  ${name}: ${value};`).join('\n')}\n}`).join('\n\n')
 }
@@ -98,6 +111,25 @@ function Workspace() {
 function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (theme: Theme) => void }) {
   const [picked, setPicked] = useState<{ name: string; rgb: [number, number, number]; alpha: number } | null>(null)
   const [drafts, setDrafts] = useState<Drafts>(readDrafts), [filter, setFilter] = useState(''), [copied, setCopied] = useState(false)
+  const [variants, setVariants] = useState<PaletteVariant[]>(readVariants)
+  const [savingVariant, setSavingVariant] = useState(false), [variantName, setVariantName] = useState('')
+  const [storageError, setStorageError] = useState(false)
+  const [preferredVariant, setPreferredVariant] = useState('')
+  const current = snapshot(drafts)
+  const preferredColors = preferredVariant === 'original' ? palettes : variants.find(variant => variant.id === preferredVariant)?.colors
+  const selectedVariant = preferredColors && samePalette(snapshot(preferredColors), current) ? preferredVariant : variants.find(variant => samePalette(snapshot(variant.colors), current))?.id ?? (samePalette(palettes, current) ? 'original' : 'custom')
+  const selectVariant = (id: string) => {
+    const colors = id === 'original' ? palettes : variants.find(variant => variant.id === id)?.colors
+    if (!colors) return
+    const overrides = (theme: Theme) => Object.fromEntries(Object.entries(colors[theme]).filter(([name, value]) => value !== palettes[theme][name]))
+    setDrafts({ dark: overrides('dark'), light: overrides('light') }); setPreferredVariant(id); setCopied(false); setPicked(null)
+  }
+  const saveVariant = () => {
+    if (!variantName.trim() || invalid) return
+    const next = [...variants, { id: crypto.randomUUID(), name: variantName.trim(), colors: snapshot(drafts) }]
+    try { localStorage.setItem(variantsKey, JSON.stringify(next)); setVariants(next); setPreferredVariant(next[next.length - 1].id); setSavingVariant(false); setStorageError(false) }
+    catch { setStorageError(true) }
+  }
   const draft = drafts[theme]
   useEffect(() => { setPicked(null) }, [theme])
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(drafts)) } catch { /* Preview still works without storage. */ } }, [drafts])
@@ -134,7 +166,7 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
   return <main className={styles.page} data-palette-playground>
     <div className={styles.top}><div><h1>Палитра в интерфейсе</h1><p>Живые компоненты Grafetto. Наводи, переключай, открывай меню и окна.</p></div><OptionGroup variant="segmented" selection="radio" ariaLabel="Тема палитры" active={theme} onSelect={value => onThemeChange(value === 'light' ? 'light' : 'dark')} options={[{ id: 'dark', label: 'Тёмная' }, { id: 'light', label: 'Светлая' }]} /></div>
     <div className={styles.layout}><div className={styles.previewColumn}><Workspace /><div className={styles.colorStrip} role="img" aria-label={`Палитра: все ${Object.keys(dark).length} цвета`}>{groups.flatMap(group => group.names).map(name => <span key={name} aria-hidden="true" style={{ background: `var(--color-${name})` }} />)}</div></div><aside className={styles.palette} aria-label="Редактор палитры">
-      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => { setCopied(false); setDrafts(current => ({ ...current, [theme]: {} })) }}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><Button variant="secondary" size="sm" disabled={invalid} onClick={download}>Скачать CSS</Button><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
+      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><div className={styles.variantControls}><OptionSelect label="Сохранённые варианты" value={selectedVariant} onChange={selectVariant} options={[{ value: 'original', label: 'Исходная палитра' }, ...(selectedVariant === 'custom' ? [{ value: 'custom', label: 'Текущие правки' }] : []), ...variants.map(variant => ({ value: variant.id, label: variant.name }))]} /><Button variant="secondary" size="sm" disabled={invalid} onClick={() => { setVariantName(`Вариант ${variants.length + 1}`); setStorageError(false); setSavingVariant(true) }}>Сохранить вариант</Button></div><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => { setCopied(false); setDrafts(current => ({ ...current, [theme]: {} })) }}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><Button variant="secondary" size="sm" disabled={invalid} onClick={download}>Скачать CSS</Button><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
       <div className={styles.tokenList}>{groups.map(group => {
         const names = group.names.filter(name => `--color-${name}`.includes(filter.toLowerCase()))
         return names.length ? <details key={group.title} open><summary>{group.title}</summary><p className={styles.hint}>{group.usage}</p>{names.map(short => {
@@ -144,6 +176,7 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
       })}</div>
       <details className={styles.export}><summary>CSS изменений · обе темы</summary><pre tabIndex={0}>{exportCss(drafts)}</pre></details>
     </aside></div>
+    {savingVariant && <Modal title="Сохранить вариант палитры" size="sm" onClose={() => setSavingVariant(false)}><form className={styles.dialog} onSubmit={event => { event.preventDefault(); saveVariant() }}><TextInput label="Название варианта" autoFocus maxLength={80} value={variantName} onChange={event => setVariantName(event.target.value)} /><p className={styles.hint}>Сохраняются обе темы в этом браузере.</p>{storageError && <Notice variant="error" message="Не удалось сохранить вариант. Проверьте доступность хранилища браузера." />}<div className={styles.row}><Button variant="secondary" onClick={() => setSavingVariant(false)}>Отмена</Button><Button type="submit" disabled={!variantName.trim() || invalid}>Сохранить</Button></div></form></Modal>}
     {picked && <Modal title={picked.name} onClose={() => setPicked(null)} size="sm"><div className={styles.dialog}><ColorPicker value={picked.rgb} onChange={rgb => changePicked(rgb, picked.alpha)} mode="ring" /><div><div className={styles.row}><span>Непрозрачность</span><span>{Math.round(picked.alpha * 100)}%</span></div><PrecisionSlider orientation="horizontal" title="Непрозрачность цвета" min={0} max={100} step={1} value={Math.round(picked.alpha * 100)} onChange={value => changePicked(picked.rgb, value / 100)} /></div><Button onClick={() => setPicked(null)}>Готово</Button></div></Modal>}
   </main>
 }
