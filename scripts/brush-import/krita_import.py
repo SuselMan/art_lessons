@@ -1437,6 +1437,10 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if engine=='colorsmudge' and enabled(params.get('PressureSoftness')):
         notes.append(compatibility('softnessDynamics','Native Color Smudge requests dab softness1.0; saved Pixel Softness controls do not modify its mask.','supported'))
     active=[k for k in params if k.startswith('Pressure') and clock_enabled(params, k) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source') in ('previousCanvas','projectionCanvas')) and not (k=='PressureTexture/Strength/' and (not enabled(params.get('Texture/Pattern/Enabled')) or (d.get('texture',{}).get('application')or d.get('texture',{}).get('material')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureMirror'and('mirror'in behavior or not any(mirror_axes))) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureGradient' and gradient_decoded) and not (k=='PressurePaintThickness' and (d.get('mixer',{}).get('paintThickness') or engine=='colorsmudge')) and not (k=='PressureLightnessStrength' and (d['tip'].get('material') or engine=='colorsmudge')) and not (k=='PressureSoftness' and (engine=='colorsmudge' or 'softness'in behavior or gaussian_softness_noop)) and not (k=='PressureSmudgeRadius' and engine=='colorsmudge' and numeric(params.get('SmudgeRateMode'),0)==0)]
+    # Pixel Brush does not construct ColorRate (a Color Smudge option), and
+    # Rotation_previous is saved UI state, not a live rotation sensor switch.
+    if engine=='paintbrush':
+        active=[k for k in active if k not in ('PressureColorRate','PressureRotation_previous')]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1548,7 +1552,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             else:
                 detail='Native random '+', '.join(refresh_random)+' spacing-refresh queries require a canonical non-painting RNG event contract; timed policy not enabled.'if refresh_random else 'Unsupported native Rate value or controls; timed policy not enabled.'
                 notes.append(compatibility('airbrush',detail,'unsupported'))
-        elif timed_input and not clock_enabled(params, 'PaintOpSettings/isAirbrushing'):
+        elif (timed_input or engine=='paintbrush') and not clock_enabled(params, 'PaintOpSettings/isAirbrushing'):
             notes.append(compatibility('airbrush','Legacy alias does not enable timed painting in pinned native settings reader.'))
         else:notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     if engine=='paintbrush':
