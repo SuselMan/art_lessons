@@ -5,6 +5,14 @@ float p117floor(float n,float d){float q=floor(n/d),r=n-q*d;return r<0.?q-1.:(r>
 float p117nearest(float n,float d){float q=p117floor(n,d),r=n-q*d;return q+(2.*r>=d?1.:0.);}
 float p117channel(float u,float m,float h){float q=p117floor(u,m),r=u-q*m;return q*m+(r>h?m:0.);}
 vec4 p117posterize(vec4 original,float steps){vec4 bytes=floor(clamp(original,0.,1.)*255.+.5);float a=bytes.a,m=p117floor(65535.,steps),h=floor(m*.5);vec3 u=a>0.?vec3(p117nearest(bytes.r*65535.,a),p117nearest(bytes.g*65535.,a),p117nearest(bytes.b*65535.,a)):vec3(0.);vec4 q=vec4(p117channel(u.r,m,h),p117channel(u.g,m,h),p117channel(u.b,m,h),p117channel(a*257.,m,h))/65535.;return vec4(q.rgb*q.a,q.a);}
+uniform vec4 u_noiseSeeds;
+uniform vec4 u_noiseSettings;
+uniform vec2 u_noiseWorldOrigin;
+uniform vec2 u_noiseResolution;
+float filterNoiseHash(vec2 p,float seed){
+ p=mod(floor(p),4093.0);float x=mod(p.x+seed,4093.0),y=mod(p.y+seed*3.0,4093.0);
+ float n=mod(mod(x*x,4093.0)+mod(1237.0*y,4093.0)+mod(seed*31.0,4093.0),4093.0);n=mod(mod(n*n,4093.0)+mod(193.0*x,4093.0)+mod(17.0*y,4093.0),4093.0);return n/4093.0;
+}
 uniform vec3 u_balanceShadows;
 uniform vec3 u_balanceMidtones;
 uniform vec3 u_balanceHighlights;
@@ -26,6 +34,13 @@ vec4 filterColorBalance(vec4 original,float preserveLuminosity){
  return vec4(clamp(adjusted,0.0,1.0)*alpha,alpha);
 }
 vec4 filterPointwise(vec4 original,vec4 settings){
+ if(settings.w>6.5){
+  vec2 p=u_noiseWorldOrigin+vec2(floor(gl_FragCoord.x),floor(u_noiseResolution.y-gl_FragCoord.y));
+  if(filterNoiseHash(p,u_noiseSeeds.x)<=1.0-u_noiseSettings.x)return original;
+  float red=floor(filterNoiseHash(p,u_noiseSeeds.y)*255.0)/255.0;
+  vec3 color=u_noiseSettings.z>0.5?vec3(red):vec3(red,floor(filterNoiseHash(p,u_noiseSeeds.z)*255.0)/255.0,floor(filterNoiseHash(p,u_noiseSeeds.w)*255.0)/255.0);
+  return mix(original,vec4(color,1.0),u_noiseSettings.y);
+ }
  if(settings.w>5.5){
   float a=original.a;vec3 rgb=a>0.0?clamp(original.rgb/a,0.0,1.0):vec3(0.0);
   float hi=max(max(rgb.r,rgb.g),rgb.b),lo=min(min(rgb.r,rgb.g),rgb.b),c=hi-lo;

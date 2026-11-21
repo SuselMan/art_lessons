@@ -24,7 +24,23 @@ def lower_filter192(data,root,params,name,catalog,external):
     # Only filter configuration is needed; unrelated active keys cannot affect kernel parsing.
     for key,value in values.items():
         if key.startswith('Filter/')or key in('brush_definition','CompositeOp','EraserMode'):ET.SubElement(kernel,'param',name=key).text=value
-    if params.get('Filter/id')=='hsvadjustment':
+    if params.get('Filter/id')=='noise':
+        configs=root.findall('filterconfig')
+        if len(configs)>1:raise ValueError('Duplicate Filter configuration')
+        cfg=configs[0] if configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None
+        config={p.get('name'):p.text or '' for p in cfg.iter('param')} if cfg is not None else {}
+        if cfg is not None and len(config)!=len(list(cfg.iter('param'))):raise ValueError('Duplicate Filter configuration parameter')
+        if set(config)-{'level','opacity','grayscale','seedThreshold','seedRed','seedGreen','seedBlue'}:raise ValueError('Unknown Noise setting')
+        def integer(key,default,limit):
+            try:value=int(config.get(key,default))
+            except (ValueError,TypeError):raise ValueError('Invalid Noise parameter')from None
+            if not 0<=value<=limit:raise ValueError('Noise parameter outside native range')
+            return value
+        seeds=[integer(k,None,2147483647)for k in ('seedThreshold','seedRed','seedGreen','seedBlue')]
+        gray=config.get('grayscale','false').lower()
+        if gray not in ('true','false','1','0'):raise ValueError('Invalid Noise grayscale')
+        f={'version':3,'kind':'noise','level':integer('level',50,100),'opacity':integer('opacity',100,100),'grayscale':gray in ('true','1'),'seeds':seeds}
+    elif params.get('Filter/id')=='hsvadjustment':
         configs=root.findall('filterconfig')
         if len(configs)>1:raise ValueError('Duplicate Filter configuration')
         cfg=configs[0] if configs else xml(params['Filter/configuration']) if params.get('Filter/configuration') else None
@@ -101,6 +117,7 @@ def lower_filter192(data,root,params,name,catalog,external):
     if bad:raise ValueError('Unlowered native Filter192 settings: '+', '.join(bad))
     result['compatibility']=[n for n in result['compatibility']if n['feature']!='kritaEngine']
     result['compatibility'].append(compatibility('filterMask192','Native Filter five existing kernels use canonical BEGIN, true OVER/false COPY temporary updates, complete alpha8 dab and destination composite. IMAGE/PIPE_IMAGE bake default-sRGB linear709 then sRGB GrayA times alpha offline; native ICC/Qt/RNG and byte identity are qualified. Pixel-only saved options are ignored by native FilterOp: '+(', '.join(ignored)or'none')+'.'))
+    if f['kind']=='noise':result['compatibility'].append(compatibility('noiseFilter','Native threshold, per-channel seeds and opacity retained with deterministic coordinate noise; Krita uses a different random generator, so its exact speckle pattern differs.'))
     if warning:result['compatibility'].append(compatibility('filterText192',warning))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
     finalize_identity(d,data)

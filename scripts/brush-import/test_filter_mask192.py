@@ -65,6 +65,13 @@ class Filter192Tests(unittest.TestCase):
                 else:d['filter'][{'policy':'maskPolicy','source':'sourcePolicy','composite':'composite'}[mutation]]='wrong'
                 path.write_text(json.dumps(bad))
                 with self.subTest(mutation=mutation),self.assertRaises(ValueError):convert.portable_bundle(path,Catalog(root/mutation))
+    def test_noise_seeds_and_bounds(self):
+        config='<filterconfig><param name="level">50</param><param name="opacity">50</param><param name="seedThreshold">1</param><param name="seedRed">2</param><param name="seedGreen">3</param><param name="seedBlue">4</param></filterconfig>'
+        with tempfile.TemporaryDirectory() as tmp:
+            def read(value):return preset(kpp(resources='<param name="Filter/id">noise</param>'+value,engine='filter'),'noise.kpp',Catalog(Path(tmp)/str(len(value))),{})
+            result=read(config);d=result['descriptor'];self.assertTrue(scope192(d));self.assertEqual(d['filter']['seeds'],[1,2,3,4]);self.assertTrue(any(x['feature']=='noiseFilter' and x['status']=='approximate' for x in result['compatibility']))
+            for bad in (config.replace('>50<','>101<'),config.replace('seedRed','unknownSeed')):
+                with self.assertRaises(ValueError):read(bad)
     def test_hsv_saturation_native_mode_and_rejections(self):
         config='<filterconfig><param name="type">0</param><param name="h">0</param><param name="s">50</param><param name="v">0</param><param name="colorize">false</param><param name="compatibilityMode">false</param></filterconfig>'
         with tempfile.TemporaryDirectory() as tmp:

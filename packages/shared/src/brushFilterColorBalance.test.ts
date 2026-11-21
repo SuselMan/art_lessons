@@ -21,3 +21,12 @@ it('admits bounded HSV saturation only inside native filter policy',()=>{
  if(bad.filter?.kind==='hsvSaturation')bad.filter.amount=1.01
  expect(isBrushLibrary(library192(bad))).toBe(false)
 })
+
+it('admits bounded seeded noise only inside native filter policy',()=>{
+ const brush=filter192()
+ brush.filter={version:3,kind:'noise',level:50,opacity:50,grayscale:false,seeds:[2973,3038,16114,13791],maskPolicy:'native-dab-v1',sourcePolicy:'canonical-begin-v1',smudgeMode:true,composite:'copy'}
+ expect(isBrushLibrary(library192(brush))).toBe(true)
+ const bad=structuredClone(brush)
+ if(bad.filter?.kind==='noise')bad.filter.seeds[0]=-1
+ expect(isBrushLibrary(library192(bad))).toBe(false)
+})
