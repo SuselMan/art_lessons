@@ -55,3 +55,12 @@ it('admits Krita surplus cells only within the unchanged-stride bound',()=>{
  const c=tensor(),a=c.brushes[0].descriptor.tip.animation!;a.frames=Array(17).fill(c.assets[0].id);expect(isBrushLibrary(c)).toBe(true)
  a.frames=Array(18).fill(c.assets[0].id);expect(isBrushLibrary(c)).toBe(false)
 })
+
+it('admits the versioned root Pixel lightness fan and rejects unrelated roles',()=>{
+ const c=tensor(),d=c.brushes[0].descriptor,id=c.assets[0].id;d.version=202
+ d.tip.material={kind:'lightness',gray:id,grayFrames:[id],strength:1}
+ d.behavior!.strokeInput={version:1,initialDirection:'cursorHistory',fanCorners:{stepDegrees:30}}
+ d.behavior!.rendering!.accumulation='alphaDarken'
+ expect(isBrushLibrary(c)).toBe(true)
+ const changed=structuredClone(c);changed.brushes[0].descriptor.behavior!.rendering!.accumulation='directOver';expect(isBrushLibrary(changed)).toBe(false)
+})

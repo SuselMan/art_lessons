@@ -379,3 +379,13 @@ use the native wrapped additive-angle law (`native-hue-v1`), with author-capture
 stroke seed and time where required. Native color-space quantization and the
 per-dab random sequence remain approximate. Other sensor combinations are still
 reported as unsupported.
+
+### Angular lightness pipes with corner fans
+
+Version 202 covers root Pixel Brush presets combining a multidimensional angular
+Lightness pipe, Wash accumulation and an authored corner fan. The recorded source
+requests and random seed are retained for replay. Bounded combined saturation or
+value sensors with nonunit strength use `native-hsv-strength-v1`; unsupported
+sensor combinations remain explicit. Large Lightness frame banks stream through
+the existing bounded GPU texture cache. Source input smoothing, native random
+sequence, ICC conversion and pixel rounding can still differ from Krita.

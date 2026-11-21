@@ -108,3 +108,13 @@ it('evaluates native hue combinations as wrapped additive angles, not products',
   const state=beginBrushBehavior(dab(1,2))
   expect(brushDynamicValue(hue,dab(1,2),state,.3)).toBeCloseTo(.6)
 })
+
+it('keeps native combined HSV strength around neutral and restricts its role',async()=>{
+ const {isBrushBehavior}=await import('@grafetto/shared')
+ const value:BrushDynamic={control:'off',minimum:0,jitter:0,combine:{mode:'product',policy:'native-hsv-strength-v1',constant:.2,
+  scaling:[{control:'pressure',minimum:0,jitter:0,curve:[[0,.5],[1,.5]]}],additive:[{control:'random',minimum:0,jitter:0,curve:[[0,.8],[1,.8]]}]}}
+ expect(isBrushBehavior({version:2,colorAdjustment:{value}})).toBe(true)
+ expect(isBrushBehavior({version:2,colorAdjustment:{hue:value}})).toBe(false)
+ expect(isBrushBehavior({version:2,dynamics:{size:value}})).toBe(false)
+ expect(brushDynamicValue(value,dab(1,2),beginBrushBehavior(dab(1,2)),.3)).toBeCloseTo(.416)
+})

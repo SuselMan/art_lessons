@@ -73,7 +73,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number,baseDiameter?:number,commitGeometry=false):BrushSpacingAxes {
-  if(brush.version===188||brush.version===190||brush.version===191||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush)||brush.version===195)assertRecordedPen188Values(input)
+  if(brush.version===188||brush.version===190||brush.version===191||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush)||brush.version===195||brush.version===202)assertRecordedPen188Values(input)
   if(brush.deform){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*profile.coefficient);return{x:step,y:step,angle:0}}
   if(brush.spray){const diameter=baseDiameter??input.size/Math.max(.000001,curveAt(brush.sizeByPressure,input.pressure));const step=Math.max(.5,diameter*brush.spacing);return{x:step,y:step,angle:0}}
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
@@ -262,6 +262,10 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
     const values=c.scaling.map((control,i)=>brushDynamicValue(control,dab,state,brushDabRandom(seed,0x51000+i),absolutePolicy))
     const scaling=!values.length?1:values.length===1?values[0]:c.mode==='sum'?values.reduce((a,b)=>a+b,0):c.mode==='max'?Math.max(...values):c.mode==='min'?Math.min(...values):c.mode==='difference'?Math.max(...values)-Math.min(...values):values.reduce((a,b)=>a*b,1)
     const additive=c.additive.length ? .5*(1+c.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,dab,state,brushDabRandom(seed,0x52000+i),absolutePolicy)-1,0)):1
+    if(c.policy==='native-hsv-strength-v1'){
+      const strength=c.constant??1
+      return (1-strength)/2+strength*clamp(strength*scaling*additive)
+    }
     if(c.policy==='native-hue-v1'){
       const native=(values.length ? 2*scaling-1 : 0)+(c.additive.length ? 2*additive-1 : 0)
       const wrapped=((native+1)%2+2)%2-1
@@ -466,7 +470,7 @@ function behaviorStampsForDabCore(brush: BrushDescriptor, dab: Dab, state: Brush
   number,
   number
 ], options: {sketchMask?:SketchMaskView;geometryOnly?:boolean;sprayRequest?:{spray?:{geometry:{x:number;y:number;radius:number};opacityScale:number;foreground:readonly[number,number,number]}}} = {}): BehaviorStamp[] {
-  if(brush.version===188||brush.version===190||brush.version===191||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush)||brush.version===195)assertRecordedPen188Values(dab)
+  if(brush.version===188||brush.version===190||brush.version===191||usesNativeFilterMask(brush)||usesNativeSmudgeFeatures(brush)||usesNativeSketchSpray(brush)||brush.version===195||brush.version===202)assertRecordedPen188Values(dab)
   assertSketchDistanceOpacityPolicy(brush)
   const sketchAngular182=hasSketchAngularGih182Scope(brush)
   const sketchMask=brush.sketch?.mode==='mask'?(options.sketchMask??prepareSketchMask(brush,state.execution)):undefined

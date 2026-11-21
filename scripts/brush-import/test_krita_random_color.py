@@ -60,6 +60,16 @@ class RandomOptionTests(unittest.TestCase):
         self.assertAlmostEqual(control['curve'][-1][1],.29+.42*.42)
         self.assertFalse(any(n['feature']=='activeDynamics' and 'Pressures' in n['detail'] for n in result['compatibility']))
 
+    def test_combined_value_strength_keeps_neutral_offset_and_restricted_role(self):
+        sensor='<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="distance" length="1200" periodic="1"/></params>'
+        result=self.brush({'Pressurev':'true','vValue':'.2','vSensor':sensor,'vUseCurve':'true','vUseSameCurve':'false'})
+        control=result['descriptor']['behavior']['colorAdjustment']['value']
+        self.assertEqual(control['combine']['policy'],'native-hsv-strength-v1');self.assertEqual(control['combine']['constant'],.2)
+        self.assertFalse(any(n['status']=='unsupported' for n in result['compatibility']))
+        convert.validate_portable_profile(result['descriptor'])
+        forged=copy.deepcopy(result['descriptor']);adjustment=forged['behavior']['colorAdjustment'];adjustment['hue']=adjustment.pop('value')
+        with self.assertRaisesRegex(ValueError,'Native HSV strength'):convert.validate_portable_profile(forged)
+
     def test_pixel_size_perspective_retains_native_no_assistant_default(self):
         sensor='<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="perspective"><curve>0,.2;1,.8;</curve></ChildSensor></params>'
         result=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeUseSameCurve':'false','SizeSensor':sensor})

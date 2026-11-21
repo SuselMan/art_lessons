@@ -16,7 +16,7 @@ export function usesNativeMask190Controls(value:unknown):boolean {
 /** Native Pixel mask components only. Asset references/planes/profile parameters
  * are validated by the full library validator; this establishes execution role,
  * not an alternative permissive schema or a version-downgrade proxy. */
-export function nativeMaskComponentStructure(value:unknown,root:boolean,revision:190|191|195=190,policy?:BrushStructurePolicy):value is Record<string,unknown>{
+export function nativeMaskComponentStructure(value:unknown,root:boolean,revision:190|191|195|202=190,policy?:BrushStructurePolicy):value is Record<string,unknown>{
  const stationary=isStationary195Structure(value,policy)
  if(revision===195&&!stationary)return false
  if(!record(value)||value.version!==revision||value.model!=='stamp'||!record(value.tip)||!record(value.behavior)||otherEngines.some(k=>value[k]!==undefined))return false

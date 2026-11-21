@@ -7,7 +7,7 @@ export type BrushDualMaskMode=BrushBlendMode|'hardMixSofterPhotoshop'|'hardMixPh
 export type BrushControl = 'pressureIn' | 'perspective' | 'barrelRotation' | 'tangentialPressure' | 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time' | 'distance'
 export interface BrushDynamic {
   /** Bounded one-level native size-like sensor expression. Leaves retain their own curves. */
-  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number;policy?:'native-scatter-v1'|'native-hue-v1';absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve}}
+  combine?: {mode:'product'|'sum'|'max'|'min'|'difference';scaling:BrushDynamic[];additive:BrushDynamic[];constant?:number;policy?:'native-scatter-v1'|'native-hue-v1'|'native-hsv-strength-v1';absolute?:{locked:boolean;angleOffset:number;curve:BrushCurve}}
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
@@ -164,7 +164,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if(value.falloff !== undefined && !n(value.falloff)) return false
   if(value.softness !== undefined && !n(value.softness)) return false
   const color=value.colorAdjustment
-  if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.entries(color).every(([key,v])=>key==='hue'&&obj(v)&&obj(v.combine)&&v.combine.policy==='native-hue-v1'?isCombinedBrushDynamic(v,true):isBrushBehavior({version:2,dynamics:{size:v}})))) return false
+  if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.entries(color).every(([key,v])=>key==='hue'&&obj(v)&&obj(v.combine)&&v.combine.policy==='native-hue-v1'?isCombinedBrushDynamic(v,true):key!=='hue'&&obj(v)&&obj(v.combine)&&v.combine.policy==='native-hsv-strength-v1'?isCombinedBrushDynamic(v,false,true):isBrushBehavior({version:2,dynamics:{size:v}})))) return false
   const mix=value.colorMix
   if(mix!==undefined&&(!obj(mix)||!keys(mix,['version','value','pressure'])||mix.version!==1||!n(mix.value)||!isBrushCurve(mix.pressure,1,256,true)))return false
   const mirror=value.mirror
@@ -204,14 +204,15 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
 }
 
 /** Nonrecursive expression contract; reject nested trees before validating leaves. */
-function isCombinedBrushDynamic(value:unknown,allowHue=false):boolean {
+function isCombinedBrushDynamic(value:unknown,allowHue=false,allowHSVStrength=false):boolean {
   const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
   const keys=(v:Record<string,unknown>,allowed:string[]):boolean=>Object.keys(v).every(k=>allowed.includes(k))
   if(!obj(value)||!keys(value,['control','minimum','jitter','combine'])||value.control!=='off'||value.minimum!==0||value.jitter!==0||!obj(value.combine))return false
   const c=value.combine
   if(!keys(c,['mode','scaling','additive','constant','absolute','policy'])||!['product','sum','max','min','difference'].includes(String(c.mode))||!Array.isArray(c.scaling)||!Array.isArray(c.additive))return false
-  if(c.policy!==undefined&&c.policy!=='native-scatter-v1'&&!(allowHue&&c.policy==='native-hue-v1'))return false
+  if(c.policy!==undefined&&c.policy!=='native-scatter-v1'&&!(allowHue&&c.policy==='native-hue-v1')&&!(allowHSVStrength&&c.policy==='native-hsv-strength-v1'))return false
   if(c.policy==='native-hue-v1'&&(c.mode!=='product'||c.constant!==undefined||c.absolute!==undefined||c.scaling.length>1||c.additive.length<1||c.additive.length>2||!c.scaling.every(v=>obj(v)&&['pressure','time','distance'].includes(String(v.control)))||!c.additive.every(v=>obj(v)&&['random','strokeRandom'].includes(String(v.control)))))return false
+  if(c.policy==='native-hsv-strength-v1'&&(c.mode!=='product'||typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>1||c.absolute!==undefined||c.scaling.length!==1||c.additive.length!==1||!c.scaling.every(v=>obj(v)&&['pressure','speed','time','distance'].includes(String(v.control)))||!c.additive.every(v=>obj(v)&&['random','strokeRandom'].includes(String(v.control)))))return false
   if(c.constant!==undefined&&(typeof c.constant!=='number'||!Number.isFinite(c.constant)||c.constant<0||c.constant>(c.policy==='native-scatter-v1'?4:1)))return false
   const absolute=c.absolute
   if(absolute!==undefined&&(!obj(absolute)||!keys(absolute,['locked','angleOffset','curve'])||typeof absolute.locked!=='boolean'||typeof absolute.angleOffset!=='number'||!Number.isFinite(absolute.angleOffset)||Math.abs(absolute.angleOffset)>360||!isBrushCurve(absolute.curve,1,256,true)))return false

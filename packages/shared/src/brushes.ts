@@ -1,3 +1,5 @@
+import{hasNativePixel202Scope}from'./nativePixel202.js'
+export{hasNativePixel202Scope}from'./nativePixel202.js'
 import {resolveStationary195Role,isStationary195Component,hasStationary195Scope,stationary195RateInputRequirements} from './brushStationary195.js'
 export {resolveStationary195Role,isStationary195Component,hasStationary195Scope,stationary195RateInputRequirements,type Stationary195Family,type Stationary195Role} from './brushStationary195.js'
 import {STATIONARY195_STRUCTURE} from './brushStructurePolicy.js'
@@ -525,6 +527,8 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    const native202=d.version===202
+    if(native202&&!hasNativePixel202Scope(d))return false
     const dissolve201=d.version===201
     const greater198=d.version===198
     const greaterBehavior=d.behavior,greaterRender=record(greaterBehavior)?greaterBehavior.rendering:undefined
@@ -589,7 +593,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if(d.version===192&&!filter192)return false
     const texture191=stationaryPixel||stationaryComponent&&d.version===191||isTextureCombinations191Scope(d)||isTextureCombinations191Component(maskRoot,d)||filter192||smudge193
     if(d.version===191&&!texture191)return false
-    const mask190=stationaryComponent||hasIndependentMask190Scope(d)||isIndependentMask190Component(maskRoot,d)||texture191||native194
+    const mask190=native202||stationaryComponent||hasIndependentMask190Scope(d)||isIndependentMask190Component(maskRoot,d)||texture191||native194
     if(d.version===190&&!mask190||usesNativeMask190Controls(d.behavior)&&!mask190&&!stationary195||record(d.behavior)&&record(d.behavior.dual)&&d.behavior.dual.sizePolicy!==undefined&&!mask190)return false
     if(!mask190&&!stationary195&&(d.version===188||usesRecordedPen188Controls(d.behavior))&&!hasRecordedPen188Scope(d))return false
     if(d.version===187&&!hasIndependentChildAbsoluteSize187Scope(d))return false
@@ -1184,7 +1188,7 @@ export function brushAnimationUsesMode(animation:unknown,mode:string):boolean {
 }
 /** Shared fast-path predicate for client and server packet admission. */
 export function brushRequiresSourceInputs(brush:BrushDescriptor):boolean {
- return hasStationary195Scope(brush)||hasColorSmudge193Scope(brush)||hasFilterMask192Scope(brush)||isTextureCombinations191Scope(brush)||hasIndependentMask190Scope(brush)||hasBristleInitializationScope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
+ return hasNativePixel202Scope(brush)||hasStationary195Scope(brush)||hasColorSmudge193Scope(brush)||hasFilterMask192Scope(brush)||isTextureCombinations191Scope(brush)||hasIndependentMask190Scope(brush)||hasBristleInitializationScope(brush)||brush.tip.animation?.mode==='dimensions'||brush.tip.animation?.mode==='xtilt'||brush.tip.animation?.mode==='ytilt'||!!brush.behavior?.sequentialRandom||!!brush.behavior?.strokeInput||!!brush.tangentNormal||brushRequiresSourceTime(brush)
   ||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'
 }
 
@@ -1198,7 +1202,7 @@ export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly impo
   if(!stationaryRole&&brush.sketch&&brush.behavior?.timing&&!hasSketchTimer161Scope(brush))return false
   if(!stationaryRole&&brush.particle&&brush.behavior?.timing&&!hasParticleTimer157Scope(brush))return false
   if(!stationaryRole&&brush.model==='mixer'&&brush.texture?.eraseId!==undefined&&!hasColorSmudge193Scope(brush)&&!isTextureCombinations191Scope(brush)&&!hasSmudgeTextureErase131Scope(brush))return false
-  const mask190=stationaryMask||hasColorSmudge193Scope(brush)||hasFilterMask192Scope(brush)||hasIndependentMask190Scope(brush)||isTextureCombinations191Scope(brush),resize140=hasBristleInitializationScope(brush,stationaryRole?STATIONARY195_STRUCTURE:undefined),allocation=mask190||!!brush.behavior?.sequentialRandom||resize140, direction=mask190||!!brush.behavior?.strokeInput||!!brush.tangentNormal||rateInputs?.sourceAngle===true, time=brushRequiresSourceTime(brush)
+  const mask190=hasNativePixel202Scope(brush)||stationaryMask||hasColorSmudge193Scope(brush)||hasFilterMask192Scope(brush)||hasIndependentMask190Scope(brush)||isTextureCombinations191Scope(brush),resize140=hasBristleInitializationScope(brush,stationaryRole?STATIONARY195_STRUCTURE:undefined),allocation=mask190||!!brush.behavior?.sequentialRandom||resize140, direction=mask190||!!brush.behavior?.strokeInput||!!brush.tangentNormal||rateInputs?.sourceAngle===true, time=brushRequiresSourceTime(brush)
   if(!stationaryRole&&brush.model==='mixer'&&brush.version>=129&&time&&!hasColorSmudge193Scope(brush)&&!hasFilterMask192Scope(brush)&&!isTextureCombinations191Scope(brush)&&!hasLegacySmudgeTiming129Scope(brush)&&!hasDeformTimer160Scope(brush))return false
   const velocity=rateInputs?.normalizedSpeed===true||brush.tip.animation?.mode==='velocity'||brush.behavior?.dual?.brush.tip.animation?.mode==='velocity'||brush.tip.animation?.mode==='dimensions'&&brushAnimationUsesMode(brush.tip.animation,'velocity')
   const tilt=brush.tip.animation?.mode==='xtilt'?'tiltX':brush.tip.animation?.mode==='ytilt'?'tiltY':undefined

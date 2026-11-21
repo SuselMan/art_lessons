@@ -5,7 +5,7 @@ import{hasStationary195Scope}from'@grafetto/shared'
 import{usesNativeFilterMask,usesNativeSketchSpray,usesNativeSmudgeFeatures}from'../presets/nativeBrushFeatures'
 import{textureEraseId}from'../presets/brushTextureErase'
 import{textureMaterialVariant}from'../presets/textureLightness'
-import{ brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasIndependentMask190Scope,isTextureCombinations191Scope }from'@grafetto/shared'
+import{ brushUsesGradient,hasSketchSpray194Scope,hasColorSmudge193Scope,hasIndependentMask190Scope,hasNativePixel202Scope,isTextureCombinations191Scope }from'@grafetto/shared'
 import{assertRecordedPen188Inputs}from '../presets/recordedPen188'
 import{hasTextureGradientWash180Scope}from'@grafetto/shared'
 import{assertTextureGradientWash180Planes}from'../presets/textureGradientWash180'
@@ -111,7 +111,7 @@ export class BrushPainter {
   }
   /** One capability owner for selected readiness, recorded dispatch and paint. */
   private recordedStampResources(brush:BrushDescriptor,existing?:readonly BrushPreparationResource[],paletteBound=false):readonly BrushPreparationResource[]|undefined {
-    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===202?hasNativePixel202Scope(brush):brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190&&brushUsesGradient(brush)&&!paletteBound)return undefined
     const textureWash180=assertTextureGradientWash180Planes(brush)
     const textureWash171=assertTextureLightnessWash171Planes(brush)
@@ -430,7 +430,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   /** Recorded palette bound before any paint/state mutation; no lazy view upload. */
   preparePixelGradient(brush:BrushDescriptor,execution?:BrushExecutionContext):void{
     if(brush&&usesNativeSketchSpray(brush)){if(!brushUsesGradient(brush))return;assertBrushExecutionContext(brush,execution);const resources=bindBrushGradient(brushPreparationResources(brush),execution?.brushSource?.gradient),required=this.recordedStampResources(brush,resources,true);if(!required)throw Error('Sketch/Spray194 gradient bank missing');this.acquireRecordedStampResources(required,true,brush)();return}
-    const mask190=brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
+    const mask190=brush.version===202?hasNativePixel202Scope(brush):brush.version===195?hasStationary195Scope(brush):usesNativeSketchSpray(brush)?hasSketchSpray194Scope(brush):usesNativeSmudgeFeatures(brush)?hasColorSmudge193Scope(brush):usesNativeFilterMask(brush)?hasFilterMask192Scope(brush):usesNativePixelMaterials(brush)?isTextureCombinations191Scope(brush):hasIndependentMask190Scope(brush)
     if(mask190){
       const components=[brush,...(brush.behavior?.dual?[brush.behavior.dual.brush]:[])]
       if(!components.some(b=>usesPixelOriginalRgba(b)&&!!b.tip.color&&'gradient'in b.tip.color))return

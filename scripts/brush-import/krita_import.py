@@ -1153,7 +1153,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         supported_color_sensors=('fuzzy','fuzzystroke','pressure','distance')+(('speed',) if option in ('s','v') else ())+(('time',) if timed_input else ())
         strength=numeric(params.get(option+'Value'),1)
         if (enabled(params.get(option+'UseCurve','true')) and math.isfinite(strength) and 0<=strength<=1
-                and (strength==1 or option in ('s','v') and len(sensors)==1)
+                and (strength==1 or option in ('s','v'))
                 and numeric(params.get(option+'curveMode'),0)==0 and sensors
                 and all(sensor.get('id') in supported_color_sensors for sensor in sensors)):
             local=[];controls=sensor_controls(params,option,local,allow_time=timed_input)
@@ -1165,8 +1165,14 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 if strength!=1:
                     # KisHSVOption applies the stored strength twice around
                     # neutral for saturation/value after sizeLikeValue().
-                    curve=controls[0]['curve']
-                    if isinstance(curve,dict):curve['samples']=[(1-strength)/2+strength*strength*x for x in curve['samples']]
+                    if 'combine' in controls[0]:
+                        combination=controls[0]['combine']
+                        if (combination['mode']!='product' or len(combination['scaling'])!=1 or len(combination['additive'])!=1 or combination['scaling'][0]['control'] not in ('pressure','speed','time','distance') or combination['additive'][0]['control'] not in ('random','strokeRandom')):continue
+                        combination['policy']='native-hsv-strength-v1';combination['constant']=strength
+                        curve=None
+                    else:curve=controls[0]['curve']
+                    if curve is None:pass
+                    elif isinstance(curve,dict):curve['samples']=[(1-strength)/2+strength*strength*x for x in curve['samples']]
                     else:controls[0]['curve']=[[x,(1-strength)/2+strength*strength*y]for x,y in curve]
                 notes.extend(local)
                 behavior.setdefault('colorAdjustment',{})[target]=controls[0]
@@ -2110,7 +2116,13 @@ def preset(data,name,catalog,external,depth=0,**options):
             del image
             return _native_preset_transaction(catalog,lambda:lower_timing195(data,node,params,name,catalog,external,_preset_without_timing195,options))
         del image,node,params
-    return _preset_without_timing195(data,name,catalog,external,depth,**options)
+    if depth:return _preset_without_timing195(data,name,catalog,external,depth,**options)
+    try:return _native_preset_transaction(catalog,lambda:_preset_without_timing195(data,name,catalog,external,depth,**options))
+    except ValueError as error:original_error=str(error)
+    try:
+        from native_pixel202 import lower202
+        return _native_preset_transaction(catalog,lambda:lower202(data,name,catalog,external,_preset_impl,options))
+    except ValueError:raise ValueError(original_error) from None
 
 
 def _native_preset_transaction(catalog, produce):

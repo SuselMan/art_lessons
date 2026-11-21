@@ -466,8 +466,9 @@ def validate_portable_dynamics(controls):
                     or not isinstance(c,dict) or set(c)-{'mode','scaling','additive','constant','absolute','policy'} or c.get('mode')not in('product','sum','max','min','difference')
                     or not isinstance(c.get('scaling'),list) or not isinstance(c.get('additive'),list)):
                 raise ValueError('Invalid portable combined dynamic')
-            if 'policy'in c and c['policy'] not in ('native-scatter-v1','native-hue-v1'):raise ValueError('Invalid combined dynamic policy')
+            if 'policy'in c and c['policy'] not in ('native-scatter-v1','native-hue-v1','native-hsv-strength-v1'):raise ValueError('Invalid combined dynamic policy')
             if c.get('policy')=='native-hue-v1' and (c['mode']!='product' or 'constant'in c or 'absolute'in c or len(c['scaling'])>1 or not 1<=len(c['additive'])<=2 or any(not isinstance(v,dict)or v.get('control')not in ('pressure','time','distance') for v in c['scaling']) or any(not isinstance(v,dict)or v.get('control')not in ('random','strokeRandom') for v in c['additive'])):raise ValueError('Invalid native hue combination')
+            if c.get('policy')=='native-hsv-strength-v1' and (c['mode']!='product' or not finite(c.get('constant')) or 'absolute'in c or len(c['scaling'])!=1 or len(c['additive'])!=1 or not isinstance(c['scaling'][0],dict) or c['scaling'][0].get('control') not in ('pressure','speed','time','distance') or not isinstance(c['additive'][0],dict) or c['additive'][0].get('control') not in ('random','strokeRandom')):raise ValueError('Invalid native HSV strength combination')
             if 'constant'in c and not finite(c['constant'],0,4 if c.get('policy')=='native-scatter-v1'else 1):raise ValueError('Invalid combined dynamic constant')
             children=c['scaling']+c['additive']
             absolute=c.get('absolute')
@@ -578,6 +579,14 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         behavior=descriptor.get('behavior',{});color=behavior.get('colorAdjustment',{}) if isinstance(behavior,dict) else {}
         if len(native_hue)!=1 or not isinstance(color,dict)or color.get('hue') is not native_hue[0]:raise ValueError('Native hue policy requires hue adjustment target')
         validate_portable_dynamics(native_hue)
+    def hsv_policies(v):
+        if isinstance(v,dict):return ([v]if isinstance(v.get('combine'),dict)and v['combine'].get('policy')=='native-hsv-strength-v1'else[])+[c for key,child in v.items() if key!='brush' for c in hsv_policies(child)]
+        return [c for child in v for c in hsv_policies(child)]if isinstance(v,list)else[]
+    native_hsv=hsv_policies(descriptor)
+    if native_hsv:
+        behavior=descriptor.get('behavior',{});color=behavior.get('colorAdjustment',{}) if isinstance(behavior,dict) else {}
+        if not isinstance(color,dict) or any(v is not color.get('saturation') and v is not color.get('value') for v in native_hsv):raise ValueError('Native HSV strength policy requires saturation/value target')
+        validate_portable_dynamics(native_hsv)
     mix_behavior=descriptor.get('behavior',{})
     render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
     if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version') not in (198,201):raise ValueError('Pixel composite requires its versioned scope')
@@ -645,7 +654,11 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
-    if native195Root is not None:
+    if descriptor.get('version')==202:
+        from native_pixel202 import scope202
+        if parent is not None or not scope202(descriptor):raise ValueError('Invalid native202 scope')
+        mask190=True
+    elif native195Root is not None:
         from independent_mask190 import component190
         if parent is not native195Root or native195Root.get('version')!=195 or native195Root.get('behavior',{}).get('dual',{}).get('brush')is not descriptor or descriptor.get('version')not in(190,191)or not component190(descriptor,False,descriptor['version']):raise ValueError('Invalid actual195 child component authority')
         mask190=True
@@ -896,6 +909,11 @@ def portable_bundle(path,catalog):
     trusted_raw_assets={asset['id']:raw for asset,raw in validated}
     asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0,parent=None):
+        if isinstance(d,dict)and d.get('version')==202:
+            from native_pixel202 import scope202
+            from independent_mask190 import validate_mask190_portable
+            validate_mask190_portable(d,asset_sizes,lambda value,parent=None,**_:validate_portable_profile(value,parent=parent),validate_portable_dynamics,parent,role_validator=lambda value,owner:owner is None and scope202(value))
+            return
         if isinstance(d,dict)and d.get('version')==195:
             from stationary195 import validate_portable195
             validate_portable195(d,asset_sizes,validate_portable_profile,validate_portable_dynamics,parent,trusted_raw_assets)
