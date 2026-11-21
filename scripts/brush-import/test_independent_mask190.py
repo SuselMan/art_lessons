@@ -21,6 +21,15 @@ class IndependentMask190Tests(unittest.TestCase):
   self.assertFalse(uses_native_mask190_controls(root['behavior']));self.assertFalse(validate_independent_mask190(root))
   root['behavior']['modulations']['size'][0]['control']='pressureIn'
   with self.assertRaises(ValueError):validate_independent_mask190(root)
+ def test_root_darken_retains_sensor_and_strength_with_qualified_order(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   _,c=native(tmp,{'PressureDarken':'true','DarkenValue':'.4','DarkenUseCurve':'true','DarkenSensor':'<params id="pressurein"/>'})
+   self.assertEqual(c.skipped,[])
+   b=c.brushes[0];control=b['descriptor']['behavior']['dynamics']['brightness']
+   self.assertEqual(control['control'],'pressureIn');self.assertEqual(control['strength'],-.4)
+   self.assertTrue(any(n['feature']=='darken' and n['status']=='approximate' for n in b['compatibility']))
+   self.assertFalse(any(n['status']=='unsupported' for n in b['compatibility']))
+   convert.validate_portable_profile(b['descriptor'])
  def test_antialiased_radial_curve_for_each_native_component(self):
   curve='<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" ratio=".5" diameter="16" id="soft" hfade=".4" vfade=".4" spikes="2" antialiasEdges="1" softness_curve="0,1;1,0;"/></Brush>'
   for key in ('brush_definition','MaskingBrush/Preset/brush_definition'):
