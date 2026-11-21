@@ -603,6 +603,16 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or not isinstance(render,dict) or render.get('blendMode')!='normal' or render.get('accumulation')!='alphaDarken'):
             raise ValueError('Color Mix197 requires an ordinary root Pixel wash')
         validate_portable_dynamics([{'control':'pressure','minimum':0,'jitter':0,'curve':mix['pressure']}])
+    radial_aa199=descriptor.get('version')==199
+    if radial_aa199:
+        tip=descriptor.get('tip',{});behavior=descriptor.get('behavior',{});render=behavior.get('rendering',{}) if isinstance(behavior,dict) else {}
+        if (parent is not None or descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0
+                or not isinstance(tip,dict) or not isinstance(tip.get('profile'),dict)
+                or tip['profile'].get('kind')!='radialCurve' or tip['profile'].get('antialias') is not True or 'autoShape' in tip
+                or any(k in descriptor for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+                or not isinstance(behavior,dict) or any(k in behavior for k in ('dual','timing','wetMix','softness'))
+                or not isinstance(render,dict) or render.get('blendMode')!='normal' or render.get('accumulation') not in ('directOver','alphaDarken')):
+            raise ValueError('Radial AA199 requires an ordinary root Pixel brush')
     radial_aa196=descriptor.get('version')==196
     if radial_aa196:
         tip=descriptor.get('tip',{});behavior=descriptor.get('behavior',{});render=behavior.get('rendering',{}) if isinstance(behavior,dict) else {}
@@ -817,7 +827,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
-                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 or sketchSpray194 or radial_aa196 or (mask190 and descriptor.get('version')==190) else profile['antialias']is not False)
+                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 or sketchSpray194 or radial_aa196 or radial_aa199 or (mask190 and descriptor.get('version')==190) else profile['antialias']is not False)
                 or profile.get('encoding')!='unorm32be'
                 or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000

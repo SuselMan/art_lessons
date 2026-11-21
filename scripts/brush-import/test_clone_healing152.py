@@ -4,6 +4,11 @@ from test_krita import kpp
 from krita_import import convert_krita
 import convert
 class Healing152Tests(unittest.TestCase):
+ def test_pixel_radial_aa_cannot_leak_into_clone_scope(self):
+  definition='<Brush type="auto_brush"><MaskGenerator type="circle" ratio="1" diameter="24" id="soft" spikes="2" antialiasEdges="1" softness_curve="0,1;1,0;"/></Brush>'
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'clone.kpp';p.write_bytes(kpp(definition,engine='duplicate'));out=convert.Catalog(Path(tmp)/'native');convert_krita(p,out,{})
+   self.assertEqual(out.skipped,[]);b=out.brushes[0];self.assertNotEqual(b['descriptor']['version'],199);self.assertTrue(any(x['feature']=='autoBrush' and x['status']=='unsupported' for x in b['compatibility']))
  def test_genuine_local_merged_mask_and_pressure_portable_root_scope(self):
   for merged in(False,True):
    with self.subTest(merged=merged),tempfile.TemporaryDirectory()as tmp:

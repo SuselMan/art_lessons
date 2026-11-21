@@ -37,6 +37,15 @@ class RadialTests(unittest.TestCase):
             for change in (lambda v:v.update(version=195),lambda v:v.update(texture={}),lambda v:v['behavior'].update(dual={}),lambda v:v['tip']['profile'].update(antialias=False)):
                 bad=copy.deepcopy(d);change(bad)
                 with self.assertRaises(ValueError):convert.validate_portable_profile(bad)
+    def test_antialiased_round_wash_and_eraser(self):
+        tip=definition(25,curve='0,1;.5,.5;1,0').replace('antialiasEdges="0"','antialiasEdges="1"')
+        for erase in (False,True):
+            with self.subTest(erase=erase),tempfile.TemporaryDirectory() as tmp:
+                patch={'brush_definition':tip,'PaintOpAction':'2','CompositeOp':'erase' if erase else 'normal'}
+                if erase:patch['EraserMode']='true'
+                c=self.imported(tmp,patch);self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertEqual(d['version'],199);self.assertTrue(d['tip']['profile']['antialias']);self.assertNotIn('autoShape',d['tip']);self.assertFalse(any(n['status']=='unsupported' for n in c.brushes[0]['compatibility']));convert.validate_portable_profile(d)
+                bad=copy.deepcopy(d);bad['version']=196
+                with self.assertRaises(ValueError):convert.validate_portable_profile(bad)
     def test_authored_resolution_identity_and_native_endpoints(self):
         for diameter,r in [(.125,1),(1,4),(1.125,5),(55,220),(60,240),(75,300),(110,440),(600,2400)]:
             resolution,table=radial_curve_samples('0,0;1,1',diameter)

@@ -546,6 +546,13 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
         ||['dual','timing','wetMix','erase','colorAdjustment'].some(k=>b197[k]!==undefined)
         ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
     }
+    const radialAA199=d.version===199
+    if(radialAA199){
+      const behavior199=d.behavior
+      if(maskRoot!==undefined||d.model!=='stamp'||d.paperInteraction!==0||!record(d.tip)||!record(d.tip.profile)||d.tip.profile.kind!=='radialCurve'||d.tip.profile.antialias!==true||d.tip.autoShape!==undefined
+        ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
+        ||!record(behavior199)||['dual','timing','wetMix','softness'].some(k=>behavior199[k]!==undefined)||!record(behavior199.rendering)||behavior199.rendering.blendMode!=='normal'||!['directOver','alphaDarken'].includes(String(behavior199.rendering.accumulation)))return false
+    }
     const radialAA196=d.version===196
     if(radialAA196){
       const behavior196=d.behavior
@@ -687,7 +694,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
       } else if (profile.kind === 'radialCurve') {
-        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&!radialAA196&&!(mask190&&d.version===190)&&profile.antialias!==false || profile.encoding!=='unorm32be'
+        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&!radialAA196&&!radialAA199&&!(mask190&&d.version===190)&&profile.antialias!==false || profile.encoding!=='unorm32be'
           || Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','antialias'].includes(key))
           || !ref(profile.lookup) || !numberIn(profile.resolution,1,40000) || !Number.isInteger(profile.resolution)
           || (assetSizes.get(profile.lookup as string) ?? 0)<4

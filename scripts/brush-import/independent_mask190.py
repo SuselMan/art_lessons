@@ -5,6 +5,7 @@ base paintInfo default1 when no perspective assistant scene is supplied.
 from contextvars import ContextVar
 import math
 COMPONENT190=ContextVar('native_pixel_mask_component190',default=False)
+MASK_RADIAL190=ContextVar('native_pixel_mask_radial_aa190',default=False)
 MODES={'multiply':'multiply','darken':'darken','overlay':'overlay','dodge':'colorDodge','burn':'colorBurn','linear_burn':'linearBurn','linear_dodge':'add','hard_mix_photoshop':'hardMixPhotoshopAlpha','hard_mix_softer_photoshop':'hardMixSofterPhotoshop','subtract':'subtract'}
 OTHER_ENGINES=('mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')
 def uses_native_mask190_controls(v):

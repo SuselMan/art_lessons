@@ -5,7 +5,7 @@ import io,math,struct,hashlib,copy,subprocess
 from collections import ChainMap
 from pathlib import Path
 from PIL import Image,ImageFont,ImageDraw,PngImagePlugin
-from independent_mask190 import COMPONENT190,MODES,independent_mask190_scope
+from independent_mask190 import COMPONENT190,MASK_RADIAL190,MODES,independent_mask190_scope
 
 def png_preset(root):
     import xml.etree.ElementTree as ET
@@ -96,10 +96,10 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
         if definition.get('type')=='kis_text_brush':
             definition,warning=text_resource(definition,resources);warnings.append(warning)
             next(p for p in node.findall('param')if p.get('name')=='brush_definition').text=ET.tostring(definition,encoding='unicode')
-        token=COMPONENT190.set(True)
+        token=COMPONENT190.set(True);radial_token=MASK_RADIAL190.set(True)
         try:
             result=impl(png_preset(node),name,catalog,resources,0,**{**options,'stroke_input':False,'timed_input':True,'_allow_texture_material':True,'_native_sampling_candidate':None,'_primary_clock_read':False,'_default_input_policy':None})
-        finally:COMPONENT190.reset(token)
+        finally:MASK_RADIAL190.reset(radial_token);COMPONENT190.reset(token)
         bad=[n for n in result['compatibility']if n['status']=='unsupported']
         if bad:raise ValueError('Unlowered native190 component options: '+', '.join(n['feature']for n in bad))
         components.append(result);notes.extend({**n,'feature':('masking.'if child else'')+n['feature']}for n in result['compatibility'])

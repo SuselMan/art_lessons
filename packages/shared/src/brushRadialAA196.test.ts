@@ -11,3 +11,9 @@ it('accepts only root ordinary Pixel radial AA196 and rejects downgrade or forei
  const d=brush();expect(isBrushLibrary(library192(d))).toBe(true)
  for(const edit of [(b:BrushDescriptor)=>{b.version=31},(b:BrushDescriptor)=>{b.tip.profile!.antialias=false},(b:BrushDescriptor)=>{delete b.tip.autoShape},(b:BrushDescriptor)=>{b.behavior!.timing={version:1,rate:1,ignoreDistanceSpacing:false}},(b:BrushDescriptor)=>{b.model='mixer'},(b:BrushDescriptor)=>{b.behavior!.erase=true}]){const b=brush();edit(b);expect(isBrushLibrary(library192(b))).toBe(false)}
 })
+
+it('accepts radial AA without spikes for native Pixel wash and erasing',()=>{
+ const d=brush();d.version=199;delete d.tip.autoShape;d.behavior!.rendering!.accumulation='alphaDarken';d.behavior!.erase=true
+ expect(isBrushLibrary(library192(d))).toBe(true)
+ for(const edit of [(b:BrushDescriptor)=>{b.version=196},(b:BrushDescriptor)=>{b.tip.profile!.antialias=false},(b:BrushDescriptor)=>{b.tip.autoShape={version:1,spikes:3}},(b:BrushDescriptor)=>{b.behavior!.timing={version:1,rate:1,ignoreDistanceSpacing:false}},(b:BrushDescriptor)=>{b.model='mixer'}]){const b=structuredClone(d);edit(b);expect(isBrushLibrary(library192(b))).toBe(false)}
+})

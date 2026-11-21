@@ -2,7 +2,7 @@ from native_timing195 import clock_enabled, TIMING195
 from sketch_spray194 import COMPONENT194
 from color_smudge193 import COMPONENT193
 from texture_combinations191 import COMPONENT191
-from independent_mask190 import COMPONENT190
+from independent_mask190 import COMPONENT190,MASK_RADIAL190
 from legacy_color_smudge_dodge_burn176 import legacy_color_smudge_dodge_burn176_scope
 from legacy_color_smudge_arithmetic175 import legacy_color_smudge_arithmetic175_scope
 from legacy_color_smudge_minmax172 import legacy_color_smudge_minmax172_scope
@@ -692,6 +692,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     lightness_controls=[]
     gaussian_softness_noop=False
     radial_aa196=False
+    radial_aa199=False
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -749,8 +750,15 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and params.get('CompositeOp','normal')=='normal' and params.get('PaintOpAction','1')!='2'
             and not enabled(params.get('Texture/Pattern/Enabled'))
             and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
+        radial_aa199=(engine=='paintbrush' and _allow_texture_material and not COMPONENT190.get() and depth==0 and shape=='circle' and spikes==2
+            and enabled(generator.get('antialiasEdges')) and not noise_active
+            and not enabled(params.get('MaskingBrush/Enabled'))
+            and not enabled(params.get('PressureSoftness')) and not enabled(params.get('PressureSharpness'))
+            and params.get('CompositeOp','normal') in ('normal','erase')
+            and not enabled(params.get('Texture/Pattern/Enabled'))
+            and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
         soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
-              and ((FILTER192.get()or COMPONENT190.get() or (COMPONENT193.get()or COMPONENT194.get()))or radial_aa196 or not enabled(generator.get('antialiasEdges'))) and noise_representable)
+              and ((FILTER192.get()or MASK_RADIAL190.get() or (COMPONENT193.get()or COMPONENT194.get()))or radial_aa196 or radial_aa199 or not enabled(generator.get('antialiasEdges'))) and noise_representable)
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
@@ -779,8 +787,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
                 authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
                 d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
-                if (FILTER192.get()or COMPONENT190.get() or (COMPONENT193.get()or COMPONENT194.get()) or radial_aa196):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
-                d['version']=196 if radial_aa196 else 31
+                if (FILTER192.get()or MASK_RADIAL190.get() or (COMPONENT193.get()or COMPONENT194.get()) or radial_aa196 or radial_aa199):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
+                d['version']=196 if radial_aa196 else 199 if radial_aa199 else 31
                 notes.append(compatibility('radialCurveProfile','Native authored-diameter4x R+2 squared-radius LUT retained as packed UNORM32BE before mask quantization; physical geometry remains independent. GPU precision/subpixel and scalar/SIMD rounding require native comparison.'))
             else:
                 mask=soft_circle(curve,source_size)
@@ -1518,7 +1526,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # Pixel Mix samples foreground/background at each request. Opt in only to
     # root plain-colour Wash with a single pressure curve; other sources and
     # sensors remain explicitly unsupported instead of losing their meaning.
-    if (engine=='paintbrush' and depth==0 and not radial_aa196 and enabled(params.get('PressureMix'))
+    if (engine=='paintbrush' and depth==0 and not radial_aa196 and not radial_aa199 and enabled(params.get('PressureMix'))
             and params.get('ColorSource/Type','plain')=='plain' and params.get('PaintOpAction')=='2'
             and params.get('CompositeOp','normal')=='normal' and not enabled(params.get('Krita/erase'))
             and not enabled(params.get('MaskingBrush/Enabled')) and not clock_enabled(params,'PaintOpSettings/isAirbrushing')
@@ -1964,6 +1972,9 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     if behavior.get('colorMix'):
         if d['version']>=188:raise ValueError('Pixel Color Mix197 does not admit other whole-brush policies')
         d['version']=197
+    elif radial_aa199 and d['tip'].get('profile',{}).get('kind')=='radialCurve':
+        if d['version']>=188 and d['version']!=199:raise ValueError('Radial AA199 does not admit other whole-brush policies')
+        d['version']=199
     elif radial_aa196 and d['tip'].get('profile',{}).get('kind')=='radialCurve':
         if d['version']>=188 and d['version']!=196:raise ValueError('Radial AA196 does not admit other whole-brush policies')
         d['version']=196
