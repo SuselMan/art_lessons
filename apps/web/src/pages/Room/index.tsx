@@ -997,10 +997,9 @@ function RoomEditor() {
         // channel — see engineNetwork.ts.
         ...createEngineNetworkCallbacks({
           engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-          applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
+          applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, previewScheduleRef,
           sendLive: data => { socketRef.current?.emit('stroke_live', data) },
           sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
-          onPreviewChanged: () => previewScheduleRef.current?.noteOperation(Date.now()),
         }),
         onSnapshotHistoryRepairNeeded: () => repairSnapshotHistory(engine, boardId),
         // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.

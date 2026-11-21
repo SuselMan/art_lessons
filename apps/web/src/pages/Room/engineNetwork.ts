@@ -30,7 +30,7 @@ export interface EngineNetworkDeps {
   sendLive: ClientToServerEvents['stroke_live']
   sendLiveEnd: ClientToServerEvents['stroke_live_end']
   /** Local ink changed before its durable stroke operation is emitted. */
-  onPreviewChanged?: () => void
+  previewScheduleRef?: RefObject<{ noteOperation(now: number): void } | null>
 }
 
 /** (#493) The engine's side of the network: what happens when it records an
@@ -39,7 +39,7 @@ export interface EngineNetworkDeps {
  *  these were inline options of `new PencilEngine`. */
 export function createEngineNetworkCallbacks({
   engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-  applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, sendLive, sendLiveEnd, onPreviewChanged,
+  applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, sendLive, sendLiveEnd, previewScheduleRef,
 }: EngineNetworkDeps): EngineNetworkCallbacks {
   return {
     // Broadcast-loop fix (#84): only genuinely local appends (layer-panel
@@ -95,7 +95,7 @@ export function createEngineNetworkCallbacks({
     // sending and being dropped.
     onLiveStrokeDabs: packet => {
       if (editingBlockedRef.current) return
-      if (packet.dabs.length > 0) onPreviewChanged?.()
+      if (packet.dabs.length > 0) previewScheduleRef?.current?.noteOperation(Date.now())
       sendLive({
         strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
         preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
@@ -117,7 +117,7 @@ export function createEngineNetworkCallbacks({
     },
     onLiveStrokeEnd: (strokeId, cancelled) => {
       if (editingBlockedRef.current) return
-      if (cancelled) onPreviewChanged?.()
+      if (cancelled) previewScheduleRef?.current?.noteOperation(Date.now())
       sendLiveEnd({ strokeId, ...(cancelled === true ? { cancelled: true } : {}) })
     },
   }
