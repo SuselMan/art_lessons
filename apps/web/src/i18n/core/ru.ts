@@ -957,6 +957,7 @@ export const ru: Dictionary = {
   'hotkey.gradeSofter': 'Карандаш мягче (в сторону 6B)',
   'hotkey.zoomIn': 'Приблизить',
   'hotkey.zoomOut': 'Отдалить',
+  'hotkey.toggleMinimalUi': 'Скрыть / показать панели',
   'hotkey.zoomReset': 'Масштаб 100%',
 
   // ── фильтры слоя (#574) ──

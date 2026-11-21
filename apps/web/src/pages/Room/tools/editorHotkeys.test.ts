@@ -32,7 +32,7 @@ function setup(patch: Partial<EditorKeyContext> = {}) {
     finishSelection: vi.fn(), cancelLasso: vi.fn(), clearSelection: vi.fn(),
     copySelection: vi.fn(), cutSelection: vi.fn(), pasteClipboard: vi.fn(), deleteSelectionContents: vi.fn(),
     undo: vi.fn(), redo: vi.fn(), zoomBy: vi.fn(), resetZoom: vi.fn(), rotateView: vi.fn(),
-    toggleTool: vi.fn(), setTool: vi.fn(),
+    toggleTool: vi.fn(), setTool: vi.fn(), toggleMinimalUi: vi.fn(),
     setToolSetting: useRoomStore.getState().setToolSetting,
     ...patch,
   }
@@ -194,5 +194,27 @@ describe('the registry', () => {
     send({ key: 'r', code: 'KeyR' })
     expect(ctx.rotateView).toHaveBeenNthCalledWith(1, Math.PI / 12)
     expect(ctx.rotateView).toHaveBeenNthCalledWith(2, null)
+  })
+})
+
+describe('minimal UI shortcut', () => {
+  it('toggles on bare Tab and consumes focus traversal', () => {
+    const { ctx, send } = setup()
+    const e = send({ key: 'Tab', code: 'Tab' })
+    expect(ctx.toggleMinimalUi).toHaveBeenCalledOnce()
+    expect(e.preventDefault).toHaveBeenCalledOnce()
+  })
+  it('leaves Shift+Tab and Ctrl+Tab alone', () => {
+    const { ctx, send } = setup()
+    send({ code: 'Tab', shiftKey: true })
+    send({ code: 'Tab', ctrlKey: true })
+    expect(ctx.toggleMinimalUi).not.toHaveBeenCalled()
+  })
+  it('does not toggle repeatedly while Tab is held', () => {
+    const { ctx } = setup()
+    const e = { ...press({ code: 'Tab' }), repeat: true }
+    handleEditorKey(e as unknown as KeyboardEvent, ctx)
+    expect(ctx.toggleMinimalUi).not.toHaveBeenCalled()
+    expect(e.preventDefault).toHaveBeenCalledOnce()
   })
 })

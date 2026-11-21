@@ -169,6 +169,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   // leave someone stuck at 150% with no way out.
   { id: 'zoomIn', category: 'canvas', labelKey: 'hotkey.zoomIn', default: { code: 'Equal', mod: true, shift: false } },
   { id: 'zoomOut', category: 'canvas', labelKey: 'hotkey.zoomOut', default: { code: 'Minus', mod: true, shift: false } },
+  { id: 'toggleMinimalUi', category: 'canvas', labelKey: 'hotkey.toggleMinimalUi', default: { code: 'Tab', mod: false, shift: false } },
   { id: 'zoomReset', category: 'canvas', labelKey: 'hotkey.zoomReset', default: { code: 'Digit0', mod: false, shift: false } },
 ]
 
@@ -304,6 +305,7 @@ const CODE_LABELS: Record<string, string> = {
   Period: '.',
   Equal: '=',
   Minus: '-',
+  Tab: 'Tab',
 }
 
 function codeLabel(code: string): string {

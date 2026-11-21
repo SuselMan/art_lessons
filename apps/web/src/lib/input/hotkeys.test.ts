@@ -234,7 +234,9 @@ describe('formatHotkeyLabel', () => {
     // codeLabel falls back to the raw code, which would surface as a tooltip
     // reading "BracketLeft" — caught here rather than on screen.
     for (const action of HOTKEY_ACTIONS) {
-      expect(formatHotkeyLabel(action.default, PC)).not.toContain(action.default.code)
+      // Tab is already the human-readable name of its physical key.
+      if (action.default.code === 'Tab') expect(formatHotkeyLabel(action.default, PC)).toBe('Tab')
+      else expect(formatHotkeyLabel(action.default, PC)).not.toContain(action.default.code)
     }
   })
 })

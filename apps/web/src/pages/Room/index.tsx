@@ -818,7 +818,7 @@ function RoomEditor() {
   const canvasTapClaimed = transformActive || (selectionActive && selection !== null)
   // (#99, #189, #321, #509) Minimal UI: the tap that hides the chrome, and the
   // annotation gestures' side of it — see useMinimalUi.
-  const { uiHidden, tapDebug, tapDebugEnabled, doubleTapArmedRef, pendingNoteRef } =
+  const { uiHidden, toggleUI, tapDebug, tapDebugEnabled, doubleTapArmedRef, pendingNoteRef } =
     useMinimalUi({ vpEl, canvasTapClaimed, debugEnabled, hideViewportToast })
 
   // ── require a room id ────────────────────────────────────────────────────────
@@ -1415,7 +1415,7 @@ function RoomEditor() {
     deleteSelectionContents,
     undo: () => { void handleUndo() },
     redo: () => { void handleRedo() },
-    zoomBy, resetZoom,
+    zoomBy, resetZoom, toggleMinimalUi: toggleUI,
     rotateView: radians => setVp(v => ({ ...v, angle: radians === null ? 0 : v.angle + radians })),
     toggleTool, setTool, setToolSetting,
   })

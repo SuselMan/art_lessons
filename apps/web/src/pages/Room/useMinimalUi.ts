@@ -26,8 +26,8 @@ export interface MinimalUiDeps {
  *  anyone whose hand never trips it.
  *
  *  (#321) A real setting now rather than a feature flag, and touch-only:
- *  `minimalUiActive` folds in the device check, because a PC has neither the
- *  tap that turns this on nor anything that would turn it back off (#384).
+ *  `minimalUiActive` folds in the device check for touch gestures (#384).
+ *  The keyboard shortcut toggles the same state independently of that setting.
  *
  *  (#493) Out of Room. The two refs that come back are the annotation
  *  gestures' side of the same tap — see useAnnotations. */

@@ -1125,6 +1125,7 @@ export const en = {
   'hotkey.gradeSofter': 'Softer pencil grade (towards 6B)',
   'hotkey.zoomIn': 'Zoom in',
   'hotkey.zoomOut': 'Zoom out',
+  'hotkey.toggleMinimalUi': 'Toggle minimal UI',
   'hotkey.zoomReset': 'Zoom to 100%',
 
   // ── layer filters (#574) ──

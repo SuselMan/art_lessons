@@ -41,6 +41,7 @@ export interface EditorKeyContext {
   redo: () => void
   zoomBy: (factor: number) => void
   resetZoom: () => void
+  toggleMinimalUi: () => void
   /** Turns the view by `radians`; `null` puts it back upright. */
   rotateView: (radians: number | null) => void
   toggleTool: (tool: EditorTool) => void
@@ -133,6 +134,11 @@ export function handleEditorKey(e: KeyboardEvent, ctx: EditorKeyContext): void {
   const is = (actionId: string) => {
     const binding = ctx.hotkeys[actionId]
     return !!binding && matchesHotkey(e, binding)
+  }
+  if (is('toggleMinimalUi')) {
+    e.preventDefault()
+    if (!e.repeat && !e.isComposing) ctx.toggleMinimalUi()
+    return
   }
   if (is('undo')) { ctx.undo(); e.preventDefault(); return }
   if (is('redo')) { ctx.redo(); e.preventDefault(); return }
@@ -274,6 +280,9 @@ export function useEditorHotkeys(ctx: EditorKeyContext): void {
         typing: isTypingTarget(e.target),
         popoverOpen: isDismissLayerOpen(),
       })) return
+      // Keep ordinary focus navigation on controls; the canvas owns bare Tab.
+      if (e.code === 'Tab' && e.target instanceof HTMLElement
+        && e.target.closest('button, a[href], select, [role=button], [role=tab], [role=switch]')) return
       handleEditorKey(e, ctxRef.current)
     }
     window.addEventListener('keydown', onKey)
