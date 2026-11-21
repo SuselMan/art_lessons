@@ -39,3 +39,8 @@
   .filter { flex: 1; }
   .formats { order: 3; flex-basis: 100%; }
 }
+
+.credit { position: sticky; top: 0; z-index: 1; background: var(--color-surface-raised); display: flex; align-items: start; justify-content: space-between; gap: var(--space-12); padding: var(--space-12); margin-bottom: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.credit p { margin: var(--space-4) 0; }
+
+.credit a { color: var(--color-accent); }

@@ -1,9 +1,40 @@
 {
   "repository": "SuselMan/art_lessons",
-  "release": "brush-stock-20261120",
-  "filename": "grafetto-krita-stock-20261120.tar.gz",
-  "sha256": "d7a62842a51da5d2533aa7919e6f2c82eebbdac83b2179387aaa5d5b6b894535",
-  "bytes": 13238418,
-  "brushCount": 190,
-  "sourceCommit": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f"
+  "release": null,
+  "filename": "grafetto-krita-stock-20261121.tar.gz",
+  "sha256": "5d9bd62c5ea582744d54bec8e1f401517df0d9800d05b5cc63d655aa7682be1a",
+  "bytes": 19540515,
+  "brushCount": 316,
+  "sourceCommit": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "thirdPartySources": [
+    {
+      "name": "Deevad 25.01",
+      "author": "David Revoy",
+      "license": "CC0-1.0",
+      "source": "https://www.davidrevoy.com/article1060/krita-brushes-2025-01-bundle",
+      "bundleSha256": "3ffb70e88bd9c71e436a1fa77eeea9f40b178352ca5e441424a8b00fdc2a1c43"
+    },
+    {
+      "name": "Nylnook v2 generic",
+      "author": "Camille Bissuel",
+      "license": "CC0-1.0",
+      "source": "https://github.com/nylnook/nylnook-krita-brushes",
+      "bundleSha256": "103b0a1cb1eb4d110ac1770b054803da1b03cdd327f823121a094e589e964ef2"
+    },
+    {
+      "name": "GDQuest Lite v7",
+      "author": "GDQuest, GDQuest.com",
+      "license": "CC-BY-4.0",
+      "source": "https://github.com/GDQuest/krita-free-brushes",
+      "bundleSha256": "67c66c076f3d1e4f69ca15ba1ed5ab98d74d344f1a077f1f936b51bcaa087458"
+    },
+    {
+      "name": "Juank Prada Manga v1.0",
+      "author": "Juan Camilo Prada",
+      "license": "CC0-1.0",
+      "source": "https://juankprada.net/blog/2026/10/28/manga-brush-bundle/",
+      "bundleSha256": "016f90a55ac3d0c347e71fe37686fcb61a2813d8726bb804946eb821c6055867"
+    }
+  ],
+  "baseRelease": "brush-stock-20261120"
 }

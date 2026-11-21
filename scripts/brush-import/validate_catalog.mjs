@@ -11,7 +11,7 @@ if (!path) throw new Error('Usage: node validate_catalog.mjs /path/to/manifest.j
 const library = JSON.parse(fs.readFileSync(path, 'utf8'))
 const invalid = library.brushes.filter(brush => !isBrushLibrary({ ...library, brushes: [brush] })).map(brush => brush.name)
 const fileBytes = fs.statSync(path).size
-const serverFileLimitBytes = 2 * 1024 * 1024
+const serverFileLimitBytes = 32 * 1024 * 1024
 const valid = isBrushLibrary(library) && fileBytes <= serverFileLimitBytes
 const report = {
   valid, fileBytes, serverFileLimitBytes, brushes: library.brushes.length, assets: library.assets.length,

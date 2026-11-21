@@ -8,4 +8,4 @@ const archive=fileURLToPath(new URL(`./resources/${pin.filename}`,import.meta.ur
 if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw Error('Stock catalog checksum mismatch')
 const target=path.join(root,'apps/server/resources/brush-stock');await mkdir(target,{recursive:true})
 execFileSync('tar',['-xzf',archive,'-C',target])
-console.log(`Verified stock catalog: ${pin.brushCount} Krita presets`)
+console.log(`Verified stock catalog: ${pin.brushCount} brush presets`)
