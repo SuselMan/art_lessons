@@ -5,6 +5,11 @@ from test_krita import kpp
 from brush_contract import Catalog
 from krita_import import preset
 class HatchingTests(unittest.TestCase):
+    def test_noise_is_explicitly_skipped_instead_of_an_invalid_descriptor(self):
+        definition='<Brush type="auto_brush" density=".44" randomness="1"><MaskGenerator id="default" type="circle" ratio="1" hfade=".5" vfade=".5" diameter="25" spikes="2" antialiasEdges="0"/></Brush>'
+        data=kpp(engine='hatchingbrush',definition=definition)
+        with tempfile.TemporaryDirectory() as d, self.assertRaisesRegex(ValueError,'Hatching procedural mask noise'):
+            preset(data,'noise.kpp',Catalog(Path(d)),{})
     def convert(self,extra=''):
         data=kpp(engine='hatchingbrush',resources=extra)
         with tempfile.TemporaryDirectory()as d:return preset(data,'test.kpp',Catalog(Path(d)),{})
