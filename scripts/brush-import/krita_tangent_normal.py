@@ -28,7 +28,7 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
     for node in list(transformed):
         if node.get('name')in('paintop','PaintOpAction'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
-    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
+    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor']
     if d.get('mixer')or d.get('tip',{}).get('material')or d.get('tip',{}).get('color')or d['behavior'].get('dual'):raise ValueError('Tangent requires an alpha mask, without dual/mixer/material colour')
     if d['behavior'].get('colorAdjustment')or any(k in d['behavior'].get('dynamics',{})or k in d['behavior'].get('modulations',{})for k in ('hue','saturation','brightness')):raise ValueError('Tangent foreground colour dynamics unsupported')

@@ -12,6 +12,14 @@ class SprayTest(unittest.TestCase):
         meta=PngImagePlugin.PngInfo();meta.add_text('preset','<Preset paintopid="spraybrush" name="Test"><param name="Spray/diameter">100</param><param name="Spray/particleCount">12</param><param name="SprayShape/enabled">true</param><param name="SprayShape/width">6</param><param name="SprayShape/height">4</param>'+extra+'</Preset>');b=io.BytesIO();Image.new('RGBA',(4,4),'white').save(b,format='PNG',pnginfo=meta);return b.getvalue()
     def convert(self,extra=''):
         with tempfile.TemporaryDirectory() as d:return preset(self.make(extra),'test.kpp',Catalog(Path(d)),{})
+    def test_native_spray_scale_range(self):
+        import convert
+        for value in ('4.1','10'):
+            brush=self.convert('<param name="Spray/scale">'+value+'</param>')
+            self.assertEqual(brush['descriptor']['spray']['scale'],float(value))
+            convert.validate_portable_profile(brush['descriptor'])
+        with self.assertRaisesRegex(ValueError,'Spray/scale'):
+            self.convert('<param name="Spray/scale">10.01</param>')
     def test_separate_area_and_particle(self):
         b=self.convert();self.assertEqual(b['descriptor']['version'],43);self.assertEqual(b['sourceDefaults']['sizePx'],100);self.assertEqual(b['descriptor']['spray']['particle'],{'shape':'ellipse','width':6,'height':4,'proportional':False})
     def test_soft_spray_tip_keeps_its_curve_with_aa_and_random_coverage(self):

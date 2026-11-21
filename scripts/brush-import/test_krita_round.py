@@ -38,6 +38,10 @@ class RoundMarkerTests(unittest.TestCase):
             self.assertEqual(catalog.skipped,[]);self.assertEqual(catalog.assets,{})
             return catalog.brushes[0]
 
+    def test_inactive_curves_and_lod_metadata_do_not_reject_marker(self):
+        brush=self.read({'SizecommonCurve':'0,0;1,1;','SpacingcommonCurve':'0,0;1,1;','lodUserAllowed':'true'})
+        self.assertEqual(brush['descriptor']['tip']['profile']['kind'],'circleBand')
+        self.assertIn('Unsupported active round-marker sensors',self.read({'SizecommonCurve':'0,0;1,1;','PressureSize':'true'},fail=True))
     def test_basic_fields_version_identity_and_no_thumbnail_mask(self):
         brush=self.read();d=brush['descriptor']
         self.assertEqual(d['version'],28)

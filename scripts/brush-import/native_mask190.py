@@ -85,7 +85,11 @@ def lower_pair(data,name,catalog,external,impl,options,*,revision=190,scope=inde
     for child in (False,True):
         node=ET.Element('Preset',{'paintopid':'paintbrush','name':root.get('name','')+(' masking component'if child else'')})
         values=child_params if child else{k:v for k,v in params.items()if not k.startswith('MaskingBrush/')}
-        for key,value in values.items():ET.SubElement(node,'param',{'name':key}).text=value
+        for key,value in values.items():
+            original=next((p for p in root.findall('param') if p.get('name')==(prefix+key if child else key)),None)
+            attributes=dict(original.attrib) if original is not None else {}
+            attributes['name']=key
+            ET.SubElement(node,'param',attributes).text=value
         for record in root:
             if record.tag!='param':node.append(copy.deepcopy(record))
         definition=xml(values.get('brush_definition',''))

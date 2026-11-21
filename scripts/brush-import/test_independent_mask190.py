@@ -15,6 +15,23 @@ PARAMS={**P,'PaintOpAction':'1','MaskingBrush/UseMasterSize':'false','MaskingBru
 def native(tmp,patch=None,external=None):
     params={**PARAMS,**(patch or{})};raw=authored(params);path=Path(tmp)/'Own190.kpp';path.write_bytes(raw);c=convert.Catalog(Path(tmp)/'native');convert_krita(path,c,external);return raw,c
 class IndependentMask190Tests(unittest.TestCase):
+ def test_component_bridge_keeps_bytearray_types(self):
+  from unittest.mock import patch
+  from native_mask190 import lower_pair,png_preset
+  from krita_import import _preset_impl
+  raw=authored({**PARAMS,'MaskingBrush/Preset/Texture/Pattern/Pattern':base64.b64encode(b'YQ==').decode()})
+  image=Image.open(io.BytesIO(raw));root=ET.fromstring(image.info['preset'])
+  for param in root.findall('param'):
+   if param.get('name')=='MaskingBrush/Preset/Texture/Pattern/Pattern':param.set('type','bytearray')
+  encoded=png_preset(root);seen=[]
+  def inspect(node):
+   for param in node.findall('param'):
+    if param.get('name')=='Texture/Pattern/Pattern':seen.append(param.get('type'))
+   return png_preset(node)
+  with tempfile.TemporaryDirectory() as tmp,patch('native_mask190.png_preset',side_effect=inspect):
+   c=convert.Catalog(Path(tmp)/'native')
+   lower_pair(encoded,'test.kpp',c,{},_preset_impl,dict(sequential_xy=False,stroke_input=False,timed_input=False,_allow_texture_material=True,_default_input_policy=None,_native_sampling_candidate=None,_primary_clock_read=False,_bristle_source_capture=None))
+  self.assertEqual(seen,['bytearray'])
  def test_seven_options_native_size_source_fan_and_portable_whole(self):
   with tempfile.TemporaryDirectory()as tmp:
    raw,c=native(tmp);self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertTrue(independent_mask190_scope(d));child=d['behavior']['dual']['brush'];self.assertEqual(d['version'],190);self.assertEqual(child['version'],190);self.assertEqual(d['behavior']['dual']['sizePolicy'],{'kind':'resource','diameter':16});self.assertEqual(child['behavior']['strokeInput']['fanCorners'],{'stepDegrees':30});self.assertIn('scatter',child)

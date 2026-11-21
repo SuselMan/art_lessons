@@ -7,7 +7,7 @@ def _spray133_metadata(s):
     def cdf(v):
         return isinstance(v,str)and re.fullmatch(r'[0-9a-f]{1028}',v)is not None and all(int(v[i:i+4],16)<=int(v[i+4:i+8],16)for i in range(0,1024,4))
     if not obj(s)or set(s)-{'version','diameter','scale','aspect','angle','count','density','jitter','radial','angular','particle','dynamics','color'}or type(s.get('version'))is not int or s.get('version')!=1:return False
-    for k,lo,hi in(('diameter',.01,10000),('scale',.01,4),('aspect',.01,4),('angle',-math.pi*2,math.pi*2),('jitter',0,4)):
+    for k,lo,hi in(('diameter',.01,10000),('scale',.01,10),('aspect',.01,4),('angle',-math.pi*2,math.pi*2),('jitter',0,4)):
         if not n(s.get(k),lo,hi):return False
     if type(s.get('count'))is not int or not 0<=s['count']<=1024 or 'density'in s and not n(s['density'],0,1):return False
     r=s.get('radial')

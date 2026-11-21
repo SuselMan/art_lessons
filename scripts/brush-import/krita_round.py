@@ -17,7 +17,7 @@ def roundmarker_preset(data, root, params, name):
         'SizeUseSameCurve', 'SizeValue', 'SizecurveMode', 'Spacing/Isotropic',
         'SpacingSensor', 'SpacingUseCurve', 'SpacingUseSameCurve', 'SpacingValue',
         'SpacingcurveMode', 'autoSpacingCoeff', 'diameter', 'paintop', 'spacing',
-        'useAutoSpacing',
+        'useAutoSpacing', 'SizecommonCurve', 'SpacingcommonCurve', 'lodUserAllowed',
     }
     from native_timing195 import TIMING195
     if TIMING195.get():allowed.update(('PaintOpSettings/isAirbrushing','PaintOpSettings/rate','PaintOpSettings/ignoreSpacing','AirbrushOption/isAirbrushing','AirbrushOption/rate','PressureRate','RateSensor','RateValue','RateUseCurve'))

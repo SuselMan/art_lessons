@@ -62,7 +62,7 @@ def xml(data):
     # This legacy cache key is never used for resolving resources; the actual
     # pattern data and PatternMD5Sum remain intact. Do not relax XML parsing
     # for any other field.
-    data = re.sub(r'(<param name="Texture/Pattern/PatternMD5" type="(?:string|bytearray)">)(?:<!\[CDATA\[.*?\]\]>|[^<]*)(</param>)',
+    data = re.sub(r'(<param\b(?=[^>]*\bname="Texture/Pattern/PatternMD5")(?=[^>]*\btype="(?:string|bytearray)")[^>]*>)(?:<!\[CDATA\[.*?\]\]>|[^<]*)(</param>)',
                   r'\1\2', data, flags=re.DOTALL)
     root = ET.fromstring(data)
     count = 0
@@ -517,6 +517,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         resources={key:(lambda key=key:native_resource190(key))for key in external}
     else:resources=dict(external)
     reference_resources = {}
+    checksum_mismatches = []
     external_hashes = {}
     matched_payloads = {}
     def external_match(filename, md5):
@@ -551,7 +552,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             selected = match(key for key in external if key not in named_set)
         return selected
     for resource in root.findall('./resources/resource'):
-        filename = resource.get('filename', '')
+        filename = resource.get('filename') or resource.get('name', '')
         if not filename or len(resource.text or '') > MAX_XML:
             raise ValueError('Invalid embedded Krita resource')
         encoded = ''.join((resource.text or '').split())
@@ -566,11 +567,16 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 raise ValueError('Missing Krita resource reference: '+filename)
             payload = base64.b64decode(encoded, validate=True)
             if len(md5) == 32 and hashlib.md5(payload).hexdigest() != md5.lower():
-                raise ValueError('Embedded Krita resource checksum mismatch')
+                checksum_mismatches.append(filename)
         if filename in reference_resources and reference_resources[filename] != payload:
             raise ValueError('Conflicting Krita resource reference: '+filename)
         reference_resources[filename] = payload
         resources[filename] = payload
+        # Krita 5/6 may store a brush resource name without the PNG suffix.
+        if resource.get('type') == 'brushes' and not PurePosixPath(filename).suffix and payload.startswith(b'\x89PNG\r\n\x1a\n'):
+            alias=filename+'.png'
+            if alias in reference_resources and reference_resources[alias] != payload:raise ValueError('Conflicting Krita resource reference: '+alias)
+            reference_resources[alias]=payload;resources[alias]=payload
     def resource(filename):
         # Keep an exact resolved reference binding through the later basename
         # lookup, otherwise a valid MD5 selection could become ambiguous again.
@@ -585,9 +591,18 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         if any(value != matches[0][1] for _, value in matches):
             raise ValueError('Ambiguous Krita resource: '+filename)
         return matches[0][1]
+    def with_resource_notes(result):
+        # Krita uses the supplied checksum to look up an installed resource, but
+        # loads embedded bytes if lookup fails, even when their checksum differs.
+        if checksum_mismatches:
+            detail='Embedded resource checksum differs from its reference; captured bytes were used: '+', '.join(sorted(set(checksum_mismatches)))
+            if not any(n.get('feature')=='resourceChecksum' and n.get('detail')==detail for n in result.get('compatibility',[])):
+                result.setdefault('compatibility',[]).append(compatibility('resourceChecksum',detail))
+                result.setdefault('warnings',[]).append('resourceChecksum: '+detail)
+        return result
     if engine == 'tangentnormal':
         from krita_tangent_normal import tangent_normal_preset
-        return tangent_normal_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(tangent_normal_preset(data,root,params,name,catalog,external))
     if engine == 'mypaintbrush':
         from mypaint_import import mypaint_preset
         if params.get('CompositeOp','normal') not in ('normal','erase'):raise ValueError('Unsupported MyPaint composite/timing mode')
@@ -601,48 +616,48 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             result=apply_kpp_mypaint_timer177(result,params,depth=depth)
         result['name']=root.get('name')or result['name']
         result['descriptor']=finalize_identity(result['descriptor'],data)
-        return result
+        return with_resource_notes(result)
     if engine == 'duplicate':
         from krita_clone import clone_preset
-        return clone_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(clone_preset(data,root,params,name,catalog,external))
     if engine == 'filter':
         from krita_filter import filter_preset
-        return filter_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(filter_preset(data,root,params,name,catalog,external))
     if engine == 'deformbrush':
         from krita_deform import deform_preset
-        return deform_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
+        return with_resource_notes(deform_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY)))
     if engine == 'experimentbrush':
         if depth and numeric(params.get('Experiment/fillType'),0)==1:raise ValueError('Canvas Pattern158 requires root Experiment')
         from krita_experiment import experiment_preset
-        return experiment_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(experiment_preset(data,root,params,name,catalog,external))
     if engine == 'particlebrush':
         from krita_particle import particle_preset
-        return particle_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
+        return with_resource_notes(particle_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY)))
     if engine == 'gridbrush':
         from krita_grid import grid_preset
-        return grid_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(grid_preset(data,root,params,name,catalog,external))
     if engine == 'hatchingbrush':
         from krita_hatching import hatching_preset
-        return hatching_preset(data,root,params,name,catalog,external)
+        return with_resource_notes(hatching_preset(data,root,params,name,catalog,external))
     if engine == 'curvebrush':
         from krita_curve import curve_preset
-        return curve_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
+        return with_resource_notes(curve_preset(data,root,params,name,catalog,external,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY)))
     if engine == 'hairybrush':
         if enabled(params.get('HairyInk/enabled'))and enabled(params.get('HairyInk/soak'))and(depth or not _allow_texture_material):raise ValueError('Bristle Soak139 requires genuine root native Bristle origin')
         from krita_bristle import bristle_preset
-        return bristle_preset(data,root,params,name,catalog,external,_allow_initialization=depth==0 and _allow_texture_material)
+        return with_resource_notes(bristle_preset(data,root,params,name,catalog,external,_allow_initialization=depth==0 and _allow_texture_material))
     if engine in ('sketchbrush','spraybrush') and not COMPONENT194.get() and not any(clock_enabled(params, k)for k in ('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing')):
         from native_sketch_spray194 import lower194
-        return lower194(data,root,params,name,catalog,external,resource)
+        return with_resource_notes(lower194(data,root,params,name,catalog,external,resource))
     if engine == 'sketchbrush':
         from krita_sketch import sketch_preset
-        return sketch_preset(data,root,params,name,catalog,external,resource,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY))
+        return with_resource_notes(sketch_preset(data,root,params,name,catalog,external,resource,timed_input=depth==0 and _allow_texture_material and (inherited_timed_input or _default_input_policy==DEFAULT_NATIVE_INPUT_POLICY)))
     if engine == 'spraybrush':
         from krita_spray import spray_preset
-        return spray_preset(data,root,params,name,catalog,external,resource)
+        return with_resource_notes(spray_preset(data,root,params,name,catalog,external,resource))
     if engine == 'roundmarker':
         from krita_round import roundmarker_preset
-        return roundmarker_preset(data, root, params, name)
+        return with_resource_notes(roundmarker_preset(data, root, params, name))
     from filter_mask192 import FILTER192
     definition = xml(params.get('brush_definition', ''))
     warnings = []
@@ -665,6 +680,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             raise ValueError('Missing Krita auto-brush generator')
         source_size=numeric(generator.get('diameter'),1)
         shape = generator.get('type', 'circle')
+        # Older authored bundles contain rct; Krita reads non-circle shapes as rectangular.
+        if shape == 'rct': shape = 'rect'
         if shape not in ('circle', 'rect'):
             raise ValueError('Unsupported Krita auto-brush shape: '+shape)
         hardness = clamp((numeric(generator.get('hfade'),1)+numeric(generator.get('vfade'),1))/2)
@@ -1056,7 +1073,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             if angle!=0: profile['angleOffset']=-angle
     if spacing_checked or isotropic:
         notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
-    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'kritaHardMix' if engine=='paintbrush' else 'hardMix','hard_mix_photoshop':'hardMixPhotoshop' if engine=='paintbrush' else 'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
+    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','soft_light_svg':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'kritaHardMix' if engine=='paintbrush' else 'hardMix','hard_mix_photoshop':'hardMixPhotoshop' if engine=='paintbrush' else 'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
     if mode in modes:
@@ -1452,6 +1469,11 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # Rotation_previous is saved UI state, not a live rotation sensor switch.
     if engine=='paintbrush':
         active=[k for k in active if k not in ('PressureColorRate','PressureRotation_previous')]
+        # KisBrush ignores softnessFactor for image tips; image-pipe frames use
+        # the same image brush implementation, unlike auto-brush generators.
+        if definition.get('type') in ('gbr_brush','png_brush') and 'PressureSoftness' in active:
+            active.remove('PressureSoftness')
+            notes.append(compatibility('ignoredBitmapSoftness','Krita image brush masks do not consume the Softness factor.','supported'))
     # Pixel Mix samples foreground/background at each request. Opt in only to
     # root plain-colour Wash with a single pressure curve; other sources and
     # sensors remain explicitly unsupported instead of losing their meaning.
@@ -1919,7 +1941,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     result['preview'] = author_preview
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
-    return result
+    return with_resource_notes(result)
 
 
 
@@ -1999,6 +2021,9 @@ def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
 
 
 def preset(data,name,catalog,external,depth=0,**options):
+    # Wrappers inspect preset metadata before reaching the main decoder.
+    PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
+    PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
     from native_timing195 import TIMING195,lower_timing195,native_params
     if not depth and not TIMING195.get() and options.get('_default_input_policy')==DEFAULT_NATIVE_INPUT_POLICY and options.get('_allow_texture_material',True):
         image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))

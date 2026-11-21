@@ -83,7 +83,7 @@ def sketch_preset(data,root,params,name,catalog,external,resource,*,timed_input=
     for node in transformed.findall('param'):
         if timer and node.get('name')in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','PressureRate'):node.text='false'
         if node.get('name')=='PaintOpAction':node.text='1'
-    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
+    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     result=preset(out.getvalue(),name,catalog,private_external,_allow_texture_material=False)
     d=result['descriptor'];d['version']=44 if simple else(114 if enabled(params.get('Sketch/distanceOpacity'))else 101)
     # Pixel's derived integer-image bank is not Sketch's native selection mask.

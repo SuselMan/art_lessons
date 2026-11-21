@@ -15,7 +15,7 @@ def clone_preset(data,root,params,name,catalog,external):
     for node in list(transformed):
         if node.get('name')in('CompositeOp','PaintOpAction','paintop'):transformed.remove(node)
     ET.SubElement(transformed,'param',name='CompositeOp').text='normal';ET.SubElement(transformed,'param',name='PaintOpAction').text='1'
-    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta)
+    im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d.update(version=54,model='stamp',category='paint',paperInteraction=0)
     if healing and any(k in d for k in('mixer','scatter','texture','wet')):raise ValueError('Healing152 does not discard active source modifiers')
     for key in ('mixer','scatter','texture','wet'):d.pop(key,None)

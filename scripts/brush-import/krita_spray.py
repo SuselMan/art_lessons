@@ -61,7 +61,7 @@ def spray_preset(data,root,params,name,catalog,external,resolve_resource=None):
         return n
     source_flags={key:True for source,key in (('sampleInputColor','sampleInput'),('mixBgColor','mixBackground'),('fillBackground','fillBackground'))if enabled(params.get('ColorOption/'+source))}
     diameter=number('Spray/diameter',100,.01,10000)
-    scale=number('Spray/scale',1,.01,4)
+    scale=number('Spray/scale',1,.01,10)
     shape=enabled(params.get('SprayShape/enabled','true'))
     shape_id=int(number('SprayShape/shape',0,0,4))
     image_shape=shape and shape_id==4

@@ -24,7 +24,7 @@ class KritaTests(unittest.TestCase):
         cases = [('<![CDATA[abc\x0edef]]>', 'string'), ('YZWYAA==', 'bytearray')]
         with tempfile.TemporaryDirectory() as tmp:
             for index, (value, kind) in enumerate(cases):
-                field = f'<param name="Texture/Pattern/PatternMD5" type="{kind}">{value}</param>'
+                field = (f'<param type="{kind}" name="Texture/Pattern/PatternMD5">{value}</param>' if index else f'<param name="Texture/Pattern/PatternMD5" type="{kind}">{value}</param>')
                 path = Path(tmp) / f'{index}.kpp'
                 path.write_bytes(kpp(resources=field))
                 catalog = convert.Catalog(Path(tmp) / f'out{index}')
@@ -151,6 +151,26 @@ class KritaTests(unittest.TestCase):
             self.assertEqual(len(d['sizeByPressure']['samples']),256)
             self.assertAlmostEqual(d['sizeByPressure']['samples'][128],.2019676956826568,places=8)
             self.assertEqual(c.assets,{})
+    def test_svg_soft_light_uses_svg_compositing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(mode='soft_light_svg'));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            self.assertEqual(c.skipped,[])
+            brush=c.brushes[0];self.assertEqual(brush['descriptor']['behavior']['rendering']['blendMode'],'softLight')
+            self.assertFalse(any(n['status']=='unsupported' and n['feature']=='blendMode' for n in brush['compatibility']))
+    def test_legacy_rct_shape_is_treated_as_rectangle(self):
+        definition='<Brush type="auto_brush"><MaskGenerator type="rct" id="gauss" diameter="20" ratio="1" hfade="1" vfade=".9" antialiasEdges="1"/></Brush>'
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            self.assertEqual(c.skipped,[]);self.assertEqual(c.brushes[0]['descriptor']['tip']['profile']['kind'],'gaussian2D')
+    def test_bitmap_brush_ignores_softness_sensor(self):
+        raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+bytes([255]*4)
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp'
+            p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr"/>','<param name="PressureSoftness">true</param>'))
+            c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c,{'tip.gbr':raw})
+            self.assertEqual(c.skipped,[])
+            self.assertTrue(any(n['feature']=='ignoredBitmapSoftness' for n in c.brushes[0]['compatibility']))
+            self.assertFalse(any(n['status']=='unsupported' and 'PressureSoftness' in n['detail'] for n in c.brushes[0]['compatibility']))
     def test_embedded_gbr_positive_coverage(self):
         raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+b'\0\x40\x80\xff'
         self.assertEqual(gbr(raw).tobytes(),b'\0\x40\x80\xff')
@@ -160,6 +180,14 @@ class KritaTests(unittest.TestCase):
             c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             self.assertEqual(len(c.brushes),1);self.assertEqual(len(c.assets),1)
             self.assertEqual(next(iter(c.assets.values()))['size'],2)
+    def test_embedded_png_brush_resource_with_name_without_extension(self):
+        image=io.BytesIO();Image.new('RGBA',(3,3),(0,0,0,255)).save(image,format='PNG')
+        raw=image.getvalue()
+        resources='<resources><resource name="authored" type="brushes">'+base64.b64encode(raw).decode()+'</resource></resources>'
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp('<Brush type="png_brush" filename="authored.png"/>',resources))
+            c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);self.assertEqual(len(c.assets),1)
     def test_bundle_resolves_external_resources(self):
         raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+bytes([255]*4)
         with tempfile.TemporaryDirectory() as tmp:

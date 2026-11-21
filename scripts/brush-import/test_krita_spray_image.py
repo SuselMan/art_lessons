@@ -71,7 +71,8 @@ class SprayImageImportTest(unittest.TestCase):
         a=encoded(Image.new('RGBA',(2,2),'red'));b=encoded(Image.new('RGBA',(2,2),'blue'))
         with tempfile.TemporaryDirectory()as tmp:
             with self.assertRaisesRegex(ValueError,'Ambiguous Krita resource'):preset(kpp(),'ambiguous.kpp',Catalog(Path(tmp)),{'a/particle.png':a,'b/particle.png':b})
-            with self.assertRaisesRegex(ValueError,'checksum mismatch'):preset(kpp(embedded=a,md5='0'*32),'checksum.kpp',Catalog(Path(tmp)),{})
+            result=preset(kpp(embedded=a,md5='0'*32),'checksum.kpp',Catalog(Path(tmp)),{})
+            self.assertTrue(any(n['feature']=='resourceChecksum' for n in result['compatibility']))
 
     def test_geometry_rotation_and_request_scale_are_not_baked_into_source(self):
         payload=encoded(Image.new('RGBA',(4,2),'red'))
