@@ -589,7 +589,7 @@ confirmed which migration it was taken at.
 
 The server Docker build unpacks the bundled stock archive pinned in `scripts/brush-import/stock-catalog.json` with
 `scripts/brush-import/fetch-stock.mjs`, verifying its pinned SHA-256. It contains
-only the stock Krita catalog/resources and Grafetto-generated sample PNGs. The image
+the stock Krita catalog, licensed third-party brushes, their resources and Grafetto-generated sample PNGs. The image
 packages that catalog, the dedicated static preview renderer, system Chromium and
 the Python importer. Neither QA bindings nor user libraries enter this artifact.
 The named `brush_data` volume stores personal uploads, favorite references, immutable
