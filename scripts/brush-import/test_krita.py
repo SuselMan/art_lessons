@@ -98,7 +98,7 @@ class KritaTests(unittest.TestCase):
         self.assertEqual(result['mode'],'random')
         self.assertEqual([f.size for f in result['frames']],[(2,2),(3,1)])
         self.assertEqual([f.getpixel((0,0)) for f in result['frames']],[64,192])
-        for invalid in [data[:-1],data+b'extra',data.replace(b'dim:1',b'dim:2'),data.replace(b'sel0:random',b'sel0:future-selector'),data.replace(b'rank0:2',b'rank0:3')]:
+        for invalid in [data[:-1],data+b'extra',data.replace(b'dim:1',b'dim:2'),data.replace(b'sel0:random',b'sel0:future-selector'),data.replace(b'rank0:2',b'rank0:0'),data.replace(b'rank0:2',b'rank0:257')]:
             with self.assertRaises(ValueError):gih(invalid)
         for mode in [b'pressure',b'constant']:
             accepted=gih(data.replace(b'sel0:random',b'sel0:'+mode))

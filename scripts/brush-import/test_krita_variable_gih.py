@@ -21,6 +21,21 @@ def rgba(w,h):
     return bytes(v for y in range(h)for x in range(w)for v in(20+x,40+y,200-x,64+(x+y)%4*50))
 
 class VariableGihTests(unittest.TestCase):
+ def test_random_rank_larger_than_frame_count_wraps_before_selection(self):
+    from krita_import import gih
+    originals=[frame(2,2,[value]*4) for value in (10,20,30)]
+    data=pipe(originals,'random').replace(b'rank0:3',b'rank0:5')
+    result=gih(data);self.assertEqual(result['declaredCount'],3);self.assertEqual(result['decodedCount'],3)
+    self.assertEqual([image.getpixel((0,0)) for image in result['frames']],[10,10,10,10,10])
+    five=originals+[frame(2,2,[40]*4),frame(2,2,[50]*4)]
+    result=gih(pipe(five,'incremental').replace(b'rank0:5',b'rank0:3'))
+    self.assertEqual([image.getpixel((0,0)) for image in result['frames']],[10,20,30])
+    with tempfile.TemporaryDirectory() as tmp:
+      c,_=self.imported(tmp,data);self.assertEqual(c.skipped,[])
+      frames=c.brushes[0]['descriptor']['tip']['animation']['frames'];self.assertEqual(len(frames),5)
+      self.assertTrue(all(frame==frames[0] for frame in frames))
+      path,_=self.bundle(c,tmp);roundtrip=convert.Catalog(Path(tmp)/'roundtrip');convert.portable_bundle(path,roundtrip)
+      self.assertEqual(roundtrip.brushes,c.brushes)
  def imported(self,tmp,data,*,engine='paintbrush',application=0,extra='',scale=2):
     path=Path(tmp)/'Own.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="own.gih" brushApplication="%d" scale="%s" ratio=".5" spacing=".2"/>'%(application,scale),resources=extra,engine=engine))
     c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'own.gih':data});return c,path
