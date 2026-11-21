@@ -594,7 +594,7 @@ export const en = {
   'class.defaultName': 'Assignment {n}',
   'class.assignmentName': 'Assignment name',
   'class.start': 'Hand out',
-  'class.startHint': 'Every student in the lesson gets a blank board of their own and goes to it. Anyone absent now gets one when you send the class back here.',
+  'class.startHint': 'Choose a name and click “Hand out”. Every student in the lesson gets a blank board of their own and goes to it. Anyone absent now gets one when you send the class back here.',
   'class.spotlight': 'Show everyone',
   'class.spotlightOff': 'Stop showing',
   'class.spotlightOn': 'Shown to everyone',

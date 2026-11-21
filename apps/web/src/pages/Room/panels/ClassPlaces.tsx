@@ -5,6 +5,8 @@ import type { AssignmentSummary } from '@grafetto/shared'
 
 import { useT } from '../../../i18n'
 import { Icon } from '../../../components/Icon'
+import { IconButton } from '../../../components/Button'
+import { Tooltip } from '../../../components/Tooltip'
 
 import styles from './ClassPlaces.module.css'
 
@@ -139,10 +141,15 @@ export function ClassPlaces({
       )}
 
       {isTeacher && (draft === null ? (
-        <button type="button" className={styles.add} onClick={() => setDraft(defaultName)}>
-          <Icon name="add" />
-          {t('class.newAssignment')}
-        </button>
+        <div className={styles.addRow}>
+          <button type="button" className={styles.add} onClick={() => setDraft(defaultName)}>
+            <Icon name="add" />
+            {t('class.newAssignment')}
+          </button>
+          <Tooltip content={t('class.startHint')}>
+            <IconButton icon="info" variant="ghost" size="sm" aria-label={`${t('class.newAssignment')} — ${t('common.moreInfo')}`} />
+          </Tooltip>
+        </div>
       ) : (
         <form
           className={styles.form}
@@ -168,7 +175,6 @@ export function ClassPlaces({
             </button>
             <button type="button" className={styles.cancel} onClick={() => setDraft(null)}>{t('common.cancel')}</button>
           </div>
-          <p className={styles.hint}>{t('class.startHint')}</p>
         </form>
       ))}
     </section>
