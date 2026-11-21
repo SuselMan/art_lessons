@@ -44,7 +44,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import {bindBrushPattern, bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import {bindBrushPattern, bindBrushGradient,assertNativeImageAdmission,brushUsesStampEffects,brushPreparationBytes,brushPreparationTransientBytes,streamingMaskResources,isStreamingMaskBrush,BRUSH_PREPARATION_BYTES, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -97,7 +97,7 @@ export class BrushPainter {
       const unbound = brushPreparationResources(brush.model === 'mixer' && brush.version!==195 && !usesNativeFilterMask(brush) && !usesNativeSmudgeFeatures(brush) ? { ...brush, model: 'stamp' } : brush,effectiveErase)
       const resources = bindBrushPattern(gradientLut===undefined ? unbound : bindBrushGradient(unbound,gradientLut),pattern)
       const required=this.recordedStampResources(brush,resources,gradientLut!==undefined)
-      if(required)return this.acquireRecordedStampResources(required,false)
+      if(required)return this.acquireRecordedStampResources(required,false,undefined,false,isStreamingMaskBrush(brush))
       if (resources.some(resource => resource.nativeImage || resource.lookup32 || resource.bristleSaturation || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       const plan=brushTextureLeasePlan(resources,'stamp'),release=pattern!==undefined||usesFilteredPixelGradient(brush)||!!textureMaterialKind(brush)?this.textures.leaseRequired(plan):this.textures.lease(plan)
       if(pattern!==undefined){try{if(resources.some(r=>r.painter==='stamp'&&!this.hasPreparedTexture(r)))throw Error('Canvas pattern resource was not prepared');return release}catch(error){try{release()}catch{/* Preserve preparation error. */}throw error}}
@@ -134,7 +134,7 @@ export class BrushPainter {
     const lightness=assertEqualLightnessGih123(brush,mask190)||assertUnequalLightnessGih124(brush,mask190)
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&(brush.version<122||!isIndependentDrawingAnglePair(brush)))return undefined
     if(wash&&brush.tip.kind==='bitmap'){const ids=brush.tip.animation?.frames??[brush.tip.mask!];for(const id of ids){const side=Math.sqrt(importedAssetPixels(id).length);if(!Number.isInteger(side)||side<2||side>2048||(side&(side-1))!==0)throw Error('Spray Wash frame is not canonical')}}
-    const resources=existing??brushPreparationResources(bitmapFilter&&brush.version!==195&&!usesNativeFilterMask(brush)?{...brush,model:'stamp'}:brush)
+    const resources=streamingMaskResources(brush,existing??brushPreparationResources(bitmapFilter&&brush.version!==195&&!usesNativeFilterMask(brush)?{...brush,model:'stamp'}:brush),this.imageDimensionLimit())
     if(!textureWash180&&!textureWash171&&!bitmapFilter&&!alphaDual&&!originalDual&&!wash&&!lightness&&!gradient&&!resources.some(resource=>resource.nativeImage))return undefined
     // Borrowed source metadata only: no derivative or upload before admission.
     for(const resource of resources){
@@ -153,8 +153,8 @@ export class BrushPainter {
     }
     return resources
   }
-  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor,filteredGradient=false):()=>void {
-    const release=this.textures.leaseRequired(brushTextureLeasePlan(resources,'stamp'))
+  private acquireRecordedStampResources(resources:readonly BrushPreparationResource[],prepare:boolean,brush?:BrushDescriptor,filteredGradient=false,streaming=false):()=>void {
+    const plan=brushTextureLeasePlan(resources,'stamp'),release=streaming?this.textures.lease(plan):this.textures.leaseRequired(plan)
     try{
       if(prepare){
         if(brush?.version===195&&brush.tangentNormal?.sharpnessChecked)this.prepareSketchLines()
@@ -180,7 +180,7 @@ export class BrushPainter {
   prepareRecordedStampResources(brush:BrushDescriptor):void {
     const resources=this.recordedStampResources(brush)
     if(!resources)return
-    this.acquireRecordedStampResources(resources,true,brush)()
+    this.acquireRecordedStampResources(resources,true,brush,false,isStreamingMaskBrush(brush))()
   }
   initGL():void {this.soakGather?.reset();this.colorEpoch={};this.maximumImageSide=undefined;this.behavior.releaseBristleSaturation();this.textures.clear(true);this.saturationResources.reset();this.behavior.initGL()}
   destroy():void {

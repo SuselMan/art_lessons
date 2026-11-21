@@ -302,6 +302,24 @@ export function streamingSmudgeResources(brush:BrushDescriptor,resources:readonl
  return [...fixed,frames[0]]
 }
 
+/** Stream large independent Pixel-mask Lightness pages through the existing
+ * per-dab protected texture LRU. Only the first page and static resources are
+ * leased; validate room for that page plus any subsequently selected page. */
+export function isStreamingMaskBrush(brush:BrushDescriptor):boolean {
+ const animation=brush.tip.animation,child=brush.behavior?.dual?.brush
+ return hasIndependentMask190Scope(brush)&&brush.tip.material?.kind==='lightness'&&animation?.mode==='dimensions'&&animation.frames.length>256&&!animation.geometry&&!brush.tip.color&&!brush.texture&&!!child&&child.tip.kind==='procedural'&&!child.tip.animation&&!child.texture
+}
+export function streamingMaskResources(brush:BrushDescriptor,resources:readonly BrushPreparationResource[],maximumTextureSide:number):BrushPreparationResource[] {
+ const animation=brush.tip.animation
+ if(!isStreamingMaskBrush(brush)||!animation)return [...resources]
+ const ids=new Set<string>(animation.frames),pages=resources.filter(r=>r.painter==='stamp'&&!!r.materialGroup&&r.materialGroup.frames.every(f=>ids.has(f.alpha))),fixed=resources.filter(r=>!pages.includes(r))
+ if(!Number.isFinite(maximumTextureSide)||maximumTextureSide<2||!pages.length||pages.some(r=>!r.materialGroup||r.materialGroup.size>maximumTextureSide||r.materialGroup.frames.some(f=>!ids.has(f.alpha)))||animation.frames.some(id=>!pages.some(p=>p.materialGroup!.frames.some(f=>f.alpha===id))))throw Error('Invalid streaming mask frame inventory')
+ const size=(id:string)=>id.startsWith('asset:')?Math.sqrt(importedAssetPixels(id).length):256
+ const sorted=[...pages].sort((a,b)=>brushPreparationBytes([b],size)-brushPreparationBytes([a],size)),working=[...fixed,...sorted.slice(0,2)]
+ if(brushPreparationBytes(working,size)+brushPreparationTransientBytes(working)>BRUSH_PREPARATION_BYTES)throw Error('Streaming mask frames exceed the texture budget')
+ return [...fixed,pages[0]]
+}
+
 /** Native policy promises a complete finite working bank, never a legacy
  * lazy-upload fallback after readiness reported an oversized skip. */
 export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {

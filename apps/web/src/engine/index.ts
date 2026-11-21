@@ -37,7 +37,7 @@ import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionCon
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import{ copyBrushSourceContext,brushUsesGradient,isBrushGradient,makeBrushGradient,dependentReadOperations,hasValidStrokeEndSample, createBrushSourceNonce,createBrushRandomStrokeId, type BrushSourceContext,type BrushRandomSeeds }from'@grafetto/shared'
-import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES,streamingSmudgeResources, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { BrushPreparation, assertNativeImageAdmission,bindBrushPattern, bindBrushGradient,brushUsesStampEffects,brushPreparationPlan, brushPreparationBytes,brushPreparationTransientBytes, BRUSH_PREPARATION_BYTES,streamingSmudgeResources,streamingMaskResources, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { clearReplayStart } from './src/oplog/clearReplayStart'
@@ -4123,7 +4123,7 @@ export class PencilEngine implements PencilEngineAPI {
     const plan=brushPreparationPlan(descriptor),capabilities=plan.capabilities
     const gradient=descriptor.texture?.material?.kind==='gradient'||descriptor.tip.color && 'gradient' in descriptor.tip.color ? options.gradient ?? this._canvasBrushGradient ?? makeBrushGradient([...this._opts.graphiteColor,1],[1,1,1,1]) : undefined
     const pattern=hasExperimentCurrentPattern158Scope(descriptor)?options.pattern??this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
-    const resources=streamingSmudgeResources(descriptor,bindBrushPattern(bindBrushGradient(plan.resources,gradient),pattern),this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    const resources=streamingMaskResources(descriptor,streamingSmudgeResources(descriptor,bindBrushPattern(bindBrushGradient(plan.resources,gradient),pattern),this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number),this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const preparationKey=(gradient ? preset+':gradient:'+gradient : preset)+(pattern?':pattern:'+JSON.stringify(pattern):'')
     if (resources.some(resource => resource.canvasPattern||resource.nativeImage || resource.lookup32 || resource.gradientSource || resource.gradientPalette || resource.patternAlpha)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
