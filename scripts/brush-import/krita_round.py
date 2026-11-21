@@ -19,6 +19,8 @@ def roundmarker_preset(data, root, params, name):
         'SpacingcurveMode', 'autoSpacingCoeff', 'diameter', 'paintop', 'spacing',
         'useAutoSpacing', 'SizecommonCurve', 'SpacingcommonCurve', 'lodUserAllowed',
         'runtimeCanvasMirroredX', 'runtimeCanvasMirroredY', 'runtimeCanvasRotation',
+        # Transient brush/eraser UI state in Krita, not paint-op input.
+        'SavedBrushOpacity', 'SavedBrushSize', 'SavedEraserOpacity', 'SavedEraserSize',
     }
     from native_timing195 import TIMING195
     if TIMING195.get():allowed.update(('PaintOpSettings/isAirbrushing','PaintOpSettings/rate','PaintOpSettings/ignoreSpacing','AirbrushOption/isAirbrushing','AirbrushOption/rate','PressureRate','RateSensor','RateValue','RateUseCurve'))

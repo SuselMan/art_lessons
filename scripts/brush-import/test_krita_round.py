@@ -56,6 +56,11 @@ class RoundMarkerTests(unittest.TestCase):
         self.assertIn('non-neutral canvas transform',self.read({'runtimeCanvasMirroredX':'true'},fail=True))
         self.assertIn('non-neutral canvas transform',self.read({'runtimeCanvasRotation':'10'},fail=True))
 
+    def test_transient_saved_eraser_and_brush_settings_are_ignored(self):
+        base=self.read()['descriptor']
+        changed=self.read({'SavedBrushOpacity':'.3','SavedBrushSize':'99','SavedEraserOpacity':'.2','SavedEraserSize':'11'})['descriptor']
+        base.pop('id');changed.pop('id');self.assertEqual(base,changed)
+
     def test_basic_fields_version_identity_and_no_thumbnail_mask(self):
         brush=self.read();d=brush['descriptor']
         self.assertEqual(d['version'],28)
