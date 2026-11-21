@@ -21,6 +21,14 @@ class IndependentMask190Tests(unittest.TestCase):
   self.assertFalse(uses_native_mask190_controls(root['behavior']));self.assertFalse(validate_independent_mask190(root))
   root['behavior']['modulations']['size'][0]['control']='pressureIn'
   with self.assertRaises(ValueError):validate_independent_mask190(root)
+ def test_spiked_noisy_soft_rectangle_is_supported_in_child(self):
+  shape='<Brush type="auto_brush" density="1" randomness=".76"><MaskGenerator type="rect" ratio=".63" diameter="50" id="soft" spikes="3" hfade="1" vfade="1" antialiasEdges="1" softness_curve="0,1;.5,.3;1,0"/></Brush>'
+  with tempfile.TemporaryDirectory() as tmp:
+   _,c=native(tmp,{'MaskingBrush/Preset/brush_definition':shape})
+   self.assertEqual(c.skipped,[]);child=c.brushes[0]['descriptor']['behavior']['dual']['brush']
+   self.assertEqual(child['tip']['profile']['kind'],'curveRectangle');self.assertEqual(child['tip']['autoShape']['spikes'],3);self.assertEqual(child['tip']['autoNoise']['randomness'],.76)
+   self.assertFalse(any(n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+   convert.validate_portable_profile(c.brushes[0]['descriptor'])
  def test_root_darken_retains_sensor_and_strength_with_qualified_order(self):
   with tempfile.TemporaryDirectory() as tmp:
    _,c=native(tmp,{'PressureDarken':'true','DarkenValue':'.4','DarkenUseCurve':'true','DarkenSensor':'<params id="pressurein"/>'})
