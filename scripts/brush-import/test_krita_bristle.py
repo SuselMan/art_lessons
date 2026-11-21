@@ -15,6 +15,8 @@ class BristleTests(unittest.TestCase):
         self.assertLess(sum(value>0 for value in sparse.tobytes()),sum(value>0 for value in full.tobytes()))
         self.assertEqual(max(standard_circle(source('0'),25).tobytes()),0)
         with self.assertRaisesRegex(ValueError,'bounds'):standard_circle(source('1',angle='30'),25)
+        square=source('1');square.find('MaskGenerator').set('type','rect');square.find('MaskGenerator').set('spikes','2')
+        rectangle=standard_circle(square,25);self.assertGreater(sum(rectangle.tobytes()),sum(full.tobytes()))
 
     def test_procedural_bristle_converts_to_fixed_hairs(self):
         definition='<Brush type="auto_brush" density=".36" randomness="0" angle="0"><MaskGenerator id="default" type="circle" ratio="1" hfade=".6" vfade=".6" diameter="25" spikes="4" antialiasEdges="1"/></Brush>'

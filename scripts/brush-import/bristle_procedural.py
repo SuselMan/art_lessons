@@ -10,8 +10,9 @@ from PIL import Image
 
 def standard_circle(definition, side):
     generator = definition.find('MaskGenerator')
-    if generator is None or generator.get('id', 'default') != 'default' or generator.get('type', 'circle') != 'circle':
-        raise ValueError('Bristle procedural source requires a standard circular generator')
+    if generator is None or generator.get('id', 'default') != 'default' or generator.get('type', 'circle') not in ('circle','rect','rct'):
+        raise ValueError('Bristle procedural source requires a standard circular or rectangular generator')
+    rectangle = generator.get('type', 'circle') in ('rect','rct')
     def number(node, key, default):
         value = float(node.get(key, default))
         if not math.isfinite(value):
@@ -40,11 +41,20 @@ def standard_circle(definition, side):
                 angle -= step
         ax, ay = abs(x), abs(y)
         u, v = ax / radius, ay / ry
-        distance = u*u + v*v
+        distance = max(u,v) if rectangle else u*u + v*v
         if distance > 1:
             return 255
         fx = (ax + aa) * (1 if hf == 0 else 1 / (hf * radius))
         fy = (ay + aa) * (1 if vf == 0 else 1 / (vf * ry))
+        if rectangle:
+            # Native scalar selection: an undefined axis is never selected.
+            a = u*(fx-1)/(fx-u) if fx != u else float('-inf')
+            b = v*(fy-1)/(fy-v) if fy != v else float('-inf')
+            value = a if fx > 1 else 0
+            undefined_x = fx == u and (u == 0 or fx == 1)
+            if fy > 1 and not undefined_x and a < b:
+                value = b
+            return math.floor(255*max(0,min(1,value)))
         q = fx*fx + fy*fy
         value = 0 if q < 1 else 255 if q == distance else 255 * distance * (q - 1) / (q - distance)
         return math.floor(max(0, min(255, value)))

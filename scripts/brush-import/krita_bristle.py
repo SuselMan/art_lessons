@@ -39,7 +39,7 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
         if definition.get('type')!='auto_brush':raise ValueError('Bristle requires a bitmap or supported procedural tip')
         mask=standard_circle(definition,side)
         result['compatibility']=[n for n in result['compatibility'] if n['feature'] not in ('autoBrush','autoMaskNoise','standardMaskProfile','autoSpikes')]
-        result['compatibility'].append(compatibility('bristleProceduralSource','Standard circular procedural source rasterized at authored size with deterministic per-pixel density and attenuation; Krita random sequence and raster rounding may differ.'))
+        result['compatibility'].append(compatibility('bristleProceduralSource','Standard circular or rectangular procedural source rasterized at authored size with deterministic per-pixel density and attenuation; Krita random sequence and raster rounding may differ.'))
     density=numeric(params.get('HairyBristle/density'),100)/100
     if not math.isfinite(density) or not 0<=density<=1:raise ValueError('Bristle density outside0..100')
     hairs=[]
