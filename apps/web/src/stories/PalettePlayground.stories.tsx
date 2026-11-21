@@ -114,6 +114,7 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
   const [variants, setVariants] = useState<PaletteVariant[]>(readVariants)
   const [savingVariant, setSavingVariant] = useState(false), [variantName, setVariantName] = useState('')
   const [storageError, setStorageError] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
   const [preferredVariant, setPreferredVariant] = useState('')
   const current = snapshot(drafts)
   const preferredColors = preferredVariant === 'original' ? palettes : variants.find(variant => variant.id === preferredVariant)?.colors
@@ -123,6 +124,14 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
     if (!colors) return
     const overrides = (theme: Theme) => Object.fromEntries(Object.entries(colors[theme]).filter(([name, value]) => value !== palettes[theme][name]))
     setDrafts({ dark: overrides('dark'), light: overrides('light') }); setPreferredVariant(id); setCopied(false); setPicked(null)
+  }
+  const deleteVariant = () => {
+    if (!variants.some(variant => variant.id === selectedVariant)) return
+    const next = variants.filter(variant => variant.id !== selectedVariant)
+    try {
+      localStorage.setItem(variantsKey, JSON.stringify(next))
+      setVariants(next); setPreferredVariant(''); setDeleteError(false)
+    } catch { setDeleteError(true) }
   }
   const saveVariant = () => {
     if (!variantName.trim() || invalid) return
@@ -166,7 +175,7 @@ function Playground({ theme, onThemeChange }: { theme: Theme; onThemeChange: (th
   return <main className={styles.page} data-palette-playground>
     <div className={styles.top}><div><h1>Палитра в интерфейсе</h1><p>Живые компоненты Grafetto. Наводи, переключай, открывай меню и окна.</p></div><OptionGroup variant="segmented" selection="radio" ariaLabel="Тема палитры" active={theme} onSelect={value => onThemeChange(value === 'light' ? 'light' : 'dark')} options={[{ id: 'dark', label: 'Тёмная' }, { id: 'light', label: 'Светлая' }]} /></div>
     <div className={styles.layout}><div className={styles.previewColumn}><Workspace /><div className={styles.colorStrip} role="img" aria-label={`Палитра: все ${Object.keys(dark).length} цвета`}>{groups.flatMap(group => group.names).map(name => <span key={name} aria-hidden="true" style={{ background: `var(--color-${name})` }} />)}</div></div><aside className={styles.palette} aria-label="Редактор палитры">
-      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><div className={styles.variantControls}><OptionSelect label="Сохранённые варианты" value={selectedVariant} onChange={selectVariant} options={[{ value: 'original', label: 'Исходная палитра' }, ...(selectedVariant === 'custom' ? [{ value: 'custom', label: 'Текущие правки' }] : []), ...variants.map(variant => ({ value: variant.id, label: variant.name }))]} /><Button variant="secondary" size="sm" disabled={invalid} onClick={() => { setVariantName(`Вариант ${variants.length + 1}`); setStorageError(false); setSavingVariant(true) }}>Сохранить вариант</Button></div><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => { setCopied(false); setDrafts(current => ({ ...current, [theme]: {} })) }}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><Button variant="secondary" size="sm" disabled={invalid} onClick={download}>Скачать CSS</Button><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
+      <div className={styles.paletteHead}><h2>Цветовые переменные <Badge>{Object.keys(dark).length}</Badge></h2><p>Пробные изменения сохраняются в этом браузере отдельно для каждой темы. Код проекта не меняется.</p><div className={styles.variantControls}><OptionSelect label="Сохранённые варианты" value={selectedVariant} onChange={selectVariant} options={[{ value: 'original', label: 'Исходная палитра' }, ...(selectedVariant === 'custom' ? [{ value: 'custom', label: 'Текущие правки' }] : []), ...variants.map(variant => ({ value: variant.id, label: variant.name }))]} /><Button variant="secondary" size="sm" disabled={invalid} onClick={() => { setVariantName(`Вариант ${variants.length + 1}`); setStorageError(false); setSavingVariant(true) }}>Сохранить вариант</Button>{variants.some(variant => variant.id === selectedVariant) && <Button variant="ghost" size="sm" onClick={deleteVariant}>Удалить вариант</Button>}{deleteError && <Notice variant="error" message="Не удалось удалить вариант. Проверьте доступность хранилища браузера." />}</div><TextInput icon="search" aria-label="Найти цвет" placeholder="Найти переменную…" value={filter} onChange={event => setFilter(event.target.value)} /><div className={styles.row}><Button variant="secondary" size="sm" onClick={() => { setCopied(false); setDrafts(current => ({ ...current, [theme]: {} })) }}>Сбросить тему</Button><Button size="sm" disabled={invalid || !Object.values(drafts).some(value => Object.keys(value).length)} onClick={() => { void navigator.clipboard.writeText(exportCss(drafts)).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Скопировано' : 'Копировать CSS'}</Button></div><Button variant="secondary" size="sm" disabled={invalid} onClick={download}>Скачать CSS</Button><span className={styles.hint}>Изменено в этой теме: {count}</span></div>
       <div className={styles.tokenList}>{groups.map(group => {
         const names = group.names.filter(name => `--color-${name}`.includes(filter.toLowerCase()))
         return names.length ? <details key={group.title} open><summary>{group.title}</summary><p className={styles.hint}>{group.usage}</p>{names.map(short => {
