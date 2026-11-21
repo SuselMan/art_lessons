@@ -60,3 +60,20 @@ it('sends Greater198 to its separate final-composite program',()=>{
  expect(sources.some(s=>s.includes('float outAlpha=max(oldAlpha,mix(alpha,oldAlpha,w))'))).toBe(true)
  f.painter.destroy()
 })
+it('sends stable stroke seed and world tile coordinates to the dissolve composite',()=>{
+ const selected=structuredClone(brush);selected.version=201;selected.behavior!.rendering!.blendMode='normal';selected.behavior!.rendering!.accumulation='alphaDarken';selected.behavior!.rendering!.pixelComposite='dissolve'
+ const values:{name:unknown;args:unknown[]}[]=[]
+ const gl=new Proxy({}, {get:(_t,key)=>{
+  if(key==='getUniformLocation')return (_p:unknown,name:string)=>name
+  if(key==='uniform1f'||key==='uniform2f')return (name:unknown,...args:unknown[])=>{values.push({name,args})}
+  if(key==='getShaderParameter'||key==='getProgramParameter')return ()=>true
+  if(key==='getAttribLocation')return ()=>0
+  if(key==='getExtension')return ()=>null
+  if(String(key).startsWith('create'))return ()=>({})
+  return ()=>{}
+ }}) as WebGLRenderingContext
+ const f=fixture(2,selected,gl);f.painter.prepareGreaterComposite198();f.paint([20,24])
+ expect(values.some(x=>x.name==='u_blend'&&x.args[0]===33)).toBe(true)
+ expect(values.filter(x=>x.name==='u_dissolveOrigin').map(x=>x.args)).toEqual([[0,0],[64,0]])
+ const seeds=values.filter(x=>x.name==='u_dissolveSeed').map(x=>x.args[0]);expect(seeds).toHaveLength(2);expect(seeds[0]).toBe(seeds[1]);f.painter.destroy()
+})

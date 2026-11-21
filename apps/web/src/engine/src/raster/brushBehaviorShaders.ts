@@ -454,7 +454,12 @@ export function createBrushCompositeFragment(extendedBlend=false,native194=false
     // Krita v6.0.4.1 KoCompositeOpGreater: alpha-weighted soft maximum,
     // applied to the original layer only after the Pixel wash has accumulated.
     // Float and colour-space rounding are intentionally approximate.
-    const greater=` if(u_blend>31.5){
+    const greater=` if(u_blend>32.5){
+      vec2 q=mod(floor(world+u_dissolveOrigin),4093.0);float x=mod(q.x+u_dissolveSeed,4093.0),y=mod(q.y+u_dissolveSeed*3.0,4093.0);
+      float n=mod(mod(x*x,4093.0)+mod(1237.0*y,4093.0)+mod(u_dissolveSeed*31.0,4093.0),4093.0);n=mod(mod(n*n,4093.0)+mod(193.0*x,4093.0)+mod(17.0*y,4093.0),4093.0);
+      float value=floor(n*256.0/4093.0);gl_FragColor=alpha>0.0&&value<=floor(alpha*255.0)?vec4(pigment,1.0):base;return;
+    }
+    if(u_blend>31.5){
       float oldAlpha=base.a;
       if(oldAlpha>=1.0){gl_FragColor=base;return;}
       float w=1.0/(1.0+exp(-40.0*(oldAlpha-alpha)));
@@ -463,7 +468,7 @@ export function createBrushCompositeFragment(extendedBlend=false,native194=false
       gl_FragColor=vec4(mix(base.rgb,pigment,amount),outAlpha);return;
     }
     vec3 b=base.rgb/max(base.a,0.00392157);`
-    return BRUSH_COMPOSITE_FRAG.replace(' vec3 b=base.rgb/max(base.a,0.00392157);',greater)
+    return BRUSH_COMPOSITE_FRAG.replace('uniform float u_erase;', 'uniform float u_erase;uniform vec2 u_dissolveOrigin;uniform float u_dissolveSeed;').replace(' vec3 b=base.rgb/max(base.a,0.00392157);',greater)
   }
   if(native194){
     const bank=createBrushBlendGLSL().replace('vec3 brushBlend(','vec3 nativeBlendBase194(')+`\nvec3 brushBlend(vec3 d,vec3 s,float mode){if(mode<27.5)return nativeBlendBase194(d,s,mode);vec3 du=floor(clamp(d,0.0,1.0)*255.0+0.5),su=floor(clamp(s,0.0,1.0)*255.0+0.5);return mode<28.5?clamp(du+su-127.0,0.0,255.0)/255.0:mode<29.5?clamp(du-su+127.0,0.0,255.0)/255.0:(255.0-abs(255.0-su-du))/255.0;}\n`;

@@ -269,7 +269,7 @@ export class BrushBehaviorPainter {
   prepareGreaterComposite198():void {
     if(this.greaterComposite198)return
     const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(false,false,true))
-    this.greaterComposite198={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_opacity','u_blend','u_mode','u_burntEdge','u_burntBlend','u_edgePx','u_luminance','u_gammaCorrect','u_secondaryCoverage','u_secondaryMode','u_secondaryEnabled','u_secondaryGrayA','u_surfaceCloud','u_surfaceGrain','u_surface','u_surfaceOrigin','u_screenOrigin','u_screentone','u_erase']),position:gl.getAttribLocation(program,'a_position')}
+    this.greaterComposite198={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_opacity','u_blend','u_mode','u_burntEdge','u_burntBlend','u_edgePx','u_luminance','u_gammaCorrect','u_secondaryCoverage','u_secondaryMode','u_secondaryEnabled','u_secondaryGrayA','u_surfaceCloud','u_surfaceGrain','u_surface','u_surfaceOrigin','u_screenOrigin','u_screentone','u_erase','u_dissolveOrigin','u_dissolveSeed']),position:gl.getAttribLocation(program,'a_position')}
   }
   prepareExperimentPattern():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).preparePattern();this.preparePolygon()}
   preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
@@ -522,7 +522,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
   }
   /** One final composition owner for ordinary stamps and Spray request Wash.
    * Frozen original and stroke coverage survive chunks/savepoints exactly as before. */
-  private presentStrokeTile(tile:{originX:number;originY:number;buffer:AccumulationBuffer},bounds:BrushBounds,original:AccumulationBuffer,coverage:AccumulationBuffer,ceiling:AccumulationBuffer,brush:BrushDescriptor,opacity:number,edge=0,secondaryState?:{tile:(source:AccumulationBuffer)=>AccumulationBuffer},extendedComposite?:{program:WebGLProgram;uniforms:Uniforms;position:number},nativeRequestOpacity?:number):void{
+  private presentStrokeTile(tile:{originX:number;originY:number;buffer:AccumulationBuffer},bounds:BrushBounds,original:AccumulationBuffer,coverage:AccumulationBuffer,ceiling:AccumulationBuffer,brush:BrushDescriptor,opacity:number,edge=0,secondaryState?:{tile:(source:AccumulationBuffer)=>AccumulationBuffer},extendedComposite?:{program:WebGLProgram;uniforms:Uniforms;position:number},nativeRequestOpacity?:number,dissolveSeed=0):void{
     const {gl,paper}=this.ctx,behavior=brush.behavior!,accumulation=behavior.rendering?.accumulation
     if(usesNativeSketchSpray(brush)){if(!this.nativeComposite194)throw Error('Sketch/Spray194 composite not prepared');extendedComposite=this.nativeComposite194}
       tile.buffer.beginReplaceDraw()
@@ -538,7 +538,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.uniform1f(c.u_physicalAccumulation,accumulation?1:0)
       gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
       const nativeMode=usesNativeSketchSpray(brush)?(brush.sketch?.composite??brush.spray?.composite):undefined
-      gl.uniform1f(c.u_blend,render?.pixelComposite==='greater'?32:nativeMode==='copy'?31:nativeMode==='grainMerge'?28:nativeMode==='grainExtract'?29:nativeMode==='negation'?30:blend(nativeMode??render?.blendMode))
+      gl.uniform1f(c.u_blend,render?.pixelComposite==='dissolve'?33:render?.pixelComposite==='greater'?32:nativeMode==='copy'?31:nativeMode==='grainMerge'?28:nativeMode==='grainExtract'?29:nativeMode==='negation'?30:blend(nativeMode??render?.blendMode))
+      if(render?.pixelComposite==='dissolve'){gl.uniform2f(c.u_dissolveOrigin,tile.originX,tile.originY);gl.uniform1f(c.u_dissolveSeed,((dissolveSeed%4093)+4093)%4093)}
       gl.uniform1f(c.u_burntEdge, render?.burntEdges ?? 0)
       gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
       gl.uniform1f(c.u_edgePx, edge)
@@ -764,8 +765,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(brush.filter?.kind==='posterize'&&!isFilterDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Posterize117 brush scope')
     assertEqualLightnessGih123(brush,mask190)
     assertUnequalLightnessGih124(brush,mask190)
-    const extendedComposite=brush.behavior?.rendering?.pixelComposite==='greater'?this.greaterComposite198:(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
-    if(brush.behavior?.rendering?.pixelComposite==='greater'&&!extendedComposite)throw Error('Greater198 composite is not prepared')
+    const extendedComposite=(brush.behavior?.rendering?.pixelComposite==='greater'||brush.behavior?.rendering?.pixelComposite==='dissolve')?this.greaterComposite198:(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
+    if((brush.behavior?.rendering?.pixelComposite==='greater'||brush.behavior?.rendering?.pixelComposite==='dissolve')&&!extendedComposite)throw Error('Greater198 composite is not prepared')
     if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')&&!extendedComposite)throw Error('Extended composite is not prepared')
     if(!mask190&&brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
@@ -1457,7 +1458,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
         (this.filterPass??=new FilterBrushPass(gl)).paint(brush.filter,tile,bounds,coverage,scratch,target)
         continue
       }
-      this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite,usesNativeSketchSpray(brush)&&accumulation==='directOver'?clamp(digitalBrushCeiling(brush,dabs[0].pressure,pressure.opacity)*(incoming[0]?.opacityScale??1)*state.opacity):undefined)
+      this.presentStrokeTile(tile,bounds,original,coverage,ceiling,brush,state.opacity,edge,secondaryState,extendedComposite,usesNativeSketchSpray(brush)&&accumulation==='directOver'?clamp(digitalBrushCeiling(brush,dabs[0].pressure,pressure.opacity)*(incoming[0]?.opacityScale??1)*state.opacity):undefined,state.seed)
     }
     if(filter147)this.filterSmudge147!.finishSpatial(brush,filterRequest!.state,filterRequest!.request,usesNativeFilterMask(brush)&&mask190)
     if(!healingRequest)target.markContentPainted(bounds)

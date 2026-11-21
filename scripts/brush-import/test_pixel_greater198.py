@@ -12,6 +12,12 @@ class PixelGreater198(unittest.TestCase):
    for mutate in (lambda x:x.update(version=74),lambda x:x.update(texture={}),lambda x:x['behavior'].update(dual={}),lambda x:x['behavior']['rendering'].update(accumulation='directOver')):
     bad=copy.deepcopy(d);mutate(bad)
     with self.assertRaises(ValueError):validate_portable_profile(bad)
+ def test_pixel_dissolve_wash_and_metadata(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   row=preset(kpp(resources='<param name="PaintOpAction">2</param>',mode='dissolve'),'dissolve.kpp',Catalog(Path(tmp)),{});d=row['descriptor'];self.assertEqual(d['version'],201);self.assertEqual(d['behavior']['rendering']['pixelComposite'],'dissolve');self.assertTrue(any(n['feature']=='pixelDissolve201' and n['status']=='approximate' for n in row['compatibility']));self.assertFalse(any(n['status']=='unsupported' for n in row['compatibility']));validate_portable_profile(d)
+   for mutate in (lambda x:x.update(version=198),lambda x:x['behavior']['rendering'].update(pixelComposite='greater'),lambda x:x['behavior']['rendering'].update(accumulation='directOver')):
+    bad=copy.deepcopy(d);mutate(bad)
+    with self.assertRaises(ValueError):validate_portable_profile(bad)
  def test_direct_greater_remains_explicitly_unsupported(self):
   with tempfile.TemporaryDirectory() as tmp:
    row=preset(kpp(resources='<param name="PaintOpAction">1</param>',mode='greater'),'greater.kpp',Catalog(Path(tmp)),{});self.assertNotIn('pixelComposite',row['descriptor']['behavior']['rendering']);self.assertTrue(any(n['status']=='unsupported' and n['feature']=='blendMode' for n in row['compatibility']))

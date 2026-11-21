@@ -525,13 +525,14 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    const dissolve201=d.version===201
     const greater198=d.version===198
     const greaterBehavior=d.behavior,greaterRender=record(greaterBehavior)?greaterBehavior.rendering:undefined
-    if(record(greaterRender)&&greaterRender.pixelComposite!==undefined&&!greater198)return false
-    if(greater198){
+    if(record(greaterRender)&&greaterRender.pixelComposite!==undefined&&!greater198&&!dissolve201)return false
+    if(greater198||dissolve201){
       const t=d.tip
       if(maskRoot!==undefined||d.model!=='stamp'||d.paperInteraction!==0||!record(t)||!record(greaterBehavior)||!record(greaterRender)
-        ||greaterRender.pixelComposite!=='greater'||greaterRender.blendMode!=='normal'||greaterRender.accumulation!=='alphaDarken'
+        ||greaterRender.pixelComposite!==(dissolve201?'dissolve':'greater')||greaterRender.blendMode!=='normal'||greaterRender.accumulation!=='alphaDarken'
         ||['color','material','animation','imageSampling'].some(k=>t[k]!==undefined)
         ||['dual','timing','wetMix','erase','colorAdjustment','colorMix'].some(k=>greaterBehavior[k]!==undefined)
         ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false

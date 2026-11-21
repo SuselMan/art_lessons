@@ -1978,16 +1978,16 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     elif radial_aa196 and d['tip'].get('profile',{}).get('kind')=='radialCurve':
         if d['version']>=188 and d['version']!=196:raise ValueError('Radial AA196 does not admit other whole-brush policies')
         d['version']=196
-    elif (params.get('CompositeOp','normal')=='greater' and engine=='paintbrush' and depth==0 and d['version']<188
+    elif (params.get('CompositeOp','normal') in ('greater','dissolve') and engine=='paintbrush' and depth==0 and d['version']<188
             and behavior.get('rendering',{}).get('accumulation')=='alphaDarken' and d['model']=='stamp'
             and not any(k in d for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
             and not any(k in d['tip'] for k in ('color','material','animation','imageSampling'))
             and not any(k in behavior for k in ('dual','timing','wetMix','erase','colorAdjustment','colorMix'))):
-        d['version']=198;behavior['rendering']['pixelComposite']='greater'
-        detail='Unsupported Krita blend greater; normal used.'
+        mode=params.get('CompositeOp');d['version']=201 if mode=='dissolve' else 198;behavior['rendering']['pixelComposite']=mode
+        detail='Unsupported Krita blend '+mode+'; normal used.'
         notes[:]=[n for n in notes if not(n['feature']=='blendMode' and n['detail']==detail)]
         warnings[:]=[w for w in warnings if w!='blendMode: '+detail]
-        note=compatibility('pixelGreater198','Greater applies the native alpha-dependent soft maximum during the final layer composite. GPU float precision, ICC and native integer rounding may differ.')
+        note=compatibility('pixelDissolve201','Native opacity becomes binary per pixel with deterministic coordinate noise; Krita uses unseeded thread-local randomness, so the exact speckle pattern differs.') if mode=='dissolve' else compatibility('pixelGreater198','Greater applies the native alpha-dependent soft maximum during the final layer composite. GPU float precision, ICC and native integer rounding may differ.')
         notes.append(note);warnings.append(note['feature']+': '+note['detail'])
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview

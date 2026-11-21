@@ -580,11 +580,11 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
         validate_portable_dynamics(native_hue)
     mix_behavior=descriptor.get('behavior',{})
     render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
-    if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version')!=198:raise ValueError('Greater composite requires Pixel198')
-    if descriptor.get('version')==198:
+    if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version') not in (198,201):raise ValueError('Pixel composite requires its versioned scope')
+    if descriptor.get('version') in (198,201):
         tip=descriptor.get('tip',{})
         if (parent is not None or descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0 or not isinstance(tip,dict)
-                or not isinstance(mix_behavior,dict) or not isinstance(render,dict) or render.get('pixelComposite')!='greater'
+                or not isinstance(mix_behavior,dict) or not isinstance(render,dict) or render.get('pixelComposite')!=('dissolve' if descriptor.get('version')==201 else 'greater')
                 or render.get('blendMode')!='normal' or render.get('accumulation')!='alphaDarken'
                 or any(k in tip for k in ('color','material','animation','imageSampling'))
                 or any(k in descriptor for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))

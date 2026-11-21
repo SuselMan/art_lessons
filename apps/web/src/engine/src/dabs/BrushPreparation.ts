@@ -144,7 +144,7 @@ export function brushPreparationPlan(brush: BrushDescriptor, capturedErase = !!b
   const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand' | 'stampCurve' | 'stampEffects' | 'compositeEffects' | 'greater198' | 'native194'|'nativeSpray194' | 'wetCurve' | 'colorSmudge' | 'colorSmudgeTexture' | 'colorSmudgeForeground' | 'colorSmudgeLegacy' | 'colorSmudgeLegacyMinMax172' | 'colorSmudgeLegacyArithmetic175' | 'colorSmudgeLegacyDodgeBurn176' | 'colorSmudgeMean' | 'projectionCanvas' | 'sprayShapes'|'sprayImages'|'spraySources'|'sprayWash'|'requestWash'|'bristleWash'|'sketchLines'|'hatching'|'grid'|'polygonFill'|'canvasEffect'|'filterBrush'|'cloneBrush'>()
   if(usesNativeSketchSpray(brush)){capabilities.add('native194');if(brush.spray)capabilities.add('nativeSpray194')}
   if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix'))capabilities.add('compositeEffects')
-  if(brush.behavior?.rendering?.pixelComposite==='greater')capabilities.add('greater198')
+  if(brush.behavior?.rendering?.pixelComposite==='greater'||brush.behavior?.rendering?.pixelComposite==='dissolve')capabilities.add('greater198')
   if(brush.experiment){capabilities.add('polygonFill');capabilities.add('sketchLines')}
   if(bristleWash||usesNativeSketchSpray(brush)&&brush.sketch&&brush.behavior?.rendering?.accumulation==='alphaDarken')capabilities.add('bristleWash')
   if(particleWash)capabilities.add('requestWash')
