@@ -29,3 +29,10 @@ class RectangleNoiseTests(unittest.TestCase):
  def test_neutral_noise_keeps_historical_profile_version(self):
   for generator,shape,version in[('gauss','rect',78),('gauss','circle',78),('soft','rect',79)]:
    lib,_=self.brush(generator,shape,density=1,randomness=0);d=lib['brushes'][0]['descriptor'];self.assertEqual(d['version'],version);self.assertNotIn('autoNoise',d['tip'])
+ def test_noise_revision_survives_recorded_drawing_angle(self):
+  definition='<Brush type="auto_brush" density=".15" randomness=".5"><MaskGenerator id="gauss" type="rect" ratio=".55" diameter="40" spikes="2" antialiasEdges="0" hfade=".94" vfade=".67"/></Brush>'
+  extra='<param name="PressureRotation">true</param><param name="RotationValue">1</param><param name="RotationUseCurve">true</param><param name="RotationUseSameCurve">true</param><param name="RotationSensor">&lt;params id="drawingangle" fanCornersStep="5" angleOffset="0" fanCornersEnabled="1" lockedAngleMode="0"&gt;&lt;curve&gt;0,0;0.630522,0.445415;1,1;&lt;/curve&gt;&lt;/params&gt;</param>'
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);p=root/'brush.kpp';p.write_bytes(kpp(definition,resources=extra));c=convert.Catalog(root/'out');convert_krita(p,c)
+   self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor']
+   self.assertIn('strokeInput',d['behavior']);self.assertEqual(d['version'],98);convert.validate_portable_profile(d)

@@ -1834,7 +1834,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['version']=max(d['version'],105)
             notes.append(compatibility('textureAlpha105','Native alpha-role Dodge/Burn/Photoshop Hard Mix/Softer strength laws retained, including no-resurrection and soft union factors; normalized functional math differs from staged native U8 rounding.'))
     if d['tip'].get('profile',{}).get('kind')in('gaussian2D','curveRectangle','curveRectangleSoftness'):d['version']=max(d['version'],{'gaussian2D':78,'curveRectangle':79,'curveRectangleSoftness':80}[d['tip']['profile']['kind']])
-    if d['tip'].get('autoNoise'):d['version']=max(d['version'],74)
+    if d['tip'].get('autoNoise'):
+        d['version']=max(d['version'],98 if d['tip'].get('profile',{}).get('kind') in ('gaussian2D','curveRectangle','curveRectangleSoftness') else 74)
     if engine=='paintbrush' and 'gradient'in d['tip'].get('color',{}):
         if behavior.get('rendering',{}).get('accumulation')=='alphaDarken':
             # New138 is native Pixel-origin only, not a grant to private bridges/children.
