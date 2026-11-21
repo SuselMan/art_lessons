@@ -654,6 +654,9 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
+    if descriptor.get('version')==206:
+        from tangent_wash136 import tangent_wash136_scope
+        if parent is not None or not tangent_wash136_scope(descriptor):raise ValueError('Invalid elliptical Tangent Wash206 scope')
     if descriptor.get('version')==205:
         from bristle_soak139 import bristle_soak139_scope
         dyn=descriptor.get('behavior',{}).get('dynamics',{})

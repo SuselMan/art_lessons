@@ -41,7 +41,7 @@ export function hasTangentNormalWash136Scope(value:unknown,policy?:BrushStructur
  const one=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.every(p=>Array.isArray(p)&&p.length===2&&n(p[0],0,1)&&p[1]===1)
  return Number.isInteger(value.version)&&Number(value.version)>=136&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mypaint','clone','filter','deform','experiment','particle','grid','hatching','sketch','spray','bristle','curveTrace','mixer','wet','texture','scatter'].every(k=>value[k]===undefined)
- &&t.kind==='procedural'&&t.aspect===1&&n(t.hardness,0,1)&&t.rotation==='fixed'&&typeof t.angle==='number'&&Number.isFinite(t.angle)&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','profile'].includes(k))
+ &&t.kind==='procedural'&&(value.version===206?n(t.aspect,1,16):t.aspect===1)&&n(t.hardness,0,1)&&t.rotation==='fixed'&&typeof t.angle==='number'&&Number.isFinite(t.angle)&&Object.keys(t).every(k=>['kind','aspect','hardness','rotation','angle','profile'].includes(k))
  &&obj(g)&&Object.keys(g).every(k=>['kind','shape','horizontalFade','verticalFade','antialias'].includes(k))&&g.kind==='standard'&&g.shape==='ellipse'&&n(g.horizontalFade,0,1)&&n(g.verticalFade,0,1)&&typeof g.antialias==='boolean'
  &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'speedInput','rendering','spacing','rotation','modulations','dynamics','strokeInput'].includes(k))
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>['size','opacity','angle'].includes(k)))

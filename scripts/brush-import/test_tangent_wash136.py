@@ -13,6 +13,15 @@ def authored(action='2',extra=None):
  for k,v in{**PARAMS,'PaintOpAction':action,**(extra or{})}.items():ET.SubElement(root,'param',{'name':k}).text=v
  info=PngImagePlugin.PngInfo();info.add_text('preset',ET.tostring(root,encoding='unicode'));b=io.BytesIO();Image.new('RGB',(2,2),'red').save(b,format='PNG',pnginfo=info);return b.getvalue()
 class TangentWash136(unittest.TestCase):
+ def test_elliptical_wash_uses_version206(self):
+  definition=PARAMS['brush_definition'].replace('ratio="1"','ratio=".47"')
+  with tempfile.TemporaryDirectory() as tmp:
+   c,_=self.native(tmp,extra={'brush_definition':definition});d=c.brushes[0]['descriptor']
+   self.assertEqual(d['version'],206);self.assertGreater(d['tip']['aspect'],1);self.assertTrue(tangent_wash136_scope(d))
+   from convert import validate_portable_profile
+   validate_portable_profile(d);bad=copy.deepcopy(d);bad['version']=136
+   with self.assertRaises(ValueError):validate_portable_profile(bad)
+   path=Path(tmp)/'portable.json';path.write_text(json.dumps({'library':c.write(),'assets':{}}));out=Catalog(Path(tmp)/'roundtrip');portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
  def native(self,tmp,action='2',extra=None):
   raw=authored(action,extra);file=Path(tmp)/'Own.kpp';file.write_bytes(raw);c=Catalog(Path(tmp)/'native');convert_krita(file,c);self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1);return c,raw
  def test_new136_ignores_native_unusedFlow_while_old56_preserves_its_archived_law(self):

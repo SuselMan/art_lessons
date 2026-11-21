@@ -43,7 +43,7 @@ def tangent_normal_preset(data,root,params,name,catalog,external):
         from tangent_wash136 import tangent_wash136_scope
         # Native paintAt applies Opacity, never the constructed Flow option.
         # New imports correct unused Flow only in this versioned Wash branch.
-        d['version']=136;d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
+        d['version']=206 if d['tip'].get('aspect')!=1 else 136;d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
         rendering['accumulation']='alphaDarken'
         if enabled(params.get('Krita/erase'))or enabled(params.get('EraserMode'))or not tangent_wash136_scope(d):raise ValueError('Tangent Wash136 requires root static standard alpha generator')
         if ignored_flow:result['compatibility'].append(compatibility('ignoredNativeFlow','Native Tangent Normal applies Opacity, not Flow; unused captured Flow settings do not alter the new Wash output.','supported'))
