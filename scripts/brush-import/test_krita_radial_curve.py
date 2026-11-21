@@ -23,6 +23,15 @@ def definition(diameter=1,curve='0,0;1,1',extra='',brush_extra=''):
     return f'<Brush type="auto_brush" randomness="0" density="1" {brush_extra}><MaskGenerator id="soft" type="circle" diameter="{diameter}" ratio=".2" spikes="2" antialiasEdges="0" softness_curve="{curve}" {extra}/></Brush>'
 
 class RadialTests(unittest.TestCase):
+    def test_antialiased_radial_curve_with_noise(self):
+        tip=definition(25,curve='0,1;.718876,.811765;1,.588236').replace('antialiasEdges="0"','antialiasEdges="1"').replace('randomness="0" density="1"','randomness=".25" density=".97"')
+        with tempfile.TemporaryDirectory() as tmp:
+            c=self.imported(tmp,{'brush_definition':tip,'PaintOpAction':'1'})
+            self.assertEqual(c.skipped,[]);b=c.brushes[0];d=b['descriptor']
+            self.assertEqual(d['version'],199);self.assertTrue(d['tip']['profile']['antialias'])
+            self.assertEqual(d['tip']['autoNoise'],{'version':1,'density':.97,'randomness':.25})
+            self.assertFalse(any(n['status']=='unsupported' for n in b['compatibility']))
+            convert.validate_portable_profile(d)
     def test_antialiased_spiked_root_pixel_keeps_curve_and_rejects_downgrade(self):
         tip=definition(25,curve='0,1;.5,.5;1,0').replace('spikes="2"','spikes="9"').replace('antialiasEdges="0"','antialiasEdges="1"')
         with tempfile.TemporaryDirectory() as tmp:

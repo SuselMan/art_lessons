@@ -751,8 +751,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
         # Existing radial lookup and spike shader also support the antialiased
-        # circular root Pixel shape. Keep this new combination versioned and
-        # narrow: no masking child, dynamic softness, threshold or noise.
+        # circular root Pixel shape. Keep these combinations narrow: no masking
+        # child, dynamic softness or threshold; the spiked variant excludes noise.
         radial_aa196=(engine=='paintbrush' and depth==0 and shape=='circle' and spikes_supported
             and enabled(generator.get('antialiasEdges')) and not noise_active
             and not enabled(params.get('MaskingBrush/Enabled'))
@@ -761,7 +761,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and not enabled(params.get('Texture/Pattern/Enabled'))
             and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
         radial_aa199=(engine=='paintbrush' and (_allow_texture_material or CLONE_RADIAL200.get()) and not COMPONENT190.get() and depth==0 and shape=='circle' and spikes==2
-            and enabled(generator.get('antialiasEdges')) and not noise_active
+            and enabled(generator.get('antialiasEdges')) and (not noise_active or not CLONE_RADIAL200.get())
             and not enabled(params.get('MaskingBrush/Enabled'))
             and not enabled(params.get('PressureSoftness')) and not enabled(params.get('PressureSharpness'))
             and params.get('CompositeOp','normal') in ('normal','erase')
