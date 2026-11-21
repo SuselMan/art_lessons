@@ -72,5 +72,10 @@ class AlphaMaskAdjustmentTests(unittest.TestCase):
             c,b=self.imported(tmp,gbr([127,127,127,128]),'tip.gbr','BrightnessAdjustment=".5"',2);tip=b['descriptor']['tip'];self.assertEqual(self.coverage(c,b),[128]);aid=tip['material']['gray'];self.assertEqual(sorted(set((c.output/c.assets[aid]['file']).read_bytes())-{0}),[191])
     def test_singular_native_transfer_is_rejected_instead_of_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'Input.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr" brushApplication="0" AdjustmentVersion="2" AdjustmentMidPoint="0"/>'));c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'tip.gbr':gbr([100,100,100,128])});self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped)
+            path=Path(tmp)/'Input.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr" brushApplication="0" AdjustmentVersion="2" AdjustmentMidPoint="255"/>'));c=convert.Catalog(Path(tmp)/'out');convert_krita(path,c,{'tip.gbr':gbr([100,100,100,128])});self.assertEqual(c.brushes,[]);self.assertTrue(c.skipped)
+    def test_zero_midpoint_uses_finite_upper_branch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c,b=self.imported(tmp,gbr([100,100,100,128]),'tip.gbr','AdjustmentMidPoint="0"')
+            self.assertEqual(len(c.brushes),1)
+
 if __name__=='__main__':unittest.main()

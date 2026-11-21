@@ -36,11 +36,16 @@ class NativeDefault127Tests(unittest.TestCase):
    root=Path(tmp)
    for label in ['default','on','off']:(root/label).mkdir()
    default,raw=self.imported(root/'default',params);on,_=self.imported(root/'on',params,timed_input=True);off,_=self.imported(root/'off',params,timed_input=False);self.assertEqual(default.brushes,on.brushes);self.assertNotIn('timing',off.brushes[0]['descriptor']['behavior']);legacy=preset(raw,'Own127.kpp',convert.Catalog(root/'legacy'),{});self.assertEqual(off.brushes,[legacy]);self.identity(off.brushes[0]['descriptor'],raw);self.assertNotEqual(default.brushes[0]['descriptor']['id'],legacy['descriptor']['id'])
- def test_disabled_timer_and_legacy_alias_are_byte_exact_legacy_and_do_not_enable_time_sensors(self):
+ def test_disabled_timer_preserves_source_clock_without_enabling_airbrush(self):
   for override in [{},{'PaintOpSettings/isAirbrushing':'false'},{'AirbrushOption/isAirbrushing':'true','AirbrushOption/rate':'1000'}]:
    params={'PressureSize':'true','SizeSensor':'<params id="time" duration="720" periodic="1"/>',**override}
    with self.subTest(override=override),tempfile.TemporaryDirectory()as tmp:
-    root=Path(tmp);out,raw=self.imported(root,params);legacy=preset(raw,'Own127.kpp',convert.Catalog(root/'legacy'),{});self.assertEqual(out.brushes,[legacy]);self.assertNotIn('timing',out.brushes[0]['descriptor']['behavior'])
+    root=Path(tmp);out,raw=self.imported(root,params);legacy=preset(raw,'Own127.kpp',convert.Catalog(root/'legacy'),{});brush=out.brushes[0];behavior=brush['descriptor']['behavior'];self.assertNotIn('timing',behavior)
+    if override.get('AirbrushOption/isAirbrushing')=='true':self.assertEqual(out.brushes,[legacy])
+    else:
+     self.assertEqual(behavior['modulations']['size'][0]['control'],'time')
+     self.assertTrue(any(note['feature']=='sourceClock' and note['status']=='supported' for note in brush['compatibility']))
+     self.assertNotIn('modulations',legacy['descriptor']['behavior'])
  def test_invalid_rate_remains_explicit_unsupported_and_disabled_bad_rate_does_not_activate(self):
   for rate in ['nan','-1','1001']:
    with self.subTest(rate=rate),tempfile.TemporaryDirectory()as tmp:

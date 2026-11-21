@@ -26,10 +26,15 @@ class MaskThresholdTests(unittest.TestCase):
         self.assertEqual(self.brush(params)['descriptor']['tip']['alphaThreshold'],{'value':.6,'softness':.6})
 
     def test_unsupported_sensor_does_not_become_a_constant(self):
-        b=self.brush({'PressureSharpness':'true','SharpnessSensor':'<params id="time"/>','SharpnessValue':'.4'})
+        b=self.brush({'PressureSharpness':'true','SharpnessSensor':'<params id="perspective"/>','SharpnessValue':'.4'})
         self.assertNotIn('alphaThreshold',b['descriptor']['tip'])
         self.assertNotIn('sharpness',b['descriptor'].get('behavior',{}).get('modulations',{}))
         self.assertTrue(any(n['feature']=='maskThreshold' and n['status']=='unsupported' for n in b['compatibility']))
+
+    def test_time_sensor_uses_recorded_stroke_clock(self):
+        b=self.brush({'PressureSharpness':'true','SharpnessSensor':'<params id="time"/>','SharpnessValue':'.4'})
+        self.assertEqual(b['descriptor']['behavior']['modulations']['sharpness'][0]['control'],'time')
+        self.assertFalse(any(n['feature']=='maskThreshold' and n['status']=='unsupported' for n in b['compatibility']))
 
     def test_common_curve_and_softness_are_independent(self):
         b=self.brush({'PressureSharpness':'true','SharpnesscommonCurve':'0,0;1,0.603015;','Sharpness/softness':'25'})['descriptor']
