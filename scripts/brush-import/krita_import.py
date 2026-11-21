@@ -499,6 +499,13 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     native_source_time=False
     for pen_key,pen_value in params.items():
         if TIMING195.get()and pen_key=='RateSensor':continue
+        # These native paintops never consume Flow/Mirror; their adapters strip
+        # the captured fields. Do not parse stale, potentially invalid sensors
+        # before that family-specific filtering has happened.
+        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush','gridbrush','tangentnormal') and pen_key=='FlowSensor':continue
+        if engine=='gridbrush' and pen_key=='OpacitySensor':continue
+        if pen_key=='RotationSensor' and (engine in ('hatchingbrush','curvebrush') or engine=='sketchbrush' and enabled(params.get('Sketch/simpleMode'))):continue
+        if engine in ('hairybrush','hatchingbrush','sketchbrush','curvebrush') and pen_key=='MirrorSensor':continue
         option=pen_key[:-6] if pen_key.endswith('Sensor') else ''
         checked=params.get('Pressure'+option,params.get(option+'UseCurve','false') if option in ('Opacity','Flow') else 'false')
         if not option or not enabled(checked)or not enabled(params.get(option+'UseCurve','true')):continue
