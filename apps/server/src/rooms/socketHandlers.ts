@@ -782,8 +782,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // other participant gets, not to be excluded from it.
     //
     // (#176) Every owner control below is a fact about the *lesson* and goes
-    // to the lesson channel: a freeze holds on every board, so everyone in the
-    // lesson has to hear it, not just the people on the owner's page.
+    // to the lesson channel. Board freeze includes its board id so other
+    // pages update the roster without blocking their own drawing (#870).
     socket.on('set_room_frozen', frozen => {
       const { roomId, userId, lessonId } = socket.data
       if (!roomId || !userId || !lessonId) return
@@ -792,7 +792,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_room_frozen from non-owner participant')
         return
       }
-      if (setRoomFrozen(roomId, frozen)) io.to(lessonChannel(lessonId)).emit('room_frozen_changed', { frozen })
+      if (setRoomFrozen(roomId, frozen)) {
+        io.to(roomId).emit('room_frozen_changed', { boardId: roomId, frozen })
+        void sendLessonState(io, lessonId)
+      }
     })
 
     // (#176, ADR 014 §3) The owner turned the page. Persisted on the lesson

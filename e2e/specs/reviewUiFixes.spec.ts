@@ -166,10 +166,10 @@ test('settings use switches and segments, tooltip dismisses without closing sett
 test('confirmed Freeze has a visible state and a clear toast', async ({ page }) => {
   await createRoom(page); await waitForRoomReady(page)
   await page.getByRole('button', { name: 'Open Class', exact: true }).click()
-  const freeze = page.getByRole('button', { name: 'Freeze project', exact: true })
+  const freeze = page.getByRole('button', { name: 'Freeze board', exact: true })
   await expect(freeze).toContainText('Not frozen')
   await freeze.click()
-  const unfreeze = page.getByRole('button', { name: 'Unfreeze project', exact: true })
+  const unfreeze = page.getByRole('button', { name: 'Unfreeze board', exact: true })
   await expect(unfreeze).toHaveAttribute('aria-pressed', 'true')
   await expect(unfreeze).toContainText('Frozen')
   await expect(page.getByText('Drawing frozen for students. The teacher can continue drawing.', { exact: true })).toBeVisible()

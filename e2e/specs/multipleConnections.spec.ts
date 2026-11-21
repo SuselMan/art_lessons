@@ -31,7 +31,7 @@ for (const order of ['latest', 'old'] as const) {
       const observerReady = watch(observer)
       await joinRoom(observer, room, 'Observer'); observerReady()
       await page.getByRole('button', { name: 'Open Class' }).click()
-      await page.getByRole('button', { name: 'Freeze project' }).click()
+      await page.getByRole('button', { name: 'Freeze board' }).click()
       await expect.poll(() => observer.evaluate(() => window.__roomStore!.getState().roomFrozen)).toBe(true)
       const gone = order === 'latest' ? sibling : page
       const remaining = order === 'latest' ? page : sibling
@@ -45,7 +45,7 @@ for (const order of ['latest', 'old'] as const) {
       const layer = await activeLayerId(remaining)
       expect(await observer.evaluate(id => window.__engine!.hasLayerContent(id), layer)).toBe(true)
       await expect.poll(() => observer.evaluate(id => window.__roomStore!.getState().participants.find(p => p.userId === id)?.role, ownerId)).toBe('owner')
-      const unfreeze = remaining.getByRole('button', { name: 'Unfreeze project' })
+      const unfreeze = remaining.getByRole('button', { name: 'Unfreeze board' })
       if (!await unfreeze.isVisible()) await remaining.getByRole('button', { name: 'Open Class' }).click()
       await unfreeze.click()
       await expect.poll(() => observer.evaluate(() => window.__roomStore!.getState().roomFrozen)).toBe(false)

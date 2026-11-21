@@ -33,9 +33,9 @@ test.describe('the owner’s controls', () => {
       await joinRoom(studentPage, roomId)
       await openParticipants(page)
 
-      await page.getByRole('button', { name: 'Freeze project' }).click()
+      await page.getByRole('button', { name: 'Freeze board' }).click()
       await expect.poll(() => roomFrozen(studentPage)).toBe(true)
-      await page.getByRole('button', { name: 'Unfreeze project' }).click()
+      await page.getByRole('button', { name: 'Unfreeze board' }).click()
       await expect.poll(() => roomFrozen(studentPage)).toBe(false)
     } finally {
       await student.close()
@@ -138,7 +138,7 @@ test(`${mode} mid-gesture removes refused live ink on every viewer`, { tag: '@tw
     expect((await operations(page)).filter(op => op.type === 'stroke')).toHaveLength(0)
     await openParticipants(page)
     if (mode === 'room freeze') {
-      await page.getByRole('button', { name: 'Freeze project' }).click()
+      await page.getByRole('button', { name: 'Freeze board' }).click()
       await expect.poll(() => roomFrozen(student)).toBe(true)
     } else if (mode === 'point freeze') {
       await page.getByRole('button', { name: 'More actions' }).first().click()
@@ -156,7 +156,7 @@ test(`${mode} mid-gesture removes refused live ink on every viewer`, { tag: '@tw
     await expect.poll(() => contentBounds(page, layerId)).toBeNull()
     expect((await operations(page)).filter(op => op.type === 'stroke')).toHaveLength(0)
     if (mode === 'room freeze') {
-      await page.getByRole('button', { name: 'Unfreeze project' }).click()
+      await page.getByRole('button', { name: 'Unfreeze board' }).click()
       await expect.poll(() => roomFrozen(student)).toBe(false)
     } else if (mode === 'point freeze') {
       await page.getByRole('button', { name: 'More actions' }).first().click()

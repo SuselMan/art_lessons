@@ -2,16 +2,16 @@ import { useT } from '../../../i18n'
 import { Notice } from '../../../components/Notice'
 
 interface FrozenBannerProps {
-  // Room-wide freeze (#256) vs. this participant's own point freeze (#257)
+  // Current-board freeze (#256) vs. this participant's own point freeze (#257)
   // read slightly differently ("everyone" vs. "you specifically") — both
   // can be true at once (independent mechanisms, see rooms.ts), in which
-  // case the room-wide message wins since it's the more complete
+  // case the board-wide message wins since it's the more complete
   // explanation.
   roomFrozen: boolean
 }
 
 /** Shown to a non-owner participant whenever their own input is blocked by
- *  an owner privilege (#254/#259) — room-wide freeze (#256) or a point
+ *  an owner privilege (#254/#259) — board-wide freeze (#256) or a point
  *  freeze targeting them specifically (#257). A silently-inert canvas would
  *  read as broken ("why isn't my pencil working"); this explains *why* in
  *  place, without the full-viewport takeover RoomLoadingOverlay uses (input

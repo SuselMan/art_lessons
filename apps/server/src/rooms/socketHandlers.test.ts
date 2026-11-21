@@ -209,7 +209,7 @@ describe('join_room to a board on a live socket (#176)', () => {
   })
 
   it('content stays on the board while social state reaches the whole lesson', async () => {
-    const { boardId, teacher, student } = await classroom()
+    const { lessonId, boardId, teacher, student } = await classroom()
     await join(student, boardId, 'Alice')
     await next(student, 'room_state').catch(() => undefined)
 
@@ -222,12 +222,12 @@ describe('join_room to a board on a live socket (#176)', () => {
     await teacherSilent
 
     // Social: a freeze set by the owner on board one lands on the student on
-    // board two — the freeze is the lesson's.
-    const frozen = next(student, 'room_frozen_changed')
+    // board two, but only board one is blocked (#870).
+    const frozen = next(student, 'lesson_state')
     teacher.emit('set_room_frozen', true)
-    expect(await frozen).toEqual({ frozen: true })
+    expect((await frozen).lesson.boards.find(b => b.id === lessonId)?.frozen).toBe(true)
     const rejected = new Promise(resolve => student.emit('operation', stroke('op-2', 'student'), resolve))
-    expect(await rejected).toEqual({ ok: false, reason: 'room_frozen' })
+    expect(await rejected).toMatchObject({ ok: true })
   })
 
   it('evicts the board when its last socket leaves, while the lesson stays', async () => {

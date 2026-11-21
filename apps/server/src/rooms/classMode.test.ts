@@ -438,3 +438,34 @@ it('joins a snapshot-free lesson through the real snapshot dependency loader', a
     select: { layerId: true, seq: true, hash: true },
   })
 })
+
+it('#870 keeps teacher-board freeze separate from personal work and personal freeze', async () => {
+  const { lessonId, teacher, alice, bob, aliceBoard, bobBoard } = await classInSession()
+  const frozen = next(alice, 'room_frozen_changed')
+  teacher.emit('set_room_frozen', true)
+  expect(await frozen).toEqual({ boardId: lessonId, frozen: true })
+  expect(await send(alice, stroke('alice'))).toMatchObject({ ok: false, reason: 'room_frozen' })
+  expect(await send(teacher, stroke('teacher'))).toMatchObject({ ok: true })
+  await join(alice, aliceBoard, 'Alice')
+  await join(bob, bobBoard, 'Bob')
+  expect(await send(alice, stroke('alice'))).toMatchObject({ ok: true })
+  expect(await send(bob, stroke('bob'))).toMatchObject({ ok: true })
+  // Removing the last socket from the shared board must not lose its freeze.
+  await join(teacher, aliceBoard, 'Teacher')
+  const personalFreeze = next(alice, 'participant_frozen_changed')
+  teacher.emit('set_participant_frozen', { userId: 'alice', frozen: true })
+  await personalFreeze
+  expect(await send(alice, stroke('alice'))).toMatchObject({ ok: false, reason: 'participant_frozen' })
+  expect(await send(bob, stroke('bob'))).toMatchObject({ ok: true })
+  const unfrozen = next(alice, 'participant_frozen_changed')
+  teacher.emit('set_participant_frozen', { userId: 'alice', frozen: false })
+  await unfrozen
+  const rootState = next(alice, 'room_state')
+  await join(alice, lessonId, 'Alice')
+  expect((await rootState).frozen).toBe(true)
+  expect(await send(alice, stroke('alice'))).toMatchObject({ ok: false, reason: 'room_frozen' })
+  const ownState = next(alice, 'room_state')
+  await join(alice, aliceBoard, 'Alice')
+  expect((await ownState).frozen).toBe(false)
+  expect(await send(alice, stroke('alice'))).toMatchObject({ ok: true })
+})

@@ -14,7 +14,7 @@ import { enqueueWrite, rooms, socialRecord } from './roomRegistry.js'
 // ── Owner runtime privileges (#254 epic) ──────────────────────────────────
 
 export function isRoomFrozen(roomId: string): boolean {
-  return socialRecord(roomId)?.roomFrozen ?? false
+  return socialRecord(roomId)?.frozenBoardIds.has(roomId) ?? false
 }
 
 /** (#548) Replaces the room's toolset, in memory and in Postgres. Returns the
@@ -42,7 +42,7 @@ export function setRoomTools(roomId: string, enabledTools: unknown): ToggleableT
   return sanitized
 }
 
-/** Sets the room-wide freeze (#256). Returns `false` for an unknown room
+/** Sets the selected shared board’s freeze (#870). Returns `false` for an unknown room
  *  (nothing to set), `true` on success — callers (socketHandlers.ts) only
  *  broadcast `room_frozen_changed` on `true`. No role check here: that's the
  *  caller's job (see socket.on('set_room_frozen', ...) — same division of
@@ -50,7 +50,10 @@ export function setRoomTools(roomId: string, enabledTools: unknown): ToggleableT
 export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
   const lesson = socialRecord(roomId)
   if (!lesson) return false
-  lesson.roomFrozen = frozen
+  const board = rooms.get(roomId)
+  if (!board || board.room.boardOwnerId) return false
+  if (frozen) lesson.frozenBoardIds.add(roomId)
+  else lesson.frozenBoardIds.delete(roomId)
   return true
 }
 

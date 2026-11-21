@@ -19,7 +19,7 @@ export function lessonStateFor(lesson: RoomRecord, viewerId: string): LessonStat
   const facts = lessonVisibility(lesson)
   return {
     id: lesson.room.id,
-    boards: lesson.boards.filter(b => canSeeBoard(viewerId, { board: { id: b.id, boardOwnerId: b.ownerId }, lesson: facts })),
+    boards: lesson.boards.filter(b => canSeeBoard(viewerId, { board: { id: b.id, boardOwnerId: b.ownerId }, lesson: facts })).map(b => lesson.frozenBoardIds.has(b.id) ? { ...b, frozen: true } : b),
     activeBoardId: lesson.room.activeBoardId ?? null,
     assignments: lesson.assignments,
     activeAssignmentId: lesson.activeAssignmentId,
@@ -120,6 +120,7 @@ export function noteBoardDeleted(lessonId: string, boardId: string): { wasActive
   if (boardId !== lessonId) rooms.delete(boardId)
   if (!lesson || lesson.lessonId !== null || boardId === lessonId) return { wasActive: false }
   lesson.boards = lesson.boards.filter(b => b.id !== boardId)
+  lesson.frozenBoardIds.delete(boardId)
   const wasActive = lesson.room.activeBoardId === boardId
   if (wasActive) lesson.room = { ...lesson.room, activeBoardId: undefined }
   return { wasActive }

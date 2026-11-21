@@ -5,7 +5,7 @@ import type { ClassVisibility } from '@grafetto/shared'
  *  A lesson is a Room with `lessonId` null, and is also its own first board;
  *  every other board is a Room whose `lessonId` names the lesson. Everything
  *  *social* about a room — who may join, who is in it, whether it is closed
- *  or frozen, which tools it offers, its palette — is a fact about the lesson,
+ *  which tools it offers, its palette — is a fact about the lesson,
  *  and every gate that asks such a question asks it of `lessonOf(room)`.
  *  Everything *content* — operations, snapshots, layer state, thumbnail — is a
  *  fact about the board and is asked of the board itself.
@@ -54,7 +54,7 @@ export function canSeeBoard(userId: string, { board, lesson }: BoardVisibilityFa
 
 /** Whether `userId` may draw (or annotate) on `board` at all. Seeing is not
  *  drawing: a classmate who can look at a work under `class` visibility still
- *  cannot touch it. The lesson-wide gates (closed, frozen, locks) come on top
+ *  cannot touch it. The gates (closed lesson, frozen board, locks) come on top
  *  of this, not instead of it. */
 export function canDrawOnBoard(userId: string, board: { boardOwnerId?: string | null }, lessonOwnerId: string): boolean {
   return !board.boardOwnerId || userId === board.boardOwnerId || userId === lessonOwnerId

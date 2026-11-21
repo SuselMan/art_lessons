@@ -17,7 +17,7 @@
 id:
 
 - **социальное**: участники (`RoomParticipant`), инвайты, заявки на вход, блокировки,
-  пароль, `accessMode`, `closedAt`, `enabledTools`, живой freeze (комнаты и участника),
+  пароль, `accessMode`, `closedAt`, `enabledTools`, живой freeze досок и участников,
   папка в «Моих уроках»;
 - **содержимое**: лог операций (`Operation`, `@@unique(roomId, seq)`), снапшоты слоёв,
   `RoomLayerState`, превью, бумага и размер холста.
@@ -38,7 +38,7 @@ id:
 - Форк (`forkRoutes.ts`) — готовая процедура «засеять новую комнату содержимым другой»:
   последний снапшот на слой + хвост операций с перевыписанными id.
 - Серверный реестр `rooms.ts`: `Map<roomId, RoomRecord>`, запись держит и социальное
-  (participants, roomFrozen, frozenUserIds), и содержимое (operations, layerState,
+  (participants, frozenBoardIds, frozenUserIds), и содержимое (operations, layerState,
   nextSeq). Эвикция — когда запись пуста и записи в БД слиты.
 
 ---
@@ -68,7 +68,7 @@ model Room {
 |---|---|---|
 | участники, инвайты, заявки, блоки, пароль, `accessMode` | урок | `checkJoinAccess(board)` → проверяет `lessonOf(board)` |
 | `closedAt`, `enabledTools`, палитра | урок | `getOperationRejectReason`, `set_room_tools`, `palette_*` ходят к записи урока |
-| freeze комнаты и участника | запись урока в памяти | `roomFrozen`/`frozenUserIds` берутся у записи урока |
+| freeze доски и участника | запись урока в памяти | `frozenBoardIds` проверяется для конкретной доски; `frozenUserIds` — для участника на всех досках (#870) |
 | папка, имя карточки, владелец | урок | доски (`lessonId != null`) **никогда** не попадают в списки: `GET /api/rooms`, `/search`, `/mine` фильтруют `lessonId: null` |
 | лог операций, `nextSeq`, снапшоты, `RoomLayerState` | доска | как сейчас, по id доски |
 | превью | доска | карточка урока показывает превью `activeBoardId ?? lesson` |
@@ -102,7 +102,7 @@ socket.io-каналах: `lessonId` для социального и `boardId` 
 
 | Канал | Что летит |
 |---|---|
-| `io.to(lessonId)` | `peer_joined`, `peer_left`, `peer_board_changed`, `room_frozen_changed`, `participant_frozen_changed`, `room_tools_changed`, `room_closed_changed`, `palette_updated`, `active_board_changed`, `board_created` / `board_renamed` / `board_deleted` / `boards_reordered` |
+| `io.to(lessonId)` | `peer_joined`, `peer_left`, `peer_board_changed`, `participant_frozen_changed`, `room_tools_changed`, `room_closed_changed`, `palette_updated`, `active_board_changed`, `board_created` / `board_renamed` / `board_deleted` / `boards_reordered` |
 | `io.to(boardId)` | `operation_confirmed`, `peer_stroke_live` / `_end`, `peer_cursor` |
 
 Переключение доски — это существующий `join_room { roomId: boardId }` на том же сокете.
@@ -146,7 +146,7 @@ socket.io-каналах: `lessonId` для социального и `boardId` 
 
 ### Реестр в памяти
 
-`RoomRecord` урока держит участников (каждый с `boardId`), freeze, палитру. `RoomRecord`
+`RoomRecord` урока держит участников (каждый с `boardId`), наборы freeze досок/участников, палитру. `RoomRecord`
 доски держит содержимое и **множество сокетов на ней** — по нему доска эвиктится, когда
 на ней никого нет, даже если урок жив. Запись урока живёт, пока в уроке есть хоть один
 сокет, потому что её первая доска и социальное состояние нужны всем. `admitRoomLoad`
@@ -246,3 +246,7 @@ Undo-стек клиента живёт в движке и умирает с н�
 6. e2e: учитель создаёт вторую доску → ученик следует → оба рисуют → учитель возвращается
    на первую → содержимое обеих досок на месте у обоих → перезагрузка ученика попадает
    на доску учителя.
+
+С #870 `room_frozen_changed` адресуется только сокетам выбранной общей доски.
+Остальные участники получают актуальное поле `BoardSummary.frozen` через
+обычный адресный `lesson_state`; личная работа от этого не блокируется.

@@ -54,11 +54,14 @@ export function createRoomControlEventHandlers({
       useRoomStore.getState().setPalette(palette)
     },
 
-    // (#254/#256/#259) Room-wide freeze toggled by the owner — broadcast to
-    // everyone including the owner themselves (io.to, see socketHandlers.ts),
+    // (#254/#256/#259) Current-board freeze toggled by the owner — broadcast to
+    // this board including the owner themselves (io.to, see socketHandlers.ts),
     // so this fires for the owner's own toggle too, same as palette_updated
     // above.
-    room_frozen_changed: ({ frozen }) => {
+    room_frozen_changed: ({ boardId, frozen }) => {
+      const state = useRoomStore.getState()
+      state.applyBoardsAction({ type: 'board_frozen', boardId, frozen })
+      if (boardId !== (state.boardId ?? state.room?.id)) return
       const changed = useRoomStore.getState().roomFrozen !== frozen
       useRoomStore.getState().setRoomFrozen(frozen)
       if (changed) pushNotice({

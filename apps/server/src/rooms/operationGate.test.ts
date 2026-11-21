@@ -25,7 +25,7 @@ function lesson(patch: Partial<GateLesson> = {}): GateLesson {
   return {
     room: { ownerId: OWNER },
     participants: new Map([[OWNER, { role: 'owner' }], [STUDENT, { role: 'member' }]]),
-    roomFrozen: false, frozenUserIds: new Set(),
+    targetFrozen: false, frozenUserIds: new Set(),
     ...patch,
   }
 }
@@ -74,8 +74,8 @@ describe('gates that bind the owner too', () => {
 
 describe('gates the owner walks past', () => {
   it('a frozen room and a frozen participant', () => {
-    expect(reason(board(), lesson({ roomFrozen: true }), stroke(STUDENT))).toBe('room_frozen')
-    expect(reason(board(), lesson({ roomFrozen: true }), stroke(OWNER))).toBeNull()
+    expect(reason(board(), lesson({ targetFrozen: true }), stroke(STUDENT))).toBe('room_frozen')
+    expect(reason(board(), lesson({ targetFrozen: true }), stroke(OWNER))).toBeNull()
     expect(reason(board(), lesson({ frozenUserIds: new Set([STUDENT]) }), stroke(STUDENT))).toBe('participant_frozen')
   })
 
@@ -132,7 +132,7 @@ describe('recorded brush random metadata', () => {
       { brushRandom: { ...seeds, sequentialSeed: NaN } }, { brushRandom: { ...seeds, extra: 1 } },
       { strokeId: '' }, { strokeId: undefined }, { tool: 'pencil' }, { type: 'layer_clear' },
     ]) {
-      expect(reason(board(), lesson({ roomFrozen: true }), operation(extra))).toBe('invalid_operation')
+      expect(reason(board(), lesson({ targetFrozen: true }), operation(extra))).toBe('invalid_operation')
     }
   })
 })

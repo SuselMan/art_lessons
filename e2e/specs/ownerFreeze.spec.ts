@@ -76,7 +76,7 @@ for (const device of ['chromium', 'samsung'] as const) {
         const before = await evaluate(readProbe)
         expect(before.strokes).toBe(0)
         const freeze = new Promise<void>(resolve => socket.once('room_frozen_changed', () => resolve()))
-        await page.getByRole('button', { name: 'Freeze project' }).click()
+        await page.getByRole('button', { name: 'Freeze board' }).click()
         await freeze
         await expect.poll(async () => (await evaluate(readProbe)).frozen).toBe(true)
         const frozen = await evaluate(readProbe)
@@ -88,7 +88,7 @@ for (const device of ['chromium', 'samsung'] as const) {
           return color ? 1 - (color[0] + color[1] + color[2]) / 3 : 0
         })).toBeGreaterThan(0.08)
         const unfreeze = new Promise<void>(resolve => socket.once('room_frozen_changed', () => resolve()))
-        await page.getByRole('button', { name: 'Unfreeze project' }).click()
+        await page.getByRole('button', { name: 'Unfreeze board' }).click()
         await unfreeze
         await expect.poll(async () => (await evaluate(readProbe)).frozen).toBe(false)
         expect((await evaluate(readProbe)).ended).toBe(0)

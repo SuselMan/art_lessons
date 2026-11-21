@@ -212,7 +212,7 @@ export function createRoom(
     assignmentStarting: false,
     passwordHash, operations: [], participants, nextSeq: 1, palette,
     layerStateSeq: null, layerStateIds: null, coveredSeqByLayer: new Map(),
-    roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
+    frozenBoardIds: new Set(), frozenUserIds: new Set(), lockedLayerIds: new Set(),
     sharedLockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
     structuralLog: [],
@@ -575,7 +575,7 @@ export function getRoomSnapshot(
     // (#176) The lesson's roster, each with the board they are on — being in
     // a lesson is being in every board of it.
     participants: [...lesson.participants.values()],
-    palette: lesson.palette, frozen: lesson.roomFrozen,
+    palette: lesson.palette, frozen: lesson.frozenBoardIds.has(roomId),
     lesson: lessonStateFor(lesson, viewerId),
   }
 }

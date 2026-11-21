@@ -165,6 +165,8 @@ export type AssignmentSummary = {
 // arrives with its own `room_state` once the client joins it. The lesson
 // itself is the first entry, at `order` 0, under its own id.
 export type BoardSummary = {
+  /** Runtime teacher-board freeze; personal freeze remains on Participant. */
+  frozen?: boolean
   id: string
   name: string
   order: number

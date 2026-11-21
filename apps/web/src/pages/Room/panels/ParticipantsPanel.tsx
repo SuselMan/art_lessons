@@ -11,7 +11,6 @@ interface ParticipantsPanelProps {
   boards: readonly BoardSummary[]
   assignments: readonly AssignmentSummary[]
   teacherBoardId?: string
-  roomFrozen: boolean
   /** The viewer's own userId — their row is labelled and never gets actions. */
   myUserId: string | null
   // (#254/#257/#259) Only the owner gets the per-participant actions — everyone
@@ -122,7 +121,7 @@ function JoinQueueSection({ requests, resolvingId, onResolve }: JoinQueueSection
  *  re-renders on every pointermove while panning (#126), and none of these
  *  props change during one. */
 export const ParticipantsPanel = memo(function ParticipantsPanel({
-  participants, boards, assignments, teacherBoardId, roomFrozen, myUserId, isOwner, onToggleFreeze,
+  participants, boards, assignments, teacherBoardId, myUserId, isOwner, onToggleFreeze,
   joinRequests, resolvingRequestId = null, onResolveJoinRequest,
   handsRaised = [], onLowerHand, workOf, onOpenWork,
 }: ParticipantsPanelProps) {
@@ -152,8 +151,8 @@ export const ParticipantsPanel = memo(function ParticipantsPanel({
       ) : (
         <ul className={styles.list}>
           {participants.map(p => {
-            const frozen = p.role !== 'owner' && (p.frozen || roomFrozen)
             const board = boards.find(b => b.id === p.boardId)
+            const frozen = p.role !== 'owner' && (p.frozen || !!board?.frozen)
             const assignment = assignments.find(a => a.id === board?.assignmentId)
             const isSelf  = p.userId === myUserId
             // The owner can't be frozen server-side (rooms.ts's
@@ -270,11 +269,8 @@ interface RoomActionsProps {
   onToggleRoomFrozen: () => void
 }
 
-/** (#328) Room-wide actions for the participants tab's header — currently just
- *  the freeze, moved out of the top header (#320: decide what belongs there,
- *  then move things, rather than adding one more button to it). It belongs
- *  next to the people it acts on: freezing is about the class, not about the
- *  canvas.
+/** #870: freeze the selected shared board. Personal freezes remain in each
+ *  participant's menu. The caller hides this control on personal boards.
  *
  *  Non-owners get nothing here — the tab header is then just its title. */
 export function ParticipantsRoomActions({ isOwner, roomFrozen, onToggleRoomFrozen }: RoomActionsProps) {

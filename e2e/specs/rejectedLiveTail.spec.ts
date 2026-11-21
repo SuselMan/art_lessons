@@ -64,7 +64,7 @@ test('terminal refusal after ordinary UP removes live pixels and preserves accep
     sender.emit('stroke_live_end', { strokeId })
     const frozen = new Promise<void>(resolve => sender.once('room_frozen_changed', () => resolve()))
     await page.getByRole('button', { name: 'Open Class' }).click()
-    await page.getByRole('button', { name: 'Freeze project' }).click()
+    await page.getByRole('button', { name: 'Freeze board' }).click()
     await frozen
     const refused = { ...accepted, id: randomUUID(), dabs: tail }
     expect(await sender.timeout(10_000).emitWithAck('operation', refused)).toEqual({ ok: false, reason: 'room_frozen' })

@@ -327,7 +327,7 @@ export type ServerToClientEvents = {
   // (#254/#256 epic) Broadcast to the whole room (including the owner who
   // triggered it, same `io.to` reasoning as palette_updated above) whenever
   // `set_room_frozen` is accepted.
-  room_frozen_changed: (data: { frozen: boolean }) => void
+  room_frozen_changed: (data: { boardId: string; frozen: boolean }) => void
   // (#548) Broadcast to the whole room after `set_room_tools` is accepted —
   // `io.to`, like the two events above, because the owner who made the change
   // is also a person holding a tool that may have just been taken away.

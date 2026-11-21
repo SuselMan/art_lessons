@@ -147,7 +147,7 @@ export function RoomSidePanel({
             ].filter(Boolean).join(' · '),
             headerActions: (
               <ParticipantsRoomActions
-                isOwner={isOwner}
+                isOwner={isOwner && !boards.find(b => b.id === boardId)?.ownerId}
                 roomFrozen={roomFrozen}
                 onToggleRoomFrozen={toggleRoomFrozen}
               />
@@ -181,7 +181,6 @@ export function RoomSidePanel({
                 boards={boards}
                 assignments={assignments}
                 teacherBoardId={teacherBoard}
-                roomFrozen={roomFrozen}
                 myUserId={myUserId}
                 isOwner={isOwner}
                 onToggleFreeze={toggleParticipantFrozen}

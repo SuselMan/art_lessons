@@ -149,7 +149,7 @@ async function loadRoom(roomId: string, load: PendingRoomLoad, residency?: Pick<
 
   // (#254/#258) Rebuild the owner-lock mirror from the operation log itself
   // — `layer_owner_lock` is a normal, persisted Operation (unlike
-  // roomFrozen/frozenUserIds below, which never touch Postgres at all), so a
+  // board freezes/frozenUserIds below, which never touch Postgres at all), so a
   // cold-loaded room must replay its history to know which layers are
   // locked, the same way a client's own applyContentOp would.
   // (#518) The shared lock (`layer_lock`) is rebuilt in the same pass, from
@@ -197,8 +197,7 @@ async function loadRoom(roomId: string, load: PendingRoomLoad, residency?: Pick<
     layerStateIds: layerStateIdsOf(storedLayerState?.state),
     coveredSeqByLayer,
     palette,
-    roomFrozen: false,
-    frozenUserIds: new Set(),
+    frozenUserIds: new Set(), frozenBoardIds: new Set(),
     lockedLayerIds,
     sharedLockedLayerIds,
     aliveIds,

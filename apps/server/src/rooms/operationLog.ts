@@ -19,7 +19,11 @@ import { advanceStructuralLog, deriveLayerIds } from './structuralLog.js'
 export function getOperationRejectReason(roomId: string, userId: string, op: Operation): RejectReason | null {
   const record = rooms.get(roomId)
   if (!record) return 'not_owner'
-  return operationRejectReason(record, lessonRecordOf(record), userId, op)
+  const lesson = lessonRecordOf(record)
+  return operationRejectReason(record, {
+    room: lesson.room, participants: lesson.participants, frozenUserIds: lesson.frozenUserIds,
+    targetFrozen: lesson.frozenBoardIds.has(roomId),
+  }, userId, op)
 }
 
 /** Recomputes `aliveIds`/`deletedIds` from whatever is currently `done`.

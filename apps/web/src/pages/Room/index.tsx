@@ -561,7 +561,7 @@ function RoomEditor() {
   const myDisplayName = resolveDisplayName(me, localStorage)
   const myDisplayNameRef = useRef(myDisplayName)
   myDisplayNameRef.current = myDisplayName
-  // Room-wide freeze (#256) OR this participant's own point freeze (#257) —
+  // Current-board freeze (#870) OR this participant's own point freeze (#257) —
   // independent mechanisms, either one alone is enough to block input. The
   // owner is structurally exempt from both (see rooms.ts's
   // isOperationAllowed/setParticipantFrozen), so this only ever gates

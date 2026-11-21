@@ -32,6 +32,7 @@ function setup(overrides: Partial<RoomControlEventDeps> = {}) {
 
 beforeEach(() => {
   resetRoomStore()
+  useRoomStore.setState({ boardId: 'L' })
   clearNotices()
   vi.mocked(applyJoinRequestCreated).mockClear()
   vi.mocked(applyJoinRequestResolved).mockClear()
@@ -102,7 +103,7 @@ describe('the rest are the store', () => {
     })
     const { on } = setup()
     on.palette_updated({ palette: ['#123456'] })
-    on.room_frozen_changed({ frozen: true })
+    on.room_frozen_changed({ boardId: 'L', frozen: true })
     on.room_tools_changed({ enabledTools: [] })
     on.room_closed_changed({ closedAt: '2026-09-25T00:00:00Z' })
     const s = useRoomStore.getState()
@@ -144,7 +145,7 @@ describe('#699 blocking a gesture whose live ink was already painted', () => {
     it(`repairs orphaned ink after ${mode}`, () => {
       const endPeerLiveStroke = vi.fn((id: string) => id === 'a' ? 12 : 0)
       const { deps, on } = setup({ engineRef: { current: { endPeerLiveStroke } } })
-      if (mode === 'room freeze') on.room_frozen_changed({ frozen: true })
+      if (mode === 'room freeze') on.room_frozen_changed({ boardId: 'L', frozen: true })
       else if (mode === 'closed lesson') on.room_closed_changed({ closedAt: '2026-10-02T13:00:00Z' })
       else on.participant_frozen_changed({ userId: 'a', frozen: true })
       expect(endPeerLiveStroke).toHaveBeenCalledWith('a')
@@ -155,13 +156,13 @@ describe('#699 blocking a gesture whose live ink was already painted', () => {
 
   it('does not resync a room with no unrecorded live ink', () => {
     const { deps, on } = setup()
-    on.room_frozen_changed({ frozen: true })
+    on.room_frozen_changed({ boardId: 'L', frozen: true })
     expect(deps.requestFullResync).not.toHaveBeenCalled()
   })
 
   it('unblocking does not retire a new, allowed gesture', () => {
     const { deps, on } = setup()
-    on.room_frozen_changed({ frozen: false })
+    on.room_frozen_changed({ boardId: 'L', frozen: false })
     on.participant_frozen_changed({ userId: 'a', frozen: false })
     on.room_closed_changed({ closedAt: null })
     expect(deps.engineRef.current?.endPeerLiveStroke).not.toHaveBeenCalled()
@@ -183,7 +184,7 @@ describe('room freeze preserves the owner’s permitted live gesture', () => {
   it('retires blocked student ink without ending the owner or requesting a resync for that owner', () => {
     const endPeerLiveStroke = vi.fn((id: string) => id === 'owner' ? 8 : 0)
     const {deps, on} = setup({engineRef: {current: {endPeerLiveStroke}}})
-    on.room_frozen_changed({frozen: true})
+    on.room_frozen_changed({ boardId: 'L',frozen: true})
     expect(endPeerLiveStroke.mock.calls).toEqual([['student']])
     expect(deps.requestFullResync).not.toHaveBeenCalled()
   })
@@ -208,7 +209,7 @@ describe('freeze event notices', () => {
   it.each([true, false])('auto-dismisses frozen=%s after four seconds', frozen => {
     useRoomStore.getState().setRoomFrozen(!frozen)
     const { on } = setup()
-    on.room_frozen_changed({ frozen })
+    on.room_frozen_changed({ boardId: 'L', frozen })
     expect(useNoticeStore.getState().notices.map(n => n.message))
       .toEqual([frozen ? 'room.freezeToast.on' : 'room.freezeToast.off'])
     vi.advanceTimersByTime(3999)
@@ -219,9 +220,9 @@ describe('freeze event notices', () => {
 
   it('replaces the toast and restarts its lifetime when the state changes again', () => {
     const { on } = setup()
-    on.room_frozen_changed({ frozen: true })
+    on.room_frozen_changed({ boardId: 'L', frozen: true })
     vi.advanceTimersByTime(3000)
-    on.room_frozen_changed({ frozen: false })
+    on.room_frozen_changed({ boardId: 'L', frozen: false })
     expect(useNoticeStore.getState().notices.map(n => n.message))
       .toEqual(['room.freezeToast.off'])
     vi.advanceTimersByTime(1000)
@@ -229,4 +230,14 @@ describe('freeze event notices', () => {
     vi.advanceTimersByTime(3000)
     expect(useNoticeStore.getState().notices).toHaveLength(0)
   })
+})
+
+it('#870 updates another board’s freeze without blocking input or retiring live ink here', () => {
+  useRoomStore.setState({ boardId: 'own', boards: [{ id: 'teacher', name: 'Teacher', order: 0 }] })
+  const { on, deps } = setup()
+  on.room_frozen_changed({ boardId: 'teacher', frozen: true })
+  expect(useRoomStore.getState().roomFrozen).toBe(false)
+  expect(useRoomStore.getState().boards[0].frozen).toBe(true)
+  expect(useNoticeStore.getState().notices).toHaveLength(0)
+  expect(deps.engineRef.current?.endPeerLiveStroke).not.toHaveBeenCalled()
 })

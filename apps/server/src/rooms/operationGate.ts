@@ -27,7 +27,8 @@ export interface GateBoard {
 export interface GateLesson {
   room: Pick<Room, 'ownerId' | 'closedAt'>
   participants: ReadonlyMap<string, Pick<Participant, 'role'>>
-  roomFrozen: boolean
+  /** Effective freeze of this operation’s target board, projected by operationLog. */
+  targetFrozen: boolean
   frozenUserIds: ReadonlySet<string>
 }
 
@@ -116,7 +117,7 @@ export function operationRejectReason(
 
   if (isOwner) return null
 
-  if (lesson.roomFrozen) return 'room_frozen'
+  if (lesson.targetFrozen) return 'room_frozen'
   if (lesson.frozenUserIds.has(userId)) return 'participant_frozen'
   if (ownerLockedTargets(record, op)) return 'layer_owner_locked'
   return null

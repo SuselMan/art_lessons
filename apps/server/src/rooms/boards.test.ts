@@ -239,7 +239,7 @@ describe('joining a board', () => {
     const state = getRoomSnapshot(boardId)
 
     expect(state?.participants.map(p => [p.userId, p.boardId])).toEqual([['teacher', lessonId], ['student', boardId]])
-    expect(state?.frozen).toBe(true)
+    expect(state?.frozen).toBe(false)
     expect(state?.room).toMatchObject({
       id: boardId, name: 'Board 2', lessonId,
       closedAt: '2026-09-23T12:00:00.000Z', enabledTools: ['pencil'],
@@ -260,14 +260,16 @@ describe('gates resolve against the lesson', () => {
     expect(getOperationRejectReason(lessonId, 'teacher', stroke('teacher'))).toBe('room_closed')
   })
 
-  it('room-wide and per-participant freeze set through any board bind every board', async () => {
+  it('a shared-board freeze is local; personal freeze still binds every board', async () => {
     const lessonId = makeLesson()
     const boardId = await makeBoard(lessonId)
     joinRoom(boardId, 'student', 'Alice', sock('student'))
 
     expect(setRoomFrozen(boardId, true)).toBe(true)
-    expect(isRoomFrozen(lessonId)).toBe(true)
-    expect(getOperationRejectReason(lessonId, 'student', stroke('student'))).toBe('room_frozen')
+    expect(isRoomFrozen(lessonId)).toBe(false)
+    expect(isRoomFrozen(boardId)).toBe(true)
+    expect(getOperationRejectReason(lessonId, 'student', stroke('student'))).toBeNull()
+    expect(getOperationRejectReason(boardId, 'student', stroke('student'))).toBe('room_frozen')
     expect(getOperationRejectReason(boardId, 'teacher', stroke('teacher'))).toBeNull()
 
     setRoomFrozen(boardId, false)

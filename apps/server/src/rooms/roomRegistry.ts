@@ -46,7 +46,7 @@ export interface RoomRecord {
   assignments: AssignmentSummary[]
   activeAssignmentId: string | null
   spotlightBoardId: string | null
-  // Raised hands, by userId. Live only, like `roomFrozen`: a hand is a
+  // Raised hands, by userId. Live only, like board freezes: a hand is a
   // gesture in a lesson, not a fact about it.
   handsRaised: Set<string>
   // True while `assignment_start` is writing its rows — the await between the
@@ -90,12 +90,9 @@ export interface RoomRecord {
   // `participants` — small, needed on every room_state, unlike RoomSnapshot's
   // pixel blobs which stay Postgres-only (see rooms.ts's getLayerSnapshot).
   palette: string[]
-  // (#254/#256 epic) Room-wide freeze — an owner-triggered runtime control,
-  // never persisted to Postgres (same ephemeral status as `participants`
-  // itself): a server restart or a room going idle and being evicted simply
-  // loses it, same as every participant's own live presence does. See
-  // setRoomFrozen/isRoomFrozen.
-  roomFrozen: boolean
+  // #870: board-scoped runtime controls, held by the lesson so leaving an
+  // empty board does not clear its freeze. Personal freezes stay separate.
+  frozenBoardIds: Set<string>
   // (#254/#257 epic) Per-participant freeze, keyed by userId rather than
   // stored directly on the live `Participant` record in `participants` —
   // that map entry gets fully replaced on every join/reconnect (see
@@ -112,7 +109,7 @@ export interface RoomRecord {
   // are currently owner-locked, kept in sync by `setLayerOwnerLocked`
   // whenever a `layer_owner_lock` operation is accepted. Rebuilt by folding
   // over `operations` in `ensureRoomLoaded` on a cold load, since (unlike
-  // `roomFrozen`/`frozenUserIds`) this mirrors real operation-log content,
+  // board freezes/`frozenUserIds`) this mirrors real operation-log content,
   // not ephemeral session state.
   lockedLayerIds: Set<string>
   // (#518) The *other* lock's mirror, kept the same way and deliberately not

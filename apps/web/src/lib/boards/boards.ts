@@ -6,6 +6,7 @@ import type { BoardSummary } from '@grafetto/shared'
 // without a socket or the 8000-line page around it.
 
 export type BoardsAction =
+  | { type: 'board_frozen'; boardId: string; frozen: boolean }
   // The whole strip, as `room_state.lesson.boards` carries it on every join
   // and reconnect. Authoritative — replaces what we had.
   | { type: 'lesson'; boards: BoardSummary[] }
@@ -25,6 +26,8 @@ export function sortBoards(boards: readonly BoardSummary[]): BoardSummary[] {
 
 export function boardsReducer(state: BoardSummary[], action: BoardsAction): BoardSummary[] {
   switch (action.type) {
+    case 'board_frozen':
+      return state.map(b => b.id === action.boardId ? { ...b, frozen: action.frozen } : b)
     case 'lesson':
       return sortBoards(action.boards)
     case 'board_created': {
