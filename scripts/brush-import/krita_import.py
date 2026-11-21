@@ -37,7 +37,7 @@ from stroke_input import source_policy as stroke_input_policy,independent_drawin
 from krita_texture import preprocess_texture
 from krita_lightness import compile_lightness_planes
 
-MAX_XML = 32 * 1024 * 1024
+MAX_XML = 96 * 1024 * 1024
 
 
 def preset_preview(image):
@@ -55,7 +55,7 @@ def preset_preview(image):
 
 
 def xml(data):
-    if len(data) > MAX_XML or '<!ENTITY' in data.upper():
+    if len(data) > MAX_XML or re.search(r'<!ENTITY',data,re.IGNORECASE):
         raise ValueError('Krita XML exceeds limit or declares entities')
     # Some Krita presets serialize the binary pattern MD5 as a string containing
     # XML-forbidden control characters, or as a bytearray that is not UTF-8.
@@ -2001,8 +2001,11 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
     options=dict(sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,_allow_texture_material=_allow_texture_material,_default_input_policy=_default_input_policy,_native_sampling_candidate=_native_sampling_candidate,_primary_clock_read=_primary_clock_read,_bristle_source_capture=_bristle_source_capture)
     if depth or COMPONENT190.get():return _preset_impl(data,name,catalog,external,depth,**options)
     image=Image.open(io.BytesIO(data));image.load();root=xml(image.info.get('preset',''))
-    params={n.get('name'):n.text or''for n in root.findall('param')}
-    if root.get('paintopid')!='paintbrush'or not enabled(params.get('MaskingBrush/Enabled')):return _preset_impl(data,name,catalog,external,depth,**options)
+    keys={'MaskingBrush/Enabled','MaskingBrush/Preset/RotationSensor','MaskingBrush/UseMasterSize'}
+    params={n.get('name'):n.text or''for n in root.findall('param') if n.get('name') in keys}
+    needs_mask=root.get('paintopid')=='paintbrush' and enabled(params.get('MaskingBrush/Enabled'))
+    del image,root
+    if not needs_mask:return _preset_impl(data,name,catalog,external,depth,**options)
     if TIMING195.get():
         from native_mask190 import lower_pair
         return lower_pair(data,name,catalog,external,_preset_impl,options)
@@ -2023,9 +2026,11 @@ def _preset_without_texture191(data,name,catalog,external,depth=0,*,sequential_x
 def _preset_without_smudge193(data,name,catalog,external,depth=0,**options):
     if depth or COMPONENT191.get():return _preset_without_texture191(data,name,catalog,external,depth,**options)
     image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
-    params={n.get('name'):n.text or''for n in node.findall('param')}
+    keys={'Texture/Pattern/Enabled','Texture/Pattern/TexturingMode'}
+    params={n.get('name'):n.text or''for n in node.findall('param') if n.get('name') in keys}
     candidate=node.get('paintopid')in('paintbrush','colorsmudge')and enabled(params.get('Texture/Pattern/Enabled'))
     height=candidate and numeric(params.get('Texture/Pattern/TexturingMode'),0)in(12,13,14,15)
+    del image,node,params
     if not height:
         try:return _native_preset_transaction(catalog,lambda:_preset_without_texture191(data,name,catalog,external,depth,**options))
         except ValueError:
@@ -2039,8 +2044,12 @@ def _preset_without_smudge193(data,name,catalog,external,depth=0,**options):
 def _preset_without_timing195(data,name,catalog,external,depth=0,**options):
     if depth or COMPONENT193.get():return _preset_without_smudge193(data,name,catalog,external,depth,**options)
     image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
-    if node.get('paintopid')!='colorsmudge':return _preset_without_smudge193(data,name,catalog,external,depth,**options)
-    params={n.get('name'):n.text or''for n in node.findall('param')}
+    if node.get('paintopid')!='colorsmudge':
+        del image,node
+        return _preset_without_smudge193(data,name,catalog,external,depth,**options)
+    keys={'PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing','CompositeOp','SmudgeRateMode','SmudgeRadiusValue','SmudgeRadiusVersion'}
+    params={n.get('name'):n.text or''for n in node.findall('param') if n.get('name') in keys}
+    del image,node
     if any(clock_enabled(params, k)for k in('PaintOpSettings/isAirbrushing','AirbrushOption/isAirbrushing'))and(options.get('_allow_texture_material',True)is False or options.get('_default_input_policy')!=DEFAULT_NATIVE_INPUT_POLICY):
         # Explicit private/direct legacy callers keep their old timer-disable
         # contract; this is not public admission to a new193 timer family.
@@ -2081,7 +2090,9 @@ def preset(data,name,catalog,external,depth=0,**options):
         image=Image.open(io.BytesIO(data));image.load();node=xml(image.info.get('preset',''))
         params=native_params(node)
         if enabled(params.get('PaintOpSettings/isAirbrushing')):
+            del image
             return _native_preset_transaction(catalog,lambda:lower_timing195(data,node,params,name,catalog,external,_preset_without_timing195,options))
+        del image,node,params
     return _preset_without_timing195(data,name,catalog,external,depth,**options)
 
 

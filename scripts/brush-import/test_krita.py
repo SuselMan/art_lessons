@@ -20,6 +20,12 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_entity_rejection_is_case_insensitive_with_bounded_scan(self):
+        from krita_import import xml
+        self.assertEqual(xml('<Preset><param name="safe">ok</param></Preset>').tag,'Preset')
+        for directive in ('<!ENTITY','<!entity','<!EnTiTy'):
+            with self.subTest(directive=directive),self.assertRaises(ValueError):xml('<!DOCTYPE x ['+directive+' x "y">]><Preset/>')
+
     def test_binary_pattern_md5_does_not_break_import_or_relax_other_xml(self):
         cases = [('<![CDATA[abc\x0edef]]>', 'string'), ('YZWYAA==', 'bytearray')]
         with tempfile.TemporaryDirectory() as tmp:

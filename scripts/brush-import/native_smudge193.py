@@ -32,8 +32,10 @@ def lower_smudge193(data,name,catalog,external,impl,options):
         original=next((p for p in root.findall('param') if p.get('name')==key),None)
         attributes=dict(original.attrib) if original is not None else {'name':key}
         ET.SubElement(node,'param',attributes).text=value
+    preview=preset_preview(image);preset_name=root.get('name')or name;bridge=png_preset(node)
+    del image,root,node,params,values,definition
     tokens=[(COMPONENT193,COMPONENT193.set(True)),(COMPONENT190,COMPONENT190.set(True)),(COMPONENT191,COMPONENT191.set(True))]
-    try:result=impl(png_preset(node),name,catalog,resources,0,**{**options,'timed_input':True,'_default_input_policy':None,'_allow_texture_material':True})
+    try:result=impl(bridge,name,catalog,resources,0,**{**options,'timed_input':True,'_default_input_policy':None,'_allow_texture_material':True})
     finally:
         for variable,token in reversed(tokens):variable.reset(token)
     d=result['descriptor'];d['version']=193;m=d.get('mixer',{});b=d['behavior']
@@ -58,4 +60,4 @@ def lower_smudge193(data,name,catalog,external,impl,options):
         result['compatibility'].append(compatibility('smudgeStaticResampling193','Static raw coverage/pigment uses the common native-geometry sampler. Native Qt integer pyramid/filter/subpixel pixel identity is not claimed.'))
     if text_warning:result['compatibility'].append(compatibility('smudgeText193',text_warning))
     result['warnings']=[n['feature']+': '+n['detail']for n in result['compatibility']if n['status']!='supported']
-    result.update(preview=preset_preview(image),name=root.get('name')or name);finalize_identity(d,data);return result
+    result.update(preview=preview,name=preset_name);finalize_identity(d,data);return result
