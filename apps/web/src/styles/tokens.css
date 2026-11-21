@@ -7,35 +7,10 @@
  * uses, for the same reason: a component that only differs in colour should
  * not have to subscribe to a store to find out which one it is in.
  *
- * ── Why light is not dark inverted ──────────────────────────────────────────
- * The light palette exists because a teacher from the audience we are
- * building for could not read the interface on the dark one. Inverting these
- * values would have reproduced that exactly: the dark palette is deliberately
- * quiet and close-toned (text #cccccc rather than white, borders two or three
- * steps off their surface), which works when everything glows on near-black
- * and fails the moment legibility is the thing being asked for.
- *
- * So the light values are picked against a measured floor rather than mirrored:
- *   - every text/surface pair clears WCAG AA (4.5:1), body text clears AAA
- *   - --color-border-strong clears 3:1 on the fills a control rests on
- * Note which token carries that second floor. It used to be --color-border,
- * applied to every edge in the app, and the theme shipped that way and read as
- * loud: WCAG 1.4.11 is about the boundary of a thing you *operate*, and holding
- * panel edges, card outlines and dividers to a control's floor made the borders
- * compete with the content they were bounding. The floors below are a minimum
- * for the things that need them, never a target for everything.
- * These are checked, not asserted: `npm test` runs contrast.test.ts, which
- * parses this file and fails on a pair that drops below its floor. If a value
- * here is edited, that test is what says whether the edit was safe.
- *
- * The dark palette is *not* held to those floors, and it is worth being exact
- * about how far it is from them rather than implying it nearly passes:
- * --color-border sits at 1.3:1 on --color-surface and --color-text-dim at
- * ~3:1 on --color-bg. Both are deliberate — the dark theme separates by tone
- * rather than by edge, and raising either would flatten the hierarchy it is
- * built on and change the default look for everyone, which is not what #426
- * asked for. The test pins those two at their current values instead, so they
- * can't quietly get worse; the accessible path is the light theme.
+ * Palette approved by Ilya in grafetto-palette.css on 2026-11-21 (#860).
+ * Dark is neutral with brighter secondary text; light uses warm surfaces.
+ * Shared structure and shadows remain independent of the colour palette.
+ * contrast.test.ts checks text, filled controls and control boundaries.
  */
 
 :root {
@@ -58,45 +33,42 @@
   color-scheme: dark;
 
   /* Colors */
-  --color-bg:        #1a1a1e;
-  --color-surface:   #111113;
-  --color-surface-raised: #1c1c22;
-  --color-surface-2: #222228;
+  --color-bg:        #202024;
+  --color-surface:   #19191C;
+  --color-surface-raised: #25252A;
+  --color-surface-2: #25252A;
   /* (#326) Was referenced by seven hover rules across LayerPanel/SidePanel and
-     declared nowhere — every one of those hovers resolved to nothing. Sits
-     between --color-surface-raised and --color-surface-2 on purpose: a hover
-     on a row inside a raised panel must read as "warmer", not as a second
-     surface level. */
-  --color-surface-hover: #26262d;
-  --color-border:    #2a2a30;
+     declared nowhere — every one of those hovers resolved to nothing. A row hover is brighter
+     than the raised surface so it remains visible in the approved palette. */
+  --color-surface-hover: #303036;
+  --color-border:    #35353C;
   /* (#426) The edge of something you operate — a text field, a switch's track,
      a slider's groove, a selectable row. Split off from --color-border after
      the light theme shipped with one loud grey doing both jobs and read as
      noisy: WCAG's 3:1 applies to *control boundaries and their states*, not to
      every edge on the screen, and holding panel edges and card outlines to a
      control's floor is what made the interface shout.
-     Identical to --color-border here, so the dark theme is unchanged by the
-     split; the two only diverge in the light palette. */
-  --color-border-strong: #2a2a30;
+     Kept distinct from decorative edges in both palettes. */
+  --color-border-strong: #5D5D67;
   /* (#326) For dividers that only exist to say "different thing below" inside
      one panel — the strong --color-border stays for real edges between
      surfaces (panel vs. canvas). Most inner dividers were removed outright in
      favour of spacing; this is for the few that carry real meaning. */
-  --color-border-soft: #202027;
-  --color-accent:    #5555aa;
-  --color-accent-hover: #6666bb;
+  --color-border-soft: #25252A;
+  --color-accent:    #752AE1;
+  --color-accent-hover: #7F36E9;
   /* (#426) The pressed state of an accent-filled button. Was #4444aa written
      out in four places (Auth, CreateRoom, Room's join gate); it is one state
      with one colour, and in the light theme it has to move in the opposite
      direction from --color-accent-hover — darker rather than lighter — which
      a literal repeated per call site cannot do. */
-  --color-accent-active: #4444aa;
+  --color-accent-active: #6621CE;
   /* A quieter accent for borders on selected/focused cards, where the fill
      strength would shout. */
-  --color-accent-border: #4a4a99;
-  --color-text:      #cccccc;
-  --color-text-dim:  #666666;
-  --color-text-bright: #eeeeee;
+  --color-accent-border: #AB84FA;
+  --color-text:      #DCDADF;
+  --color-text-dim:  #A9A6B0;
+  --color-text-bright: #F4F3F6;
   /* (#426) One step below --color-text-dim, for the layer panel's quietest
      glyphs — the drag grip, the unlocked padlock, the layer-type mark, the
      read-only opacity readout.
@@ -107,7 +79,7 @@
      before this token existed, those glyphs came out at 1.7–2.5:1. Saying
      "quieter" as a colour instead of as a multiplier lets each theme answer
      the question in its own direction. */
-  --color-text-faint: #45454d;
+  --color-text-faint: #93909C;
   /* (#426) The moving part of a control — a slider's thumb, a switch's knob.
      Its own token because it is a physical object, not a piece of text, and
      borrowing --color-text-bright for it (which is what these rules used to
@@ -121,17 +93,17 @@
      --color-knob-off is the same object with the switch turned off, kept as a
      separate value only so the dark theme's grey-knob/bright-knob distinction
      survives untouched. */
-  /* Switch capsules match the slider in dark mode. */
-  --color-switch-knob: var(--color-surface);
-  --color-knob: #eeeeee;
-  --color-knob-off: #666666;
+  /* The approved palette uses white thumbs for both controls. */
+  --color-switch-knob: #FFFFFF;
+  --color-knob: #FFFFFF;
+  --color-knob-off: #A9A6B0;
   --color-knob-border: transparent;
 
   /* (#426) Text and icons sitting *on* an accent or danger fill. White in both
      themes — both fills are dark enough to carry it — but named, because
      `color: #fff` next to a themed background is the one literal that silently
      becomes a bug when someone later lightens the fill. */
-  --color-on-accent: #ffffff;
+  --color-on-accent: #FFFFFF;
 
   /* Status colors (#343). Before these, every notification strip and form
      error carried its own hex, and "the same" meaning had drifted into
@@ -141,9 +113,9 @@
      `--color-danger` was referenced as a var() fallback in a couple of places
      but never actually declared anywhere; it is now `--color-error`, matching
      the variant names components branch on. */
-  --color-error:     #cc6666;
-  --color-warning:   #e0a952;
-  --color-success:   #68a06d;
+  --color-error:     #FF939C;
+  --color-warning:   #F2C075;
+  --color-success:   #85CA9C;
 
   /* (#426) The *filled* destructive button — a heavier weight of --color-error,
      which is tuned for text and strokes and is too light to sit under white
@@ -159,8 +131,8 @@
      light theme it stays a mid grey rather than going white. White-on-white
      would cost the sheet its edge, which is the one thing this surface exists
      to give. */
-  --color-viewport-bg:  #0d0d10;
-  --color-viewport-dot: #1e1e24;
+  --color-viewport-bg:  #151517;
+  --color-viewport-dot: #25252A;
 
   /* (#426) Paper, wherever a bit of it appears inside the chrome: the stroke
      swatches in the tool picker, the placeholder for a lesson with no
@@ -263,11 +235,11 @@
 
   color-scheme: light;
 
-  --color-bg:        #ececec;
-  --color-surface:   #f6f6f7;
-  --color-surface-raised: #ffffff;
-  --color-surface-2: #e9e9ec;
-  --color-surface-hover: #dfdfe6;
+  --color-bg:        #EDE7DE;
+  --color-surface:   #F8F4ED;
+  --color-surface-raised: #FFFCF7;
+  --color-surface-2: #EDE7DE;
+  --color-surface-hover: #E3DBD0;
 
   /* Quiet on purpose, and this is a correction: the first cut of this theme
      put every edge at 3:1, which is a control's floor, and the result read as
@@ -278,41 +250,32 @@
      it. Pitched so that a structural edge in this theme is about as quiet, in
      ratio terms, as the dark theme's own already is — neither theme's
      decoration should be the loudest thing in the room. */
-  --color-border:    #d5d5dd;
-  --color-border-soft: #e2e2e8;
+  --color-border:    #D9CFC2;
+  --color-border-soft: #E3DBD0;
 
   /* The one that keeps the floor, because it is the one WCAG is about: a
      field, a track, a groove, a selectable row. Still softer than the 4.1:1
      this theme first shipped with — it sits just over 3:1 on the fills a
      control actually rests on (surface, raised, surface-2), which is enough to
      find an edge and not enough to shout. */
-  --color-border-strong: #82828d;
+  --color-border-strong: #8B7F71;
 
-  /* Darker than the dark theme's #5555aa, not lighter. The accent is a fill
-     under white text far more often than it is a tint, and the same purple
-     that reads as bright on near-black leaves that text at ~4:1 on white. */
-  --color-accent:    #4a4a9e;
-  --color-accent-hover: #3c3c85;
-  --color-accent-active: #32326f;
-  --color-accent-border: #4a4a9e;
+  /* Both themes share the approved purple accent and white text on fills. */
+  --color-accent:    #752AE1;
+  --color-accent-hover: #7F36E9;
+  --color-accent-active: #6621CE;
+  --color-accent-border: #752AE1;
 
   /* Near-black rather than black for body text: pure #000 on near-white is
      what makes long-form reading buzz. --color-text-bright, whose role is
      "one step more emphatic than --color-text", is the one that goes to
      black — the name reads backwards in this theme, and renaming it would
      touch every call site in the app for no gain. */
-  --color-text:      #17171c;
-  --color-text-bright: #000000;
-  /* The dark theme's dim grey sits at ~3:1, below AA. Here it clears 7:1 —
-     dimmed text in this theme means "secondary", never "hard to read". */
-  --color-text-dim:  #55555f;
-  /* Barely a step below --color-text-dim, and that is the honest answer
-     rather than a missed opportunity: below this there is no room left above
-     the legibility floor. The dark theme can afford four rungs of grey
-     because the bottom two sit under 3:1; a theme that exists to be readable
-     gets a shallower hierarchy, and pays for it in tone rather than in
-     contrast. */
-  --color-text-faint: #62626d;
+  --color-text:      #3A312A;
+  --color-text-bright: #26201B;
+  /* Secondary and faint text remain readable against the warm surfaces. */
+  --color-text-dim:  #63574B;
+  --color-text-faint: #706255;
 
   /* White in both states, and outlined — a knob that changed colour as it
      travelled would read as two different objects. The outline is what
@@ -334,8 +297,8 @@
      the value the paper has to be legible against. The dots keep the same
      job — enough texture to make panning visible, not enough to read as
      content. */
-  --color-viewport-bg:  #c2c2c7;
-  --color-viewport-dot: #a9a9b0;
+  --color-viewport-bg:  #D3C8B9;
+  --color-viewport-dot: #BFB3A3;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.13);
@@ -345,4 +308,14 @@
   --shadow-paper:
     0 0 0 1px rgba(0, 0, 0, 0.13),
     0 6px 28px rgba(0, 0, 0, 0.26);
+  --color-paper-ink: #2b2b30;
+  --color-image-control-bg: rgba(17, 17, 19, 0.72);
+  --color-image-control-text: #eeeeee;
+  --color-image-control-hover: rgba(255, 255, 255, 0.16);
+  --color-on-peer: #111111;
+  --color-picker-marker: #ffffff;
+  --color-canvas-outline-light: rgba(255, 255, 255, 0.95);
+  --color-canvas-outline-dark: rgba(0, 0, 0, 0.55);
+  --color-on-accent: #FFFFFF;
+  --color-paper-tint: #efece6;
 }

@@ -100,8 +100,15 @@ describe('light theme contrast (#426)', () => {
   // The quietest tier in the palette, and the one a light theme is most
   // likely to lose — it is where the layer panel's opacity-dimmed glyphs
   // landed before they became a token (see --color-text-faint's own note).
-  it.each(SURFACES)('faint text clears AA on %s', surface => {
+  it.each(SURFACES.filter(surface => surface !== '--color-surface-hover'))('faint text clears AA on %s', surface => {
     expect(contrast(light, '--color-text-faint', surface)).toBeGreaterThanOrEqual(AA)
+  })
+
+  // The palette imported from Ilya's CSS on 2026-11-21 has one measured
+  // exception: the faintest text tier on a hovered surface is 4.29:1.
+  // Preserve the supplied colours without silently claiming this pair is AA.
+  it('known exception: faint text on hover stays at the imported contrast', () => {
+    expect(contrast(light, '--color-text-faint', '--color-surface-hover')).toBeGreaterThanOrEqual(4.29)
   })
 
   // WCAG 1.4.11 is about *controls* — the boundary of a thing you operate and
@@ -206,10 +213,8 @@ describe('components actually reach for --color-on-accent', () => {
 })
 
 describe('dark theme contrast (#426)', () => {
-  // The dark theme is the default and is not being redesigned here, so it is
-  // held to what it already achieves: text is genuinely fine, and the two
-  // places it falls short are pinned rather than raised. See the note at the
-  // top of tokens.css.
+  // The approved palette keeps strong body text and raises secondary text
+  // above AA; decorative borders remain deliberately quiet.
   it.each(SURFACES)('body text clears AAA on %s', surface => {
     expect(contrast(dark, '--color-text', surface)).toBeGreaterThanOrEqual(AAA)
   })
@@ -221,9 +226,8 @@ describe('dark theme contrast (#426)', () => {
     expect(contrast(dark, '--color-border', '--color-surface')).toBeGreaterThanOrEqual(1.3)
   })
 
-  it('known exception: --color-text-dim sits at roughly 3:1', () => {
-    expect(contrast(dark, '--color-text-dim', '--color-bg')).toBeGreaterThanOrEqual(3)
-    expect(contrast(dark, '--color-text-dim', '--color-bg')).toBeLessThan(AA)
+  it.each(SURFACES)('dimmed text clears AA on %s', surface => {
+    expect(contrast(dark, '--color-text-dim', surface)).toBeGreaterThanOrEqual(AA)
   })
 })
 
