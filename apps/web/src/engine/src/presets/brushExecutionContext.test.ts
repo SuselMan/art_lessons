@@ -79,3 +79,20 @@ it('requires a gesture-owned palette for gradient foregrounds',()=>{
  expect(()=>assertBrushExecutionContext(brush,context)).not.toThrow()
  expect(()=>assertSameBrushExecutionContext(context,brushExecutionContext(undefined,{version:1,gradient:'0'.repeat(2048)}))).toThrow('sources changed')
 })
+
+it('captures keyed color sensors nested in a random combination for replay', async () => {
+  const { brushRequiresRandomContext } = await import('@grafetto/shared')
+  const brush=structuredClone(digitalBrushFromPreset('hard-round'))
+  const hue:BrushDynamic={control:'strokeRandom',randomSource:{kind:'qt5Taus88',key:'hFuzzyStroke'},minimum:0,jitter:0}
+  const saturation:BrushDynamic={control:'off',minimum:0,jitter:0,combine:{mode:'product',scaling:[],additive:[
+    {control:'random',minimum:0,jitter:0},
+    {control:'strokeRandom',randomSource:{kind:'qt5Taus88',key:'sFuzzyStroke'},minimum:0,jitter:0},
+  ]}}
+  brush.behavior={version:2,colorAdjustment:{hue,saturation}}
+  expect(brushRequiresRandomContext(brush)).toBe(true)
+  expect(()=>assertBrushExecutionContext(brush)).toThrow('explicit gesture context')
+  const state=beginBrushBehavior(dab(1,2),brushExecutionContext({version:1,sequentialSeed:0,strokeSeed:seed}))
+  const copy=structuredClone(state)
+  expect(brushDynamicValue(hue,dab(1,2),state,.2)).toBe(brushDynamicValue(hue,dab(1,2),copy,.2))
+  expect(brushDynamicValue(saturation,dab(1,2),state,.3)).toBe(brushDynamicValue(saturation,dab(1,2),copy,.3))
+})

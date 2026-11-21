@@ -387,7 +387,7 @@ def sensor_controls(params, option, notes, *, allow_time=False, allow_scatter_po
     mode=numeric(params.get(option+'curveMode'))
     additive_ids=('fuzzy','fuzzystroke','ascension')+(('rotation',)if allow_recorded_pen else())
     scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
-    compound=option!='Rotation' and (sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids or 'drawingangle'in ids or allow_recorded_pen and 'rotation'in ids)
+    compound=option!='Rotation' and (option in ('h','s','v') and len(sensors)>1 or sum(name in additive_ids for name in ids)>1 or mode!=0 and scaling_count>1 or len(sensors)>4 or 'ascension'in ids or 'drawingangle'in ids or allow_recorded_pen and 'rotation'in ids)
     if mode not in (0,1,2,3,4):
         notes.append(compatibility(option+'SensorCombination','Unsupported native sensor combination mode.','unsupported'))
         return []
@@ -1119,13 +1119,18 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     for option,target in [('h','hue'),('s','saturation'),('v','value')]:
         if not enabled(params.get('Pressure'+option)): continue
         node=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
+        sensors=list(node.findall('ChildSensor')) if node.get('id')=='sensorslist' else [node]
+        supported_color_sensors=('fuzzy','fuzzystroke','pressure')+(('time',) if timed_input else ())
         if (enabled(params.get(option+'UseCurve','true')) and numeric(params.get(option+'Value'),1)==1
-                and numeric(params.get(option+'curveMode'),0)==0 and node.get('id') in ('fuzzy','pressure')):
-            controls=sensor_controls(params,option,notes,allow_time=timed_input)
-            if len(controls)==1:
+                and numeric(params.get(option+'curveMode'),0)==0 and sensors
+                and (option!='h' or len(sensors)==1)
+                and all(sensor.get('id') in supported_color_sensors for sensor in sensors)):
+            local=[];controls=sensor_controls(params,option,local,allow_time=timed_input)
+            if len(controls)==1 and not any(n['status']=='unsupported' for n in local):
+                notes.extend(local)
                 behavior.setdefault('colorAdjustment',{})[target]=controls[0]
                 color_decoded.append('Pressure'+option)
-                notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retained for single pressure/random sensor and unit strength; U8 colorspace quantization and vendor random sequence remain approximate.'))
+                notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retains supported sensor combinations; U8 colorspace quantization and vendor random sequence remain approximate.'))
     ratio_decoded=False
     if enabled(params.get('PressureRatio')):
         controls=size_like_controls(params,'Ratio',notes,allow_time=timed_input)

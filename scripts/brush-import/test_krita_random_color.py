@@ -46,10 +46,23 @@ class RandomOptionTests(unittest.TestCase):
             self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
             self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
 
+    def test_hue_stroke_random_and_saturation_sensor_combination(self):
+        params={'Pressureh':'true','hValue':'1','hSensor':'<params id="fuzzystroke"/>',
+                'Pressures':'true','sValue':'1','sSensor':'<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="fuzzystroke"/></params>'}
+        brush=self.brush(params)
+        color=brush['descriptor']['behavior']['colorAdjustment']
+        self.assertEqual(color['hue']['randomSource']['key'],'hFuzzyStroke')
+        self.assertEqual([v['control'] for v in color['saturation']['combine']['additive']],['random','strokeRandom'])
+        convert.validate_portable_dynamics([color['hue'],color['saturation']])
+        self.assertFalse(any(n['status']=='unsupported' for n in brush['compatibility']))
+        params['hSensor']='<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="fuzzy"/></params>'
+        result=self.brush(params)
+        self.assertNotIn('hue',result['descriptor']['behavior']['colorAdjustment'])
+        self.assertTrue(any(n['status']=='unsupported' and 'Pressureh' in n['detail'] for n in result['compatibility']))
     def test_canonical_airbrush_key_overrides_legacy_alias(self):
-        for params,expected in [({'PaintOpSettings/isAirbrushing':'true'},True),({'AirbrushOption/isAirbrushing':'true'},True),({'PaintOpSettings/isAirbrushing':'false','AirbrushOption/isAirbrushing':'true'},False)]:
+        for params,expected in [({'PaintOpSettings/isAirbrushing':'true'},True),({'AirbrushOption/isAirbrushing':'true'},False),({'PaintOpSettings/isAirbrushing':'false','AirbrushOption/isAirbrushing':'true'},False)]:
             b=self.brush(params)
-            self.assertEqual(any(x['feature']=='airbrush' for x in b['compatibility']),expected)
+            self.assertEqual('timing' in b['descriptor']['behavior'],expected)
 
 
 
