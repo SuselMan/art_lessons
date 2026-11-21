@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import clsx from 'clsx'
-import type { Participant, RoomJoinRequest } from '@grafetto/shared'
+import type { AssignmentSummary, BoardSummary, Participant, RoomJoinRequest } from '@grafetto/shared'
 import { useT } from '../../../i18n'
 import { Icon } from '../../../components/Icon'
 import { Menu } from '../../../components/Menu'
@@ -8,7 +8,10 @@ import styles from './ParticipantsPanel.module.css'
 
 interface ParticipantsPanelProps {
   participants: Participant[]
-  drawingIds: string[]
+  boards: readonly BoardSummary[]
+  assignments: readonly AssignmentSummary[]
+  teacherBoardId?: string
+  roomFrozen: boolean
   /** The viewer's own userId — their row is labelled and never gets actions. */
   myUserId: string | null
   // (#254/#257/#259) Only the owner gets the per-participant actions — everyone
@@ -119,7 +122,7 @@ function JoinQueueSection({ requests, resolvingId, onResolve }: JoinQueueSection
  *  re-renders on every pointermove while panning (#126), and none of these
  *  props change during one. */
 export const ParticipantsPanel = memo(function ParticipantsPanel({
-  participants, drawingIds, myUserId, isOwner, onToggleFreeze,
+  participants, boards, assignments, teacherBoardId, roomFrozen, myUserId, isOwner, onToggleFreeze,
   joinRequests, resolvingRequestId = null, onResolveJoinRequest,
   handsRaised = [], onLowerHand, workOf, onOpenWork,
 }: ParticipantsPanelProps) {
@@ -149,7 +152,9 @@ export const ParticipantsPanel = memo(function ParticipantsPanel({
       ) : (
         <ul className={styles.list}>
           {participants.map(p => {
-            const drawing = drawingIds.includes(p.userId)
+            const frozen = p.role !== 'owner' && (p.frozen || roomFrozen)
+            const board = boards.find(b => b.id === p.boardId)
+            const assignment = assignments.find(a => a.id === board?.assignmentId)
             const isSelf  = p.userId === myUserId
             // The owner can't be frozen server-side (rooms.ts's
             // setParticipantFrozen), so there is nothing to offer on their row —
@@ -157,28 +162,28 @@ export const ParticipantsPanel = memo(function ParticipantsPanel({
             // room-wide freeze in the panel header is the owner's own control.
             const canModerate = isOwner && p.role !== 'owner' && !isSelf
 
-            // Status caption. Frozen wins over drawing: a frozen participant whose
-            // last cursor packet is still inside the drawing window would otherwise
-            // read as "drawing" while the server is dropping everything they send.
-            const status = p.frozen
-              ? t('room.participant.frozen')
-              : drawing
-                ? t('room.participant.drawing')
-                : t('room.participants.idle')
-            const tags = p.role === 'owner' ? [t('room.participant.owner'), status] : [status]
+            // Use the actual board, not the class destination. Unknown private
+            // boards stay unnamed rather than showing an incorrect location.
+            const status = frozen
+              ? t('room.participant.drawingFrozen')
+              : board?.assignmentId
+                ? assignment?.name
+                : teacherBoardId !== undefined && p.boardId === teacherBoardId
+                  ? t('room.participant.atTeacher')
+                  : board?.name
+            const tags = p.role === 'owner' ? [t('room.participant.owner'), status].filter(Boolean) : [status].filter(Boolean)
 
             return (
               <li key={p.userId} className={styles.row}>
                 <span
                   className={clsx(
                     styles.dot,
-                    drawing && !p.frozen && styles.dotDrawing,
-                    p.frozen && styles.dotFrozen,
+                    frozen && styles.dotFrozen,
                   )}
                   style={{ backgroundColor: p.color }}
                   aria-hidden="true"
                 >
-                  {p.frozen ? <Icon name="ac_unit" /> : p.name.slice(0, 1).toUpperCase()}
+                  {frozen ? <Icon name="ac_unit" /> : p.name.slice(0, 1).toUpperCase()}
                 </span>
 
                 <span className={styles.identity}>
@@ -190,7 +195,7 @@ export const ParticipantsPanel = memo(function ParticipantsPanel({
                       same reasoning as the old ParticipantsBar tooltip: a suffix
                       that carries its own punctuation is the kind of thing that
                       gets lost in translation. */}
-                  <span className={clsx(styles.status, p.frozen && styles.statusFrozen)}>
+                  <span className={clsx(styles.status, frozen && styles.statusFrozen)} title={tags.join(' · ')}>
                     {tags.join(' · ')}
                   </span>
                 </span>

@@ -544,7 +544,7 @@ function RoomEditor() {
   // written, and the interval that turns them into a list. See
   // useDrawingActivity.
   const {
-    drawingIds, markActive, markLayerActive, forget: forgetDrawingActivity, reset: resetDrawingActivity,
+    markActive, markLayerActive, forget: forgetDrawingActivity, reset: resetDrawingActivity,
   } = useDrawingActivity()
   // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
   // read here rather than inside ParticipantsPanel because the SidePanel tab's
@@ -1722,7 +1722,7 @@ function RoomEditor() {
           <RoomSidePanel
             uiHidden={uiHidden} active={activePanel} onSelect={setActivePanel}
             isOwner={isOwner} dispatchOp={dispatchOp} layerPanelBridge={layerPanelBridge}
-            onOpenFilters={setFilterLayerId} colorContent={colorContent} joinQueue={joinQueue} drawingIds={drawingIds}
+            onOpenFilters={setFilterLayerId} colorContent={colorContent} joinQueue={joinQueue}
             classView={classView} selectBoard={selectBoard}
             toggleRoomFrozen={toggleRoomFrozen} toggleParticipantFrozen={toggleParticipantFrozen}
             onExpandColor={expandColorField} onShapeFrameChange={shape.setFrame}

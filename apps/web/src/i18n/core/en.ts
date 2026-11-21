@@ -497,7 +497,8 @@ export const en = {
 
   // ── project: participants & status banners ─────────────────────────────
   'room.participant.owner': 'owner',
-  'room.participant.drawing': 'drawing',
+  'room.participant.atTeacher': 'On the teacher’s board',
+  'room.participant.drawingFrozen': 'Drawing frozen',
   'room.participant.frozen': 'frozen by owner',
   'room.participant.freeze': 'Freeze {name}',
   'room.participant.unfreeze': 'Unfreeze {name}',
@@ -505,7 +506,6 @@ export const en = {
   // on an already-named row, so they don't repeat the name the way the old
   // hover-badge tooltips above had to.
   'room.participants.you': '(you)',
-  'room.participants.idle': 'in the project',
   'room.participants.empty': 'Nobody else is here yet.',
   'room.participants.freeze': 'Freeze drawing',
   'room.participants.unfreeze': 'Unfreeze drawing',

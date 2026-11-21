@@ -420,12 +420,12 @@ export const ru: Dictionary = {
 
   // ── проект: участники и статусы ────────────────────────────────────────
   'room.participant.owner': 'владелец',
-  'room.participant.drawing': 'рисует',
+  'room.participant.atTeacher': 'На доске учителя',
+  'room.participant.drawingFrozen': 'Рисование заморожено',
   'room.participant.frozen': 'заморожен владельцем',
   'room.participant.freeze': 'Заморозить: {name}',
   'room.participant.unfreeze': 'Разморозить: {name}',
   'room.participants.you': '(вы)',
-  'room.participants.idle': 'в проекте',
   'room.participants.empty': 'Пока никого больше нет.',
   'room.participants.freeze': 'Заморозить рисование',
   'room.participants.unfreeze': 'Разморозить рисование',

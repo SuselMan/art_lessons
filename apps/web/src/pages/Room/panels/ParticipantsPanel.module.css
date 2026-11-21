@@ -51,24 +51,13 @@
   transition: box-shadow var(--duration-fast);
 }
 
-.dotDrawing {
-  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent);
-  animation: participant-drawing-pulse 1.2s ease-in-out infinite;
-}
-
 /* (#254/#257) Frozen — dimmed, with a snowflake in place of the initial and a
-   warning-colored ring, deliberately unlike the drawing pulse above so the two
-   never read as the same state at a glance. */
+   warning-colored ring. */
 .dotFrozen {
   opacity: 0.55;
   box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-warning);
 }
 .dotFrozen :global(.material-symbols-outlined) { font-size: 14px; }
-
-@keyframes participant-drawing-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
 
 .identity {
   display: flex;

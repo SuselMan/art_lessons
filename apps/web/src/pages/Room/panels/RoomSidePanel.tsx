@@ -33,8 +33,6 @@ export interface RoomSidePanelProps {
   onOpenFilters: (layerId: string) => void
   colorContent: ColorFlyoutContent
   joinQueue: JoinQueue
-  /** Who is drawing right now (#38) — see useDrawingActivity. */
-  drawingIds: string[]
   classView: Pick<ClassView,
     | 'teacherBoard' | 'ownBoards' | 'canOpenGrid' | 'assignmentBusy' | 'handsUp' | 'workOf' | 'setClassLocation'
     | 'startAssignment' | 'setGridAssignmentId' | 'setSpotlight' | 'setHandRaised' | 'openClassBoard'>
@@ -57,7 +55,7 @@ export interface RoomSidePanelProps {
  *  boards and assignments — is read here; what Room derives comes in. */
 export function RoomSidePanel({
   uiHidden, active, onSelect, isOwner, dispatchOp, layerPanelBridge, onOpenFilters, colorContent, joinQueue,
-  drawingIds, classView, selectBoard, toggleRoomFrozen, toggleParticipantFrozen, onExpandColor, onShapeFrameChange,
+  classView, selectBoard, toggleRoomFrozen, toggleParticipantFrozen, onExpandColor, onShapeFrameChange,
 }: RoomSidePanelProps) {
   const t = useT()
   const handedness = useSettingsStore(s => s.handedness)
@@ -180,7 +178,10 @@ export function RoomSidePanel({
               )}
               <ParticipantsPanel
                 participants={participants}
-                drawingIds={drawingIds}
+                boards={boards}
+                assignments={assignments}
+                teacherBoardId={teacherBoard}
+                roomFrozen={roomFrozen}
                 myUserId={myUserId}
                 isOwner={isOwner}
                 onToggleFreeze={toggleParticipantFrozen}
