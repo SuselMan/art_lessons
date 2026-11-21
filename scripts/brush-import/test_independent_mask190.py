@@ -15,6 +15,14 @@ PARAMS={**P,'PaintOpAction':'1','MaskingBrush/UseMasterSize':'false','MaskingBru
 def native(tmp,patch=None,external=None):
     params={**PARAMS,**(patch or{})};raw=authored(params);path=Path(tmp)/'Own190.kpp';path.write_bytes(raw);c=convert.Catalog(Path(tmp)/'native');convert_krita(path,c,external);return raw,c
 class IndependentMask190Tests(unittest.TestCase):
+ def test_antialiased_radial_curve_for_each_native_component(self):
+  curve='<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" ratio=".5" diameter="16" id="soft" hfade=".4" vfade=".4" spikes="2" antialiasEdges="1" softness_curve="0,1;1,0;"/></Brush>'
+  for key in ('brush_definition','MaskingBrush/Preset/brush_definition'):
+   with self.subTest(key=key),tempfile.TemporaryDirectory() as tmp:
+    raw,c=native(tmp,{key:curve});self.assertEqual(c.skipped,[]);d=c.brushes[0]['descriptor'];self.assertTrue(independent_mask190_scope(d))
+    tip=(d if key=='brush_definition' else d['behavior']['dual']['brush'])['tip'];self.assertEqual(tip['profile']['kind'],'radialCurve');self.assertTrue(tip['profile']['antialias'])
+    env={'library':c.write(),'assets':{aid:base64.b64encode((c.output/a['file']).read_bytes()).decode()for aid,a in c.assets.items()}}
+    path=Path(tmp)/'portable.grafetto-brushes.json';path.write_text(json.dumps(env));out=convert.Catalog(Path(tmp)/'portable');convert.portable_bundle(path,out);self.assertEqual(out.brushes,c.brushes)
  def test_component_bridge_keeps_bytearray_types(self):
   from unittest.mock import patch
   from native_mask190 import lower_pair,png_preset

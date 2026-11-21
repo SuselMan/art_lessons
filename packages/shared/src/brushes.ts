@@ -687,7 +687,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
       } else if (profile.kind === 'radialCurve') {
-        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&!radialAA196&&profile.antialias!==false || profile.encoding!=='unorm32be'
+        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&!radialAA196&&!(mask190&&d.version===190)&&profile.antialias!==false || profile.encoding!=='unorm32be'
           || Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','antialias'].includes(key))
           || !ref(profile.lookup) || !numberIn(profile.resolution,1,40000) || !Number.isInteger(profile.resolution)
           || (assetSizes.get(profile.lookup as string) ?? 0)<4

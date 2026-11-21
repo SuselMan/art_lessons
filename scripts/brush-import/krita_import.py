@@ -750,7 +750,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             and not enabled(params.get('Texture/Pattern/Enabled'))
             and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
         soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
-              and ((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or radial_aa196 or not enabled(generator.get('antialiasEdges'))) and noise_representable)
+              and ((FILTER192.get()or COMPONENT190.get() or (COMPONENT193.get()or COMPONENT194.get()))or radial_aa196 or not enabled(generator.get('antialiasEdges'))) and noise_representable)
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
@@ -779,7 +779,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
                 authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
                 d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
-                if (FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()) or radial_aa196):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
+                if (FILTER192.get()or COMPONENT190.get() or (COMPONENT193.get()or COMPONENT194.get()) or radial_aa196):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
                 d['version']=196 if radial_aa196 else 31
                 notes.append(compatibility('radialCurveProfile','Native authored-diameter4x R+2 squared-radius LUT retained as packed UNORM32BE before mask quantization; physical geometry remains independent. GPU precision/subpixel and scalar/SIMD rounding require native comparison.'))
             else:

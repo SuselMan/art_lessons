@@ -43,3 +43,10 @@ it('captures a gradient used only by the native190 child, retaining old source l
  expect(brushUsesGradient({...pair,tip:colored.tip})).toBe(true)
  expect(brushUsesGradient({...pair,behavior:{...pair.behavior!,dual:{...pair.behavior!.dual!,brush:plain}}})).toBe(false)
 })
+
+it.skipIf(!process.env.NATIVE190_RADIAL_LIBRARY)('accepts a real native masking pair with antialiased radial profile',()=>{
+ const all=JSON.parse(readFileSync(process.env.NATIVE190_RADIAL_LIBRARY!,'utf8'))
+ const brush=all.brushes.find((entry:{name:string})=>entry.name==='rsx) Nordlys')
+ expect(brush).toBeTruthy();expect(brush.descriptor.tip.profile.antialias).toBe(true)
+ expect(isBrushLibrary({...all,brushes:[brush]})).toBe(true)
+})
