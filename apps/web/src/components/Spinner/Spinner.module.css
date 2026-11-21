@@ -8,3 +8,7 @@
   width: 100%;
   height: 100%;
 }
+
+.rotate img { animation: spinnerRotate 1.4s linear infinite; }
+@keyframes spinnerRotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rotate img { animation: none; } }

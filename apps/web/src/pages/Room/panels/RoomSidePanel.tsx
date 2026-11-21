@@ -100,7 +100,8 @@ export function RoomSidePanel({
   return (
     <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
       {!isOwner && knownLessonId && teacherBoard && (
-        <TeacherMonitor lessonId={knownLessonId} boardId={teacherBoard} open={monitorOpen} onClose={() => setMonitorOpen(false)} />
+        <TeacherMonitor lessonId={knownLessonId} boardId={teacherBoard} open={monitorOpen} onClose={() => setMonitorOpen(false)}
+          assignmentId={activeAssignmentId} onOpen={() => setMonitorOpen(true)} />
       )}
       <SidePanel
         side={handedness === 'left' ? 'left' : 'right'}

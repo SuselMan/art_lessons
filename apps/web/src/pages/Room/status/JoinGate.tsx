@@ -1,3 +1,5 @@
+import { isBoardObserver } from '../observerMode'
+import { ObserverLoading } from './ObserverLoading'
 import { Button } from '../../../components/Button'
 import { buttonClassName } from '../../../components/Button/buttonStyles'
 import { Link } from 'react-router-dom'
@@ -58,6 +60,8 @@ export function JoinGate({
   error, submitting, onSubmit, onRetry, returnTo,
 }: JoinGateProps) {
   const t = useT()
+
+  if (isBoardObserver()) return <ObserverLoading />
 
   const heading = roomName ? t('join.headingNamed', { room: roomName }) : t('join.heading')
 

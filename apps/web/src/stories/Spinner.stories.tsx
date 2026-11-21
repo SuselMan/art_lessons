@@ -13,3 +13,4 @@ export const Default: StoryObj<typeof meta> = {}
 export const Sizes: StoryObj<typeof meta> = {
   render: () => <div style={{ display: 'flex', gap: "var(--space-24)", alignItems: 'center' }}><Spinner size={28} /><Spinner /><Spinner size={80} /></div>,
 }
+export const Rotating: StoryObj<typeof meta> = { args: { animation: 'rotate' } }

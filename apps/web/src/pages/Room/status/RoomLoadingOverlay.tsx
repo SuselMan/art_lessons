@@ -1,3 +1,5 @@
+import { isBoardObserver } from '../observerMode'
+import { ObserverLoading } from './ObserverLoading'
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 
@@ -59,7 +61,13 @@ const MIB = 1024 * 1024
  *  Null `paper` is the normal case once the prefetch is doing its job: the
  *  texture was already downloaded before the room opened, so no progress is
  *  ever emitted and the overlay looks exactly as it did before this change. */
-export function RoomLoadingOverlay({ paper, copying = false, fullscreen = false }: { paper?: PaperLoadProgress | null; copying?: boolean; fullscreen?: boolean }): React.JSX.Element {
+type RoomLoadingProps = { paper?: PaperLoadProgress | null; copying?: boolean; fullscreen?: boolean }
+
+export function RoomLoadingOverlay(props: RoomLoadingProps): React.JSX.Element {
+  return isBoardObserver() ? <ObserverLoading /> : <EditorLoadingOverlay {...props} />
+}
+
+function EditorLoadingOverlay({ paper, copying = false, fullscreen = false }: RoomLoadingProps): React.JSX.Element {
   const t = useT()
   const messages = copying ? COPY_MESSAGE_KEYS : MESSAGE_KEYS
   const [index, setIndex] = useState(0)

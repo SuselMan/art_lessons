@@ -16,7 +16,8 @@ test('teacher monitor keeps the student on their board and stops rendering when 
     await waitForRoomReady(student)
     const personal = await student.evaluate(() => window.__roomStore!.getState().boardId)
     await student.getByRole('button', { name: /^Open Class/ }).click()
-    await student.getByRole('button', { name: 'Watch teacher’s board', exact: true }).click()
+    // Sending the class to an assignment opens the teacher view automatically.
+    await expect(student.locator('iframe[title="Teacher\'s board"]')).toHaveCount(1)
     const monitor = student.frameLocator('iframe[title="Teacher\'s board"]')
     await expect.poll(() => monitor.locator('canvas').count()).toBeGreaterThan(0)
     const frame = student.frames().find(f => f.url().includes('?observe='))!

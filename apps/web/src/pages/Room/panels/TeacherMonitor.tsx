@@ -8,10 +8,18 @@ import styles from './TeacherMonitor.module.css'
 
 /** Deliberately owns a separate realm: Room and the brush library have one
  * board scope each. Unmounting the iframe releases its socket and renderer. */
-export function TeacherMonitor({ lessonId, boardId, open, onClose }: { lessonId: string; boardId: string; open: boolean; onClose: () => void }) {
+export function TeacherMonitor({ lessonId, boardId, open, onClose, assignmentId, onOpen }: { lessonId: string; boardId: string; open: boolean; onClose: () => void; assignmentId: string | null; onOpen: () => void }) {
   const t = useT()
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState({ x: 140, y: 76 })
+  const previousAssignment = useRef<string | null>(null)
+  useEffect(() => {
+    if (assignmentId && assignmentId !== previousAssignment.current) {
+      onOpen()
+      setCollapsed(false)
+    }
+    previousAssignment.current = assignmentId
+  }, [assignmentId, onOpen])
   useEffect(() => { if (open) setCollapsed(false) }, [open])
   const panel = useRef<HTMLElement>(null)
   const href = useHref({ pathname: `/room/${encodeURIComponent(boardId)}`, search: `?observe=${encodeURIComponent(lessonId)}` })

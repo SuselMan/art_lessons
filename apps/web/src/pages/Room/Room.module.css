@@ -1536,6 +1536,16 @@
 .gateAction { width: 100%; }
 
 /* The iframe keeps the real renderer, with no editor chrome or input. */
-:global(html[data-board-observer]) .editor > :not(.body),
+:global(html[data-board-observer]) .editor > :not(.body):not(.observerLoading),
 :global(html[data-board-observer]) .body > :not(.viewport) { display: none; }
 :global(html[data-board-observer]) .viewport { pointer-events: none; }
+
+.observerLoading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: var(--color-viewport-bg);
+  pointer-events: none;
+}
