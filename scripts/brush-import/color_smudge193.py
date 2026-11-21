@@ -3,8 +3,9 @@ from contextvars import ContextVar
 import math
 COMPONENT193=ContextVar('native_color_smudge193',default=False)
 BLENDS=('normal','multiply','screen','overlay','darken','lighten','colorBurn','linearBurn','colorDodge','add','subtract','difference','exclusion','softLight','hardLight','divide','linearLight','vividLight','pinLight','hardMix','darkerColor','lighterColor','hue','saturation','color','luminosity','hardMixPhotoshop','kritaHardMix')
-COMPOSITES=(*BLENDS,'dodge','burn','grainMerge','grainExtract','negation','erase')
+COMPOSITES=(*BLENDS,'dodge','burn','grainMerge','grainExtract','negation','erase','parallel')
 NATIVE_MODES={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'kritaHardMix','hard_mix_photoshop':'hardMixPhotoshop','darker color':'darkerColor','lighter color':'lighterColor','grain_merge':'grainMerge','grain_extract':'grainExtract','negation':'negation','erase':'erase','destination-out':'erase'}
+NATIVE_MODES['parallel']='parallel'
 def scope193(d,*,clock195=False):
     obj=lambda v:isinstance(v,dict)
     unit=lambda v:type(v)in(int,float)and math.isfinite(v)and 0<=v<=1

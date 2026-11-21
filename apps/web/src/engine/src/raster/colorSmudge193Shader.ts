@@ -14,7 +14,7 @@ export function colorSmudge193CompositeCode(value:unknown):number {
  if(value==='burn')value='colorBurn'
  const index=BRUSH_BLEND_MODES.indexOf(value as typeof BRUSH_BLEND_MODES[number])
  if(index>=0)return index
- switch(value){case'grainMerge':return 28;case'grainExtract':return 29;case'negation':return 30;case'erase':return 31;default:throw Error('Unknown Color Smudge193 foreground composite')}
+ switch(value){case'grainMerge':return 28;case'grainExtract':return 29;case'negation':return 30;case'erase':return 31;case'parallel':return 32;default:throw Error('Unknown Color Smudge193 foreground composite')}
 }
 function replace(source:string,before:string,after:string):string {
  if(source.split(before).length!==2)throw Error('Color Smudge193 shader anchor changed')
@@ -51,11 +51,15 @@ export function colorSmudge193Fragment(modern:boolean):string {
  const bank=`
  uniform float u_colorSmudgeComposite;
  vec4 colorSmudge193Paint(vec4 d,vec4 s){
-  if(u_colorSmudgeComposite>30.5)return d*(1.0-s.a);
+  if(u_colorSmudgeComposite>30.5 && u_colorSmudgeComposite<31.5)return d*(1.0-s.a);
   if(u_colorSmudgeComposite<0.5)return s+d*(1.0-s.a);
   vec3 dst=d.rgb/max(d.a,0.000001),src=s.rgb/max(s.a,0.000001);
   vec3 b;
-  if(u_colorSmudgeComposite>27.5){
+  // Krita v6.0.4.1 KoCompositeOpFunctions.h, CFParallel: harmonic mean.
+  // Float math approximates Krita's channel-type-specific rounding.
+  if(u_colorSmudgeComposite>31.5){
+   b=2.0*dst*src/max(dst+src,vec3(0.000001));
+  }else if(u_colorSmudgeComposite>27.5){
    vec3 du=floor(clamp(dst,0.0,1.0)*255.0+0.5),su=floor(clamp(src,0.0,1.0)*255.0+0.5);
    b=u_colorSmudgeComposite<28.5?clamp(du+su-127.0,0.0,255.0)/255.0:u_colorSmudgeComposite<29.5?clamp(du-su+127.0,0.0,255.0)/255.0:(255.0-abs(255.0-su-du))/255.0;
   }else b=brushBlend(dst,src,u_colorSmudgeComposite);

@@ -42,8 +42,8 @@ it('uses one full foreground bank for both native strategies; historical inputs 
   if(modern)expect(shader).toContain('u_colorSmudgeComposite<0.5')
  }
  expect(wetTransferFragment(true,true,true,true)).toBe(old)
- const codes=[...BRUSH_BLEND_MODES,'grainMerge','grainExtract','negation','erase'].map(colorSmudge193CompositeCode)
- expect(codes).toEqual(Array.from({length:32},(_,i)=>i))
+ const codes=[...BRUSH_BLEND_MODES,'grainMerge','grainExtract','negation','erase','parallel'].map(colorSmudge193CompositeCode)
+ expect(codes).toEqual(Array.from({length:33},(_,i)=>i))
  expect(colorSmudge193CompositeCode('dodge')).toBe(colorSmudge193CompositeCode('colorDodge'))
  expect(()=>colorSmudge193CompositeCode('invented')).toThrow('Unknown')
 })

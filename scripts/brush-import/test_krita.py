@@ -20,6 +20,20 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_binary_pattern_md5_does_not_break_import_or_relax_other_xml(self):
+        cases = [('<![CDATA[abc\x0edef]]>', 'string'), ('YZWYAA==', 'bytearray')]
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (value, kind) in enumerate(cases):
+                field = f'<param name="Texture/Pattern/PatternMD5" type="{kind}">{value}</param>'
+                path = Path(tmp) / f'{index}.kpp'
+                path.write_bytes(kpp(resources=field))
+                catalog = convert.Catalog(Path(tmp) / f'out{index}')
+                convert_krita(path, catalog)
+                self.assertEqual(catalog.skipped, [])
+                self.assertEqual(len(catalog.brushes), 1)
+            with self.assertRaises(Exception):
+                xml('<Preset><param name="other">\x0e</param></Preset>')
+
     def test_tip_bounds_keep_native_square_and_odd_portrait_extent(self):
         with tempfile.TemporaryDirectory() as tmp:
             c=convert.Catalog(Path(tmp)/'out')

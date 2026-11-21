@@ -48,6 +48,8 @@ def lower_smudge193(data,name,catalog,external,impl,options):
     bad=[n['feature']for n in result['compatibility']if n['status']=='unsupported']
     if bad:raise ValueError('Unlowered native Smudge193 settings: '+', '.join(bad))
     result['compatibility'].append(compatibility('colorSmudge193','Whole native Color Smudge keeps existing legacy/modern/unshaded-height feedback. Captured composite applies only to foreground Color Rate; final transfer is unchanged. Native Pixel Flow/Softness/Sharpness are ignored. Original tip geometry, per-request selectors and captured source inputs remain independent. Qt/ICC/U8/native RNG identity is not claimed.','supported'))
+    if composite=='parallel':
+        result['compatibility'].append(compatibility('smudgeParallel','Parallel foreground uses the harmonic-mean blend in the existing shader; native integer rounding and colour-space identity are not claimed.'))
     if 'sourceGeometry'in d['tip']:
         result['compatibility'].append(compatibility('smudgeStaticGeometry193','Original static bitmap width/height and native square padding are retained as explicit geometry; no animation or descriptor proxy.','supported'))
         result['compatibility'].append(compatibility('smudgeStaticResampling193','Static raw coverage/pigment uses the common native-geometry sampler. Native Qt integer pyramid/filter/subpixel pixel identity is not claimed.'))

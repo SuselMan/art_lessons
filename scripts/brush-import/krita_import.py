@@ -57,6 +57,13 @@ def preset_preview(image):
 def xml(data):
     if len(data) > MAX_XML or '<!ENTITY' in data.upper():
         raise ValueError('Krita XML exceeds limit or declares entities')
+    # Some Krita presets serialize the binary pattern MD5 as a string containing
+    # XML-forbidden control characters, or as a bytearray that is not UTF-8.
+    # This legacy cache key is never used for resolving resources; the actual
+    # pattern data and PatternMD5Sum remain intact. Do not relax XML parsing
+    # for any other field.
+    data = re.sub(r'(<param name="Texture/Pattern/PatternMD5" type="(?:string|bytearray)">)(?:<!\[CDATA\[.*?\]\]>|[^<]*)(</param>)',
+                  r'\1\2', data, flags=re.DOTALL)
     root = ET.fromstring(data)
     count = 0
     def visit(node, depth=0):
