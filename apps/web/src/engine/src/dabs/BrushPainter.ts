@@ -367,6 +367,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
   prepareStampEffects(filteredGradient=false,textureLightness:TextureMaterialVariant=false):void{this.imageDimensionLimit();this.behavior.prepareStampEffects(filteredGradient,textureLightness)}
   prepareCompositeEffects(native194=false):void{this.behavior.prepareCompositeEffects(native194)}
+  prepareGreaterComposite198():void{this.behavior.prepareGreaterComposite198()}
   prepareAutoNoise():void{this.prepareStampEffects()}
   prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }

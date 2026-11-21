@@ -362,3 +362,13 @@ New source formats57/58; existing operation/dab protocol is unchanged.
 ## Native host timing195
 
 Genuine checked canonical KPP host timers use the [version195 native timing contract](NATIVE_TIMING195.md). The host and engine rates are independent resolved values, including native defaults1/20 and rate0 LONG_TIME. Source settings/resources and older recorded descriptors remain immutable; family callbacks derive from the retained native payload.
+
+### Pixel Brush: radial AA, foreground/background mix, Greater
+
+Descriptor versions 196–198 cover narrowly scoped ordinary root Pixel Brush
+presets: antialiased radial curves, pressure-controlled foreground/background
+mixing, and Krita's Greater alpha composite. Other combinations continue to be
+reported as unsupported rather than silently treated as equivalent. Color mix
+captures an opaque background for replay; the current editor supplies white and
+does not expose a background-color picker. GPU floating point, color profiles,
+and native integer rounding can differ from Krita.

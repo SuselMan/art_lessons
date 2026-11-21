@@ -448,7 +448,23 @@ void main() {
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
 /** One opt-in composite family; historical shader literals stay byte-identical. */
-export function createBrushCompositeFragment(extendedBlend=false,native194=false):string {
+export function createBrushCompositeFragment(extendedBlend=false,native194=false,greater198=false):string {
+  if(greater198){
+    if(native194)throw Error('Greater198 cannot use the Sketch/Spray composite')
+    // Krita v6.0.4.1 KoCompositeOpGreater: alpha-weighted soft maximum,
+    // applied to the original layer only after the Pixel wash has accumulated.
+    // Float and colour-space rounding are intentionally approximate.
+    const greater=` if(u_blend>31.5){
+      float oldAlpha=base.a;
+      if(oldAlpha>=1.0){gl_FragColor=base;return;}
+      float w=1.0/(1.0+exp(-40.0*(oldAlpha-alpha)));
+      float outAlpha=max(oldAlpha,mix(alpha,oldAlpha,w));
+      float amount=clamp((outAlpha-oldAlpha)/max(1.0-oldAlpha,0.000001),0.0,1.0);
+      gl_FragColor=vec4(mix(base.rgb,pigment,amount),outAlpha);return;
+    }
+    vec3 b=base.rgb/max(base.a,0.00392157);`
+    return BRUSH_COMPOSITE_FRAG.replace(' vec3 b=base.rgb/max(base.a,0.00392157);',greater)
+  }
   if(native194){
     const bank=createBrushBlendGLSL().replace('vec3 brushBlend(','vec3 nativeBlendBase194(')+`\nvec3 brushBlend(vec3 d,vec3 s,float mode){if(mode<27.5)return nativeBlendBase194(d,s,mode);vec3 du=floor(clamp(d,0.0,1.0)*255.0+0.5),su=floor(clamp(s,0.0,1.0)*255.0+0.5);return mode<28.5?clamp(du+su-127.0,0.0,255.0)/255.0:mode<29.5?clamp(du-su+127.0,0.0,255.0)/255.0:(255.0-abs(255.0-su-du))/255.0;}\n`;
     return BRUSH_COMPOSITE_FRAG.replace(BRUSH_BLEND_GLSL,bank).replace(' vec3 b=base.rgb/max(base.a,0.00392157);',' if(u_blend>30.5){gl_FragColor=mix(base,vec4(pigment*coverage,coverage),clamp(u_opacity,0.0,1.0));return;}\n vec3 b=base.rgb/max(base.a,0.00392157);');

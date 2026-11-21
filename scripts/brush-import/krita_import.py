@@ -657,6 +657,7 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     softness_controls=[]
     lightness_controls=[]
     gaussian_softness_noop=False
+    radial_aa196=False
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -702,8 +703,18 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
+        # Existing radial lookup and spike shader also support the antialiased
+        # circular root Pixel shape. Keep this new combination versioned and
+        # narrow: no masking child, dynamic softness, threshold or noise.
+        radial_aa196=(engine=='paintbrush' and depth==0 and shape=='circle' and spikes_supported
+            and enabled(generator.get('antialiasEdges')) and not noise_active
+            and not enabled(params.get('MaskingBrush/Enabled'))
+            and not enabled(params.get('PressureSoftness')) and not enabled(params.get('PressureSharpness'))
+            and params.get('CompositeOp','normal')=='normal' and params.get('PaintOpAction','1')!='2'
+            and not enabled(params.get('Texture/Pattern/Enabled'))
+            and not clock_enabled(params,'PaintOpSettings/isAirbrushing'))
         soft=(generator.get('id')=='soft' and shape=='circle' and(spikes==2 or spikes_supported)
-              and ((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or not enabled(generator.get('antialiasEdges'))) and noise_representable)
+              and ((FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()))or radial_aa196 or not enabled(generator.get('antialiasEdges'))) and noise_representable)
         if soft:
             curve=generator.get('softness_curve','0,0;1,1')
             # Missing checkable Softness means unchecked in native Krita.
@@ -732,8 +743,8 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
                 d['tip']['kind']='procedural';d['tip']['hardness']=1
                 authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
                 d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
-                if (FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get())):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
-                d['version']=31
+                if (FILTER192.get()or (COMPONENT193.get()or COMPONENT194.get()) or radial_aa196):d['tip']['profile']['antialias']=enabled(generator.get('antialiasEdges'))
+                d['version']=196 if radial_aa196 else 31
                 notes.append(compatibility('radialCurveProfile','Native authored-diameter4x R+2 squared-radius LUT retained as packed UNORM32BE before mask quantization; physical geometry remains independent. GPU precision/subpixel and scalar/SIMD rounding require native comparison.'))
             else:
                 mask=soft_circle(curve,source_size)
@@ -1441,6 +1452,26 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
     # Rotation_previous is saved UI state, not a live rotation sensor switch.
     if engine=='paintbrush':
         active=[k for k in active if k not in ('PressureColorRate','PressureRotation_previous')]
+    # Pixel Mix samples foreground/background at each request. Opt in only to
+    # root plain-colour Wash with a single pressure curve; other sources and
+    # sensors remain explicitly unsupported instead of losing their meaning.
+    if (engine=='paintbrush' and depth==0 and not radial_aa196 and enabled(params.get('PressureMix'))
+            and params.get('ColorSource/Type','plain')=='plain' and params.get('PaintOpAction')=='2'
+            and params.get('CompositeOp','normal')=='normal' and not enabled(params.get('Krita/erase'))
+            and not enabled(params.get('MaskingBrush/Enabled')) and not clock_enabled(params,'PaintOpSettings/isAirbrushing')
+            and not any(k in d for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+            and not any(k in d['tip'] for k in ('color','material','animation','imageSampling'))
+            and not behavior.get('colorAdjustment') and enabled(params.get('MixUseCurve','true'))):
+        mix_notes=[];controls=size_like_controls(params,'Mix',mix_notes)
+        try:mix_value=float(params.get('MixValue','1'))
+        except(ValueError,TypeError):mix_value=float('nan')
+        if (len(controls)==1 and set(controls[0])=={'control','minimum','jitter','curve'}
+                and controls[0]['control']=='pressure' and math.isfinite(mix_value) and 0<=mix_value<=1
+                and not any(n['status']=='unsupported' for n in mix_notes)):
+            behavior['colorMix']={'version':1,'value':mix_value,'pressure':controls[0]['curve']}
+            active=[k for k in active if k!='PressureMix']
+            notes.extend(mix_notes)
+            notes.append(compatibility('pixelColorMix197','Foreground/background pressure mixing captures the author background for replay; native ICC and integer colour rounding may differ.'))
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1867,6 +1898,23 @@ def _preset_impl(data, name, catalog, external, depth=0, *, sequential_xy=False,
         notes.append(compatibility('RecordedPen188','Native signed additive barrel rotation and normalized tangential scaling use author-captured v6 fields before sampler geometry; no hardware calibration/pixel identity claim.','supported'))
     if not COMPONENT190.get():validate_variable_gih_descriptor(d,{aid:asset['size']for aid,asset in catalog.assets.items()})
     if behavior['rendering'].get('blendMode') in('hardMixPhotoshop','kritaHardMix') and (d['model']!='stamp' or behavior.get('dual')is not None or behavior.get('wetMix')is not None or behavior.get('erase')is True):raise ValueError('Photoshop Hard Mix requires an unpaired Pixel stamp')
+    if behavior.get('colorMix'):
+        if d['version']>=188:raise ValueError('Pixel Color Mix197 does not admit other whole-brush policies')
+        d['version']=197
+    elif radial_aa196 and d['tip'].get('profile',{}).get('kind')=='radialCurve':
+        if d['version']>=188 and d['version']!=196:raise ValueError('Radial AA196 does not admit other whole-brush policies')
+        d['version']=196
+    elif (params.get('CompositeOp','normal')=='greater' and engine=='paintbrush' and depth==0 and d['version']<188
+            and behavior.get('rendering',{}).get('accumulation')=='alphaDarken' and d['model']=='stamp'
+            and not any(k in d for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+            and not any(k in d['tip'] for k in ('color','material','animation','imageSampling'))
+            and not any(k in behavior for k in ('dual','timing','wetMix','erase','colorAdjustment','colorMix'))):
+        d['version']=198;behavior['rendering']['pixelComposite']='greater'
+        detail='Unsupported Krita blend greater; normal used.'
+        notes[:]=[n for n in notes if not(n['feature']=='blendMode' and n['detail']==detail)]
+        warnings[:]=[w for w in warnings if w!='blendMode: '+detail]
+        note=compatibility('pixelGreater198','Greater applies the native alpha-dependent soft maximum during the final layer composite. GPU float precision, ICC and native integer rounding may differ.')
+        notes.append(note);warnings.append(note['feature']+': '+note['detail'])
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     result['preview'] = author_preview
     if source_size is not None:

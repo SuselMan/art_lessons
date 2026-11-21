@@ -19,7 +19,7 @@ const requiresContext = new WeakMap<BrushDescriptor, boolean>()
 export function requiresBrushExecutionContext(brush: BrushDescriptor): boolean {
   const known = requiresContext.get(brush)
   if(known !== undefined) return known
-  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground||!!brush.spray?.color.mixBackground||!!brush.spray?.color.fillBackground||hasExperimentCurrentPattern158Scope(brush)
+  const result = brushRequiresRandomContext(brush)||brush.mixer?.source==='projectionCanvas'||brushUsesGradient(brush)||!!brush.clone||!!brush.tangentNormal||!!brush.behavior?.colorMix||!!brush.hatching?.opaqueBackground||!!brush.grid?.fillBackground||!!brush.grid?.mixBackground||!!brush.spray?.color.mixBackground||!!brush.spray?.color.fillBackground||hasExperimentCurrentPattern158Scope(brush)
   requiresContext.set(brush, result)
   return result
 }
@@ -47,6 +47,7 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
   if(context?.brushSource?.pattern!==undefined&&!hasExperimentCurrentPattern158Scope(brush))throw Error('Captured pattern requires Experiment158')
   if(hasExperimentCurrentPattern158Scope(brush)&&context?.brushSource?.pattern===undefined)throw Error('Experiment158 requires captured canvas pattern or explicit none')
   if(brushUsesGradient(brush)&&!context?.brushSource?.gradient)throw Error('Brush requires a captured canvas gradient')
+  if(brush.behavior?.colorMix&&context?.brushSource?.background?.[3]!==255)throw Error('Pixel Color Mix requires a captured opaque background')
   if(brush.hatching?.opaqueBackground&&!context?.brushSource?.background)throw Error('Hatching requires a captured background')
   if((brush.grid?.fillBackground||brush.grid?.mixBackground)&&!context?.brushSource?.background)throw Error('Grid requires a captured background')
   if((brush.spray?.color.fillBackground||brush.spray?.color.mixBackground)&&!context?.brushSource?.background)throw Error('Spray requires a captured background')

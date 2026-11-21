@@ -23,6 +23,20 @@ def definition(diameter=1,curve='0,0;1,1',extra='',brush_extra=''):
     return f'<Brush type="auto_brush" randomness="0" density="1" {brush_extra}><MaskGenerator id="soft" type="circle" diameter="{diameter}" ratio=".2" spikes="2" antialiasEdges="0" softness_curve="{curve}" {extra}/></Brush>'
 
 class RadialTests(unittest.TestCase):
+    def test_antialiased_spiked_root_pixel_keeps_curve_and_rejects_downgrade(self):
+        tip=definition(25,curve='0,1;.5,.5;1,0').replace('spikes="2"','spikes="9"').replace('antialiasEdges="0"','antialiasEdges="1"')
+        with tempfile.TemporaryDirectory() as tmp:
+            c=self.imported(tmp,{'brush_definition':tip,'PaintOpAction':'1'})
+            d=c.brushes[0]['descriptor']
+            self.assertEqual(d['version'],196)
+            self.assertEqual(d['tip']['autoShape'],{'version':1,'spikes':9})
+            self.assertEqual(d['tip']['profile']['kind'],'radialCurve')
+            self.assertTrue(d['tip']['profile']['antialias'])
+            self.assertFalse(any(n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+            convert.validate_portable_profile(d)
+            for change in (lambda v:v.update(version=195),lambda v:v.update(texture={}),lambda v:v['behavior'].update(dual={}),lambda v:v['tip']['profile'].update(antialias=False)):
+                bad=copy.deepcopy(d);change(bad)
+                with self.assertRaises(ValueError):convert.validate_portable_profile(bad)
     def test_authored_resolution_identity_and_native_endpoints(self):
         for diameter,r in [(.125,1),(1,4),(1.125,5),(55,220),(60,240),(75,300),(110,440),(600,2400)]:
             resolution,table=radial_curve_samples('0,0;1,1',diameter)

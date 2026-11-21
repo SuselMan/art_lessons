@@ -525,6 +525,34 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
     if (b.preview !== undefined && !isBrushPreview(b.preview)) return false
     if (b.strokePreview !== undefined && !isBrushSampleUrl(b.strokePreview)) return false
     const d = b.descriptor
+    const greater198=d.version===198
+    const greaterBehavior=d.behavior,greaterRender=record(greaterBehavior)?greaterBehavior.rendering:undefined
+    if(record(greaterRender)&&greaterRender.pixelComposite!==undefined&&!greater198)return false
+    if(greater198){
+      const t=d.tip
+      if(maskRoot!==undefined||d.model!=='stamp'||d.paperInteraction!==0||!record(t)||!record(greaterBehavior)||!record(greaterRender)
+        ||greaterRender.pixelComposite!=='greater'||greaterRender.blendMode!=='normal'||greaterRender.accumulation!=='alphaDarken'
+        ||['color','material','animation','imageSampling'].some(k=>t[k]!==undefined)
+        ||['dual','timing','wetMix','erase','colorAdjustment','colorMix'].some(k=>greaterBehavior[k]!==undefined)
+        ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+    }
+    const mix197=d.version===197
+    if(record(d.behavior)&&d.behavior.colorMix!==undefined&&!mix197)return false
+    if(mix197){
+      const b197=d.behavior,t197=d.tip
+      if(maskRoot!==undefined||d.model!=='stamp'||d.paperInteraction!==0||!record(t197)||!record(b197)||!record(b197.colorMix)||!record(b197.rendering)
+        ||b197.rendering.blendMode!=='normal'||b197.rendering.accumulation!=='alphaDarken'
+        ||['color','material','animation','imageSampling'].some(k=>t197[k]!==undefined)
+        ||['dual','timing','wetMix','erase','colorAdjustment'].some(k=>b197[k]!==undefined)
+        ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined))return false
+    }
+    const radialAA196=d.version===196
+    if(radialAA196){
+      const behavior196=d.behavior
+      if(maskRoot!==undefined||d.model!=='stamp'||d.paperInteraction!==0||!record(d.tip)||!record(d.tip.profile)||d.tip.profile.kind!=='radialCurve'||d.tip.profile.antialias!==true||!record(d.tip.autoShape)
+        ||['wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'].some(k=>d[k]!==undefined)
+        ||!record(behavior196)||['dual','timing','wetMix','erase','softness'].some(k=>behavior196[k]!==undefined)||!record(behavior196.rendering)||behavior196.rendering.blendMode!=='normal'||behavior196.rendering.accumulation!=='directOver')return false
+    }
     const stationaryRole=maskRoot===undefined?resolveStationary195Role(d):null
     const stationary195=stationaryRole!==null
     if(d.version===195&&!stationary195)return false
@@ -659,7 +687,7 @@ function isBrushLibraryWithMaskContext(value:unknown,limits:{maxBytes?:number;ma
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
       } else if (profile.kind === 'radialCurve') {
-        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&profile.antialias!==false || profile.encoding!=='unorm32be'
+        if (d.tip.kind !== 'procedural' || !filter192&&!smudge193&&!native194&&!radialAA196&&profile.antialias!==false || profile.encoding!=='unorm32be'
           || Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','antialias'].includes(key))
           || !ref(profile.lookup) || !numberIn(profile.resolution,1,40000) || !Number.isInteger(profile.resolution)
           || (assetSizes.get(profile.lookup as string) ?? 0)<4

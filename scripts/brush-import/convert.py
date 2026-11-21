@@ -569,6 +569,42 @@ def validate_portable_mixer(descriptor,*,texture191=False,smudge193=False,native
 
 
 def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter192=None,smudge193=False,sketchSpray194=False,native195=False,native195Root=None):
+    mix_behavior=descriptor.get('behavior',{})
+    render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
+    if isinstance(render,dict) and 'pixelComposite' in render and descriptor.get('version')!=198:raise ValueError('Greater composite requires Pixel198')
+    if descriptor.get('version')==198:
+        tip=descriptor.get('tip',{})
+        if (parent is not None or descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0 or not isinstance(tip,dict)
+                or not isinstance(mix_behavior,dict) or not isinstance(render,dict) or render.get('pixelComposite')!='greater'
+                or render.get('blendMode')!='normal' or render.get('accumulation')!='alphaDarken'
+                or any(k in tip for k in ('color','material','animation','imageSampling'))
+                or any(k in descriptor for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+                or any(k in mix_behavior for k in ('dual','timing','wetMix','erase','colorAdjustment','colorMix'))):
+            raise ValueError('Greater198 requires an ordinary root Pixel wash')
+    mix=mix_behavior.get('colorMix') if isinstance(mix_behavior,dict) else None
+    if mix is not None and descriptor.get('version')!=197:raise ValueError('Color Mix requires Pixel197')
+    if descriptor.get('version')==197:
+        tip=descriptor.get('tip',{});render=mix_behavior.get('rendering',{}) if isinstance(mix_behavior,dict) else {}
+        if (parent is not None or descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0 or not isinstance(tip,dict)
+                or not isinstance(mix,dict) or set(mix)!={'version','value','pressure'} or mix.get('version')!=1
+                or type(mix.get('value')) not in (int,float) or not math.isfinite(mix['value']) or not 0<=mix['value']<=1
+                or any(k in tip for k in ('color','material','animation','imageSampling'))
+                or any(k in descriptor for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+                or any(k in mix_behavior for k in ('dual','timing','wetMix','erase','colorAdjustment'))
+                or not isinstance(render,dict) or render.get('blendMode')!='normal' or render.get('accumulation')!='alphaDarken'):
+            raise ValueError('Color Mix197 requires an ordinary root Pixel wash')
+        validate_portable_dynamics([{'control':'pressure','minimum':0,'jitter':0,'curve':mix['pressure']}])
+    radial_aa196=descriptor.get('version')==196
+    if radial_aa196:
+        tip=descriptor.get('tip',{});behavior=descriptor.get('behavior',{});render=behavior.get('rendering',{}) if isinstance(behavior,dict) else {}
+        if (parent is not None or descriptor.get('model')!='stamp' or descriptor.get('paperInteraction')!=0
+                or not isinstance(tip,dict) or not isinstance(tip.get('profile'),dict)
+                or tip['profile'].get('kind')!='radialCurve' or tip['profile'].get('antialias') is not True
+                or not isinstance(tip.get('autoShape'),dict)
+                or any(k in descriptor for k in ('wet','texture','mixer','spray','sketch','bristle','curveTrace','hatching','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal'))
+                or not isinstance(behavior,dict) or any(k in behavior for k in ('dual','timing','wetMix','erase','softness'))
+                or not isinstance(render,dict) or render.get('blendMode')!='normal' or render.get('accumulation')!='directOver'):
+            raise ValueError('Radial AA196 requires an ordinary root Pixel brush')
     if descriptor.get('version')==195 and not native195:raise ValueError('Native195 profile needs actual whole-role authority')
     if native195:
         if parent is not None or descriptor.get('version')!=195:raise ValueError('Native195 profile requires literal root195')
@@ -772,7 +808,7 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
                 or any(key in tip for key in ('imageSampling','alphaThreshold'))):raise ValueError('Invalid portable radial softness profile')
     elif profile.get('kind')=='radialCurve':
         if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
-                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 or sketchSpray194 else profile['antialias']is not False)
+                or tip.get('kind')!='procedural' or (type(profile['antialias'])is not bool if filter192 is not None or smudge193 or sketchSpray194 or radial_aa196 else profile['antialias']is not False)
                 or profile.get('encoding')!='unorm32be'
                 or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
                 or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000

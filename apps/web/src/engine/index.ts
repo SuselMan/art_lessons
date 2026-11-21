@@ -4135,6 +4135,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(painter === 'native194')this._brush.prepareCompositeEffects(true)
       else if(painter === 'nativeSpray194'){this._brush.prepareSpraySources(false,true);this._brush.prepareSpraySources(true,true)}
       else if(painter === 'compositeEffects')this._brush.prepareCompositeEffects()
+      else if(painter === 'greater198')this._brush.prepareGreaterComposite198()
       else if(painter === 'cloneBrush')this._brush.prepareClone()
       else if(painter === 'filterBrush')this._brush.prepareFilter()
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
@@ -7399,7 +7400,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(brush?.clone&&!this._cloneOffset)this._cloneOffset={x:this._cloneSource!.x-e.x,y:this._cloneSource!.y-e.y}
     const clone=brush?.clone?{...this._cloneSource!,offsetX:this._cloneOffset!.x,offsetY:this._cloneOffset!.y}:undefined
     const normalRotation=brush?.tangentNormal ? Math.atan2(Math.sin(this._authorCameraAngle),Math.cos(this._authorCameraAngle)) : undefined
-    const background=brush&&(brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground||brush.spray?.color.mixBackground||brush.spray?.color.fillBackground)?captureHatchingBackground(this._hatchingBackground):undefined
+    const background=brush&&(brush.behavior?.colorMix||brush.hatching?.opaqueBackground||brush.grid?.fillBackground||brush.grid?.mixBackground||brush.spray?.color.mixBackground||brush.spray?.color.fillBackground)?captureHatchingBackground(this._hatchingBackground):undefined
     const pattern=brush&&hasExperimentCurrentPattern158Scope(brush)?this._canvasBrushPattern??{version:1 as const,kind:'none' as const}:undefined
     const brushSource:BrushSourceContext|undefined=projection||gradient||clone||normalRotation!==undefined||background||pattern ? copyBrushSourceContext({version:1,...(pattern?{pattern}:{}),...(background?{background}:{}),...(normalRotation===undefined?{}:{normalRotation}),...(projection?{projection}:{}),...(gradient?{gradient}:{}),...(clone?{clone}:{})}) : undefined
     return {brushSource,opts:{...this._opts,graphiteColor:[...this._opts.graphiteColor],deskColor:[...this._opts.deskColor]},layerId,
@@ -9088,6 +9089,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._brush.prepareRecordedStampResources(stamp.brush)
     if(usesNativeSketchSpray(stamp.brush)?brushUsesGradient(stamp.brush):stamp.brush.model==='stamp'&&!stamp.brush.spray&&(stamp.brush.tip.color&&'gradient'in stamp.brush.tip.color||(stamp.brush.version===190||stamp.brush.version===191)&&brushUsesGradient(stamp.brush)))this._brush.preparePixelGradient(stamp.brush,execution)
     if((stamp.brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||stamp.brush.behavior?.rendering?.blendMode==='kritaHardMix'))this._brush.prepareCompositeEffects()
+    if(stamp.brush.behavior?.rendering?.pixelComposite==='greater')this._brush.prepareGreaterComposite198()
     if(brushUsesStampEffects(stamp.brush))this._brush.prepareStampEffects(usesFilteredPixelGradient(stamp.brush),textureMaterialVariant(stamp.brush))
     if(stamp.brush.texture?.material?.kind==='gradient')this._brush.prepareTextureGradient(stamp.brush,execution)
     else if(stamp.brush.texture?.material)this._brush.prepareTextureLightness(stamp.brush)

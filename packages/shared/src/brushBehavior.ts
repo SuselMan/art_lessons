@@ -55,6 +55,8 @@ export interface BrushBehavior {
   speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
   /** Normalized per-dab HSV adjustment; .5 is neutral, decoded signed [-1,1]. */
   colorAdjustment?: { hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
+  /** Root Pixel foreground/background mixing, with the author's background captured per gesture. */
+  colorMix?: { version: 1; value: number; pressure: BrushCurve }
   /** Source step axes use actual diameter (or sqrt, linear below 1px).
    * Input responses scale the result before the per-axis .5px floor. */
   /** Axis scale affects source spacing only, independently of padded mask UVs.
@@ -88,6 +90,8 @@ export interface BrushBehavior {
     opacityCeiling?: 'shape' | 'uniform'
     /** Physical per-dab alpha, bypassing the historical final stroke ceiling. */
     accumulation?: 'over' | 'directOver' | 'alphaDarken' | 'maxAlpha'
+    /** Root Pixel wash final layer operation; separate from RGB blend modes. */
+    pixelComposite?: 'greater'
     mode: 'lightGlaze' | 'uniformGlaze' | 'intenseGlaze' | 'heavyGlaze' | 'uniformBlend' | 'intenseBlend' | 'buildUp'
     blendMode: BrushBlendMode; wetEdges: number; burntEdges: number; burntEdgesMode: BrushBlendMode
     luminance?: boolean
@@ -118,7 +122,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','clockRead','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','clockRead','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','colorMix','spacing','edgeBleed','erase','falloff','softness','mirror','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   // Extended composition is not a grain, dual, wet-edge or wet-mix operator.
   if([value.grain,value.dual,value.wetMix].some(v=>obj(v)&&Object.values(v).some(mode=>mode==='hardMixPhotoshop'||mode==='kritaHardMix')) || obj(value.rendering)&&(value.rendering.burntEdgesMode==='hardMixPhotoshop'||value.rendering.burntEdgesMode==='kritaHardMix'))return false
   const clock=value.clockRead
@@ -161,6 +165,8 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if(value.softness !== undefined && !n(value.softness)) return false
   const color=value.colorAdjustment
   if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.values(color).every(v=>isBrushBehavior({version:2,dynamics:{size:v}})))) return false
+  const mix=value.colorMix
+  if(mix!==undefined&&(!obj(mix)||!keys(mix,['version','value','pressure'])||mix.version!==1||!n(mix.value)||!isBrushCurve(mix.pressure,1,256,true)))return false
   const mirror=value.mirror
   if(mirror!==undefined&&(!obj(mirror)||!keys(mirror,['horizontal','vertical','value','dynamics'])||typeof mirror.horizontal!=='boolean'||typeof mirror.vertical!=='boolean'||!mirror.horizontal&&!mirror.vertical||!n(mirror.value)||(mirror.dynamics!==undefined&&(!Array.isArray(mirror.dynamics)||mirror.dynamics.length>4||!mirror.dynamics.every(d=>isBrushBehavior({version:2,dynamics:{size:d}}))))))return false
   const r=value.rotation
@@ -186,7 +192,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const g=value.grain
   if (g !== undefined && (!obj(g) || !keys(g,['mode','movement','zoom','rotation','offsetJitter','brightness','contrast','depthMinimum','depthJitter','blendMode']) || !['canvas','moving'].includes(String(g.mode)) || !n(g.movement) || !n(g.zoom) || !n(g.rotation,-1,1) || typeof g.offsetJitter !== 'boolean' || !n(g.brightness,-1,1) || !n(g.contrast,-1,1) || !n(g.depthMinimum) || !n(g.depthJitter) || !blend(g.blendMode))) return false
   const render=value.rendering
-  if (render !== undefined && (!obj(render) || !keys(render,['accumulation','opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.accumulation!==undefined && (!['over','directOver','alphaDarken','maxAlpha'].includes(String(render.accumulation)) || render.mode!=='buildUp' || value.taper!==undefined)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
+  if (render !== undefined && (!obj(render) || !keys(render,['accumulation','pixelComposite','opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || (render.pixelComposite!==undefined&&render.pixelComposite!=='greater') || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.accumulation!==undefined && (!['over','directOver','alphaDarken','maxAlpha'].includes(String(render.accumulation)) || render.mode!=='buildUp' || value.taper!==undefined)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
   const w=value.wetMix
   const wetKeys=['dilution','charge','attack','pull','grade','blur','blurJitter','wetnessJitter']
   if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k],k==='grade'?-1:0,1)))) return false

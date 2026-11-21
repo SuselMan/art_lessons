@@ -597,8 +597,17 @@ function behaviorStampsForDabCore(brush: BrushDescriptor, dab: Dab, state: Brush
     }
   }
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
+  const mix=behavior?.colorMix
+  let sourceColor=color
+  if(mix&&!options.geometryOnly){
+    const background=state.execution?.brushSource?.background
+    if(!background||background[3]!==255)throw Error('Pixel Color Mix requires a captured opaque background')
+    const factor=clamp(mix.value*curveAt(mix.pressure,dab.pressure))
+    const weight=factor===1?255:Math.floor(factor*256)
+    sourceColor=color.map((v,i)=>(v*weight+(background[i]/255)*(255-weight))/255) as [number,number,number]
+  }
   const adjustment=behavior?.colorAdjustment
-  const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  const adjustedColor=adjustment ? hsvAdjustColor(sourceColor,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : sourceColor
   if(brush.version===195&&brush.tangentNormal&&mask190&&state.previous&&tangentConstructorIsPoint195(brush,dab.sourceSize!)){
     const previous=state.previous,dx=dab.x-previous.x,dy=dab.y-previous.y,length=Math.hypot(dx,dy),group=state.dabSequence??0
     state.previous={...dab};state.dabSequence=group+1

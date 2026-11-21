@@ -198,6 +198,7 @@ export class BrushBehaviorPainter {
   private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private nativeComposite194?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private extendedComposite?: {program:WebGLProgram;uniforms:Uniforms;position:number}
+  private greaterComposite198?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private composite!: WebGLProgram
   private su!: Uniforms
   private cu!: Uniforms
@@ -255,6 +256,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.extendedComposite=undefined
+    this.greaterComposite198=undefined
     this.nativeComposite194=undefined
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
     this.su = getUniforms(gl, this.stamp, STAMP_UNIFORMS)
@@ -264,6 +266,11 @@ export class BrushBehaviorPainter {
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareCompositeEffects(native194=false):void{if(!native194){if(!this.extendedComposite){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(true));this.extendedComposite={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_secondaryGrayA', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase']),position:gl.getAttribLocation(program,'a_position')}};return;}if(!this.nativeComposite194){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(true,true));this.nativeComposite194={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_secondaryGrayA', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase']),position:gl.getAttribLocation(program,'a_position')}}}
+  prepareGreaterComposite198():void {
+    if(this.greaterComposite198)return
+    const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushCompositeFragment(false,false,true))
+    this.greaterComposite198={program,uniforms:getUniforms(gl,program,['u_physicalAccumulation','u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_opacity','u_blend','u_mode','u_burntEdge','u_burntBlend','u_edgePx','u_luminance','u_gammaCorrect','u_secondaryCoverage','u_secondaryMode','u_secondaryEnabled','u_secondaryGrayA','u_surfaceCloud','u_surfaceGrain','u_surface','u_surfaceOrigin','u_screenOrigin','u_screentone','u_erase']),position:gl.getAttribLocation(program,'a_position')}
+  }
   prepareExperimentPattern():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).preparePattern();this.preparePolygon()}
   preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
   prepareHatching():void{this.hatchingProgram()}
@@ -493,6 +500,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     this.nativeComposite194=undefined
     if(this.extendedComposite)gl.deleteProgram(this.extendedComposite.program)
     this.extendedComposite=undefined
+    if(this.greaterComposite198)gl.deleteProgram(this.greaterComposite198.program)
+    this.greaterComposite198=undefined
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
@@ -529,7 +538,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.uniform1f(c.u_physicalAccumulation,accumulation?1:0)
       gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
       const nativeMode=usesNativeSketchSpray(brush)?(brush.sketch?.composite??brush.spray?.composite):undefined
-      gl.uniform1f(c.u_blend,nativeMode==='copy'?31:nativeMode==='grainMerge'?28:nativeMode==='grainExtract'?29:nativeMode==='negation'?30:blend(nativeMode??render?.blendMode))
+      gl.uniform1f(c.u_blend,render?.pixelComposite==='greater'?32:nativeMode==='copy'?31:nativeMode==='grainMerge'?28:nativeMode==='grainExtract'?29:nativeMode==='negation'?30:blend(nativeMode??render?.blendMode))
       gl.uniform1f(c.u_burntEdge, render?.burntEdges ?? 0)
       gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
       gl.uniform1f(c.u_edgePx, edge)
@@ -755,7 +764,8 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     if(brush.filter?.kind==='posterize'&&!isFilterDescriptor(brush as unknown as Record<string,unknown>))throw Error('Invalid Posterize117 brush scope')
     assertEqualLightnessGih123(brush,mask190)
     assertUnequalLightnessGih124(brush,mask190)
-    const extendedComposite=(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
+    const extendedComposite=brush.behavior?.rendering?.pixelComposite==='greater'?this.greaterComposite198:(brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')?this.extendedComposite:undefined
+    if(brush.behavior?.rendering?.pixelComposite==='greater'&&!extendedComposite)throw Error('Greater198 composite is not prepared')
     if((brush.behavior?.rendering?.blendMode==='hardMixPhotoshop'||brush.behavior?.rendering?.blendMode==='kritaHardMix')&&!extendedComposite)throw Error('Extended composite is not prepared')
     if(!mask190&&brush.behavior?.dual&&usesVariableGih(brush.behavior.dual.brush.tip))throw Error('Variable GIH child is unsupported')
     // Bound expanded populations independently of network/author batch size.
@@ -902,7 +912,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
       state.washColor??=[...color]
     }
-    const constantPigment=!(usesNativePixelMaterials(brush)&&materialVariant)&&!textureWash180&&!textureWash171&&!tangentWash&&!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    const constantPigment=!(usesNativePixelMaterials(brush)&&materialVariant)&&!textureWash180&&!textureWash171&&!tangentWash&&!originalRgba&&!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !behavior.colorMix && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const bristleInkProfile=brush.bristle?.version===2?this.bristleRequests!.preparedInkProfile(brush.bristle.ink):undefined
     const saturationTable=brush.bristle?.version===2&&brush.bristle.ink.useSaturation?this.bristleRequests!.preparedSaturationTable(brush.bristle.ink):undefined
     const incoming = dabs.flatMap(dab => {
