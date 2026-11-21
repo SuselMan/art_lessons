@@ -654,6 +654,10 @@ def validate_portable_profile(descriptor, *, parent=None,texture191=False,filter
             config=descriptor.get(family)
             if isinstance(config,dict)and('composite'in config or config.get('maskSignal')=='native-dab-v1'):raise ValueError('Native194 family metadata cannot upgrade historical versions')
     from independent_mask190 import validate_independent_mask190
+    if descriptor.get('version')==205:
+        from bristle_soak139 import bristle_soak139_scope
+        dyn=descriptor.get('behavior',{}).get('dynamics',{})
+        if parent is not None or not bristle_soak139_scope(descriptor) or not isinstance(dyn,dict) or not isinstance(dyn.get('angle'),dict) or dyn['angle'].get('control')!='tiltDirection':raise ValueError('Invalid Bristle Soak rotation205 scope')
     if descriptor.get('version')==204:
         t=descriptor.get('tip',{});b=descriptor.get('behavior',{});r=b.get('rendering',{}) if isinstance(b,dict) else {}
         if (parent is not None or descriptor.get('model')!='stamp' or not isinstance(descriptor.get('hatching'),dict) or not isinstance(t,dict) or t.get('kind')!='procedural' or not isinstance(t.get('profile'),dict) or t['profile'].get('kind')!='standard' or not isinstance(t.get('autoNoise'),dict) or any(k in t for k in ('autoShape','alphaThreshold')) or any(k in descriptor for k in ('mixer','wet','texture','scatter','spray','sketch','bristle','curveTrace','grid','particle','experiment','deform','filter','clone','mypaint','tangentNormal')) or not isinstance(b,dict) or 'dual' in b or 'timing' in b or not isinstance(r,dict) or r.get('blendMode')!='normal' or r.get('accumulation')!='directOver'):

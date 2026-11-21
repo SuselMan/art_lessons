@@ -4,6 +4,7 @@ import {bristleGeometryStamps,type BristleState} from './brushBristle'
 import {beginBristleInkLine,advanceBristleInkLine,createBristleInkState,createBristleInkProfile} from './brushBristleInk'
 import {advanceBristleInkBulk,bristleInkSpanOpacity} from './brushBristleInkBulk'
 import {ink,brush,dab,soak} from './bristleSoak139TestFixture'
+it('uses the expanded rotated source grid for the sampled canvas pixels',()=>{const b=structuredClone(brush);b.version=205;if(b.bristle?.version!==2||!b.bristle.soak)throw Error('fixture');b.bristle.soak.initialSide=58;b.bristle.hairs=[[-29/58,0,1],[28/58,1/58,1]];expect(bristleSoakPoints139(b,{...dab,x:100,y:200})).toEqual([{x:71,y:200},{x:128,y:201}])})
 it('uses pinned Qt half-up negative ties and recovers raw integer grid before adding anchor',()=>{
  expect([-2.5,-1.5,-.5,.5,1.5].map(bristleSoakRound139)).toEqual([-2,-1,0,1,2])
  expect(bristleSoakPoints139(brush,dab)).toEqual([{x:-1,y:-1},{x:1,y:-1}])

@@ -44,6 +44,22 @@ class BristleTests(unittest.TestCase):
         self.assertNotIn('initialization',hair)
         self.assertTrue(all(-.5<=x<=.5 and -.5<=y<=.5 for x,y,_ in hair['hairs']))
 
+    def test_rotated_soak_preserves_raw_source_pixel_coordinates(self):
+        definition='<Brush type="auto_brush" density="1" randomness="0" angle="1.58825"><MaskGenerator id="default" type="circle" ratio=".43" hfade=".5" vfade=".5" diameter="57" spikes="2" antialiasEdges="0"/></Brush>'
+        options='<param name="HairyBristle/density">32</param><param name="HairyBristle/scale">5</param><param name="HairyInk/enabled">true</param><param name="HairyInk/soak">true</param><param name="HairyInk/inkAmount">4</param><param name="PressureRotation">true</param><param name="RotationSensor">&lt;params id="ascension"/&gt;</param>'
+        data=kpp(engine='hairybrush',definition=definition,resources=options)
+        with tempfile.TemporaryDirectory() as tmp:
+            result=preset(data,'soak.kpp',Catalog(Path(tmp)),{})
+        d=result['descriptor'];h=d['bristle'];self.assertEqual(d['version'],205)
+        self.assertGreater(h['soak']['initialSide'],57)
+        self.assertTrue(all(abs(v*h['soak']['initialSide']-round(v*h['soak']['initialSide']))<1e-9 for x,y,_ in h['hairs'] for v in (x,y)))
+        from bristle_soak139 import bristle_soak139_scope
+        self.assertTrue(bristle_soak139_scope(d))
+        from convert import validate_portable_profile
+        import copy
+        validate_portable_profile(d);old=copy.deepcopy(d);old['version']=139
+        with self.assertRaises(ValueError):validate_portable_profile(old)
+
     def convert(self,extra='',aa=True):
         definition='<Brush type="gbr_brush" filename="hair.gbr" scale="1" ColorAsMask="1"/>'
         data=kpp(engine='hairybrush',definition=definition,resources='<param name="HairyBristle/antialias">'+str(aa).lower()+'</param>'+extra)

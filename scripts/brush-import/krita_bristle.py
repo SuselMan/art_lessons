@@ -44,7 +44,7 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
     if not math.isfinite(density) or not 0<=density<=1:raise ValueError('Bristle density outside0..100')
     mask_side=mask.width
     expansion=mask_side/side
-    if expansion!=1 and ink_enabled:raise ValueError('Expanded rotated Bristle ink/soak initialization is not implemented')
+    if expansion!=1 and ink_enabled and mask_side>256:raise ValueError('Expanded rotated Bristle ink initialization exceeds256px')
     hairs=[]
     for yy in range(mask_side):
         for xx in range(mask_side):
@@ -92,8 +92,9 @@ def bristle_preset(data,root,params,name,catalog,external,*,_allow_initializatio
         d['version']=93;d['bristle']['saturationLookup']=lookup
     if soak:
         from bristle_soak139 import bristle_soak139_scope
-        d['version']=139;d['bristle']['soak']={'sourcePolicy':'canonical-begin-v1','initialSide':side}
-        if density==1 and side<=64:
+        dynamic_angle=d.get('behavior',{}).get('dynamics',{}).get('angle')
+        d['version']=205 if dynamic_angle else 139;d['bristle']['soak']={'sourcePolicy':'canonical-begin-v1','initialSide':mask_side}
+        if not dynamic_angle and density==1 and side<=64 and expansion==1:
             d['version']=140;d['bristle']['soak']['resizePolicy']='mask-population-v1'
         if not bristle_soak139_scope(d):raise ValueError('Bristle Soak139 requires closed root canonical-BEGIN ink palette scope')
     ignored={'gihSelection','gihFrameCount','kritaEngine','autoSpacing'}

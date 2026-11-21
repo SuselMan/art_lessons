@@ -1,6 +1,7 @@
 import{it,expect,vi}from'vitest'
 import{isBrushLibrary,hasBristleSoak139Scope,hasBristleSoakBeginIdentity139,brushRequiresSourceInputs}from'./index.js'
 import{library139}from'./bristleSoak139.testFixture.js'
+it('tilt-rotated Soak is restricted to its own versioned capability',()=>{const l=library139(),d=l.brushes[0].descriptor;d.version=205;d.behavior!.dynamics={angle:{control:'tiltDirection',minimum:0,jitter:0,curve:[[0,0],[1,1]]}};expect(hasBristleSoak139Scope(d)).toBe(true);expect(isBrushLibrary(l)).toBe(true);d.version=139;expect(isBrushLibrary(l)).toBe(false);d.version=205;d.behavior!.dynamics.angle!.control='pressure';expect(isBrushLibrary(l)).toBe(false)})
 it('whole139 source capability keeps initialization coordinates independent of size and both alpha policies',()=>{
  for(const useOpacity of[false,true])for(const aa of[false,true])for(const compositing of[false,true]){
  const l=library139(),d=l.brushes[0].descriptor,h=d.bristle!;if(h.version!==2)throw Error('fixture');h.ink.useOpacity=useOpacity;h.antialias=aa;h.compositing=compositing

@@ -29,7 +29,8 @@ def bristle_soak139_scope(d):
     return(_int(d.get('version'),139,float('inf'))and d.get('model')=='stamp'and _num(d.get('paperInteraction'),0,0)and _num(d.get('flow'),1,1)and unit(d.get('flowByPressure'))
       and not any(k in d for k in('mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'))
       and not set(t)-{'kind','hardness','aspect','rotation','angle'}and t.get('kind')=='round'and _num(t.get('hardness'),1,1)and _num(t.get('aspect'),1,1)and t.get('rotation')=='fixed'and _num(t.get('angle'),0,0)
-      and _int(b.get('version'),2,2)and not set(b)-{'version','rendering','modulations','rotation','strokeInput','speedInput'}
+      and _int(b.get('version'),2,2)and not set(b)-({'version','rendering','modulations','rotation','strokeInput','speedInput'}|({'dynamics'}if d.get('version')==205 else set()))
+      and ('dynamics'not in b or d.get('version')==205 and isinstance(b['dynamics'],dict)and set(b['dynamics'])=={'angle'}and isinstance(b['dynamics']['angle'],dict)and b['dynamics']['angle'].get('control')=='tiltDirection')
       and('modulations'not in b or isinstance(b['modulations'],dict)and not set(b['modulations'])-{'size','rotation'})
       and('strokeInput'not in b or isinstance(b['strokeInput'],dict)and'fanCorners'not in b['strokeInput'])
       and('speedInput'not in b or isinstance(b['speedInput'],dict)and b['speedInput']=={'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'}and _int(b['speedInput'].get('version'),1,1)and _num(b['speedInput'].get('maximum'),30,30))

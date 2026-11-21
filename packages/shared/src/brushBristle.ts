@@ -137,7 +137,8 @@ function hasBristleSoak139ScopeUncached(value:unknown,policy?:BrushStructurePoli
  return Number.isInteger(value.version)&&Number(value.version)>=139&&(h.soak?.resizePolicy===undefined||Number(value.version)>=140&&isResizeMask140(h))&&value.model==='stamp'&&value.paperInteraction===0&&value.flow===1&&one(value.flowByPressure)
  &&['mixer','spray','particle','sketch','curveTrace','hatching','grid','experiment','deform','filter','clone','mypaint','tangentNormal','scatter','texture','wet','screentonePx','colorAdjustment'].every(k=>value[k]===undefined)
  &&Object.keys(t).every(k=>['kind','hardness','aspect','rotation','angle'].includes(k))&&t.kind==='round'&&t.hardness===1&&t.aspect===1&&t.rotation==='fixed'&&t.angle===0
- &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),'rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&b.version===2&&Object.keys(b).every(k=>['version',...(stationary?['timing']:[]),...(value.version===205?['dynamics']:[]),'rendering','modulations','rotation','strokeInput','speedInput'].includes(k))
+ &&(b.dynamics===undefined||value.version===205&&obj(b.dynamics)&&Object.keys(b.dynamics).length===1&&obj(b.dynamics.angle)&&b.dynamics.angle.control==='tiltDirection')
  &&(b.modulations===undefined||obj(b.modulations)&&Object.keys(b.modulations).every(k=>k==='size'||k==='rotation'))
  &&(b.strokeInput===undefined||obj(b.strokeInput)&&b.strokeInput.fanCorners===undefined)
  &&(b.speedInput===undefined||obj(b.speedInput)&&Object.keys(b.speedInput).length===4&&b.speedInput.version===1&&b.speedInput.space==='view'&&b.speedInput.maximum===30&&b.speedInput.estimator==='grafettoEMA30ms')
