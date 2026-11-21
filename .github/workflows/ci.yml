@@ -73,7 +73,7 @@ jobs:
   # A paid runner would make both blocking; that waits until the project pays
   # for it (Ilya, 28.09).
   e2e:
-    name: e2e (${{ matrix.part }})
+    name: e2e (${{ matrix.part }}, shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: ${{ matrix.part == 'two-browsers' }}
@@ -85,6 +85,14 @@ jobs:
       fail-fast: false
       matrix:
         part: ${{ fromJSON((github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e-full')) && '["single","two-browsers"]' || '["single"]') }}
+        # Separate machines: one worker and one disposable database per shard.
+        # Parallel workers on one software-rendering runner would compete for CPU.
+        shard: [1, 2, 3]
+        exclude:
+          - part: two-browsers
+            shard: 2
+          - part: two-browsers
+            shard: 3
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -112,13 +120,24 @@ jobs:
       - name: End-to-end tests
         env:
           E2E_GL: swiftshader
-        run: npx playwright test --project=chromium ${{ matrix.part == 'single' && '--grep-invert @two-browsers' || '--grep @two-browsers' }}
+        run: |
+          if [ "${{ matrix.part }}" = single ]; then
+            npx playwright test --project=chromium --grep-invert @two-browsers --shard=${{ matrix.shard }}/3
+          else
+            npx playwright test --project=chromium --grep @two-browsers
+          fi
+
+      # Teardown normally removes this container. Also clean up when startup or
+      # a test process failed before Playwright could call globalTeardown.
+      - name: Remove disposable test database
+        if: always()
+        run: docker rm -fv grafetto_pg_e2e 2>/dev/null || true
 
       - name: Upload report and failure traces
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.part }}
+          name: playwright-report-${{ matrix.part }}-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

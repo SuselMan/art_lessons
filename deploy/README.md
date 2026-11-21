@@ -605,3 +605,26 @@ Brush backups: each verified database dump has a same-timestamp `.brushes.tar.gz
 archive of the persistent CAS and owner/room metadata. Restore both together into
 the stopped stack, retaining file ownership. Jobs, temporary conversions and writer
 locks are excluded. Local rotation and configured off-site uploads cover both files.
+
+
+## CI latency and isolation
+
+The blocking single-browser suite runs in three file-level Playwright shards on
+separate GitHub-hosted machines. Each shard keeps one worker, its own backend,
+frontend and disposable Postgres container. The optional two-browser suite remains
+one advisory job. No scenarios are removed. Failure reports have distinct shard
+names and expire after seven days; an always-run cleanup removes the test database
+and its anonymous volume even when harness startup fails.
+
+On main, test and build start independently. The deploy job requires **both** to
+succeed; a failed test can produce an unused image but cannot ship it. Production
+continues to use the exact commit-tagged image and matching web artifact. Deployment
+itself remains serialized and must not be cancelled halfway through.
+
+Baseline on 2026-11-20: main tests 6m43s, build 5m20s, deploy 3m01s (about 15m09s
+in sequence). The preceding browser test step took 25.5m, excluding setup. Sharding
+reduces elapsed time, not necessarily billed runner minutes: every machine still
+installs dependencies and starts its own stack. Measure the slowest shard and job
+queue times before claiming a speedup. No persistent runner or additional VPS
+service is introduced. Reusing a PR build for production is a separate change;
+this first step retains main's checks and commit identity.
