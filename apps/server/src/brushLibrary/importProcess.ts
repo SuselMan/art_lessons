@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
 import { readdir, readFile } from 'node:fs/promises'
 import { setTimeout as pause } from 'node:timers/promises'
+import { createHash } from 'node:crypto'
+import { basename, dirname, join } from 'node:path'
 
 /** One actual importer process and its Linux descendants. Cancellation finishes
  * only after child close, so queue release and work-directory removal cannot
@@ -10,8 +12,28 @@ export interface BrushImportProcess {
   cancel(): void
 }
 
+/** The cache must change whenever converter code changes, including its helpers. */
+export async function brushImporterFingerprint(script: string, python: string): Promise<string> {
+  const hash=createHash('sha256').update('grafetto-brush-import-v2\0').update(python).update('\0')
+  const directory=dirname(script),entry=basename(script)
+  const files=entry.endsWith('.py')
+    ? (await readdir(directory,{withFileTypes:true})).filter(d=>d.isFile()&&!d.name.startsWith('test_')&&/\.(py|mjs|json)$/.test(d.name)).map(d=>d.name).sort()
+    : [entry]
+  if(!files.includes(entry))throw Error('Brush converter is unavailable')
+  for(const file of files){hash.update(file).update('\0');hash.update(await readFile(join(directory,file)));hash.update('\0')}
+  return hash.digest('hex')
+}
+
+/** Large authored bundles can require many bounded native-mask conversions.
+ * Keep small uploads on the historical limit and cap all workers at 20 min. */
+export function brushImportLimits(bytes: number): { cpuSeconds: number; timeoutMs: number } {
+  if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > 512 * 1024 * 1024) throw new RangeError('Invalid brush import size')
+  const cpuSeconds = Math.min(1100, Math.max(110, Math.ceil(bytes / (1024 * 1024)) * 6))
+  return { cpuSeconds, timeoutMs: Math.min(20 * 60_000, cpuSeconds * 1000 + (cpuSeconds === 110 ? 10_000 : 90_000)) }
+}
+
 export function startBrushImportProcess(command: string, args: readonly string[], env: NodeJS.ProcessEnv, timeoutMs = 120_000): BrushImportProcess {
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 120_000) throw new RangeError('Invalid brush import deadline')
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 20 * 60_000) throw new RangeError('Invalid brush import deadline')
   const grouped = process.platform === 'linux'
   const child = spawn(command, [...args], { detached: grouped, stdio: ['ignore', 'ignore', 'ignore'], env })
   let closed = false

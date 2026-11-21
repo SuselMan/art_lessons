@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
-import { startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
+import { brushImporterFingerprint, brushImportLimits, startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
 const handles:BrushImportProcess[]=[],dirs:string[]=[]
 afterEach(async()=>{for(const h of handles.splice(0)){h.cancel();await h.finished.catch(()=>{})}await Promise.all(dirs.splice(0).map(d=>rm(d,{recursive:true,force:true})))})
 function live(pid:number):boolean { try { const stat=readFileSync(`/proc/${pid}/stat`,'utf8');return stat.slice(stat.lastIndexOf(')')+2).split(' ')[0]!=='Z' } catch(error) {if((error as NodeJS.ErrnoException).code==='ENOENT')return false;throw error} }
@@ -17,6 +17,20 @@ async function fixture(exit=false,timeout=5000){
  return {h,outcome,file}
 }
 describe('owned importer process tree',()=>{
+ it('invalidates cached imports when converter helpers or interpreter change',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'brush-import-revision-'));dirs.push(dir)
+  const script=join(dir,'convert.py');await writeFile(script,'main');await writeFile(join(dir,'helper.py'),'one')
+  const first=await brushImporterFingerprint(script,'python3')
+  await writeFile(join(dir,'test_ignored.py'),'tests');expect(await brushImporterFingerprint(script,'python3')).toBe(first)
+  await writeFile(join(dir,'helper.py'),'two');expect(await brushImporterFingerprint(script,'python3')).not.toBe(first)
+  expect(await brushImporterFingerprint(script,'python4')).not.toBe(await brushImporterFingerprint(script,'python3'))
+ })
+ it('scales bounded conversion time for large bundles',()=>{
+  expect(brushImportLimits(1024)).toEqual({cpuSeconds:110,timeoutMs:120_000})
+  expect(brushImportLimits(168*1024*1024)).toEqual({cpuSeconds:1008,timeoutMs:1098_000})
+  expect(brushImportLimits(512*1024*1024)).toEqual({cpuSeconds:1100,timeoutMs:1190_000})
+  expect(()=>brushImportLimits(0)).toThrow()
+ })
  it('kills parent and grandchild before cancellation finishes, including idempotent cancel',async()=>{
   const {h,outcome,file}=await fixture(),p=await receipt(file);expect(live(p.parent)&&live(p.child)).toBe(true)
   h.cancel();h.cancel();const result=await outcome;expect(result.ok).toBe(false);expect(result.error.message).toBe('Brush import interrupted')
@@ -34,6 +48,6 @@ describe('owned importer process tree',()=>{
  })
  it('keeps nonzero/spawn failures fatal and validates deadline before spawn',async()=>{
   for(const [cmd,args]of [[process.execPath,['-e','process.exit(7)']],['/nonexistent-grafetto-importer',[]]]as const){const h=startBrushImportProcess(cmd,args,{PATH:process.env.PATH});handles.push(h);await expect(h.finished).rejects.toThrow()}
-  expect(()=>startBrushImportProcess(process.execPath,[],{},120001)).toThrow('Invalid brush import deadline')
+  expect(()=>startBrushImportProcess(process.execPath,[],{},20*60_000+1)).toThrow('Invalid brush import deadline')
  })
 })

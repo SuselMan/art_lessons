@@ -1,7 +1,8 @@
+import { BRUSH_MANIFEST_MAX_BYTES } from './brushLibrary.js'
 import { BrushSamples, sampleKey } from './samples.js'
 import { BrushGallery } from './gallery.js'
 import { brushSelectionRoom, registerBrushGalleryRoutes } from './galleryRoutes.js'
-import { startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
+import { brushImporterFingerprint, brushImportLimits, startBrushImportProcess, type BrushImportProcess } from './importProcess.js'
 import { mkdir, mkdtemp, rm, readdir, stat, writeFile, lstat } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
@@ -114,7 +115,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     for(const file of await readdir(join(storage.root,'jobs'))) {
       if(!/^[a-f0-9]{64}\.json$/.test(file)) continue
       const path=join(storage.root,'jobs',file)
-      const saved=JSON.parse(boundedRead(path,4*1024*1024).toString()) as {owner:string;job:BrushImportJob}
+      const saved=JSON.parse(boundedRead(path,BRUSH_MANIFEST_MAX_BYTES+1024*1024).toString()) as {owner:string;job:BrushImportJob}
       if(Date.now()-(await stat(path)).mtimeMs>24*60*60*1000 && !jobs.has(saved.job.id)) { await rm(path);continue }
       totalJobs++;if(saved.owner===request.userId) ownJobs++
     }
@@ -133,7 +134,12 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
       await pipeline(request.body,bound,createWriteStream(input,{flags:'wx',mode:0o600}))
       if(!received) throw Error('Empty upload')
     } catch { jobs.delete(id);await rm(work,{recursive:true,force:true});return reply.code(413).send({error:'Empty or oversized brush upload'}) }
-    const sourceHash = createHash('sha256').update('20261120-v1:' + sourceDigest.digest('hex')).digest('hex')
+    const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
+    const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
+    let revision:string
+    try {revision=await brushImporterFingerprint(script,python)}
+    catch {jobs.delete(id);await rm(work,{recursive:true,force:true});return reply.code(503).send({error:'Brush converter unavailable'})}
+    const sourceHash = createHash('sha256').update(revision + ':' + sourceDigest.digest('hex')).digest('hex')
     storage.atomic(storage.path('jobs',id),{owner,job})
     queue.push(async()=> {
       job.status='running'
@@ -141,7 +147,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
         storage.atomic(storage.path('jobs',id),{owner,job})
         if(closing) throw Error('Import interrupted')
         let cached: unknown
-        try { cached = JSON.parse(boundedRead(storage.path('sources', sourceHash), 4 * 1024 * 1024).toString()) }
+        try { cached = JSON.parse(boundedRead(storage.path('sources', sourceHash), BRUSH_MANIFEST_MAX_BYTES).toString()) }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
         if (cached !== undefined) {
           if (!isBrushLibrary(cached)) throw Error('Invalid cached import')
@@ -151,9 +157,8 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
           return
         }
         await mkdir(output,{mode:0o700})
-        const python=process.env.GRAFETTO_BRUSH_IMPORT_PYTHON ?? 'python3'
-        const script=process.env.GRAFETTO_BRUSH_IMPORT_SCRIPT ?? fileURLToPath(new URL('../../../../scripts/brush-import/convert.py',import.meta.url))
-        const child=startBrushImportProcess('prlimit',['--as=1073741824','--cpu=110','--fsize=536870912','--',python,script,input,'--output',output],{PATH:process.env.PATH,PYTHONHASHSEED:'0'})
+        const limits=brushImportLimits(received)
+        const child=startBrushImportProcess('prlimit',['--as=1073741824',`--cpu=${limits.cpuSeconds}`,'--fsize=536870912','--',python,script,input,'--output',output],{PATH:process.env.PATH,PYTHONHASHSEED:'0'},limits.timeoutMs)
         activeChild=child
         try { await child.finished }
         finally { if(activeChild===child) activeChild=undefined }
@@ -174,7 +179,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   })
   apiRoute(app,'GET /api/brush-library/imports/:id',async(request,reply)=> {
     try {
-      const saved=JSON.parse(boundedRead(storage.path('jobs',request.params.id),4*1024*1024).toString()) as {owner:string;job:BrushImportJob}
+      const saved=JSON.parse(boundedRead(storage.path('jobs',request.params.id),BRUSH_MANIFEST_MAX_BYTES+1024*1024).toString()) as {owner:string;job:BrushImportJob}
       if(saved.owner!==request.userId) return reply.code(404).send({error:'Import not found'})
       if(['running','queued'].includes(saved.job.status) && !jobs.has(request.params.id)) return {...saved.job,status:'failed',error:'Import interrupted; upload again'}
       return saved.job

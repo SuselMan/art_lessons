@@ -6,7 +6,7 @@ import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
 // Versioned stock presets retain replay definitions and previews alongside new engines.
 // Count, per-field and CAS byte limits remain independently enforced.
-const MAX_MANIFEST = 4 * 1024 * 1024
+export const BRUSH_MANIFEST_MAX_BYTES = 32 * 1024 * 1024
 const MAX_ASSETS = 256 * 1024 * 1024
 const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 function fail(): never { throw new Error('Invalid brush library') }
@@ -37,7 +37,7 @@ export async function readFile(path: string, limit: number): Promise<Buffer> {
 export async function loadBrushLibrary(directory?: string): Promise<{ manifest: BrushLibrary; assets: Map<string, Buffer> }> {
   if (!directory) return { manifest: empty(), assets: new Map() }
   await checkDirectory(directory)
-  const value: unknown = JSON.parse((await readFile(join(directory, 'manifest.json'), MAX_MANIFEST)).toString('utf8'))
+  const value: unknown = JSON.parse((await readFile(join(directory, 'manifest.json'), BRUSH_MANIFEST_MAX_BYTES)).toString('utf8'))
   if (!isBrushLibrary(value)) fail()
   const assets = new Map<string, Buffer>()
   const manifest: BrushLibrary = empty()

@@ -210,7 +210,8 @@ export async function importBrushFile(file: File, progress: (value: number) => v
     xhr.send(file)
   })
   let result = job
-  const deadline = Date.now() + 10 * 60_000
+  // Four queued imports plus the current worker may each take up to 20 minutes.
+  const deadline = Date.now() + 110 * 60_000
   while (result.status === 'running' || result.status === 'queued') {
     if (Date.now() > deadline) throw new Error('brushLibrary.importTimeout')
     await new Promise<void>((resolve, reject) => {

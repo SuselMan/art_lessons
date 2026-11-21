@@ -25,11 +25,14 @@ catalogs must remain behind QA access protection. Personal uploads are separate 
 owner-scoped. Without persistent storage imports return 503.
 
 One conversion worker, four queued uploads, one pending job per owner, 512 MiB streamed input,
-120 s wall time, 110 s CPU, 1 GiB address space, 512 MiB file size; Linux `prlimit` is
+size-dependent limits from 120 s wall/110 s CPU up to 20 min wall/1100 s CPU,
+1 GiB address space, 512 MiB file size; Linux `prlimit` is
 required. Set `GRAFETTO_BRUSH_IMPORT_PYTHON` to the Python/Pillow executable. Converter
-output is validated before installation (2 MiB manifest, 256 MiB textures); an owner's
+output is validated before installation (32 MiB manifest, 256 MiB textures); an owner's
 combined assets cannot exceed 256 MiB or the shared library count limits. Input/output
-temporary files are removed on completion. Per-owner job metadata is limited to 32 jobs,
+temporary files are removed on completion. Cached results are keyed by both source
+bytes and the converter/helper fingerprint, so importer updates invalidate old results.
+Per-owner job metadata is limited to 32 jobs,
 256 globally, expiring after 24 hours; the global disk budget defaults to 4 GiB
 (`GRAFETTO_BRUSH_STORAGE_QUOTA_BYTES`), checked before uploads and CAS installation. Persisted queued/running jobs from an older
 process report interrupted, never pretend they are still running.

@@ -1,3 +1,4 @@
+import { BRUSH_MANIFEST_MAX_BYTES } from './brushLibrary.js'
 import { brushContent, brushContentHash, canonicalBrushJson, type StoredBrushLibrary } from './contentAddressing.js'
 import {isBrushPattern,brushPatternAssetIds,hasExperimentCurrentPattern158Scope,type BrushPattern,type BrushAsset} from '@grafetto/shared'
 import { createHash, randomUUID } from 'node:crypto'
@@ -51,7 +52,7 @@ export class BrushStorage {
   }
   path(kind: 'owners'|'rooms'|'jobs'|'preferences'|'selections'|'uploads'|'sources'|'sets'|'scopes', id: string): string { return join(this.root,kind,key(id)+'.json') }
   library(kind: 'owners'|'rooms'|'sets', id: string): BrushLibrary {
-    try { const stored: unknown=JSON.parse(boundedRead(this.path(kind,id), 4*1024*1024).toString()); const value = this.expandLibrary(stored); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
+    try { const stored: unknown=JSON.parse(boundedRead(this.path(kind,id), BRUSH_MANIFEST_MAX_BYTES).toString()); const value = this.expandLibrary(stored); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
   }
   private expandLibrary(value: unknown): unknown {

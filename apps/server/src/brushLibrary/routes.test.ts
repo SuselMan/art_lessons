@@ -104,6 +104,28 @@ it('serves refreshed operator diagnostics over old room pins without rewriting p
 })
 
 
+it('reuses an unchanged conversion but reruns after converter code changes', async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'brush-cache-revision-'));directories.push(directory)
+  const script=join(directory,'converter.cjs'),receipt=join(directory,'runs.txt')
+  const code=`const fs=require('node:fs');const path=require('node:path');const f=${JSON.stringify(receipt)};fs.appendFileSync(f,'run'+String.fromCharCode(10));const out=process.argv[process.argv.length-1];fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({schemaVersion:1,brushes:[],assets:[],skipped:[]}))`
+  await writeFile(script,code);vi.stubEnv('GRAFETTO_BRUSH_IMPORT_PYTHON',process.execPath);vi.stubEnv('GRAFETTO_BRUSH_IMPORT_SCRIPT',script)
+  const server=await app()
+  try{
+    const upload=async()=>{
+      const response=await server.inject({method:'POST',url:'/api/brush-library/imports',headers:{'content-type':'application/octet-stream','x-brush-filename':'same.kpp'},payload:Buffer.from('same-source')})
+      expect(response.statusCode).toBe(202);const {id}=response.json() as {id:string}
+      let status='queued'
+      for(let i=0;i<200&&['queued','running'].includes(status);i++){
+        await new Promise(r=>setTimeout(r,20));const result=await server.inject(`/api/brush-library/imports/${id}`);status=result.json().status
+      }
+      expect(status).toBe('complete')
+    }
+    await upload();await upload();expect((await readFile(receipt,'utf8')).trim().split('\n')).toHaveLength(1)
+    await writeFile(script,code+'\n// converter updated\n');await upload()
+    expect((await readFile(receipt,'utf8')).trim().split('\n')).toHaveLength(2)
+  } finally {await server.close()}
+})
+
 it('shutdown terminates active decoder descendants before removing importer work', async()=>{
   const directory=await mkdtemp(join(tmpdir(),'brush-route-process-'));directories.push(directory)
   const script=join(directory,'own-importer.cjs'),receipt=join(directory,'pids.json')

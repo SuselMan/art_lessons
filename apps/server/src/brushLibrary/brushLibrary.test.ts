@@ -87,9 +87,14 @@ describe('read-only brush library', () => {
     await writeFile(join(f.directory, 'manifest.json'), JSON.stringify({ ...f.manifest, assets }))
     await expect(loadBrushLibrary(f.directory)).rejects.toThrow('Invalid brush library')
   })
+  it('accepts a valid manifest larger than the former 4 MiB limit', async () => {
+    const f = await fixture()
+    await writeFile(join(f.directory, 'manifest.json'), JSON.stringify(f.manifest) + ' '.repeat(5 * 1024 * 1024))
+    await expect(loadBrushLibrary(f.directory)).resolves.toBeDefined()
+  })
   it('rejects oversized manifest before reading it', async () => {
     const f = await fixture()
-    await writeFile(join(f.directory, 'manifest.json'), Buffer.alloc(4 * 1024 * 1024 + 1))
+    await writeFile(join(f.directory, 'manifest.json'), Buffer.alloc(32 * 1024 * 1024 + 1))
     await expect(loadBrushLibrary(f.directory)).rejects.toThrow()
   })
 })
