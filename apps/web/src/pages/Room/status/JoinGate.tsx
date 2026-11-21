@@ -1,7 +1,9 @@
-import clsx from 'clsx'
+import { Button } from '../../../components/Button'
+import { buttonClassName } from '../../../components/Button/buttonStyles'
 import { Link } from 'react-router-dom'
 
 import { useT } from '../../../i18n'
+import { TextInput } from '../../../components/TextInput'
 import { Logo } from '../../../components/Logo'
 import styles from '../Room.module.css'
 
@@ -82,9 +84,10 @@ export function JoinGate({
           )}
 
           <div className={styles.gateSection}>
-            <div className={styles.gateLabel}>{t('join.yourName')}</div>
-            <input
-              className={clsx(styles.gateInput, error && !name.trim() && styles.gateInputError)}
+            <TextInput
+              label={t('join.yourName')}
+              aria-invalid={Boolean(error && !name.trim())}
+              aria-describedby={error ? 'join-gate-error' : undefined}
               type="text"
               placeholder={t('join.namePlaceholder')}
               maxLength={40}
@@ -96,13 +99,14 @@ export function JoinGate({
 
           {passwordAsked && (
             <div className={styles.gateSection}>
-              <div className={styles.gateLabel}>{t('join.password')}</div>
               {/* `autoFocus` here and on the name field both fire, but each
                   only when its own element mounts — the name's on arrival,
                   this one's on the submit that revealed it, which is exactly
                   where the caret should go. */}
-              <input
-                className={clsx(styles.gateInput, error && !password && styles.gateInputError)}
+              <TextInput
+                label={t('join.password')}
+                aria-invalid={Boolean(error && !password)}
+                aria-describedby={error ? 'join-gate-error' : undefined}
                 type="password"
                 value={password}
                 onChange={e => onPasswordChange(e.target.value)}
@@ -112,11 +116,11 @@ export function JoinGate({
             </div>
           )}
 
-          {error && <div className={styles.gateError}>{error}</div>}
+          {error && <div id="join-gate-error" className={styles.gateError} role="alert">{error}</div>}
 
-          <button type="submit" className={styles.gateSubmit} disabled={submitting}>
+          <Button type="submit" className={styles.gateAction} disabled={submitting}>
             {t(submitting ? 'join.submitting' : 'join.submit')}
-          </button>
+          </Button>
         </form>
       ) : (
         <div className={styles.gateCard}>
@@ -129,14 +133,14 @@ export function JoinGate({
                   whoever holds the link would hand out who else is in the
                   class. */}
               <p className={styles.gateNote}>{t('join.error.loginRequired')}</p>
-              <Link className={styles.gateSubmit} to={`/login?next=${encodeURIComponent(returnTo)}`}>
+              <Link className={buttonClassName({ className: styles.gateAction })} to={`/login?next=${encodeURIComponent(returnTo)}`}>
                 {t('join.signIn')}
               </Link>
               {/* For the person who signed in elsewhere — another tab, or
                   before this screen told them to. */}
-              <button type="button" className={styles.gateSecondary} onClick={onRetry} disabled={submitting}>
+              <Button type="button" variant="secondary" className={styles.gateAction} onClick={onRetry} disabled={submitting}>
                 {t('join.tryAgain')}
-              </button>
+              </Button>
             </>
           )}
 
@@ -154,9 +158,9 @@ export function JoinGate({
           {state === 'denied' && (
             <>
               <p className={styles.gateNote}>{t('join.denied')}</p>
-              <button type="button" className={styles.gateSubmit} onClick={onRetry} disabled={submitting}>
+              <Button type="button" className={styles.gateAction} onClick={onRetry} disabled={submitting}>
                 {t(submitting ? 'join.submitting' : 'join.askAgain')}
-              </button>
+              </Button>
             </>
           )}
 

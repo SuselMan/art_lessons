@@ -1,3 +1,4 @@
+import { Button } from '../../../components/Button'
 import { Link } from 'react-router-dom'
 
 import { useT } from '../../../i18n'
@@ -38,9 +39,9 @@ export function NoWebGL({ reason }: NoWebGLProps) {
 
         {/* A plain reload, not a re-probe in place: the fixes above all
             happen outside this tab, and a fresh load is what picks them up. */}
-        <button type="button" className={styles.gateSubmit} onClick={() => window.location.reload()}>
+        <Button type="button" className={styles.gateAction} onClick={() => window.location.reload()}>
           {t('webgl.retry')}
-        </button>
+        </Button>
 
         {reason && <p className={styles.gateDetails}>{reason}</p>}
       </div>

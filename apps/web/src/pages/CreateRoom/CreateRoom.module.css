@@ -64,40 +64,6 @@
 }
 
 /* text input */
-.input {
-  width: 100%;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: 11px 14px;
-  font-size: 15px;
-  color: var(--color-text-bright);
-  outline: none;
-  transition: border-color var(--duration-fast);
-}
-
-.input::placeholder {
-  color: var(--color-text-dim);
-}
-
-.input:focus {
-  border-color: var(--color-accent);
-}
-
-.inputError {
-  border-color: var(--color-error) !important;
-}
-
-/* (#232) The invite list — same field treatment as .input, but a textarea:
-   one address per line is the shape a class list is already in, and it needs
-   no add/remove chrome for the handful a lesson has. */
-.invites {
-  composes: input;
-  min-height: 96px;
-  resize: vertical;
-  font-family: inherit;
-  line-height: 1.5;
-}
 
 /* Sits under a control to say what it does not say itself. Quieter than
    .label above it, which names the section rather than explaining it. */
@@ -216,7 +182,7 @@
 }
 
 .paperCard:hover {
-  border-color: #4a4a99;
+  border-color: var(--color-accent-border);
 }
 
 .paperCard.selected {
@@ -269,7 +235,7 @@
 }
 
 .sizeCard:hover {
-  border-color: #4a4a99;
+  border-color: var(--color-accent-border);
 }
 
 .sizeCard.selected {
@@ -387,10 +353,7 @@
   margin-top: 4px;
 }
 
-.customRow .input {
-  text-align: center;
-  padding: 9px 10px;
-}
+.customRow > div { flex: 1; min-width: 0; }
 
 .customSep {
   color: var(--color-text-dim);
@@ -462,28 +425,8 @@
 }
 
 /* submit */
-.submit {
-  width: 100%;
-  padding: 14px;
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  letter-spacing: 0.01em;
-  transition: background var(--duration-fast), transform var(--duration-fast);
-}
 
-.submit:hover {
-  background: var(--color-accent-hover);
-}
 
-.submit:active {
-  background: var(--color-accent-active);
-  transform: scale(0.99);
-}
 
 /* coming soon badge */
 .comingSoon {
@@ -520,7 +463,7 @@
   transition: border-color var(--duration-fast), color var(--duration-fast);
 }
 .showAllPapers:hover {
-  border-color: #4a4a99;
+  border-color: var(--color-accent-border);
   color: var(--color-text-bright);
 }
 
@@ -578,3 +521,5 @@
   text-overflow: ellipsis;
   text-align: right;
 }
+
+.submit { width: 100%; }

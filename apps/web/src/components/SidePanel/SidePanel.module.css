@@ -53,19 +53,7 @@
   position: absolute;
   top: 1px;
   right: 1px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--color-warning);
   box-shadow: 0 0 0 2px var(--color-surface);
-  color: #111;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
   pointer-events: none;
   animation: side-panel-badge-pulse 1.8s ease-in-out infinite;
 }
@@ -76,7 +64,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stripBadge { animation: none; }
+  .stripBadge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  box-shadow: 0 0 0 2px var(--color-surface);
+  pointer-events: none;
+  animation: side-panel-badge-pulse 1.8s ease-in-out infinite;
 }
 
 /* Expandable content panel */

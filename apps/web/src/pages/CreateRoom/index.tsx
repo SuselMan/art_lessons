@@ -1,3 +1,4 @@
+import { Button } from '../../components/Button'
 import { BrushSetPicker } from '../../components/BrushGallery/BrushSetPicker'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -22,6 +23,7 @@ import {
 import { ToolSetPicker } from '../../components/ToolSetPicker'
 import { ClassVisibilityField } from '../../components/ClassVisibilityField'
 import { Icon } from '../../components/Icon'
+import { TextInput } from '../../components/TextInput'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -323,9 +325,8 @@ export function CreateRoom() {
     <div className={styles.tabBody}>
       {/* Room name */}
       <div className={styles.section}>
-        <div className={styles.label}>{t('create.roomName')}</div>
-        <input
-          className={styles.input}
+        <TextInput
+          label={t('create.roomName')}
           type="text"
           placeholder={t('create.untitled')}
           maxLength={50}
@@ -454,21 +455,21 @@ export function CreateRoom() {
 
         {sizePreset === 'custom' && (
           <div className={styles.customRow}>
-            <input
-              className={styles.input}
+            <TextInput
               type="number"
               min={100}
               max={4096}
+              aria-label={t('create.width')}
               placeholder={t('create.width')}
               value={customW}
               onChange={e => setCustomW(e.target.value)}
             />
             <span className={styles.customSep}>×</span>
-            <input
-              className={styles.input}
+            <TextInput
               type="number"
               min={100}
               max={4096}
+              aria-label={t('create.height')}
               placeholder={t('create.height')}
               value={customH}
               onChange={e => setCustomH(e.target.value)}
@@ -538,9 +539,9 @@ export function CreateRoom() {
 
         {error && <div className={styles.error}>{error}</div>}
 
-        <button type="submit" className={styles.submit} disabled={entering}>
+        <Button type="submit" className={styles.submit} disabled={entering}>
           {t(entering ? 'create.submitting' : 'create.submit')}
-        </button>
+        </Button>
       </form>
     </div>
   )

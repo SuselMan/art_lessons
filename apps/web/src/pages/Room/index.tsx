@@ -1521,7 +1521,7 @@ function RoomEditor() {
           onClose={() => setSettingsOpen(false)}
           roomId={lessonId}
           isOwner={isOwner}
-          toolsContent={<Button size="md" type="secondary" onClick={openGallery}><Icon name="add" />{t('gallery.more')}</Button>}
+          toolsContent={<Button size="md" variant="secondary" onClick={openGallery}><Icon name="add" />{t('gallery.more')}</Button>}
           enabledTools={enabledTools}
           onEnabledToolsChange={setRoomTools}
           classVisibility={classVisibility}

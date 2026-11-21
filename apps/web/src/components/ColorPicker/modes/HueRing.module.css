@@ -18,8 +18,8 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--color-picker-marker);
+  box-shadow: var(--shadow-picker-marker);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }

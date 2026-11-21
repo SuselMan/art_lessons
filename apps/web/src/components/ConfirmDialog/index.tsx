@@ -89,7 +89,7 @@ function ConfirmDialogView({ pending, onSettle }: {
       <div className={styles.actions}>
         {pending.kind === 'confirm' && (
           <Button
-            type="secondary"
+            variant="secondary"
             autoFocus={danger}
             onClick={() => onSettle(false)}
           >
@@ -97,7 +97,7 @@ function ConfirmDialogView({ pending, onSettle }: {
           </Button>
         )}
         <Button
-          type={danger ? 'danger' : 'primary'}
+          variant={danger ? 'danger' : 'primary'}
           autoFocus={!danger}
           onClick={() => onSettle(true)}
         >

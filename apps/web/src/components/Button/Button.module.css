@@ -1,4 +1,4 @@
-.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--color-text); cursor: pointer; font: inherit; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--color-text); cursor: pointer; font: inherit; text-decoration: none; text-align: center; }
 .sm { min-height: 36px; padding: 6px 10px; font-size: 12px; }
 .md { min-height: 44px; padding: 8px 12px; font-size: 14px; }
 .lg { min-height: 48px; padding: 10px 16px; font-size: 16px; }
@@ -16,3 +16,12 @@
 .button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 .resetFooter { display: flex; justify-content: flex-end; margin: 12px -16px -16px; padding: 12px 16px; border-top: 1px solid var(--color-border); }
+
+.iconOnly { width: 44px; height: 44px; padding: 0; color: var(--color-text-dim); }
+.iconOnly.sm { width: 36px; height: 36px; }
+.iconOnly.lg { width: 48px; height: 48px; }
+.iconOnly > :global(.material-symbols-outlined) { font-size: 22px; }
+.iconOnly.ghost { background: transparent; }
+.iconOnly.ghost:not(:disabled):hover { color: var(--color-accent-hover); background: var(--color-surface-hover); }
+.iconOnly.ghost[aria-pressed="true"] { color: var(--color-accent); }
+.iconOnly.primary, .iconOnly.danger { color: var(--color-on-accent); }

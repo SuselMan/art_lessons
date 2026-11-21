@@ -919,6 +919,7 @@ export const en = {
   'tool.transformMode.distort': 'Distort',
 
   // ── color palette ──────────────────────────────────────────────────────
+  'palette.hexColor': 'Hex color',
   'palette.open': 'Palette',
   'palette.openLabel': 'Open palette',
   'palette.closeLabel': 'Close palette',

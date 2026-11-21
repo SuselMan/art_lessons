@@ -195,16 +195,7 @@
 
 .segmentActive { background: var(--color-surface-2); color: var(--color-text-bright); }
 
-.search {
-  flex: 1 1 220px;
-  max-width: 360px;
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-}
+.search { flex: 1 1 220px; max-width: 360px; }
 
 .hint { color: var(--color-text-faint); font-size: 12px; }
 .empty { color: var(--color-text-dim); }

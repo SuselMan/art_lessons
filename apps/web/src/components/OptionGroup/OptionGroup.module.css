@@ -35,10 +35,12 @@
   border-bottom: 1px solid var(--color-border);
   padding: 0 8px;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .tabs .option {
-  padding: 10px 10px 9px;
+  min-height: 44px;
+  padding: 10px 8px 9px;
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-dim);

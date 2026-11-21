@@ -32,17 +32,6 @@
 
 /* Pending count next to its heading — a number the owner is meant to act on,
    so it reads as a badge rather than as part of the label. */
-.count {
-  min-width: 18px;
-  padding: 0 5px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
-  color: var(--color-bg);
-  background: var(--color-warning);
-  border-radius: 9px;
-}
 
 .hint,
 .empty {
@@ -127,77 +116,7 @@
   color: var(--color-text-dim);
 }
 
-.textButton,
-.textButtonQuiet,
-.textButtonDanger {
-  flex: none;
-  min-height: var(--touch-target-sm);
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-}
-
-.textButton {
-  color: var(--color-text-bright);
-  background: var(--color-surface-2);
-}
-
-.textButton:not(:disabled):hover {
-  background: var(--color-surface-hover);
-}
-
-/* Deny sits next to approve, and the pair must not read as one decision with
-   two equal buttons — the quiet one is the one that changes nothing lasting. */
-.textButtonQuiet {
-  color: var(--color-text-dim);
-}
-
-.textButtonQuiet:not(:disabled):hover {
-  color: var(--color-text-bright);
-  background: var(--color-surface-2);
-}
-
-.textButtonDanger {
-  color: var(--color-error);
-}
-
-.textButtonDanger:not(:disabled):hover {
-  background: var(--color-surface-2);
-}
-
-.textButton:disabled,
-.textButtonQuiet:disabled,
-.textButtonDanger:disabled {
-  opacity: 0.45;
-}
-
-.iconButton {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target-sm);
-  height: var(--touch-target-sm);
-  color: var(--color-text-dim);
-  border-radius: var(--radius-sm);
-}
-
-.iconButton:not(:disabled):hover {
-  color: var(--color-text-bright);
-  background: var(--color-surface-hover);
-}
-
-/* Same :global() escape as MoveToDialog: CSS Modules would hash the icon
-   font's own class name and match nothing. Without this the glyphs render at
-   the font's 24px default beside 13px text. */
-.panel :global(.material-symbols-outlined) {
-  flex: none;
-  font-size: 18px;
-}
-
 .fieldLabel { margin: 0; font-size: 12px; font-weight: 400; color: var(--color-text); }
 .row { justify-content: space-between; }
-.textButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--color-border-strong); background: var(--color-surface-2); font-size: 12px; font-weight: 500; }
 .peopleHeading { margin: 0; padding-top: 16px; border-top: 1px solid var(--color-border); color: var(--color-text-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .avatar { display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-surface-2); color: var(--color-accent-hover); font-size: 11px; }

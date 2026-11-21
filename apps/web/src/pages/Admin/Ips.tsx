@@ -7,6 +7,7 @@ import { IP_BAN_DURATIONS_HOURS } from '@grafetto/shared'
 import { ApiError } from '../../lib/api/api'
 import { banIp, fetchAdminIp, fetchIpBans, unbanIp } from '../../lib/api/adminApi'
 import { ago, date, shortId } from './format'
+import { TextInput } from '../../components/TextInput'
 import styles from './Admin.module.css'
 
 const DURATION_LABELS: Record<IpBanDurationHours, string> = {
@@ -62,7 +63,7 @@ export function Ips({ onOpenIp }: { onOpenIp: (ip: string) => void }) {
         className={styles.toolbar}
         onSubmit={e => { e.preventDefault(); if (lookup.trim()) onOpenIp(lookup.trim()) }}
       >
-        <input className={styles.search} placeholder="Look up an address" value={lookup} onChange={e => setLookup(e.target.value)} />
+        <TextInput wrapperClassName={styles.search} icon="search" type="search" aria-label="Look up an address" placeholder="Look up an address" value={lookup} onChange={e => setLookup(e.target.value)} />
         <button type="submit" className={styles.button}>Open</button>
       </form>
       <p className={styles.hint}>

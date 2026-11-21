@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState, type ComponentType } fr
 
 import { useT } from '../../i18n'
 import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/browser/color'
+import { TextInput } from '../TextInput'
 import { OptionGroup } from '../OptionGroup'
 import { BarSquare } from './modes/BarSquare'
 import { RingSquare } from './modes/RingSquare'
@@ -111,7 +112,9 @@ export const ColorPicker = memo(function ColorPicker({
 
       <div className={styles.swatchRow}>
         <div className={styles.currentSwatch} style={{ background: rgbToHex(value) }} />
-        <input
+        <TextInput
+          controlSize="sm"
+          aria-label={t('palette.hexColor')}
           className={styles.hexInput}
           value={hexText}
           onChange={e => {

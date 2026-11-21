@@ -195,6 +195,3 @@
 
 /* The Tools tab owns its inset; its embedded picker must not add another. */
 .toolsTab .toolsPicker { padding: 0; }
-
-.settingsTabs > div > [role="tablist"] > [role="tab"] { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding-inline: 8px; }
-.settingsTabs > div > [role="tablist"] > [role="tab"] :global(.material-symbols-outlined) { font-size: 18px; }

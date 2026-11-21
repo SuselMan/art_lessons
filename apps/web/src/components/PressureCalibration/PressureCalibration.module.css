@@ -26,7 +26,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-paper-tint);
-  color: #2b2b30;
+  color: var(--color-paper-ink);
   touch-action: none;
   cursor: crosshair;
 }
@@ -127,7 +127,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-paper-tint);
-  color: #2b2b30;
+  color: var(--color-paper-ink);
 }
 
 .actions {

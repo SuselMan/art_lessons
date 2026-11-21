@@ -121,9 +121,9 @@
   stroke-width: 1.2;
 }
 
-.curveLine[data-tone='red'] { stroke: #e05555; }
-.curveLine[data-tone='green'] { stroke: #4fb05a; }
-.curveLine[data-tone='blue'] { stroke: #5a82e0; }
+.curveLine[data-tone='red'] { stroke: var(--color-channel-red); }
+.curveLine[data-tone='green'] { stroke: var(--color-channel-green); }
+.curveLine[data-tone='blue'] { stroke: var(--color-channel-blue); }
 
 .curveKnob,
 .curveKnobActive {

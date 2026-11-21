@@ -1,9 +1,10 @@
+import { Button } from '../../components/Button'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import clsx from 'clsx'
 import { ApiError, requestLoginCode, verifyLoginCode } from '../../lib/api/api'
 import { useAuth } from '../../lib/api/authState'
 import { useLocale, useT, type TFunction } from '../../i18n'
+import { TextInput } from '../../components/TextInput'
 import { Logo } from '../../components/Logo'
 import styles from './Auth.module.css'
 
@@ -173,9 +174,9 @@ export function Auth() {
           <div className={styles.subtitle}>{t('auth.subtitle')}</div>
 
           <div className={styles.section}>
-            <div className={styles.label}>{t('auth.email')}</div>
-            <input
-              className={styles.input}
+            <TextInput
+              label={t('auth.email')}
+              error={error}
               type="email"
               inputMode="email"
               placeholder={t('auth.emailPlaceholder')}
@@ -186,11 +187,10 @@ export function Auth() {
             />
           </div>
 
-          {error && <div className={styles.error}>{error}</div>}
 
-          <button type="submit" className={styles.submit} disabled={submitting}>
+          <Button type="submit" className={styles.submit} disabled={submitting}>
             {t('auth.sendCode')}
-          </button>
+          </Button>
         </form>
       ) : (
         <form className={styles.card} onSubmit={handleCodeSubmit} noValidate>
@@ -198,10 +198,12 @@ export function Auth() {
           <div className={styles.subtitle}>{t('auth.codeSent', { email: email.trim() })}</div>
 
           <div className={styles.section}>
-            <div className={styles.label}>{t('auth.code')}</div>
-            <input
+            <TextInput
+              label={t('auth.code')}
+              error={error}
+              controlSize="lg"
               ref={codeInputRef}
-              className={clsx(styles.input, styles.codeInput)}
+              className={styles.codeInput}
               type="text"
               // `one-time-code` is what makes iOS and Android offer the code
               // straight from the notification instead of making someone
@@ -233,11 +235,10 @@ export function Auth() {
             </div>
           )}
 
-          {error && <div className={styles.error}>{error}</div>}
 
-          <button type="submit" className={styles.submit} disabled={submitting}>
+          <Button type="submit" className={styles.submit} disabled={submitting}>
             {t('auth.signIn')}
-          </button>
+          </Button>
 
           <div className={styles.secondaryRow}>
             <button type="button" className={styles.linkButton} onClick={handleChangeEmail}>

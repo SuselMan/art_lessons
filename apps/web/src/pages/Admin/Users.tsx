@@ -6,6 +6,7 @@ import type { AdminUserFilter } from '@grafetto/shared'
 import { fetchAdminUsers } from '../../lib/api/adminApi'
 import { Pager } from './Pager'
 import { ago, date, shortId } from './format'
+import { TextInput } from '../../components/TextInput'
 import styles from './Admin.module.css'
 
 const FILTERS: Array<{ id: AdminUserFilter; label: string }> = [
@@ -40,10 +41,9 @@ export function Users({ onOpenUser }: { onOpenUser: (id: string) => void }) {
             </button>
           ))}
         </div>
-        <input
-          className={styles.search}
-          type="search"
-          placeholder="Email, name or id"
+        <TextInput
+          wrapperClassName={styles.search} icon="search" type="search"
+          aria-label="Email, name or id" placeholder="Email, name or id"
           value={q}
           onChange={e => { setQ(e.target.value); setOffset(0) }}
         />

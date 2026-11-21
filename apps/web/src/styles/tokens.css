@@ -39,6 +39,22 @@
  */
 
 :root {
+  /* Fixed against artwork/paper, independent of the surrounding UI theme. */
+  --color-paper-ink: #2b2b30;
+  --color-image-control-bg: rgba(17, 17, 19, 0.72);
+  --color-image-control-text: #eeeeee;
+  --color-image-control-hover: rgba(255, 255, 255, 0.16);
+  --color-on-peer: #111111;
+  --color-picker-marker: #ffffff;
+  --shadow-picker-marker: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  --color-canvas-outline-light: rgba(255, 255, 255, 0.95);
+  --color-canvas-outline-dark: rgba(0, 0, 0, 0.55);
+  /* Semantic UI colors; light theme overrides these below. */
+  --color-on-warning: #111111;
+  --color-channel-red: #e05555;
+  --color-channel-green: #4fb05a;
+  --color-channel-blue: #5a82e0;
+
   color-scheme: dark;
 
   /* Colors */
@@ -240,6 +256,11 @@
  * the stack and left dialogs nowhere to go above them.
  */
 :root[data-theme='light'] {
+  --color-on-warning: #ffffff;
+  --color-channel-red: #b83f3f;
+  --color-channel-green: #237a38;
+  --color-channel-blue: #355fb7;
+
   color-scheme: light;
 
   --color-bg:        #ececec;

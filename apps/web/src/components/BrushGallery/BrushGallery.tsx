@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NATIVE_GALLERY_BRUSHES, type BrushGalleryItem, type BrushGalleryPage, type BrushGalleryTab } from '@grafetto/shared'
-import { Button } from '../Button'
-import { Icon } from '../Icon'
+import { Button, IconButton } from '../Button'
 import { Modal } from '../Modal'
 import { ApiError, api, apiResponse } from '../../lib/api/api'
 import { importBrushFile } from '../../lib/api/brushLibrary'
@@ -10,6 +9,7 @@ import { TOOL_PHOTOS } from '../../lib/tools/toolTypeImages'
 import { OptionSelect } from '../OptionPicker/OptionSelect'
 import { OptionGroup } from '../OptionGroup'
 import { useT } from '../../i18n'
+import { TextInput } from '../TextInput'
 import styles from './BrushGallery.module.css'
 
 export interface BrushGalleryProps { selected: readonly string[]; selectedItems?: readonly BrushGalleryItem[]; onAdd: (reference: string) => Promise<void> | void; onClose: () => void; onRemove?: (reference: string) => Promise<void> | void; disabled?: boolean }
@@ -67,7 +67,7 @@ export function BrushGallery({ selected, onAdd, onClose, onRemove, selectedItems
     <div className={styles.tabs}><OptionGroup active={tab} onSelect={value => { setTab(value); setOffset(0) }} ariaLabel={t('gallery.title')}
       options={[{ id: 'library', label: t('gallery.library'), icon: 'folder_open' }, { id: 'favorites', label: t('gallery.favorites'), icon: 'star' }, { id: 'uploads', label: t('gallery.uploads'), icon: 'cloud_sync' }, { id: 'room', label: t('gallery.inRoom', { n: selected.length }), icon: 'group' }]} /></div>
     <div className={styles.filters}>
-      <label className={styles.search}><Icon name="search" /><input aria-label={t('gallery.search')} placeholder={t('gallery.search')} id="brush-gallery-search" value={search} onChange={e => { setSearch(e.target.value); setOffset(0) }} /></label>
+      <TextInput icon="search" type="search" aria-label={t('gallery.search')} placeholder={t('gallery.search')} id="brush-gallery-search" value={search} onChange={e => { setSearch(e.target.value); setOffset(0) }} />
       <div className={styles.filter}><OptionSelect showLabel label={t('gallery.role')} value={role}
         onChange={value => { setRole(value); setOffset(0) }}
         options={[{ value: '', label: t('gallery.all') }, { value: 'drawing', label: t('gallery.drawing') }, { value: 'eraser', label: t('gallery.eraser') }, { value: 'smudge', label: t('gallery.smudge') }]} /></div>
@@ -87,25 +87,25 @@ export function BrushGallery({ selected, onAdd, onClose, onRemove, selectedItems
           setTab('uploads'); setOffset(0)
         } finally { setUploadPhase('idle') } })
       }} />
-      <Button size="md" type="primary" disabled={busy} onClick={() => file.current?.click()}>{t('gallery.upload')}</Button>
+      <Button size="md" variant="primary" disabled={busy} onClick={() => file.current?.click()}>{t('gallery.upload')}</Button>
       <span className={styles.formats}>{t('gallery.formats')}</span>
       {(tab === 'room' || page) && <span className={styles.count}>{t('gallery.count', { n: tab === 'room' ? selectedItems.length : page?.total ?? 0 })}</span>}
     </div>
-    {uploadPhase !== 'idle' && <div role="status"><p>{uploadPhase === 'uploading' ? `${t('brushLibrary.uploading')} ${Math.round(uploadProgress * 100)}%` : t('brushLibrary.converting')}</p>{uploadPhase === 'uploading' && <><progress value={uploadProgress} max={1} /><Button size="md" type="ghost" onClick={() => uploadAbort.current?.abort()}>{t('common.cancel')}</Button></>}</div>}
+    {uploadPhase !== 'idle' && <div role="status"><p>{uploadPhase === 'uploading' ? `${t('brushLibrary.uploading')} ${Math.round(uploadProgress * 100)}%` : t('brushLibrary.converting')}</p>{uploadPhase === 'uploading' && <><progress value={uploadProgress} max={1} /><Button size="md" variant="ghost" onClick={() => uploadAbort.current?.abort()}>{t('common.cancel')}</Button></>}</div>}
     {importResult && <div role="status"><p>{t('brushLibrary.imported', { n: importResult.count })}</p>{importResult.skipped.length > 0 && <details><summary>{t('brushLibrary.skipped', { n: importResult.skipped.length })}</summary><ul>{importResult.skipped.map((b, i) => <li key={i}>{b.name}: {b.reasons.join('; ')}</li>)}</ul></details>}</div>}
     {error && <p role="alert">{error}</p>}
     {tab !== 'room' && !page && !error && <p role="status">{t('gallery.loading')}</p>}
     {(tab === 'room' || page) && <>
       {!(tab === 'room' ? selectedItems : page?.items ?? []).length && <p>{t('gallery.empty')}</p>}
       <div className={styles.list}>{(tab === 'room' ? selectedItems.filter(item => (!search || brushName(item.reference, item.name).toLowerCase().includes(search.toLowerCase())) && (!role || item.role === role) && (!category || item.category === category)) : page?.items ?? []).map(item => <div key={item.reference} className={styles.row}>
-        <Button className={styles.favorite} size="md" type="ghost" aria-label={t('gallery.favorite')} title={t('gallery.favorite')} aria-pressed={favoriteOverrides[item.reference] ?? item.favorite} disabled={busy} onClick={() => void run(async () => { const favorite = !(favoriteOverrides[item.reference] ?? item.favorite); await api('PATCH /api/brush-gallery/favorites', { body: { reference: item.reference, favorite } }); setFavoriteOverrides(v => ({ ...v, [item.reference]: favorite })) })}><span className={styles.star}>{(favoriteOverrides[item.reference] ?? item.favorite) ? '★' : '☆'}</span></Button>
+        <IconButton icon="star" size="md" variant="ghost" aria-label={t('gallery.favorite')} title={t('gallery.favorite')} aria-pressed={favoriteOverrides[item.reference] ?? item.favorite} disabled={busy} onClick={() => void run(async () => { const favorite = !(favoriteOverrides[item.reference] ?? item.favorite); await api('PATCH /api/brush-gallery/favorites', { body: { reference: item.reference, favorite } }); setFavoriteOverrides(v => ({ ...v, [item.reference]: favorite })) })} />
         {(item.preview || TOOL_PHOTOS[item.reference.slice(7)]) ? <img className={`${styles.artwork} ${item.reference.startsWith('native:') ? styles.nativeArtwork : ''}`} src={item.preview || TOOL_PHOTOS[item.reference.slice(7)]} alt="" loading="lazy" /> : <span className={styles.artwork} />}
         <div className={styles.name}><strong title={brushName(item.reference, item.name)}>{brushName(item.reference, item.name)}</strong></div>
         {item.strokePreview ? <img className={styles.stroke} src={item.strokePreview} alt="" loading="lazy" /> : <span className={styles.stroke} />}
-        <Button size="md" type="secondary" disabled={disabled || busy || selected.includes(item.reference) && (!onRemove || selected.length === 1)} onClick={() => void run(async () => { if (selected.includes(item.reference) && onRemove) await onRemove(item.reference); else await onAdd(item.reference) })}>{t(selected.includes(item.reference) ? onRemove ? 'gallery.remove' : 'gallery.added' : 'gallery.add')}</Button>
-        {tab === 'uploads' && <Button size="md" type="ghost" disabled={busy} onClick={() => void run(() => api('DELETE /api/brush-gallery/uploads', { body: { reference: item.reference } }))}>{t('gallery.remove')}</Button>}
+        <Button size="md" variant="secondary" disabled={disabled || busy || selected.includes(item.reference) && (!onRemove || selected.length === 1)} onClick={() => void run(async () => { if (selected.includes(item.reference) && onRemove) await onRemove(item.reference); else await onAdd(item.reference) })}>{t(selected.includes(item.reference) ? onRemove ? 'gallery.remove' : 'gallery.added' : 'gallery.add')}</Button>
+        {tab === 'uploads' && <Button size="md" variant="ghost" disabled={busy} onClick={() => void run(() => api('DELETE /api/brush-gallery/uploads', { body: { reference: item.reference } }))}>{t('gallery.remove')}</Button>}
       </div>)}</div>
-      {tab !== 'room' && page && <div className={styles.pagination}><Button size="md" type="ghost" disabled={offset === 0} onClick={() => setOffset(v => Math.max(0, v - 24))}>{t('gallery.previous')}</Button><Button size="md" type="ghost" disabled={offset + page.limit >= page.total} onClick={() => setOffset(v => v + 24)}>{t('gallery.next')}</Button></div>}
+      {tab !== 'room' && page && <div className={styles.pagination}><Button size="md" variant="ghost" disabled={offset === 0} onClick={() => setOffset(v => Math.max(0, v - 24))}>{t('gallery.previous')}</Button><Button size="md" variant="ghost" disabled={offset + page.limit >= page.total} onClick={() => setOffset(v => v + 24)}>{t('gallery.next')}</Button></div>}
     </>}
   </div></Modal>
 }

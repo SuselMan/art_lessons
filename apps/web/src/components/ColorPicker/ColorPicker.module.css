@@ -43,16 +43,4 @@
   flex-shrink: 0;
 }
 
-.hexInput {
-  flex: 1;
-  min-width: 0;
-  height: 26px;
-  padding: 0 8px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  color: var(--color-text);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.hexInput:focus { outline: none; border-color: var(--color-accent); }
+.hexInput { font-family: var(--font-mono); }

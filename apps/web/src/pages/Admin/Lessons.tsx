@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { adminLessonThumbnailUrl, fetchAdminLessons } from '../../lib/api/adminApi'
 import { Pager } from './Pager'
 import { ago, date } from './format'
+import { TextInput } from '../../components/TextInput'
 import styles from './Admin.module.css'
 
 /** A picture of each lesson and nothing more — there is deliberately no way
@@ -20,10 +21,9 @@ export function Lessons({ onOpenUser }: { onOpenUser: (id: string) => void }) {
   return (
     <section className={styles.section}>
       <div className={styles.toolbar}>
-        <input
-          className={styles.search}
-          type="search"
-          placeholder="Lesson name, id or owner email"
+        <TextInput
+          wrapperClassName={styles.search} icon="search" type="search"
+          aria-label="Lesson name, id or owner email" placeholder="Lesson name, id or owner email"
           value={q}
           onChange={e => { setQ(e.target.value); setOffset(0) }}
         />

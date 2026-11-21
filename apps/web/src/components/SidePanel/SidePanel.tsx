@@ -1,3 +1,4 @@
+import { Badge } from '../Badge'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { useT } from '../../i18n'
@@ -66,9 +67,9 @@ export function SidePanel<Id extends string>({ tabs, active, onSelect, side = 'r
               {/* aria-hidden: the count is already in the button's own label
                   above, and a digit announced after it just repeats it. */}
               {!!tab.badge && (
-                <span className={styles.stripBadge} aria-hidden="true">
+                <Badge tone="warning" size="sm" className={styles.stripBadge} aria-hidden="true">
                   {tab.badge > 9 ? '9+' : tab.badge}
-                </span>
+                </Badge>
               )}
             </button>
           )

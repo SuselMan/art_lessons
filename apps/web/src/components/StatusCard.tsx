@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 
+import { Button } from './Button'
+import { buttonClassName, type ButtonVariant } from './Button/buttonStyles'
 import { Logo } from './Logo'
 import styles from './StatusCard.module.css'
 
@@ -27,11 +29,11 @@ interface StatusCardProps {
   details?: string | null
 }
 
-function Action({ action, className }: { action: StatusAction; className: string }) {
+function Action({ action, variant }: { action: StatusAction; variant: ButtonVariant }) {
   if ('to' in action) {
-    return <Link className={className} to={action.to} onClick={action.onClick}>{action.label}</Link>
+    return <Link className={buttonClassName({ variant, className: styles.action })} to={action.to} onClick={action.onClick}>{action.label}</Link>
   }
-  return <button type="button" className={className} onClick={action.onClick}>{action.label}</button>
+  return <Button variant={variant} className={styles.action} onClick={action.onClick}>{action.label}</Button>
 }
 
 export function StatusCard({ heading, body, action, secondary, details }: StatusCardProps) {
@@ -41,8 +43,8 @@ export function StatusCard({ heading, body, action, secondary, details }: Status
       <div className={styles.card} role="alert">
         <h1 className={styles.heading}>{heading}</h1>
         <p className={styles.body}>{body}</p>
-        <Action action={action} className={styles.primary} />
-        {secondary && <Action action={secondary} className={styles.secondary} />}
+        <Action action={action} variant="primary" />
+        {secondary && <Action action={secondary} variant="secondary" />}
         {details && <p className={styles.details}>{details}</p>}
       </div>
     </div>

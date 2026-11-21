@@ -302,10 +302,10 @@
      contrast for the trigger icon depending on what thumbnail/content sits
      underneath; a more opaque chip plus the trigger's own bright-at-rest
      color (CardMenu.module.css) keeps it visibly a "button" regardless.
-     (#426) Stays literal across themes for that same reason: what it needs
+     (#426) Uses fixed image-control tokens across themes for that same reason: what it needs
      contrast against is the thumbnail — a drawing on near-white paper — not
      the card behind it, and thumbnails don't change with the palette. */
-  background: rgba(17, 17, 19, 0.72);
+  background: var(--color-image-control-bg);
   backdrop-filter: blur(2px);
   /* A literal background can only carry literal foregrounds. The trigger used
      to colour its glyph with --color-text-bright, which means "the most
@@ -314,8 +314,8 @@
      button. Same reason the hover wash is a white alpha rather than
      --color-surface-2: that token is a near-white fill in the light theme and
      would have painted a pale square under the (now pale) glyph. */
-  --card-menu-trigger-color: #eeeeee;
-  --card-menu-trigger-hover-bg: rgba(255, 255, 255, 0.16);
+  --card-menu-trigger-color: var(--color-image-control-text);
+  --card-menu-trigger-hover-bg: var(--color-image-control-hover);
 }
 
 .cardLink {

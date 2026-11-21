@@ -82,7 +82,7 @@ export const Tooltips: StoryObj = {
             placement={placement}
             content="Help opens on hover, focus or tap. Escape dismisses it."
           >
-            <Button type="secondary">{placement}</Button>
+            <Button variant="secondary">{placement}</Button>
           </Tooltip>
         ),
       )}
@@ -95,7 +95,7 @@ function ConfirmExample() {
   return (
     <div className="workshop-column">
       <Button
-        type="danger"
+        variant="danger"
         onClick={() =>
           void confirm({
             title: 'Delete brush?',

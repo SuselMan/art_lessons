@@ -804,7 +804,7 @@
   height: 12px;
   border-radius: 50%;
   border: 2px solid var(--color-surface);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-sm);
   flex-shrink: 0;
 }
 
@@ -813,9 +813,9 @@
   border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 600;
-  color: #111;
+  color: var(--color-on-peer);
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Brush cursor (#new — size/rotation preview) ──
@@ -882,10 +882,10 @@
   min-width: calc(var(--screen-px, 1px) * 8);
   min-height: calc(var(--screen-px, 1px) * 8);
   border-radius: 50%;
-  border: var(--screen-px, 1px) solid rgba(255, 255, 255, 0.95);
+  border: var(--screen-px, 1px) solid var(--color-canvas-outline-light);
   box-shadow:
-    0 0 0 var(--screen-px, 1px) rgba(0, 0, 0, 0.55),
-    inset 0 0 0 var(--screen-px, 1px) rgba(0, 0, 0, 0.55);
+    0 0 0 var(--screen-px, 1px) var(--color-canvas-outline-dark),
+    inset 0 0 0 var(--screen-px, 1px) var(--color-canvas-outline-dark);
 }
 
 
@@ -1001,7 +1001,7 @@
   color: var(--color-on-accent);
   background: var(--color-accent);
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Layer transform gizmo (#120) ──
@@ -1121,63 +1121,14 @@
   outline-offset: 4px;
 }
 
-.gateCard {
-  width: 100%;
-  max-width: 420px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  align-self: flex-start;
-  margin: 0 auto;
-}
+.gateCard { composes: card from "../../components/StatusSurface.module.css"; }
 
-.gateHeading {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-bright);
-  letter-spacing: -0.01em;
-}
+.gateHeading { composes: heading from "../../components/StatusSurface.module.css"; }
 
 .gateSection {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.gateLabel {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-dim);
-}
-
-.gateInput {
-  width: 100%;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  padding: 11px 14px;
-  font-size: 15px;
-  color: var(--color-text-bright);
-  outline: none;
-  transition: border-color var(--duration-fast);
-}
-
-.gateInput::placeholder {
-  color: var(--color-text-dim);
-}
-
-.gateInput:focus {
-  border-color: var(--color-accent);
-}
-
-.gateInputError {
-  border-color: color-mix(in srgb, var(--color-error) 80%, black) !important;
 }
 
 .gateError {
@@ -1187,44 +1138,6 @@
   border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
-}
-
-.gateSubmit {
-  width: 100%;
-  padding: 14px;
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  border: none;
-  cursor: pointer;
-  letter-spacing: 0.01em;
-  transition: background var(--duration-fast), transform var(--duration-fast);
-}
-
-.gateSubmit:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-}
-
-.gateSubmit:active:not(:disabled) {
-  background: var(--color-accent-active);
-  transform: scale(0.99);
-}
-
-.gateSubmit:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-/* (#231) The sign-in link on the login-required state is a <Link>, styled as
-   the primary button — an anchor doesn't centre its own text the way the
-   button does. */
-a.gateSubmit {
-  display: block;
-  text-align: center;
-  text-decoration: none;
-  box-sizing: border-box;
 }
 
 /* Body copy on the states that replace the form (#231) — waiting for
@@ -1267,28 +1180,6 @@ a.gateSubmit {
   line-height: 1.4;
   color: var(--color-text-dim);
   overflow-wrap: anywhere;
-}
-
-.gateSecondary {
-  width: 100%;
-  padding: 12px;
-  background: transparent;
-  color: var(--color-text-dim);
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.gateSecondary:hover:not(:disabled) {
-  color: var(--color-text-bright);
-  background: var(--color-surface-2);
-}
-
-.gateSecondary:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* Shared positioning for every debug overlay panel below — stacks them
@@ -1508,7 +1399,7 @@ a.gateSubmit {
 }
 
 .annotationBubbleDelete:hover {
-  color: var(--color-danger, #e5484d);
+  color: var(--color-error);
   background: var(--color-surface-hover);
 }
 
@@ -1566,14 +1457,14 @@ a.gateSubmit {
 }
 
 /* (#512) The two left rails as one column on a phone.
-   
+
    Everywhere else this wrapper is not a box at all: `display: contents` means
    .toolbar and .quickSettingsBar keep resolving their own `position: absolute`
    against the same ancestor they always did, so the desktop and tablet layout
    is byte-for-byte what it was. Two columns are right there — they are what
    keeps the tool buttons from reflowing every time the active tool's field
    count changes (see .quickSettingsBar's own comment).
-   
+
    On a phone that trade is backwards: two 62px columns are a third of the
    screen, both nearly empty, and there is no reflow worth preventing when the
    whole toolset is three buttons. So the wrapper becomes the column and the
@@ -1658,3 +1549,5 @@ a.gateSubmit {
 .leftHanded .toolRailCompact .quickSettingsBar {
   border-left: none;
 }
+
+.gateAction { width: 100%; }

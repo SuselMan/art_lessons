@@ -37,7 +37,7 @@
   padding: 0 12px;
   font-size: 12px;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-on-accent);
   background: color-mix(in srgb, var(--color-error) 80%, black);
   border-radius: var(--radius-sm);
   flex-shrink: 0;

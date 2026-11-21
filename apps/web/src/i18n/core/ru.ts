@@ -775,6 +775,7 @@ export const ru: Dictionary = {
   'tool.transformMode.distort': 'Искажение',
 
   // ── палитра ────────────────────────────────────────────────────────────
+  'palette.hexColor': 'Цвет в формате HEX',
   'palette.open': 'Палитра',
   'palette.openLabel': 'Открыть палитру',
   'palette.closeLabel': 'Закрыть палитру',

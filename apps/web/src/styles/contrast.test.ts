@@ -247,3 +247,18 @@ describe('the two palettes stay in step', () => {
     expect(unknown).toEqual([])
   })
 })
+
+
+describe.each([['dark', dark], ['light', light]] as const)('%s semantic colors', (_, tokens) => {
+  it('warning counters remain readable', () => {
+    expect(contrast(tokens, '--color-on-warning', '--color-warning')).toBeGreaterThanOrEqual(AA)
+  })
+  it('paper calibration ink remains readable', () => {
+    expect(contrast(tokens, '--color-paper-ink', '--color-paper-tint')).toBeGreaterThanOrEqual(AA)
+  })
+  it.each(['red', 'green', 'blue'])('%s channel curve is distinguishable from UI surfaces', channel => {
+    for (const surface of SURFACES) {
+      expect(contrast(tokens, `--color-channel-${channel}`, surface)).toBeGreaterThanOrEqual(NON_TEXT)
+    }
+  })
+})

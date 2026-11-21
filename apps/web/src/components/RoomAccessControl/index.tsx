@@ -1,3 +1,4 @@
+import { Button } from '../Button'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -9,6 +10,7 @@ import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'
 import { OptionGroup } from '../OptionGroup'
+import { Badge } from '../Badge'
 import { TextInput } from '../TextInput'
 import { useRoomAccessSource, type RoomAccessDraft } from './useRoomAccessSource'
 import styles from './RoomAccessControl.module.css'
@@ -108,12 +110,12 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
       {source.live && roomId && (
         <div className={styles.row}>
           <span className={styles.rowLabel}>{t('access.projectLink')}</span>
-          <button type="button" className={styles.textButton} onClick={() => {
+          <Button type="button" variant="secondary" onClick={() => {
             void shareOrCopy({ url: roomShareUrl(roomId, window.location.origin), title: 'Grafetto', deviceType: 'desktop' }).then(result => {
               if (result === 'copied') notifySuccess(t('share.copied'))
               else notifyError(t('share.failed'))
             })
-          }}>{t('access.copyLink')} <Icon name="content_copy" /></button>
+          }}>{t('access.copyLink')} <Icon name="content_copy" /></Button>
         </div>
       )}
 
@@ -121,19 +123,19 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
         <div className={styles.row}>
           <h3 className={styles.fieldLabel}>{t('access.passwordHeading')}</h3>
           {access.hasPassword ? (
-            <button type="button" className={styles.textButton} disabled={source.busy} onClick={() => void source.setPassword(null)}>
+            <Button type="button" variant="secondary" disabled={source.busy} onClick={() => void source.setPassword(null)}>
               <Icon name="lock" /> {t('access.passwordRemove')}
-            </button>
+            </Button>
           ) : source.live && !passwordExpanded ? (
-            <button type="button" className={styles.textButton} onClick={() => setPasswordExpanded(true)}>{t('access.addPassword')}</button>
+            <Button type="button" variant="secondary" onClick={() => setPasswordExpanded(true)}>{t('access.addPassword')}</Button>
           ) : null}
         </div>
         {!access.hasPassword && (!source.live || passwordExpanded) && (
           <div className={styles.row}>
             <TextInput icon="lock_open" type="password" autoComplete="new-password" value={passwordDraft}
-              placeholder={t('access.passwordPlaceholder')} onChange={e => setPasswordDraft(e.target.value)}
+              placeholder={t('access.passwordPlaceholder')} aria-label={t('access.passwordPlaceholder')} onChange={e => setPasswordDraft(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitPassword() } }} />
-            <button type="button" className={styles.textButton} disabled={!passwordDraft || source.busy} onClick={() => void submitPassword()}>{t('access.passwordSave')}</button>
+            <Button type="button" variant="secondary" disabled={!passwordDraft || source.busy} onClick={() => void submitPassword()}>{t('access.passwordSave')}</Button>
           </div>
         )}
       </section>
@@ -148,18 +150,18 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
             inputMode="email"
             autoComplete="off"
             value={inviteDraft}
-            placeholder={t('access.invitePlaceholder')}
+            placeholder={t('access.invitePlaceholder')} aria-label={t('access.invitePlaceholder')}
             onChange={e => setInviteDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitInvite() } }}
           />
-          <button
+          <Button
             type="button"
-            className={styles.textButton}
+            variant="secondary"
             disabled={!inviteDraft.trim() || source.busy}
             onClick={() => void submitInvite()}
           >
             {t('access.inviteAdd')}
-          </button>
+          </Button>
         </div>
         {/* Says the two things that are not obvious before the room exists:
             the list can wait, and an invite reaches a person only once they
@@ -174,16 +176,16 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
             {access.invites.map(invite => (
               <li key={invite.email} className={styles.listRow}>
                 <span className={styles.person}>{invite.email}</span>
-                <button
+                <Button
                   type="button"
-                  className={styles.iconButton}
+                  variant="ghost" iconOnly size="sm"
                   aria-label={t('access.inviteRemove')}
                   title={t('access.inviteRemove')}
                   disabled={source.busy}
                   onClick={() => source.removeInvite(invite.email)}
                 >
                   <Icon name="close" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -199,7 +201,7 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
           <h3 className={styles.heading}>
             {t('access.requestsHeading')}
             {access.pendingRequests.length > 0 && (
-              <span className={styles.count}>{access.pendingRequests.length}</span>
+              <Badge tone="warning">{access.pendingRequests.length}</Badge>
             )}
           </h3>
           {access.pendingRequests.length === 0 ? (
@@ -214,22 +216,22 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
                         between recognizing a student and guessing. */}
                     {request.email && <span className={styles.personSub}>{request.email}</span>}
                   </span>
-                  <button
+                  <Button
                     type="button"
-                    className={styles.textButton}
+                    variant="secondary"
                     disabled={source.busy}
                     onClick={() => source.resolveRequest(request.id, true)}
                   >
                     {t('access.approve')}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className={styles.textButtonQuiet}
+                    variant="ghost"
                     disabled={source.busy}
                     onClick={() => source.resolveRequest(request.id, false)}
                   >
                     {t('access.deny')}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -265,19 +267,19 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
                       )}
                     </span>
                     {isSelf ? null : participant.blocked ? (
-                      <button
+                      <Button
                         type="button"
-                        className={styles.textButton}
+                        variant="secondary"
                         disabled={source.busy}
                         onClick={() => source.setBlocked(participant.userId, false)}
                       >
                         {t('access.restore')}
-                      </button>
+                      </Button>
                     ) : confirming ? (
                       <>
-                        <button
+                        <Button
                           type="button"
-                          className={styles.textButtonDanger}
+                          variant="danger"
                           disabled={source.busy}
                           onClick={() => {
                             setConfirmingRevoke(null)
@@ -285,24 +287,24 @@ export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
                           }}
                         >
                           {t('access.revokeConfirm')}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
-                          className={styles.textButtonQuiet}
+                          variant="ghost"
                           onClick={() => setConfirmingRevoke(null)}
                         >
                           {t('common.cancel')}
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
+                      <Button
                         type="button"
-                        className={styles.textButtonDanger}
+                        variant="danger"
                         disabled={source.busy}
                         onClick={() => setConfirmingRevoke(participant.userId)}
                       >
                         {t('access.revoke')}
-                      </button>
+                      </Button>
                     )}
                   </li>
                 )
