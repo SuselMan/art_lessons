@@ -3,6 +3,7 @@ import type{BrushHatching}from'@grafetto/shared'
 import{hatchingPlacement,hatchingPlane}from'./brushHatching'
 import{isBrushHatching}from'../../../../../../packages/shared/src/brushHatching'
 import{hatchingStampFragment}from'../raster/brushHatchingShader'
+it('the versioned hatching shader applies noise before hatching coverage',()=>{const s=hatchingStampFragment(createBrushStampFragment(true,true,true,true));expect(s).toContain('brushAutoMaskNoiseU8');expect(s).toContain('hatchingLineUnion');expect(s.indexOf('shape=brushAutoMaskNoiseU8')).toBeLessThan(s.indexOf('shape*=hatch'))})
 import{createBrushStampFragment}from'../raster/brushBehaviorShaders'
 const h:BrushHatching={version:1,angle:0,separation:8,thickness:2,origin:[0,0],style:'none',intervals:4,antialias:true,subpixel:true}
 const c={angle:1,cross:1,separation:1,thickness:1}

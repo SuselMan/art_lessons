@@ -330,7 +330,7 @@ invalidateCloneBegin(scratch:BehaviorScratch):void{this.behavior.invalidateClone
     let failed=false
     try{this.behavior.prepareExperimentPattern();for(const resource of resources)if(resource.painter==='stamp'&&!this.hasPreparedTexture(resource))this.prepareTexture(resources,resource)}catch(error){failed=true;throw error}finally{if(failed){try{release()}catch{/* Preserve first error. */}}else release()}
   }
-  prepareHatching():void{this.behavior.prepareHatching()}
+  prepareHatching(noisy=false):void{this.behavior.prepareHatching(noisy)}
   prepareCloneHealing152():void{this.behavior.prepareCloneHealing152()}
   prepareClone():void{this.behavior.prepareClone()}
   prepareBristleInk(settings:BristleInkSettings,antialias:boolean,compositing:boolean,brush?:BrushDescriptor):void{

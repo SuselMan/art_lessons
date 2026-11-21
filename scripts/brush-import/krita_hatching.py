@@ -21,11 +21,11 @@ def hatching_preset(data,root,params,name,catalog,external):
             transformed.remove(node)
     im=Image.open(io.BytesIO(data));im.load();meta=PngImagePlugin.PngInfo();meta.add_text('preset',ET.tostring(transformed,encoding='unicode'));out=io.BytesIO();im.save(out,format='PNG',pnginfo=meta,icc_profile=im.info.get('icc_profile') if isinstance(im.info.get('icc_profile'),bytes) else None)
     result=preset(out.getvalue(),name,catalog,external,_allow_texture_material=False);d=result['descriptor'];d['version']=47
-    # The hatching shader does not implement the automatic mask noise path.
-    # Reject this preset explicitly instead of producing an invalid library
-    # that makes every other brush in the uploaded bundle fail validation.
-    if d['tip'].get('autoNoise'):raise ValueError('Hatching procedural mask noise is not implemented')
-    if d.get('behavior',{}).get('mirror'):d['version']=94
+    if d['tip'].get('autoNoise'):
+        if d['tip'].get('profile',{}).get('kind')!='standard' or d['tip'].get('autoShape') or d['tip'].get('alphaThreshold'):
+            raise ValueError('Hatching noise requires an ordinary standard procedural mask')
+        d['version']=204
+    if d.get('behavior',{}).get('mirror'):d['version']=max(d['version'],94)
     for key in ('scatter','texture','wet'):d.pop(key,None)
     for key in ('scatter','rotation'):d['behavior'].pop(key,None)
     d['behavior']['rendering']={'mode':'buildUp','blendMode':'normal','accumulation':'directOver','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}

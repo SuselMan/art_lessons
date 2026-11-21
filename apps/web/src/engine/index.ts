@@ -4141,7 +4141,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(painter === 'canvasEffect')this._smudge.prepareCanvasEffect()
       else if(painter === 'polygonFill')this._brush.preparePolygon()
       else if(painter === 'grid'){if(this._isGrid137Brush(descriptor))this._brush.prepareGridWash();this._smudge.prepareGrid()}
-      else if(painter === 'hatching')this._brush.prepareHatching()
+      else if(painter === 'hatching')this._brush.prepareHatching(descriptor.version===204)
       else if(painter === 'sketchLines'){if(descriptor.bristle?.version===2)this._brush.prepareBristleInk(descriptor.bristle.ink,descriptor.bristle.antialias,descriptor.bristle.compositing,descriptor);else if(hasBristleNativePointCoverage(descriptor))this._brush.prepareBristleNativeAA142();else if(descriptor.bristle&&!descriptor.bristle.antialias&&!descriptor.bristle.compositing)this._brush.prepareBristleRequests();else this._brush.prepareSketchLines()}
       else if(painter === 'requestWash')this._brush.prepareParticleWash()
       else if(painter === 'bristleWash')this._brush.prepareBristleWash()

@@ -1,15 +1,23 @@
 from pathlib import Path
-import tempfile,unittest,io
+import tempfile,unittest,io,json,copy
 from PIL import Image,PngImagePlugin
 from test_krita import kpp
 from brush_contract import Catalog
 from krita_import import preset
 class HatchingTests(unittest.TestCase):
-    def test_noise_is_explicitly_skipped_instead_of_an_invalid_descriptor(self):
+    def test_noise_uses_versioned_hatching_scope(self):
         definition='<Brush type="auto_brush" density=".44" randomness="1"><MaskGenerator id="default" type="circle" ratio="1" hfade=".5" vfade=".5" diameter="25" spikes="2" antialiasEdges="0"/></Brush>'
         data=kpp(engine='hatchingbrush',definition=definition)
-        with tempfile.TemporaryDirectory() as d, self.assertRaisesRegex(ValueError,'Hatching procedural mask noise'):
-            preset(data,'noise.kpp',Catalog(Path(d)),{})
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);catalog=Catalog(root/'source');result=preset(data,'noise.kpp',catalog,{})
+            descriptor=result['descriptor'];self.assertEqual(descriptor['version'],204)
+            self.assertEqual(descriptor['tip']['autoNoise'],{'version':1,'density':.44,'randomness':1})
+            from convert import validate_portable_profile,portable_bundle
+            validate_portable_profile(descriptor);catalog.brushes.append(result)
+            bad=copy.deepcopy(descriptor);bad['version']=47
+            with self.assertRaisesRegex(ValueError,'revision204'):validate_portable_profile(bad)
+            path=root/'portable.json';path.write_text(json.dumps({'library':catalog.write(),'assets':{}}))
+            out=Catalog(root/'roundtrip');portable_bundle(path,out);self.assertEqual(out.brushes,[result])
     def convert(self,extra=''):
         data=kpp(engine='hatchingbrush',resources=extra)
         with tempfile.TemporaryDirectory()as d:return preset(data,'test.kpp',Catalog(Path(d)),{})

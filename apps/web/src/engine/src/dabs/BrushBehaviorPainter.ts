@@ -159,6 +159,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 export class BrushBehaviorPainter {
   private polygonBatch?:PolygonFillBatch
   private hatchingStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
+  private noisyHatchingStamp?: {program:WebGLProgram;uniforms:Uniforms;position:number}
   private sketchBatch?:SketchLineBatch
   private bristleRequests?:BristleRequestBatch
   private lineStaging?:Float32Array<ArrayBuffer>
@@ -241,6 +242,7 @@ export class BrushBehaviorPainter {
     this.sprayImageBatch?.reset()
     this.sprayBatch?.reset()
     this.hatchingStamp=undefined
+    this.noisyHatchingStamp=undefined
     this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.curveStamp = undefined
@@ -273,8 +275,9 @@ export class BrushBehaviorPainter {
   }
   prepareExperimentPattern():void{(this.sketchBatch??=new SketchLineBatch(this.ctx.gl,this.sharedLineStaging())).preparePattern();this.preparePolygon()}
   preparePolygon():void{(this.polygonBatch??=new PolygonFillBatch(this.ctx.gl)).prepare()}
-  prepareHatching():void{this.hatchingProgram()}
-  private hatchingProgram():{program:WebGLProgram;uniforms:Uniforms;position:number}{
+  prepareHatching(noisy=false):void{this.hatchingProgram(noisy)}
+  private hatchingProgram(noisy=false):{program:WebGLProgram;uniforms:Uniforms;position:number}{
+    if(noisy){if(!this.noisyHatchingStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,hatchingStampFragment(createBrushStampFragment(true,true,true,true)));this.noisyHatchingStamp={program,uniforms:getUniforms(gl,program,[...STAMP_UNIFORMS,...NOISE_UNIFORMS]),position:gl.getAttribLocation(program,'a_position')}}return this.noisyHatchingStamp}
     if(!this.hatchingStamp){const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,hatchingStampFragment(createBrushStampFragment(true,true,true)));this.hatchingStamp={program,uniforms:getUniforms(gl,program,STAMP_UNIFORMS),position:gl.getAttribLocation(program,'a_position')}}
     return this.hatchingStamp
   }
@@ -484,6 +487,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     this.filterSmudge147?.destroy()
     this.filterPass?.destroy()
     if(this.hatchingStamp)this.ctx.gl.deleteProgram(this.hatchingStamp.program)
+    if(this.noisyHatchingStamp)this.ctx.gl.deleteProgram(this.noisyHatchingStamp.program)
     this.polygonBatch?.destroy()
     this.sketchBatch?.destroy()
     this.bristleRequests?.destroy()
@@ -494,6 +498,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const gl = this.ctx.gl
     if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
     this.hatchingStamp=undefined
+    this.noisyHatchingStamp=undefined
     this.circleStamp = undefined
     gl.deleteProgram(this.stamp)
     if(this.nativeComposite194)gl.deleteProgram(this.nativeComposite194.program)
@@ -1040,7 +1045,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
     const primaryTextureId=textureEraseId(brush.texture,effectiveErase),secondaryTextureId=textureEraseId(secondary?.texture,effectiveErase)
     protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),primaryTextureId,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondaryTextureId,!!(brush.texture?.application||brush.texture?.material),!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray,undefined,undefined,stamps[0]?.colorPlanes)
     const procedural = !!brush.hatching || brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = brush.hatching?this.hatchingProgram():circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects,filteredGradient,materialVariant)
+    const selected = brush.hatching?this.hatchingProgram(brush.version===204):circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles,effects,filteredGradient,materialVariant)
     const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? materialPattern?.texture??this.grain(primaryTextureId!,!!brush.texture.application) : paper.texture
@@ -1061,7 +1066,7 @@ prepareCloneBeginGesture(target:ILayerBuffer,first:Dab,userId:string,strokeId:st
       gl.useProgram(selected.program)
       const u = selected.uniforms
       if(effects){gl.uniform1f(u.u_originalRgbaTip,originalRgba?1:0);gl.uniform4f(u.u_gihFrame,0,0,0,1)}
-      if(effects&&!noiseSettings){
+      if((effects||brush.version===204)&&!noiseSettings){
         gl.uniform4f(u.u_autoNoiseConfig,65535,0,0,0)
         gl.uniform4f(u.u_autoNoiseKey,0,0,0,0)
         gl.uniform4f(u.u_autoNoiseGridX,0,0,0,0)
