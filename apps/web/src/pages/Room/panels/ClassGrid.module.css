@@ -212,7 +212,10 @@
   transform: translateX(-50%);
   z-index: 4;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
+  width: max-content;
   gap: var(--space-4);
   max-width: calc(100% - 2 * var(--panel-inset, 8px) - 16px);
   padding: var(--space-4);

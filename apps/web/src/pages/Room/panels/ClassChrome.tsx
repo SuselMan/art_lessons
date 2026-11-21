@@ -88,6 +88,7 @@ export function ClassChrome({
               canStep={barTiles.length > 1}
               annotating={annotationMode}
               onGrid={() => setGridAssignmentId(currentBoardSummary.assignmentId ?? null)}
+              onReturnToOwn={() => openClassBoard(teacherBoard)}
               onStep={stepInGrid}
               onSpotlight={() => setSpotlight(spotlightBoardId === currentBoardSummary.id ? null : currentBoardSummary.id)}
               onAnnotatingChange={next => toggleAnnotationMode(next)}

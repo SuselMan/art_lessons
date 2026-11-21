@@ -5,6 +5,7 @@ import type { AssignmentSummary } from '@grafetto/shared'
 
 import { useT, type TFunction } from '../../../i18n'
 import { Icon } from '../../../components/Icon'
+import { Button } from '../../../components/Button'
 import type { GridTile } from '../../../lib/boards/classMode'
 import { apiPath } from '../../../lib/api/api'
 
@@ -191,6 +192,7 @@ interface ClassBarProps {
   /** Annotations are the default here; "править в работе" is this off. */
   annotating: boolean
   onGrid: () => void
+  onReturnToOwn: () => void
   onStep: (step: -1 | 1) => void
   onSpotlight: () => void
   onAnnotatingChange: (next: boolean) => void
@@ -200,10 +202,15 @@ interface ClassBarProps {
  *  grid, the student's name with ‹ › to walk to the next one in the grid's
  *  order, "show everyone", and the switch between remarking over the work
  *  (annotations — the default on entry) and correcting in it. */
-export function ClassBar({ name, lit, canStep, annotating, onGrid, onStep, onSpotlight, onAnnotatingChange }: ClassBarProps) {
+export function ClassBar({ name, lit, canStep, annotating, onGrid, onReturnToOwn, onStep, onSpotlight, onAnnotatingChange }: ClassBarProps) {
   const t = useT()
   return (
     <div className={styles.bar} role="toolbar" aria-label={t('class.barLabel', { name })}>
+      <Button variant="ghost" size="sm" onClick={onReturnToOwn}>
+        <Icon name="chevron_left" />
+        <span>{t('class.returnToOwnCanvas')}</span>
+      </Button>
+      <span className={styles.barDivider} />
       <button type="button" className={styles.barBtn} onClick={onGrid}>
         <Icon name="grid_view" />
         <span>{t('class.title')}</span>

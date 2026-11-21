@@ -482,6 +482,7 @@ export const ru: Dictionary = {
   'class.myBoards': 'Мои доски',
   'class.here': 'Класс здесь',
   'class.atTeacher': 'Все у меня',
+  'class.returnToOwnCanvas': 'Вернуться на мой холст',
   'class.teacherBoard': 'Доска учителя',
   'class.gather': 'Все ко мне',
   'class.sendHere': 'Вернуть всех сюда',

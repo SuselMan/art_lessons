@@ -579,6 +579,7 @@ export const en = {
   'class.myBoards': 'My boards',
   'class.here': 'Class is here',
   'class.atTeacher': 'With me',
+  'class.returnToOwnCanvas': 'Return to my canvas',
   'class.teacherBoard': "Teacher's board",
   'class.gather': 'Everyone to me',
   'class.sendHere': 'Send everyone here',
