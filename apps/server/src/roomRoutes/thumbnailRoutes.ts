@@ -175,7 +175,7 @@ export function sniffThumbnail(buffer: Buffer): 'image/png' | 'image/webp' | nul
  *  route unlimited until something did. Excess is answered 429 and the
  *  client drops it silently — the next one is seconds away. In memory, like
  *  every other limit here: one process, and a restart forgetting it is fine. */
-export const THUMBNAIL_MIN_INTERVAL_MS = 3000
+export const THUMBNAIL_MIN_INTERVAL_MS = 1000
 const lastThumbnailAt = new Map<string, number>()
 
 function thumbnailTooSoon(roomId: string, now: number): boolean {

@@ -17,7 +17,7 @@
 
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { exactFrame, type CameraFrame } from '../raster/cameraFrame'
-import { previewDownscaleChain } from '../raster/previewChain'
+import { previewDownscaleChain, previewTargetSize } from '../raster/previewChain'
 import { DISPLAY_TRANSPARENT_FRAG, DISPLAY_VERT, DOWNSAMPLE_FRAG } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
@@ -51,12 +51,12 @@ export interface ExporterContext {
   /** The engine's _drawCompositeItem: one layer's tiles (or its live
    *  preview) into `targetFbo` through `frame`. */
   drawLayer(frame: CameraFrame, id: string, opacity: number, targetFbo: WebGLFramebuffer, w: number, h: number): void
-  /** PAPER_COMPOSE_FRAG from `sourceTex` into `targetFbo`, 1:1, with the
+  /** PAPER_COMPOSE_FRAG from `sourceTex` into `targetFbo`, with the
    *  paper sampled from world `origin` — the same shader the screen pass
    *  uses, which is what keeps export and screen from drifting (#301). It
    *  stays with the engine because the paper texture and the program are the
    *  screen's too. */
-  composePaper(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number, origin: { x: number; y: number }): void
+  composePaper(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number, origin: ExportRect): void
   /** Composites the live view into _compositeFBO (rotated, canvas-sized) and
    *  returns its texture — the empty-drawing transparent fallback's source. */
   composeScreen(): WebGLTexture
@@ -204,9 +204,9 @@ export class Exporter {
    *  The old thumbnail path went exportPNG() -> decode -> 2D-canvas shrink ->
    *  re-encode: a full-sheet readPixels (8.7 MB on A4) plus two PNG encodes
    *  and a decode, all on the main thread of the device that is drawing.
-   *  Here the only full-size work is the GPU composite exportPNG already
-   *  does; the shrink is a chain of 2x box steps on the GPU
-   *  (previewDownscaleChain + DOWNSAMPLE_FRAG), and readPixels touches at
+   *  The preview composes tiles through their existing mip sampling into a
+   *  buffer capped at twice the requested size. The final 2x box step runs on
+   *  the GPU (previewDownscaleChain + DOWNSAMPLE_FRAG); readPixels touches at
    *  most maxSide x maxSide pixels.
    *
    *  Frame: identical to exportPNG — the bounded room's whole sheet, or an
@@ -216,7 +216,7 @@ export class Exporter {
    *  picture without touching the visible canvas. */
   bakePreview(maxSide: number): Promise<Blob | null> {
     const rect = this.ctx.infinite ? (this.allContentBounds() ?? this.viewRect()) : this.sheetRect()
-    const composite = this.buildContentComposite(rect)
+    const composite = this.buildContentComposite(rect, Math.max(1, Math.floor(maxSide)) * 2)
     if (!composite) return Promise.resolve(null)
 
     const { bounds, buffer } = composite
@@ -242,8 +242,9 @@ export class Exporter {
   /** Builds one unblended (premultiplied-color/coverage-alpha — exactly the
    *  on-screen composite's own convention, see the engine's _composeToFBO)
    *  accumulation buffer covering every layer's ENTIRE resident content in
-   *  `rect`, through its own fixed exactFrame (zoom 1, angle 0) rather than
-   *  the live camera's.
+   *  `rect`, through its own unrotated frame rather than the live camera.
+   *  Exports keep scale 1; previewMaxSide bounds the preview allocation and
+   *  uses the existing tile mip chain for minification.
    *
    *  (#470) An explicit rect is the bounded room's sheet — exported whole,
    *  blank margins and all, because the sheet's own edges are part of the
@@ -262,20 +263,29 @@ export class Exporter {
    *  buffer (destroy() once read). Null if every layer is empty. Public for
    *  the engine tests, which assert on these raw pixels: MockGL never
    *  rasterizes the paper/transparent passes, and encoding needs a DOM. */
-  buildContentComposite(rect: ExportRect | null = null): { bounds: ExportRect; buffer: AccumulationBuffer } | null {
+  buildContentComposite(rect: ExportRect | null = null, previewMaxSide?: number): { bounds: ExportRect; buffer: AccumulationBuffer } | null {
     const raw = rect ?? this.allContentBounds()
     if (!raw) return null
 
-    const width  = Math.min(Math.ceil(raw.width),  MAX_EXPORT_DIMENSION_PX)
-    const height = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
-    const bounds = { x: raw.x, y: raw.y, width, height }
+    const worldWidth = Math.min(Math.ceil(raw.width), MAX_EXPORT_DIMENSION_PX)
+    const worldHeight = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
+    const { width, height } = previewMaxSide === undefined
+      ? { width: worldWidth, height: worldHeight }
+      : previewTargetSize(worldWidth, worldHeight, previewMaxSide)
+    const scale = Math.min(width / worldWidth, height / worldHeight)
+    // Uniform scale, centred padding from integer target rounding: no clipping.
+    const bounds = {
+      x: raw.x + (worldWidth - width / scale) / 2,
+      y: raw.y + (worldHeight - height / scale) / 2,
+      width: width / scale, height: height / scale,
+    }
 
     // This returned composite is sampled texel-for-texel by the finishing
     // transparent/paper pass. Preview reduction owns separate linear buffers.
     const buffer = new AccumulationBuffer(this.gl, width, height, 'nearest')
     buffer.clear()
 
-    const frame = exactFrame(bounds)
+    const frame = { ...exactFrame(bounds), centerX: width / 2, centerY: height / 2, scale }
     for (const { id, opacity } of this.ctx.compositeOrder()) {
       this.ctx.drawLayer(frame, id, opacity, buffer.fbo, width, height)
     }

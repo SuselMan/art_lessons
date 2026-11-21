@@ -127,7 +127,7 @@ test.describe('class mode', () => {
 
       await test.step('the teacher hands out an assignment and each student is taken to a blank board of their own', async () => {
         const places = await openClassTab(teacher, 'Where the class is')
-        await places.getByRole('button', { name: 'New assignment' }).click()
+        await places.getByRole('button', { name: 'New assignment', exact: true }).click()
         await places.getByRole('button', { name: 'Hand out', exact: true }).click()
 
         aliceBoard = await ownBoard(alice)

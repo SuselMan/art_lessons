@@ -2,9 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import { createRoom, drawStroke, waitForOperations, waitForRoomReady } from '../support/room'
 
-test('ordinary room publishes its first preview, retries failure, updates after one stroke and copies it', async ({ page }) => {
-  // Use the real guest's cookie and id; only the UI account gate needs an
-  // email to show projects. Room and thumbnail APIs remain real.
+test('room uploads previews only after edits, retries failure and copies the latest picture', async ({ page }) => {
   const me = await (await page.request.get('/api/me')).json() as { userId: string }
   await page.route('**/api/me', route => route.fulfill({ json: { ...me, email: 'preview@example.test', name: 'Preview tester' } }))
   let attempts = 0
@@ -16,15 +14,21 @@ test('ordinary room publishes its first preview, retries failure, updates after 
   const id = await createRoom(page, 'Preview project')
   await waitForRoomReady(page)
   const thumbnail = `/api/rooms/${id}/thumbnail`
-  await expect.poll(async () => (await page.request.get(thumbnail)).status()).toBe(200)
-  expect(attempts).toBeGreaterThanOrEqual(2)
-  const blank = await page.request.get(thumbnail)
-  const initialTag = blank.headers().etag
+  // Opening an untouched board must not start a periodic upload stream.
+  await page.waitForTimeout(2200)
+  expect(attempts).toBe(0)
   await drawStroke(page, [[300, 300], [500, 300]])
   await waitForOperations(page, 'stroke', 1)
+  await expect.poll(async () => (await page.request.get(thumbnail)).status()).toBe(200)
+  expect(attempts).toBeGreaterThanOrEqual(2)
+  const initialTag = (await page.request.get(thumbnail)).headers().etag
+  const settledAttempts = attempts
+  await page.waitForTimeout(3200)
+  expect(attempts).toBe(settledAttempts)
+  await drawStroke(page, [[320, 400], [520, 420]])
+  await waitForOperations(page, 'stroke', 2)
   await expect.poll(async () => (await page.request.get(thumbnail)).headers().etag).not.toBe(initialTag)
   const painted = await (await page.request.get(thumbnail)).body()
-  expect(painted.equals(await blank.body())).toBe(false)
 
   const forkResponse = await page.request.post(`/api/rooms/${id}/fork`, { data: { scope: 'lesson' } })
   expect(forkResponse.ok()).toBe(true)

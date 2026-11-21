@@ -20,13 +20,17 @@ describe('previewSchedule (#595, ADR 015 §5)', () => {
     expect(s.shouldBake(1500 + PREVIEW_IDLE_MS)).toBe(true)
   })
 
-  it('never bakes while the pen is down, however long the stroke', () => {
+  it('refreshes a long held stroke without waiting for pen-up', () => {
     const s = createPreviewSchedule()
     s.noteOperation(0)
     s.notePenDown(10)
     s.noteOperation(20)
+    expect(s.shouldBake(10 + PREVIEW_MIN_INTERVAL_MS - 1)).toBe(false)
+    expect(s.shouldBake(10 + PREVIEW_MIN_INTERVAL_MS)).toBe(true)
+    s.noteBaked(10 + PREVIEW_MIN_INTERVAL_MS)
     expect(s.shouldBake(60_000)).toBe(false)
     expect(s.nextCheckAt(60_000)).toBeNull()
+    s.noteOperation(60_000)
 
     s.notePenUp(60_000)
     expect(s.nextCheckAt(60_000)).toBe(60_000 + PREVIEW_IDLE_MS)
@@ -36,10 +40,10 @@ describe('previewSchedule (#595, ADR 015 §5)', () => {
     const s = createPreviewSchedule()
     s.noteOperation(0)
     s.notePenUp(0)
-    s.notePenDown(1000)
-    s.notePenUp(1200)
+    s.notePenDown(100)
+    s.notePenUp(200)
     expect(s.shouldBake(PREVIEW_IDLE_MS)).toBe(false)
-    expect(s.nextCheckAt(PREVIEW_IDLE_MS)).toBe(1200 + PREVIEW_IDLE_MS)
+    expect(s.nextCheckAt(PREVIEW_IDLE_MS)).toBe(200 + PREVIEW_IDLE_MS)
   })
 
   it('keeps at least the minimum interval between bakes', () => {
@@ -49,12 +53,12 @@ describe('previewSchedule (#595, ADR 015 §5)', () => {
     expect(s.shouldBake(PREVIEW_IDLE_MS)).toBe(true)
     s.noteBaked(PREVIEW_IDLE_MS)
 
-    s.notePenDown(2000)
-    s.noteOperation(2100)
-    s.notePenUp(2200)
-    // Idle is satisfied at 3700, the interval only at 1500 + 5000.
-    expect(s.shouldBake(3700)).toBe(false)
-    expect(s.nextCheckAt(3700)).toBe(PREVIEW_IDLE_MS + PREVIEW_MIN_INTERVAL_MS)
+    s.notePenDown(300)
+    s.noteOperation(400)
+    s.notePenUp(500)
+    // A second edit waits for the rate limit even after the pen rests.
+    expect(s.shouldBake(800)).toBe(false)
+    expect(s.nextCheckAt(800)).toBe(PREVIEW_IDLE_MS + PREVIEW_MIN_INTERVAL_MS)
     expect(s.shouldBake(PREVIEW_IDLE_MS + PREVIEW_MIN_INTERVAL_MS)).toBe(true)
   })
 

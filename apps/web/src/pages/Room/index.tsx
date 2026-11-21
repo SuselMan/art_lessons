@@ -1000,6 +1000,7 @@ function RoomEditor() {
           applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
           sendLive: data => { socketRef.current?.emit('stroke_live', data) },
           sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
+          onPreviewChanged: () => previewScheduleRef.current?.noteOperation(Date.now()),
         }),
         onSnapshotHistoryRepairNeeded: () => repairSnapshotHistory(engine, boardId),
         // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
@@ -1051,7 +1052,7 @@ function RoomEditor() {
     // costs nothing. Never `.current`: that would rebuild the engine every
     // time the sound instance changed. openTimerRef likewise (useOpenTimer).
     pencilSoundRef, openTimerRef, appliedOpIdsRef, snapshotGateRef, replayIncompleteRef,
-    pendingIdsRef, pendingPreviewsRef, latestKnownSeqRef,
+    pendingIdsRef, pendingPreviewsRef, latestKnownSeqRef, previewScheduleRef,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────

@@ -1,24 +1,10 @@
 // (#595, ADR 015 §5) When to bake a live preview of this board.
 //
-// The class grid wants every student's work to refresh every few seconds,
-// baked on the tablet that is being drawn on. The bake is cheap now
-// (engine.bakePreview) but not free, and the one moment it must never land
-// in is the middle of a stroke. So the rule is:
-//
-//   - the pen has been up for at least `idleMs` (1.5 s) — never while it is
-//     down, however long the stroke;
-//   - something changed since the last preview: an operation of our own, or
-//     one someone else (the teacher) made on this board;
-//   - at least `minIntervalMs` (5 s) passed since the last preview — the
-//     server enforces its own floor too (429), this keeps us under it.
-//
-// The existing triggers (every SNAPSHOT_SEQ_INTERVAL operations, and room
-// exit — snapshotSync.ts) stay as they are; this only adds the "while
-// working" one.
-//
-// Pure: no timers, no DOM, time comes in as an argument. The caller owns the
-// clock and the setTimeout, which is what makes every rule here testable
-// with plain numbers.
+// Only actual ink changes dirty a preview. Prefer a short pen-up pause, but a
+// long held stroke must not leave the teacher's grid stale indefinitely.
+// Rendering uses a small offscreen target; the live camera stays untouched.
+// Both short edits and long strokes share the same upload rate limit.
+// Pure: the caller owns the clock and timers.
 
 export interface PreviewScheduleOptions {
   /** How long the pen must have been up before a bake. */
@@ -27,11 +13,11 @@ export interface PreviewScheduleOptions {
   minIntervalMs?: number
 }
 
-export const PREVIEW_IDLE_MS = 1500
-export const PREVIEW_MIN_INTERVAL_MS = 5000
+export const PREVIEW_IDLE_MS = 250
+export const PREVIEW_MIN_INTERVAL_MS = 1500
 
 export interface PreviewSchedule {
-  /** A stroke started. Nothing bakes until the matching notePenUp. */
+  /** A stroke started. Prefer pen-up, with a bounded wait for long strokes. */
   notePenDown(now: number): void
   /** The stroke ended; the idle countdown starts from here. */
   notePenUp(now: number): void
@@ -45,8 +31,7 @@ export interface PreviewSchedule {
   shouldBake(now: number): boolean
   /** The earliest time a check could come out differently without any new
    *  event — i.e. when to arm the caller's timer. `now` itself if it is
-   *  already time; null when only an event can change the answer (the pen is
-   *  down, or nothing changed since the last bake). */
+   *  already time; null when nothing changed since the last bake. */
   nextCheckAt(now: number): number | null
 }
 
@@ -55,6 +40,7 @@ export function createPreviewSchedule(options: PreviewScheduleOptions = {}): Pre
   const minIntervalMs = options.minIntervalMs ?? PREVIEW_MIN_INTERVAL_MS
 
   let penDown = false
+  let lastPenDown = -Infinity
   // -Infinity: a board nobody has drawn on in this session is "idle since
   // forever" — a teacher's edit alone must still be able to trigger a bake.
   let lastPenUp = -Infinity
@@ -62,12 +48,12 @@ export function createPreviewSchedule(options: PreviewScheduleOptions = {}): Pre
   let dirty = false
 
   function earliest(): number | null {
-    if (penDown || !dirty) return null
-    return Math.max(lastPenUp + idleMs, lastBaked + minIntervalMs)
+    if (!dirty) return null
+    return Math.max(penDown ? lastPenDown + minIntervalMs : lastPenUp + idleMs, lastBaked + minIntervalMs)
   }
 
   return {
-    notePenDown() { penDown = true },
+    notePenDown(now) { penDown = true; lastPenDown = now },
     notePenUp(now) {
       penDown = false
       lastPenUp = now

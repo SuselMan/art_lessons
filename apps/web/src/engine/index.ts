@@ -156,7 +156,7 @@ import {
 import { applyWatercolorEndTaper, watercolorWashSignature, mottleSeedFromStrokeId, applyWatercolorPooling, watercolorBloomStrength, watercolorBloomPush, watercolorPuddleMerge, WC_RIM_BAND_PX, watercolorPaperDrained, watercolorMixFromPreset } from './src/presets/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/presets/HapticGrain'
 import {
-  applyMatrix, invertMatrix, toMat3, translationMatrix,
+  applyMatrix, invertMatrix, toMat3, translationMatrix, composeMatrix, scaleMatrix,
   IDENTITY_MATRIX, type Matrix3,
 } from './src/raster/matrix'
 import { snapToRuler, type RulerLine } from './src/input/rulerSnap'
@@ -11183,7 +11183,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  rotated and always renders at exactly 1 world unit = 1 pixel, so both
    *  of that shader's mappings degenerate here: the accumulation lookup is
    *  the identity (source and target are the same size, pixel for pixel),
-   *  and screen->world is a pure translation by the content bounds' origin.
+   *  and screen->world maps the target back to its world bounds. Preview
+   *  targets also include scale; full-resolution exports keep scale 1.
    *  (#301) Sharing one shader between the two paths is also what stops the
    *  exported image and the on-screen one from drifting apart — this used to
    *  be a hand-synced copy of PAPER_BLEND_FRAG's math (no #include in GLSL
@@ -11191,7 +11192,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  hand). */
   private _renderPaperComposeInto(
     sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number,
-    bounds: { x: number; y: number },
+    bounds: { x: number; y: number; width: number; height: number },
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
@@ -11203,8 +11204,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(u.u_accumulation, 0)
-    // 1:1 — an export is never minified, so the chain is never wanted here.
-    this._paper.bindForCompose(this._paper.texelsPerPixel(1))
+    const sx = bounds.width / w, sy = bounds.height / h
+    this._paper.bindForCompose(this._paper.texelsPerPixel(1 / Math.max(sx, sy)))
     gl.uniform1i(u.u_paperMap, 1)
 
     gl.uniform3fv(u.u_paperColor, this._paper.color())
@@ -11214,7 +11215,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_dstSize, w, h)
     gl.uniform2f(u.u_srcSize, w, h)
     gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(IDENTITY_MATRIX))
-    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(translationMatrix(bounds.x, bounds.y)))
+    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(composeMatrix(translationMatrix(bounds.x, bounds.y), scaleMatrix(sx, sy))))
     // Identity mapping — nothing to reconstruct, so the plain tap is both
     // cheaper and exactly correct here.
     gl.uniform1f(u.u_sharpResample, 0)
